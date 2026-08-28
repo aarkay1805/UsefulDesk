@@ -6,10 +6,27 @@
 
 ---
 
+## Authenticated navigation performance is bounded and immediately responsive
+
+Authenticated navigation now has a shared route skeleton and sidebar pending
+state, so a click responds before the destination's server work finishes.
+Dashboard action data is seeded in the server response and below-fold insights
+wait until they approach the viewport. Members loads only its default renewal
+surface initially; other tabs and closed dialogs are code-split, while renewal
+reads are account-scoped, recurring-only, exact-column, selected-window queries
+in 50-row pages with cached tab/window results. Key code:
+`src/app/(dashboard)/loading.tsx`, `src/components/layout/sidebar.tsx`,
+`src/app/(dashboard)/dashboard/page.tsx`,
+`src/components/dashboard/deferred-dashboard-insights.tsx`,
+`src/app/(dashboard)/members/page.tsx`, and
+`src/lib/memberships/renewal-queue.ts`. Gotcha: keep first-visit route-only
+JavaScript below the budgets in `scripts/verify-performance-fixes.mjs`; do not
+restore all-time renewal row fetches or eager inactive views.
+
 ## A closed WhatsApp window shows the banner instead of a dead composer
 
 The inbox composer is now omitted once the 24-hour session has closed, leaving
-the amber banner as the bottom bar with its **Templates** action. Previously the
+the amber banner as the bottom bar with its **Send a template** action. Previously the
 row stayed put with a disabled textarea and three controls (attach, template,
 AI draft, send) that mostly opened the same "session has closed" explanation —
 four ways to be told the same no. Bubble **Reply** is hidden in the same state,

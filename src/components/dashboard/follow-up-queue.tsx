@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { AlertCircle, ClipboardCheck } from 'lucide-react';
 
 import { BranchLink as Link } from '@/components/layout/branch-link';
@@ -12,13 +13,8 @@ import { followUpDueState } from '@/lib/follow-ups/due-state';
 import { useCan } from '@/hooks/use-can';
 import { useLocale } from '@/hooks/use-locale';
 import type { Membership } from '@/types';
-import { CompleteFollowUpDialog } from '@/components/follow-ups/complete-follow-up-dialog';
 import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
 import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
-import { ContactDetailView } from '@/components/contacts/contact-detail-view';
-import { MemberDetailView } from '@/components/members/member-detail-view';
-import { MemberForm } from '@/components/members/member-form';
-import { useReminderReadiness } from '@/components/members/send-reminder-button';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -28,6 +24,25 @@ import { QUEUE_LIST, QueueEmpty, QueueSkeleton } from './action-queue';
 import { useDashboardActions } from './dashboard-actions';
 import { DashboardSection } from './dashboard-section';
 import { EmptyState } from './empty-state';
+
+const CompleteFollowUpDialog = dynamic(() =>
+  import('@/components/follow-ups/complete-follow-up-dialog').then(
+    (module) => module.CompleteFollowUpDialog
+  )
+);
+const ContactDetailView = dynamic(() =>
+  import('@/components/contacts/contact-detail-view').then(
+    (module) => module.ContactDetailView
+  )
+);
+const DashboardMemberDetail = dynamic(() =>
+  import('./dashboard-member-detail').then(
+    (module) => module.DashboardMemberDetail
+  )
+);
+const MemberForm = dynamic(() =>
+  import('@/components/members/member-form').then((module) => module.MemberForm)
+);
 
 /**
  * The day's committed work, in one list.
@@ -281,14 +296,16 @@ export function FollowUpQueue() {
           }}
         />
       )}
-      <ContactDetailView
-        open={Boolean(detailContactId)}
-        onOpenChange={(open) => {
-          if (!open) setDetailContactId(null);
-        }}
-        contactId={detailContactId}
-        onUpdated={reload}
-      />
+      {detailContactId ? (
+        <ContactDetailView
+          open
+          onOpenChange={(open) => {
+            if (!open) setDetailContactId(null);
+          }}
+          contactId={detailContactId}
+          onUpdated={reload}
+        />
+      ) : null}
       {detailMembershipId && (
         <DashboardMemberDetail
           membershipId={detailMembershipId}
@@ -298,44 +315,16 @@ export function FollowUpQueue() {
           onEdit={setEditing}
         />
       )}
-      <MemberForm
-        open={Boolean(editing)}
-        onOpenChange={(open) => {
-          if (!open) setEditing(null);
-        }}
-        member={editing}
-        onSaved={reload}
-      />
+      {editing ? (
+        <MemberForm
+          open
+          onOpenChange={(open) => {
+            if (!open) setEditing(null);
+          }}
+          member={editing}
+          onSaved={reload}
+        />
+      ) : null}
     </DashboardSection>
-  );
-}
-
-/** WhatsApp readiness is needed only inside an opened member detail. */
-function DashboardMemberDetail({
-  membershipId,
-  reloadKey,
-  onClose,
-  onChanged,
-  onEdit,
-}: {
-  membershipId: string;
-  reloadKey: number;
-  onClose: () => void;
-  onChanged: () => void;
-  onEdit: (membership: Membership) => void;
-}) {
-  const readiness = useReminderReadiness();
-  return (
-    <MemberDetailView
-      membershipId={membershipId}
-      open
-      reloadKey={reloadKey}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      readiness={readiness}
-      onChanged={onChanged}
-      onEdit={onEdit}
-    />
   );
 }

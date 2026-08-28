@@ -1,5 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { ReactNode } from 'react';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authState = vi.hoisted(() => ({
@@ -116,5 +118,20 @@ describe('DashboardShell account boundary', () => {
     expect(markup).toContain('Business content');
     expect(markup).toContain('Sidebar');
     expect(markup).not.toContain('Could not load your account access');
+  });
+
+  it('provides an immediate loading boundary for authenticated navigation', () => {
+    const loadingPath = resolve(
+      process.cwd(),
+      'src/app/(dashboard)/loading.tsx'
+    );
+    const exists = existsSync(loadingPath);
+
+    expect(exists).toBe(true);
+    if (!exists) return;
+
+    const source = readFileSync(loadingPath, 'utf8');
+    expect(source).toContain('aria-label="Loading page"');
+    expect(source).toContain('SkeletonCard');
   });
 });

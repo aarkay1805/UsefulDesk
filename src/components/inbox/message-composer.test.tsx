@@ -199,7 +199,9 @@ describe('MessageComposer blocked actions', () => {
     ).toBeNull();
     // The banner is the bottom bar now, and it keeps the move that reopens
     // the session.
-    expect(screen.getByRole('button', { name: 'Templates' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Send a template' })
+    ).toBeTruthy();
   });
 
   it('keeps a staged attachment send focusable and suppresses its callback when permission is lost', async () => {
@@ -667,7 +669,9 @@ describe('MessageComposer blocked actions', () => {
       />
     );
 
-    const bannerAction = screen.getByRole('button', { name: 'Templates' });
+    const bannerAction = screen.getByRole('button', {
+      name: 'Send a template',
+    });
     expect((bannerAction as HTMLButtonElement).disabled).toBe(false);
     expect(bannerAction.getAttribute('aria-disabled')).toBe('true');
     await user.click(bannerAction);
@@ -692,7 +696,9 @@ describe('MessageComposer blocked actions', () => {
       />
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Send a template' })
+    );
 
     expect(onOpenTemplates).toHaveBeenCalledOnce();
     expect(screen.queryByRole('dialog')).toBeNull();

@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   CalendarClock,
   CircleAlert,
@@ -19,12 +13,12 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { canSellProductsServices } from '@/lib/auth/roles';
+import { daysUntil, effectiveStatus } from '@/lib/memberships/expiry';
 import {
-  istAddDays,
-  daysUntil,
-  effectiveStatus,
-} from '@/lib/memberships/expiry';
-import { isRenewalChaseable } from '@/lib/memberships/pricing';
+  loadRenewalQueueCount,
+  loadRenewalQueuePage,
+  type RenewalBucket,
+} from '@/lib/memberships/renewal-queue';
 import type { Membership } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -72,10 +66,6 @@ interface RenewalActionListsProps {
   reloadKey: number;
 }
 
-const SELECT = '*, contact:contacts(*), plan:membership_plans(*)';
-
-type RenewalBucket = 'expiring' | 'expired';
-
 interface RenewalWindow {
   value: string;
   label: string;
@@ -99,11 +89,11 @@ const EXPIRED_WINDOWS: RenewalWindow[] = [
 ];
 const DEFAULT_EXPIRING_WINDOW = '7';
 const DEFAULT_EXPIRED_WINDOW = 'all';
-const MAX_EXPIRING_DAYS = Math.max(
-  ...EXPIRING_WINDOWS.flatMap((window) =>
-    window.days === null ? [] : [window.days]
-  )
-);
+interface RenewalQueueState {
+  rows: Membership[];
+  total: number;
+  page: number;
+}
 
 export function RenewalActionLists({
   readiness,
@@ -114,9 +104,10 @@ export function RenewalActionLists({
   const { fmt } = useLocale();
   const canSell = accountRole ? canSellProductsServices(accountRole) : false;
 
-  const [expiring, setExpiring] = useState<Membership[]>([]);
-  const [expired, setExpired] = useState<Membership[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [queues, setQueues] = useState<Record<string, RenewalQueueState>>({});
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState(false);
   // Bumped after a reminder/renew/assign to re-pull the buckets.
   const [nonce, setNonce] = useState(0);
   const reload = useCallback(() => setNonce((n) => n + 1), []);
@@ -133,69 +124,131 @@ export function RenewalActionLists({
     'memberships'
   );
 
+  const today = fmt.today();
+  const activeWindowValue =
+    bucket === 'expiring' ? expiringWindow : expiredWindow;
+  const activeWindows =
+    bucket === 'expiring' ? EXPIRING_WINDOWS : EXPIRED_WINDOWS;
+  const activeDays =
+    activeWindows.find((item) => item.value === activeWindowValue)?.days ??
+    null;
+  const queueKey = `${accountId}:${bucket}:${activeWindowValue}:${reloadKey}:${nonce}:${today}`;
+  const activeQueue = queues[queueKey];
+
   useEffect(() => {
-    const supabase = createClient();
+    if (!accountId || activeQueue?.page >= 0) return;
+
     let cancelled = false;
+    setLoadingKey(queueKey);
+    setLoadError(false);
     (async () => {
-      const today = fmt.today();
-      const expiringThrough = istAddDays(today, MAX_EXPIRING_DAYS);
-
-      const [expiringRes, expiredRes] = await Promise.all([
-        supabase
-          .from('memberships')
-          .select(SELECT)
-          .eq('is_trial', false)
-          .eq('status', 'active')
-          .gte('end_date', today)
-          .lte('end_date', expiringThrough)
-          .order('end_date', { ascending: true }),
-        supabase
-          .from('memberships')
-          .select(SELECT)
-          .eq('is_trial', false)
-          .eq('status', 'active')
-          .lt('end_date', today)
-          // Most-recently lapsed first — the freshest chase targets.
-          .order('end_date', { ascending: false }),
-      ]);
-      if (cancelled) return;
-
-      // Only RECURRING plans belong in the renewal chase (062).
-      const isChaseable = (m: Membership) => isRenewalChaseable(m.plan);
-      setExpiring(
-        ((expiringRes.data as Membership[]) ?? []).filter(isChaseable)
-      );
-      setExpired(((expiredRes.data as Membership[]) ?? []).filter(isChaseable));
-      setLoading(false);
+      try {
+        const db = createClient();
+        const otherBucket: RenewalBucket =
+          bucket === 'expiring' ? 'expired' : 'expiring';
+        const otherWindowValue =
+          otherBucket === 'expiring' ? expiringWindow : expiredWindow;
+        const otherWindows =
+          otherBucket === 'expiring' ? EXPIRING_WINDOWS : EXPIRED_WINDOWS;
+        const otherDays =
+          otherWindows.find((item) => item.value === otherWindowValue)?.days ??
+          null;
+        const otherKey = `${accountId}:${otherBucket}:${otherWindowValue}:${reloadKey}:${nonce}:${today}`;
+        const [page, otherCount] = await Promise.all([
+          loadRenewalQueuePage(db, {
+            accountId,
+            bucket,
+            days: activeDays,
+            today,
+            page: 0,
+          }),
+          loadRenewalQueueCount(db, {
+            accountId,
+            bucket: otherBucket,
+            days: otherDays,
+            today,
+          }),
+        ]);
+        if (cancelled) return;
+        setQueues((current) => ({
+          ...current,
+          [queueKey]: { ...page, page: 0 },
+          [otherKey]: current[otherKey] ?? {
+            rows: [],
+            total: otherCount,
+            page: -1,
+          },
+        }));
+      } catch {
+        if (!cancelled) setLoadError(true);
+      } finally {
+        if (!cancelled) setLoadingKey(null);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [reloadKey, nonce, fmt]);
+  }, [
+    accountId,
+    activeDays,
+    activeQueue?.page,
+    bucket,
+    expiredWindow,
+    expiringWindow,
+    nonce,
+    queueKey,
+    reloadKey,
+    today,
+  ]);
 
-  const today = fmt.today();
+  const loadNextPage = useCallback(async () => {
+    if (!accountId || !activeQueue || loadingMore) return;
+    setLoadingMore(true);
+    setLoadError(false);
+    try {
+      const nextPage = activeQueue.page + 1;
+      const page = await loadRenewalQueuePage(createClient(), {
+        accountId,
+        bucket,
+        days: activeDays,
+        today,
+        page: nextPage,
+      });
+      setQueues((current) => ({
+        ...current,
+        [queueKey]: {
+          rows: [...(current[queueKey]?.rows ?? []), ...page.rows],
+          total: page.total,
+          page: nextPage,
+        },
+      }));
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [
+    accountId,
+    activeDays,
+    activeQueue,
+    bucket,
+    loadingMore,
+    queueKey,
+    today,
+  ]);
 
-  const expiringFiltered = useMemo(() => {
-    const window = EXPIRING_WINDOWS.find(
-      (item) => item.value === expiringWindow
-    );
-    if (!window?.days) return expiring;
-    const cutoff = istAddDays(today, window.days);
-    return expiring.filter((membership) => membership.end_date <= cutoff);
-  }, [expiring, expiringWindow, today]);
-
-  const expiredFiltered = useMemo(() => {
-    const window = EXPIRED_WINDOWS.find((item) => item.value === expiredWindow);
-    if (!window?.days) return expired;
-    const cutoff = istAddDays(today, -window.days);
-    // ISO date strings compare lexically = chronologically.
-    return expired.filter((membership) => membership.end_date >= cutoff);
-  }, [expired, expiredWindow, today]);
-
-  const activeRows = bucket === 'expiring' ? expiringFiltered : expiredFiltered;
-  const activeWindows =
-    bucket === 'expiring' ? EXPIRING_WINDOWS : EXPIRED_WINDOWS;
-  const activeWindow = bucket === 'expiring' ? expiringWindow : expiredWindow;
+  const otherWindowValue =
+    bucket === 'expiring' ? expiredWindow : expiringWindow;
+  const otherBucket = bucket === 'expiring' ? 'expired' : 'expiring';
+  const otherKey = `${accountId}:${otherBucket}:${otherWindowValue}:${reloadKey}:${nonce}:${today}`;
+  const expiringCount =
+    bucket === 'expiring'
+      ? (activeQueue?.total ?? 0)
+      : (queues[otherKey]?.total ?? 0);
+  const expiredCount =
+    bucket === 'expired'
+      ? (activeQueue?.total ?? 0)
+      : (queues[otherKey]?.total ?? 0);
   const emptyLabel =
     bucket === 'expiring'
       ? 'No memberships expiring in this window.'
@@ -229,16 +282,22 @@ export function RenewalActionLists({
           sourceControl={sourceControl}
           bucket={bucket}
           onBucketChange={setBucket}
-          rows={activeRows}
-          expiringCount={expiringFiltered.length}
-          expiredCount={expiredFiltered.length}
+          rows={activeQueue?.rows ?? []}
+          expiringCount={expiringCount}
+          expiredCount={expiredCount}
           windows={activeWindows}
-          windowValue={activeWindow}
+          windowValue={activeWindowValue}
           onWindowChange={(value) => {
             if (bucket === 'expiring') setExpiringWindow(value);
             else setExpiredWindow(value);
           }}
-          loading={loading}
+          loading={loadingKey === queueKey}
+          loadingMore={loadingMore}
+          hasMore={
+            Boolean(activeQueue) && activeQueue.rows.length < activeQueue.total
+          }
+          loadError={loadError}
+          onLoadMore={loadNextPage}
           readiness={readiness}
           accountId={accountId}
           canFollowUp={canSendMessages}
@@ -287,6 +346,10 @@ function RenewalTable({
   windowValue,
   onWindowChange,
   loading,
+  loadingMore,
+  hasMore,
+  loadError,
+  onLoadMore,
   readiness,
   accountId,
   canFollowUp,
@@ -306,6 +369,10 @@ function RenewalTable({
   windowValue: string;
   onWindowChange: (value: string) => void;
   loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  loadError: boolean;
+  onLoadMore: () => void;
   readiness: ReminderReadiness;
   accountId: string | null;
   canFollowUp: boolean;
@@ -381,6 +448,16 @@ function RenewalTable({
       {loading ? (
         <div className="text-muted-foreground flex items-center gap-2 px-3 py-10 text-sm">
           <Loader2 className="size-4 animate-spin" /> Loading renewals…
+        </div>
+      ) : loadError && rows.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <CircleAlert className="text-destructive size-6" />
+          <p className="text-muted-foreground text-sm">
+            Could not load renewals.
+          </p>
+          <Button size="sm" variant="outline" onClick={onChanged}>
+            Try again
+          </Button>
         </div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
@@ -488,9 +565,24 @@ function RenewalTable({
 
           <div className="border-border flex items-center border-t px-3 py-2">
             <p className="text-muted-foreground text-xs">
-              {rows.length} {bucket === 'expiring' ? 'expiring' : 'expired'}{' '}
-              membership{rows.length === 1 ? '' : 's'}
+              Showing {rows.length} of{' '}
+              {bucket === 'expiring' ? expiringCount : expiredCount}{' '}
+              {bucket === 'expiring' ? 'expiring' : 'expired'} memberships
             </p>
+            {hasMore ? (
+              <Button
+                className="ml-auto"
+                size="sm"
+                variant="ghost"
+                onClick={onLoadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : null}
+                Load more
+              </Button>
+            ) : null}
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { DashboardInsights } from '@/components/dashboard/dashboard-insights';
+import { DeferredDashboardInsights } from '@/components/dashboard/deferred-dashboard-insights';
 import { DashboardActionsProvider } from '@/components/dashboard/dashboard-actions';
 import { DashboardSection } from '@/components/dashboard/dashboard-section';
 import { ExpiringMemberships } from '@/components/dashboard/expiring-memberships';
@@ -7,6 +7,11 @@ import { GymMetrics } from '@/components/dashboard/gym-metrics';
 import { NeedsAttentionCard } from '@/components/dashboard/needs-attention-card';
 import { QuickActions } from '@/components/dashboard/quick-actions';
 import { UncontactedLeads } from '@/components/dashboard/uncontacted-leads';
+import { getCurrentAccount } from '@/lib/auth/account';
+import {
+  loadDashboardActionDateContext,
+  loadDashboardActionSnapshot,
+} from '@/lib/dashboard/action-snapshot';
 
 // One heading level for the page. Each block owns its own section and heading,
 // so the page reads as a flat list of work rather than through grouping
@@ -17,9 +22,20 @@ import { UncontactedLeads } from '@/components/dashboard/uncontacted-leads';
 // committed follow-ups first (leads and members in one queue, filtered by
 // chip), then the two queues that have no follow-up yet, then the exceptions
 // no queue owns.
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const context = await getCurrentAccount();
+  const dateContext = await loadDashboardActionDateContext(
+    context.supabase,
+    context.accountId
+  );
+  const snapshot = await loadDashboardActionSnapshot(
+    context.supabase,
+    context.accountId,
+    dateContext
+  );
+
   return (
-    <DashboardActionsProvider>
+    <DashboardActionsProvider initialSnapshot={snapshot}>
       <div className="space-y-8">
         <GymMetrics />
 
@@ -38,7 +54,7 @@ export default function DashboardPage() {
 
         <NeedsAttentionCard />
 
-        <DashboardInsights />
+        <DeferredDashboardInsights />
       </div>
     </DashboardActionsProvider>
   );

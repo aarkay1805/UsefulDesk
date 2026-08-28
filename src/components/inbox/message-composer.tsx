@@ -561,7 +561,7 @@ export function MessageComposer({
                 className="text-amber-foreground hover:text-amber-foreground shrink-0"
               >
                 <LayoutTemplate className="size-3.5" />
-                Templates
+                Send a template
               </Button>
             }
             onAction={onOpenTemplates}

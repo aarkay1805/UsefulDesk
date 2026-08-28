@@ -1,10 +1,22 @@
 // @vitest-environment jsdom
 
 import { cleanup, render, screen } from '@testing-library/react';
+import type { AnchorHTMLAttributes } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/settings',
+}));
+
+vi.mock('next/link', () => ({
+  default: (
+    props: AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }
+  ) => {
+    const anchorProps = { ...props };
+    delete anchorProps.prefetch;
+    return <a {...anchorProps} />;
+  },
+  useLinkStatus: () => ({ pending: true }),
 }));
 
 vi.mock('@/hooks/use-auth', () => ({
@@ -84,5 +96,13 @@ describe('Sidebar navigation spacing', () => {
       expect(separator.classList.contains('my-2')).toBe(true);
       expect(separator.classList.contains('my-4')).toBe(false);
     }
+  });
+
+  it('shows immediate feedback while a destination is pending', () => {
+    render(<Sidebar />);
+
+    const membersLink = screen.getByRole('link', { name: /Members/ });
+    expect(membersLink.querySelector('[data-pending="true"]')).not.toBeNull();
+    expect(screen.getAllByText('Opening…').length).toBeGreaterThan(0);
   });
 });

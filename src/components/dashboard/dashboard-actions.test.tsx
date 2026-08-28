@@ -8,6 +8,8 @@ import {
   waitFor,
 } from '@testing-library/react';
 import type { ReactNode } from 'react';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
@@ -193,6 +195,20 @@ describe('DashboardActionsProvider consolidated request path', () => {
     expect(h.createClient).not.toHaveBeenCalled();
   });
 
+  it('uses the server snapshot without repeating the request after hydration', async () => {
+    render(
+      <DashboardActionsProvider initialSnapshot={payload}>
+        <SnapshotProbe />
+      </DashboardActionsProvider>
+    );
+
+    expect(screen.getByText('2|2|3|4|5')).toBeTruthy();
+    expect(fetch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh actions' }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+  });
+
   it('switches preloaded follow-up scopes without a request and refreshes mutations through the same boundary', async () => {
     render(
       <DashboardActionsProvider>
@@ -208,7 +224,7 @@ describe('DashboardActionsProvider consolidated request path', () => {
     fireEvent.click(
       screen.getByRole('listitem', { name: 'Open Member One details' })
     );
-    expect(h.useReminderReadiness).toHaveBeenCalledOnce();
+    await waitFor(() => expect(h.useReminderReadiness).toHaveBeenCalledOnce());
 
     fireEvent.click(screen.getByRole('button', { name: /Leads/ }));
     expect(await screen.findByText('Lead One')).toBeTruthy();
@@ -218,7 +234,9 @@ describe('DashboardActionsProvider consolidated request path', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Complete follow-up for Lead One' })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Save completion' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Save completion' })
+    );
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     expect(fetch).toHaveBeenNthCalledWith(2, '/api/dashboard/actions', {
@@ -240,5 +258,17 @@ describe('DashboardActionsProvider consolidated request path', () => {
     );
 
     expect(await screen.findByText('failed')).toBeTruthy();
+  });
+
+  it('keeps closed follow-up detail surfaces out of the initial dashboard bundle', () => {
+    const source = readFileSync(
+      resolve(process.cwd(), 'src/components/dashboard/follow-up-queue.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain("import dynamic from 'next/dynamic'");
+    expect(source).toContain('{detailContactId ? (');
+    expect(source).toContain('{editing ? (');
+    expect(source).not.toContain("from '@/components/members/member-form'");
   });
 });

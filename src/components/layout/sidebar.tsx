@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import Link, { useLinkStatus } from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type ReactNode, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -16,6 +16,7 @@ import {
   Crown,
   Dumbbell,
   LayoutDashboard,
+  Loader2,
   LogOut,
   MessageSquare,
   MessagesSquare,
@@ -139,6 +140,24 @@ interface SidebarNavLinkProps {
   compactIndicator?: ReactNode;
 }
 
+function SidebarLinkPending() {
+  const { pending } = useLinkStatus();
+
+  return (
+    <span
+      data-pending={pending}
+      className="pointer-events-none absolute inset-0"
+    >
+      {pending ? (
+        <span className="bg-primary/10 text-primary-text absolute inset-0 z-20 flex items-center justify-end rounded-lg px-3">
+          <Loader2 aria-hidden="true" className="size-4 animate-spin" />
+          <span className="sr-only">Opening…</span>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
 function SidebarNavLink({
   href,
   label,
@@ -157,14 +176,14 @@ function SidebarNavLink({
             href={href}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-[background-color,color,gap] duration-200 motion-reduce:transition-none lg:py-2',
+              'relative isolate flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-[background-color,color,gap] duration-200 motion-reduce:transition-none lg:py-2',
               collapsed && 'lg:gap-0',
               isActive
                 ? 'bg-primary/10 text-primary-text'
                 : 'text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground'
             )}
           >
-            <span className="relative flex size-4 shrink-0 items-center justify-center">
+            <span className="relative z-10 flex size-4 shrink-0 items-center justify-center">
               <Icon className="size-4" />
               {compactIndicator ? (
                 <span className={cn('hidden', collapsed && 'lg:block')}>
@@ -174,7 +193,7 @@ function SidebarNavLink({
             </span>
             <span
               className={cn(
-                'min-w-0 flex-1 overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out motion-reduce:transition-none',
+                'relative z-10 min-w-0 flex-1 overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out motion-reduce:transition-none',
                 collapsed
                   ? 'lg:max-w-0 lg:-translate-x-1 lg:opacity-0'
                   : 'max-w-40 translate-x-0 opacity-100'
@@ -185,13 +204,14 @@ function SidebarNavLink({
             {trailing ? (
               <span
                 className={cn(
-                  'flex shrink-0 items-center overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none',
+                  'relative z-10 flex shrink-0 items-center overflow-hidden transition-[max-width,opacity] duration-200 ease-out motion-reduce:transition-none',
                   collapsed ? 'lg:max-w-0 lg:opacity-0' : 'max-w-20 opacity-100'
                 )}
               >
                 {trailing}
               </span>
             ) : null}
+            <SidebarLinkPending />
           </Link>
         }
       />

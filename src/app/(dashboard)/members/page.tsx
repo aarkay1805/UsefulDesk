@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Download, Plus, Upload } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Download, Loader2, Plus, Upload } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
@@ -15,17 +16,81 @@ import {
 } from '@/components/layout/page-header-actions';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RenewalActionLists } from '@/components/members/renewal-action-lists';
-import { FollowUpLists } from '@/components/members/follow-up-lists';
-import { TrialActionLists } from '@/components/members/trial-action-lists';
-import { InactiveActionLists } from '@/components/members/inactive-action-lists';
-import { MembersTable } from '@/components/members/members-table';
-import { MemberForm } from '@/components/members/member-form';
-import { ImportMembersCsvDialog } from '@/components/members/import-members-csv-dialog';
-import { MemberDetailView } from '@/components/members/member-detail-view';
-import { AttendanceView } from '@/components/members/attendance-view';
-import { PaymentSummaryTiles } from '@/components/members/payment-summary-tiles';
-import { PaymentsTable } from '@/components/members/payments-table';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
+
+function MembersViewLoading() {
+  return (
+    <div
+      role="status"
+      className="text-muted-foreground flex items-center gap-2 py-12 text-sm"
+    >
+      <Loader2 className="size-4 animate-spin" /> Loading view…
+    </div>
+  );
+}
+
+const FollowUpLists = dynamic(
+  () =>
+    import('@/components/members/follow-up-lists').then(
+      (module) => module.FollowUpLists
+    ),
+  { loading: MembersViewLoading }
+);
+const TrialActionLists = dynamic(
+  () =>
+    import('@/components/members/trial-action-lists').then(
+      (module) => module.TrialActionLists
+    ),
+  { loading: MembersViewLoading }
+);
+const InactiveActionLists = dynamic(
+  () =>
+    import('@/components/members/inactive-action-lists').then(
+      (module) => module.InactiveActionLists
+    ),
+  { loading: MembersViewLoading }
+);
+const MembersTable = dynamic(
+  () =>
+    import('@/components/members/members-table').then(
+      (module) => module.MembersTable
+    ),
+  { loading: MembersViewLoading }
+);
+const MemberForm = dynamic(() =>
+  import('@/components/members/member-form').then((module) => module.MemberForm)
+);
+const ImportMembersCsvDialog = dynamic(() =>
+  import('@/components/members/import-members-csv-dialog').then(
+    (module) => module.ImportMembersCsvDialog
+  )
+);
+const MemberDetailView = dynamic(() =>
+  import('@/components/members/member-detail-view').then(
+    (module) => module.MemberDetailView
+  )
+);
+const AttendanceView = dynamic(
+  () =>
+    import('@/components/members/attendance-view').then(
+      (module) => module.AttendanceView
+    ),
+  { loading: MembersViewLoading }
+);
+const PaymentSummaryTiles = dynamic(
+  () =>
+    import('@/components/members/payment-summary-tiles').then(
+      (module) => module.PaymentSummaryTiles
+    ),
+  { loading: MembersViewLoading }
+);
+const PaymentsTable = dynamic(
+  () =>
+    import('@/components/members/payments-table').then(
+      (module) => module.PaymentsTable
+    ),
+  { loading: MembersViewLoading }
+);
 
 type View =
   | 'renewals'
@@ -329,45 +394,51 @@ export default function MembersPage() {
         )}
       </div>
 
-      <MemberForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        member={editing}
-        onSaved={reload}
-        onViewExisting={(contactId) => {
-          // The dedupe path hands back a contact id; member detail is
-          // keyed by membership id, so resolve it and open their sheet.
-          void (async () => {
-            const membershipId = await membershipIdForContact(
-              createClient(),
-              contactId
-            );
-            if (membershipId) {
-              openDetail(membershipId);
-            } else {
-              openDetail({ contactId, membershipId: null });
-            }
-            reload();
-          })();
-        }}
-      />
+      {formOpen ? (
+        <MemberForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          member={editing}
+          onSaved={reload}
+          onViewExisting={(contactId) => {
+            // The dedupe path hands back a contact id; member detail is
+            // keyed by membership id, so resolve it and open their sheet.
+            void (async () => {
+              const membershipId = await membershipIdForContact(
+                createClient(),
+                contactId
+              );
+              if (membershipId) {
+                openDetail(membershipId);
+              } else {
+                openDetail({ contactId, membershipId: null });
+              }
+              reload();
+            })();
+          }}
+        />
+      ) : null}
 
-      <ImportMembersCsvDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onSaved={reload}
-      />
+      {importOpen ? (
+        <ImportMembersCsvDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onSaved={reload}
+        />
+      ) : null}
 
-      <MemberDetailView
-        membershipId={detailId}
-        contactId={detailContactId}
-        open={detailOpen}
-        reloadKey={reloadKey}
-        onOpenChange={changeDetailOpen}
-        readiness={readiness}
-        onChanged={reload}
-        onEdit={editFromDetail}
-      />
+      {detailOpen ? (
+        <MemberDetailView
+          membershipId={detailId}
+          contactId={detailContactId}
+          open={detailOpen}
+          reloadKey={reloadKey}
+          onOpenChange={changeDetailOpen}
+          readiness={readiness}
+          onChanged={reload}
+          onEdit={editFromDetail}
+        />
+      ) : null}
     </div>
   );
 }

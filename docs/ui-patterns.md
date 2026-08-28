@@ -370,7 +370,7 @@ While the session is closed, nothing the input row offers can leave the account
 — free-form text, media, and an AI-drafted reply are all refused by Meta until a
 template reopens it. So `message-composer.tsx` omits the row and the amber
 banner becomes the bottom bar, carrying the single move that still works
-(**Templates**). This is the **Blocked actions** rule at the top of this file
+(**Send a template**). This is the **Blocked actions** rule at the top of this file
 applied literally: an action that no longer applies is removed, not left
 standing as four controls that open the same explanation. Bubble **Reply** is
 omitted for the same reason — it would arm a quote with nowhere to land, so

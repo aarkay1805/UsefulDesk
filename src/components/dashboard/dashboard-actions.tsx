@@ -34,18 +34,22 @@ async function loadDashboardActions(): Promise<DashboardActionSnapshot> {
 
 export function DashboardActionsProvider({
   children,
+  initialSnapshot = null,
 }: {
   children: React.ReactNode;
+  initialSnapshot?: DashboardActionSnapshot | null;
 }) {
   const [snapshot, setSnapshot] = useState<DashboardActionSnapshot | null>(
-    null
+    initialSnapshot
   );
   const [failed, setFailed] = useState(false);
-  const [nonce, setNonce] = useState(0);
-  const snapshotRef = useRef<DashboardActionSnapshot | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState<number | null>(
+    initialSnapshot ? null : 0
+  );
+  const snapshotRef = useRef<DashboardActionSnapshot | null>(initialSnapshot);
 
   useEffect(() => {
-    void nonce;
+    if (refreshVersion === null) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -63,9 +67,12 @@ export function DashboardActionsProvider({
     return () => {
       cancelled = true;
     };
-  }, [nonce]);
+  }, [refreshVersion]);
 
-  const refresh = useCallback(() => setNonce((value) => value + 1), []);
+  const refresh = useCallback(
+    () => setRefreshVersion((value) => (value === null ? 0 : value + 1)),
+    []
+  );
   const value = useMemo(
     () => ({ snapshot, failed, refresh }),
     [failed, refresh, snapshot]
