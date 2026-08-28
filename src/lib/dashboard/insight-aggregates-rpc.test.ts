@@ -5,6 +5,13 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(
   resolve(
     process.cwd(),
+    'supabase/migrations/20260828200000_avoid_dashboard_timezone_catalog_scans.sql'
+  ),
+  'utf8'
+);
+const originalMigration = readFileSync(
+  resolve(
+    process.cwd(),
     'supabase/migrations/20260827181937_dashboard_insight_aggregates.sql'
   ),
   'utf8'
@@ -20,8 +27,8 @@ function requireInvokerOnly(sql: string) {
     throw new Error('dashboard insight aggregates may not bypass RLS');
   }
   const invokers = sql.match(/^SECURITY INVOKER$/gim) ?? [];
-  if (invokers.length !== 2) {
-    throw new Error('both dashboard insight aggregates must be invoker-safe');
+  if (invokers.length !== 3) {
+    throw new Error('all redefined dashboard RPCs must be invoker-safe');
   }
 }
 
@@ -31,7 +38,7 @@ describe('dashboard insight aggregate migration contract', () => {
     expect(() => requireInvokerOnly(`${migration}\nSECURITY DEFINER`)).toThrow(
       'may not bypass RLS'
     );
-    expect(migration.match(/SET search_path = ''/g)).toHaveLength(2);
+    expect(migration.match(/SET search_path = ''/g)).toHaveLength(3);
     expect(migration).not.toContain('p_account_id');
     expect(migration).toContain('FROM public.messages AS message');
     expect(migration).toContain('FROM public.contacts AS contact');
@@ -56,8 +63,15 @@ describe('dashboard insight aggregate migration contract', () => {
     expect(migration.match(/p_range_days NOT IN \(7, 30, 90\)/g)).toHaveLength(
       2
     );
-    expect(migration.match(/pg_catalog\.pg_timezone_names/g)).toHaveLength(2);
-    expect(migration.match(/USING ERRCODE = '22023'/g)).toHaveLength(4);
+    expect(migration).not.toContain('pg_timezone_names');
+    expect(
+      migration.match(
+        /PERFORM pg_catalog\.timezone\(p_time_zone, p_today::TIMESTAMP\);/g
+      )
+    ).toHaveLength(2);
+    expect(
+      migration.match(/EXCEPTION WHEN invalid_parameter_value THEN/g)
+    ).toHaveLength(3);
   });
 
   it('returns one local-calendar row per requested conversation day', () => {
@@ -94,10 +108,10 @@ describe('dashboard insight aggregate migration contract', () => {
   });
 
   it('adds the time-first message index used by the chart boundary', () => {
-    expect(migration).toContain(
+    expect(originalMigration).toContain(
       'CREATE INDEX IF NOT EXISTS idx_messages_created_at_conversation'
     );
-    expect(migration).toContain(
+    expect(originalMigration).toContain(
       'ON public.messages(created_at, conversation_id)'
     );
   });

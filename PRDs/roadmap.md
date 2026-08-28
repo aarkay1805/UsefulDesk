@@ -8,6 +8,16 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **dashboard action and insight RPCs now validate the
+selected branch timezone through PostgreSQL's direct resolver instead of
+repeatedly materializing the computed timezone catalog view. Like-for-like
+authenticated Production plans improved from 1,914.805 to 937.294 ms for the
+action snapshot, 81.181 to 15.343 ms for the conversation series, and 242.173
+to 159.048 ms for lead-rating inputs, with identical result hashes. Migration
+`20260828200000_avoid_dashboard_timezone_catalog_scans.sql` is live as connector
+version `20260828130403`; signatures, return shapes, stable invoker execution,
+selected-branch RLS, ownership, grants, and invalid-zone errors are unchanged.**
+
 Engineering maintenance: **Vercel functions are pinned to Singapore (`sin1`) beside both Supabase projects. An identical ten-run authenticated preview comparison reduced median all-action Dashboard readiness from 4,487.5 ms to 3,203.5 ms (28.6%) while the quick-actions shell stayed flat; median auth bootstrap fell 90.9% and the action snapshot fell 13.5%. Initial and follow-up-filter action API requests remain zero. The snapshot's remaining 1,793.5 ms server median is the next bounded RLS/PostgREST performance target.**
 
 Engineering maintenance: **the five server-hydrated dashboard action widgets now share one branch-scoped, viewer-authorized, no-store database snapshot while keeping their existing Suspense/provider islands, loading/empty/error states, mutation refresh, preloaded filters, deferred readiness, and account-timezone behavior. The maximum action data stage falls from 12 Supabase requests to one (11 fewer, 91.67%), fixed server timing stages fall from five to one, and the browser remains at zero initial requests, one refresh request, and zero filter-change requests. Authenticated agent/viewer-equivalent selected-branch probes passed on Production and Test; one-row/no-temp-spill plans completed in 126.660 ms and 122.191 ms respectively, with zero advisor findings attributable to the function. Connector versions are `20260828112344` plus correction `20260828112514` on Production and `20260828112351` plus correction `20260828112522` on Test.**

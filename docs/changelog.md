@@ -6,6 +6,20 @@
 
 ---
 
+## Dashboard RPCs avoid computed timezone-catalog scans
+
+The action snapshot and two insight aggregates now validate the selected
+branch timezone through PostgreSQL's direct resolver instead of materializing
+the computed timezone catalog view on every call. Fixed-argument authenticated
+Production plans improved from 1,914.805 to 937.294 ms for the action snapshot,
+81.181 to 15.343 ms for the conversation series, and 242.173 to 159.048 ms for
+lead-rating inputs; before/after result hashes matched exactly. Migration
+`20260828200000_avoid_dashboard_timezone_catalog_scans.sql` preserves all three
+signatures, return shapes, invoker/RLS behavior, owners, grants, and custom
+invalid-timezone errors. The Supabase connector recorded it as
+`20260828130403`. Gotcha: keep hot RPC validation on the direct resolver; the
+catalog view itself still costs about 824 ms on the current compute tier.
+
 ## Vercel functions now run beside Supabase
 
 Vercel functions are pinned to Singapore (`sin1`), matching both Supabase

@@ -1,41 +1,42 @@
-# Gates: dashboard action snapshot database consolidation
+# Gates: P1-1 dashboard timezone catalog scan fix
 
-OWNS: GATES.md, benchmark-results/2026-08-28-content-latency.md, scripts/verify-performance-fixes.mjs, scripts/verify-dashboard-action-snapshot.mjs, src/app/(dashboard)/dashboard/page.tsx, src/components/dashboard/dashboard-actions.tsx, src/components/dashboard/dashboard-actions.test.tsx, src/components/dashboard/dashboard-streaming.tsx, src/components/dashboard/dashboard-streaming.test.tsx, src/components/dashboard/gym-metrics.tsx, src/components/dashboard/follow-up-queue.tsx, src/components/dashboard/expiring-memberships.tsx, src/components/dashboard/uncontacted-leads.tsx, src/components/dashboard/needs-attention-card.tsx, src/app/api/dashboard/actions/route.ts, src/app/api/dashboard/actions/route.test.ts, src/lib/dashboard/action-snapshot.ts, src/lib/dashboard/action-snapshot.test.ts, src/lib/dashboard/action-snapshot-rpc.test.ts, src/lib/dashboard/types.ts, supabase/migrations/*_dashboard_action_snapshot.sql, docs/changelog.md, PRDs/roadmap.md
+OWNS: GATES.md, supabase/migrations/20260828200000_avoid_dashboard_timezone_catalog_scans.sql, src/lib/dashboard/action-snapshot-rpc.test.ts, src/lib/dashboard/insight-aggregates-rpc.test.ts, docs/changelog.md, PRDs/roadmap.md
 
-Scope: replace the remaining selected-branch dashboard action-widget database fan-out with one viewer-readable, no-store, bounded action snapshot while preserving server hydration, refresh/filter behavior, section states, localization, and all prior dashboard and member-import work.
+Scope: Remove repeated pg_timezone_names scans from exactly the three dashboard RPCs while preserving their public contracts, security, tenant isolation, and live behavior.
 
-- [x] G1: the action loader uses one selected-branch snapshot RPC that validates the account calendar day and bounded payload for GymMetrics, FollowUpQueue, ExpiringMemberships, UncontactedLeads, and Needs Attention
-      CHECK: npm exec vitest run src/lib/dashboard/action-snapshot.test.ts src/lib/dashboard/action-snapshot-rpc.test.ts && node -e "console.log('dashboard action loader verification passed')"
-      EXPECT: dashboard action loader verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Duration 154ms (transform 40ms, setup 0ms, import 103ms, tests 10ms, environment 0ms) | dashboard action loader verification passed
+- [x] G1: focused dashboard RPC contract tests pass
+  CHECK: npm test -- --run src/lib/dashboard/action-snapshot-rpc.test.ts src/lib/dashboard/insight-aggregates-rpc.test.ts
+  EXPECT: /Test Files\s+2 passed/
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Start at  18:38:04 | Duration  90ms (transform 22ms, setup 0ms, import 41ms, tests 4ms, environment 0ms)
 
-- [x] G2: the snapshot function is SECURITY INVOKER, selected-branch RLS scoped, viewer-executable only for authenticated callers, returns at most eight previews per queue, and preserves account-timezone day boundaries
-      CHECK: npm exec vitest run src/lib/dashboard/action-snapshot-rpc.test.ts src/lib/dashboard/date-utils.test.ts src/lib/locale src/lib/memberships/stats.test.ts && node -e "console.log('dashboard action RLS and timezone verification passed')"
-      EXPECT: dashboard action RLS and timezone verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Duration 190ms (transform 127ms, setup 0ms, import 267ms, tests 35ms, environment 0ms) | dashboard action RLS and timezone verification passed
+- [x] G2: the full TypeScript typecheck passes
+  CHECK: npm run typecheck && echo "P1-1 typecheck passed"
+  EXPECT: P1-1 typecheck passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=> tsc --noEmit | P1-1 typecheck passed
 
-- [x] G3: the five action widgets remain zero browser action requests after server hydration, exactly one private no-store request after mutation refresh, and filter changes make no request; the browser path remains reduced from the pre-snapshot fourteen-request baseline to one refresh boundary
-      CHECK: npm exec vitest run src/components/dashboard/dashboard-actions.test.tsx src/components/dashboard/dashboard-streaming.test.tsx src/app/api/dashboard/actions/route.test.ts 'src/app/(dashboard)/dashboard/page.test.tsx' && node scripts/verify-dashboard-action-snapshot.mjs browser && node -e "console.log('dashboard browser request verification passed')"
-      EXPECT: dashboard browser request verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=dashboard browser boundary verification passed | dashboard browser request verification passed
+- [x] G3: the full repository lint passes
+  CHECK: npm run lint && echo "P1-1 lint passed"
+  EXPECT: P1-1 lint passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-1 lint passed | [BABEL] Note: The code generator has deoptimised the styling of /Users/rajatkashyap/Desktop/projects/UsefulDesk/.agents/skills/impeccable/scripts/live-browser.js as it exceeds the max of 500KB.
 
-- [x] G4: measured source and live database evidence show the action data stage falls from at least twelve Supabase data requests and five streamed section stages to one snapshot data request and one fixed-label server stage, with one-row query plans and no temporary spill
-      CHECK: node scripts/verify-dashboard-action-snapshot.mjs database
-      EXPECT: dashboard database fan-out verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=dashboard action server stages: 5 streamed stages -> 1 fixed-label stage | dashboard database fan-out verification passed
+- [x] G4: the final patch has no whitespace errors
+  CHECK: git diff --check && echo "P1-1 diff check passed"
+  EXPECT: P1-1 diff check passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-1 diff check passed
 
-- [x] G5: loading, empty, section error, bounded preview, staff identity, readiness deferral, refresh-after-mutation, and all follow-up chip states retain regression coverage
-      CHECK: npm exec vitest run src/components/dashboard src/lib/dashboard src/lib/memberships/stats.test.ts src/hooks/use-auth.test.tsx && node -e "console.log('dashboard action behavior regression verification passed')"
-      EXPECT: dashboard action behavior regression verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Duration 1.13s (transform 526ms, setup 0ms, import 1.78s, tests 491ms, environment 2.88s) | dashboard action behavior regression verification passed
+- [x] G5: the new migration sorts after the prior latest migration and does not scan pg_timezone_names
+  CHECK: node -e "const fs=require('node:fs');const p='supabase/migrations/20260828200000_avoid_dashboard_timezone_catalog_scans.sql';const files=fs.readdirSync('supabase/migrations').filter(f=>f.endsWith('.sql')).sort();if(files.at(-1)!==p.split('/').at(-1))throw Error('migration is not latest');const s=fs.readFileSync(p,'utf8');if(s.includes('pg_timezone_names'))throw Error('catalog scan remains');for(const n of ['dashboard_action_snapshot','dashboard_conversation_series','dashboard_lead_rating_inputs'])if(!s.includes('CREATE OR REPLACE FUNCTION public.'+n+'('))throw Error('missing '+n);console.log('P1-1 migration structure passed')"
+  EXPECT: P1-1 migration structure passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-1 migration structure passed
 
-- [x] G6: repository typecheck, lint, formatting, complete tests, and production build pass
-      CHECK: npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && node -e "console.log('repository quality verification passed')"
-      EXPECT: repository quality verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Not implemented: Window's scrollTo() method | Not implemented: Window's scrollTo() method
+- [x] G6: live Supabase definitions preserve signatures, return shapes, ownership, grants, tenant checks, and avoid pg_timezone_names
+  EVIDENCE: Production catalog after connector migration 20260828130403 shows the same three signatures/results, STABLE SECURITY INVOKER, empty search_path, postgres owner, and exact pre-migration ACLs; each prosrc catalog_scan_position=0 and direct_resolver_position>0. All three authenticated invalid-zone probes retained SQLSTATE 22023 and their original messages. Security/performance advisors name none of the three functions.
 
-- [x] G7: changelog and roadmap record the bounded action snapshot and measured request/server-stage impact, and the migration is connector-applied with live metadata, viewer-equivalent authenticated probes, one-row/no-temp-spill query-plan evidence, and no Supabase advisor findings attributable to the function
-      EVIDENCE: docs and benchmark record 12→1 data requests, 5→1 stages, and browser 0/1/0; connector versions Production 20260828112344+20260828112514 and Test 20260828112351+20260828112522 are live; both agent-member authenticated probes were viewer-authorized, selected-branch-only, and returned five sections with errors=[]; metadata is stable invoker/authenticated-only; plans returned one row with zero temp blocks in 126.660 ms Production and 122.191 ms Test; advisor scans found zero dashboard_action_snapshot-related notices.
+- [x] G7: like-for-like authenticated live measurements show the catalog-scan fix without result regressions
+  EVIDENCE: Authenticated Production EXPLAIN (ANALYZE, BUFFERS), same principal/account/arguments: action 1914.805 ms/15226 hits to 937.294 ms/15209; conversation 81.181 ms/1532 to 15.343 ms/1514; rating 242.173 ms/4580 to 159.048 ms/4562. Direct old catalog validation was 824.209 ms versus direct resolver 0.712 ms. Before/after hashes matched: action 497f1dbe..., conversation f758d7d4... (30 rows), rating c373dbc6... (3 rows).
 
-- [x] G8: the final diff preserves all earlier dashboard auth/bootstrap, insights, attention, localization, and unrelated member-import/table UI edits; it contains no branch/worktree/commit operation and passes git diff integrity checks
-      EVIDENCE: scripts/verify-performance-fixes.mjs source and git diff --check passed; request-scoped auth/bootstrap, insights aggregates, narrow attention RPC, locale helpers, member-import sources, and the user-owned TableSkeleton rollout remain present; full tests/build passed; status stayed on main at 9621cb0 in /Users/rajatkashyap/Desktop/projects/UsefulDesk, with no branch switch, worktree creation/use, or commit.
+- [x] G8: final scope and security review finds no unrelated changes or weakened authorization/RLS
+  EVIDENCE: Final review on main found only this ledger, one new migration, two focused contract tests, changelog, and roadmap. Historical migrations and all callers are untouched. The new bodies were generated from the current definitions with only the three validation blocks replaced; static and live checks show no SECURITY DEFINER or p_account_id bypass, all functions remain STABLE SECURITY INVOKER with empty search_path, and live signatures/results/owners/ACLs match baseline. git diff --check passed.
+
+- [x] G9: changelog and roadmap record only the shipped P1-1 fix
+  EVIDENCE: docs/changelog.md and PRDs/roadmap.md each record the live migration, preserved contracts, and fixed-argument Production measurements; no unrelated roadmap state changed.

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260828160000_dashboard_action_snapshot.sql'
+    'supabase/migrations/20260828200000_avoid_dashboard_timezone_catalog_scans.sql'
   ),
   'utf8'
 );
@@ -24,7 +24,11 @@ describe('dashboard_action_snapshot SQL contract', () => {
   });
 
   it('rejects invalid calendar and preview inputs', () => {
-    expect(migration).toContain('FROM pg_catalog.pg_timezone_names');
+    expect(migration).not.toContain('pg_timezone_names');
+    expect(migration).toContain(
+      'PERFORM pg_catalog.timezone(p_time_zone, p_now);'
+    );
+    expect(migration).toContain('EXCEPTION WHEN invalid_parameter_value THEN');
     expect(migration).toContain('p_today IS NULL OR p_now IS NULL');
     expect(migration).toContain(
       'p_limit IS NULL OR p_limit < 1 OR p_limit > 8'
