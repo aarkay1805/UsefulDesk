@@ -6,6 +6,26 @@
 
 ---
 
+## All-members now loads one RLS-visible directory snapshot
+
+The All-members page, exact total, and three quick-filter counts now cross one
+database boundary instead of four expensive directory traversals. Numeric
+member/customer search is evaluated in PostgreSQL, and the directory view
+computes latest memberships, services, billing state, and open follow-ups
+set-wise instead of once per contact. The existing row shape, filters, six
+sorts, pagination, select-all/export behavior, selected-branch RLS, and
+`SECURITY INVOKER` execution are preserved in
+`src/lib/memberships/member-directory.ts` and migration
+`20260828210000_member_customer_directory_page.sql`, recorded by the Supabase
+connector as `20260828132439` on Production.
+
+For the same authenticated branch, empty filters, default expiry sort, and
+25-row page, the pre-change four-statement means totalled 2,491.898 ms; five
+warm post-change plans averaged 749.608 ms (69.9% lower). All 25 row identities,
+the 281-row total, facet counts, six sort probes, searches, and filter probes
+matched independent RLS-visible queries. Gotcha: the remaining repeated tenant
+checks are P1-3; this change does not bypass or redesign global RLS helpers.
+
 ## Dashboard RPCs avoid computed timezone-catalog scans
 
 The action snapshot and two insight aggregates now validate the selected

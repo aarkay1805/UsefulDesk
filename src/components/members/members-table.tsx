@@ -3,9 +3,10 @@
 // The "All members" table — server-paginated, sortable, filterable, with
 // multi-select bulk actions (remind / add note / record payment / delete). Borrows
 // the leads table's data-layer idioms: fetch-sequence guard, shared
-// filter definition (applyMemberFilters — also used by select-all-matching
-// and CSV export), and the Collapse bulk toolbar. Deliberately NOT the
-// leads grid — member columns stay intentionally lightweight.
+// filter definition (serialized through the same directory RPC for the page,
+// select-all-matching, and CSV export), and the Collapse bulk toolbar.
+// Deliberately NOT the leads grid — member columns stay intentionally
+// lightweight.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutGroup, motion, useReducedMotion } from 'motion/react';
@@ -40,21 +41,20 @@ import { useAuth } from '@/hooks/use-auth';
 import { toCsv, downloadCsv } from '@/lib/csv/export';
 import { effectiveStatus, daysUntil } from '@/lib/memberships/expiry';
 import {
-  applyCustomerFilters,
   CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
   MEMBER_STATUS_OPTIONS,
   type MemberFilters,
 } from '@/lib/memberships/filters';
 import {
-  resolveCustomerSearch,
-  resolvedCustomerIds,
-} from '@/lib/memberships/search';
-import {
   asMembership,
-  normalizeCustomerDirectoryRow,
   type NormalizedMemberCustomerDirectoryRow,
 } from '@/lib/memberships/customer-directory';
+import {
+  EMPTY_MEMBER_DIRECTORY_QUICK_FILTER_COUNTS,
+  loadMemberDirectory,
+  type MemberDirectoryQuickFilterCounts,
+} from '@/lib/memberships/member-directory';
 import {
   MEMBER_COLUMN_BY_KEY,
   MEMBER_TABLE_COLUMNS as MEMBER_COLUMNS,
@@ -144,7 +144,7 @@ import {
 
 const PAGE_SIZE = 25;
 
-type QuickMemberFilter = 'churnRisk' | 'feesDue' | 'followUps';
+type QuickMemberFilter = keyof MemberDirectoryQuickFilterCounts;
 
 const QUICK_MEMBER_FILTERS: { key: QuickMemberFilter; label: string }[] = [
   { key: 'churnRisk', label: 'Churn risk' },
@@ -152,34 +152,10 @@ const QUICK_MEMBER_FILTERS: { key: QuickMemberFilter; label: string }[] = [
   { key: 'followUps', label: 'Follow-ups' },
 ];
 
-const EMPTY_QUICK_MEMBER_FILTER_COUNTS: Record<QuickMemberFilter, number> = {
-  churnRisk: 0,
-  feesDue: 0,
-  followUps: 0,
-};
-
-function filtersForQuickMemberCount(
-  filters: MemberFilters,
-  key: QuickMemberFilter
-): MemberFilters {
-  switch (key) {
-    case 'churnRisk':
-      return { ...filters, churnRisk: ['yes'] };
-    case 'feesDue':
-      return { ...filters, feeStatus: ['due'] };
-    case 'followUps':
-      return { ...filters, followUps: ['open'] };
-  }
-}
-
-// The security-invoker directory is already flat and account-scoped, so every
-// data path can share one select shape without relation-embed filter drift.
-const CUSTOMER_SELECT = '*';
-
-// Sortable columns for the toolbar Sort menu. `name` orders the parent by
-// the embedded contact (PostgREST `order=contact(name)`); the rest are
-// memberships columns. (Per-header sort covers name/expiry/fee; the menu
-// keeps start_date + fee_status which have no dedicated column.)
+// Sortable columns for the toolbar Sort menu. The directory RPC maps these
+// flat contract keys to its validated sort allowlist. (Per-header sort covers
+// name/expiry/fee; the menu keeps start_date + fee_status which have no
+// dedicated column.)
 const SORT_COLUMNS: { key: string; label: string }[] = [
   { key: 'contact_name', label: 'Name' },
   { key: 'member_number', label: 'Member ID' },
@@ -300,14 +276,13 @@ export function MembersTable({
   const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
   const [quickFilterCounts, setQuickFilterCounts] = useState<
     Record<QuickMemberFilter, number>
-  >(EMPTY_QUICK_MEMBER_FILTER_COUNTS);
+  >(EMPTY_MEMBER_DIRECTORY_QUICK_FILTER_COUNTS);
   const [prefs, setPrefs] = useTablePrefs<MembersTablePrefs>(
     'members-all',
     DEFAULT_PREFS
   );
   // Drops out-of-order responses: only the latest fetch may set state.
   const fetchSeq = useRef(0);
-  const quickCountFetchSeq = useRef(0);
 
   // Selection — membership id → contact id (bulk note needs contact ids,
   // and select-all-matching spans rows never loaded onto a page).
@@ -1040,82 +1015,31 @@ export function MembersTable({
     }
   }
 
-  function applySearch<
-    Q extends {
-      in(column: string, values: readonly string[]): Q;
-      or(filters: string): Q;
-    },
-  >(
-    query: Q,
-    resolution: Awaited<ReturnType<typeof resolveCustomerSearch>>
-  ): Q {
-    if (resolution.kind === 'customerIds') {
-      return query.in('contact_id', resolvedCustomerIds(resolution));
-    }
-    if (resolution.kind === 'contact') {
-      const like = `%${resolution.term}%`;
-      return query.or(
-        `contact_name.ilike.${like},contact_phone.ilike.${like},contact_email.ilike.${like}`
-      );
-    }
-    return query;
-  }
-
-  function directorySortKey(key: string): string {
-    switch (key) {
-      case 'name':
-      case 'contact_name':
-        return 'contact_name';
-      case 'end_date':
-      case 'display_expiry':
-        return 'display_expiry';
-      case 'fee_amount':
-        return 'membership_fee_amount';
-      case 'fee_status':
-        return 'membership_fee_status';
-      case 'start_date':
-        return 'membership_start_date';
-      default:
-        return key;
-    }
-  }
-
   useEffect(() => {
     const seq = ++fetchSeq.current;
     let cancelled = false;
     (async () => {
       setLoading(true);
       const today = fmt.today();
-      const searchResolution = await resolveCustomerSearch(supabase, search);
-      let q = supabase
-        .from('member_customer_directory')
-        .select(CUSTOMER_SELECT, { count: 'exact' });
-
-      q = applySearch(q, searchResolution);
-      q = applyCustomerFilters(q, filters, today);
-
-      if (sort) {
-        q = q.order(directorySortKey(sort.key), {
-          ascending: sort.dir === 'asc',
-        });
-      } else {
-        // Default: soonest expiry first — the renewal-first ordering.
-        q = q.order('display_expiry', { ascending: true, nullsFirst: false });
-      }
-
-      const from = page * pageSize;
-      const { data, count } = await q.range(from, from + pageSize - 1);
+      const result = await loadMemberDirectory(supabase, {
+        today,
+        search,
+        filters,
+        sort,
+        page,
+        pageSize,
+      });
       if (cancelled || seq !== fetchSeq.current) return;
-      setRows(
-        ((data as unknown as NormalizedMemberCustomerDirectoryRow[]) ?? []).map(
-          normalizeCustomerDirectoryRow
-        )
-      );
-      setTotalCount(count ?? 0);
+      setRows(result.rows);
+      setTotalCount(result.totalCount);
+      setQuickFilterCounts(result.quickFilterCounts);
       setLoading(false);
     })().catch((error) => {
       if (cancelled || seq !== fetchSeq.current) return;
       toast.error(getErrorMessage(error, 'Failed to load members'));
+      setRows([]);
+      setTotalCount(0);
+      setQuickFilterCounts(EMPTY_MEMBER_DIRECTORY_QUICK_FILTER_COUNTS);
       setLoading(false);
     });
     return () => {
@@ -1132,51 +1056,6 @@ export function MembersTable({
     pageSize,
     fmt,
   ]);
-
-  useEffect(() => {
-    const seq = ++quickCountFetchSeq.current;
-    let cancelled = false;
-
-    void (async () => {
-      const today = fmt.today();
-      const searchResolution = await resolveCustomerSearch(supabase, search);
-      const results = await Promise.all(
-        QUICK_MEMBER_FILTERS.map(async ({ key }) => {
-          const countFilters = filtersForQuickMemberCount(filters, key);
-          let query = supabase
-            .from('member_customer_directory')
-            .select('contact_id', { count: 'exact', head: true });
-
-          query = applySearch(query, searchResolution);
-          query = applyCustomerFilters(query, countFilters, today);
-          const { count, error } = await query;
-          return { key, count: error ? 0 : (count ?? 0), error };
-        })
-      );
-
-      if (cancelled || seq !== quickCountFetchSeq.current) return;
-      const failed = results.find((result) => result.error);
-      if (failed) {
-        console.error(
-          'Failed to load member quick-filter counts',
-          failed.error
-        );
-      }
-      setQuickFilterCounts(
-        Object.fromEntries(
-          results.map((result) => [result.key, result.count])
-        ) as Record<QuickMemberFilter, number>
-      );
-    })().catch((error) => {
-      if (cancelled || seq !== quickCountFetchSeq.current) return;
-      console.error('Failed to resolve member search', error);
-      setQuickFilterCounts(EMPTY_QUICK_MEMBER_FILTER_COUNTS);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [supabase, reloadKey, assignmentNonce, search, filters, fmt]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasPrev = page > 0;
@@ -1217,35 +1096,29 @@ export function MembersTable({
     });
   }
 
-  // Select every member matching the current search + filters — including
-  // rows on other pages. Same query shape as the fetch, ids only.
+  // Select every membership-backed customer matching the current search +
+  // filters, including rows on other pages. The explicit action requests the
+  // unbounded form of the same RLS-invoker snapshot, then retains only ids.
   async function selectAllMatching() {
     const today = fmt.today();
-    const searchResolution = await resolveCustomerSearch(
-      supabase,
-      search
-    ).catch((error) => {
+    const result = await loadMemberDirectory(supabase, {
+      today,
+      search,
+      filters,
+      sort: null,
+      page: 0,
+      pageSize: null,
+    }).catch((error) => {
       toast.error(getErrorMessage(error, 'Failed to select members'));
       return null;
     });
-    if (!searchResolution) return;
-    let q = supabase
-      .from('member_customer_directory')
-      .select('membership_id, contact_id');
-    if (searchResolution.kind === 'customerIds') {
-      q = q.in('contact_id', resolvedCustomerIds(searchResolution));
-    } else if (searchResolution.kind === 'contact') {
-      const like = `%${searchResolution.term}%`;
-      q = q.or(
-        `contact_name.ilike.${like},contact_phone.ilike.${like},contact_email.ilike.${like}`
-      );
-    }
-    q = applyCustomerFilters(q, filters, today);
-    const { data } = await q.not('membership_id', 'is', null);
+    if (!result) return;
     setSelected(
       new Map(
-        ((data as { membership_id: string; contact_id: string }[]) ?? []).map(
-          (customer) => [customer.membership_id, customer.contact_id]
+        result.rows.flatMap((customer) =>
+          customer.membership_id
+            ? [[customer.membership_id, customer.contact_id]]
+            : []
         )
       )
     );
@@ -1260,28 +1133,19 @@ export function MembersTable({
   // the file matches the screen.
   async function handleExport() {
     const today = fmt.today();
-    const searchResolution = await resolveCustomerSearch(
-      supabase,
-      search
-    ).catch((error) => {
+    const result = await loadMemberDirectory(supabase, {
+      today,
+      search,
+      filters,
+      sort: null,
+      page: 0,
+      pageSize: null,
+    }).catch((error) => {
       toast.error(getErrorMessage(error, 'Export failed'));
       return null;
     });
-    if (!searchResolution) return;
-    let q = supabase.from('member_customer_directory').select(CUSTOMER_SELECT);
-    q = applySearch(q, searchResolution);
-    q = applyCustomerFilters(q, filters, today).order('display_expiry', {
-      ascending: true,
-      nullsFirst: false,
-    });
-    const { data, error } = await q;
-    if (error) {
-      toast.error('Export failed');
-      return;
-    }
-    const all = (
-      (data as unknown as NormalizedMemberCustomerDirectoryRow[]) ?? []
-    ).map(normalizeCustomerDirectoryRow);
+    if (!result) return;
+    const all = result.rows;
     const csv = toCsv(
       [
         'Name',

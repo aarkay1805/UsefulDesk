@@ -1,6 +1,6 @@
-// Member-list filters — the single definition shared by the All-members
-// table, its select-all-matching, and CSV export so they can't drift
-// (mirrors the leads page's applyLeadFilters).
+// Member-list filters — one value shape shared by All-members, its explicit
+// select/export actions, and membership-backed queues so their controls cannot
+// drift. Each database path owns the matching query representation.
 
 /**
  * The status facet filters on the DERIVED lifecycle state, not the raw
@@ -85,26 +85,6 @@ function statusCondition(status: MemberStatusFilter, today: string): string {
   }
 }
 
-function customerStatusCondition(
-  status: MemberStatusFilter,
-  today: string
-): string {
-  switch (status) {
-    case 'active':
-      return `and(customer_kind.eq.membership,membership_status.eq.active,membership_is_trial.eq.false,membership_end_date.gte.${today})`;
-    case 'expired':
-      return `and(customer_kind.eq.membership,membership_status.eq.active,membership_is_trial.eq.false,membership_end_date.lt.${today})`;
-    case 'frozen':
-      return 'and(customer_kind.eq.membership,membership_status.eq.frozen)';
-    case 'cancelled':
-      return 'and(customer_kind.eq.membership,membership_status.eq.cancelled)';
-    case 'trial':
-      return 'and(customer_kind.eq.membership,membership_is_trial.eq.true)';
-    case 'service_customer':
-      return 'customer_kind.eq.service';
-  }
-}
-
 /**
  * The `.or(...)` clause for a set of derived statuses, or null when the
  * facet is inactive. Pure so the derived-status boundary logic is
@@ -118,27 +98,12 @@ export function memberStatusOrClause(
   return statuses.map((s) => statusCondition(s, today)).join(',');
 }
 
-/** Derived status clause for the flat contact-backed customer directory. */
-export function customerStatusOrClause(
-  statuses: MemberStatusFilter[],
-  today: string
-): string | null {
-  if (statuses.length === 0) return null;
-  return statuses
-    .map((status) => customerStatusCondition(status, today))
-    .join(',');
-}
-
 // Structural query surface — matches the supabase-js builder without
 // importing it (same pattern as the leads page's FilterableQuery).
 interface MemberFilterableQuery<Q> {
   in(column: string, values: readonly string[]): Q;
   eq(column: string, value: string | boolean): Q;
   or(filters: string): Q;
-}
-
-interface CustomerFilterableQuery<Q> extends MemberFilterableQuery<Q> {
-  gt(column: string, value: number): Q;
 }
 
 /** Apply the Filters panel selections to a memberships query. */
@@ -163,31 +128,6 @@ export function applyMemberFilters<Q extends MemberFilterableQuery<Q>>(
     q = q.eq('open_follow_ups.status', 'open');
   }
   const orClause = memberStatusOrClause(filters.statuses, today);
-  if (orClause) q = q.or(orClause);
-  return q;
-}
-
-/** Apply All-members facets to the flat member_customer_directory view. */
-export function applyCustomerFilters<Q extends CustomerFilterableQuery<Q>>(
-  query: Q,
-  filters: MemberFilters,
-  today: string
-): Q {
-  let q = query;
-  if (filters.plans.length || filters.feeStatus.length) {
-    q = q.eq('customer_kind', 'membership');
-  }
-  if (filters.plans.length) q = q.in('plan_id', filters.plans);
-  if (filters.feeStatus.length) {
-    q = q.in('membership_fee_status', filters.feeStatus);
-  }
-  if (filters.churnRisk.length === 1) {
-    q = q.eq('contact_churn_risk', filters.churnRisk[0] === 'yes');
-  }
-  if (filters.followUps.includes('open')) {
-    q = q.gt('open_follow_up_count', 0);
-  }
-  const orClause = customerStatusOrClause(filters.statuses, today);
   if (orClause) q = q.or(orClause);
   return q;
 }

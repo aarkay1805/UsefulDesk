@@ -8,6 +8,19 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **All-members now returns its 25-row page, exact total,
+and three quick-filter counts from one materialized, RLS-visible directory
+snapshot instead of four expensive reads. Numeric member/customer search runs
+inside PostgreSQL, while the directory's latest membership, service, billing,
+and follow-up work is set-wise. Migration
+`20260828210000_member_customer_directory_page.sql` is live on Production as
+connector version `20260828132439`; the function remains `SECURITY INVOKER`,
+authenticated-only, and selected-branch RLS-bound. The identical default
+interaction preserved all 25 identities, the 281-row total, and 0/3/1 facet
+counts while reducing four pre-change statement means totalling 2,491.898 ms
+to a five-run 749.608 ms mean (69.9% lower). P1-3 remains the separate global
+RLS tenant-check investigation.**
+
 Engineering maintenance: **dashboard action and insight RPCs now validate the
 selected branch timezone through PostgreSQL's direct resolver instead of
 repeatedly materializing the computed timezone catalog view. Like-for-like

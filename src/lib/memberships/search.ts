@@ -14,14 +14,8 @@ export type MemberSearchResolution =
   | { kind: 'contact'; term: string }
   | { kind: 'membershipIds'; ids: string[] };
 
-export type CustomerSearchResolution =
-  | { kind: 'none' }
-  | { kind: 'contact'; term: string }
-  | { kind: 'customerIds'; ids: string[] };
-
 /** A UUID sentinel used to turn an empty resolved ID set into no rows. */
 export const NO_MATCHING_MEMBERSHIP_ID = '00000000-0000-0000-0000-000000000000';
-export const NO_MATCHING_CUSTOMER_ID = '00000000-0000-0000-0000-000000000000';
 
 /**
  * Attendance's canonical member-search semantics: a locale-aware,
@@ -78,33 +72,4 @@ export function resolvedMembershipIds(
   return resolution.ids.length > 0
     ? resolution.ids
     : [NO_MATCHING_MEMBERSHIP_ID];
-}
-
-/** Resolve numeric All-members searches across memberships and service-only contacts. */
-export async function resolveCustomerSearch(
-  supabase: ReturnType<typeof createClient>,
-  rawSearch: string
-): Promise<CustomerSearchResolution> {
-  const term = rawSearch.trim();
-  if (!term) return { kind: 'none' };
-  if (!/^\d+$/.test(term)) return { kind: 'contact', term };
-
-  const { data, error } = await supabase
-    .from('member_customer_directory')
-    .select('contact_id, member_number, contact');
-  if (error) throw error;
-
-  const ids = (
-    (data as unknown as (SearchableMembership & { contact_id: string })[]) ?? []
-  )
-    .filter((customer) => memberMatchesSearch(customer, term))
-    .map((customer) => customer.contact_id);
-
-  return { kind: 'customerIds', ids };
-}
-
-export function resolvedCustomerIds(
-  resolution: Extract<CustomerSearchResolution, { kind: 'customerIds' }>
-): string[] {
-  return resolution.ids.length > 0 ? resolution.ids : [NO_MATCHING_CUSTOMER_ID];
 }

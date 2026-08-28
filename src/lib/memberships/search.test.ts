@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  resolveCustomerSearch,
   memberMatchesSearch,
   resolveMemberSearch,
-  resolvedCustomerIds,
   resolvedMembershipIds,
 } from './search';
 
@@ -92,58 +90,5 @@ describe('resolveMemberSearch', () => {
     expect(
       resolvedMembershipIds({ kind: 'membershipIds', ids: [] })
     ).toHaveLength(1);
-  });
-});
-
-describe('resolveCustomerSearch', () => {
-  it('keeps non-numeric searches on the flat directory query path', async () => {
-    const supabase = {
-      from() {
-        throw new Error('The database should not be queried');
-      },
-    } as unknown as Parameters<typeof resolveCustomerSearch>[0];
-
-    await expect(resolveCustomerSearch(supabase, ' Priya ')).resolves.toEqual({
-      kind: 'contact',
-      term: 'Priya',
-    });
-  });
-
-  it('resolves numeric membership IDs and service-customer phones to contact IDs', async () => {
-    const supabase = {
-      from(table: string) {
-        expect(table).toBe('member_customer_directory');
-        return {
-          async select() {
-            return {
-              data: [
-                {
-                  contact_id: 'membership-contact',
-                  member_number: 1042,
-                  contact: { name: 'Aarav', phone: '+91 55555' },
-                },
-                {
-                  contact_id: 'service-contact',
-                  member_number: null,
-                  contact: { name: 'Priya', phone: '+91 10420' },
-                },
-              ],
-              error: null,
-            };
-          },
-        };
-      },
-    } as unknown as Parameters<typeof resolveCustomerSearch>[0];
-
-    await expect(resolveCustomerSearch(supabase, '042')).resolves.toEqual({
-      kind: 'customerIds',
-      ids: ['membership-contact', 'service-contact'],
-    });
-  });
-
-  it('uses a non-matching contact sentinel for an empty resolved set', () => {
-    expect(resolvedCustomerIds({ kind: 'customerIds', ids: [] })).toHaveLength(
-      1
-    );
   });
 });

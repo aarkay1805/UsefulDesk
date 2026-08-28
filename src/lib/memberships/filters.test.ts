@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   activeMemberFilterCount,
-  applyCustomerFilters,
   applyMemberFilters,
-  customerStatusOrClause,
   EMPTY_MEMBER_FILTERS,
   memberStatusOrClause,
 } from './filters';
@@ -31,20 +29,6 @@ describe('memberStatusOrClause', () => {
   it('ORs multiple selections', () => {
     expect(memberStatusOrClause(['frozen', 'trial'], TODAY)).toBe(
       'status.eq.frozen,is_trial.eq.true'
-    );
-  });
-});
-
-describe('customerStatusOrClause', () => {
-  it('targets service-only rows without membership predicates', () => {
-    expect(customerStatusOrClause(['service_customer'], TODAY)).toBe(
-      'customer_kind.eq.service'
-    );
-  });
-
-  it('keeps derived membership lifecycle semantics on flat view columns', () => {
-    expect(customerStatusOrClause(['active', 'expired'], TODAY)).toBe(
-      'and(customer_kind.eq.membership,membership_status.eq.active,membership_is_trial.eq.false,membership_end_date.gte.2026-07-11),and(customer_kind.eq.membership,membership_status.eq.active,membership_is_trial.eq.false,membership_end_date.lt.2026-07-11)'
     );
   });
 });
@@ -131,60 +115,6 @@ describe('applyMemberFilters', () => {
       TODAY
     );
     expect(q.calls).toEqual([]);
-  });
-});
-
-describe('applyCustomerFilters', () => {
-  function stub() {
-    const calls: [string, unknown][] = [];
-    const q = {
-      calls,
-      in(column: string, values: readonly string[]) {
-        calls.push(['in', { column, values }]);
-        return q;
-      },
-      eq(column: string, value: string | boolean) {
-        calls.push(['eq', { column, value }]);
-        return q;
-      },
-      gt(column: string, value: number) {
-        calls.push(['gt', { column, value }]);
-        return q;
-      },
-      or(filters: string) {
-        calls.push(['or', filters]);
-        return q;
-      },
-    };
-    return q;
-  }
-
-  it('leaves service customers visible when membership facets are empty', () => {
-    const q = stub();
-    applyCustomerFilters(q, EMPTY_MEMBER_FILTERS, TODAY);
-    expect(q.calls).toEqual([]);
-  });
-
-  it('applies flat directory fields and excludes service-only rows for membership facets', () => {
-    const q = stub();
-    applyCustomerFilters(
-      q,
-      {
-        plans: ['p1'],
-        feeStatus: ['due'],
-        statuses: [],
-        churnRisk: ['yes'],
-        followUps: ['open'],
-      },
-      TODAY
-    );
-    expect(q.calls).toEqual([
-      ['eq', { column: 'customer_kind', value: 'membership' }],
-      ['in', { column: 'plan_id', values: ['p1'] }],
-      ['in', { column: 'membership_fee_status', values: ['due'] }],
-      ['eq', { column: 'contact_churn_risk', value: true }],
-      ['gt', { column: 'open_follow_up_count', value: 0 }],
-    ]);
   });
 });
 
