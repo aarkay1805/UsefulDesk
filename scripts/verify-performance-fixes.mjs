@@ -26,6 +26,15 @@ function forbidText(source, forbidden, label) {
   }
 }
 
+function requireOccurrenceCount(source, token, expected, label) {
+  const measured = source.split(token).length - 1;
+  if (measured !== expected) {
+    fail(
+      `${label} contains ${measured} occurrences of ${JSON.stringify(token)}; expected ${expected}`
+    );
+  }
+}
+
 function requireOrder(source, first, second, label) {
   const firstIndex = source.indexOf(first);
   const secondIndex = source.indexOf(second);
@@ -156,6 +165,54 @@ function verifySource() {
     'measureDashboardStage',
     'dashboard action snapshot'
   );
+  requireText(
+    dashboardSnapshot,
+    'loadDashboardActionAttention',
+    'dashboard action snapshot'
+  );
+  forbidText(
+    dashboardSnapshot,
+    'loadOwnerAttention',
+    'dashboard action snapshot'
+  );
+
+  const actionAttention = read('src/lib/dashboard/action-attention.ts');
+  requireText(
+    actionAttention,
+    "db.rpc('dashboard_action_attention'",
+    'dashboard attention loader'
+  );
+  forbidText(
+    actionAttention,
+    'selected_branch_owner_report',
+    'dashboard attention loader'
+  );
+
+  const dashboardActions = read(
+    'src/components/dashboard/dashboard-actions.tsx'
+  );
+  requireOccurrenceCount(
+    dashboardActions,
+    'fetch(',
+    1,
+    'dashboard action browser boundary'
+  );
+  requireText(
+    dashboardActions,
+    "fetch('/api/dashboard/actions', { cache: 'no-store' })",
+    'dashboard action browser boundary'
+  );
+  for (const widget of [
+    'gym-metrics.tsx',
+    'follow-up-queue.tsx',
+    'expiring-memberships.tsx',
+    'uncontacted-leads.tsx',
+    'needs-attention-card.tsx',
+  ]) {
+    const source = read(`src/components/dashboard/${widget}`);
+    forbidText(source, 'fetch(', `dashboard widget ${widget}`);
+    forbidText(source, 'createClient(', `dashboard widget ${widget}`);
+  }
 
   const deferredInsights = read(
     'src/components/dashboard/deferred-dashboard-insights.tsx'

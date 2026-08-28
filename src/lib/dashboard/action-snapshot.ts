@@ -4,8 +4,10 @@ import { resolveAccountLocale } from '@/lib/locale/config';
 import { todayInTz } from '@/lib/locale/format';
 import { istAddDays } from '@/lib/memberships/expiry';
 import { loadGymStats, type GymStats } from '@/lib/memberships/stats';
-import { loadOwnerAttention } from '@/lib/reports/reporting';
-import type { OwnerAttention } from '@/lib/reports/types';
+import {
+  loadDashboardActionAttention,
+  type DashboardActionAttention,
+} from './action-attention';
 import {
   loadDashboardFollowUpSnapshot,
   type DashboardFollowUpSnapshot,
@@ -64,7 +66,7 @@ export interface DashboardActionSnapshot {
   followUps: DashboardFollowUpSnapshot | null;
   expiringMemberships: DashboardMembershipQueue | null;
   uncontactedLeads: DashboardUncontactedQueue | null;
-  attention: OwnerAttention | null;
+  attention: DashboardActionAttention | null;
   errors: DashboardActionSection[];
 }
 
@@ -320,8 +322,7 @@ export async function loadDashboardActionSection(
       case 'attention':
         snapshot.attention = await measureDashboardStage(
           'section.attention',
-          () =>
-            loadOwnerAttention(db, accountId, context.today, context.timeZone)
+          () => loadDashboardActionAttention(db, context.today)
         );
         break;
     }

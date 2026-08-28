@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({
   loadGymStats: vi.fn(),
   loadFollowUps: vi.fn(),
-  loadOwnerAttention: vi.fn(),
+  loadActionAttention: vi.fn(),
 }));
 
 vi.mock('@/lib/memberships/stats', () => ({
@@ -13,8 +13,8 @@ vi.mock('@/lib/memberships/stats', () => ({
 vi.mock('./follow-ups', () => ({
   loadDashboardFollowUpSnapshot: h.loadFollowUps,
 }));
-vi.mock('@/lib/reports/reporting', () => ({
-  loadOwnerAttention: h.loadOwnerAttention,
+vi.mock('./action-attention', () => ({
+  loadDashboardActionAttention: h.loadActionAttention,
 }));
 
 import {
@@ -137,7 +137,11 @@ describe('dashboard action snapshot', () => {
       rows: { all: [], lead: [], member: [] },
       staff: [],
     });
-    h.loadOwnerAttention.mockResolvedValue({ churnRisk: 3 });
+    h.loadActionAttention.mockResolvedValue({
+      churnRisk: 3,
+      trialFollowups: 2,
+      failedMandates: 1,
+    });
   });
 
   it('derives today from the selected branch timezone', async () => {
@@ -253,7 +257,11 @@ describe('dashboard action snapshot', () => {
     expect(snapshot.followUps).not.toBeNull();
     expect(snapshot.expiringMemberships).toBeNull();
     expect(snapshot.uncontactedLeads).toEqual({ rows: [], total: 0 });
-    expect(snapshot.attention).toEqual({ churnRisk: 3 });
+    expect(snapshot.attention).toEqual({
+      churnRisk: 3,
+      trialFollowups: 2,
+      failedMandates: 1,
+    });
     expect(snapshot.errors).toEqual(['expiringMemberships']);
     expect(errorSpy).toHaveBeenCalledOnce();
   });
@@ -282,5 +290,26 @@ describe('dashboard action snapshot', () => {
       'private query detail'
     );
     expect(errorSpy).toHaveBeenCalledOnce();
+  });
+
+  it('passes the selected branch day to the narrow attention aggregate', async () => {
+    const snapshot = await loadDashboardActionSection(
+      {} as SupabaseClient,
+      'account-1',
+      context,
+      'attention'
+    );
+
+    expect(h.loadActionAttention).toHaveBeenCalledOnce();
+    expect(h.loadActionAttention).toHaveBeenCalledWith(
+      expect.anything(),
+      context.today
+    );
+    expect(snapshot.attention).toEqual({
+      churnRisk: 3,
+      trialFollowups: 2,
+      failedMandates: 1,
+    });
+    expect(snapshot.errors).toEqual([]);
   });
 });

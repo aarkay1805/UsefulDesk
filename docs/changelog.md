@@ -6,6 +6,34 @@
 
 ---
 
+## Needs attention no longer computes a full owner report
+
+The dashboard attention section now reads exactly its three rendered counts
+through the RLS-invoker `dashboard_action_attention` aggregate instead of
+running the owner-only 30-day report and discarding its revenue, trend, visit,
+plan, source, and collection breakdowns. The database request count stays one,
+but its result contracts from the full report JSON to `churnRisk`,
+`trialFollowups`, and `failedMandates`; this is a static workload and transfer
+reduction, not a live latency claim. The aggregate accepts the server-resolved
+branch day, is executable only by `authenticated`, and keeps selected-branch
+table RLS authoritative, so viewers receive the same card instead of hitting
+the old owner-role failure. The server-hydrated browser path remains zero action
+requests initially and one private/no-store snapshot refresh—the already
+measured historical 14-to-1 consolidation is unchanged. Key code:
+`src/lib/dashboard/action-attention.ts` and migration
+`20260828120000_dashboard_action_attention.sql`. Gotcha: do not route this card
+back through `selected_branch_owner_report` or add account-id parameters that
+compete with the request-selected RLS context.
+
+The Supabase connector recorded the migration as `20260828102546` in UsefulDesk
+Razorpay Test and `20260828102714` in UsefulDesk Production. Both live functions
+are stable invokers with authenticated-only execution; an existing non-owner
+agent passed the real authenticated selected-branch call in each database, and
+the new function produced no security or performance advisor findings. Neither
+database currently has a literal viewer membership, so viewer eligibility is
+also locked by the static no-role-check, authenticated-grant, and underlying
+viewer-RLS contract tests.
+
 ## Dashboard and renewal content now reveal progressively
 
 The authenticated layout and Dashboard sections now share one React
