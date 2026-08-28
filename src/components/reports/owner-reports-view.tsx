@@ -93,6 +93,7 @@ export function OwnerReportsView({
     organizationId,
     isOrganizationOwner,
   } = useAuth();
+  const userId = user?.id ?? null;
   const mayExport = accountRole ? canExportFinance(accountRole) : false;
   const [reportScope, setReportScope] = useState<'branch' | 'organization'>(
     'branch'
@@ -100,26 +101,32 @@ export function OwnerReportsView({
   const { staff, loading: staffLoading } = useAccountStaff();
   const [staffUserId, setStaffUserId] = useState<string | null>(null);
   const cacheScope =
-    user?.id && accountId ? reportCacheScope(user.id, accountId) : null;
+    userId && accountId ? reportCacheScope(userId, accountId) : null;
   const cacheKey =
-    user?.id && accountId
-      ? reportCacheKey(
-          user.id,
-          accountId,
-          locale.timeZone,
-          month,
-          staffUserId
-        )
+    userId && accountId
+      ? reportCacheKey(userId, accountId, locale.timeZone, month, staffUserId)
       : null;
   const [, setCacheVersion] = useState(0);
+  const loadContextKey = reportScope === 'branch' ? cacheKey : null;
+  const [loadingContextKey, setLoadingContextKey] = useState(loadContextKey);
   const [loading, setLoading] = useState(
     () =>
       !cacheScope ||
       !cacheKey ||
-      !performanceReportCache.peek(cacheScope, cacheKey)
+      !performanceReportCache.peekFresh(cacheScope, cacheKey)
   );
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
+
+  if (loadingContextKey !== loadContextKey) {
+    setLoadingContextKey(loadContextKey);
+    setLoading(
+      loadContextKey !== null &&
+        (!cacheScope ||
+          !performanceReportCache.peekFresh(cacheScope, loadContextKey))
+    );
+    setError(null);
+  }
 
   const fetchReport = useCallback(
     (
@@ -127,12 +134,12 @@ export function OwnerReportsView({
       selectedStaffUserId: string | null,
       { force = false }: { force?: boolean } = {}
     ) => {
-      if (!user?.id || !accountId) return;
+      if (!userId || !accountId) return;
       const id = ++requestId.current;
       const dateRange = financeMonthRange(selectedMonth);
-      const selectedCacheScope = reportCacheScope(user.id, accountId);
+      const selectedCacheScope = reportCacheScope(userId, accountId);
       const selectedCacheKey = reportCacheKey(
-        user.id,
+        userId,
         accountId,
         locale.timeZone,
         selectedMonth,
@@ -172,23 +179,16 @@ export function OwnerReportsView({
           if (requestId.current === id) setLoading(false);
         });
     },
-    [accountId, locale.timeZone, user?.id]
+    [accountId, locale.timeZone, userId]
   );
 
   useEffect(() => {
-    if (!user?.id || !accountId || reportScope === 'organization') return;
+    if (!userId || !accountId || reportScope === 'organization') return;
     fetchReport(month, staffUserId);
     return () => {
       requestId.current += 1;
     };
-  }, [
-    accountId,
-    fetchReport,
-    month,
-    reportScope,
-    staffUserId,
-    user?.id,
-  ]);
+  }, [accountId, fetchReport, month, reportScope, staffUserId, userId]);
 
   const snapshot =
     cacheScope && cacheKey
@@ -200,12 +200,12 @@ export function OwnerReportsView({
 
   function handleMonthChange(nextMonth: string) {
     setLoading(
-      !user?.id ||
+      !userId ||
         !accountId ||
-        !performanceReportCache.peek(
-          reportCacheScope(user.id, accountId),
+        !performanceReportCache.peekFresh(
+          reportCacheScope(userId, accountId),
           reportCacheKey(
-            user.id,
+            userId,
             accountId,
             locale.timeZone,
             nextMonth,
@@ -221,12 +221,12 @@ export function OwnerReportsView({
     if (!value) return;
     const nextStaffUserId = value === ALL_STAFF ? null : value;
     setLoading(
-      !user?.id ||
+      !userId ||
         !accountId ||
-        !performanceReportCache.peek(
-          reportCacheScope(user.id, accountId),
+        !performanceReportCache.peekFresh(
+          reportCacheScope(userId, accountId),
           reportCacheKey(
-            user.id,
+            userId,
             accountId,
             locale.timeZone,
             month,

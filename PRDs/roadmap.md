@@ -8,6 +8,23 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P2-8 gives Finance -> Performance one bounded
+browser-memory cache across component remounts. Exact completed and pending
+keys include the authenticated user, selected account/branch, timezone, month,
+and staff scope; changing user/account clears the cache, explicit Retry always
+bypasses it, stale callbacks remain sequence-guarded, and 12-entry LRU eviction
+prevents unbounded growth. Because Performance has no Realtime invalidation,
+completed entries are fresh for a conservative 30 seconds: a fresh revisit
+paints immediately without a request or loading skeleton, while an expired
+revisit refreshes once through the existing UI. Deterministic request counts
+moved completed remount from 2 to 1 total calls, Strict Mode first load from 2
+to 1, and rapid A->B->A from 4 to 2; an authenticated browser trace confirmed
+one cold snapshot POST, zero fresh-revisit POSTs, and one post-TTL POST. Report
+output, staff/date/timezone behavior, selected-branch RLS, the snapshot RPC,
+database, and compute are unchanged. No further request-lifecycle residual is
+evidenced; the one legitimate snapshot remains roughly 624–636 ms warm and
+cache-resident/CPU-bound.**
+
 Engineering maintenance: **P2-7 replaces the Members page's single broad
 Realtime reload nonce with per-listing dependency tokens. One selected-account
 channel and the existing 400 ms trailing debounce now accumulate changes from
@@ -22,8 +39,8 @@ flush, immediate write refresh, selected-account rejection, primary-key-only
 deletes, one channel, and cleanup. URL/history, branch-aware RLS reads,
 readiness/provider fetches, loading/error/stale-response behavior, permissions,
 and UI are unchanged; no database, publication, RLS, cache, or compute change
-was required. The next evidenced residual is the Performance report cache that
-retains display data but still refetches a previously loaded key.**
+was required. Its next evidenced residual was the Performance report cache,
+closed by P2-8 above.**
 
 Engineering maintenance: **P2-6 makes the Members `view` search param the
 render-time listing source of truth. Attendance, Payments, Follow-ups, All

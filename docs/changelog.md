@@ -83,6 +83,32 @@ whole payload. Filled slots are marked by weight alone now — muting the
 literal text to make the samples pop inverted the emphasis, and a message
 being judged has to read at full contrast.
 
+## Performance report reuses an exact fresh snapshot
+
+P2-8 moves Finance -> Performance's completed and in-flight snapshot cache out
+of the component lifecycle. The previous object retained month/staff results
+only while `OwnerReportsView` stayed mounted, so leaving the tab and returning
+to the same branch/month/staff key repeated the roughly 624–636 ms warm
+`selected_branch_performance_snapshot` work; React Strict Mode also started the
+same empty-key request twice. The browser-memory cache in
+`src/components/reports/owner-reports-cache.ts` now keys on authenticated user,
+selected account/branch, timezone, month, and staff, joins one exact pending
+promise, and keeps at most 12 least-recently-used entries.
+
+Fresh completed entries live for 30 seconds because Performance has no
+Realtime invalidation (`FINANCE_REALTIME_TABLES.performance` is empty).
+Revisiting within that window makes no request and paints the cached report
+without a loading skeleton; an expired remount uses the existing loading UI
+and refreshes once. Retry always forces a new request. Changing user/account
+clears completed and pending entries before new work starts, and stale
+component callbacks remain request-sequence guarded. Deterministic lifecycle
+counts moved completed remount from 2 to 1 total requests, Strict Mode first
+load from 2 to 1, and rapid A->B->A from 4 to 2; an authenticated browser trace
+confirmed one cold POST, zero fresh-revisit POSTs, and one post-TTL POST. Report
+normalization, output, RLS, the snapshot RPC, and database/compute are
+unchanged. No further request-lifecycle residual is evidenced; the remaining
+measured cost is the one legitimate cache-resident/CPU-bound snapshot load.
+
 ## Member Realtime refreshes only dependent listings
 
 P2-7 replaces the Members page's single broad reload nonce with per-listing
@@ -120,8 +146,7 @@ rejection, DELETE delivery, immediate write refresh, one subscription, sheet
 isolation, and final cleanup covered. Key code:
 `src/app/(dashboard)/members/page.tsx` and
 `src/app/(dashboard)/members/page.lifecycle.test.tsx`. The next evidenced
-residual is the Performance report cache that retains display data but still
-refetches a previously loaded key.
+residual was the Performance report cache, closed by the P2-8 entry above.
 
 ## Member Attendance loads one bounded roster snapshot
 

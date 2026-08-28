@@ -66,7 +66,7 @@ export class PerformanceReportCache {
   constructor({
     ttlMs = PERFORMANCE_REPORT_CACHE_TTL_MS,
     maxEntries = PERFORMANCE_REPORT_CACHE_MAX_ENTRIES,
-    now = Date.now,
+    now = () => Date.now(),
   }: PerformanceReportCacheOptions = {}) {
     if (ttlMs < 0) throw new Error('Report cache TTL must not be negative.');
     if (!Number.isInteger(maxEntries) || maxEntries < 1) {
@@ -79,9 +79,13 @@ export class PerformanceReportCache {
 
   peek(scope: string, key: string): PerformanceSnapshot | null {
     if (scope !== this.activeScope) return null;
+    return this.completed.get(key)?.snapshot ?? null;
+  }
+
+  peekFresh(scope: string, key: string): PerformanceSnapshot | null {
+    if (scope !== this.activeScope) return null;
     const entry = this.completed.get(key);
-    if (!entry || entry.expiresAt <= this.now()) return null;
-    return entry.snapshot;
+    return entry && entry.expiresAt > this.now() ? entry.snapshot : null;
   }
 
   load(
@@ -112,6 +116,7 @@ export class PerformanceReportCache {
       .then((snapshot) => {
         const pending = this.inFlight.get(key);
         if (this.activeScope === scope && pending?.token === token) {
+          this.inFlight.delete(key);
           this.completed.delete(key);
           this.completed.set(key, {
             snapshot,
@@ -167,15 +172,13 @@ export class PerformanceReportCache {
   private trimToBound(): void {
     while (this.completed.size + this.inFlight.size > this.maxEntries) {
       const completedKey = this.completed.keys().next().value as
-        | string
-        | undefined;
+        string | undefined;
       if (completedKey !== undefined) {
         this.completed.delete(completedKey);
         continue;
       }
       const pendingKey = this.inFlight.keys().next().value as
-        | string
-        | undefined;
+        string | undefined;
       if (pendingKey === undefined) return;
       this.inFlight.delete(pendingKey);
     }
