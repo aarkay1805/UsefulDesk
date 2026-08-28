@@ -9,7 +9,9 @@ import {
   financeMonthRange,
   financeOverviewCsv,
   financeYearOptions,
+  loadFinanceOverview,
   normalizeFinanceAdPerformance,
+  normalizeFinanceOverviewSnapshot,
   shiftFinanceMonth,
   summarizeFinanceCashFlow,
   summarizeFinanceExpenses,
@@ -176,6 +178,156 @@ describe('Finance revenue attribution', () => {
       { purpose: 'due', payments: 0, amount: 0, recentPayments: [] },
       { purpose: 'other', payments: 0, amount: 0, recentPayments: [] },
     ]);
+  });
+});
+
+describe('Finance Overview snapshot loading', () => {
+  const snapshot = {
+    period: {
+      month: '2026-08',
+      start: '2026-08-01',
+      end: '2026-08-31',
+      nextStart: '2026-09-01',
+      previousStart: '2026-07-01',
+      previousEnd: '2026-07-31',
+    },
+    revenue: {
+      current: '4200',
+      previous: '3000',
+      grossCurrent: '4500',
+      grossPrevious: '3000',
+      refundsCurrent: '300',
+      refundsPrevious: '0',
+    },
+    expenses: { current: '1000', previous: '800' },
+    profit: { current: '3200', previous: '2200' },
+    projection: { amount: '5000', renewals: 2 },
+    revenueBreakdown: {
+      joining: '2000',
+      renewal: '1500',
+      sale: '500',
+      due: '200',
+      other: '0',
+    },
+    revenueStreams: [
+      {
+        purpose: 'joining',
+        payments: 1,
+        amount: '2000',
+        recentPayments: [
+          {
+            id: 'payment-1',
+            membershipId: 'membership-1',
+            memberNumber: '1001',
+            contactName: 'Aarav Shah',
+            contactAvatarUrl: null,
+            planName: 'Gold',
+            paidAt: '2026-08-20T10:00:00Z',
+            membershipStartDate: '2026-08-01',
+            periodEnd: '2026-09-01',
+            method: 'upi',
+            source: 'manual',
+            amount: '2000',
+          },
+        ],
+      },
+    ],
+    trend: [{ date: '2026-08-01', income: '2000', expenses: '1000' }],
+    previousTrend: [
+      { date: '2026-07-01', income: '3000', expenses: '800' },
+    ],
+    comparisonThroughDay: '28',
+    invoiceHealth: {
+      paid: 1,
+      partiallyPaid: 2,
+      overdue: 3,
+      open: 4,
+      outstanding: '2500',
+      refundReview: 1,
+    },
+    collectionMethods: [{ method: 'upi', payments: 2, amount: '4200' }],
+    recentTransactions: [
+      {
+        id: 'payment-1',
+        occurredAt: '2026-08-20T10:00:00Z',
+        description: 'Aarav Shah',
+        kind: 'membership',
+        method: 'upi',
+        amount: '2000',
+        paymentPurpose: 'joining',
+      },
+      {
+        id: 'expense-1',
+        occurredAt: '2026-08-18',
+        description: 'Rent',
+        kind: 'expense',
+        method: 'bank_other',
+        amount: '1000',
+      },
+    ],
+  };
+
+  it('normalizes the compact RPC shape without losing member detail fields', () => {
+    const normalized = normalizeFinanceOverviewSnapshot(snapshot);
+
+    expect(normalized.revenue).toEqual({
+      current: 4200,
+      previous: 3000,
+      grossCurrent: 4500,
+      grossPrevious: 3000,
+      refundsCurrent: 300,
+      refundsPrevious: 0,
+    });
+    expect(normalized.revenueStreams[0].recentPayments[0]).toEqual({
+      id: 'payment-1',
+      membershipId: 'membership-1',
+      memberNumber: 1001,
+      contactName: 'Aarav Shah',
+      contactAvatarUrl: null,
+      planName: 'Gold',
+      paidAt: '2026-08-20T10:00:00Z',
+      membershipStartDate: '2026-08-01',
+      periodEnd: '2026-09-01',
+      method: 'upi',
+      source: 'manual',
+      amount: 2000,
+    });
+    expect(normalized.recentTransactions[1]).not.toHaveProperty(
+      'paymentPurpose'
+    );
+    expect(normalized.comparisonThroughDay).toBe(28);
+  });
+
+  it('loads the complete overview through one tenant-scoped RPC', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: snapshot, error: null });
+    const db = { rpc } as unknown as SupabaseClient;
+
+    await expect(
+      loadFinanceOverview(
+        db,
+        'account-1',
+        '2026-08',
+        'Asia/Kolkata',
+        '2026-08-28'
+      )
+    ).resolves.toMatchObject({
+      period: { month: '2026-08' },
+      revenue: { current: 4200 },
+      projection: { amount: 5000, renewals: 2 },
+    });
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith('finance_overview_snapshot', {
+      p_account_id: 'account-1',
+      p_month_start: '2026-08-01',
+      p_time_zone: 'Asia/Kolkata',
+      p_today: '2026-08-28',
+    });
+  });
+
+  it('rejects a missing database response instead of fabricating an empty view', () => {
+    expect(() => normalizeFinanceOverviewSnapshot(null)).toThrow(
+      'Finance overview returned an invalid response'
+    );
   });
 });
 

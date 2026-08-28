@@ -5,6 +5,7 @@ import { istAddDays } from '@/lib/memberships/expiry';
 import type {
   Contact,
   Expense,
+  Membership,
   MembershipPlan,
   Payment,
   PaymentMethod,
