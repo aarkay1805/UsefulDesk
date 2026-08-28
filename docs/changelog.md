@@ -29,6 +29,48 @@ seven to one. The equivalent staff-filter path improved from 612.745 ms /
 used only when PostgREST reports the new RPC missing during rollout; P1-5 is the
 separate Leads request/count/client-sort fan-out.
 
+## Blocked-action explanations read as alerts
+
+`ResolvableAction` (`src/components/ui/resolvable-action.tsx`) presented its
+blocker as a generic panel: title, muted reason, and a filled primary button
+in a right-aligned footer row, which read as a dialog asking for a decision
+rather than a notice explaining why an action could not run. It now composes
+the house alert grammar from `ui/alert.tsx` — a `TriangleAlert` in
+`text-amber-foreground` in its own column, title and reason beside it, and the
+resolution left-aligned under the copy as an `outline` `size="sm"` button, the
+same treatment `AccountAccessAlert` and the settings cards use. The panel also
+grows a tail through the new opt-in `PopoverArrow` (`ui/popover.tsx`), so the
+explanation visibly belongs to the control it blocks and continues the arrow
+the hover tooltip already draws.
+
+Nothing about the component's behavior, API, blocker priority, or
+authorization changed; all 19 existing tests pass untouched. Gotchas: the tail
+carries the panel's fill so the half tucked under the popup leaves no seam,
+and it needs the panel's hairline to be seen at all — `bg-popover` differs
+from the canvas by a few steps, so the first unedged version was invisible on
+dark. It cannot take a full ring without drawing a line across the panel, so
+`rotate-45` is exploited instead: the square's top/left edges become the
+tail's upper pair and its bottom/right edges the lower pair, and each resolved
+side borders only the two facing away from the panel, continuing the ring
+around the tip. A tooltip's tail needs none of this — it is a solid dark chip
+on any background, which is also why its geometry does not transfer: its
+`translate-y-[calc(-50%-2px)]` tuck parks the tail's centre 2 px inside the
+panel, so an edged tail's hairlines start inside the panel and cross the
+border line. Base UI positions only the cross axis (inline `left` on a
+vertical side, `top` on a horizontal one); pinning the static side to 0 and
+pulling back half the square puts the centre exactly on the edge, so the open
+base lands on the border line. The tail is a 14 px square — 19.8 × 9.9 visible,
+the conventional caret — and that reach exceeds `PopoverContent`'s default 4 px
+gap, so `POPOVER_ARROW_SIDE_OFFSET` (12) ships beside it and every tailed
+popover must pass it as `sideOffset` or the tip stabs into its own anchor.
+`PopoverArrow` is opt-in and no other popover renders one. The panel is also the one popover framed at 16px rather than the master's 10px — it is read, not picked from — which narrows the reason's measure to 230px without changing how any blocker wraps; `w-72` stays because a test pins the popover narrower than a 320px viewport. Width stays `w-72` because a test
+pins the popover narrower than a 320 px viewport. Verified in the browser at
+desktop and phone widths in both modes: title 18.0:1 / 17.8:1, reason 5.8:1 /
+5.5:1, glyph 12.3:1 / 5.7:1, and the glyph optically centred on the title's
+first line. `/preview/resolvable-action` is the dev-only harness (the pattern
+of `/preview/message-failure`) covering link, callback, and no-resolution
+blockers, a wrapping reason, and every anchor side.
+
 ## Member listings cache selected-account RLS access
 
 The All-members dependency path now resolves the request header, authenticated

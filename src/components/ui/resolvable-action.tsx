@@ -3,12 +3,15 @@
 import * as React from 'react';
 import Link from 'next/link';
 import type { PopoverRootChangeEventDetails } from '@base-ui/react/popover';
+import { TriangleAlert } from 'lucide-react';
 
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
+  POPOVER_ARROW_SIDE_OFFSET,
   Popover,
+  PopoverArrow,
   PopoverContent,
   PopoverDescription,
   PopoverHeader,
@@ -227,27 +230,51 @@ export function ResolvableAction({
         />
         <TooltipContent>{activeBlocker.title}</TooltipContent>
       </Tooltip>
-      <PopoverContent side={side} align={align}>
-        <PopoverHeader>
-          <PopoverTitle>{activeBlocker.title}</PopoverTitle>
-          <PopoverDescription>{activeBlocker.description}</PopoverDescription>
-        </PopoverHeader>
-        {resolution ? (
-          <div className="flex justify-end">
-            {resolutionHref ? (
-              <Button
-                nativeButton={false}
-                render={<Link href={resolutionHref} />}
-                loading={isPending(resolutionHref)}
-                onClick={() => startNavigation(resolutionHref)}
-              >
-                {resolution.label}
-              </Button>
-            ) : (
-              <Button onClick={resolveInline}>{resolution.label}</Button>
-            )}
-          </div>
-        ) : null}
+      <PopoverContent
+        side={side}
+        align={align}
+        sideOffset={POPOVER_ARROW_SIDE_OFFSET}
+        // The one popover framed at 16px rather than the master's 10px: this
+        // panel is read, not picked from, so its message gets a card's frame.
+        className="p-4"
+      >
+        {/* The house alert grammar (`ui/alert.tsx`): warning glyph in its own
+         * column, message beside it, resolution left-aligned under the copy.
+         * Composed rather than nesting an `Alert`, whose card and `role=alert`
+         * would box a panel inside a panel and re-announce the popup. */}
+        <div className="grid grid-cols-[auto_1fr] gap-x-2.5">
+          <TriangleAlert
+            aria-hidden="true"
+            className="text-amber-foreground size-4 shrink-0 translate-y-0.5"
+          />
+          <PopoverHeader>
+            <PopoverTitle>{activeBlocker.title}</PopoverTitle>
+            <PopoverDescription className="text-pretty">
+              {activeBlocker.description}
+            </PopoverDescription>
+          </PopoverHeader>
+          {resolution ? (
+            <div className="col-start-2 mt-2.5">
+              {resolutionHref ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href={resolutionHref} />}
+                  loading={isPending(resolutionHref)}
+                  onClick={() => startNavigation(resolutionHref)}
+                >
+                  {resolution.label}
+                </Button>
+              ) : (
+                <Button variant="outline" size="sm" onClick={resolveInline}>
+                  {resolution.label}
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </div>
+        <PopoverArrow />
       </PopoverContent>
     </Popover>
   );
