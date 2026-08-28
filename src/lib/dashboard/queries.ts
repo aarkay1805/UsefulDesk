@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { daysAgoStart, DOW_SHORT_MON_FIRST, mondayIndex } from './date-utils';
-import { dayStartInTz, todayInTz } from '@/lib/locale/format';
+import { dayStartInTz } from '@/lib/locale/format';
 import {
   humaniseKey,
   optionLabel,
@@ -21,8 +21,8 @@ import type {
 // Shared dashboard aggregation. Initial insights and range changes run behind
 // the dashboard API, whose SSR Supabase client remains RLS-scoped to the
 // signed-in branch, so we never pass user_id explicitly. The browser receives
-// only the bounded result shapes; if server-side history scans outgrow current
-// tenant scale, the next step is to migrate those aggregations to SQL RPCs.
+// only bounded result shapes. High-volume conversation and lead-rating history
+// is aggregated under the same selected-branch RLS context by SQL RPCs.
 // ------------------------------------------------------------
 
 type DB = SupabaseClient;
@@ -35,36 +35,23 @@ export async function loadConversationsSeries(
   timeZone: string,
   today: string
 ): Promise<ConversationsSeriesPoint[]> {
-  const firstDay = shiftDate(today, -(rangeDays - 1));
-  const start = dayStartInTz(firstDay, timeZone);
-  if (!start) throw new Error('Could not resolve conversation insight dates');
-  const { data, error } = await db
-    .from('messages')
-    .select('created_at, sender_type')
-    .gte('created_at', start.toISOString())
-    .order('created_at', { ascending: true });
+  const { data, error } = await db.rpc('dashboard_conversation_series', {
+    p_range_days: rangeDays,
+    p_time_zone: timeZone,
+    p_today: today,
+  });
   if (error) throw error;
 
-  const keys = Array.from({ length: rangeDays }, (_, index) =>
-    shiftDate(firstDay, index)
-  );
-  const buckets = new Map<string, { incoming: number; outgoing: number }>();
-  for (const k of keys) buckets.set(k, { incoming: 0, outgoing: 0 });
-
-  for (const row of (data ?? []) as {
-    created_at: string;
-    sender_type: string;
-  }[]) {
-    const key = todayInTz(timeZone, new Date(row.created_at));
-    const bucket = buckets.get(key);
-    if (!bucket) continue;
-    if (row.sender_type === 'customer') bucket.incoming += 1;
-    else bucket.outgoing += 1; // agent + bot both count as outgoing
-  }
-
-  return keys.map((day) => ({
-    day,
-    ...(buckets.get(day) ?? { incoming: 0, outgoing: 0 }),
+  return (
+    (data ?? []) as Array<{
+      day: string;
+      incoming: number | string;
+      outgoing: number | string;
+    }>
+  ).map((row) => ({
+    day: row.day,
+    incoming: Number(row.incoming),
+    outgoing: Number(row.outgoing),
   }));
 }
 
@@ -415,10 +402,4 @@ export async function loadActivity(
   return items
     .sort((a, b) => (a.at > b.at ? -1 : a.at < b.at ? 1 : 0))
     .slice(0, limit);
-}
-
-function shiftDate(day: string, days: number): string {
-  const date = new Date(`${day}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }

@@ -1,4 +1,5 @@
 import { DashboardInsights } from '@/components/dashboard/dashboard-insights';
+import { DashboardActionsProvider } from '@/components/dashboard/dashboard-actions';
 import { DashboardSection } from '@/components/dashboard/dashboard-section';
 import { ExpiringMemberships } from '@/components/dashboard/expiring-memberships';
 import { FollowUpQueue } from '@/components/dashboard/follow-up-queue';
@@ -18,25 +19,27 @@ import { UncontactedLeads } from '@/components/dashboard/uncontacted-leads';
 // no queue owns.
 export default function DashboardPage() {
   return (
-    <div className="space-y-8">
-      <GymMetrics />
+    <DashboardActionsProvider>
+      <div className="space-y-8">
+        <GymMetrics />
 
-      <DashboardSection id="quick-actions" title="Quick actions">
-        <QuickActions />
-      </DashboardSection>
+        <DashboardSection id="quick-actions" title="Quick actions">
+          <QuickActions />
+        </DashboardSection>
 
-      <FollowUpQueue />
+        <FollowUpQueue />
 
-      {/* Two peer sections sharing a row — each keeps its own heading and card
+        {/* Two peer sections sharing a row — each keeps its own heading and card
           rather than being clubbed under a wrapper heading. */}
-      <div className="grid grid-cols-1 gap-x-4 gap-y-8 lg:grid-cols-2">
-        <ExpiringMemberships />
-        <UncontactedLeads />
+        <div className="grid grid-cols-1 gap-x-4 gap-y-8 lg:grid-cols-2">
+          <ExpiringMemberships />
+          <UncontactedLeads />
+        </div>
+
+        <NeedsAttentionCard />
+
+        <DashboardInsights />
       </div>
-
-      <NeedsAttentionCard />
-
-      <DashboardInsights />
-    </div>
+    </DashboardActionsProvider>
   );
 }

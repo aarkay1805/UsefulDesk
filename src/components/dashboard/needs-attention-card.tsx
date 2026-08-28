@@ -1,7 +1,7 @@
 'use client';
 
 import { BranchLink as Link } from '@/components/layout/branch-link';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment } from 'react';
 import {
   AlertCircle,
   ChevronRight,
@@ -11,16 +11,13 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
-import { loadOwnerAttention } from '@/lib/reports/reporting';
-import type { OwnerAttention } from '@/lib/reports/types';
-import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { DashboardSection } from './dashboard-section';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
+import { useDashboardActions } from './dashboard-actions';
 
 /**
  * The rule between two peers on the one-row layout. Stacked below `sm` the
@@ -47,32 +44,11 @@ interface AttentionItem {
  * so repeating them made the page state the same work twice.
  */
 export function NeedsAttentionCard() {
-  const { accountId } = useAuth();
-  const { fmt, locale } = useLocale();
-  const [attention, setAttention] = useState<OwnerAttention | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    if (!accountId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const next = await loadOwnerAttention(
-          createClient(),
-          accountId,
-          fmt.today(),
-          locale.timeZone
-        );
-        if (!cancelled) setAttention(next);
-      } catch (error) {
-        console.error('[dashboard] attention queue failed:', error);
-        if (!cancelled) setFailed(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [accountId, fmt, locale.timeZone]);
+  const { fmt } = useLocale();
+  const { snapshot, failed } = useDashboardActions();
+  const attention = snapshot?.attention ?? null;
+  const sectionFailed =
+    failed || snapshot?.errors.includes('attention') === true;
 
   const items: AttentionItem[] = attention
     ? [
@@ -107,7 +83,7 @@ export function NeedsAttentionCard() {
             dividers are real grid items rather than borders hung off each
             block's edge. */}
         <CardContent className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)_auto_minmax(0,1fr)]">
-          {failed ? (
+          {sectionFailed ? (
             <EmptyState
               icon={AlertCircle}
               title="Could not load these lists"

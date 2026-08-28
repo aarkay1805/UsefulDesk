@@ -1,13 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { CalendarClock } from 'lucide-react';
+import { AlertCircle, CalendarClock } from 'lucide-react';
 
 import { BranchLink as Link } from '@/components/layout/branch-link';
-import { createClient } from '@/lib/supabase/client';
-import { daysBetween, istAddDays } from '@/lib/memberships/expiry';
-import { isRenewalChaseable } from '@/lib/memberships/pricing';
-import { useLocale } from '@/hooks/use-locale';
+import { daysBetween } from '@/lib/memberships/expiry';
+import { DASHBOARD_RENEWAL_WINDOW_DAYS } from '@/lib/dashboard/action-snapshot';
 import { MemberIdentity } from '@/components/members/member-identity';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
@@ -19,6 +16,8 @@ import {
   QueueSkeleton,
 } from './action-queue';
 import { DashboardSection } from './dashboard-section';
+import { EmptyState } from './empty-state';
+import { useDashboardActions } from './dashboard-actions';
 
 /**
  * Memberships ending inside the renewal window that nobody has scheduled work
@@ -30,50 +29,14 @@ import { DashboardSection } from './dashboard-section';
  * is why this heading names the memberships rather than repeating that label.
  */
 
-const LIST_LIMIT = 8;
-const RENEWAL_WINDOW_DAYS = 7;
-
-interface DashboardMembership {
-  id: string;
-  end_date: string;
-  contact: {
-    name: string | null;
-    phone: string | null;
-    avatar_url: string | null;
-  } | null;
-  plan: { name: string | null; plan_type: string | null } | null;
-}
-
 export function ExpiringMemberships() {
-  const { fmt } = useLocale();
-  const [expiring, setExpiring] = useState<DashboardMembership[] | null>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-    (async () => {
-      const today = fmt.today();
-      const result = await supabase
-        .from('memberships')
-        .select(
-          'id, end_date, contact:contacts(name, phone, avatar_url), plan:membership_plans(name, plan_type)'
-        )
-        .eq('is_trial', false)
-        .eq('status', 'active')
-        .gte('end_date', today)
-        .lte('end_date', istAddDays(today, RENEWAL_WINDOW_DAYS))
-        .order('end_date', { ascending: true });
-      if (cancelled) return;
-      const rows = (result.data as DashboardMembership[] | null) ?? [];
-      setExpiring(rows.filter((row) => isRenewalChaseable(row.plan)));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fmt]);
-
-  const total = expiring?.length ?? 0;
-  const shown = Math.min(total, LIST_LIMIT);
+  const { snapshot, failed } = useDashboardActions();
+  const queue = snapshot?.expiringMemberships ?? null;
+  const sectionFailed =
+    failed || snapshot?.errors.includes('expiringMemberships') === true;
+  const expiring = queue?.rows ?? null;
+  const total = queue?.total ?? 0;
+  const shown = expiring?.length ?? 0;
 
   return (
     <DashboardSection
@@ -95,17 +58,27 @@ export function ExpiringMemberships() {
     >
       <Card className="flex-1">
         <CardContent>
-          {expiring === null ? (
+          {sectionFailed ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="Could not load expiring memberships"
+              hint="Reload the page to try again."
+              className="min-h-32"
+            />
+          ) : expiring === null ? (
             <QueueSkeleton rowClassName="h-11" />
           ) : expiring.length === 0 ? (
             <QueueEmpty
               icon={CalendarClock}
-              text={`No memberships expiring in the next ${RENEWAL_WINDOW_DAYS} days.`}
+              text={`No memberships expiring in the next ${DASHBOARD_RENEWAL_WINDOW_DAYS} days.`}
             />
           ) : (
             <ul className={`${QUEUE_LIST} -my-2`}>
-              {expiring.slice(0, LIST_LIMIT).map((membership) => {
-                const days = daysBetween(fmt.today(), membership.end_date);
+              {expiring.map((membership) => {
+                const days = daysBetween(
+                  snapshot?.today ?? '',
+                  membership.end_date
+                );
                 return (
                   <li
                     key={membership.id}

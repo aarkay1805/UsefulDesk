@@ -1,13 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { BranchLink as Link } from '@/components/layout/branch-link';
-import { CalendarClock, IndianRupee, UserRoundX, Wallet } from 'lucide-react';
+import {
+  AlertCircle,
+  CalendarClock,
+  IndianRupee,
+  UserRoundX,
+  Wallet,
+} from 'lucide-react';
 
-import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
-import { loadGymStats, type GymStats } from '@/lib/memberships/stats';
+import type { GymStats } from '@/lib/memberships/stats';
+import { useDashboardActions } from '@/components/dashboard/dashboard-actions';
 import { DashboardSection } from '@/components/dashboard/dashboard-section';
+import { EmptyState } from '@/components/dashboard/empty-state';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { AnimatedNumber } from '@/components/ui/animated-number';
 import { buttonVariants } from '@/components/ui/button';
@@ -19,27 +25,12 @@ import { SkeletonCard } from '@/components/dashboard/skeleton';
  * and understand today's collections against a recent daily benchmark.
  */
 export function GymMetrics() {
-  const { locale, fmt } = useLocale();
-  const [stats, setStats] = useState<GymStats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const db = createClient();
-    let cancelled = false;
-    (async () => {
-      try {
-        const s = await loadGymStats(db, fmt.today(), locale.timeZone);
-        if (!cancelled) setStats(s);
-      } catch (err) {
-        console.error('[dashboard] gym stats failed:', err);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [fmt, locale.timeZone]);
+  const { fmt } = useLocale();
+  const { snapshot, failed } = useDashboardActions();
+  const stats = snapshot?.gymMetrics ?? null;
+  const sectionFailed =
+    failed || snapshot?.errors.includes('gymMetrics') === true;
+  const loading = snapshot === null && !failed;
 
   return (
     <DashboardSection
@@ -55,7 +46,14 @@ export function GymMetrics() {
         </Link>
       }
     >
-      {loading || !stats ? (
+      {sectionFailed ? (
+        <EmptyState
+          icon={AlertCircle}
+          title="Could not load today's numbers"
+          hint="Reload the page to try again."
+          className="min-h-32"
+        />
+      ) : loading || !stats ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <SkeletonCard key={i} />

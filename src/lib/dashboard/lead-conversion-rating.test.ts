@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   ALL_LEADS_RATING_KEY,
+  aggregateLeadSourceRatingInputs,
   aggregateLeadSourceRatings,
   LEAD_RATING_TARGETS,
+  loadLeadSourceRatings,
+  type LeadRatingAggregateRow,
   type LeadRatingRows,
 } from './lead-conversion-rating';
 
@@ -287,5 +291,125 @@ describe('lead conversion rating', () => {
     const followUp = source.metrics.find((metric) => metric.key === 'followUp');
 
     expect(followUp).toMatchObject({ successes: 0, sample: 1, actual: 0 });
+  });
+
+  it('formats SQL aggregate inputs with the existing weights and labels', () => {
+    const rows: LeadRatingAggregateRow[] = [
+      {
+        source: 'instagram',
+        cohort_size: '2',
+        member_conversion_successes: 1,
+        trial_booking_successes: '1',
+        human_response_successes: 1,
+        human_response_sample: '2',
+        follow_up_successes: 1,
+        follow_up_sample: 2,
+        positive_outcome_successes: '1',
+        positive_outcome_sample: 1,
+      },
+    ];
+
+    const result = aggregateLeadSourceRatingInputs(
+      rows,
+      30,
+      period,
+      new Map([['instagram', 'Instagram ads']])
+    );
+
+    expect(result.sources[0].label).toBe('Instagram ads');
+    expect(result.sources[0].metrics.map((metric) => metric.actual)).toEqual([
+      50, 50, 50, 50, 100,
+    ]);
+    expect(result.sources[0].rating).toBeCloseTo(86.67, 2);
+    expect(result.allLeads).toMatchObject({
+      key: ALL_LEADS_RATING_KEY,
+      cohortSize: 2,
+      rating: result.sources[0].rating,
+    });
+  });
+
+  it('preserves the empty-cohort unavailable state for SQL inputs', () => {
+    const result = aggregateLeadSourceRatingInputs([], 7, {
+      start: '2026-07-24',
+      end: '2026-07-30',
+    });
+
+    expect(result.sources).toEqual([]);
+    expect(result.totalCohort).toBe(0);
+    expect(result.allLeads).toMatchObject({
+      cohortSize: 0,
+      rating: null,
+      confidence: 'insufficient',
+    });
+    expect(result.allLeads.metrics.every((metric) => metric.sample === 0)).toBe(
+      true
+    );
+  });
+
+  it('loads rating inputs through one RPC without raw-history pagination', async () => {
+    const aggregateRows: LeadRatingAggregateRow[] = [
+      {
+        source: 'walk_in',
+        cohort_size: 1,
+        member_conversion_successes: 0,
+        trial_booking_successes: 0,
+        human_response_successes: 0,
+        human_response_sample: 0,
+        follow_up_successes: 0,
+        follow_up_sample: 0,
+        positive_outcome_successes: 0,
+        positive_outcome_sample: 0,
+      },
+    ];
+    const rpc = vi.fn(async () => ({ data: aggregateRows, error: null }));
+    const sourceBuilder = {
+      select: vi.fn(() => sourceBuilder),
+      eq: vi.fn(() => sourceBuilder),
+      order: vi.fn(async () => ({
+        data: [{ key: 'walk_in', label: 'Walk-in' }],
+        error: null,
+      })),
+    };
+    const from = vi.fn(() => sourceBuilder);
+    const db = { rpc, from } as unknown as SupabaseClient;
+
+    const result = await loadLeadSourceRatings(
+      db,
+      90,
+      'Asia/Kolkata',
+      '2026-08-27'
+    );
+
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledWith('dashboard_lead_rating_inputs', {
+      p_range_days: 90,
+      p_time_zone: 'Asia/Kolkata',
+      p_today: '2026-08-27',
+    });
+    expect(from).toHaveBeenCalledOnce();
+    expect(from).toHaveBeenCalledWith('lead_field_options');
+    expect(result).toMatchObject({
+      rangeDays: 90,
+      period: { start: '2026-05-30', end: '2026-08-27' },
+      totalCohort: 1,
+      sources: [{ key: 'walk_in', label: 'Walk-in' }],
+    });
+  });
+
+  it('surfaces a lead-rating aggregate RPC error', async () => {
+    const error = new Error('rating aggregate unavailable');
+    const sourceBuilder = {
+      select: vi.fn(() => sourceBuilder),
+      eq: vi.fn(() => sourceBuilder),
+      order: vi.fn(async () => ({ data: [], error: null })),
+    };
+    const db = {
+      rpc: vi.fn(async () => ({ data: null, error })),
+      from: vi.fn(() => sourceBuilder),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      loadLeadSourceRatings(db, 30, 'UTC', '2026-07-30')
+    ).rejects.toBe(error);
   });
 });

@@ -110,6 +110,10 @@ export async function loadGymStats(
       .gte('paid_at', benchmarkStartInstant),
   ]);
 
+  for (const result of [activityRes, expiringRes, dueRes, paidRes]) {
+    if (result.error) throw result.error;
+  }
+
   const activityRows =
     (activityRes.data as { last_visit_at: string | null }[] | null) ?? [];
   const dueRows = ((dueRes.data as { balance: number }[] | null) ?? []).filter(

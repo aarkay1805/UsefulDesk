@@ -9,7 +9,7 @@ import {
 
 function gymStatsDb(): SupabaseClient {
   const results: Record<string, unknown> = {
-    member_activity: { data: [] },
+    member_activity: { data: [], error: null },
     memberships: {
       count: 3,
       data: [
@@ -17,9 +17,10 @@ function gymStatsDb(): SupabaseClient {
         { id: 'fixed-term', plan: { plan_type: 'non_recurring' } },
         { id: 'session-pack', plan: { plan_type: 'session_pack' } },
       ],
+      error: null,
     },
-    membership_dues: { data: [] },
-    payments: { data: [] },
+    membership_dues: { data: [], error: null },
+    payments: { data: [], error: null },
   };
 
   return {
@@ -47,6 +48,27 @@ describe('loadGymStats', () => {
     );
 
     expect(stats.expiring7).toBe(1);
+  });
+
+  it('surfaces a failed aggregate read instead of publishing zeroes', async () => {
+    const error = new Error('payments unavailable');
+    const db = gymStatsDb();
+    const from = db.from.bind(db);
+    db.from = ((table: string) => {
+      if (table !== 'payments') return from(table);
+      const query = {
+        select: () => query,
+        eq: () => query,
+        gte: () => query,
+        then: (resolve: (value: unknown) => unknown) =>
+          Promise.resolve({ data: null, error }).then(resolve),
+      };
+      return query;
+    }) as typeof db.from;
+
+    await expect(loadGymStats(db, '2026-08-14', 'Asia/Kolkata')).rejects.toBe(
+      error
+    );
   });
 });
 

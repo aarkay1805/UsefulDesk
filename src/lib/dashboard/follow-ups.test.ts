@@ -3,12 +3,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   loadDashboardFollowUpCounts,
+  loadDashboardFollowUpSnapshot,
   loadDashboardFollowUps,
   type DashboardFollowUpRow,
 } from './follow-ups';
 
 type QueryResult = {
-  data: DashboardFollowUpRow[] | null;
+  data: unknown[] | null;
   count: number | null;
   error: Error | null;
 };
@@ -43,6 +44,10 @@ class RecordingQuery implements PromiseLike<QueryResult> {
 
   not(...args: unknown[]) {
     return this.record('not', args);
+  }
+
+  in(...args: unknown[]) {
+    return this.record('in', args);
   }
 
   order(...args: unknown[]) {
@@ -211,5 +216,105 @@ describe('loadDashboardFollowUpCounts', () => {
     );
 
     await expect(loadDashboardFollowUpCounts(db)).rejects.toBe(error);
+  });
+});
+
+describe('loadDashboardFollowUpSnapshot', () => {
+  it('loads each concrete scope once and derives a bounded mixed queue', async () => {
+    const leadEarly = followUp('lead-early', '2026-08-20');
+    const leadLate = followUp('lead-late', '2026-08-30');
+    const memberMiddle = {
+      ...followUp('member-middle', '2026-08-25'),
+      membership_id: 'membership-1',
+    };
+    const { db, queries } = database(
+      { data: [leadEarly, leadLate], count: 12, error: null },
+      { data: [memberMiddle], count: 5, error: null }
+    );
+
+    await expect(
+      loadDashboardFollowUpSnapshot(db, 'account-1', 2)
+    ).resolves.toEqual({
+      counts: { all: 17, lead: 12, member: 5 },
+      rows: {
+        all: [leadEarly, memberMiddle],
+        lead: [leadEarly, leadLate],
+        member: [memberMiddle],
+      },
+      staff: [],
+    });
+
+    expect(queries).toHaveLength(2);
+    expect(queries[0].calls).toContainEqual([
+      'select',
+      expect.stringContaining('membership_id'),
+      { count: 'exact' },
+    ]);
+    expect(queries[0].calls).toContainEqual(['limit', 2]);
+    expect(queries[1].calls).toContainEqual(['limit', 2]);
+  });
+
+  it('surfaces either scoped failure instead of publishing partial counts', async () => {
+    const error = new Error('member queue failed');
+    const { db } = database(
+      { data: [], count: 1, error: null },
+      { data: null, count: null, error }
+    );
+
+    await expect(
+      loadDashboardFollowUpSnapshot(db, 'account-1', LIMIT)
+    ).rejects.toBe(error);
+  });
+
+  it('loads only assignees present in the bounded rows', async () => {
+    const lead = {
+      ...followUp('lead', '2026-08-20'),
+      assigned_to: 'user-1',
+    };
+    const member = {
+      ...followUp('member', '2026-08-21'),
+      membership_id: 'membership-1',
+      assigned_to: 'user-2',
+    };
+    const followUpResults: QueryResult[] = [
+      { data: [lead], count: 1, error: null },
+      { data: [member], count: 1, error: null },
+    ];
+    const followUpQueries: RecordingQuery[] = [];
+    const staffQuery = new RecordingQuery({
+      data: [
+        { user_id: 'user-1', full_name: 'Asha', avatar_url: null },
+        { user_id: 'user-2', full_name: 'Dev', avatar_url: '/dev.png' },
+      ],
+      count: null,
+      error: null,
+    });
+    const db = {
+      from(table: string) {
+        if (table === 'profiles') return staffQuery;
+        const result = followUpResults[followUpQueries.length];
+        const query = new RecordingQuery(result);
+        followUpQueries.push(query);
+        return query;
+      },
+    } as unknown as SupabaseClient;
+
+    const snapshot = await loadDashboardFollowUpSnapshot(
+      db,
+      'account-1',
+      LIMIT
+    );
+
+    expect(snapshot.staff).toEqual([
+      { user_id: 'user-1', full_name: 'Asha', avatar_url: null },
+      { user_id: 'user-2', full_name: 'Dev', avatar_url: '/dev.png' },
+    ]);
+    expect(staffQuery.calls).toContainEqual(['eq', 'account_id', 'account-1']);
+    expect(staffQuery.calls).toContainEqual([
+      'in',
+      'user_id',
+      ['user-1', 'user-2'],
+    ]);
+    expect(staffQuery.calls).toContainEqual(['limit', 2]);
   });
 });

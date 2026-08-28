@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { UserRoundSearch } from 'lucide-react';
+import { AlertCircle, UserRoundSearch } from 'lucide-react';
 
 import { BranchLink as Link } from '@/components/layout/branch-link';
-import { createClient } from '@/lib/supabase/client';
+import { DASHBOARD_UNCONTACTED_HOURS } from '@/lib/dashboard/action-snapshot';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/user-avatar';
@@ -15,6 +14,8 @@ import {
   QueueSkeleton,
 } from './action-queue';
 import { DashboardSection } from './dashboard-section';
+import { EmptyState } from './empty-state';
+import { useDashboardActions } from './dashboard-actions';
 
 /**
  * Leads still sitting in "New" past the first-response window — nobody has
@@ -26,94 +27,13 @@ import { DashboardSection } from './dashboard-section';
  * page that shows a different set.
  */
 
-const STALE_HOURS = 24;
-const LIST_LIMIT = 8;
-
-interface StaleLead {
-  id: string;
-  name: string | null;
-  avatarUrl: string | null;
-  messagePreview: string;
-  /** Whole days since capture — computed at fetch time (render stays pure). */
-  waitingDays: number;
-}
-
-interface StaleLeadRow {
-  id: string;
-  name: string | null;
-  avatar_url: string | null;
-  created_at: string;
-}
-
 export function UncontactedLeads() {
-  const [leads, setLeads] = useState<StaleLead[] | null>(null);
-  const [total, setTotal] = useState(0);
-
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-    (async () => {
-      const staleCutoff = new Date(
-        Date.now() - STALE_HOURS * 60 * 60 * 1000
-      ).toISOString();
-      const staleResult = await supabase
-        .from('contacts')
-        .select('id, name, avatar_url, created_at, memberships!left(id)', {
-          count: 'exact',
-        })
-        .is('memberships', null)
-        .is('lead_status', null)
-        .lt('created_at', staleCutoff)
-        .order('created_at', { ascending: true })
-        .limit(LIST_LIMIT);
-
-      const staleRows = (staleResult.data ?? []) as unknown as StaleLeadRow[];
-      const staleContactIds = staleRows.map((lead) => lead.id);
-      const conversationResult =
-        staleContactIds.length > 0
-          ? await supabase
-              .from('conversations')
-              .select('contact_id, last_message_text')
-              .in('contact_id', staleContactIds)
-              .order('last_message_at', {
-                ascending: false,
-                nullsFirst: false,
-              })
-          : { data: [] };
-
-      if (cancelled) return;
-      const now = Date.now();
-      const messageByContact = new Map<string, string>();
-      for (const conversation of conversationResult.data ?? []) {
-        if (!messageByContact.has(conversation.contact_id)) {
-          messageByContact.set(
-            conversation.contact_id,
-            conversation.last_message_text?.trim() || 'No message yet'
-          );
-        }
-      }
-      setLeads(
-        staleRows.map((lead) => ({
-          id: lead.id,
-          name: lead.name,
-          avatarUrl: lead.avatar_url,
-          messagePreview: messageByContact.get(lead.id) ?? 'No message yet',
-          waitingDays: Math.max(
-            1,
-            Math.floor(
-              (now - new Date(lead.created_at).getTime()) /
-                (24 * 60 * 60 * 1000)
-            )
-          ),
-        }))
-      );
-      setTotal(staleResult.count ?? 0);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+  const { snapshot, failed } = useDashboardActions();
+  const queue = snapshot?.uncontactedLeads ?? null;
+  const sectionFailed =
+    failed || snapshot?.errors.includes('uncontactedLeads') === true;
+  const leads = queue?.rows ?? null;
+  const total = queue?.total ?? 0;
   const shown = leads?.length ?? 0;
 
   return (
@@ -125,12 +45,19 @@ export function UncontactedLeads() {
     >
       <Card className="flex-1">
         <CardContent>
-          {leads === null ? (
+          {sectionFailed ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="Could not load uncontacted leads"
+              hint="Reload the page to try again."
+              className="min-h-32"
+            />
+          ) : leads === null ? (
             <QueueSkeleton rowClassName="h-11" />
           ) : leads.length === 0 ? (
             <QueueEmpty
               icon={UserRoundSearch}
-              text={`Every lead older than ${STALE_HOURS} hours has been picked up.`}
+              text={`Every lead older than ${DASHBOARD_UNCONTACTED_HOURS} hours has been picked up.`}
             />
           ) : (
             <ul className={`${QUEUE_LIST} -my-2.5`}>

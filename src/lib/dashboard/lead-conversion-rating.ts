@@ -90,6 +90,20 @@ export interface LeadRatingRows {
   }>;
 }
 
+/** Bounded per-source counts returned by dashboard_lead_rating_inputs. */
+export interface LeadRatingAggregateRow {
+  source: string | null;
+  cohort_size: number | string;
+  member_conversion_successes: number | string;
+  trial_booking_successes: number | string;
+  human_response_successes: number | string;
+  human_response_sample: number | string;
+  follow_up_successes: number | string;
+  follow_up_sample: number | string;
+  positive_outcome_successes: number | string;
+  positive_outcome_sample: number | string;
+}
+
 function sourceKey(value: string | null): string {
   return value?.trim() || 'unknown';
 }
@@ -346,26 +360,137 @@ export function aggregateLeadSourceRatings(
   };
 }
 
-type PagedResult = PromiseLike<{ data: unknown[] | null; error: unknown }>;
-
-async function fetchAll<T>(
-  page: (from: number, to: number) => PagedResult
-): Promise<T[]> {
-  const pageSize = 1_000;
-  const result: T[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const response = await page(from, from + pageSize - 1);
-    if (response.error) throw response.error;
-    const batch = (response.data ?? []) as T[];
-    result.push(...batch);
-    if (batch.length < pageSize) return result;
-  }
+function count(value: number | string): number {
+  const result = Number(value);
+  return Number.isFinite(result) ? result : 0;
 }
 
-function shiftDate(day: string, days: number): string {
-  const date = new Date(`${day}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
+function ratingFromAggregate(
+  key: string,
+  label: string,
+  row: LeadRatingAggregateRow
+): LeadSourceRating {
+  const cohortSize = count(row.cohort_size);
+  const metrics = [
+    metric(
+      'memberConversion',
+      count(row.member_conversion_successes),
+      cohortSize
+    ),
+    metric('trialBooking', count(row.trial_booking_successes), cohortSize),
+    metric(
+      'humanResponse',
+      count(row.human_response_successes),
+      count(row.human_response_sample)
+    ),
+    metric(
+      'followUp',
+      count(row.follow_up_successes),
+      count(row.follow_up_sample)
+    ),
+    metric(
+      'positiveOutcome',
+      count(row.positive_outcome_successes),
+      count(row.positive_outcome_sample)
+    ),
+  ];
+  const hasAllMetrics = metrics.every((item) => item.normalized != null);
+  const rating = hasAllMetrics
+    ? metrics.reduce(
+        (sum, item) => sum + ((item.normalized ?? 0) * item.weight) / 100,
+        0
+      )
+    : null;
+
+  return {
+    key,
+    label,
+    cohortSize,
+    rating,
+    metrics,
+    ...confidenceFor(metrics),
+  };
+}
+
+/**
+ * Formats SQL-produced counts through the existing target/weight/confidence
+ * rules. Configurable source labels remain an application concern.
+ */
+export function aggregateLeadSourceRatingInputs(
+  rows: LeadRatingAggregateRow[],
+  rangeDays: RangeDays,
+  period: { start: string; end: string },
+  sourceLabels: ReadonlyMap<string, string> = new Map()
+): LeadSourceRatingData {
+  const zero: LeadRatingAggregateRow = {
+    source: ALL_LEADS_RATING_KEY,
+    cohort_size: 0,
+    member_conversion_successes: 0,
+    trial_booking_successes: 0,
+    human_response_successes: 0,
+    human_response_sample: 0,
+    follow_up_successes: 0,
+    follow_up_sample: 0,
+    positive_outcome_successes: 0,
+    positive_outcome_sample: 0,
+  };
+  const allLeadsRow = rows.reduce<LeadRatingAggregateRow>(
+    (total, row) => ({
+      source: ALL_LEADS_RATING_KEY,
+      cohort_size: count(total.cohort_size) + count(row.cohort_size),
+      member_conversion_successes:
+        count(total.member_conversion_successes) +
+        count(row.member_conversion_successes),
+      trial_booking_successes:
+        count(total.trial_booking_successes) +
+        count(row.trial_booking_successes),
+      human_response_successes:
+        count(total.human_response_successes) +
+        count(row.human_response_successes),
+      human_response_sample:
+        count(total.human_response_sample) + count(row.human_response_sample),
+      follow_up_successes:
+        count(total.follow_up_successes) + count(row.follow_up_successes),
+      follow_up_sample:
+        count(total.follow_up_sample) + count(row.follow_up_sample),
+      positive_outcome_successes:
+        count(total.positive_outcome_successes) +
+        count(row.positive_outcome_successes),
+      positive_outcome_sample:
+        count(total.positive_outcome_sample) +
+        count(row.positive_outcome_sample),
+    }),
+    zero
+  );
+  const sources = rows
+    .map((row) => {
+      const key = sourceKey(row.source);
+      return ratingFromAggregate(
+        key,
+        key === 'unknown'
+          ? 'Unknown'
+          : (sourceLabels.get(key) ?? humaniseKey(key)),
+        row
+      );
+    })
+    .sort(
+      (a, b) =>
+        b.cohortSize - a.cohortSize ||
+        (b.rating ?? -1) - (a.rating ?? -1) ||
+        a.label.localeCompare(b.label)
+    );
+
+  return {
+    rangeDays,
+    period,
+    allLeads: ratingFromAggregate(
+      ALL_LEADS_RATING_KEY,
+      'All leads',
+      allLeadsRow
+    ),
+    sources,
+    totalCohort: count(allLeadsRow.cohort_size),
+  };
 }
 
 export async function loadLeadSourceRatings(
@@ -375,63 +500,12 @@ export async function loadLeadSourceRatings(
   today: string
 ): Promise<LeadSourceRatingData> {
   const period = reportDateRange(today, rangeDays);
-  const start = dayStartInTz(period.start, timeZone);
-  const end = dayStartInTz(shiftDate(period.end, 1), timeZone);
-  if (!start || !end) throw new Error('Could not resolve lead rating dates');
-  const startIso = start.toISOString();
-  const endIso = end.toISOString();
-
-  const [
-    contacts,
-    memberships,
-    conversations,
-    messages,
-    followUps,
-    sourceRows,
-  ] = await Promise.all([
-    fetchAll<LeadRatingRows['contacts'][number]>((from, to) =>
-      db
-        .from('contacts')
-        .select('id, source, lead_status, created_at')
-        .gte('created_at', startIso)
-        .lt('created_at', endIso)
-        .order('id')
-        .range(from, to)
-    ),
-    fetchAll<LeadRatingRows['memberships'][number]>((from, to) =>
-      db
-        .from('memberships')
-        .select('id, contact_id, is_trial, converted_at, created_at')
-        .gte('created_at', startIso)
-        .order('id')
-        .range(from, to)
-    ),
-    fetchAll<LeadRatingRows['conversations'][number]>((from, to) =>
-      db
-        .from('conversations')
-        .select('id, contact_id')
-        .gte('created_at', startIso)
-        .order('id')
-        .range(from, to)
-    ),
-    fetchAll<LeadRatingRows['messages'][number]>((from, to) =>
-      db
-        .from('messages')
-        .select('id, conversation_id, sender_type, created_at')
-        .gte('created_at', startIso)
-        .order('id')
-        .range(from, to)
-    ),
-    fetchAll<LeadRatingRows['followUps'][number]>((from, to) =>
-      db
-        .from('follow_ups')
-        .select(
-          'id, contact_id, status, outcome, due_date, completed_at, created_at'
-        )
-        .gte('created_at', startIso)
-        .order('id')
-        .range(from, to)
-    ),
+  const [ratingRows, sourceRows] = await Promise.all([
+    db.rpc('dashboard_lead_rating_inputs', {
+      p_range_days: rangeDays,
+      p_time_zone: timeZone,
+      p_today: today,
+    }),
     db
       .from('lead_field_options')
       .select('key, label')
@@ -439,6 +513,7 @@ export async function loadLeadSourceRatings(
       .order('sort_order', { ascending: true }),
   ]);
 
+  if (ratingRows.error) throw ratingRows.error;
   if (sourceRows.error) throw sourceRows.error;
   const sourceOptions = resolveFieldOptions('source', sourceRows.data ?? []);
   const labels = new Map(
@@ -448,11 +523,10 @@ export async function loadLeadSourceRatings(
     ])
   );
 
-  return aggregateLeadSourceRatings(
-    { contacts, memberships, conversations, messages, followUps },
+  return aggregateLeadSourceRatingInputs(
+    (ratingRows.data ?? []) as LeadRatingAggregateRow[],
     rangeDays,
     period,
-    timeZone,
     labels
   );
 }

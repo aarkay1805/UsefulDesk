@@ -1356,12 +1356,24 @@ export function ImportMembersCsvDialog({
             </DialogHeader>
             <StepIndicator step={result ? 4 : step} />
             {draftManager.draft && !result ? (
-              <div className="border-border bg-muted/20 flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2 text-xs">
-                <span className="text-foreground min-w-0 truncate font-medium">
-                  Continuing {draftManager.draft.sourceFilename}
+              /* One line at every width. Wrapping put `Start fresh` alone on
+                 a second row, pushed to the far right by `ml-auto`, and cost
+                 the panes below ~28px of a dialog that is already height
+                 constrained. The filename is confirmation rather than a
+                 decision, so it is the part that gives way. */
+              <div className="border-border bg-muted/20 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs">
+                <span
+                  className="text-foreground min-w-0 truncate font-medium"
+                  title={draftManager.draft.sourceFilename}
+                >
+                  {/* On a phone the connector word would eat the whole line
+                      and truncate away the one thing worth reading. `Start
+                      fresh` beside it already says a draft is in progress. */}
+                  <span className="hidden sm:inline">Continuing </span>
+                  {draftManager.draft.sourceFilename}
                 </span>
                 <span
-                  className="text-muted-foreground"
+                  className="text-muted-foreground shrink-0 whitespace-nowrap"
                   role="status"
                   aria-live="polite"
                 >
@@ -1833,10 +1845,17 @@ function StepIndicator({ step }: { step: Step }) {
             >
               {done ? <CheckCircle className="size-3.5" /> : number}
             </div>
+            {/* Four labels do not fit a phone-width dialog, and the old
+                `overflow-x-auto` answer clipped `Confirm` off the end with
+                no affordance. Below `sm` only the step you are on is named;
+                the numbered circles and connectors still show the whole
+                flow, and the other names stay in the accessibility tree. */}
             <span
               className={cn(
                 'text-xs font-medium whitespace-nowrap',
-                active ? 'text-foreground' : 'text-muted-foreground'
+                active
+                  ? 'text-foreground'
+                  : 'text-muted-foreground sr-only sm:not-sr-only'
               )}
             >
               {label}

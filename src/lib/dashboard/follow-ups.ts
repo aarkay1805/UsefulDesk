@@ -29,6 +29,18 @@ export interface DashboardFollowUpCounts {
   member: number;
 }
 
+export interface DashboardFollowUpSnapshot {
+  counts: DashboardFollowUpCounts;
+  rows: Record<DashboardFollowUpScope, DashboardFollowUpRow[]>;
+  staff: DashboardFollowUpStaffMember[];
+}
+
+export interface DashboardFollowUpStaffMember {
+  user_id: string;
+  full_name: string;
+  avatar_url: string | null;
+}
+
 const COLUMNS =
   'id, contact_id, membership_id, task_type, reason, due_date, remind_at, assigned_to, note, contact:contacts(name, phone, avatar_url)';
 
@@ -90,4 +102,105 @@ export async function loadDashboardFollowUpCounts(
   const lead = leadResult.count ?? 0;
   const member = memberResult.count ?? 0;
   return { all: lead + member, lead, member };
+}
+
+function compareFollowUps(
+  left: DashboardFollowUpRow,
+  right: DashboardFollowUpRow
+): number {
+  const due = left.due_date.localeCompare(right.due_date);
+  if (due !== 0) return due;
+  if (left.remind_at === right.remind_at)
+    return left.id.localeCompare(right.id);
+  if (left.remind_at === null) return 1;
+  if (right.remind_at === null) return -1;
+  return left.remind_at.localeCompare(right.remind_at);
+}
+
+async function loadDashboardFollowUpPage(
+  db: SupabaseClient,
+  limit: number,
+  scope: Exclude<DashboardFollowUpScope, 'all'>
+): Promise<{ rows: DashboardFollowUpRow[]; count: number }> {
+  const base = db
+    .from('follow_ups')
+    .select(COLUMNS, { count: 'exact' })
+    .eq('status', 'open');
+  const scoped =
+    scope === 'lead'
+      ? base.is('membership_id', null)
+      : base.not('membership_id', 'is', null);
+  const result = await scoped
+    .order('due_date', { ascending: true })
+    .order('remind_at', { ascending: true, nullsFirst: false })
+    .limit(limit);
+
+  if (result.error) throw result.error;
+  return {
+    rows: ((result.data ?? []) as unknown as DashboardFollowUpRow[]).slice(
+      0,
+      limit
+    ),
+    count: result.count ?? 0,
+  };
+}
+
+/**
+ * A bounded dashboard projection for all three chips. Fetching each concrete
+ * scope once lets the mixed list be merged chronologically without a third
+ * query, while exact counts still describe the complete queues.
+ */
+export async function loadDashboardFollowUpSnapshot(
+  db: SupabaseClient,
+  accountId: string,
+  limit: number
+): Promise<DashboardFollowUpSnapshot> {
+  const [lead, member] = await Promise.all([
+    loadDashboardFollowUpPage(db, limit, 'lead'),
+    loadDashboardFollowUpPage(db, limit, 'member'),
+  ]);
+  const all = [...lead.rows, ...member.rows]
+    .sort(compareFollowUps)
+    .slice(0, limit);
+  const assignedIds = Array.from(
+    new Set(
+      [...lead.rows, ...member.rows].flatMap((row) =>
+        row.assigned_to ? [row.assigned_to] : []
+      )
+    )
+  ).slice(0, limit * 2);
+  let staff: DashboardFollowUpStaffMember[] = [];
+  if (assignedIds.length > 0) {
+    const result = await db
+      .from('profiles')
+      .select('user_id, full_name, avatar_url')
+      .eq('account_id', accountId)
+      .in('user_id', assignedIds)
+      .order('full_name', { ascending: true })
+      .limit(assignedIds.length);
+    if (result.error) {
+      console.error(
+        '[dashboard snapshot] follow-up staff failed:',
+        result.error
+      );
+    } else {
+      staff = (
+        (result.data ?? []) as unknown as DashboardFollowUpStaffMember[]
+      ).slice(0, assignedIds.length);
+    }
+  }
+
+  return {
+    counts: {
+      all: lead.count + member.count,
+      lead: lead.count,
+      member: member.count,
+    },
+    rows: {
+      all,
+      lead: lead.rows,
+      member: member.rows,
+    },
+    staff,
+  };
 }

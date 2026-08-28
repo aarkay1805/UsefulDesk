@@ -1,14 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { ClipboardCheck } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { AlertCircle, ClipboardCheck } from 'lucide-react';
 
 import { BranchLink as Link } from '@/components/layout/branch-link';
-import { createClient } from '@/lib/supabase/client';
 import {
-  loadDashboardFollowUpCounts,
-  loadDashboardFollowUps,
-  type DashboardFollowUpCounts,
   type DashboardFollowUpRow,
   type DashboardFollowUpScope,
 } from '@/lib/dashboard/follow-ups';
@@ -23,14 +19,15 @@ import { ContactDetailView } from '@/components/contacts/contact-detail-view';
 import { MemberDetailView } from '@/components/members/member-detail-view';
 import { MemberForm } from '@/components/members/member-form';
 import { useReminderReadiness } from '@/components/members/send-reminder-button';
-import { useAccountStaff } from '@/components/members/use-account-staff';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { QUEUE_LIST, QueueEmpty, QueueSkeleton } from './action-queue';
+import { useDashboardActions } from './dashboard-actions';
 import { DashboardSection } from './dashboard-section';
+import { EmptyState } from './empty-state';
 
 /**
  * The day's committed work, in one list.
@@ -42,8 +39,6 @@ import { DashboardSection } from './dashboard-section';
  * instead, and the queues that are NOT follow-ups (expiring memberships,
  * uncontacted leads) became sections of their own.
  */
-
-const LIST_LIMIT = 8;
 
 const SCOPES: { value: DashboardFollowUpScope; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -65,13 +60,10 @@ const isMemberFollowUp = (
 export function FollowUpQueue() {
   const canEdit = useCan('send-messages');
   const { fmt } = useLocale();
-  const readiness = useReminderReadiness();
-  const { nameById, avatarById } = useAccountStaff();
+  const { snapshot, failed, refresh } = useDashboardActions();
 
   const [scope, setScope] = useState<DashboardFollowUpScope>('all');
-  const [rows, setRows] = useState<DashboardFollowUpRow[] | null>(null);
-  const [counts, setCounts] = useState<DashboardFollowUpCounts | null>(null);
-  const [nonce, setNonce] = useState(0);
+  const [detailReloadKey, setDetailReloadKey] = useState(0);
 
   const [completing, setCompleting] = useState<DashboardFollowUpRow | null>(
     null
@@ -82,48 +74,37 @@ export function FollowUpQueue() {
   );
   const [editing, setEditing] = useState<Membership | null>(null);
 
-  // Counts and rows load separately: the chips must keep their totals while a
-  // scope change refetches only the list they filter.
-  useEffect(() => {
-    void nonce;
-    let cancelled = false;
-    (async () => {
-      try {
-        const next = await loadDashboardFollowUpCounts(createClient());
-        if (!cancelled) setCounts(next);
-      } catch (error) {
-        console.error('[dashboard] follow-up counts failed:', error);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [nonce]);
-
-  useEffect(() => {
-    void nonce;
-    let cancelled = false;
-    (async () => {
-      try {
-        const next = await loadDashboardFollowUps(
-          createClient(),
-          LIST_LIMIT,
-          scope
-        );
-        if (!cancelled) setRows(next);
-      } catch (error) {
-        console.error('[dashboard] follow-up queue failed:', error);
-        if (!cancelled) setRows([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [nonce, scope]);
-
-  const today = fmt.today();
+  const followUps = snapshot?.followUps ?? null;
+  const counts = followUps?.counts ?? null;
+  const rows = followUps?.rows[scope] ?? null;
+  const nameById = useMemo(
+    () =>
+      new Map(
+        (followUps?.staff ?? []).map((staff) => [
+          staff.user_id,
+          staff.full_name || 'Teammate',
+        ])
+      ),
+    [followUps?.staff]
+  );
+  const avatarById = useMemo(
+    () =>
+      new Map(
+        (followUps?.staff ?? []).map((staff) => [
+          staff.user_id,
+          staff.avatar_url,
+        ])
+      ),
+    [followUps?.staff]
+  );
+  const sectionFailed =
+    failed || snapshot?.errors.includes('followUps') === true;
+  const today = snapshot?.today ?? fmt.today();
   const href = SCOPE_HREF[scope];
-  const reload = () => setNonce((value) => value + 1);
+  const reload = () => {
+    setDetailReloadKey((value) => value + 1);
+    refresh();
+  };
 
   return (
     <DashboardSection
@@ -162,7 +143,14 @@ export function FollowUpQueue() {
           </ChipGroup>
         </CardHeader>
         <CardContent>
-          {rows === null ? (
+          {sectionFailed ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="Could not load follow-ups"
+              hint="Reload the page to try again."
+              className="min-h-32"
+            />
+          ) : rows === null ? (
             <QueueSkeleton rowClassName="h-11" />
           ) : rows.length === 0 ? (
             <QueueEmpty
@@ -301,17 +289,15 @@ export function FollowUpQueue() {
         contactId={detailContactId}
         onUpdated={reload}
       />
-      <MemberDetailView
-        membershipId={detailMembershipId}
-        open={Boolean(detailMembershipId)}
-        reloadKey={nonce}
-        onOpenChange={(open) => {
-          if (!open) setDetailMembershipId(null);
-        }}
-        readiness={readiness}
-        onChanged={reload}
-        onEdit={setEditing}
-      />
+      {detailMembershipId && (
+        <DashboardMemberDetail
+          membershipId={detailMembershipId}
+          reloadKey={detailReloadKey}
+          onClose={() => setDetailMembershipId(null)}
+          onChanged={reload}
+          onEdit={setEditing}
+        />
+      )}
       <MemberForm
         open={Boolean(editing)}
         onOpenChange={(open) => {
@@ -321,5 +307,35 @@ export function FollowUpQueue() {
         onSaved={reload}
       />
     </DashboardSection>
+  );
+}
+
+/** WhatsApp readiness is needed only inside an opened member detail. */
+function DashboardMemberDetail({
+  membershipId,
+  reloadKey,
+  onClose,
+  onChanged,
+  onEdit,
+}: {
+  membershipId: string;
+  reloadKey: number;
+  onClose: () => void;
+  onChanged: () => void;
+  onEdit: (membership: Membership) => void;
+}) {
+  const readiness = useReminderReadiness();
+  return (
+    <MemberDetailView
+      membershipId={membershipId}
+      open
+      reloadKey={reloadKey}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+      readiness={readiness}
+      onChanged={onChanged}
+      onEdit={onEdit}
+    />
   );
 }
