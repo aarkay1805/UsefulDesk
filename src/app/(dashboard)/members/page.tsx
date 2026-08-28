@@ -102,13 +102,6 @@ const AttendanceView = dynamic(
     ),
   { loading: MembersTableViewLoading }
 );
-const PaymentSummaryTiles = dynamic(
-  () =>
-    import('@/components/members/payment-summary-tiles').then(
-      (module) => module.PaymentSummaryTiles
-    ),
-  { loading: MembersViewLoading }
-);
 const PaymentsTable = dynamic(
   () =>
     import('@/components/members/payments-table').then(
@@ -384,15 +377,12 @@ export default function MembersPage() {
             reloadKey={reloadKey}
           />
         ) : view === 'payments' ? (
-          <div className="space-y-6">
-            <PaymentSummaryTiles reloadKey={reloadKey} />
-            <PaymentsTable
-              readiness={readiness}
-              onSelect={openDetail}
-              reloadKey={reloadKey}
-              onChanged={reload}
-            />
-          </div>
+          <PaymentsTable
+            readiness={readiness}
+            onSelect={openDetail}
+            reloadKey={reloadKey}
+            onChanged={reload}
+          />
         ) : view === 'retention' ? (
           <InactiveActionLists
             readiness={readiness}

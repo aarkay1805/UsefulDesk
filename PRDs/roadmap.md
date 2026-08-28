@@ -8,6 +8,21 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P2-3 Members -> Payments now returns the payment
+tiles, exact due-member total/facets, plan options, and one bounded 25-row page
+through a shared selected-branch `SECURITY INVOKER` snapshot instead of four
+broad reads joined, aggregated, filtered, sorted, and paginated in the browser.
+Migrations `20260829040000_consolidate_member_payment_dues.sql` and the
+forward-only PostgreSQL extrema repair
+`20260829041000_repair_member_payment_dues_extrema.sql` are live on Production
+as connector versions `20260828170652` and `20260828170827`. At current scale,
+the default tab fell from four requests / 314 rows / 632,733 bytes to one
+request / three rendered rows / 7,020 bytes; five warm plans improved from
+33.898 to 29.327 ms, with exact row and money output, role/tenant/archived/empty
+controls, ACL, RLS, publication, indexes, and advisors verified. The independent
+member Follow-ups five-request exact-count/facet fanout is the next residual
+performance finding.**
+
 Engineering maintenance: **P2-2 Finance Overview now returns exact revenue,
 expense, profit, projection, trend, invoice-health, method, stream, and recent
 transaction data through one selected-branch `SECURITY INVOKER` snapshot instead

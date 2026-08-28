@@ -6,6 +6,30 @@
 
 ---
 
+## Member Payments loads one bounded dues snapshot
+
+P2-3 replaces the Members -> Payments tab's four broad reads and browser-side
+join/filter/sort/count/aggregation with one selected-branch `SECURITY INVOKER`
+snapshot in `20260829040000_consolidate_member_payment_dues.sql`. The payment
+tiles and due-member table now share the same account-local date, refund-aware
+`membership_dues` result, exact facets/count, and bounded 25-row page; the
+forward-only `20260829041000_repair_member_payment_dues_extrema.sql` corrects
+PostgreSQL's unqualified `LEAST`/`GREATEST` expression syntax without rewriting
+applied history. Production connector versions: `20260828170652` and
+`20260828170827`.
+
+At the live scale of 281 memberships, 550 payments, 27 payments in the summary
+window, and three positive dues, the default tab moved from four requests / 314
+transferred rows / 632,733 JSON bytes to one request / three rendered rows /
+7,020 bytes. Five warm legacy plans totalled 33.898 ms and 6,150 shared hits
+versus 29.327 ms and 6,483 hits for the snapshot, with zero reads or temp blocks
+in both cases. Displayed rows (`2d12e1f25f0e7de03e2e62fa5e6eaf83`)
+and collection/outstanding totals matched exactly. Owner/viewer parity,
+wrong-account, non-member, archived, empty, input-bound, search/filter/sort,
+page/limit, RLS, ACL, publication, index, and advisor probes passed. The next
+residual finding is the independent member Follow-ups listing's five-request
+exact-count/facet fanout.
+
 ## Finance Overview loads one exact branch snapshot
 
 P2-2 replaces Finance Overview's five paged raw-data reads and browser-side
