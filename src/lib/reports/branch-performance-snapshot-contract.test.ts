@@ -2,11 +2,25 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const migrationName =
-  '20260828233000_consolidate_branch_performance_snapshot.sql';
-const migration = readFileSync(
-  join(process.cwd(), 'supabase/migrations', migrationName),
-  'utf8'
+const migrationsDir = join(process.cwd(), 'supabase/migrations');
+const migrations = readdirSync(migrationsDir)
+  .filter((name) => name.endsWith('.sql'))
+  .sort();
+
+function latestMigrationContaining(fragment: string) {
+  const name = migrations
+    .filter((migrationName) =>
+      readFileSync(join(migrationsDir, migrationName), 'utf8').includes(
+        fragment
+      )
+    )
+    .at(-1);
+  if (!name) throw new Error(`No migration contains ${fragment}`);
+  return readFileSync(join(migrationsDir, name), 'utf8');
+}
+
+const migration = latestMigrationContaining(
+  'CREATE OR REPLACE FUNCTION public.selected_branch_performance_snapshot('
 );
 const reporting = readFileSync(
   join(process.cwd(), 'src/lib/reports/reporting.ts'),
@@ -14,12 +28,7 @@ const reporting = readFileSync(
 );
 
 describe('branch performance snapshot SQL contract', () => {
-  it('is the latest idempotent invoker RPC with owner-only branch isolation', () => {
-    const migrations = readdirSync(join(process.cwd(), 'supabase/migrations'))
-      .filter((file) => file.endsWith('.sql'))
-      .sort();
-
-    expect(migrations.at(-1)).toBe(migrationName);
+  it('keeps the latest RPC definition idempotent with owner-only branch isolation', () => {
     expect(migration).toContain(
       'CREATE OR REPLACE FUNCTION public.selected_branch_performance_snapshot('
     );

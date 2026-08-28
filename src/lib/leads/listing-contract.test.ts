@@ -2,10 +2,25 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const migrationName = '20260829010000_consolidate_leads_listing.sql';
-const migration = readFileSync(
-  join(process.cwd(), 'supabase/migrations', migrationName),
-  'utf8'
+const migrationsDir = join(process.cwd(), 'supabase/migrations');
+const migrations = readdirSync(migrationsDir)
+  .filter((name) => name.endsWith('.sql'))
+  .sort();
+
+function latestMigrationContaining(fragment: string) {
+  const name = migrations
+    .filter((migrationName) =>
+      readFileSync(join(migrationsDir, migrationName), 'utf8').includes(
+        fragment
+      )
+    )
+    .at(-1);
+  if (!name) throw new Error(`No migration contains ${fragment}`);
+  return readFileSync(join(migrationsDir, name), 'utf8');
+}
+
+const migration = latestMigrationContaining(
+  'CREATE OR REPLACE FUNCTION public.lead_listing_snapshot('
 );
 const page = readFileSync(
   join(process.cwd(), 'src/app/(dashboard)/leads/page.tsx'),
@@ -13,12 +28,7 @@ const page = readFileSync(
 );
 
 describe('lead listing SQL contract', () => {
-  it('is the latest idempotent invoker migration with an authenticated-only ACL', () => {
-    const migrations = readdirSync(join(process.cwd(), 'supabase/migrations'))
-      .filter((name) => name.endsWith('.sql'))
-      .sort();
-
-    expect(migrations.at(-1)).toBe(migrationName);
+  it('keeps the latest RPC definition idempotent with an authenticated-only ACL', () => {
     expect(migration).toContain(
       'CREATE OR REPLACE FUNCTION public.lead_listing_snapshot('
     );

@@ -2,10 +2,28 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const migrationName = '20260829030000_consolidate_finance_overview.sql';
-const migration = readFileSync(
-  join(process.cwd(), 'supabase/migrations', migrationName),
-  'utf8'
+const migrationsDir = join(process.cwd(), 'supabase/migrations');
+const migrations = readdirSync(migrationsDir)
+  .filter((name) => name.endsWith('.sql'))
+  .sort();
+
+function latestMigrationContaining(fragment: string) {
+  const name = migrations
+    .filter((migrationName) =>
+      readFileSync(join(migrationsDir, migrationName), 'utf8').includes(
+        fragment
+      )
+    )
+    .at(-1);
+  if (!name) throw new Error(`No migration contains ${fragment}`);
+  return readFileSync(join(migrationsDir, name), 'utf8');
+}
+
+const migration = latestMigrationContaining(
+  'CREATE OR REPLACE FUNCTION public.finance_overview_snapshot('
+);
+const orderingMigration = latestMigrationContaining(
+  "(row.value ->> ''occurredAt'') COLLATE \"C\" DESC"
 );
 const overview = readFileSync(
   join(process.cwd(), 'src/lib/finance/overview.ts'),
@@ -13,12 +31,7 @@ const overview = readFileSync(
 );
 
 describe('Finance Overview snapshot SQL contract', () => {
-  it('is the latest idempotent invoker RPC with exact selected-branch access', () => {
-    const migrations = readdirSync(join(process.cwd(), 'supabase/migrations'))
-      .filter((file) => file.endsWith('.sql'))
-      .sort();
-
-    expect(migrations.at(-1)).toBe(migrationName);
+  it('keeps the latest RPC definition idempotent with exact selected-branch access', () => {
     expect(migration).toContain(
       'CREATE OR REPLACE FUNCTION public.finance_overview_snapshot('
     );
@@ -99,6 +112,14 @@ describe('Finance Overview snapshot SQL contract', () => {
     expect(migration).toContain(
       "plan.id IS NULL OR plan.plan_type = 'recurring'"
     );
+    expect(orderingMigration).toContain(
+      "(row.value ->> ''occurredAt'') COLLATE \"C\" DESC"
+    );
+    expect(orderingMigration).toContain(
+      "(transaction.value ->> ''occurredAt'') COLLATE \"C\" DESC"
+    );
+    expect(orderingMigration).toContain('pg_get_functiondef(');
+    expect(orderingMigration).not.toMatch(/SECURITY\s+DEFINER/i);
   });
 
   it('uses one normal-path RPC and no longer fetches overview datasets', () => {
