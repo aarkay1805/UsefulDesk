@@ -6,6 +6,29 @@
 
 ---
 
+## Finance Performance shares one branch snapshot
+
+Finance → Performance now crosses one database boundary instead of dispatching
+seven overlapping branch reads. The stable `SECURITY INVOKER` snapshot in
+`20260828233000_consolidate_branch_performance_snapshot.sql` materializes the
+RLS-visible branch contacts, memberships, periods, payments, attendance, and
+expenses once, then reuses them for the unchanged report, source revenue,
+billing options, average sale price, ad performance, and expense totals. The
+client normalization and exact branch/timezone/month/staff cache live in
+`src/lib/reports/reporting.ts` and `owner-reports-view.tsx`; revisiting a cached
+key makes no request, while Retry still refreshes explicitly. Production
+connector version: `20260828141834`.
+
+Populated all-staff and staff-filter snapshots matched the legacy JSONB exactly,
+as did an empty branch; wrong-account/non-member access still fails and an
+outside-account staff id returns no branch values. After P1-3, five identical
+warm all-staff loads moved from 633.857 ms / 154,295 shared hits per load to
+559.005 ms / 151,171 hits (11.8% / 2.0% lower), while database calls fell from
+seven to one. The equivalent staff-filter path improved from 612.745 ms /
+152,446 hits to 562.726 ms / 149,599 hits. Gotcha: the compatibility fan-out is
+used only when PostgREST reports the new RPC missing during rollout; P1-5 is the
+separate Leads request/count/client-sort fan-out.
+
 ## Member listings cache selected-account RLS access
 
 The All-members dependency path now resolves the request header, authenticated

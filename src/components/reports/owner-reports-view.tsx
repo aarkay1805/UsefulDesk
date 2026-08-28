@@ -14,7 +14,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
 import { durationLabel } from '@/lib/memberships/pricing';
 import {
-  loadOwnerReport,
+  loadBranchPerformanceSnapshot,
   ownerReportCsv,
   relativeChange,
 } from '@/lib/reports/reporting';
@@ -68,27 +68,14 @@ import { ActivityTrendCard } from './report-trend-card';
 import { useAuth } from '@/hooks/use-auth';
 import { canExportFinance } from '@/lib/auth/roles';
 import { OrganizationReportsView } from './organization-reports-view';
+import { financeMonthRange } from '@/lib/finance/overview';
 import {
-  financeMonthRange,
-  loadFinanceAdPerformance,
-  loadFinanceExpenseTotals,
-  type FinanceAdPerformance,
-  type FinanceExpenseTotals,
-} from '@/lib/finance/overview';
+  needsPerformanceSnapshot,
+  reportCacheKey,
+  type ReportCache,
+} from './owner-reports-cache';
 
 const ALL_STAFF = 'all';
-
-interface PerformanceSnapshot {
-  report: OwnerReport;
-  adPerformance: FinanceAdPerformance | null;
-  expenseTotals: FinanceExpenseTotals | null;
-}
-
-type ReportCache = Record<string, PerformanceSnapshot>;
-
-function reportCacheKey(month: string, staffUserId: string | null) {
-  return `${month}:${staffUserId ?? ALL_STAFF}`;
-}
 
 export function OwnerReportsView({
   month,
@@ -112,6 +99,7 @@ export function OwnerReportsView({
   const { staff, loading: staffLoading } = useAccountStaff();
   const [staffUserId, setStaffUserId] = useState<string | null>(null);
   const [reports, setReports] = useState<ReportCache>({});
+  const reportsRef = useRef<ReportCache>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
@@ -120,28 +108,30 @@ export function OwnerReportsView({
     (selectedMonth: string, selectedStaffUserId: string | null) => {
       const id = ++requestId.current;
       const dateRange = financeMonthRange(selectedMonth);
-      const cacheKey = reportCacheKey(selectedMonth, selectedStaffUserId);
+      const cacheKey = reportCacheKey(
+        accountId!,
+        locale.timeZone,
+        selectedMonth,
+        selectedStaffUserId
+      );
       const db = createClient();
-      void Promise.all([
-        loadOwnerReport(
-          db,
-          accountId!,
-          dateRange,
-          locale.timeZone,
-          selectedStaffUserId
-        ),
+      void loadBranchPerformanceSnapshot(
+        db,
+        accountId!,
+        selectedMonth,
+        dateRange,
+        locale.timeZone,
         selectedStaffUserId
-          ? Promise.resolve(null)
-          : loadFinanceAdPerformance(db, dateRange, locale.timeZone),
-        selectedStaffUserId
-          ? Promise.resolve(null)
-          : loadFinanceExpenseTotals(db, selectedMonth),
-      ])
-        .then(([nextReport, adPerformance, expenseTotals]) => {
-          setReports((current) => ({
-            ...current,
-            [cacheKey]: { report: nextReport, adPerformance, expenseTotals },
-          }));
+      )
+        .then((nextSnapshot) => {
+          setReports((current) => {
+            const next = {
+              ...current,
+              [cacheKey]: nextSnapshot,
+            };
+            reportsRef.current = next;
+            return next;
+          });
           if (requestId.current === id) setError(null);
         })
         .catch((reason: unknown) => {
@@ -161,19 +151,50 @@ export function OwnerReportsView({
 
   useEffect(() => {
     if (!accountId || reportScope === 'organization') return;
+    if (
+      !needsPerformanceSnapshot(
+        reportsRef.current,
+        accountId,
+        locale.timeZone,
+        month,
+        staffUserId
+      )
+    ) {
+      return;
+    }
     fetchReport(month, staffUserId);
     return () => {
       requestId.current += 1;
     };
-  }, [accountId, fetchReport, month, reportScope, staffUserId]);
+  }, [
+    accountId,
+    fetchReport,
+    locale.timeZone,
+    month,
+    reportScope,
+    staffUserId,
+  ]);
 
-  const snapshot = reports[reportCacheKey(month, staffUserId)] ?? null;
+  const snapshot = accountId
+    ? (reports[
+        reportCacheKey(accountId, locale.timeZone, month, staffUserId)
+      ] ?? null)
+    : null;
   const report = snapshot?.report ?? null;
   const adPerformance = snapshot?.adPerformance ?? null;
   const expenseTotals = snapshot?.expenseTotals ?? null;
 
   function handleMonthChange(nextMonth: string) {
-    setLoading(true);
+    setLoading(
+      !accountId ||
+        needsPerformanceSnapshot(
+          reportsRef.current,
+          accountId,
+          locale.timeZone,
+          nextMonth,
+          staffUserId
+        )
+    );
     setError(null);
     onMonthChange(nextMonth);
   }
@@ -181,7 +202,16 @@ export function OwnerReportsView({
   function handleStaffChange(value: string | null) {
     if (!value) return;
     const nextStaffUserId = value === ALL_STAFF ? null : value;
-    setLoading(true);
+    setLoading(
+      !accountId ||
+        needsPerformanceSnapshot(
+          reportsRef.current,
+          accountId,
+          locale.timeZone,
+          month,
+          nextStaffUserId
+        )
+    );
     setError(null);
     setStaffUserId(nextStaffUserId);
   }

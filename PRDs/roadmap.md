@@ -8,6 +8,21 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **Finance Performance now returns its complete
+selected-branch report, configurable source labels/revenue, plan billing-option
+breakdown, average sale price, ad performance, and expense totals from one
+shared `SECURITY INVOKER` database snapshot instead of seven concurrent reads.
+Migration `20260828233000_consolidate_branch_performance_snapshot.sql` is live
+on Production as connector version `20260828141834`; explicit account
+predicates, owner authorization, underlying RLS, branch timezone/month range,
+staff filtering, organization scope, errors, and CSV values remain unchanged.
+All-staff and staff-filter JSONB hashes matched their legacy equivalents, as did
+zero/empty data, and the cache now suppresses an exact branch/timezone/month/
+staff revisit while retaining explicit Retry. Post-P1-3 five-run warm means
+moved from 633.857 to 559.005 ms all-staff and 612.745 to 562.726 ms staff-filter,
+with shared hits also lower; database calls fell from seven to one. P1-5 Leads
+request/count/client-sort fan-out is next.**
+
 Engineering maintenance: **the measured All-members SELECT-policy path now
 caches row-independent selected-account access through PostgreSQL initPlans
 while every candidate row remains explicitly equal to that authorized branch.
@@ -71,7 +86,7 @@ Engineering maintenance: **production workers now have two independent scheduler
 
 Engineering maintenance: **the remaining Razorpay P2 integrity fixes passed Test Mode provider acceptance and their production schema is installed. Signed unknown-merchant events retain canonical recovery state, settlements preserve provider payment time, mandate setup stays same-origin/exact-active/currency-safe, and owner/admin cancellation converges provider state before an audited local terminal transition. Disposable Test subscription `sub_TUUNYZcSaJlDsr` was cancelled without approval or money movement; the exercise fixed branch authorization through `account_memberships` and a webhook-first cancellation audit race, then ended with zero Test acceptance queues. After encrypted backup run `32997711909`, migrations `20260826210000_resolve_razorpay_p2_integrity_gaps.sql` and `20260826220000_fix_razorpay_mandate_cancellation_branch_authorization.sql` were connector-applied to Production as `20260826181015` and `20260826181016`; grants, Live credential health, and preflight queue counts were unchanged. Future Vercel production aliasing is held on the repository's full CI check.**
 
-Shipped addition: **one canonical Resolvable action across WhatsApp messaging, renewals, invoice delivery and collection, payments, membership lifecycle actions, and follow-ups. High-value actions blocked by a changeable prerequisite remain focusable and tappable, explain the highest-priority reason in place, and offer the nearest resolution CTA when one exists; pending work, explained validation, empty input, and obvious boundaries remain truly disabled.**
+Shipped addition: **one canonical Resolvable action across WhatsApp messaging, renewals, invoice delivery and collection, payments, membership lifecycle actions, and follow-ups. High-value actions blocked by a changeable prerequisite remain focusable and tappable, explain the highest-priority reason in place, and offer the nearest resolution CTA when one exists; pending work, explained validation, empty input, and obvious boundaries remain truly disabled. The explanation is presented in the shared alert grammar — warning glyph, message, left-aligned resolution — on a tailed popover anchored to the control it blocks.**
 
 Engineering maintenance: **Razorpay reconnect recovery now admits a fresh `blocked` OAuth grant only inside the authenticated read-only Verify path, allowing the existing capability probes to restore readiness when Razorpay's Accounts endpoint rejects an imported merchant; ordinary payment access remains ready-only and ready connections still force token refresh. Disconnected OAuth rows present one honest Reconnect task instead of stale readiness badges and Verify/Disconnect actions. Rajat Kashyap's exact pinned Live merchant `acc_TCJwBqanN9LTrK` was restored to OAuth/Live/ready after customer, plan, subscription, payment-link, and payment probes all returned 200, and its exact operational queues remained zero. No payment, link, refund, message, or money movement was created.**
 

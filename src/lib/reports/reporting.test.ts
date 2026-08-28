@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   aggregatePlanOptionBreakdown,
   aggregateOwnerReport,
+  normalizeBranchPerformanceSnapshot,
   normalizeOwnerAttention,
   normalizeOwnerReport,
   ownerReportCsv,
@@ -124,6 +125,111 @@ describe('owner reporting helpers', () => {
       members: 2,
       revenue: 7500,
     });
+  });
+
+  it('normalizes the complete branch performance snapshot in one shape', () => {
+    const snapshot = normalizeBranchPerformanceSnapshot({
+      report: {
+        period: { start: '2026-08-01', end: '2026-08-31', days: '31' },
+        metrics: {
+          revenue: { current: '4200.50', previous: '3100' },
+          newMembers: { current: '2', previous: '1', activeTotal: '8' },
+          averageSalePrice: { current: '2100.25', previous: '3100' },
+          visits: { current: '14', previous: '9' },
+          conversion: {
+            current: '50',
+            previous: '25',
+            acquired: '4',
+            converted: '2',
+          },
+        },
+        plans: [
+          {
+            id: 'plan-a',
+            name: 'Gold',
+            billingOptions: [
+              {
+                id: 'option-a',
+                durationCount: '1',
+                durationUnit: 'month',
+                price: '1500',
+                activeMembers: '8',
+                newMembers: '2',
+                revenue: '4200.50',
+                visits: '14',
+              },
+            ],
+          },
+        ],
+        sources: [
+          {
+            source: 'walk_in',
+            leads: '2',
+            members: '2',
+            revenue: '4200.50',
+            conversionRate: '50',
+          },
+        ],
+      },
+      sourceOptions: [{ key: 'walk_in', label: 'Front desk' }],
+      adPerformance: {
+        adSpend: '500',
+        leads: '4',
+        convertedMembers: '2',
+        joiningRevenue: '2100',
+        conversionRate: '50',
+        returnOnAdSpend: '4.2',
+      },
+      expenseTotals: { current: '900.25', previous: '700' },
+    });
+
+    expect(snapshot.report.sources[0]).toMatchObject({
+      label: 'Front desk',
+      revenue: 4200.5,
+    });
+    expect(snapshot.report.plans[0].billingOptions[0]).toMatchObject({
+      price: 1500,
+      revenue: 4200.5,
+    });
+    expect(snapshot.report.metrics.averageSalePrice.current).toBe(2100.25);
+    expect(snapshot.adPerformance).toEqual({
+      adSpend: 500,
+      leads: 4,
+      convertedMembers: 2,
+      joiningRevenue: 2100,
+      conversionRate: 50,
+      returnOnAdSpend: 4.2,
+    });
+    expect(snapshot.expenseTotals).toEqual({ current: 900.25, previous: 700 });
+  });
+
+  it('keeps staff-filter and zero-data snapshot values empty and nullable', () => {
+    const snapshot = normalizeBranchPerformanceSnapshot({
+      report: {
+        period: { start: '2026-08-01', end: '2026-08-31', days: 31 },
+        metrics: {},
+        attention: {},
+        trend: [],
+        plans: [],
+        sources: [],
+        collectionMethods: [],
+        collectionSources: [],
+      },
+      sourceOptions: [],
+      adPerformance: null,
+      expenseTotals: null,
+    });
+
+    expect(snapshot.report.metrics).toMatchObject({
+      revenue: { current: 0, previous: 0 },
+      averageSalePrice: { current: 0, previous: 0 },
+      visits: { current: 0, previous: 0 },
+      conversion: { current: 0, previous: 0, acquired: 0, converted: 0 },
+    });
+    expect(snapshot.report.plans).toEqual([]);
+    expect(snapshot.report.sources).toEqual([]);
+    expect(snapshot.adPerformance).toBeNull();
+    expect(snapshot.expenseTotals).toBeNull();
   });
 
   it('escapes labels in the full CSV export', () => {

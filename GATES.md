@@ -1,48 +1,58 @@
-# Gates: P1-3 cache selected-account RLS checks
+# Gates: P1-4 consolidate branch performance snapshot
 
-OWNS: GATES.md, supabase/migrations/20260828230000_cache_selected_account_rls_checks.sql, src/lib/auth/selected-account-rls-contract.test.ts, docs/changelog.md, PRDs/roadmap.md
+OWNS: GATES.md, supabase/migrations/20260828233000_consolidate_branch_performance_snapshot.sql, src/lib/reports/reporting.ts, src/lib/reports/reporting.test.ts, src/lib/reports/branch-performance-snapshot-contract.test.ts, src/components/reports/owner-reports-view.tsx, src/components/reports/owner-reports-cache.ts, src/components/reports/owner-reports-cache.test.ts, docs/changelog.md, PRDs/roadmap.md
 
-Scope: Preserve UsefulDesk tenant and role authorization while caching row-independent selected-account access context once per statement for the measured hot listing SELECT-policy path.
+Scope: Replace the Finance Performance seven-read fan-out with one invoker/RLS-preserving branch snapshot RPC that shares computation and suppresses network/database work for an already-cached month/staff key.
 
-- [x] G1: the P1-3 SQL contract and existing authorization regression tests pass
-  CHECK: npm test -- --run src/lib/auth/selected-account-rls-contract.test.ts src/lib/auth/multi-branch-security-contract.test.ts src/lib/auth/branch-lifecycle-contract.test.ts src/lib/auth/authored-content-ui-contract.test.ts src/lib/auth/roles.test.ts
-  EXPECT: /Test Files\s+5 passed/
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Start at  19:27:59 | Duration  143ms (transform 108ms, setup 0ms, import 178ms, tests 12ms, environment 0ms)
+Baseline exclusions (pre-existing, unrelated, never read or touched): src/components/ui/popover.tsx, src/components/ui/resolvable-action.tsx, src/app/preview/resolvable-action/**
+
+Concurrent exclusion discovered after the initial baseline (unrelated, never diffed or touched): docs/ui-patterns.md. The unrelated Resolvable action changelog hunk that arrived with it must remain unstaged while the P1-4 changelog hunk is staged selectively.
+
+- [x] G1: focused SQL-contract, result-normalization, cache, report, and authorization tests pass
+      CHECK: npm test -- --run src/lib/reports/branch-performance-snapshot-contract.test.ts src/lib/reports/reporting.test.ts src/components/reports/owner-reports-cache.test.ts src/lib/auth/multi-branch-security-contract.test.ts
+      EXPECT: /Test Files\s+4 passed/
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Start at  20:02:22 | Duration  235ms (transform 119ms, setup 0ms, import 238ms, tests 17ms, environment 0ms)
 
 - [x] G2: the full TypeScript typecheck passes
-  CHECK: npm run typecheck && echo "P1-3 typecheck passed"
-  EXPECT: P1-3 typecheck passed
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=> tsc --noEmit | P1-3 typecheck passed
+      CHECK: npm run typecheck && echo "P1-4 typecheck passed"
+      EXPECT: P1-4 typecheck passed
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=> tsc --noEmit | P1-4 typecheck passed
 
 - [x] G3: the full repository lint passes
-  CHECK: npm run lint && echo "P1-3 lint passed"
-  EXPECT: P1-3 lint passed
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-3 lint passed | [BABEL] Note: The code generator has deoptimised the styling of /Users/rajatkashyap/Desktop/projects/UsefulDesk/.agents/skills/impeccable/scripts/live-browser.js as it exceeds the max of 500KB.
+      CHECK: npm run lint && echo "P1-4 lint passed"
+      EXPECT: P1-4 lint passed
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-4 lint passed | [BABEL] Note: The code generator has deoptimised the styling of /Users/rajatkashyap/Desktop/projects/UsefulDesk/.agents/skills/impeccable/scripts/live-browser.js as it exceeds the max of 500KB.
 
 - [x] G4: the final patch has no whitespace errors
-  CHECK: git diff --check && echo "P1-3 diff check passed"
-  EXPECT: P1-3 diff check passed
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-3 diff check passed
+      CHECK: git diff --check && echo "P1-4 diff check passed"
+      EXPECT: P1-4 diff check passed
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-4 diff check passed
 
-- [x] G5: the latest migration is idempotent, keeps explicit row-account comparison, and does not introduce table grants, definer listing APIs, or write-policy changes
-  CHECK: node -e "const fs=require('node:fs');const p='supabase/migrations/20260828230000_cache_selected_account_rls_checks.sql';const files=fs.readdirSync('supabase/migrations').filter(f=>f.endsWith('.sql')).sort();if(files.at(-1)!==p.split('/').at(-1))throw Error('migration is not latest');const sql=fs.readFileSync(p,'utf8');for(const s of ['CREATE OR REPLACE FUNCTION private.authorized_selected_account_id(','account_id = (SELECT private.authorized_selected_account_id())','id = (SELECT private.authorized_selected_account_id())'])if(!sql.includes(s))throw Error('missing '+s);for(const bad of [/GRANT\s+(SELECT|ALL)\s+ON/i,/SECURITY\s+DEFINER[\s\S]*member_customer_directory_page/i,/CREATE\s+POLICY[\s\S]*FOR\s+(INSERT|UPDATE|DELETE)/i])if(bad.test(sql))throw Error('forbidden P1-3 scope');console.log('P1-3 static contract passed')"
-  EXPECT: P1-3 static contract passed
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-3 static contract passed
+- [x] G5: the latest migration defines one idempotent invoker snapshot RPC with fixed search_path, explicit owner/branch isolation, shared materialized inputs, preserved ACLs, and no service-role or RLS weakening
+      CHECK: node -e "const fs=require('node:fs');const p='supabase/migrations/20260828233000_consolidate_branch_performance_snapshot.sql';const files=fs.readdirSync('supabase/migrations').filter(f=>f.endsWith('.sql')).sort();if(files.at(-1)!==p.split('/').at(-1))throw Error('migration is not latest');const sql=fs.readFileSync(p,'utf8');for(const s of ['CREATE OR REPLACE FUNCTION public.selected_branch_performance_snapshot(','SECURITY INVOKER','SET search_path = \'\'','AS MATERIALIZED','GRANT EXECUTE ON FUNCTION public.selected_branch_performance_snapshot(','TO authenticated'])if(!sql.includes(s))throw Error('missing '+s);for(const bad of [/SECURITY\s+DEFINER/i,/TO\s+service_role/i,/DISABLE\s+ROW\s+LEVEL\s+SECURITY/i,/CREATE\s+POLICY/i,/ALTER\s+POLICY/i,/CREATE\s+INDEX/i])if(bad.test(sql))throw Error('forbidden P1-4 scope');console.log('P1-4 SQL contract passed')"
+      EXPECT: P1-4 SQL contract passed
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-4 SQL contract passed
 
-- [x] G6: live helpers and optimized policies preserve owners, ACLs, search_path, volatility, RLS state, selected-account semantics, branch archival behavior, roles, and tenant isolation
-  EVIDENCE: Production connector migration 20260828135003. pg_proc reports private.authorized_selected_account_id(account_role_enum) -> uuid, STABLE, SECURITY DEFINER, owner postgres, fixed search_path pg_catalog/public/private, and EXECUTE only for postgres/authenticated/service_role. Exact pg_policies and pg_get_expr output for all 15 replacements is a permissive row id/account_id equality to a SELECT initPlan, with each prior public/authenticated role retained and exactly one same-role SELECT policy. Every base table remains RLS enabled/not forced and member_customer_directory remains security_invoker=true. Live owner/admin/agent/viewer rollback probes matched the old role decisions; missing header selected the profile default, invalid header and wrong/non-member selection returned zero rows, archived rollback returned zero rows, and all correct selections returned zero cross-tenant rows. Authored/write policies and roles.ts were unchanged.
+- [x] G6: live migration preserves owner, ACL, invoker, search_path, volatility, RLS and selected-branch behavior for correct owner, wrong account/non-member, and outside-account staff inputs
+      EVIDENCE: Applied only through Supabase migration tooling as live version 20260828141834. The live definition hash is 44143c36bc454232476329f62cf4e279; owner=postgres, volatility=stable, SECURITY INVOKER, search_path='', and ACL matches the existing report-function pattern. Every base table remains RLS-enabled. Authenticated assertions passed for the correct owner, 42501 on a wrong-account owner and non-member, and zero/null selected-branch output for a staff UUID outside the account.
 
-- [x] G7: identical authenticated before/after member-directory and representative-listing plans preserve identities, counts, and hashes while reducing repeated membership/account/profile work
-  EVIDENCE: Same Production user/account, 2026-08-28, empty filters, expiry ASC, page 0, size 25. Five warm RPC plans improved from 654.017/731.441/665.772/671.842/686.755 ms (mean 681.965, median 671.842, 12,611 hits) to 42.664/44.741/43.056/43.169/46.559 ms (mean 44.038, median 43.169, 6,916 hits), 93.5% lower mean. Three direct default-page runs moved from a captured 118.881-143.377 ms range/1,715 hits to 8.368-8.963 ms/1,671 hits; direct count mean moved 127.879 -> 8.080 ms (1,715 -> 1,668 hits). The representative memberships+contacts+plans renewal listing mean moved 159.050 -> 3.995 ms (2,582 -> 642 hits). The full RPC hash ac2906fdeef3556db0fb47262e79f78c, row hash e64ec7286ef317ad1056d9763c67210d, page hash 125e15b9685855d24d8b838ccc7373ad, 281 total, and renewal hash 45bd0891661fc2dfd5a2d1ae1b4f213d all matched. Authenticated EXPLAIN shows initPlans/one-time filters and account-id index conditions instead of per-row is_account_member filters, with no reads, writes, or temp spill.
+- [x] G7: identical all-staff and staff-filter live inputs preserve every normalized report/ad/expense value and action/export payload, including zero/empty data
+      EVIDENCE: Authenticated legacy-complete versus snapshot JSON comparisons were exact for all staff (both md5=30544b149d8aa4c6d710aa2c4006df27) and owner staff filter (both md5=2d7b8c3c68264381141c968187d07f0d), with individual equality checks for metrics, attention, trend, plans/options, source labels/revenue, payment and collection methods, average sale, ads, and expenses. Empty-account checks preserved the zero/null/empty shapes. The component diff is confined to loading/cache code, so existing action and CSV-export consumers remain byte-identical; normalization tests cover their complete input payload.
 
-- [x] G8: Supabase security/performance advisors show no new P1-3 regression or unexpected multiple-policy widening
-  EVIDENCE: Immediately before and after DDL, Production advisor totals were identical: security 75 (19 no-policy info, 7 search-path, 2 extension, 2 anon-definer, 44 authenticated-definer, 1 leaked-password) and performance 165 (67 unindexed-FK, 11 auth_rls_initplan, 45 unused-index, 42 multiple-permissive). There are zero findings naming the new helper or any of the 15 replaced policies, and live pg_policy grouping reports exactly one same-role SELECT policy per optimized table. No compute change occurred.
+- [x] G8: identical authenticated warm measurements show one database request with lower time and shared-buffer work than the seven-read baseline
+      EVIDENCE: Post-P1-3 authenticated Aug-2026 all-staff baseline, five warm page-equivalent runs: 633.857 ms and 154,295 shared hits mean, seven database reads. Snapshot five-run mean: 559.005 ms and 151,171 hits, one read (11.8% time and 2.0% buffer reduction). Staff baseline: 612.745 ms and 152,446 hits across five reads; snapshot: 562.726 ms and 149,599 hits in one read (8.2% and 1.9% reductions). Final recheck retained the exact value hashes; a fresh warm plan was 623.732 ms/156,800 hits, consistent with per-run Nano variance and without changing the repeated-run comparison.
 
-- [x] G9: all four unlazy review passes find no correctness, integration, portability, performance, evidence, scope, or authorization defect
-  EVIDENCE: Pass 1 traced the invoker directory through accounts, contacts, memberships, plans, services, invoice/line/payment/allocation/refund/adjustment dependencies, and follow-ups, then replaced the complete measured 15-policy path. Pass 2 proved the helper's selected-header/profile fallback, membership role ordering, archived-branch check, and row equality against the old helper for owner/admin/agent/viewer and denial cases. Pass 3 reviewed repeated plans, exact result hashes, RLS/ACL/function catalogs, advisor deltas, one-policy counts, remaining row-dependent SELECT inventory, and 30 auth test files/244 tests; no correctness, widening, or evidence defect remained. Pass 4 reviewed the formatted full diff for migration ordering/idempotency, fixed search_path, grants, write-policy exclusion, documentation numbers, strict five-file scope, and P1-4 boundary; no further polish was warranted.
+- [x] G9: an already-loaded month/staff key causes no network/database request while explicit retry still refreshes it
+      EVIDENCE: Cache tests prove exact account/timezone/month/staff hits return needsPerformanceSnapshot=false, each key dimension misses independently, the effect guard precedes fetchReport, and Retry still calls fetchReport explicitly. The normal loader contract contains exactly one snapshot RPC call.
 
-- [x] G10: changelog and roadmap record only the shipped P1-3 fix and retain P1-4 as the next finding
-  EVIDENCE: docs/changelog.md and PRDs/roadmap.md record the 15-policy selected-account initPlan optimization, connector version, unchanged authorization surface, exact live measurements/hashes, deliberately unexpanded policy boundary, and P1-4 owner performance-report fan-out next; no unrelated roadmap item changed.
+- [x] G10: Supabase security/performance advisors show no new P1-4 regression
+      EVIDENCE: Before and after advisor inventories are unchanged: 75 security findings and 165 performance findings, with zero finding mentioning selected_branch_performance_snapshot. Final advisor recheck again returned zero snapshot-function findings.
 
-- [x] G11: immediately before commit every runnable gate is reverified, approvals remain understood, measurements are rechecked, and the staged patch is exactly the P1-3 ownership set
-  EVIDENCE: G1-G5 were re-run from their exact approved commands immediately before staging: five focused files passed, full typecheck passed, full lint passed, diff check passed, and the static migration contract passed. A fresh authenticated five-run warm RPC recheck averaged 44.971 ms/6,916 hits after one discarded warm-up outlier; payload/row hashes and the 281 total still match, advisors remain exactly 75 security/165 performance, and the live catalog still reports one helper plus 15 optimized policies. The staged diff check is clean and its exact five paths are this ledger, changelog, roadmap, focused SQL-contract test, and latest migration. Concurrent unrelated unstaged popover/resolvable-action/preview changes appeared after the initially clean checkout and remain untouched and excluded.
+- [x] G11: all four unlazy review passes find no correctness, integration, portability, performance, evidence, scope, or authorization defect
+      EVIDENCE: Pass 1 traced every legacy output to a shared snapshot slice and found no missing value. Pass 2 compared populated all-staff, staff-filter, and empty live results exactly and found no normalization/integration mismatch. Pass 3 reviewed invoker/RLS/ACL/search_path, tenant and staff isolation, query sharing, warm plans, pg_stat evidence, and advisors with no defect. Pass 4 reviewed cache/race/retry/error/export behavior, focused/full checks, documentation, diff scope, and concurrent exclusions with no defect.
+
+- [x] G12: changelog and roadmap record only shipped P1-4 and retain P1-5 as the next finding
+      EVIDENCE: docs/changelog.md records the shipped snapshot, migration, preserved semantics, measured 7-to-1 result, and rollout gotcha; PRDs/roadmap.md records the same maintenance shipment and names P1-5 leads request/count/client-sort fan-out next. The concurrent Resolvable-action changelog hunk is excluded from P1-4 staging.
+
+- [x] G13: immediately before commit every runnable gate is reverified, approvals remain understood, measurements are rechecked, and the staged patch is exactly the P1-4 ownership set with baseline exclusions unstaged
+      EVIDENCE: Reverification reran G1-G5 successfully after final formatting and staging; all approved commands and called scripts remain inspected and understood. The live all-staff/staff hashes rechecked as 30544b149d8aa4c6d710aa2c4006df27 and 2d7b8c3c68264381141c968187d07f0d, a fresh safe warm EXPLAIN completed, and both advisors still name no snapshot finding. The index contains exactly the ten P1-4-owned files, with only the unrelated changelog hunk, docs/ui-patterns.md, the three baseline UI paths, and their preview directory left unstaged/untracked.

@@ -6,9 +6,12 @@ import {
 } from '@/lib/leads/field-options';
 import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import { durationLabel } from '@/lib/memberships/pricing';
-import type {
-  FinanceAdPerformance,
-  FinanceExpenseTotals,
+import {
+  loadFinanceAdPerformance,
+  loadFinanceExpenseTotals,
+  normalizeFinanceAdPerformance,
+  type FinanceAdPerformance,
+  type FinanceExpenseTotals,
 } from '@/lib/finance/overview';
 import type { DurationUnit } from '@/types';
 import type { OwnerAttention, OwnerReport, ReportRangeDays } from './types';
@@ -1147,6 +1150,78 @@ function missingRpc(error: unknown, functionName: string): boolean {
     message.includes(functionName.toLowerCase()) ||
     message.includes('schema cache')
   );
+}
+
+export interface BranchPerformanceSnapshot {
+  report: OwnerReport;
+  adPerformance: FinanceAdPerformance | null;
+  expenseTotals: FinanceExpenseTotals | null;
+}
+
+export function normalizeBranchPerformanceSnapshot(
+  payload: unknown
+): BranchPerformanceSnapshot {
+  const root = record(payload);
+  const sourceOptions = resolveFieldOptions(
+    'source',
+    rows(root.sourceOptions).map((row) => ({
+      key: text(row.key),
+      label: text(row.label),
+    }))
+  );
+  const labels = new Map(
+    sourceOptions.map((source) => [
+      source.key,
+      optionLabel(sourceOptions, source.key),
+    ])
+  );
+
+  return {
+    report: normalizeOwnerReport(root.report, labels),
+    adPerformance:
+      root.adPerformance === null || root.adPerformance === undefined
+        ? null
+        : normalizeFinanceAdPerformance(root.adPerformance),
+    expenseTotals:
+      root.expenseTotals === null || root.expenseTotals === undefined
+        ? null
+        : metric(root.expenseTotals),
+  };
+}
+
+/**
+ * Finance Performance's normal path is one complete database request. The
+ * compatibility branch preserves the pre-migration error/fallback behavior
+ * during a browser/database rollout mismatch and disappears once PostgREST
+ * sees the new RPC.
+ */
+export async function loadBranchPerformanceSnapshot(
+  db: SupabaseClient,
+  accountId: string,
+  month: string,
+  range: { start: string; end: string },
+  timeZone: string,
+  staffUserId: string | null = null
+): Promise<BranchPerformanceSnapshot> {
+  const { data, error } = await db.rpc('selected_branch_performance_snapshot', {
+    p_account_id: accountId,
+    p_start_date: range.start,
+    p_end_date: range.end,
+    p_time_zone: timeZone,
+    p_staff_user_id: staffUserId,
+  });
+
+  if (!error) return normalizeBranchPerformanceSnapshot(data);
+  if (!missingRpc(error, 'selected_branch_performance_snapshot')) throw error;
+
+  const [report, adPerformance, expenseTotals] = await Promise.all([
+    loadOwnerReport(db, accountId, range, timeZone, staffUserId),
+    staffUserId
+      ? Promise.resolve(null)
+      : loadFinanceAdPerformance(db, range, timeZone),
+    staffUserId ? Promise.resolve(null) : loadFinanceExpenseTotals(db, month),
+  ]);
+  return { report, adPerformance, expenseTotals };
 }
 
 /** Read the live operating snapshot from the existing branch report RPC. */
