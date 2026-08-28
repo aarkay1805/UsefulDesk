@@ -641,9 +641,7 @@ export function normalizeFinanceOverviewSnapshot(
     },
     revenue: {
       current: number(revenue.current as number | string | null | undefined),
-      previous: number(
-        revenue.previous as number | string | null | undefined
-      ),
+      previous: number(revenue.previous as number | string | null | undefined),
       grossCurrent: number(
         revenue.grossCurrent as number | string | null | undefined
       ),
@@ -659,9 +657,7 @@ export function normalizeFinanceOverviewSnapshot(
     },
     expenses: {
       current: number(expenses.current as number | string | null | undefined),
-      previous: number(
-        expenses.previous as number | string | null | undefined
-      ),
+      previous: number(expenses.previous as number | string | null | undefined),
     },
     profit: {
       current: number(profit.current as number | string | null | undefined),
@@ -674,12 +670,8 @@ export function normalizeFinanceOverviewSnapshot(
       ),
     },
     revenueBreakdown: {
-      joining: number(
-        breakdown.joining as number | string | null | undefined
-      ),
-      renewal: number(
-        breakdown.renewal as number | string | null | undefined
-      ),
+      joining: number(breakdown.joining as number | string | null | undefined),
+      renewal: number(breakdown.renewal as number | string | null | undefined),
       sale: number(breakdown.sale as number | string | null | undefined),
       due: number(breakdown.due as number | string | null | undefined),
       other: number(breakdown.other as number | string | null | undefined),
@@ -688,9 +680,7 @@ export function normalizeFinanceOverviewSnapshot(
       const stream = object(value);
       return {
         purpose: financePurpose(stream.purpose),
-        payments: number(
-          stream.payments as number | string | null | undefined
-        ),
+        payments: number(stream.payments as number | string | null | undefined),
         amount: number(stream.amount as number | string | null | undefined),
         recentPayments: list(stream.recentPayments).map((value) => {
           const payment = object(value);
@@ -704,16 +694,10 @@ export function normalizeFinanceOverviewSnapshot(
               payment.memberNumber === null
                 ? null
                 : number(
-                    payment.memberNumber as
-                      | number
-                      | string
-                      | null
-                      | undefined
+                    payment.memberNumber as number | string | null | undefined
                   ),
             contactName:
-              payment.contactName === null
-                ? null
-                : string(payment.contactName),
+              payment.contactName === null ? null : string(payment.contactName),
             contactAvatarUrl:
               payment.contactAvatarUrl === null
                 ? null
@@ -741,9 +725,7 @@ export function normalizeFinanceOverviewSnapshot(
       return {
         date: string(point.date),
         income: number(point.income as number | string | null | undefined),
-        expenses: number(
-          point.expenses as number | string | null | undefined
-        ),
+        expenses: number(point.expenses as number | string | null | undefined),
       };
     }),
     previousTrend: list(row.previousTrend).map((value) => {
@@ -751,20 +733,14 @@ export function normalizeFinanceOverviewSnapshot(
       return {
         date: string(point.date),
         income: number(point.income as number | string | null | undefined),
-        expenses: number(
-          point.expenses as number | string | null | undefined
-        ),
+        expenses: number(point.expenses as number | string | null | undefined),
       };
     }),
     comparisonThroughDay:
       row.comparisonThroughDay === null
         ? null
         : number(
-            row.comparisonThroughDay as
-              | number
-              | string
-              | null
-              | undefined
+            row.comparisonThroughDay as number | string | null | undefined
           ),
     invoiceHealth: {
       paid: number(health.paid as number | string | null | undefined),
@@ -784,9 +760,7 @@ export function normalizeFinanceOverviewSnapshot(
       const method = object(value);
       return {
         method: string(method.method) as FinanceCollectionMethod['method'],
-        payments: number(
-          method.payments as number | string | null | undefined
-        ),
+        payments: number(method.payments as number | string | null | undefined),
         amount: number(method.amount as number | string | null | undefined),
       };
     }),

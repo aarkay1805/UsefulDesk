@@ -25,7 +25,7 @@ describe('Finance realtime invalidation', () => {
     );
   });
 
-  it('does not refresh unrelated Finance tabs for another tab\'s writes', () => {
+  it("does not refresh unrelated Finance tabs for another tab's writes", () => {
     expect(FINANCE_REALTIME_TABLES.payments).not.toContain('expenses');
     expect(FINANCE_REALTIME_TABLES.payments).not.toContain('invoices');
     expect(FINANCE_REALTIME_TABLES.expenses).toEqual([

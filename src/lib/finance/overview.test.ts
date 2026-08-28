@@ -233,9 +233,7 @@ describe('Finance Overview snapshot loading', () => {
       },
     ],
     trend: [{ date: '2026-08-01', income: '2000', expenses: '1000' }],
-    previousTrend: [
-      { date: '2026-07-01', income: '3000', expenses: '800' },
-    ],
+    previousTrend: [{ date: '2026-07-01', income: '3000', expenses: '800' }],
     comparisonThroughDay: '28',
     invoiceHealth: {
       paid: 1,
