@@ -9,6 +9,8 @@ describe('Finance realtime invalidation', () => {
       'payment_refunds',
       'invoices',
       'invoice_lines',
+      'payment_allocations',
+      'payment_refund_allocations',
       'invoice_credit_allocations',
       'invoice_adjustment_allocations',
       'contacts',
@@ -38,6 +40,10 @@ describe('Finance realtime invalidation', () => {
   it('retains invoice and payment detail invalidation dependencies', () => {
     expect(FINANCE_REALTIME_TABLES.invoices).toContain('membership_periods');
     expect(FINANCE_REALTIME_TABLES.invoices).toContain('payment_refunds');
+    expect(FINANCE_REALTIME_TABLES.invoices).toContain('payment_allocations');
+    expect(FINANCE_REALTIME_TABLES.invoices).toContain(
+      'payment_refund_allocations'
+    );
     expect(FINANCE_REALTIME_TABLES.invoices).toContain(
       'invoice_adjustment_allocations'
     );

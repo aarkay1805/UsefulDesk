@@ -8,6 +8,24 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P2-2 Finance Overview now returns exact revenue,
+expense, profit, projection, trend, invoice-health, method, stream, and recent
+transaction data through one selected-branch `SECURITY INVOKER` snapshot instead
+of five paged datasets aggregated in the browser. Active-tab Realtime
+subscriptions cover every displayed-data dependency while avoiding unrelated
+Finance tab refreshes and retaining the existing 400 ms coalescing. Migrations
+`20260829030000_consolidate_finance_overview.sql` and
+`20260829031000_preserve_finance_recent_transaction_order.sql` plus
+`20260829032000_publish_finance_allocation_changes.sql` are live on Production
+as connector versions `20260828162238`, `20260828163345`, and
+`20260828163809`. The
+authenticated August fixture fell from five requests / 621 rows / 176,359 bytes
+to one request / one row / 8,698 bytes; five warm plans remained database-neutral
+at 53.189 ms legacy versus 50.932 ms snapshot, with no reads or temp blocks.
+Exact output, roles, selected-branch denial, edge fixtures, ACL, RLS, Realtime,
+and advisors passed. Member payments/follow-up full-dataset reads and count paths
+are the next residual performance finding.**
+
 Engineering maintenance: **P2-1 removes the home Dashboard action snapshot's
 remaining repeated ledger expansion. The RLS-visible `membership_dues` view now
 materializes current-period invoice balances once, while the
@@ -18,8 +36,7 @@ and the stable authenticated-only dashboard RPC are unchanged. Migration
 as connector version `20260828155301`. Five identical warm authenticated plans
 moved from 402.003 ms / 153,733 shared hits to 33.361 ms / 6,938 hits, with zero
 reads or temp blocks, the same dashboard JSON hash, and zero differences across
-all 281 dues rows. Finance Overview full-dataset aggregation and broad
-invalidation is the next P2 finding.**
+all 281 dues rows. Finance Overview is closed by the P2-2 entry above.**
 
 Engineering maintenance: **P1-5 Leads now returns the active table or board
 rows, exact total, four quick-filter facets, rendered tags/custom values, and

@@ -56,4 +56,3 @@ REVOKE ALL ON FUNCTION public.finance_overview_snapshot(UUID, DATE, TEXT, DATE)
   FROM PUBLIC, anon, service_role;
 GRANT EXECUTE ON FUNCTION public.finance_overview_snapshot(UUID, DATE, TEXT, DATE)
   TO authenticated;
-

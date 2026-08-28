@@ -25,6 +25,9 @@ const migration = latestMigrationContaining(
 const orderingMigration = latestMigrationContaining(
   "(row.value ->> ''occurredAt'') COLLATE \"C\" DESC"
 );
+const allocationPublicationMigration = latestMigrationContaining(
+  "tablename = 'payment_refund_allocations'"
+);
 const overview = readFileSync(
   join(process.cwd(), 'src/lib/finance/overview.ts'),
   'utf8'
@@ -134,5 +137,20 @@ describe('Finance Overview snapshot SQL contract', () => {
     expect(loader).toContain('p_account_id: accountId');
     expect(loader).not.toContain('.from(');
     expect(overview).not.toContain('async function fetchAll');
+  });
+
+  it('publishes allocation-only invoice balance changes idempotently', () => {
+    expect(allocationPublicationMigration).toContain(
+      "tablename = 'payment_allocations'"
+    );
+    expect(allocationPublicationMigration).toContain(
+      "tablename = 'payment_refund_allocations'"
+    );
+    expect(allocationPublicationMigration).toContain(
+      'ADD TABLE public.payment_allocations'
+    );
+    expect(allocationPublicationMigration).toContain(
+      'ADD TABLE public.payment_refund_allocations'
+    );
   });
 });

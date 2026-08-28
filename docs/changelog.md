@@ -6,6 +6,30 @@
 
 ---
 
+## Finance Overview loads one exact branch snapshot
+
+P2-2 replaces Finance Overview's five paged raw-data reads and browser-side
+aggregation with one selected-branch `SECURITY INVOKER` snapshot in
+`20260829030000_consolidate_finance_overview.sql`. The active Finance tab now
+subscribes only to tables that can change that tab, retains the existing 400 ms
+refresh coalescing, and publishes every newly covered overview dependency to
+Realtime. The forward-only ordering correction in
+`20260829031000_preserve_finance_recent_transaction_order.sql` preserves the
+legacy displayed-string ordering across DATE expenses and timestamptz payments;
+`20260829032000_publish_finance_allocation_changes.sql` covers allocation-only
+invoice balance changes. Production connector versions: `20260828162238`,
+`20260828163345`, and `20260828163809`.
+
+On the authenticated August fixture, the browser path moved from five requests,
+621 rows, and 176,359 JSON bytes to one request, one row, and 8,698 bytes. Five
+warm legacy plans totalled 53.189 ms and 4,750.4 shared hits versus 50.932 ms and
+6,413.4 hits for the snapshot, with zero reads or temp blocks in both cases;
+the material win is request, transfer, and client-computation removal rather
+than database execution. Owner/viewer, tenant denial, archived branch, empty
+and historical month, refund, expense, projection, grouping, order, limit,
+shape, ACL, publication, and advisor probes passed. The next residual finding is
+member payments/follow-up full-dataset reads and count paths.
+
 ## Dashboard dues are evaluated once per action snapshot
 
 P2-1 removes the dashboard action snapshot's remaining repeated ledger work in
