@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import type { PopoverRootChangeEventDetails } from '@base-ui/react/popover';
-import { TriangleAlert } from 'lucide-react';
+import { TriangleAlert, XIcon } from 'lucide-react';
 
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { cn } from '@/lib/utils';
@@ -12,6 +12,7 @@ import {
   POPOVER_ARROW_SIDE_OFFSET,
   Popover,
   PopoverArrow,
+  PopoverClose,
   PopoverContent,
   PopoverDescription,
   PopoverHeader,
@@ -236,7 +237,9 @@ export function ResolvableAction({
         sideOffset={POPOVER_ARROW_SIDE_OFFSET}
         // The one popover framed at 16px rather than the master's 10px: this
         // panel is read, not picked from, so its message gets a card's frame.
-        className="p-4"
+        // `relative` anchors the dismiss control; the tail keeps its place
+        // because the popup and the positioner share a box.
+        className="relative p-4"
       >
         {/* The house alert grammar (`ui/alert.tsx`): warning glyph in its own
          * column, message beside it, resolution left-aligned under the copy.
@@ -248,7 +251,9 @@ export function ResolvableAction({
             className="text-amber-foreground size-4 shrink-0 translate-y-0.5"
           />
           <PopoverHeader>
-            <PopoverTitle>{activeBlocker.title}</PopoverTitle>
+            {/* Reserves the width the dismiss control overlaps, so a long
+             * title wraps before it instead of running underneath. */}
+            <PopoverTitle className="pr-5">{activeBlocker.title}</PopoverTitle>
             <PopoverDescription className="text-pretty">
               {activeBlocker.description}
             </PopoverDescription>
@@ -274,6 +279,18 @@ export function ResolvableAction({
             </div>
           ) : null}
         </div>
+        <PopoverClose
+          render={
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="absolute top-2 right-2"
+            />
+          }
+        >
+          <XIcon />
+          <span className="sr-only">Close</span>
+        </PopoverClose>
         <PopoverArrow />
       </PopoverContent>
     </Popover>

@@ -145,6 +145,15 @@ afterEach(() => {
   resolvePaymentLink = null;
 });
 
+/**
+ * The controls a blocker actually offers. `ResolvableAction` renders a dismiss
+ * affordance of its own, which is not a resolution and must not count as one.
+ */
+const blockerControls = (blocker: HTMLElement) =>
+  within(blocker).queryAllByRole('button', {
+    name: (name) => name !== 'Close',
+  });
+
 describe('PaymentLinkActions readiness', () => {
   it('applies an external collection blocker to Copy and Send without invoking either action', async () => {
     const onResolve = vi.fn();
@@ -288,7 +297,7 @@ describe('PaymentLinkActions readiness', () => {
     expect(
       within(blocker).getByText('Payment Link status is unavailable')
     ).toBeTruthy();
-    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(blockerControls(blocker)).toHaveLength(0);
   });
 
   it('prioritizes permission over all send-readiness blockers', async () => {
@@ -307,7 +316,7 @@ describe('PaymentLinkActions readiness', () => {
     const blocker = screen.getByRole('dialog', {
       name: 'Admin access required',
     });
-    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(blockerControls(blocker)).toHaveLength(0);
   });
 
   it('prioritizes a missing phone over provider and template readiness', async () => {
@@ -326,7 +335,7 @@ describe('PaymentLinkActions readiness', () => {
     const blocker = screen.getByRole('dialog', {
       name: 'Phone number required',
     });
-    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(blockerControls(blocker)).toHaveLength(0);
   });
 
   it('prioritizes provider readiness over WhatsApp readiness', async () => {
@@ -395,7 +404,7 @@ describe('PaymentLinkActions readiness', () => {
     const blocker = screen.getByRole('dialog', {
       name: "Razorpay isn't connected",
     });
-    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
   });
 
@@ -416,7 +425,7 @@ describe('PaymentLinkActions readiness', () => {
       );
 
       const blocker = screen.getByRole('dialog', { name: title });
-      expect(within(blocker).queryByRole('button')).toBeNull();
+      expect(blockerControls(blocker)).toHaveLength(0);
       expect(within(blocker).queryByRole('link')).toBeNull();
     }
   );

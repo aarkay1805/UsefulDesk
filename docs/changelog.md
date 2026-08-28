@@ -87,7 +87,7 @@ base lands on the border line. The tail is a 14 px square — 19.8 × 9.9 visibl
 the conventional caret — and that reach exceeds `PopoverContent`'s default 4 px
 gap, so `POPOVER_ARROW_SIDE_OFFSET` (12) ships beside it and every tailed
 popover must pass it as `sideOffset` or the tip stabs into its own anchor.
-`PopoverArrow` is opt-in and no other popover renders one. The panel is also the one popover framed at 16px rather than the master's 10px — it is read, not picked from — which narrows the reason's measure to 230px without changing how any blocker wraps; `w-72` stays because a test pins the popover narrower than a 320px viewport. Width stays `w-72` because a test
+`PopoverArrow` is opt-in and no other popover renders one. The panel is also the one popover framed at 16px rather than the master's 10px — it is read, not picked from — which narrows the reason's measure to 230px without changing how any blocker wraps; `w-72` stays because a test pins the popover narrower than a 320px viewport. It carries a dismiss control in the corner, the same `Primitive.Close` + ghost icon `Button` + `XIcon` recipe Dialog and Sheet use, stepped down to `icon-xs` for a 288px panel and backed by a new `PopoverClose` part. The title reserves the width that control overlaps, so a three-line title wraps before it rather than running underneath, and `relative` on the popup anchors it — the tail keeps its place because the popup and the positioner share a box. Width stays `w-72` because a test
 pins the popover narrower than a 320 px viewport. Verified in the browser at
 desktop and phone widths in both modes: title 18.0:1 / 17.8:1, reason 5.8:1 /
 5.5:1, glyph 12.3:1 / 5.7:1, and the glyph optically centred on the title's

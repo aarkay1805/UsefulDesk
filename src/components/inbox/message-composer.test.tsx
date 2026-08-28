@@ -51,6 +51,15 @@ afterEach(() => {
   cleanup();
 });
 
+/**
+ * The controls a blocker actually offers. `ResolvableAction` renders a dismiss
+ * affordance of its own, which is not a resolution and must not count as one.
+ */
+const blockerControls = (blocker: HTMLElement) =>
+  within(blocker).queryAllByRole('button', {
+    name: (name) => name !== 'Close',
+  });
+
 describe('MessageComposer pending feedback', () => {
   it('keeps the send button busy until the async send callback settles', async () => {
     let resolveSend!: () => void;
@@ -111,7 +120,7 @@ describe('MessageComposer blocked actions', () => {
     const blocker = screen.getByRole('dialog', {
       name: 'Admin access required',
     });
-    expect(within(blocker).queryAllByRole('button')).toHaveLength(0);
+    expect(blockerControls(blocker)).toHaveLength(0);
     expect(onSend).not.toHaveBeenCalled();
   });
 
@@ -348,7 +357,7 @@ describe('MessageComposer blocked actions', () => {
       name: 'Admin access required',
     });
     expect(sendAttachment.getAttribute('aria-expanded')).toBe('true');
-    expect(within(blocker).queryAllByRole('button')).toHaveLength(0);
+    expect(blockerControls(blocker)).toHaveLength(0);
     expect(onSendMedia).not.toHaveBeenCalled();
   });
 
@@ -395,7 +404,7 @@ describe('MessageComposer blocked actions', () => {
       name: 'WhatsApp session has closed',
     });
     expect(onSendMedia).not.toHaveBeenCalled();
-    expect(within(blocker).queryAllByRole('button')).toHaveLength(1);
+    expect(blockerControls(blocker)).toHaveLength(1);
     await user.click(
       within(blocker).getByRole('button', { name: 'Send template' })
     );
@@ -590,7 +599,7 @@ describe('MessageComposer blocked actions', () => {
       name: 'WhatsApp session has closed',
     });
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
-    expect(within(blocker).getAllByRole('button')).toHaveLength(1);
+    expect(blockerControls(blocker)).toHaveLength(1);
     expect(onSendMedia).not.toHaveBeenCalled();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -680,7 +689,7 @@ describe('MessageComposer blocked actions', () => {
     expect(dialogs).toHaveLength(1);
     expect(dialogs[0].getAttribute('aria-labelledby')).toBeTruthy();
     expect(within(dialogs[0]).getByText('Admin access required')).toBeTruthy();
-    expect(within(dialogs[0]).queryAllByRole('button')).toHaveLength(0);
+    expect(blockerControls(dialogs[0])).toHaveLength(0);
     expect(onOpenTemplates).not.toHaveBeenCalled();
   });
 

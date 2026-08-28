@@ -13,6 +13,10 @@ function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props) {
   return <PopoverPrimitive.Trigger data-slot="popover-trigger" {...props} />;
 }
 
+function PopoverClose({ ...props }: PopoverPrimitive.Close.Props) {
+  return <PopoverPrimitive.Close data-slot="popover-close" {...props} />;
+}
+
 function PopoverContent({
   className,
   align = 'center',
@@ -123,6 +127,7 @@ export {
   POPOVER_ARROW_SIDE_OFFSET,
   Popover,
   PopoverArrow,
+  PopoverClose,
   PopoverContent,
   PopoverDescription,
   PopoverHeader,

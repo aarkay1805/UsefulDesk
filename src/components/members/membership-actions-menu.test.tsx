@@ -119,6 +119,15 @@ function expectNoBusinessCallbacks(actions: ReturnType<typeof renderMenu>) {
   }
 }
 
+/**
+ * The controls a blocker actually offers. `ResolvableAction` renders a dismiss
+ * affordance of its own, which is not a resolution and must not count as one.
+ */
+const blockerControls = (blocker: HTMLElement) =>
+  within(blocker).queryAllByRole('button', {
+    name: (name) => name !== 'Close',
+  });
+
 describe('MembershipActionsMenu', () => {
   it.each([
     {
@@ -260,9 +269,7 @@ describe('MembershipActionsMenu', () => {
       expect(screen.getByText('AutoPay must be resolved first')).toBeTruthy();
       const dialog = screen.getByRole('dialog');
       expect(
-        within(dialog)
-          .getAllByRole('button')
-          .map((button) => button.textContent?.trim())
+        blockerControls(dialog).map((button) => button.textContent?.trim())
       ).toEqual(['Open billing']);
 
       await userEvent.click(
@@ -291,9 +298,7 @@ describe('MembershipActionsMenu', () => {
       expectNoBusinessCallbacks(actions);
       expect(actions.onOpenBilling).not.toHaveBeenCalled();
       expect(screen.getByText('Admin access required')).toBeTruthy();
-      expect(
-        within(screen.getByRole('dialog')).queryAllByRole('button')
-      ).toHaveLength(0);
+      expect(blockerControls(screen.getByRole('dialog'))).toHaveLength(0);
       expect(screen.queryByRole('button', { name: 'Open billing' })).toBeNull();
     }
   );
@@ -315,9 +320,7 @@ describe('MembershipActionsMenu', () => {
     expectNoBusinessCallbacks(actions);
     expect(actions.onOpenBilling).not.toHaveBeenCalled();
     expect(screen.getByText('Admin access required')).toBeTruthy();
-    expect(
-      within(screen.getByRole('dialog')).queryAllByRole('button')
-    ).toHaveLength(0);
+    expect(blockerControls(screen.getByRole('dialog'))).toHaveLength(0);
   });
 
   it('derives an open explanation from live permission and lifecycle props', async () => {

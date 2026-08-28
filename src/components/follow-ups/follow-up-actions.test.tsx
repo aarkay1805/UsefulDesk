@@ -21,6 +21,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+/**
+ * The controls a blocker actually offers. `ResolvableAction` renders a dismiss
+ * affordance of its own, which is not a resolution and must not count as one.
+ */
+const blockerControls = (blocker: HTMLElement) =>
+  within(blocker).queryAllByRole('button', {
+    name: (name) => name !== 'Close',
+  });
+
 describe('FollowUpButton', () => {
   it('runs the allowed follow-up action', async () => {
     const onClick = vi.fn();
@@ -56,7 +65,7 @@ describe('FollowUpButton', () => {
     expect(
       within(blocker).getByText('Ask an admin or owner to create follow-ups.')
     ).toBeTruthy();
-    expect(within(blocker).queryAllByRole('button')).toHaveLength(0);
+    expect(blockerControls(blocker)).toHaveLength(0);
   });
 });
 
@@ -102,7 +111,7 @@ describe('FollowUpCompletionControl', () => {
         'Ask an admin or owner to close assigned follow-ups.'
       )
     ).toBeTruthy();
-    expect(within(blocker).queryAllByRole('button')).toHaveLength(0);
+    expect(blockerControls(blocker)).toHaveLength(0);
   });
 
   it('uses the canonical completion reason when a blocked caller omits one', async () => {

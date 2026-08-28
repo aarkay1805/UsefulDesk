@@ -182,6 +182,15 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/**
+ * The controls a blocker actually offers. `ResolvableAction` renders a dismiss
+ * affordance of its own, which is not a resolution and must not count as one.
+ */
+const blockerControls = (blocker: HTMLElement) =>
+  within(blocker).queryAllByRole('button', {
+    name: (name) => name !== 'Close',
+  });
+
 describe('InvoiceDocumentActions', () => {
   it('lets a viewer download while role-gating WhatsApp sharing', async () => {
     accountRole = 'viewer';
@@ -199,7 +208,7 @@ describe('InvoiceDocumentActions', () => {
     const blocker = screen.getByRole('dialog', {
       name: 'Admin access required',
     });
-    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
 
     await userEvent.click(download);
@@ -321,7 +330,7 @@ describe('InvoiceDocumentActions', () => {
     const blocker = screen.getByRole('dialog', {
       name: 'Invoice setup required',
     });
-    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
   });
 
@@ -369,7 +378,7 @@ describe('InvoiceDocumentActions', () => {
     const blocker = screen.getByRole('dialog', {
       name: 'Phone number required',
     });
-    expect(within(blocker).queryByRole('button')).toBeNull();
+    expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
   });
 
@@ -475,7 +484,7 @@ describe('InvoiceDocumentActions', () => {
       );
 
       const blocker = screen.getByRole('dialog', { name: title });
-      expect(within(blocker).queryByRole('button')).toBeNull();
+      expect(blockerControls(blocker)).toHaveLength(0);
       expect(within(blocker).queryByRole('link')).toBeNull();
     }
   );

@@ -276,6 +276,31 @@ describe('ResolvableAction', () => {
     expect(document.activeElement).toBe(trigger);
   });
 
+  it('dismisses the blocker without running the action', async () => {
+    const user = userEvent.setup();
+    const onAction = vi.fn();
+    render(
+      <ResolvableAction
+        trigger={<Button type="button">Send invoice</Button>}
+        onAction={onAction}
+        blocker={{
+          title: "Invoice template isn't ready",
+          description: 'Approve the invoice template before sending.',
+        }}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: 'Send invoice' });
+    await user.click(trigger);
+    expect(screen.getByRole('dialog')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Close' }));
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(onAction).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(trigger);
+  });
+
   it('passes the outside-press reason and preserves the clicked focus target', async () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();

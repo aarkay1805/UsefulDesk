@@ -36,6 +36,11 @@ const REFUND: ActionBlocker = {
   resolution: { label: 'Resolve refund review', onResolve: noop },
 };
 
+const LONG_TITLE: ActionBlocker = {
+  title: 'Invoice document unavailable for this voided membership period',
+  description: 'Voided invoices cannot be shared.',
+};
+
 const LONG: ActionBlocker = {
   title: 'Payment link unavailable',
   description:
@@ -68,6 +73,11 @@ const CASES: {
     label: 'Description long enough to wrap',
     blocker: LONG,
     trigger: 'Send payment link',
+  },
+  {
+    label: 'Title long enough to reach the dismiss control',
+    blocker: LONG_TITLE,
+    trigger: 'Download invoice',
   },
   {
     label: 'Anchored above',
