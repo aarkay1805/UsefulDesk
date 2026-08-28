@@ -6,6 +6,30 @@
 
 ---
 
+## Member listings cache selected-account RLS access
+
+The All-members dependency path now resolves the request header, authenticated
+user, branch membership, minimum role, and non-archived branch once per policy
+initPlan, then explicitly compares each candidate row to that authorized
+selected account. The private stable helper and 15 viewer-level SELECT-policy
+replacements live in
+`20260828230000_cache_selected_account_rls_checks.sql`, recorded by the
+Supabase connector as `20260828135003` on Production. No write policy, table
+grant, RLS state, invoker API, authored-content rule, or TypeScript capability
+changed.
+
+For the same authenticated branch, date, empty filters, default expiry sort,
+and 25-row page, five warm `member_customer_directory_page` plans fell from a
+681.965 ms mean / 12,611 shared hits to 44.038 ms / 6,916 hits (93.5% faster).
+The direct directory count mean fell from 127.879 to 8.080 ms, and a
+representative membership/contact/plan renewal listing fell from 159.050 ms /
+2,582 hits to 3.995 ms / 642 hits. Page identities, the 281-row total, full RPC
+payload hash, and the renewal-list hash matched exactly; the complete role,
+header, archived-branch, and cross-tenant matrix stayed fail-closed. Gotcha:
+only the measured directory dependency policies are optimized; other SELECT
+policies still use the row-dependent helper and P1-4 remains the owner
+performance-report fan-out.
+
 ## All-members now loads one RLS-visible directory snapshot
 
 The All-members page, exact total, and three quick-filter counts now cross one
@@ -23,8 +47,9 @@ For the same authenticated branch, empty filters, default expiry sort, and
 25-row page, the pre-change four-statement means totalled 2,491.898 ms; five
 warm post-change plans averaged 749.608 ms (69.9% lower). All 25 row identities,
 the 281-row total, facet counts, six sort probes, searches, and filter probes
-matched independent RLS-visible queries. Gotcha: the remaining repeated tenant
-checks are P1-3; this change does not bypass or redesign global RLS helpers.
+matched independent RLS-visible queries. Gotcha: P1-3 is the separate
+selected-account policy optimization above; this P1-2 change itself does not
+bypass or redesign global RLS helpers.
 
 ## Dashboard RPCs avoid computed timezone-catalog scans
 

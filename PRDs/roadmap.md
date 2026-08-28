@@ -8,6 +8,22 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **the measured All-members SELECT-policy path now
+caches row-independent selected-account access through PostgreSQL initPlans
+while every candidate row remains explicitly equal to that authorized branch.
+The private helper preserves header fallback/fail-closed behavior,
+account-membership role ordering, and archived-branch denial; 15 exact
+viewer-level SELECT policies cover accounts, contacts, memberships, plans,
+services, billing/refund dependencies, and follow-ups without changing write
+policies, grants, invoker APIs, RLS state, or TypeScript capabilities. Migration
+`20260828230000_cache_selected_account_rls_checks.sql` is live on Production as
+connector version `20260828135003`. Identical authenticated five-run directory
+RPC plans improved from a 681.965 ms mean / 12,611 shared hits to 44.038 ms /
+6,916 hits, with exact payload and identity hashes; the direct count improved
+from 127.879 to 8.080 ms and the representative renewal listing from 159.050 to
+3.995 ms. P1-4 owner performance-report fan-out is next; unrelated SELECT
+policies remain deliberately unexpanded.**
+
 Engineering maintenance: **All-members now returns its 25-row page, exact total,
 and three quick-filter counts from one materialized, RLS-visible directory
 snapshot instead of four expensive reads. Numeric member/customer search runs
@@ -18,8 +34,8 @@ connector version `20260828132439`; the function remains `SECURITY INVOKER`,
 authenticated-only, and selected-branch RLS-bound. The identical default
 interaction preserved all 25 identities, the 281-row total, and 0/3/1 facet
 counts while reducing four pre-change statement means totalling 2,491.898 ms
-to a five-run 749.608 ms mean (69.9% lower). P1-3 remains the separate global
-RLS tenant-check investigation.**
+to a five-run 749.608 ms mean (69.9% lower). P1-3 is the separate
+selected-account policy optimization above.**
 
 Engineering maintenance: **dashboard action and insight RPCs now validate the
 selected branch timezone through PostgreSQL's direct resolver instead of
