@@ -1289,7 +1289,11 @@ export function MessageThread({
                       >
                         <MessageActions
                           message={msg}
-                          onReply={() => handleStartReply(msg)}
+                          onReply={
+                            sessionInfo.expired
+                              ? undefined
+                              : () => handleStartReply(msg)
+                          }
                           onReact={(emoji) => {
                             if (emoji) void postReaction(msg.id, emoji);
                           }}

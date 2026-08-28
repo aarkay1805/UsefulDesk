@@ -525,10 +525,30 @@ export function MessageComposer({
   const shellClasses =
     'bg-card rounded-2xl shadow-sm ring-1 ring-foreground/5 min-w-0 p-2';
 
+  /**
+   * Once the 24-hour window has closed, nothing the input row offers can
+   * actually leave the account — free-form text, media, and a drafted reply
+   * are all refused by Meta until a template reopens the session. So the row
+   * is omitted rather than blocked (the surface rule: an action that no longer
+   * applies is removed, not explained four times), and the amber bar becomes
+   * the bottom bar, carrying the one move that still works.
+   *
+   * It stays mounted while an attachment is staged or the mic is live: a
+   * session that closes mid-compose must not silently swallow an upload the
+   * agent already made. Those two branches keep their own Send, which still
+   * opens the closed-session blocker and its template resolution.
+   */
+  const composerOpen = !sessionExpired || draft !== null || recording;
+
   return (
     <div className="relative shrink-0 px-3 pt-1 pb-3 sm:px-6">
       {sessionExpired && (
-        <div className="bg-card mb-2 flex items-center justify-between gap-2 rounded-2xl p-2.5 shadow-sm ring-1 ring-amber-500/25">
+        <div
+          className={cn(
+            'bg-card flex items-center justify-between gap-2 rounded-2xl p-2.5 shadow-sm ring-1 ring-amber-500/25',
+            composerOpen && 'mb-2'
+          )}
+        >
           <p className="text-amber-foreground text-xs">
             The 24-hour WhatsApp® session has closed. Send an approved template
             to reopen it.
@@ -550,236 +570,241 @@ export function MessageComposer({
         </div>
       )}
 
-      {/* Hidden file inputs driven by the attach menu. */}
-      <input
-        ref={imageInputRef}
-        type="file"
-        accept={PICKER_ACCEPT.image}
-        className="hidden"
-        onChange={(e) => {
-          handlePicked('image', e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={videoInputRef}
-        type="file"
-        accept={PICKER_ACCEPT.video}
-        className="hidden"
-        onChange={(e) => {
-          handlePicked('video', e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
-      <input
-        ref={documentInputRef}
-        type="file"
-        accept={PICKER_ACCEPT.document}
-        className="hidden"
-        onChange={(e) => {
-          handlePicked('document', e.target.files?.[0]);
-          e.target.value = '';
-        }}
-      />
+      {composerOpen && (
+        <>
+          {/* Hidden file inputs driven by the attach menu. */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept={PICKER_ACCEPT.image}
+            className="hidden"
+            onChange={(e) => {
+              handlePicked('image', e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept={PICKER_ACCEPT.video}
+            className="hidden"
+            onChange={(e) => {
+              handlePicked('video', e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
+          <input
+            ref={documentInputRef}
+            type="file"
+            accept={PICKER_ACCEPT.document}
+            className="hidden"
+            onChange={(e) => {
+              handlePicked('document', e.target.files?.[0]);
+              e.target.value = '';
+            }}
+          />
 
-      {draft ? (
-        <MediaDraftPreview
-          draft={draft}
-          busy={busy}
-          blocker={sendBlocker}
-          blockerIdentity={sendBlockerIdentity}
-          shellClasses={shellClasses}
-          onCaptionChange={setCaption}
-          onDiscard={discardDraft}
-          onSend={sendDraft}
-        />
-      ) : recording ? (
-        // Recording bar — takes over the shell while the mic is live.
-        <div
-          className={cn(
-            shellClasses,
-            'flex items-center gap-3 py-2 pr-1.5 pl-4'
-          )}
-        >
-          <span className="flex size-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
-          <span className="text-foreground flex-1 text-sm tabular-nums">
-            Recording… {formatDuration(recordSeconds)} /{' '}
-            {formatDuration(MAX_RECORDING_SECONDS)}
-          </span>
-          <Button variant="ghost" size="sm" onClick={cancelRecording}>
-            Cancel
-          </Button>
-          <Button
-            size="icon-lg"
-            onClick={stopRecording}
-            aria-label="Stop and attach"
-            title="Stop and attach"
-          >
-            <Square className="size-4" />
-          </Button>
-        </div>
-      ) : (
-        <div className={cn(shellClasses, 'flex flex-col gap-1.5')}>
-          {replyTo && (
-            // The quote lives INSIDE the shell, so replying grows the composer
-            // upward as one object instead of stacking a second card above it.
-            // It sits flush in the shell's own 8px padding, which is what keeps
-            // its 10px corner concentric with the shell's 18px one.
-            <ReplyQuote
-              authorLabel={replyTo.authorLabel}
-              preview={replyTo.preview}
-              onDismiss={onClearReply}
-            />
-          )}
-          <div className="flex items-end gap-0.5">
-            {/* Attach menu — photo / video / document / voice. */}
-            <DropdownMenu
-              open={attachMenuOpen}
-              onOpenChange={(nextOpen, eventDetails) => {
-                if (!nextOpen) {
-                  setAttachMenuOpen(false);
-                } else if (
-                  !sendBlocker &&
-                  eventDetails.event.type === 'keydown'
-                ) {
-                  setAttachMenuOpen(true);
-                }
-              }}
-            >
-              <ResolvableAction
-                trigger={
-                  <DropdownMenuTrigger
-                    nativeButton={false}
-                    render={
-                      <Button
-                        nativeButton={false}
-                        render={<div />}
-                        variant="ghost"
-                        size="icon-lg"
-                        aria-label="Attach media"
-                        title={sendBlocker ? undefined : 'Attach media'}
-                      />
-                    }
-                  >
-                    {busy ? (
-                      <Loader2 className="size-5 animate-spin" />
-                    ) : (
-                      <Paperclip className="size-5" />
-                    )}
-                  </DropdownMenuTrigger>
-                }
-                onAction={() => setAttachMenuOpen(true)}
-                blocker={sendBlocker}
-                disabled={busy}
-              />
-              <DropdownMenuContent
-                align="start"
-                className="border-border bg-popover"
-              >
-                <DropdownMenuItem
-                  onClick={() => imageInputRef.current?.click()}
-                >
-                  <ImageIcon className="mr-2 size-4" />
-                  Photo
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => videoInputRef.current?.click()}
-                >
-                  <Video className="mr-2 size-4" />
-                  Video
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => documentInputRef.current?.click()}
-                >
-                  <FileText className="mr-2 size-4" />
-                  Document
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => void startRecording()}>
-                  <Mic className="mr-2 size-4" />
-                  Voice note
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                readOnly
-                  ? 'Read-only — viewers can browse but not reply'
-                  : sessionExpired
-                    ? 'Send a template to reopen the session'
-                    : 'Type a message'
-              }
-              aria-label="Message"
-              disabled={sessionExpired || readOnly}
-              rows={1}
-              // Textarea keeps its own inline title — the GatedButton
-              // wrapping pattern doesn't apply to non-button inputs.
-              // The placeholder text also surfaces the read-only state.
-              title={
-                readOnly
-                  ? "Read-only — your role can't send messages"
-                  : undefined
-              }
-              className={cn(
-                'text-foreground placeholder:text-muted-foreground min-w-0 flex-1 resize-none self-center overflow-y-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 outline-none',
-                (sessionExpired || readOnly) && 'cursor-not-allowed opacity-60'
-              )}
-            />
-
-            <ResolvableAction
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="icon-lg"
-                  title={readOnly ? undefined : 'Send template'}
-                  aria-label="Send template"
-                >
-                  <LayoutTemplate className="size-5" />
-                </Button>
-              }
-              onAction={onOpenTemplates}
-              blocker={permissionBlocker}
-            />
-
-            <ResolvableAction
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="icon-lg"
-                  disabled={drafting}
-                  loading={drafting}
-                  title={readOnly ? undefined : 'Draft a reply with AI'}
-                  aria-label="Draft a reply with AI"
-                  className="hover:text-primary-text"
-                >
-                  <Sparkles className="size-5" />
-                </Button>
-              }
-              onAction={() => void handleDraft()}
-              blocker={permissionBlocker}
-            />
-
-            <ResolvableAction
-              trigger={
-                <Button
-                  size="icon-lg"
-                  disabled={sendDisabled}
-                  loading={sending}
-                  aria-label="Send message"
-                  className="disabled:opacity-40"
-                >
-                  <Send className="size-4" />
-                </Button>
-              }
-              onAction={() => void handleSend()}
+          {draft ? (
+            <MediaDraftPreview
+              draft={draft}
+              busy={busy}
               blocker={sendBlocker}
+              blockerIdentity={sendBlockerIdentity}
+              shellClasses={shellClasses}
+              onCaptionChange={setCaption}
+              onDiscard={discardDraft}
+              onSend={sendDraft}
             />
-          </div>
-        </div>
+          ) : recording ? (
+            // Recording bar — takes over the shell while the mic is live.
+            <div
+              className={cn(
+                shellClasses,
+                'flex items-center gap-3 py-2 pr-1.5 pl-4'
+              )}
+            >
+              <span className="flex size-2.5 shrink-0 animate-pulse rounded-full bg-red-500" />
+              <span className="text-foreground flex-1 text-sm tabular-nums">
+                Recording… {formatDuration(recordSeconds)} /{' '}
+                {formatDuration(MAX_RECORDING_SECONDS)}
+              </span>
+              <Button variant="ghost" size="sm" onClick={cancelRecording}>
+                Cancel
+              </Button>
+              <Button
+                size="icon-lg"
+                onClick={stopRecording}
+                aria-label="Stop and attach"
+                title="Stop and attach"
+              >
+                <Square className="size-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className={cn(shellClasses, 'flex flex-col gap-1.5')}>
+              {replyTo && (
+                // The quote lives INSIDE the shell, so replying grows the composer
+                // upward as one object instead of stacking a second card above it.
+                // It sits flush in the shell's own 8px padding, which is what keeps
+                // its 10px corner concentric with the shell's 18px one.
+                <ReplyQuote
+                  authorLabel={replyTo.authorLabel}
+                  preview={replyTo.preview}
+                  onDismiss={onClearReply}
+                />
+              )}
+              <div className="flex items-end gap-0.5">
+                {/* Attach menu — photo / video / document / voice. */}
+                <DropdownMenu
+                  open={attachMenuOpen}
+                  onOpenChange={(nextOpen, eventDetails) => {
+                    if (!nextOpen) {
+                      setAttachMenuOpen(false);
+                    } else if (
+                      !sendBlocker &&
+                      eventDetails.event.type === 'keydown'
+                    ) {
+                      setAttachMenuOpen(true);
+                    }
+                  }}
+                >
+                  <ResolvableAction
+                    trigger={
+                      <DropdownMenuTrigger
+                        nativeButton={false}
+                        render={
+                          <Button
+                            nativeButton={false}
+                            render={<div />}
+                            variant="ghost"
+                            size="icon-lg"
+                            aria-label="Attach media"
+                            title={sendBlocker ? undefined : 'Attach media'}
+                          />
+                        }
+                      >
+                        {busy ? (
+                          <Loader2 className="size-5 animate-spin" />
+                        ) : (
+                          <Paperclip className="size-5" />
+                        )}
+                      </DropdownMenuTrigger>
+                    }
+                    onAction={() => setAttachMenuOpen(true)}
+                    blocker={sendBlocker}
+                    disabled={busy}
+                  />
+                  <DropdownMenuContent
+                    align="start"
+                    className="border-border bg-popover"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      <ImageIcon className="mr-2 size-4" />
+                      Photo
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => videoInputRef.current?.click()}
+                    >
+                      <Video className="mr-2 size-4" />
+                      Video
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => documentInputRef.current?.click()}
+                    >
+                      <FileText className="mr-2 size-4" />
+                      Document
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => void startRecording()}>
+                      <Mic className="mr-2 size-4" />
+                      Voice note
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <textarea
+                  ref={textareaRef}
+                  value={text}
+                  onChange={handleChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    readOnly
+                      ? 'Read-only — viewers can browse but not reply'
+                      : sessionExpired
+                        ? 'Send a template to reopen the session'
+                        : 'Type a message'
+                  }
+                  aria-label="Message"
+                  disabled={sessionExpired || readOnly}
+                  rows={1}
+                  // Textarea keeps its own inline title — the GatedButton
+                  // wrapping pattern doesn't apply to non-button inputs.
+                  // The placeholder text also surfaces the read-only state.
+                  title={
+                    readOnly
+                      ? "Read-only — your role can't send messages"
+                      : undefined
+                  }
+                  className={cn(
+                    'text-foreground placeholder:text-muted-foreground min-w-0 flex-1 resize-none self-center overflow-y-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 outline-none',
+                    (sessionExpired || readOnly) &&
+                      'cursor-not-allowed opacity-60'
+                  )}
+                />
+
+                <ResolvableAction
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon-lg"
+                      title={readOnly ? undefined : 'Send template'}
+                      aria-label="Send template"
+                    >
+                      <LayoutTemplate className="size-5" />
+                    </Button>
+                  }
+                  onAction={onOpenTemplates}
+                  blocker={permissionBlocker}
+                />
+
+                <ResolvableAction
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      size="icon-lg"
+                      disabled={drafting}
+                      loading={drafting}
+                      title={readOnly ? undefined : 'Draft a reply with AI'}
+                      aria-label="Draft a reply with AI"
+                      className="hover:text-primary-text"
+                    >
+                      <Sparkles className="size-5" />
+                    </Button>
+                  }
+                  onAction={() => void handleDraft()}
+                  blocker={permissionBlocker}
+                />
+
+                <ResolvableAction
+                  trigger={
+                    <Button
+                      size="icon-lg"
+                      disabled={sendDisabled}
+                      loading={sending}
+                      aria-label="Send message"
+                      className="disabled:opacity-40"
+                    >
+                      <Send className="size-4" />
+                    </Button>
+                  }
+                  onAction={() => void handleSend()}
+                  blocker={sendBlocker}
+                />
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

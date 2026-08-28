@@ -177,33 +177,29 @@ describe('MessageComposer blocked actions', () => {
     expect(screen.queryByRole('button', { name: /ask|request/i })).toBeNull();
   });
 
-  it('resolves a closed-session attachment attempt through the template picker', async () => {
-    const onOpenTemplates = vi.fn();
-    const user = userEvent.setup();
+  it('omits the whole input row once the session has closed', () => {
     render(
       <MessageComposer
         conversationId="conversation-1"
         sessionExpired
         onSend={vi.fn()}
         onSendMedia={vi.fn()}
-        onOpenTemplates={onOpenTemplates}
+        onOpenTemplates={vi.fn()}
       />
     );
 
-    const attach = screen.getByRole('button', { name: 'Attach media' });
-    expect(attach.getAttribute('disabled')).toBeNull();
-    expect(attach.getAttribute('tabindex')).toBe('0');
-    attach.focus();
-    await user.keyboard('{Enter}');
-
-    const blocker = screen.getByRole('dialog', {
-      name: 'WhatsApp session has closed',
-    });
-    expect(screen.queryByRole('menu')).toBeNull();
-    await user.click(
-      within(blocker).getByRole('button', { name: 'Send template' })
-    );
-    expect(onOpenTemplates).toHaveBeenCalledOnce();
+    // A closed window refuses free-form text, media, and a drafted reply
+    // alike, so the row is removed rather than left standing as four controls
+    // that all open the same explanation.
+    expect(screen.queryByRole('button', { name: 'Attach media' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Draft a reply with AI' })
+    ).toBeNull();
+    // The banner is the bottom bar now, and it keeps the move that reopens
+    // the session.
+    expect(screen.getByRole('button', { name: 'Templates' })).toBeTruthy();
   });
 
   it('keeps a staged attachment send focusable and suppresses its callback when permission is lost', async () => {
@@ -656,31 +652,6 @@ describe('MessageComposer blocked actions', () => {
       });
     }
   );
-
-  it('resolves a closed session through the template picker', async () => {
-    const onOpenTemplates = vi.fn();
-    const user = userEvent.setup();
-    render(
-      <MessageComposer
-        conversationId="conversation-1"
-        sessionExpired
-        onSend={vi.fn()}
-        onSendMedia={vi.fn()}
-        onOpenTemplates={onOpenTemplates}
-      />
-    );
-
-    await user.click(screen.getByRole('button', { name: 'Send message' }));
-
-    const blocker = screen.getByRole('dialog', {
-      name: 'WhatsApp session has closed',
-    });
-    expect(blocker).toBeTruthy();
-    await user.click(
-      within(blocker).getByRole('button', { name: 'Send template' })
-    );
-    expect(onOpenTemplates).toHaveBeenCalledOnce();
-  });
 
   it('keeps the expired-session banner permission blocker authoritative for viewers', async () => {
     permissions.canSendMessages = false;

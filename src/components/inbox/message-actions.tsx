@@ -18,7 +18,9 @@ const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 interface MessageActionsProps {
   message: Message;
-  onReply: () => void;
+  /** Omitted while replying is impossible — a closed 24-hour session hides
+   *  the composer, so a Reply would arm a quote with nowhere to land. */
+  onReply?: () => void;
   onReact: (emoji: string) => void;
   children: ReactNode;
 }
@@ -70,7 +72,7 @@ export function MessageActions({
   };
 
   const handleReply = () => {
-    onReply();
+    onReply?.();
     setTouchOpen(false);
   };
 
@@ -133,14 +135,16 @@ export function MessageActions({
               ))}
             </PopoverContent>
           </Popover>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleReply}
-            aria-label="Reply"
-          >
-            <CornerUpLeft />
-          </Button>
+          {onReply && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleReply}
+              aria-label="Reply"
+            >
+              <CornerUpLeft />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

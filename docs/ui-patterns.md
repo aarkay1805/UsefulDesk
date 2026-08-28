@@ -364,6 +364,23 @@ And both message-update paths in `inbox/page.tsx` return `prev` unchanged when
 the id is not in the open thread — the realtime channel carries every message
 UPDATE in the account, and a blind `.map` handed back a fresh array for each one.
 
+### A closed 24-hour window removes the composer, it does not disable it
+
+While the session is closed, nothing the input row offers can leave the account
+— free-form text, media, and an AI-drafted reply are all refused by Meta until a
+template reopens it. So `message-composer.tsx` omits the row and the amber
+banner becomes the bottom bar, carrying the single move that still works
+(**Templates**). This is the **Blocked actions** rule at the top of this file
+applied literally: an action that no longer applies is removed, not left
+standing as four controls that open the same explanation. Bubble **Reply** is
+omitted for the same reason — it would arm a quote with nowhere to land, so
+`message-thread.tsx` passes no `onReply` while the window is closed.
+
+Two branches survive the close, deliberately: a **staged attachment** and a
+**live recording**. A session that expires mid-compose must not silently swallow
+an upload the agent already made, so those keep their shell and their own Send,
+which still opens the closed-session blocker and its template resolution.
+
 **The thread header's Status, Assign, and ⋮ are ghost buttons, not pills.** A pill trigger is the page-level filter idiom and it belongs on the list toolbar; three outlined pills in a row above a conversation put a fence around controls the eye should slide past. Ghost keeps the header as quiet as the one every user already knows, and the assignee's own name is the state readout that the accent tint used to provide.
 
 ### Deliberate deviations from the rest of the system

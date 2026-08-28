@@ -6,6 +6,20 @@
 
 ---
 
+## A closed WhatsApp window shows the banner instead of a dead composer
+
+The inbox composer is now omitted once the 24-hour session has closed, leaving
+the amber banner as the bottom bar with its **Templates** action. Previously the
+row stayed put with a disabled textarea and three controls (attach, template,
+AI draft, send) that mostly opened the same "session has closed" explanation —
+four ways to be told the same no. Bubble **Reply** is hidden in the same state,
+because the composer it arms is no longer there. Key code:
+`src/components/inbox/message-composer.tsx` (`composerOpen`),
+`message-actions.tsx` (optional `onReply`), and `message-thread.tsx`. Gotcha: a
+staged attachment or a live recording keeps the shell mounted even when the
+window closes — unmounting it would GC an upload the agent already made, and
+their Send still routes through the closed-session blocker.
+
 ## Dashboard insight histories aggregate inside Postgres
 
 The conversation chart and lead-conversion rating now use two RLS-preserving **branch-scoped insight aggregates** from `supabase/migrations/20260827181937_dashboard_insight_aggregates.sql`. The changed server slice falls from at least seven PostgREST queries to three (four fewer, 57.14%): one conversation RPC plus one lead-rating RPC and the unchanged source-label lookup. The previous five lead-rating history readers could each add another query per 1,000 rows; the RPC path is fixed. Database-to-Next transfer changes from every matching conversation message plus all cohort contact/membership/conversation/message/follow-up rows to exactly 7/30/90 conversation buckets plus one count row per source; configurable source-option rows are unchanged. These are static query-shape and transfer-cardinality measurements, not live production timing. Gotcha: both RPCs are separate `SECURITY INVOKER` functions with explicit authenticated-only grants so selected-branch RLS and section-local errors remain intact; keep the API private/no-store and its branch-derived timezone/range inputs authoritative.
