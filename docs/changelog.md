@@ -35,6 +35,28 @@ index was added: the measured predicates use existing account/date and
 membership/date coverage. The next evidenced residual is the Members deep-link
 lifecycle briefly loading the default Renewals view before the requested tab.
 
+## Member deep links mount only the requested listing
+
+P2-6 makes the App Router's `view` search param the Members page's render-time
+source of truth. Previously every non-Renewals direct load committed Renewals,
+started its 50-row memberships request, then switched in a post-commit effect;
+that request had no network abort and could complete after the child unmounted,
+while the user saw the default listing's loading state before the requested
+lazy view. Attendance, Payments, Follow-ups, All members, and Renewals now
+mount only their requested listing on direct loads, and missing or invalid
+values still use Renewals.
+
+The existing native `replaceState` navigation continues to preserve branch and
+other query params and now synchronizes through `useSearchParams`, including
+back/forward traversal. Focused lifecycle tests cover direct loads, in-app
+switches, history, stale completions, and the single four-table page Realtime
+subscription. The shared reminder-readiness reads and child query contracts are
+unchanged; no database or authorization change was needed. The next residual is
+the Members page's broad Realtime nonce, which refetches the active listing for
+changes to unrelated member tables. Key code:
+`src/app/(dashboard)/members/page.tsx` and
+`src/app/(dashboard)/members/page.lifecycle.test.tsx`.
+
 ## Member Follow-ups loads one bounded task snapshot
 
 P2-4 replaces the Members -> Follow-ups tab's page/exact-total request plus

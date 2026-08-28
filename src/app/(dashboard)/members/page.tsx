@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { Download, Loader2, Plus, Upload } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -155,8 +156,10 @@ function isUuid(value: string | null): value is string {
 export default function MembersPage() {
   const { canSendMessages } = useAuth();
   const readiness = useReminderReadiness();
+  const searchParams = useSearchParams();
 
-  const [view, setView] = useState<View>('renewals');
+  const requestedView = searchParams.get('view');
+  const view: View = isMemberView(requestedView) ? requestedView : 'renewals';
   const [reloadKey, setReloadKey] = useState(0);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -167,25 +170,24 @@ export default function MembersPage() {
   const [detailContactId, setDetailContactId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // Report action links deep-link to the relevant operating queue. Read the
-  // requested tab after hydration (the server cannot see window.location in
-  // this client page), then keep subsequent tab choices reflected in the URL.
+  // Finance/Reports deep links open the existing member sheet; no second
+  // member-detail surface is created for those analytical pages.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const requested = params.get('view');
-    if (isMemberView(requested)) {
-      // Synchronising component state from the browser URL is the purpose of
-      // this effect; it is not derived render state.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setView(requested);
-    }
     const requestedMember = params.get('member');
-    if (isUuid(requestedMember)) {
-      // Finance/Reports deep links open the existing member sheet; no
-      // second member-detail surface is created for those analytical pages.
-      setDetailId(requestedMember);
-      setDetailOpen(true);
-    }
+    if (!isUuid(requestedMember)) return;
+
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) {
+        setDetailId(requestedMember);
+        setDetailOpen(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Dashboard "New Member" deep-links here because this page owns the
@@ -289,7 +291,6 @@ export default function MembersPage() {
   }
 
   function changeView(nextView: View) {
-    setView(nextView);
     const url = new URL(window.location.href);
     url.searchParams.set('view', nextView);
     window.history.replaceState(null, '', url);

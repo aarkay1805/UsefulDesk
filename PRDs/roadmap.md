@@ -8,6 +8,21 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P2-6 makes the Members `view` search param the
+render-time listing source of truth. Attendance, Payments, Follow-ups, All
+members, and Renewals deep links now mount and fetch only the requested child;
+missing/invalid values retain the canonical Renewals fallback. Previously every
+non-Renewals direct load committed Renewals first and started one extra 50-row
+memberships request with no network abort before a post-commit effect selected
+the requested lazy view. Native `replaceState`, branch and other query params,
+back/forward traversal, tab order/permissions, lazy loading, loading/error
+states, and the single four-table page Realtime subscription remain unchanged.
+Focused lifecycle tests cover the direct-link matrix, in-app switching, stale
+completion suppression, URL preservation, history traversal, and subscription
+count; no database or authorization change was required. The next evidenced
+residual is the Members page's broad Realtime reload nonce, which refetches the
+active listing after changes to unrelated member tables.**
+
 Engineering maintenance: **P2-5 Members -> Attendance now returns one bounded
 25-row roster page, exact total and present/absent facets, plan options, latest
 selected-day attendance state, and current-day usage counts through a

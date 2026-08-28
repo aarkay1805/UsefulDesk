@@ -12,4 +12,15 @@ describe('members initial bundle', () => {
     expect(source).toContain('{importOpen ? (');
     expect(source).toContain('{detailOpen ? (');
   });
+
+  it('derives the active listing from router search params before children mount', () => {
+    const source = readFileSync(resolve(__dirname, 'page.tsx'), 'utf8');
+
+    expect(source).toContain(
+      "import { useSearchParams } from 'next/navigation'"
+    );
+    expect(source).toContain("const requestedView = searchParams.get('view')");
+    expect(source).not.toContain("useState<View>('renewals')");
+    expect(source).not.toContain('setView(requested)');
+  });
 });
