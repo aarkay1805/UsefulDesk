@@ -6,6 +6,35 @@
 
 ---
 
+## Member Attendance loads one bounded roster snapshot
+
+P2-5 replaces the Members -> Attendance tab's full membership roster download,
+selected-day attendance read, and conditional sequential usage-count RPC with
+one selected-branch `SECURITY INVOKER` snapshot. The function in
+`20260829060000_consolidate_member_attendance.sql` applies roster search,
+present/absent and plan filters, all existing sorts, deterministic 25-row
+pagination, exact totals/facets, latest selected-day state, and current-day
+plan/session usage in PostgreSQL. Superseded loads abort and the existing
+coalesced Realtime refresh remains authoritative. Forward-only repairs
+`20260829061000_avoid_member_attendance_timezone_catalog_scan.sql` and
+`20260829062000_defer_member_attendance_row_json.sql` remove a timezone-catalog
+scan and defer action-contract JSON construction until after pagination.
+Production connector versions: `20260828181428`, `20260828181556`, and
+`20260828181829`.
+
+At the live scale of 281 memberships, the default tab moved from two requests,
+281 transferred roster rows, and 630,564 bytes to one request, 25 rendered
+rows, and 43,691 bytes; a usage-limited roster would move from three sequential
+requests to the same single request. The normalized default row hash matched
+exactly (`487e82d8a77df3261bd9dd4c3c40e1b0`). After a same-session prime, the
+snapshot plan completed in 6.433 ms with 39 shared hits and no reads or temp
+blocks, versus 6.726 ms and 816 hits across the two legacy statements. A
+rollback-only usage/date/state fixture also matched exactly across every sort,
+filter, page clamp, current/past boundary, and role/tenant denial control. No
+index was added: the measured predicates use existing account/date and
+membership/date coverage. The next evidenced residual is the Members deep-link
+lifecycle briefly loading the default Renewals view before the requested tab.
+
 ## Member Follow-ups loads one bounded task snapshot
 
 P2-4 replaces the Members -> Follow-ups tab's page/exact-total request plus

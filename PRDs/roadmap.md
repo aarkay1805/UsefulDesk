@@ -8,6 +8,28 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P2-5 Members -> Attendance now returns one bounded
+25-row roster page, exact total and present/absent facets, plan options, latest
+selected-day attendance state, and current-day usage counts through a
+selected-branch `SECURITY INVOKER` snapshot. This replaces the full roster and
+day-attendance downloads plus a conditional sequential usage-count RPC;
+search, plan/presence filters, all sorts, deterministic page clamping,
+check-in/out actions, plan/session limits, account-local day boundaries, stale
+response cancellation, and coalesced Realtime freshness retain their existing
+semantics. Migrations `20260829060000_consolidate_member_attendance.sql`,
+`20260829061000_avoid_member_attendance_timezone_catalog_scan.sql`, and
+`20260829062000_defer_member_attendance_row_json.sql` are live on Production as
+connector versions `20260828181428`, `20260828181556`, and `20260828181829`.
+At 281 memberships, the default tab fell from two requests / 281 roster rows /
+630,564 bytes to one request / 25 rows / 43,691 bytes; the normalized row hash
+matched exactly, warm execution was 6.433 ms / 39 shared hits / no reads or
+temp versus 6.726 ms / 816 hits across the legacy statements, and rollback-only
+usage, current/past day, present/out, search/filter/sort/page, role, tenant,
+archived, empty, ACL, RLS, publication, input-bound, and advisor controls
+passed. No speculative index was added. The next evidenced residual is the
+Members deep-link lifecycle loading the default Renewals view before the
+requested tab.**
+
 Engineering maintenance: **P2-4 Members -> Follow-ups now returns one bounded
 25-row task page, exact filtered total, and the four rendered due-date counts
 through a selected-branch `SECURITY INVOKER` snapshot instead of one

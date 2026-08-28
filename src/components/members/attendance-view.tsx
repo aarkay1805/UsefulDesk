@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Check,
   ChevronLeft,
@@ -17,19 +17,21 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { getErrorMessage } from '@/lib/errors';
 import { dayStartInTz } from '@/lib/locale/format';
+import { fetchCheckInUsage } from '@/lib/memberships/check-in';
 import {
-  fetchCheckInUsage,
-  fetchUsageCounts,
-} from '@/lib/memberships/check-in';
+  loadAttendanceSnapshot,
+  type AttendanceBucket,
+  type AttendanceSnapshotRow,
+  type AttendanceSort,
+} from '@/lib/memberships/attendance-snapshot';
 import {
   usageSummary,
   type CheckInWarning,
 } from '@/lib/memberships/attendance-limits';
 import { istAddDays } from '@/lib/memberships/expiry';
-import { memberMatchesSearch } from '@/lib/memberships/search';
 import { createClient } from '@/lib/supabase/client';
 import type { Attendance, AttendanceMethod, Membership } from '@/types';
-import { ColumnHeader, type SortDir } from '@/components/table/column-header';
+import { ColumnHeader } from '@/components/table/column-header';
 import { TableSkeletonRows } from '@/components/table/table-skeleton';
 import { AttendanceOverrideDialog } from './attendance-override-dialog';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
@@ -53,13 +55,7 @@ import {
   ToolbarToggleItem,
 } from '@/components/ui/toolbar';
 
-type AttendanceBucket = 'present' | 'absent';
-type AttendanceSortKey = 'name' | 'checked_in_at' | 'checked_out_at';
-
-interface AttendanceSort {
-  key: AttendanceSortKey;
-  dir: SortDir;
-}
+const PAGE_SIZE = 25;
 
 interface AttendanceViewProps {
   readiness: ReminderReadiness;
@@ -85,12 +81,7 @@ export function AttendanceView({
   const selectedDate = istAddDays(today, dayOffset);
   const isToday = dayOffset === 0;
 
-  const [rows, setRows] = useState<Membership[]>([]);
-  const [attendanceByContact, setAttendanceByContact] = useState<
-    Map<string, Attendance>
-  >(new Map());
-  /** membership_id → visits inside its plan's usage window (062). */
-  const [usage, setUsage] = useState<Map<string, number>>(new Map());
+  const [rows, setRows] = useState<AttendanceSnapshotRow[]>([]);
   const [bucket, setBucket] = useState<AttendanceBucket>('absent');
   const [search, setSearch] = useState('');
   const [planFilters, setPlanFilters] = useState<string[]>([]);
@@ -98,6 +89,14 @@ export function AttendanceView({
     key: 'name',
     dir: 'asc',
   });
+  const [page, setPage] = useState(0);
+  const [loadedPage, setLoadedPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [presentCount, setPresentCount] = useState(0);
+  const [absentCount, setAbsentCount] = useState(0);
+  const [planFilterOptions, setPlanFilterOptions] = useState<
+    { value: string; label: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -112,7 +111,7 @@ export function AttendanceView({
     if (!accountId) return;
 
     const supabase = createClient();
-    let cancelled = false;
+    const controller = new AbortController();
 
     void (async () => {
       setLoading(true);
@@ -126,133 +125,65 @@ export function AttendanceView({
         return;
       }
 
-      const [membersRes, attendanceRes] = await Promise.all([
-        supabase
-          .from('memberships')
-          .select('*, contact:contacts!inner(*), plan:membership_plans(*)')
-          .eq('account_id', accountId),
-        supabase
-          .from('attendance')
-          .select('*')
-          .eq('account_id', accountId)
-          .gte('checked_in_at', start.toISOString())
-          .lt('checked_in_at', end.toISOString())
-          .order('checked_in_at', { ascending: false }),
-      ]);
-
-      if (cancelled) return;
-      if (membersRes.error || attendanceRes.error) {
-        const message = getErrorMessage(
-          membersRes.error ?? attendanceRes.error,
-          'Attendance could not be loaded'
+      try {
+        const result = await loadAttendanceSnapshot(
+          supabase,
+          {
+            dayStart: start.toISOString(),
+            dayEnd: end.toISOString(),
+            today,
+            timeZone: locale.timeZone,
+            weekStart: locale.weekStart,
+            includeUsage: isToday,
+            bucket,
+            search,
+            planIds: planFilters,
+            sort,
+            page,
+            pageSize: PAGE_SIZE,
+          },
+          controller.signal
         );
-        setLoadError(message);
-        setLoading(false);
-        return;
+        if (controller.signal.aborted) return;
+        setRows(result.rows);
+        setLoadedPage(result.page);
+        setTotalCount(result.totalCount);
+        setPresentCount(result.presentCount);
+        setAbsentCount(result.absentCount);
+        setPlanFilterOptions(
+          [...result.planOptions].sort((a, b) =>
+            a.label.localeCompare(b.label, locale.locale)
+          )
+        );
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setLoadError(getErrorMessage(error, 'Attendance could not be loaded'));
+      } finally {
+        if (!controller.signal.aborted) setLoading(false);
       }
-
-      const members = (membersRes.data as Membership[] | null) ?? [];
-      const records = (attendanceRes.data as Attendance[] | null) ?? [];
-      const nextAttendance = new Map<string, Attendance>();
-      // Rows arrive newest-first. Keep one visit per member for the daily
-      // register; the latest record retains its matching checkout time.
-      records.forEach((record) => {
-        if (!nextAttendance.has(record.contact_id)) {
-          nextAttendance.set(record.contact_id, record);
-        }
-      });
-
-      setRows(members);
-      setAttendanceByContact(nextAttendance);
-
-      if (isToday) {
-        const counts = await fetchUsageCounts(supabase, members, today, locale);
-        if (cancelled) return;
-        setUsage(counts);
-      } else {
-        setUsage(new Map());
-      }
-      setLoading(false);
     })();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [accountId, isToday, locale, reloadKey, selectedDate, today]);
-
-  const sortedRows = useMemo(() => {
-    return [...rows].sort((a, b) => {
-      const nameComparison = (a.contact?.name ?? '').localeCompare(
-        b.contact?.name ?? '',
-        locale.locale
-      );
-
-      if (sort.key === 'name') {
-        return nameComparison * (sort.dir === 'asc' ? 1 : -1);
-      }
-
-      const attendanceA = attendanceByContact.get(a.contact_id);
-      const attendanceB = attendanceByContact.get(b.contact_id);
-      const timeA = attendanceA?.[sort.key] ?? null;
-      const timeB = attendanceB?.[sort.key] ?? null;
-
-      // Keep members without a recorded time at the end in both directions.
-      // This leaves active (not-yet-checked-out) visits easy to find.
-      if (!timeA && !timeB) return nameComparison;
-      if (!timeA) return 1;
-      if (!timeB) return -1;
-
-      const timeComparison = timeA.localeCompare(timeB);
-      return timeComparison === 0
-        ? nameComparison
-        : timeComparison * (sort.dir === 'asc' ? 1 : -1);
-    });
-  }, [attendanceByContact, locale.locale, rows, sort]);
-
-  const presentCount = useMemo(
-    () =>
-      rows.filter((membership) =>
-        attendanceByContact.has(membership.contact_id)
-      ).length,
-    [attendanceByContact, rows]
-  );
-  const absentCount = Math.max(0, rows.length - presentCount);
-
-  const planFilterOptions = useMemo(() => {
-    const options = new Map<string, string>();
-    rows.forEach((membership) => {
-      if (membership.plan_id && membership.plan) {
-        options.set(membership.plan_id, membership.plan.name);
-      }
-    });
-    return Array.from(options, ([value, label]) => ({ value, label })).sort(
-      (a, b) => a.label.localeCompare(b.label, locale.locale)
-    );
-  }, [locale.locale, rows]);
-
-  const filtered = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase(locale.locale);
-    return sortedRows.filter((membership) => {
-      const isPresent = attendanceByContact.has(membership.contact_id);
-      if ((bucket === 'present') !== isPresent) return false;
-      if (
-        planFilters.length > 0 &&
-        (!membership.plan_id || !planFilters.includes(membership.plan_id))
-      ) {
-        return false;
-      }
-      return memberMatchesSearch(membership, query, locale.locale);
-    });
   }, [
-    attendanceByContact,
+    accountId,
     bucket,
+    isToday,
     locale.locale,
+    locale.timeZone,
+    locale.weekStart,
+    page,
     planFilters,
+    reloadKey,
     search,
-    sortedRows,
+    selectedDate,
+    sort,
+    today,
   ]);
 
   function togglePlanFilter(planId: string) {
+    setPage(0);
     setPlanFilters((current) =>
       current.includes(planId)
         ? current.filter((id) => id !== planId)
@@ -261,19 +192,17 @@ export function AttendanceView({
   }
 
   /** The plan name + current usage shown in the dedicated Plan column. */
-  function rowPlan(membership: Membership): {
+  function rowPlan(row: AttendanceSnapshotRow): {
     name: string;
     usage: string | null;
     danger: boolean;
   } {
+    const { membership } = row;
     const planName = membership.plan?.name ?? '—';
     if (!isToday || !membership.plan) {
       return { name: planName, usage: null, danger: false };
     }
-    const summary = usageSummary(
-      membership.plan,
-      usage.get(membership.id) ?? 0
-    );
+    const summary = usageSummary(membership.plan, row.used);
     return summary
       ? { name: planName, usage: summary.label, danger: summary.danger }
       : { name: planName, usage: null, danger: false };
@@ -301,15 +230,18 @@ export function AttendanceView({
       if (error) throw error;
 
       const record = data as Attendance;
-      setAttendanceByContact((previous) =>
-        new Map(previous).set(membership.contact_id, record)
+      setRows((current) =>
+        current.flatMap((row) => {
+          if (row.membership.id !== membership.id) return [row];
+          if (bucket === 'absent') return [];
+          return [{ ...row, attendance: record, used: row.used + 1 }];
+        })
       );
-      setUsage((previous) =>
-        new Map(previous).set(
-          membership.id,
-          (previous.get(membership.id) ?? 0) + 1
-        )
-      );
+      setPresentCount((count) => count + 1);
+      setAbsentCount((count) => Math.max(0, count - 1));
+      if (bucket === 'absent') {
+        setTotalCount((count) => Math.max(0, count - 1));
+      }
       setOverride(null);
       toast.success(`${membership.contact?.name || 'Member'} checked in`);
       onAttendanceChanged?.();
@@ -333,7 +265,13 @@ export function AttendanceView({
       locale
     );
     if (result) {
-      setUsage((previous) => new Map(previous).set(membership.id, result.used));
+      setRows((current) =>
+        current.map((row) =>
+          row.membership.id === membership.id
+            ? { ...row, used: result.used }
+            : row
+        )
+      );
       if (result.warning) {
         setBusyId(null);
         setOverride({ membership, warning: result.warning, method });
@@ -358,11 +296,15 @@ export function AttendanceView({
       if (error) throw error;
       if (!data) throw new Error('This visit was already checked out.');
 
-      setAttendanceByContact((previous) =>
-        new Map(previous).set(membership.contact_id, {
-          ...attendance,
-          checked_out_at: checkedOutAt,
-        })
+      setRows((current) =>
+        current.map((row) =>
+          row.membership.id === membership.id
+            ? {
+                ...row,
+                attendance: { ...attendance, checked_out_at: checkedOutAt },
+              }
+            : row
+        )
       );
       toast.success(`${membership.contact?.name || 'Member'} checked out`);
       onAttendanceChanged?.();
@@ -374,7 +316,7 @@ export function AttendanceView({
   }
 
   function emptyMessage() {
-    if (rows.length === 0) return 'No members yet.';
+    if (presentCount + absentCount === 0) return 'No members yet.';
     if (search.trim()) {
       return `No ${bucket} members match your search.`;
     }
@@ -384,13 +326,22 @@ export function AttendanceView({
     return `Everyone was present on ${fmt.date(selectedDate)}.`;
   }
 
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const hasPreviousPage = loadedPage > 0;
+  const hasNextPage = loadedPage < totalPages - 1;
+  const firstShown = totalCount === 0 ? 0 : loadedPage * PAGE_SIZE + 1;
+  const lastShown = Math.min((loadedPage + 1) * PAGE_SIZE, totalCount);
+
   return (
     <>
       <section className="border-border bg-card overflow-hidden rounded-2xl border">
         <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
           <SearchInput
             value={search}
-            onValueChange={setSearch}
+            onValueChange={(value) => {
+              setSearch(value);
+              setPage(0);
+            }}
             placeholder="Search by name or ID"
             aria-label="Search attendance by name or Member ID"
           />
@@ -401,7 +352,10 @@ export function AttendanceView({
               value={[bucket]}
               onValueChange={(nextBuckets) => {
                 const nextBucket = nextBuckets[0];
-                if (nextBucket) setBucket(nextBucket);
+                if (nextBucket) {
+                  setBucket(nextBucket);
+                  setPage(0);
+                }
               }}
             >
               <ToolbarToggleItem value="present" aria-label="Present members">
@@ -426,7 +380,10 @@ export function AttendanceView({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setDayOffset(0)}
+              onClick={() => {
+                setDayOffset(0);
+                setPage(0);
+              }}
               aria-current={isToday ? 'date' : undefined}
             >
               Today
@@ -435,7 +392,10 @@ export function AttendanceView({
               type="button"
               variant="ghost"
               size="icon-sm"
-              onClick={() => setDayOffset((offset) => offset - 1)}
+              onClick={() => {
+                setDayOffset((offset) => offset - 1);
+                setPage(0);
+              }}
               aria-label="Previous day"
               title="Previous day"
             >
@@ -446,7 +406,10 @@ export function AttendanceView({
               variant="ghost"
               size="icon-sm"
               disabled={isToday}
-              onClick={() => setDayOffset((offset) => Math.min(0, offset + 1))}
+              onClick={() => {
+                setDayOffset((offset) => Math.min(0, offset + 1));
+                setPage(0);
+              }}
               aria-label="Next day"
               title={isToday ? 'Today is the latest date' : 'Next day'}
             >
@@ -466,7 +429,10 @@ export function AttendanceView({
                   label="Name"
                   sortable
                   sortDir={sort.key === 'name' ? sort.dir : null}
-                  onSort={(dir) => setSort({ key: 'name', dir })}
+                  onSort={(dir) => {
+                    setSort({ key: 'name', dir });
+                    setPage(0);
+                  }}
                 />
               </TableHead>
               <TableHead className="w-[20%]">
@@ -487,7 +453,10 @@ export function AttendanceView({
                   label="Check-in"
                   sortable
                   sortDir={sort.key === 'checked_in_at' ? sort.dir : null}
-                  onSort={(dir) => setSort({ key: 'checked_in_at', dir })}
+                  onSort={(dir) => {
+                    setSort({ key: 'checked_in_at', dir });
+                    setPage(0);
+                  }}
                 />
               </TableHead>
               <TableHead className="w-[15%]">
@@ -495,7 +464,10 @@ export function AttendanceView({
                   label="Check-out"
                   sortable
                   sortDir={sort.key === 'checked_out_at' ? sort.dir : null}
-                  onSort={(dir) => setSort({ key: 'checked_out_at', dir })}
+                  onSort={(dir) => {
+                    setSort({ key: 'checked_out_at', dir });
+                    setPage(0);
+                  }}
                 />
               </TableHead>
               <TableHead className="w-[20%] pr-4 text-right">Actions</TableHead>
@@ -520,7 +492,7 @@ export function AttendanceView({
                   <span className="text-destructive text-sm">{loadError}</span>
                 </TableCell>
               </TableRow>
-            ) : filtered.length === 0 ? (
+            ) : rows.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={5} className="h-40 px-4 text-center">
                   <span className="text-muted-foreground inline-flex flex-col items-center gap-2 text-sm">
@@ -530,11 +502,9 @@ export function AttendanceView({
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((membership) => {
-                const attendance = attendanceByContact.get(
-                  membership.contact_id
-                );
-                const plan = rowPlan(membership);
+              rows.map((row) => {
+                const { membership, attendance } = row;
+                const plan = rowPlan(row);
                 const busy = busyId === membership.id;
                 return (
                   <TableRow
@@ -647,6 +617,38 @@ export function AttendanceView({
             )}
           </TableBody>
         </Table>
+        <div className="border-border flex items-center justify-between border-t px-3 py-2">
+          <p className="text-muted-foreground text-xs">
+            {totalCount > 0
+              ? `Showing ${firstShown}–${lastShown} of ${totalCount} ${bucket} members`
+              : `No ${bucket} members`}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              disabled={!hasPreviousPage}
+              onClick={() => setPage(loadedPage - 1)}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="size-4" />
+            </Button>
+            <span className="text-muted-foreground px-2 text-xs">
+              Page {loadedPage + 1} of {Math.max(totalPages, 1)}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              disabled={!hasNextPage}
+              onClick={() => setPage(loadedPage + 1)}
+              aria-label="Next page"
+            >
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </div>
       </section>
 
       <AttendanceOverrideDialog
