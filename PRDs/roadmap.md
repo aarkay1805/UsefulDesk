@@ -8,6 +8,26 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P2-4 Members -> Follow-ups now returns one bounded
+25-row task page, exact filtered total, and the four rendered due-date counts
+through a selected-branch `SECURITY INVOKER` snapshot instead of one
+page/exact-total request plus four exact facet requests. Search, mine/team,
+reason, assignee, due bucket, all four sorts, server page clamping, persisted
+table preferences, and authored/assigned identity retain their existing
+semantics; numeric member search is now database-side, stale work aborts, and
+direct follow-up changes join the existing coalesced Realtime refresh.
+Migrations `20260829050000_consolidate_member_follow_ups.sql` and the
+forward-only PostgreSQL extrema repair
+`20260829051000_repair_member_follow_ups_extrema.sql` are live on Production as
+connector versions `20260828173840` and `20260828173922`. At current scale, the
+default tab fell from five requests / one row / 3,771 bytes to one request / one
+row / 2,225 bytes; five warm plans improved from 15.446 ms / 3,192 shared hits
+to 13.064 ms / 2,739 hits, with no reads or temp blocks and exact output,
+role/tenant/archived/empty/bound, ACL, RLS, publication, index-plan, and advisor
+controls verified. No speculative index was added. Members -> Attendance's
+full-roster read plus sequential usage-count RPC is the next residual
+performance finding.**
+
 Engineering maintenance: **P2-3 Members -> Payments now returns the payment
 tiles, exact due-member total/facets, plan options, and one bounded 25-row page
 through a shared selected-branch `SECURITY INVOKER` snapshot instead of four
@@ -20,8 +40,7 @@ the default tab fell from four requests / 314 rows / 632,733 bytes to one
 request / three rendered rows / 7,020 bytes; five warm plans improved from
 33.898 to 29.327 ms, with exact row and money output, role/tenant/archived/empty
 controls, ACL, RLS, publication, indexes, and advisors verified. The independent
-member Follow-ups five-request exact-count/facet fanout is the next residual
-performance finding.**
+member Follow-ups fanout is closed by the P2-4 entry above.**
 
 Engineering maintenance: **P2-2 Finance Overview now returns exact revenue,
 expense, profit, projection, trend, invoice-health, method, stream, and recent
@@ -38,8 +57,8 @@ authenticated August fixture fell from five requests / 621 rows / 176,359 bytes
 to one request / one row / 8,698 bytes; five warm plans remained database-neutral
 at 53.189 ms legacy versus 50.932 ms snapshot, with no reads or temp blocks.
 Exact output, roles, selected-branch denial, edge fixtures, ACL, RLS, Realtime,
-and advisors passed. Member payments/follow-up full-dataset reads and count paths
-are the next residual performance finding.**
+and advisors passed. The member payments and follow-up residuals are closed by
+the P2-3 and P2-4 entries above.**
 
 Engineering maintenance: **P2-1 removes the home Dashboard action snapshot's
 remaining repeated ledger expansion. The RLS-visible `membership_dues` view now

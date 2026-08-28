@@ -211,8 +211,9 @@ export default function MembersPage() {
     exportFnRef.current = fn;
   }, []);
 
-  // Realtime: any membership / payment / attendance change (another
-  // device's check-in, a teammate recording a payment) bumps reloadKey,
+  // Realtime: any membership / payment / attendance / follow-up change
+  // (another device's check-in, a teammate recording a payment or closing
+  // assigned work) bumps reloadKey,
   // which every list child already refetches on. The bump is trailing-
   // debounced so a bulk write's event burst coalesces into one refetch
   // (migration 054 publishes these tables; RLS scopes events to the
@@ -239,6 +240,11 @@ export default function MembersPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'attendance' },
+        bump
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'follow_ups' },
         bump
       )
       .subscribe();

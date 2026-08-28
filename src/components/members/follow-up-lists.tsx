@@ -30,6 +30,7 @@ import {
   type FollowUpBucket,
   type FollowUpFilters as FollowUpFilterState,
 } from '@/lib/memberships/follow-up-filters';
+import { loadMemberFollowUps } from '@/lib/memberships/member-follow-ups';
 import { REASON_LABEL } from '@/lib/memberships/follow-ups';
 import {
   resolveMemberSearch,
@@ -89,8 +90,6 @@ import {
 import { useAccountStaff } from './use-account-staff';
 
 const PAGE_SIZE = 25;
-const FOLLOW_UP_SELECT =
-  '*, contact:contacts!inner(*), membership:memberships(*, contact:contacts(*), plan:membership_plans(*))';
 const FOLLOW_UP_ID_SELECT = 'id, contact:contacts!inner(id)';
 const CHECKBOX_COL_WIDTH = 40;
 
@@ -206,6 +205,7 @@ export function FollowUpLists({
   const [rows, setRows] = useState<FollowUp[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [loadedPage, setLoadedPage] = useState(0);
   const [bucketCounts, setBucketCounts] = useState<FollowUpBucketCounts>({
     all: 0,
     overdue: 0,
@@ -498,13 +498,14 @@ export function FollowUpLists({
 
   useEffect(() => {
     const seq = ++fetchSeq.current;
-    let cancelled = false;
-    (async () => {
+    const controller = new AbortController();
+    void (async () => {
       setLoading(true);
       if (scope === 'mine' && !userId) {
-        if (!cancelled && seq === fetchSeq.current) {
+        if (!controller.signal.aborted && seq === fetchSeq.current) {
           setRows([]);
           setTotalCount(0);
+          setLoadedPage(0);
           setBucketCounts({
             all: 0,
             overdue: 0,
@@ -516,93 +517,36 @@ export function FollowUpLists({
         return;
       }
 
-      const today = fmt.today();
-      const searchResolution = await resolveMemberSearch(supabase, search);
-      let query = supabase
-        .from('follow_ups')
-        .select(FOLLOW_UP_SELECT, { count: 'exact' })
-        .eq('status', 'open')
-        .not('membership_id', 'is', null);
-
-      query = applyFollowUpFilters(query, filters, today);
-      if (scope === 'mine') query = query.eq('assigned_to', userId!);
-      if (searchResolution.kind === 'membershipIds') {
-        query = query.in(
-          'membership_id',
-          resolvedMembershipIds(searchResolution)
+      try {
+        const result = await loadMemberFollowUps(
+          supabase,
+          {
+            today,
+            search,
+            scope,
+            filters,
+            sort,
+            page,
+            pageSize,
+          },
+          controller.signal
         );
-      } else if (searchResolution.kind === 'contact') {
-        const like = `%${searchResolution.term}%`;
-        query = query.or(`name.ilike.${like},phone.ilike.${like}`, {
-          referencedTable: 'contact',
-        });
-      }
-
-      if (sort?.key === 'customer') {
-        query = query.order('contact(name)', {
-          ascending: sort.dir === 'asc',
-        });
-      } else if (sort) {
-        query = query.order(sort.key, { ascending: sort.dir === 'asc' });
-      } else {
-        query = query.order('due_date', { ascending: true });
-      }
-
-      const from = page * pageSize;
-      async function countFor(bucket: FollowUpBucket | null) {
-        let countQuery = supabase
-          .from('follow_ups')
-          .select(FOLLOW_UP_ID_SELECT, { count: 'exact', head: true })
-          .eq('status', 'open')
-          .not('membership_id', 'is', null);
-        countQuery = applyFollowUpFilters(
-          countQuery,
-          { ...filters, buckets: bucket ? [bucket] : [] },
-          today
-        );
-        if (scope === 'mine') {
-          countQuery = countQuery.eq('assigned_to', userId!);
-        }
-        if (searchResolution.kind === 'membershipIds') {
-          countQuery = countQuery.in(
-            'membership_id',
-            resolvedMembershipIds(searchResolution)
-          );
-        } else if (searchResolution.kind === 'contact') {
-          const like = `%${searchResolution.term}%`;
-          countQuery = countQuery.or(`name.ilike.${like},phone.ilike.${like}`, {
-            referencedTable: 'contact',
-          });
-        }
-        const { count, error } = await countQuery;
-        if (error) throw error;
-        return count ?? 0;
-      }
-
-      const [pageResult, all, overdue, dueToday, upcoming] = await Promise.all([
-        query.range(from, from + pageSize - 1),
-        countFor(null),
-        countFor('overdue'),
-        countFor('today'),
-        countFor('upcoming'),
-      ]);
-      if (cancelled || seq !== fetchSeq.current) return;
-      const { data, count, error } = pageResult;
-      if (error) {
+        if (controller.signal.aborted || seq !== fetchSeq.current) return;
+        setRows(result.rows);
+        setLoadedPage(result.page);
+        setTotalCount(result.totalCount);
+        setBucketCounts(result.bucketCounts);
+      } catch (error) {
+        if (controller.signal.aborted || seq !== fetchSeq.current) return;
         toast.error(getErrorMessage(error, 'Failed to load follow-ups'));
-      } else {
-        setRows((data as FollowUp[]) ?? []);
-        setTotalCount(count ?? 0);
-        setBucketCounts({ all, overdue, today: dueToday, upcoming });
+      } finally {
+        if (!controller.signal.aborted && seq === fetchSeq.current) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
-    })().catch((error) => {
-      if (cancelled || seq !== fetchSeq.current) return;
-      toast.error(getErrorMessage(error, 'Failed to load follow-ups'));
-      setLoading(false);
-    });
+    })();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [
     supabase,
@@ -611,15 +555,15 @@ export function FollowUpLists({
     sort,
     page,
     pageSize,
-    fmt,
+    today,
     search,
     scope,
     userId,
   ]);
 
   const totalPages = Math.ceil(totalCount / pageSize);
-  const hasPrev = page > 0;
-  const hasNext = page < totalPages - 1;
+  const hasPrev = loadedPage > 0;
+  const hasNext = loadedPage < totalPages - 1;
   const allOnPageSelected =
     rows.length > 0 && rows.every((row) => selected.has(row.id));
   const someOnPageSelected = rows.some((row) => selected.has(row.id));
@@ -975,19 +919,19 @@ export function FollowUpLists({
                   variant="outline"
                   size="icon-sm"
                   disabled={!hasPrev}
-                  onClick={() => setPage((current) => current - 1)}
+                  onClick={() => setPage(loadedPage - 1)}
                   aria-label="Previous page"
                 >
                   <ChevronLeft className="size-4" />
                 </Button>
                 <span className="text-muted-foreground px-2 text-xs">
-                  Page {page + 1} of {Math.max(totalPages, 1)}
+                  Page {loadedPage + 1} of {Math.max(totalPages, 1)}
                 </span>
                 <Button
                   variant="outline"
                   size="icon-sm"
                   disabled={!hasNext}
-                  onClick={() => setPage((current) => current + 1)}
+                  onClick={() => setPage(loadedPage + 1)}
                   aria-label="Next page"
                 >
                   <ChevronRight className="size-4" />

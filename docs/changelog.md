@@ -6,6 +6,32 @@
 
 ---
 
+## Member Follow-ups loads one bounded task snapshot
+
+P2-4 replaces the Members -> Follow-ups tab's page/exact-total request plus
+four exact facet counts with one selected-branch `SECURITY INVOKER` RPC in
+`20260829050000_consolidate_member_follow_ups.sql`. The snapshot materializes
+the caller's RLS-visible open-member-task scope once, applies search, mine/team,
+reason, assignee, due-bucket, sort, and pagination in PostgreSQL, and returns
+only the bounded rows, exact filtered total, and four rendered counts. Numeric
+member search no longer downloads every membership first, superseded requests
+are aborted, and the existing 400 ms Realtime refresh now covers direct
+`follow_ups` changes. The forward-only
+`20260829051000_repair_member_follow_ups_extrema.sql` corrects PostgreSQL's
+unqualified `LEAST`/`GREATEST` expression syntax without rewriting applied
+history. Production connector versions: `20260828173840` and `20260828173922`.
+
+At the live scale of 281 memberships, three follow-ups, and one matching open
+row, the default tab moved from five requests / one rendered row / 3,771 JSON
+bytes to one request / one rendered row / 2,225 bytes. Five warm legacy plans
+totalled 15.446 ms and 3,192 shared hits versus 13.064 ms and 2,739 hits for the
+snapshot, with zero reads or temp blocks in both cases. Rendered/action output
+matched exactly (`47b20999fea40230f441e496e85887b5`); every sort, filter,
+due bucket, facet, page clamp, role, selected-account, archived/non-member,
+empty, bound, RLS, ACL, publication, index-plan, and advisor control passed. No
+index was added at the current scale. The next residual finding is Members ->
+Attendance's full-roster read followed by a sequential usage-count RPC.
+
 ## Member Payments loads one bounded dues snapshot
 
 P2-3 replaces the Members -> Payments tab's four broad reads and browser-side
@@ -27,8 +53,7 @@ in both cases. Displayed rows (`2d12e1f25f0e7de03e2e62fa5e6eaf83`)
 and collection/outstanding totals matched exactly. Owner/viewer parity,
 wrong-account, non-member, archived, empty, input-bound, search/filter/sort,
 page/limit, RLS, ACL, publication, index, and advisor probes passed. The next
-residual finding is the independent member Follow-ups listing's five-request
-exact-count/facet fanout.
+member Follow-ups residual is closed by the P2-4 entry above.
 
 ## Finance Overview loads one exact branch snapshot
 
@@ -51,8 +76,8 @@ warm legacy plans totalled 53.189 ms and 4,750.4 shared hits versus 50.932 ms an
 the material win is request, transfer, and client-computation removal rather
 than database execution. Owner/viewer, tenant denial, archived branch, empty
 and historical month, refund, expense, projection, grouping, order, limit,
-shape, ACL, publication, and advisor probes passed. The next residual finding is
-member payments/follow-up full-dataset reads and count paths.
+shape, ACL, publication, and advisor probes passed. The member payments and
+follow-up residuals are closed by the P2-3 and P2-4 entries above.
 
 ## Dashboard dues are evaluated once per action snapshot
 
