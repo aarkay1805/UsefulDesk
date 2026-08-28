@@ -8,6 +8,19 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **P2-1 removes the home Dashboard action snapshot's
+remaining repeated ledger expansion. The RLS-visible `membership_dues` view now
+materializes current-period invoice balances once, while the
+`membership_periods` SELECT policy uses the existing row-independent
+selected-account initPlan helper; write policies, grants, view invoker mode,
+and the stable authenticated-only dashboard RPC are unchanged. Migration
+`20260829020000_reduce_dashboard_action_snapshot_dues.sql` is live on Production
+as connector version `20260828155301`. Five identical warm authenticated plans
+moved from 402.003 ms / 153,733 shared hits to 33.361 ms / 6,938 hits, with zero
+reads or temp blocks, the same dashboard JSON hash, and zero differences across
+all 281 dues rows. Finance Overview full-dataset aggregation and broad
+invalidation is the next P2 finding.**
+
 Engineering maintenance: **P1-5 Leads now returns the active table or board
 rows, exact total, four quick-filter facets, rendered tags/custom values, and
 PostgreSQL-evaluated detailed filters plus direct/person/tag/custom ordering

@@ -6,6 +6,26 @@
 
 ---
 
+## Dashboard dues are evaluated once per action snapshot
+
+P2-1 removes the dashboard action snapshot's remaining repeated ledger work in
+`20260829020000_reduce_dashboard_action_snapshot_dues.sql`. The
+`membership_dues` view now materializes its RLS-visible current-period invoice
+projection once instead of rebuilding `invoice_line_balances` under every
+membership, and the `membership_periods` SELECT policy uses the existing
+row-independent selected-account initPlan helper. The view remains
+`security_invoker`, the dashboard RPC remains stable/invoker with its fixed
+search path and authenticated-only execution, and all write policies are
+unchanged. Production connector version: `20260828155301`.
+
+Five identical warm authenticated plans improved from 402.003 ms and 153,733
+shared hits to 33.361 ms and 6,938 hits, with zero reads or temp blocks. The
+dashboard JSON hash remained `497f1dbeb9d18e9eadee52d914e05081`, and all 281
+optimized dues rows matched the legacy view with zero differences. Owner,
+rollback-only viewer, wrong-account, non-member, archived-branch, empty-result,
+limit, signature, ACL, and advisor checks passed. The next P2 finding is Finance
+Overview's full-dataset aggregation and broad invalidation.
+
 ## Leads table and board share one bounded listing snapshot
 
 P1-5 replaces the Leads page's exact-count fan-out, sequential tag/custom-id

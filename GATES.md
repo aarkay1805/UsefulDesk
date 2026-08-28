@@ -1,62 +1,49 @@
-# Gates: P1-5 consolidate Leads listing and board reads
+# Gates: P2-1 reduce dashboard action snapshot work
 
-OWNS: GATES.md, supabase/migrations/20260829010000_consolidate_leads_listing.sql, src/app/(dashboard)/leads/page.tsx, src/lib/leads/listing.ts, src/lib/leads/listing.test.ts, src/lib/leads/listing-contract.test.ts, src/hooks/use-table-prefs.ts, src/hooks/use-table-prefs.test.ts, docs/changelog.md, PRDs/roadmap.md
+Scope: Preserve the exact tenant-scoped dashboard action JSON contract while eliminating evidenced repeated computation in the smallest safe SECURITY INVOKER migration.
 
-Scope: Replace the Leads table/board count, filter-resolution, client-sort, and row-hydration fan-out with one selected-branch RLS-preserving invoker listing contract and a deduplicated lifecycle.
-
-Baseline exclusions (pre-existing or concurrent, never modify/format/stage): docs/ui-patterns.md, src/components/ui/popover.tsx, src/components/ui/resolvable-action.tsx, src/app/preview/resolvable-action/**. Any unrelated docs/changelog.md hunk remains unstaged through partial/index-safe staging.
-
-- [x] G1: focused SQL-contract, normalization, query-count, filter/sort parity, lifecycle/cache, quick-filter, and authorization tests pass
-      CHECK: npm test -- --run src/lib/leads/listing-contract.test.ts src/lib/leads/listing.test.ts src/hooks/use-table-prefs.test.ts src/lib/leads/quick-filters.test.ts src/lib/auth/roles.test.ts
-      EXPECT: /Test Files\s+5 passed/
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Start at  20:50:09 | Duration  148ms (transform 116ms, setup 0ms, import 257ms, tests 14ms, environment 0ms)
+- [x] G1: focused dashboard SQL-contract, result-shape, ordering, limit, empty-result, and authorization tests pass
+  CHECK: npm test -- --run src/lib/dashboard/action-snapshot-rpc.test.ts src/lib/dashboard/action-snapshot.test.ts src/lib/auth/roles.test.ts src/lib/auth/selected-account-rls-contract.test.ts src/lib/auth/multi-branch-security-contract.test.ts src/lib/auth/branch-lifecycle-contract.test.ts
+  EXPECT: /Test Files\s+6 passed/
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Start at  21:29:17 | Duration  179ms (transform 153ms, setup 0ms, import 341ms, tests 19ms, environment 0ms)
 
 - [x] G2: the full TypeScript typecheck passes
-      CHECK: npm run typecheck && echo "P1-5 typecheck passed"
-      EXPECT: P1-5 typecheck passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=> tsc --noEmit | P1-5 typecheck passed
+  CHECK: npm run typecheck && echo "P2-1 typecheck passed"
+  EXPECT: P2-1 typecheck passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=> tsc --noEmit | P2-1 typecheck passed
 
 - [x] G3: the full repository lint passes
-      CHECK: npm run lint && echo "P1-5 lint passed"
-      EXPECT: P1-5 lint passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-5 lint passed | [BABEL] Note: The code generator has deoptimised the styling of /Users/rajatkashyap/Desktop/projects/UsefulDesk/.agents/skills/impeccable/scripts/live-browser.js as it exceeds the max of 500KB.
+  CHECK: npm run lint && echo "P2-1 lint passed"
+  EXPECT: P2-1 lint passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P2-1 lint passed | [BABEL] Note: The code generator has deoptimised the styling of /Users/rajatkashyap/Desktop/projects/UsefulDesk/.agents/skills/impeccable/scripts/live-browser.js as it exceeds the max of 500KB.
 
 - [x] G4: the final working-tree patch has no whitespace errors
-      CHECK: git diff --check && echo "P1-5 diff check passed"
-      EXPECT: P1-5 diff check passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-5 diff check passed
+  CHECK: git diff --check && echo "P2-1 diff check passed"
+  EXPECT: P2-1 diff check passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P2-1 diff check passed
 
-- [x] G5: the staged P1-5 patch has no whitespace errors
-      CHECK: git diff --cached --check && echo "P1-5 staged diff check passed"
-      EXPECT: P1-5 staged diff check passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P1-5 staged diff check passed
+- [x] G5: the staged P2-1 patch has no whitespace errors
+  CHECK: git diff --cached --check && echo "P2-1 staged diff check passed"
+  EXPECT: P2-1 staged diff check passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P2-1 staged diff check passed
 
-- [x] G6: the latest idempotent SQL defines one stable SECURITY INVOKER listing RPC with fixed search_path, explicit selected-account validation, authenticated-only ACL, allowlisted modes/sorts, bounded ordinary table/board modes, and no service-role or policy weakening
-      EVIDENCE: Live pg_proc shows stable invoker execution, search_path="", postgres ownership, and only postgres/authenticated EXECUTE; live pg_policies shows one selected-account SELECT plus equivalent split agent write policies for each child table; service_role EXECUTE failed with 42501.
+- [x] G6: repeated warm authenticated baseline and section-level EXPLAIN measurements identify the actual dominant internal work and retain an independently computed output hash
+  EVIDENCE: Five fixed-argument warm owner plans averaged 402.003 ms with 153,733 shared hits, zero reads, and zero temp blocks; output hash was 497f1dbeb9d18e9eadee52d914e05081. The dues section alone measured 502.234 ms/148,586 hits while risk, collections, expiring count/preview, follow-ups, uncontacted, and attention were each 3.075-7.749 ms and at most 1,996 hits. Plan inspection showed invoice_line_balances rebuilt under 281 membership loops.
 
-- [x] G7: table and board use the same RPC contract for tag/custom intersection, all server/person/tag/custom sorts, exact total, four facets, and rendered tag/custom hydration without exact PostgREST counts, resolver fan-out, full-ID client sorting, or tag waterfalls
-      EVIDENCE: Source review and listing-contract regression tests prove one coordinated active RPC, one shared SQL cohort, bounded page hydration, and absence of every named legacy fan-out token; table/board fixture identities matched.
+- [x] G7: one new idempotent migration after the current latest removes only evidenced repeated work while preserving SECURITY INVOKER, existing authenticated grants, fixed search_path, volatility, viewer access, selected-account isolation, timezone/today/now semantics, and all JSON defaults
+  EVIDENCE: Migration 20260829020000 uses DROP POLICY IF EXISTS plus CREATE OR REPLACE VIEW, materializes the exact current-period projection once, and changes only membership_periods SELECT to the established row-bound initPlan helper. Production connector version 20260828155301 is live; pg_proc still shows the JSONB signature, stable/invoker, search_path="", postgres owner, and only postgres/authenticated EXECUTE. The view is security_invoker and its existing authenticated/service_role SELECT plus anon denial remain intact; write policies are byte-equivalent in live pg_policies.
 
-- [x] G8: page/search/filter lifecycle tests prove a scope change reaches page zero without an old-page request, preferences/custom metadata gate the first list request, simultaneous identical loads share one RPC, and superseded different requests abort
-      EVIDENCE: listing.test.ts and use-table-prefs.test.ts cover render-derived page zero, exact request-key visibility, readiness gating, one-call same-key coalescing, different-key abort, and microtask-delayed real-unmount cancellation without defeating Strict replay.
+- [x] G8: live owner and viewer results match the before hash, rows, counts, ordering, limits, links, null/empty behavior, and archived-branch behavior; wrong-account and non-member probes remain denied
+  EVIDENCE: Production owner and rollback-only viewer returned hash 497f1dbeb9d18e9eadee52d914e05081 with the same metric/count/attention values and row-id order. Current and reconstructed legacy membership_dues returned 281 rows, identical c710ead3eb7c53c45c169992c1375b50 hashes, and zero EXCEPT differences. Wrong-selected-account, non-member, and rollback-archived contexts resolved no authorized account and saw zero tenant rows; headerless legacy fallback retained the populated hash. An owned empty branch returned the complete zero/[]/null-free success shape, p_limit=1 bounded every queue/staff list while retaining counts, and 0/9 were rejected with 22023. No application/UI source changed, so the hash-stable ids retain their existing derived action links.
 
-- [x] G9: live authenticated verification preserves selected-account viewer access, wrong-account/non-member denial, RLS, grants/ACL, owner/invoker/search_path/volatility, lead-origin and pending-assignment fields, empty/zero output, table/board limits, and rejects invalid parameters
-      EVIDENCE: Production owner and rollback-only viewer calls succeeded; wrong selected account and non-member failed 42501; invalid mode/board 501/foreign custom sort failed 22023; service_role lacked EXECUTE; page 999 returned rows=[] with total=1; auto/pending fixture rows retained exact ownership fields.
+- [x] G9: repeated warm after measurements improve the dominant section and whole RPC without disk/temp/caching sleight of hand, and advisors show no new dashboard regression
+  EVIDENCE: The final five post-migration warm plans averaged 33.361 ms/6,938 hits (91.7% faster and 95.5% fewer hits), with zero shared reads and zero temp blocks; three dues probes averaged 11.024 ms/1,866 hits. Production advisors returned 75 security and 152 performance notices with zero dashboard_action_snapshot or membership_dues finding; the three membership_periods matches are pre-existing unindexed-FK notices unrelated to this policy/view change.
 
-- [x] G10: safe rollback fixtures and live rows prove all quick filters including NULL lead_status, multi-dimension tag/custom intersections, all sort families/directions/null placement, pagination, search, detailed filters, board/table parity, select-all identities, and CSV values
-      EVIDENCE: Non-persisting Production fixture returned expected no-followup/unassigned/mine/new-today ids, one beta+Silver+score intersection, every allowlisted sort in both directions, page-two ids, equal board/table id order, equal ids/export order, hydrated tag/custom CSV values, and pending/auto fields; live combined search/owner/assignee/creator/new/source/gender/date/mine filters returned the sole expected lead. Numeric blanks were re-probed last in both directions after correction.
+- [x] G10: changelog and roadmap record only shipped P2-1 and retain finance overview full-dataset aggregation and broad invalidation as the next P2 finding
+  EVIDENCE: Both documents record the migration, connector version, exact warm before/after figures, hash/row equivalence, preserved security boundary, and Finance Overview full-dataset aggregation plus broad invalidation as the next P2 finding.
 
-- [x] G11: identical safe warm measurements record before/after database-call count, execution time, shared-buffer hits, result identities/hashes, and relevant pg_stat history without claims based on the nearly empty live lead set
-      EVIDENCE: Rollback-only 5,000-contact/1,000-membership five-run fixture: legacy seven-call mean 2,609.779 ms / 1,523,659 hits / hash 564674a9570ef0a9c487424886205620; RPC one-call mean 89.073 ms / 46,032 hits / hash 45c22d7c695ed7c194e54599de03f220. Historical anti-join pg_stat remains 6,157 calls at 72.470 ms and is not presented as post-P1-3 latency.
+- [x] G11: four explicit review passes find no remaining correctness, integration, portability, performance, evidence, scope, authorization, or documentation defect
+  EVIDENCE: Pass 1 implemented the narrow view/policy change and focused contracts; pass 2 reconstructed the legacy dues query and proved all 281 rows/fields equal; pass 3 rechecked roles, tenant/header/archive boundaries, limits, ACLs, live definitions, advisors, and rollback fixtures; pass 4 added negative-check positive controls, audited docs/measurements/scope, and completed a clean six-file auth/dashboard suite, typecheck, lint, and diff check with no further change required.
 
-- [x] G12: Supabase security and performance advisors show no new P1-5 regression
-      EVIDENCE: Post-migration Production advisors returned 75 security and 152 performance notices, with zero mentioning lead_listing_snapshot, contact_tags, contact_custom_values, or either new index; existing unrelated notices remain out of scope.
-
-- [x] G13: changelog and roadmap record only shipped P1-5 and name re-running the P0/P1 performance audit as the next step
-      EVIDENCE: P1-5 entries record the shipped contract, lifecycle behavior, live connector versions, measured rollback fixture, and next audit; the unrelated ResolvableAction changelog hunk remains outside P1-5 staging.
-
-- [x] G14: all four unlazy review passes find no correctness, integration, portability, performance, evidence, scope, authorization, or preserved-dirty-path defect
-      EVIDENCE: Pass 1 fixed numeric-null ordering and stale request-key visibility; pass 2 added real-unmount cancellation while retaining Strict replay coalescing; pass 3 rechecked SQL/RLS/ACL/performance/integration and fixture rollback; pass 4 added a positive control and wording polish, followed by a clean no-change review.
-
-- [x] G15: immediately before commit every runnable gate is reverified with --reverify, measurements and live invariants are rechecked, and the staged patch contains only P1-5 files/hunks plus GATES.md
-  EVIDENCE: First final --reverify reran and passed G1-G5; live recheck reconfirmed invoker/stable/search_path/ACL, two connector applications, four exact child-policy commands, zero fixture remnants, the authenticated one-row hash, and historical 6,157-call/72.470 ms evidence; cached diff lists only the ten P1-5 paths and the changelog's unrelated hunk remains unstaged.
+- [ ] G12: immediately before commit every runnable gate is reverified with --reverify, live numbers and invariants are rechecked, and the staged patch contains only P2-1 files
+  EVIDENCE: pending

@@ -144,6 +144,32 @@ describe('dashboard action snapshot', () => {
     expect(expiring.errors).toEqual(['expiringMemberships']);
   });
 
+  it('preserves zero counts, empty queues, and null section failure semantics', () => {
+    const payload = {
+      ...validPayload(),
+      gymMetrics: {
+        expiring7: 0,
+        feesDueCount: 0,
+        feesDueAmount: 0,
+        collectedToday: 0,
+        collectionDailyAverage7d: 0,
+        missedVisitRisk: 0,
+        neverVisitedRisk: 0,
+      },
+      followUps: {
+        counts: { all: 0, lead: 0, member: 0 },
+        rows: { all: [], lead: [], member: [] },
+        staff: [],
+      },
+      expiringMemberships: { rows: [], total: 0 },
+      uncontactedLeads: { rows: [], total: 0 },
+      attention: null,
+      errors: ['attention'],
+    };
+
+    expect(parseDashboardActionSnapshot(payload)).toEqual(payload);
+  });
+
   it('returns fixed-label failures for all sections when the one RPC fails', async () => {
     const { db } = rpcDb({ data: null, error: new Error('private detail') });
     const timingSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
