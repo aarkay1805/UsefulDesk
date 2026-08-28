@@ -7,12 +7,12 @@ Scope: replace only faithfully reproducible high-cost dashboard insight scans wi
 - [x] G1: the SQL aggregate artifact is branch-scoped, tenant-authorized, safely defined, explicitly granted, and covered by focused contract tests for its security and result shape
       CHECK: npm test -- src/lib/dashboard/insight-aggregates-rpc.test.ts && node -e "console.log('insight aggregate SQL security verification passed')"
       EXPECT: insight aggregate SQL security verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=355635d5efa7/23 entries; output=Duration  112ms (transform 12ms, setup 0ms, import 30ms, tests 3ms, environment 0ms) | insight aggregate SQL security verification passed
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=355635d5efa7/23 entries; output=Duration 112ms (transform 12ms, setup 0ms, import 30ms, tests 3ms, environment 0ms) | insight aggregate SQL security verification passed
 
 - [x] G2: conversation 30-day buckets and lead-conversion rating inputs preserve their existing date boundaries, selected-branch timezone semantics, source grouping, counts, and zero-data behavior through the RPC integration
       CHECK: npm test -- src/lib/dashboard/queries.test.ts src/lib/dashboard/insights-snapshot.test.ts src/lib/dashboard/lead-conversion-rating.test.ts && node -e "console.log('insight aggregate semantic parity verification passed')"
       EXPECT: insight aggregate semantic parity verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=355635d5efa7/23 entries; output=Duration  238ms (transform 146ms, setup 0ms, import 352ms, tests 25ms, environment 0ms) | insight aggregate semantic parity verification passed
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=355635d5efa7/23 entries; output=Duration 238ms (transform 146ms, setup 0ms, import 352ms, tests 25ms, environment 0ms) | insight aggregate semantic parity verification passed
 
 - [x] G3: the insights loader replaces the selected high-cost paginated row scans with a bounded RPC response while retaining independent fallback/error behavior for unrelated insight sections
       CHECK: node -e "const fs=require('fs');const files=['src/lib/dashboard/insights-snapshot.test.ts','src/lib/dashboard/lead-conversion-rating.test.ts'];const s=files.map(f=>fs.readFileSync(f,'utf8')).join('\n');for(const token of ['rpc','pagination','error'])if(!s.toLowerCase().includes(token))throw new Error('missing integration evidence: '+token);console.log('insight aggregate bounded access verification passed')"
@@ -22,12 +22,12 @@ Scope: replace only faithfully reproducible high-cost dashboard insight scans wi
 - [x] G4: the dashboard insights API still authorizes the selected branch before data access, remains private/no-store, preserves range freshness, and exposes the unchanged response contract
       CHECK: npm test -- src/app/api/dashboard/insights/route.test.ts && node -e "console.log('insight route boundary verification passed')"
       EXPECT: insight route boundary verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=355635d5efa7/23 entries; output=Duration  142ms (transform 23ms, setup 0ms, import 65ms, tests 6ms, environment 0ms) | insight route boundary verification passed
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=355635d5efa7/23 entries; output=Duration 142ms (transform 23ms, setup 0ms, import 65ms, tests 6ms, environment 0ms) | insight route boundary verification passed
 
 - [x] G5: focused dashboard, reporting, locale, and authorization regressions pass with SQL-backed insight aggregates
       CHECK: npm test -- src/components/dashboard src/lib/dashboard src/lib/reports/reporting.test.ts src/lib/locale src/lib/auth/account.test.ts src/app/api/dashboard/insights && node -e "console.log('insight aggregate focused regression verification passed')"
       EXPECT: insight aggregate focused regression verification passed
-      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=355635d5efa7/23 entries; output=Duration  1.36s (transform 627ms, setup 0ms, import 1.94s, tests 419ms, environment 2.38s) | insight aggregate focused regression verification passed
+      EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=355635d5efa7/23 entries; output=Duration 1.36s (transform 627ms, setup 0ms, import 1.94s, tests 419ms, environment 2.38s) | insight aggregate focused regression verification passed
 
 - [x] G6: TypeScript accepts the SQL aggregate integration and unchanged application response contract
       CHECK: npm run typecheck && node -e "console.log('insight aggregate typecheck passed')"
