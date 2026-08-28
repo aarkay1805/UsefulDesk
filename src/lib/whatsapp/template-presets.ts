@@ -10,7 +10,6 @@ export interface TemplatePreset {
   title: string;
   blurb: string;
   category: 'Utility' | 'Marketing';
-  note: string;
   pinned: boolean;
   galleryGroup: TemplateGalleryGroup;
   consentScope: TemplateConsentScope;
@@ -37,7 +36,6 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = Object.values(
   title: contract.title,
   blurb: contract.blurb,
   category: contract.category,
-  note: `${contract.purpose} Submission starts Meta review; approval and recipient delivery are not guaranteed.`,
   pinned: contract.wired,
   galleryGroup: contract.galleryGroup,
   consentScope: contract.consentScope,

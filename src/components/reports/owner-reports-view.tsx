@@ -70,9 +70,9 @@ import { canExportFinance } from '@/lib/auth/roles';
 import { OrganizationReportsView } from './organization-reports-view';
 import { financeMonthRange } from '@/lib/finance/overview';
 import {
-  needsPerformanceSnapshot,
+  performanceReportCache,
   reportCacheKey,
-  type ReportCache,
+  reportCacheScope,
 } from './owner-reports-cache';
 
 const ALL_STAFF = 'all';
@@ -86,6 +86,7 @@ export function OwnerReportsView({
 }) {
   const { fmt, locale } = useLocale();
   const {
+    user,
     account,
     accountId,
     accountRole,
@@ -98,41 +99,66 @@ export function OwnerReportsView({
   );
   const { staff, loading: staffLoading } = useAccountStaff();
   const [staffUserId, setStaffUserId] = useState<string | null>(null);
-  const [reports, setReports] = useState<ReportCache>({});
-  const reportsRef = useRef<ReportCache>({});
-  const [loading, setLoading] = useState(true);
+  const cacheScope =
+    user?.id && accountId ? reportCacheScope(user.id, accountId) : null;
+  const cacheKey =
+    user?.id && accountId
+      ? reportCacheKey(
+          user.id,
+          accountId,
+          locale.timeZone,
+          month,
+          staffUserId
+        )
+      : null;
+  const [, setCacheVersion] = useState(0);
+  const [loading, setLoading] = useState(
+    () =>
+      !cacheScope ||
+      !cacheKey ||
+      !performanceReportCache.peek(cacheScope, cacheKey)
+  );
   const [error, setError] = useState<string | null>(null);
   const requestId = useRef(0);
 
   const fetchReport = useCallback(
-    (selectedMonth: string, selectedStaffUserId: string | null) => {
+    (
+      selectedMonth: string,
+      selectedStaffUserId: string | null,
+      { force = false }: { force?: boolean } = {}
+    ) => {
+      if (!user?.id || !accountId) return;
       const id = ++requestId.current;
       const dateRange = financeMonthRange(selectedMonth);
-      const cacheKey = reportCacheKey(
-        accountId!,
+      const selectedCacheScope = reportCacheScope(user.id, accountId);
+      const selectedCacheKey = reportCacheKey(
+        user.id,
+        accountId,
         locale.timeZone,
         selectedMonth,
         selectedStaffUserId
       );
-      const db = createClient();
-      void loadBranchPerformanceSnapshot(
-        db,
-        accountId!,
-        selectedMonth,
-        dateRange,
-        locale.timeZone,
-        selectedStaffUserId
-      )
-        .then((nextSnapshot) => {
-          setReports((current) => {
-            const next = {
-              ...current,
-              [cacheKey]: nextSnapshot,
-            };
-            reportsRef.current = next;
-            return next;
-          });
-          if (requestId.current === id) setError(null);
+      void performanceReportCache
+        .load(
+          selectedCacheScope,
+          selectedCacheKey,
+          () => {
+            const db = createClient();
+            return loadBranchPerformanceSnapshot(
+              db,
+              accountId,
+              selectedMonth,
+              dateRange,
+              locale.timeZone,
+              selectedStaffUserId
+            );
+          },
+          { force }
+        )
+        .then(() => {
+          if (requestId.current !== id) return;
+          setCacheVersion((version) => version + 1);
+          setError(null);
         })
         .catch((reason: unknown) => {
           if (requestId.current !== id) return;
@@ -146,22 +172,11 @@ export function OwnerReportsView({
           if (requestId.current === id) setLoading(false);
         });
     },
-    [accountId, locale.timeZone]
+    [accountId, locale.timeZone, user?.id]
   );
 
   useEffect(() => {
-    if (!accountId || reportScope === 'organization') return;
-    if (
-      !needsPerformanceSnapshot(
-        reportsRef.current,
-        accountId,
-        locale.timeZone,
-        month,
-        staffUserId
-      )
-    ) {
-      return;
-    }
+    if (!user?.id || !accountId || reportScope === 'organization') return;
     fetchReport(month, staffUserId);
     return () => {
       requestId.current += 1;
@@ -169,30 +184,33 @@ export function OwnerReportsView({
   }, [
     accountId,
     fetchReport,
-    locale.timeZone,
     month,
     reportScope,
     staffUserId,
+    user?.id,
   ]);
 
-  const snapshot = accountId
-    ? (reports[
-        reportCacheKey(accountId, locale.timeZone, month, staffUserId)
-      ] ?? null)
-    : null;
+  const snapshot =
+    cacheScope && cacheKey
+      ? performanceReportCache.peek(cacheScope, cacheKey)
+      : null;
   const report = snapshot?.report ?? null;
   const adPerformance = snapshot?.adPerformance ?? null;
   const expenseTotals = snapshot?.expenseTotals ?? null;
 
   function handleMonthChange(nextMonth: string) {
     setLoading(
-      !accountId ||
-        needsPerformanceSnapshot(
-          reportsRef.current,
-          accountId,
-          locale.timeZone,
-          nextMonth,
-          staffUserId
+      !user?.id ||
+        !accountId ||
+        !performanceReportCache.peek(
+          reportCacheScope(user.id, accountId),
+          reportCacheKey(
+            user.id,
+            accountId,
+            locale.timeZone,
+            nextMonth,
+            staffUserId
+          )
         )
     );
     setError(null);
@@ -203,13 +221,17 @@ export function OwnerReportsView({
     if (!value) return;
     const nextStaffUserId = value === ALL_STAFF ? null : value;
     setLoading(
-      !accountId ||
-        needsPerformanceSnapshot(
-          reportsRef.current,
-          accountId,
-          locale.timeZone,
-          month,
-          nextStaffUserId
+      !user?.id ||
+        !accountId ||
+        !performanceReportCache.peek(
+          reportCacheScope(user.id, accountId),
+          reportCacheKey(
+            user.id,
+            accountId,
+            locale.timeZone,
+            month,
+            nextStaffUserId
+          )
         )
     );
     setError(null);
@@ -218,7 +240,7 @@ export function OwnerReportsView({
 
   function retry() {
     setLoading(true);
-    fetchReport(month, staffUserId);
+    fetchReport(month, staffUserId, { force: true });
   }
 
   function exportReport() {

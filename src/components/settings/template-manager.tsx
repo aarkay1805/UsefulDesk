@@ -28,12 +28,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
+import { BubbleTail } from '@/components/inbox/message-bubble';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { GatedButton } from '@/components/ui/gated-button';
 import { SettingsPanelHead } from './settings-panel-head';
@@ -90,27 +90,192 @@ const PRESET_GROUPS: Array<{
     id: 'feature',
     title: 'UsefulDesk features',
     description:
-      'Exact contracts used by member actions, payment links, and scheduled reminders.',
+      'UsefulDesk sends these for you, from member actions, payment links, and reminders. The name and wording are locked so those sends keep working.',
   },
   {
     id: 'account_update',
     title: 'Account updates',
     description:
-      'Transactional starting points for a specific existing membership, invoice, or payment.',
+      'Starting points you name and edit yourself, about a membership, invoice, or payment a member already has.',
   },
   {
     id: 'marketing',
     title: 'Marketing',
     description:
-      'Promotional starting points for consented audiences and future purchases.',
+      'Starting points you name and edit yourself, for members who opted in to marketing.',
   },
 ];
+
+// A preset's body reads as `Hi {{1}}, your {{2}} membership ends on {{3}}`,
+// which forces the reader to zip placeholder indices against a separate
+// parameter list. Splitting the body into literal and filled segments lets
+// the gallery render the message the way it will actually arrive, with the
+// slots marked, so the "Parameters:" row stops being needed at all. Indices
+// are 1-based and can appear out of order, so map by number, never by
+// position of appearance.
+type PreviewSegment =
+  | { kind: 'text'; value: string }
+  | { kind: 'slot'; value: string; label: string };
+
+function previewSegments(preset: TemplatePreset): PreviewSegment[] {
+  const segments: PreviewSegment[] = [];
+  const pattern = /\{\{(\d+)\}\}/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(preset.fields.body_text)) !== null) {
+    if (match.index > cursor) {
+      segments.push({
+        kind: 'text',
+        value: preset.fields.body_text.slice(cursor, match.index),
+      });
+    }
+    const slot = Number(match[1]) - 1;
+    const label = preset.parameterLabels[slot] ?? `Detail ${match[1]}`;
+    segments.push({
+      kind: 'slot',
+      value: preset.fields.body_samples[slot]?.trim() || label,
+      label,
+    });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < preset.fields.body_text.length) {
+    segments.push({
+      kind: 'text',
+      value: preset.fields.body_text.slice(cursor),
+    });
+  }
+  return segments;
+}
 
 const categoryVariants: Record<string, TemplateBadgeVariant> = {
   Marketing: 'violet',
   Utility: 'info',
   Authentication: 'warning',
 };
+
+/**
+ * One preset in the gallery.
+ *
+ * The sample is drawn as a real WhatsApp bubble on the inbox's own chat
+ * canvas — same fill and meta tokens, same tail geometry, same doodle
+ * wallpaper — because the question being answered here is "does this read
+ * well on my member's phone?", and a grey quote block cannot answer it. The
+ * footer and quick-reply rows render for the same reason: the marketing
+ * bodies say "Use the buttons below to respond", so a preview without them
+ * contradicts its own copy. The inbox bubble omits both because a sent row
+ * only persists its body text; the preset knows its whole payload.
+ *
+ * Card, not a rule-separated block: at two columns a shared hairline no
+ * longer says which preset owns which message, so each one needs its own
+ * bounded surface. The chat band takes the slack (`flex-1`) so the footer
+ * strips of two side-by-side cards land on the same line whatever their
+ * messages measure.
+ */
+function PresetCard({
+  preset,
+  canAct,
+  onUse,
+}: {
+  preset: TemplatePreset;
+  canAct: boolean;
+  onUse: (preset: TemplatePreset) => void;
+}) {
+  const buttons = preset.fields.buttons ?? [];
+  const footerText = preset.fields.footer_text;
+
+  return (
+    <Card data-slot="preset" size="sm">
+      <CardHeader className="min-h-0">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <h4 className="text-foreground text-sm font-medium">
+            {preset.title}
+          </h4>
+          <Badge variant={categoryVariants[preset.category] || 'neutral'}>
+            {preset.category}
+          </Badge>
+        </div>
+        <CardDescription className="text-xs leading-[1.5]">
+          {preset.blurb}
+        </CardDescription>
+      </CardHeader>
+
+      {/* A direct child of Card, not CardContent: the band wants the card's
+          full width the way a card's leading image does, and the message is
+          the thing being chosen, so it gets its own plane. The card then
+          reads as three zones — what it is, what it says, when and how to
+          take it. Matching the header's `px-3` puts the bubble body on the
+          title's left edge and leaves the tail to hang into the gutter the
+          way it does in the thread. */}
+      <div className="bg-chat-canvas relative flex flex-1 flex-col items-start overflow-hidden px-3 py-3">
+        <div
+          aria-hidden
+          className="chat-doodle pointer-events-none absolute inset-0"
+        />
+        {/* Received side, not sent: the gym is previewing what lands on the
+            member's phone, and quick replies only exist to be tapped by the
+            person receiving them. Same 4px bubble padding as the inbox, so
+            the full-bleed button rows stay concentric with the corner. */}
+        <div className="bg-chat-bubble-in text-foreground relative w-fit max-w-[88%] rounded-lg rounded-tl-none p-1 shadow-[var(--chat-bubble-shadow)]">
+          <BubbleTail side="left" />
+          <p className="px-1.5 py-0.5 text-sm break-words whitespace-pre-wrap">
+            <span className="sr-only">
+              Sample message. Filled-in details:{' '}
+              {preset.parameterLabels.join(', ')}.{' '}
+            </span>
+            {/* Weight, not colour, marks the filled slots. Muting the
+                literal text to make the samples pop inverted the emphasis —
+                a message you are judging has to read at full contrast. */}
+            {previewSegments(preset).map((segment, i) =>
+              segment.kind === 'slot' ? (
+                <span key={i} title={segment.label} className="font-medium">
+                  {segment.value}
+                </span>
+              ) : (
+                <span key={i}>{segment.value}</span>
+              )
+            )}
+          </p>
+          {footerText && (
+            <p className="text-chat-meta px-1.5 pt-1 pb-0.5 text-[11px] leading-[1.45]">
+              {footerText}
+            </p>
+          )}
+          {buttons.length > 0 && (
+            <div className="mt-1 -mr-1 -mb-1 -ml-1 overflow-hidden rounded-b-lg">
+              <span className="sr-only">Reply buttons: </span>
+              {buttons.map((button, i) => (
+                <div
+                  key={i}
+                  className="border-foreground/10 text-primary-text border-t px-2 py-1.5 text-center text-sm font-medium"
+                >
+                  {button.text}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <CardFooter className="items-end gap-3">
+        <p className="text-muted-foreground min-w-0 flex-1 text-xs leading-[1.5]">
+          <span className="text-foreground font-medium">Sends when: </span>
+          {preset.trigger}
+        </p>
+        <GatedButton
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          onClick={() => onUse(preset)}
+          canAct={canAct}
+          gateReason="create message templates"
+        >
+          {preset.wired ? 'Use preset' : 'Use as custom draft'}
+        </GatedButton>
+      </CardFooter>
+    </Card>
+  );
+}
 
 function statusVariant(status: string): TemplateBadgeVariant {
   switch (status) {
@@ -1333,104 +1498,75 @@ export function TemplateManager() {
       </Dialog>
 
       {/* Preset gallery — ready-made gym templates. Selecting one drops
-          its copy into the create form for the gym to customise + submit. */}
+          its copy into the create form for the gym to customise + submit.
+          The header stays pinned while the list scrolls, so the Meta-review
+          caveat and the group you are inside never scroll out of reach.
+
+          Two columns from `lg` up. Ten presets stacked single-file ran 2.85
+          screens of scroll inside a 672px dialog on a 1440px desktop — half
+          the width left empty to make a comparison task into a linear one.
+          Paired up in a 896px dialog the same ten fit six rows, and two
+          candidates can finally be read side by side. */}
       <Dialog open={presetPickerOpen} onOpenChange={setPresetPickerOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle size="lg">Use a preset</DialogTitle>
-            <DialogDescription>
-              Choose a policy-aware gym contract or copy an optional preset into
-              a custom draft. Submission starts Meta review; approval and
-              recipient delivery are not guaranteed, and Meta may reclassify a
-              template.
+            <DialogDescription className="max-w-[80ch]">
+              Pick a message to open it in the template form. You submit to Meta
+              from there — approval and recipient delivery are not guaranteed,
+              and Meta can reclassify a template later.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-2">
-            {PRESET_GROUPS.map((group) => (
-              <section key={group.id} className="space-y-3">
-                <div>
-                  <h3 className="text-foreground text-sm font-semibold">
-                    {group.title}
-                  </h3>
-                  <p className="text-muted-foreground mt-1 text-xs">
+          <div className="-mx-4 min-h-0 overflow-y-auto px-4 pb-1">
+            {PRESET_GROUPS.map((group, groupIndex) => {
+              const presets = TEMPLATE_PRESETS.filter(
+                (preset) => preset.galleryGroup === group.id
+              );
+              return (
+                <section
+                  key={group.id}
+                  // The rule and the 32px above it are the whole segregation
+                  // device: three groups of bounded cards need a break that
+                  // reads at a squint, and a heading alone did not give one.
+                  className={
+                    groupIndex === 0
+                      ? undefined
+                      : 'border-border/70 mt-8 border-t'
+                  }
+                >
+                  {/* Only the group title pins. The description orients you
+                      on the way in and is dead weight once read, so it scrolls
+                      away and the persistent bar costs one line, not three. */}
+                  <div
+                    className={`bg-popover sticky top-0 z-10 flex items-center gap-2 pb-2 ${
+                      groupIndex === 0 ? 'pt-0' : 'pt-5'
+                    }`}
+                  >
+                    <h3 className="text-foreground text-sm font-semibold">
+                      {group.title}
+                    </h3>
+                    <Badge variant="neutral" size="count">
+                      {presets.length}
+                    </Badge>
+                  </div>
+                  <p className="text-muted-foreground max-w-[70ch] pb-3 text-xs leading-[1.5]">
                     {group.description}
                   </p>
-                </div>
-                {TEMPLATE_PRESETS.filter(
-                  (preset) => preset.galleryGroup === group.id
-                ).map((preset) => (
-                  <Card key={preset.id}>
-                    <CardHeader>
-                      <CardTitle>
-                        <h4>{preset.title}</h4>
-                      </CardTitle>
-                      <CardDescription className="flex flex-wrap items-center gap-2">
-                        <Badge
-                          variant={
-                            categoryVariants[preset.category] || 'neutral'
-                          }
-                        >
-                          {preset.category}
-                        </Badge>
-                        {preset.wired ? (
-                          <Badge variant="neutral">UsefulDesk feature</Badge>
-                        ) : (
-                          <Badge variant="neutral">Custom draft</Badge>
-                        )}
-                      </CardDescription>
-                      <CardAction>
-                        <GatedButton
-                          size="sm"
-                          onClick={() => applyPreset(preset)}
-                          canAct={canEditSettings}
-                          gateReason="create message templates"
-                        >
-                          {preset.wired ? 'Use preset' : 'Use as custom draft'}
-                        </GatedButton>
-                      </CardAction>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="text-muted-foreground text-sm">
-                        {preset.blurb}
-                      </p>
-                      <blockquote className="bg-muted/40 text-muted-foreground rounded-lg px-3 py-2.5 text-sm whitespace-pre-wrap">
-                        {preset.fields.body_text}
-                      </blockquote>
-                      <dl className="text-muted-foreground grid gap-1 text-xs">
-                        <div>
-                          <dt className="text-foreground inline font-medium">
-                            Parameters:{' '}
-                          </dt>
-                          <dd className="inline">
-                            {preset.parameterLabels.join(' · ')}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-foreground inline font-medium">
-                            Trigger:{' '}
-                          </dt>
-                          <dd className="inline">{preset.trigger}</dd>
-                        </div>
-                      </dl>
-                      <p className="text-muted-foreground text-xs leading-relaxed">
-                        {preset.note}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </section>
-            ))}
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {presets.map((preset) => (
+                      <PresetCard
+                        key={preset.id}
+                        preset={preset}
+                        canAct={canEditSettings}
+                        onUse={applyPreset}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
           </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPresetPickerOpen(false)}
-            >
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -72,7 +72,7 @@ describe('TemplateManager gym preset library', () => {
     expect(
       screen.queryByText(/Requires recorded .* WhatsApp opt-in/)
     ).toBeNull();
-    expect(screen.getAllByText(/Trigger:/).length).toBe(10);
+    expect(screen.getAllByText(/Sends when:/).length).toBe(10);
     expect(
       screen.getAllByText(/approval and recipient delivery are not guaranteed/)
         .length
@@ -88,7 +88,7 @@ describe('TemplateManager gym preset library', () => {
 
     const card = screen
       .getByRole('heading', { name: 'Invoice document' })
-      .closest('[data-slot="card"]');
+      .closest('[data-slot="preset"]');
     expect(card).toBeTruthy();
     await user.click(
       within(card as HTMLElement).getByRole('button', { name: 'Use preset' })
@@ -114,7 +114,7 @@ describe('TemplateManager gym preset library', () => {
 
     const card = screen
       .getByRole('heading', { name: 'Membership renewal' })
-      .closest('[data-slot="card"]');
+      .closest('[data-slot="preset"]');
     expect(card).toBeTruthy();
     await user.click(
       within(card as HTMLElement).getByRole('button', { name: 'Use preset' })

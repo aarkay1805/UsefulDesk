@@ -6,6 +6,83 @@
 
 ---
 
+## Preset gallery reads as messages, not metadata
+
+The Settings -> Templates "Use a preset" dialog rendered each of the ten
+contracts as a bordered Card carrying a blurb, a raw `{{1}}`-style body, a
+`Parameters:` row, a `Trigger:` row, and a `note` paragraph whose second
+sentence ("Submission starts Meta review; approval and recipient delivery are
+not guaranteed") was identical on all ten and already stated in the dialog
+description. Ten cards ran roughly 3,300px of in-dialog scroll.
+
+`template-manager.tsx` now renders divider-separated rows and fills each body
+preview from `sample_values` via `previewSegments`, marking every filled slot
+in solid ink. That retires the `Parameters:` row — the reader sees which parts
+vary without zipping indices against a label list — and the parameter names
+stay available to assistive tech through an `sr-only` line. The per-preset
+`note` is gone; the caveat lives once in the pinned dialog header. The
+"UsefulDesk feature" / "Custom draft" badge is gone because `galleryGroup ===
+'feature'` is exactly `wired`, so the group heading (now pinned) and the button
+label ("Use preset" vs "Use as custom draft") already carry it — the group
+descriptions absorbed the locked-vs-editable fact. The footer "Close" duplicated
+the header dismiss and was dropped, and the dialog moved to the canonical
+`grid-rows-[auto_minmax(0,1fr)]` pinned-header recipe. Rows measure 181px
+against roughly 320px, and the list scrolls 2,012px instead of ~3,300px.
+
+A follow-up layout/clarify pass replaced the row's uniform 8/8/8 child spacing
+with a 4/12/6 cadence, so the row reads as two units — identity (title, badge,
+action, blurb) and evidence (the message, and when it sends). The blurb dropped
+to 12px because at 14px it was typographically identical to the preview beneath
+it; the message is now the largest text in the row, framed by two caption lines.
+`TemplateContract.trigger` was rewritten out of engineering vocabulary — "cron",
+"claim-first", "persisted", "account-local" — into what the owner does or what
+runs, preserving every fact including the 7/3/1/0 installment schedule and the
+account timezone. The row label is `Sends when:`, not `Trigger:`. These strings
+also render at `/preview/resolvable-action`.
+
+A typeset pass kept every size and weight — they match the app's de-facto roles
+(`text-sm font-medium` 101x, bare `text-xs` 496x), not DESIGN.md's simplified
+scale — and fixed measure instead. The 12px captions ran 85ch on the dialog's
+640px column with the tightest leading in the modal (1.333), inverting the
+rule that wider lines need more leading. `max-w-[70ch] leading-[1.5]` puts every
+prose role at 70-72ch: content full-bleed, annotations narrower. The message
+preview deliberately uses proportional, non-tabular figures and no Geist Mono
+despite containing money, dates, invoice references, and a URL — it imitates
+what the member receives in WhatsApp, so the Stable-Numerals and mono-for-
+identifiers rules do not apply inside it.
+
+Do not re-add a visible `Parameters:` row or the per-preset submission caveat;
+the create form already labels every sample value, and the header owns the
+caveat. `TemplatePreset.note` existed only to feed that paragraph and was
+deleted with it; `contract.purpose` still carries the Meta-category rationale. Tests select preset rows by `[data-slot="preset"]`.
+
+A later layout pass took the dialog to `sm:max-w-4xl` and paired the presets
+into `lg:grid-cols-2`. The single-column list ran 2,150px of scroll inside a
+672px dialog on a 1440px desktop — half the width left empty to turn a
+comparison task into a linear one, and no way to read two candidates side by
+side. Ten presets now sit in six rows, and each is a `Card size="sm"` rather
+than a hairline-separated row, because at two columns a shared divider no
+longer says which preset owns which message.
+
+The preview is now an actual WhatsApp bubble, not a `bg-muted/40` block: the
+inbox's own `--chat-canvas` plane (with the `.chat-doodle` wallpaper), the
+`--chat-bubble-in` fill, the `--chat-bubble-shadow` hairline, and the same
+tail — `BubbleTail` is exported from `inbox/message-bubble.tsx` for this,
+since two copies of that path would drift. Received side, not sent: the gym is
+judging what lands on the member's phone, and quick replies exist to be tapped
+by the recipient. The band is a direct child of `Card` so it spans edge to
+edge and the card reads as three zones — what it is, what it says, when and
+how to take it — and it carries `flex-1` so two side-by-side cards land their
+footer strips on the same line whatever their messages measure.
+
+`footer_text` and the `QUICK_REPLY` buttons render inside the bubble. The
+marketing bodies say "Use the buttons below to respond", so the preview
+contradicted its own copy without them. The inbox bubble still omits both,
+correctly: a sent row only persists `content_text`, while a preset knows its
+whole payload. Filled slots are marked by weight alone now — muting the
+literal text to make the samples pop inverted the emphasis, and a message
+being judged has to read at full contrast.
+
 ## Member Realtime refreshes only dependent listings
 
 P2-7 replaces the Members page's single broad reload nonce with per-listing

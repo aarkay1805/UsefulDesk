@@ -46,7 +46,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Promotes the future purchase of a renewed gym membership for an existing member.',
       trigger:
-        'Member Remind action or the enabled membership-renewal cron for an eligible ending membership.',
+        'You tap Remind on a member, or the membership-renewal reminder runs for an ending membership.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -80,7 +80,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Promotes the future purchase of a renewed paid service for an existing member.',
       trigger:
-        'Service Remind action or the enabled service-renewal cron for an eligible ending service.',
+        'You tap Remind on a service, or the service-renewal reminder runs for an ending service.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -114,7 +114,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Updates a member about an amount and due date from an existing membership transaction.',
       trigger:
-        'Claim-first installment cron at seven, three, one, and zero days before the account-local due date.',
+        "An installment reminder runs 7, 3, 1, and 0 days before the due date, in your gym's timezone.",
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -143,7 +143,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Requests payment for a specific existing invoice and carries its complete provider payment URL.',
       trigger:
-        'Explicit Send payment link action on an eligible open collectible invoice.',
+        'You tap Send payment link on an open invoice that can still be collected.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -171,8 +171,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       blurb: 'Send the immutable PDF for an existing gym invoice.',
       purpose:
         'Delivers the stable non-tax document for a specific existing invoice.',
-      trigger:
-        'Explicit Send on WhatsApp action from an eligible persisted invoice.',
+      trigger: 'You tap Send on WhatsApp from a saved invoice.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -203,7 +202,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Updates a member about a pending amount tied to an existing membership account.',
       trigger:
-        'Manual Inbox or contact template send after staff verifies the outstanding balance.',
+        'You send it from the Inbox or a contact, once staff has confirmed the outstanding balance.',
       category: 'Utility',
       galleryGroup: 'account_update',
       consentScope: 'whatsapp_account_updates',
@@ -225,7 +224,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Confirms a completed payment and active-until date for an existing membership transaction.',
       trigger:
-        'Manual template send immediately after staff records and verifies a membership payment.',
+        'You send it from a contact, right after staff records and checks a membership payment.',
       category: 'Utility',
       galleryGroup: 'account_update',
       consentScope: 'whatsapp_account_updates',
@@ -254,7 +253,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Confirms plan, gym, start date, and end date for an existing activated membership.',
       trigger:
-        'Manual template send after a successful checkout creates or activates the membership.',
+        'You send it from a contact, after checkout creates or activates the membership.',
       category: 'Utility',
       galleryGroup: 'account_update',
       consentScope: 'whatsapp_account_updates',
@@ -290,7 +289,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Re-engages a lapsed member and promotes a future membership purchase.',
       trigger:
-        'Manual or broadcast send to a deliberately selected Marketing audience.',
+        'You send it yourself, or as a broadcast, to a Marketing audience you choose.',
       category: 'Marketing',
       galleryGroup: 'marketing',
       consentScope: 'whatsapp_marketing',
@@ -318,7 +317,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       purpose:
         'Promotes a discounted future annual-membership purchase during a named campaign.',
       trigger:
-        'Manual or broadcast send to a deliberately selected Marketing audience.',
+        'You send it yourself, or as a broadcast, to a Marketing audience you choose.',
       category: 'Marketing',
       galleryGroup: 'marketing',
       consentScope: 'whatsapp_marketing',

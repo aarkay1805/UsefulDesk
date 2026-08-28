@@ -96,8 +96,12 @@ function StatusIcon({ status }: { status: Message['status'] }) {
  * ends), so the matching corner drops its radius and the wedge continues the
  * fill across the gap. Drawn rather than faked with a CSS triangle: a
  * hard-edged triangle beside a 10px-radius bubble reads as a glitch.
+ *
+ * Exported because the template preset gallery draws the same tail on its
+ * sample bubbles: the shape is the whole reason those previews read as
+ * messages, and two copies of the path would drift.
  */
-function BubbleTail({ side }: { side: 'left' | 'right' }) {
+export function BubbleTail({ side }: { side: 'left' | 'right' }) {
   return (
     <svg
       aria-hidden
