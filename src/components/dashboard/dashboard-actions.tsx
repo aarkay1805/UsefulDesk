@@ -35,16 +35,18 @@ async function loadDashboardActions(): Promise<DashboardActionSnapshot> {
 export function DashboardActionsProvider({
   children,
   initialSnapshot = null,
+  autoLoad = true,
 }: {
   children: React.ReactNode;
   initialSnapshot?: DashboardActionSnapshot | null;
+  autoLoad?: boolean;
 }) {
   const [snapshot, setSnapshot] = useState<DashboardActionSnapshot | null>(
     initialSnapshot
   );
   const [failed, setFailed] = useState(false);
   const [refreshVersion, setRefreshVersion] = useState<number | null>(
-    initialSnapshot ? null : 0
+    initialSnapshot || !autoLoad ? null : 0
   );
   const snapshotRef = useRef<DashboardActionSnapshot | null>(initialSnapshot);
 

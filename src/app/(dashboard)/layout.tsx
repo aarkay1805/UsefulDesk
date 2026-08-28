@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { BRANCH_HEADER } from '@/lib/auth/branch-context';
-import { loadDashboardAuthBootstrap } from '@/lib/auth/dashboard-bootstrap';
+import { UnauthorizedError } from '@/lib/auth/account';
+import { getDashboardRequestContext } from '@/lib/auth/dashboard-request-context';
 import { DashboardShell } from './dashboard-shell';
 
 // Server layout for the authenticated app. The proxy provides the fast redirect,
@@ -27,22 +25,19 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect('/login');
-
-  const requestHeaders = await headers();
-  const bootstrap = await loadDashboardAuthBootstrap(
-    supabase,
-    user.id,
-    requestHeaders.get(BRANCH_HEADER)
-  );
+  let context;
+  try {
+    context = await getDashboardRequestContext();
+  } catch (error) {
+    if (error instanceof UnauthorizedError) redirect('/login');
+    throw error;
+  }
 
   return (
-    <DashboardShell initialUser={user} initialBootstrap={bootstrap}>
+    <DashboardShell
+      initialUser={context.user}
+      initialBootstrap={context.bootstrap}
+    >
       {children}
     </DashboardShell>
   );

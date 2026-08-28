@@ -154,35 +154,50 @@ export function RenewalActionLists({
           otherWindows.find((item) => item.value === otherWindowValue)?.days ??
           null;
         const otherKey = `${accountId}:${otherBucket}:${otherWindowValue}:${reloadKey}:${nonce}:${today}`;
-        const [page, otherCount] = await Promise.all([
-          loadRenewalQueuePage(db, {
-            accountId,
-            bucket,
-            days: activeDays,
-            today,
-            page: 0,
-          }),
-          loadRenewalQueueCount(db, {
-            accountId,
-            bucket: otherBucket,
-            days: otherDays,
-            today,
-          }),
-        ]);
+        const page = await loadRenewalQueuePage(db, {
+          accountId,
+          bucket,
+          days: activeDays,
+          today,
+          page: 0,
+        });
         if (cancelled) return;
         setQueues((current) => ({
           ...current,
           [queueKey]: { ...page, page: 0 },
-          [otherKey]: current[otherKey] ?? {
-            rows: [],
-            total: otherCount,
-            page: -1,
-          },
         }));
+        setLoadingKey((current) => (current === queueKey ? null : current));
+
+        // A count for a bounded inactive window is useful context, but it must
+        // never hold the selected rows behind Promise.all. The default other
+        // view is all historical expiries, so defer that exact count until the
+        // user actually opens Expired and the page query returns its total.
+        if (otherDays === null) return;
+        try {
+          const otherCount = await loadRenewalQueueCount(db, {
+            accountId,
+            bucket: otherBucket,
+            days: otherDays,
+            today,
+          });
+          if (cancelled) return;
+          setQueues((current) => ({
+            ...current,
+            [otherKey]: current[otherKey] ?? {
+              rows: [],
+              total: otherCount,
+              page: -1,
+            },
+          }));
+        } catch (error) {
+          console.error('[renewal queue] inactive count failed:', error);
+        }
       } catch {
         if (!cancelled) setLoadError(true);
       } finally {
-        if (!cancelled) setLoadingKey(null);
+        if (!cancelled) {
+          setLoadingKey((current) => (current === queueKey ? null : current));
+        }
       }
     })();
     return () => {
@@ -243,12 +258,12 @@ export function RenewalActionLists({
   const otherKey = `${accountId}:${otherBucket}:${otherWindowValue}:${reloadKey}:${nonce}:${today}`;
   const expiringCount =
     bucket === 'expiring'
-      ? (activeQueue?.total ?? 0)
-      : (queues[otherKey]?.total ?? 0);
+      ? (activeQueue?.total ?? null)
+      : (queues[otherKey]?.total ?? null);
   const expiredCount =
     bucket === 'expired'
-      ? (activeQueue?.total ?? 0)
-      : (queues[otherKey]?.total ?? 0);
+      ? (activeQueue?.total ?? null)
+      : (queues[otherKey]?.total ?? null);
   const emptyLabel =
     bucket === 'expiring'
       ? 'No memberships expiring in this window.'
@@ -363,8 +378,8 @@ function RenewalTable({
   bucket: RenewalBucket;
   onBucketChange: (bucket: RenewalBucket) => void;
   rows: Membership[];
-  expiringCount: number;
-  expiredCount: number;
+  expiringCount: number | null;
+  expiredCount: number | null;
   windows: RenewalWindow[];
   windowValue: string;
   onWindowChange: (value: string) => void;
@@ -405,16 +420,20 @@ function RenewalTable({
             >
               <CalendarClock className="size-4" />
               <span>Expiring</span>
-              <Badge variant="neutral" size="count">
-                {expiringCount}
-              </Badge>
+              {expiringCount !== null ? (
+                <Badge variant="neutral" size="count">
+                  {expiringCount}
+                </Badge>
+              ) : null}
             </ToolbarToggleItem>
             <ToolbarToggleItem value="expired" aria-label="Expired memberships">
               <CircleAlert className="size-4" />
               <span>Expired</span>
-              <Badge variant="neutral" size="count">
-                {expiredCount}
-              </Badge>
+              {expiredCount !== null ? (
+                <Badge variant="neutral" size="count">
+                  {expiredCount}
+                </Badge>
+              ) : null}
             </ToolbarToggleItem>
           </ToolbarToggleGroup>
         </Toolbar>
@@ -566,7 +585,8 @@ function RenewalTable({
           <div className="border-border flex items-center border-t px-3 py-2">
             <p className="text-muted-foreground text-xs">
               Showing {rows.length} of{' '}
-              {bucket === 'expiring' ? expiringCount : expiredCount}{' '}
+              {(bucket === 'expiring' ? expiringCount : expiredCount) ??
+                rows.length}{' '}
               {bucket === 'expiring' ? 'expiring' : 'expired'} memberships
             </p>
             {hasMore ? (

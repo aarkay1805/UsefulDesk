@@ -6,6 +6,32 @@
 
 ---
 
+## Dashboard and renewal content now reveal progressively
+
+The authenticated layout and Dashboard sections now share one React
+request-scoped dashboard context, so the page reuses the layout's validated user,
+selected branch, account row, RLS client, and account timezone instead of
+repeating the auth/profile/membership/account/timezone chain. Quick actions
+render without waiting for action data, while metrics, follow-ups, expiring
+memberships, uncontacted leads, and needs-attention each stream through their
+own section-local failure boundary. Fixed-label server timings record only the
+auth stage or section, status, and duration—never tenant, user, query, or row
+data. Members commits the selected 50-row renewal page before a bounded
+inactive count and does not count all historical expiries until Expired is
+opened. Key code: `src/lib/auth/dashboard-request-context.ts`,
+`src/components/dashboard/dashboard-streaming.tsx`,
+`src/lib/dashboard/action-snapshot.ts`, and
+`src/components/members/renewal-action-lists.tsx`. Gotcha: the streamed
+fallback providers must keep `autoLoad={false}` or five fallback islands can
+recreate the full snapshot request in the browser. The controlled production
+benchmark is recorded in
+`benchmark-results/2026-08-28-content-latency.md`: Members warm visible rows
+improved from 490 ms to a 308.9 ms mean, while Dashboard's cold shell and first
+live section appeared at 336.3 ms and 1,077.6 ms. Full five-section completion
+did not improve (1,176.2 ms warm mean; 3,492.2 ms cold), so the shipped gain is
+progressive reveal and failure isolation rather than faster completion of the
+still-slow needs-attention section.
+
 ## Authenticated navigation performance is bounded and immediately responsive
 
 Authenticated navigation now has a shared route skeleton and sidebar pending

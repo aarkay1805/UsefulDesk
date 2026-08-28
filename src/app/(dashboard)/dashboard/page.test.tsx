@@ -3,34 +3,20 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
-  getCurrentAccount: vi.fn(async () => ({
-    supabase: { from: vi.fn() },
-    accountId: 'account-1',
-  })),
-  loadDateContext: vi.fn(async () => ({
-    timeZone: 'Asia/Kolkata',
-    today: '2026-08-28',
-  })),
-  loadSnapshot: vi.fn(async () => ({ marker: 'server-snapshot' })),
+  streamedSections: [] as string[],
 }));
 
-vi.mock('@/lib/auth/account', () => ({
-  getCurrentAccount: h.getCurrentAccount,
-}));
-vi.mock('@/lib/dashboard/action-snapshot', () => ({
-  loadDashboardActionDateContext: h.loadDateContext,
-  loadDashboardActionSnapshot: h.loadSnapshot,
-}));
-vi.mock('@/components/dashboard/dashboard-actions', () => ({
-  DashboardActionsProvider: ({
+vi.mock('@/components/dashboard/dashboard-streaming', () => ({
+  DashboardActionSectionStream: ({
+    section,
     children,
-    initialSnapshot,
   }: {
+    section: string;
     children: ReactNode;
-    initialSnapshot?: { marker: string };
-  }) => (
-    <div data-snapshot={initialSnapshot?.marker ?? 'missing'}>{children}</div>
-  ),
+  }) => {
+    h.streamedSections.push(section);
+    return <div data-stream={section}>{children}</div>;
+  },
 }));
 
 vi.mock('@/components/dashboard/deferred-dashboard-insights', () => ({
@@ -61,12 +47,20 @@ vi.mock('@/components/dashboard/uncontacted-leads', () => ({
 const { default: DashboardPage } = await import('./page');
 
 describe('DashboardPage first response', () => {
-  it('loads the action snapshot on the server and seeds the provider', async () => {
-    const markup = renderToStaticMarkup(await DashboardPage());
+  it('returns the page shell synchronously and gives every data group an independent stream', () => {
+    h.streamedSections.length = 0;
+    const result = DashboardPage();
 
-    expect(h.getCurrentAccount).toHaveBeenCalledOnce();
-    expect(h.loadDateContext).toHaveBeenCalledOnce();
-    expect(h.loadSnapshot).toHaveBeenCalledOnce();
-    expect(markup).toContain('data-snapshot="server-snapshot"');
+    expect(result).not.toBeInstanceOf(Promise);
+    const markup = renderToStaticMarkup(result);
+    expect(h.streamedSections).toEqual([
+      'gymMetrics',
+      'followUps',
+      'expiringMemberships',
+      'uncontactedLeads',
+      'attention',
+    ]);
+    expect(markup).toContain('data-stream="gymMetrics"');
+    expect(markup).toContain('data-stream="attention"');
   });
 });

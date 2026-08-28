@@ -21,6 +21,7 @@ import {
   DASHBOARD_ACTION_LIST_LIMIT,
   DASHBOARD_MESSAGE_PREVIEW_LIMIT,
   loadDashboardActionDateContext,
+  loadDashboardActionSection,
   loadDashboardActionSnapshot,
 } from './action-snapshot';
 
@@ -254,6 +255,32 @@ describe('dashboard action snapshot', () => {
     expect(snapshot.uncontactedLeads).toEqual({ rows: [], total: 0 });
     expect(snapshot.attention).toEqual({ churnRisk: 3 });
     expect(snapshot.errors).toEqual(['expiringMemberships']);
+    expect(errorSpy).toHaveBeenCalledOnce();
+  });
+
+  it('returns a section-local failure snapshot with fixed-label timing evidence', async () => {
+    h.loadGymStats.mockRejectedValue(new Error('private query detail'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const timingSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    const snapshot = await loadDashboardActionSection(
+      {} as SupabaseClient,
+      'account-1',
+      context,
+      'gymMetrics'
+    );
+
+    expect(snapshot.gymMetrics).toBeNull();
+    expect(snapshot.errors).toEqual(['gymMetrics']);
+    expect(timingSpy).toHaveBeenCalledWith('[dashboard timing]', {
+      stage: 'section.gymMetrics',
+      status: 'error',
+      durationMs: expect.any(Number),
+    });
+    expect(JSON.stringify(timingSpy.mock.calls)).not.toContain('account-1');
+    expect(JSON.stringify(timingSpy.mock.calls)).not.toContain(
+      'private query detail'
+    );
     expect(errorSpy).toHaveBeenCalledOnce();
   });
 });

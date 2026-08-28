@@ -10,6 +10,7 @@ import {
   loadDashboardFollowUpSnapshot,
   type DashboardFollowUpSnapshot,
 } from './follow-ups';
+import { measureDashboardStage } from './timing';
 
 export const DASHBOARD_ACTION_LIST_LIMIT = 8;
 export const DASHBOARD_RENEWAL_WINDOW_DAYS = 7;
@@ -65,6 +66,18 @@ export interface DashboardActionSnapshot {
   uncontactedLeads: DashboardUncontactedQueue | null;
   attention: OwnerAttention | null;
   errors: DashboardActionSection[];
+}
+
+function emptyDashboardActionSnapshot(today: string): DashboardActionSnapshot {
+  return {
+    today,
+    gymMetrics: null,
+    followUps: null,
+    expiringMemberships: null,
+    uncontactedLeads: null,
+    attention: null,
+    errors: [],
+  };
 }
 
 interface ExpiringQueryResult {
@@ -236,13 +249,6 @@ export async function loadDashboardActionSnapshot(
   context: DashboardActionDateContext,
   now: Date = new Date()
 ): Promise<DashboardActionSnapshot> {
-  const results = await Promise.allSettled([
-    loadGymStats(db, context.today, context.timeZone),
-    loadDashboardFollowUpSnapshot(db, accountId, DASHBOARD_ACTION_LIST_LIMIT),
-    loadDashboardExpiringMemberships(db, context),
-    loadDashboardUncontactedLeads(db, now),
-    loadOwnerAttention(db, accountId, context.today, context.timeZone),
-  ] as const);
   const sections: DashboardActionSection[] = [
     'gymMetrics',
     'followUps',
@@ -250,24 +256,78 @@ export async function loadDashboardActionSnapshot(
     'uncontactedLeads',
     'attention',
   ];
-  const errors = results.flatMap((result, index) => {
-    if (result.status === 'fulfilled') return [];
-    console.error(
-      `[dashboard action snapshot] ${sections[index]} failed:`,
-      result.reason
-    );
-    return [sections[index]];
-  });
+  const snapshots = await Promise.all(
+    sections.map((section) =>
+      loadDashboardActionSection(db, accountId, context, section, now)
+    )
+  );
 
   return {
     today: context.today,
-    gymMetrics: results[0].status === 'fulfilled' ? results[0].value : null,
-    followUps: results[1].status === 'fulfilled' ? results[1].value : null,
-    expiringMemberships:
-      results[2].status === 'fulfilled' ? results[2].value : null,
-    uncontactedLeads:
-      results[3].status === 'fulfilled' ? results[3].value : null,
-    attention: results[4].status === 'fulfilled' ? results[4].value : null,
-    errors,
+    gymMetrics: snapshots[0].gymMetrics,
+    followUps: snapshots[1].followUps,
+    expiringMemberships: snapshots[2].expiringMemberships,
+    uncontactedLeads: snapshots[3].uncontactedLeads,
+    attention: snapshots[4].attention,
+    errors: snapshots.flatMap((snapshot) => snapshot.errors),
   };
+}
+
+/**
+ * Load one independently renderable failure domain. Returning a complete but
+ * sparse snapshot lets the existing client section keep its loading, error,
+ * refresh, and mutation behavior while React streams sibling sections apart.
+ */
+export async function loadDashboardActionSection(
+  db: SupabaseClient,
+  accountId: string,
+  context: DashboardActionDateContext,
+  section: DashboardActionSection,
+  now: Date = new Date()
+): Promise<DashboardActionSnapshot> {
+  const snapshot = emptyDashboardActionSnapshot(context.today);
+  try {
+    switch (section) {
+      case 'gymMetrics':
+        snapshot.gymMetrics = await measureDashboardStage(
+          'section.gymMetrics',
+          () => loadGymStats(db, context.today, context.timeZone)
+        );
+        break;
+      case 'followUps':
+        snapshot.followUps = await measureDashboardStage(
+          'section.followUps',
+          () =>
+            loadDashboardFollowUpSnapshot(
+              db,
+              accountId,
+              DASHBOARD_ACTION_LIST_LIMIT
+            )
+        );
+        break;
+      case 'expiringMemberships':
+        snapshot.expiringMemberships = await measureDashboardStage(
+          'section.expiringMemberships',
+          () => loadDashboardExpiringMemberships(db, context)
+        );
+        break;
+      case 'uncontactedLeads':
+        snapshot.uncontactedLeads = await measureDashboardStage(
+          'section.uncontactedLeads',
+          () => loadDashboardUncontactedLeads(db, now)
+        );
+        break;
+      case 'attention':
+        snapshot.attention = await measureDashboardStage(
+          'section.attention',
+          () =>
+            loadOwnerAttention(db, accountId, context.today, context.timeZone)
+        );
+        break;
+    }
+  } catch (error) {
+    console.error(`[dashboard action snapshot] ${section} failed:`, error);
+    snapshot.errors.push(section);
+  }
+  return snapshot;
 }

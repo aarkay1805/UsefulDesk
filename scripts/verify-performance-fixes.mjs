@@ -20,6 +20,22 @@ function requireText(source, expected, label) {
   }
 }
 
+function forbidText(source, forbidden, label) {
+  if (source.includes(forbidden)) {
+    fail(`${label} still contains ${JSON.stringify(forbidden)}`);
+  }
+}
+
+function requireOrder(source, first, second, label) {
+  const firstIndex = source.indexOf(first);
+  const secondIndex = source.indexOf(second);
+  if (firstIndex < 0 || secondIndex < 0 || firstIndex >= secondIndex) {
+    fail(
+      `${label} does not place ${JSON.stringify(first)} before ${JSON.stringify(second)}`
+    );
+  }
+}
+
 function assertNoStarSelect(source, label) {
   if (/\.select\(\s*['"]\*['"]\s*\)/.test(source)) {
     fail(`${label} still contains an unbounded select('*')`);
@@ -58,6 +74,24 @@ function verifySource() {
   requireText(renewalQueue, '.range(', 'renewal queue');
   requireText(renewalQueue, 'RENEWAL_PAGE_SIZE', 'renewal queue');
 
+  const renewalLists = read('src/components/members/renewal-action-lists.tsx');
+  forbidText(
+    renewalLists,
+    'const [page, otherCount] = await Promise.all',
+    'renewal action lists'
+  );
+  requireOrder(
+    renewalLists,
+    'const page = await loadRenewalQueuePage',
+    'const otherCount = await loadRenewalQueueCount',
+    'renewal action lists'
+  );
+  requireText(
+    renewalLists,
+    'if (otherDays === null) return',
+    'renewal action lists'
+  );
+
   const membersPage = read('src/app/(dashboard)/members/page.tsx');
   requireText(
     membersPage,
@@ -67,12 +101,61 @@ function verifySource() {
   requireText(membersPage, 'const MemberForm = dynamic', 'members page');
 
   const dashboardPage = read('src/app/(dashboard)/dashboard/page.tsx');
-  requireText(
+  forbidText(dashboardPage, 'getCurrentAccount', 'dashboard server page');
+  forbidText(
     dashboardPage,
-    'loadDashboardActionSnapshot',
+    'loadDashboardActionDateContext',
     'dashboard server page'
   );
-  requireText(dashboardPage, 'initialSnapshot=', 'dashboard server page');
+  requireText(
+    dashboardPage,
+    'DashboardActionSectionStream',
+    'dashboard server page'
+  );
+  for (const section of [
+    'gymMetrics',
+    'followUps',
+    'expiringMemberships',
+    'uncontactedLeads',
+    'attention',
+  ]) {
+    requireText(dashboardPage, `section="${section}"`, 'dashboard server page');
+  }
+
+  const dashboardLayout = read('src/app/(dashboard)/layout.tsx');
+  requireText(
+    dashboardLayout,
+    'getDashboardRequestContext',
+    'dashboard layout'
+  );
+
+  const requestContext = read('src/lib/auth/dashboard-request-context.ts');
+  requireText(
+    requestContext,
+    'cache(loadDashboardRequestContext)',
+    'request context'
+  );
+  requireText(requestContext, 'loadDashboardAuthBootstrap', 'request context');
+  requireText(requestContext, 'createClient(accountRow.id)', 'request context');
+  requireText(requestContext, 'todayInTz(locale.timeZone)', 'request context');
+
+  const dashboardStreaming = read(
+    'src/components/dashboard/dashboard-streaming.tsx'
+  );
+  requireText(dashboardStreaming, '<Suspense', 'dashboard streaming');
+  requireText(
+    dashboardStreaming,
+    'loadDashboardActionSection',
+    'dashboard streaming'
+  );
+  requireText(dashboardStreaming, 'autoLoad={false}', 'dashboard streaming');
+
+  const dashboardSnapshot = read('src/lib/dashboard/action-snapshot.ts');
+  requireText(
+    dashboardSnapshot,
+    'measureDashboardStage',
+    'dashboard action snapshot'
+  );
 
   const deferredInsights = read(
     'src/components/dashboard/deferred-dashboard-insights.tsx'
@@ -82,7 +165,9 @@ function verifySource() {
   const changelog = read('docs/changelog.md');
   const roadmap = read('PRDs/roadmap.md');
   requireText(changelog, 'Authenticated navigation performance', 'changelog');
+  requireText(changelog, 'request-scoped dashboard context', 'changelog');
   requireText(roadmap, 'Authenticated navigation performance', 'roadmap');
+  requireText(roadmap, 'request-scoped dashboard context', 'roadmap');
 
   console.log('performance source verification passed');
 }
