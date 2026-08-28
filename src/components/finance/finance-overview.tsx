@@ -47,6 +47,7 @@ export function FinanceOverview({
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
+    if (!accountId) return;
     let cancelled = false;
 
     void (async () => {
@@ -55,6 +56,7 @@ export function FinanceOverview({
       try {
         const result = await loadFinanceOverview(
           createClient(),
+          accountId,
           month,
           locale.timeZone,
           fmt.today()
@@ -74,7 +76,7 @@ export function FinanceOverview({
     return () => {
       cancelled = true;
     };
-  }, [fmt, locale.timeZone, month, reloadKey, retryKey]);
+  }, [accountId, fmt, locale.timeZone, month, reloadKey, retryKey]);
 
   function exportOverview() {
     if (!data) return;

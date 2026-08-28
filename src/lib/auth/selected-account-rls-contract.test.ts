@@ -69,7 +69,9 @@ describe('selected-account RLS initPlan contract', () => {
       'v_account_id UUID := private.requested_account_id();'
     );
     expect(migration).toContain('v_user_id UUID := auth.uid();');
-    expect(migration).toContain('FROM public.account_memberships AS membership');
+    expect(migration).toContain(
+      'FROM public.account_memberships AS membership'
+    );
     expect(migration).toContain("account.branch_status <> 'archived'");
     expect(migration).toMatch(
       /CASE membership\.role[\s\S]*WHEN 'owner' THEN 4[\s\S]*WHEN 'admin' THEN 3[\s\S]*WHEN 'agent' THEN 2[\s\S]*WHEN 'viewer' THEN 1[\s\S]*CASE min_role[\s\S]*WHEN 'owner' THEN 4[\s\S]*WHEN 'admin' THEN 3[\s\S]*WHEN 'agent' THEN 2[\s\S]*WHEN 'viewer' THEN 1/
@@ -100,9 +102,7 @@ describe('selected-account RLS initPlan contract', () => {
         `CREATE POLICY ${policy}\\s+ON public\\.${table}\\s+FOR SELECT${roleClause}\\s+USING \\(${tenantColumn} = \\(SELECT private\\.authorized_selected_account_id\\(\\)\\)\\);`
       );
       expect(migration).toMatch(expected);
-      expect(migration).toContain(
-        `DROP POLICY IF EXISTS ${policy}`
-      );
+      expect(migration).toContain(`DROP POLICY IF EXISTS ${policy}`);
     }
   );
 
@@ -115,7 +115,9 @@ describe('selected-account RLS initPlan contract', () => {
     expect(originalAuthorization).toMatch(/public\.is_account_member\(/);
     expect(migration).not.toMatch(rowDependentPolicy);
     expect(migration).not.toMatch(/FOR (?:INSERT|UPDATE|DELETE|ALL)\b/);
-    expect(migration).not.toMatch(/GRANT (?:SELECT|INSERT|UPDATE|DELETE|ALL)\b/);
+    expect(migration).not.toMatch(
+      /GRANT (?:SELECT|INSERT|UPDATE|DELETE|ALL)\b/
+    );
     expect(migration).not.toContain(
       'CREATE OR REPLACE FUNCTION public.is_account_member('
     );

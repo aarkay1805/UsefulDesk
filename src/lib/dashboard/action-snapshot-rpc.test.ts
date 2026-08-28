@@ -64,9 +64,9 @@ describe('dashboard_action_snapshot SQL contract', () => {
         `array_append(v_errors, '${section}')`
       );
     }
-    expect(
-      snapshotMigration.match(/EXCEPTION WHEN OTHERS THEN/g)
-    ).toHaveLength(5);
+    expect(snapshotMigration.match(/EXCEPTION WHEN OTHERS THEN/g)).toHaveLength(
+      5
+    );
   });
 
   it('preserves domain predicates and selected-branch timezone math', () => {

@@ -1,16 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { dayStartInTz, todayInTz } from '@/lib/locale/format';
+import { todayInTz } from '@/lib/locale/format';
 import { istAddDays } from '@/lib/memberships/expiry';
-import {
-  invoicePaymentState,
-  isChargeableAmount,
-  projectNextInvoice,
-} from '@/lib/memberships/periods';
 import type {
   Contact,
   Expense,
-  Membership,
   MembershipPlan,
   Payment,
   PaymentMethod,
@@ -147,28 +141,9 @@ export interface FinanceExpenseTotals {
   previous: number;
 }
 
-type PaymentRow = Payment & {
-  contact?: Pick<Contact, 'name' | 'avatar_url'> | null;
-  plan?: Pick<MembershipPlan, 'name'> | null;
-  membership?: Pick<Membership, 'member_number' | 'start_date'> | null;
-};
-
 interface FinanceRefundCashRow {
-  id: string;
   amount: number;
   processed_at: string;
-  payment: Pick<Payment, 'method' | 'source' | 'payment_purpose'> | null;
-}
-
-interface GenericFinanceInvoice {
-  id: string;
-  state: 'open' | 'void';
-  issued_at: string;
-  total: number;
-  amount_paid: number;
-  credit_applied: number;
-  balance: number;
-  requires_refund_review: boolean;
 }
 
 export type FinanceOverviewExpenseRow = Pick<
@@ -186,11 +161,6 @@ export type FinanceCashFlowPaymentRow = Pick<
   Payment,
   'paid_at' | 'amount' | 'status'
 >;
-
-type ProjectionMembership = Membership & {
-  plan: NonNullable<Membership['plan']>;
-  pricing_option: NonNullable<Membership['pricing_option']>;
-};
 
 function monthParts(month: string): { year: number; monthIndex: number } {
   const match = /^(\d{4})-(\d{2})$/.exec(month);
@@ -620,304 +590,239 @@ export function financeCashFlowHasMovement(
   );
 }
 
-function instantBounds(
-  range: FinanceMonthRange,
-  timeZone: string
-): { previousStart: string; currentStart: string; nextStart: string } {
-  const previousStart = dayStartInTz(range.previousStart, timeZone);
-  const currentStart = dayStartInTz(range.start, timeZone);
-  const nextStart = dayStartInTz(range.nextStart, timeZone);
-  if (!previousStart || !currentStart || !nextStart) {
-    throw new Error('Could not resolve Finance dates in the account time zone');
-  }
-  return {
-    previousStart: previousStart.toISOString(),
-    currentStart: currentStart.toISOString(),
-    nextStart: nextStart.toISOString(),
-  };
+function object(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
-type PagedResult = PromiseLike<{
-  data: unknown[] | null;
-  error: unknown;
-}>;
+function list(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
 
-async function fetchAll<T>(
-  page: (from: number, to: number) => PagedResult
-): Promise<T[]> {
-  const pageSize = 1_000;
-  const result: T[] = [];
-  for (let from = 0; ; from += pageSize) {
-    const response = await page(from, from + pageSize - 1);
-    if (response.error) throw response.error;
-    const rows = (response.data ?? []) as T[];
-    result.push(...rows);
-    if (rows.length < pageSize) return result;
+function string(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+function financePurpose(value: unknown): PaymentPurpose {
+  return value === 'joining' ||
+    value === 'renewal' ||
+    value === 'sale' ||
+    value === 'due'
+    ? value
+    : 'other';
+}
+
+export function normalizeFinanceOverviewSnapshot(
+  value: unknown
+): FinanceOverviewData {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Finance overview returned an invalid response');
   }
+
+  const row = object(value);
+  const period = object(row.period);
+  const revenue = object(row.revenue);
+  const expenses = object(row.expenses);
+  const profit = object(row.profit);
+  const projection = object(row.projection);
+  const breakdown = object(row.revenueBreakdown);
+  const health = object(row.invoiceHealth);
+
+  return {
+    period: {
+      month: string(period.month),
+      start: string(period.start),
+      end: string(period.end),
+      nextStart: string(period.nextStart),
+      previousStart: string(period.previousStart),
+      previousEnd: string(period.previousEnd),
+    },
+    revenue: {
+      current: number(revenue.current as number | string | null | undefined),
+      previous: number(
+        revenue.previous as number | string | null | undefined
+      ),
+      grossCurrent: number(
+        revenue.grossCurrent as number | string | null | undefined
+      ),
+      grossPrevious: number(
+        revenue.grossPrevious as number | string | null | undefined
+      ),
+      refundsCurrent: number(
+        revenue.refundsCurrent as number | string | null | undefined
+      ),
+      refundsPrevious: number(
+        revenue.refundsPrevious as number | string | null | undefined
+      ),
+    },
+    expenses: {
+      current: number(expenses.current as number | string | null | undefined),
+      previous: number(
+        expenses.previous as number | string | null | undefined
+      ),
+    },
+    profit: {
+      current: number(profit.current as number | string | null | undefined),
+      previous: number(profit.previous as number | string | null | undefined),
+    },
+    projection: {
+      amount: number(projection.amount as number | string | null | undefined),
+      renewals: number(
+        projection.renewals as number | string | null | undefined
+      ),
+    },
+    revenueBreakdown: {
+      joining: number(
+        breakdown.joining as number | string | null | undefined
+      ),
+      renewal: number(
+        breakdown.renewal as number | string | null | undefined
+      ),
+      sale: number(breakdown.sale as number | string | null | undefined),
+      due: number(breakdown.due as number | string | null | undefined),
+      other: number(breakdown.other as number | string | null | undefined),
+    },
+    revenueStreams: list(row.revenueStreams).map((value) => {
+      const stream = object(value);
+      return {
+        purpose: financePurpose(stream.purpose),
+        payments: number(
+          stream.payments as number | string | null | undefined
+        ),
+        amount: number(stream.amount as number | string | null | undefined),
+        recentPayments: list(stream.recentPayments).map((value) => {
+          const payment = object(value);
+          return {
+            id: string(payment.id),
+            membershipId:
+              payment.membershipId === null
+                ? null
+                : string(payment.membershipId),
+            memberNumber:
+              payment.memberNumber === null
+                ? null
+                : number(
+                    payment.memberNumber as
+                      | number
+                      | string
+                      | null
+                      | undefined
+                  ),
+            contactName:
+              payment.contactName === null
+                ? null
+                : string(payment.contactName),
+            contactAvatarUrl:
+              payment.contactAvatarUrl === null
+                ? null
+                : string(payment.contactAvatarUrl),
+            planName:
+              payment.planName === null ? null : string(payment.planName),
+            paidAt: string(payment.paidAt),
+            membershipStartDate:
+              payment.membershipStartDate === null
+                ? null
+                : string(payment.membershipStartDate),
+            periodEnd:
+              payment.periodEnd === null ? null : string(payment.periodEnd),
+            method: string(payment.method) as PaymentMethod,
+            source: string(payment.source) as Payment['source'],
+            amount: number(
+              payment.amount as number | string | null | undefined
+            ),
+          };
+        }),
+      };
+    }),
+    trend: list(row.trend).map((value) => {
+      const point = object(value);
+      return {
+        date: string(point.date),
+        income: number(point.income as number | string | null | undefined),
+        expenses: number(
+          point.expenses as number | string | null | undefined
+        ),
+      };
+    }),
+    previousTrend: list(row.previousTrend).map((value) => {
+      const point = object(value);
+      return {
+        date: string(point.date),
+        income: number(point.income as number | string | null | undefined),
+        expenses: number(
+          point.expenses as number | string | null | undefined
+        ),
+      };
+    }),
+    comparisonThroughDay:
+      row.comparisonThroughDay === null
+        ? null
+        : number(
+            row.comparisonThroughDay as
+              | number
+              | string
+              | null
+              | undefined
+          ),
+    invoiceHealth: {
+      paid: number(health.paid as number | string | null | undefined),
+      partiallyPaid: number(
+        health.partiallyPaid as number | string | null | undefined
+      ),
+      overdue: number(health.overdue as number | string | null | undefined),
+      open: number(health.open as number | string | null | undefined),
+      outstanding: number(
+        health.outstanding as number | string | null | undefined
+      ),
+      refundReview: number(
+        health.refundReview as number | string | null | undefined
+      ),
+    },
+    collectionMethods: list(row.collectionMethods).map((value) => {
+      const method = object(value);
+      return {
+        method: string(method.method) as FinanceCollectionMethod['method'],
+        payments: number(
+          method.payments as number | string | null | undefined
+        ),
+        amount: number(method.amount as number | string | null | undefined),
+      };
+    }),
+    recentTransactions: list(row.recentTransactions).map((value) => {
+      const transaction = object(value);
+      return {
+        id: string(transaction.id),
+        occurredAt: string(transaction.occurredAt),
+        description: string(transaction.description),
+        kind: string(transaction.kind) as FinanceRecentTransaction['kind'],
+        method: string(transaction.method),
+        amount: number(
+          transaction.amount as number | string | null | undefined
+        ),
+        ...(transaction.paymentPurpose === undefined
+          ? {}
+          : { paymentPurpose: financePurpose(transaction.paymentPurpose) }),
+      };
+    }),
+  };
 }
 
 export async function loadFinanceOverview(
   db: SupabaseClient,
+  accountId: string,
   month: string,
   timeZone: string,
   today: string
 ): Promise<FinanceOverviewData> {
-  const period = financeMonthRange(month);
-  const bounds = instantBounds(period, timeZone);
-  const projectionStart = period.nextStart;
-  const projectionEnd = `${shiftFinanceMonth(month, 2)}-01`;
-
-  const [payments, refunds, invoices, projectionMemberships, expenseRows] =
-    await Promise.all([
-      fetchAll<PaymentRow>((from, to) =>
-        db
-          .from('payments')
-          .select(
-            'id, account_id, membership_id, contact_id, plan_id, user_id, amount, method, status, paid_at, period_start, period_end, note, source, payment_purpose, gateway_payment_id, created_at, contact:contacts(name, avatar_url), plan:membership_plans(name), membership:memberships(member_number, start_date)'
-          )
-          .eq('status', 'paid')
-          .gte('paid_at', bounds.previousStart)
-          .lt('paid_at', bounds.nextStart)
-          .order('paid_at', { ascending: false })
-          .range(from, to)
-      ),
-      fetchAll<FinanceRefundCashRow>((from, to) =>
-        db
-          .from('payment_refunds')
-          .select(
-            'id, amount, processed_at, payment:payments!payment_refunds_payment_id_fkey(method, source, payment_purpose)'
-          )
-          .eq('status', 'processed')
-          .gte('processed_at', bounds.previousStart)
-          .lt('processed_at', bounds.nextStart)
-          .order('processed_at', { ascending: false })
-          .range(from, to)
-      ),
-      fetchAll<GenericFinanceInvoice>((from, to) =>
-        db
-          .from('invoice_balances')
-          .select(
-            'id, state, issued_at, total, amount_paid, credit_applied, balance, requires_refund_review'
-          )
-          .gte('issued_at', bounds.currentStart)
-          .lt('issued_at', bounds.nextStart)
-          .order('issued_at', { ascending: false })
-          .range(from, to)
-      ),
-      fetchAll<ProjectionMembership>((from, to) =>
-        db
-          .from('memberships')
-          .select(
-            'id, account_id, contact_id, user_id, plan_id, pricing_option_id, start_date, end_date, status, fee_amount, fee_status, is_trial, collection_mode, created_at, updated_at, plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
-          )
-          .eq('status', 'active')
-          .eq('is_trial', false)
-          .gte('end_date', projectionStart)
-          .lt('end_date', projectionEnd)
-          .order('id')
-          .range(from, to)
-      ),
-      fetchAll<FinanceOverviewExpenseRow>((from, to) =>
-        db
-          .from('expenses')
-          .select(
-            'id, occurred_on, amount, description, method, status, created_at'
-          )
-          .eq('status', 'posted')
-          .gte('occurred_on', period.previousStart)
-          .lt('occurred_on', period.nextStart)
-          .order('occurred_on', { ascending: false })
-          .order('created_at', { ascending: false })
-          .range(from, to)
-      ),
-    ]);
-
-  const currentPayments = payments.filter(
-    (payment) =>
-      payment.paid_at >= bounds.currentStart &&
-      payment.paid_at < bounds.nextStart
-  );
-  const previousPayments = payments.filter(
-    (payment) =>
-      payment.paid_at >= bounds.previousStart &&
-      payment.paid_at < bounds.currentStart
-  );
-  const currentRefunds = refunds.filter(
-    (refund) =>
-      refund.processed_at >= bounds.currentStart &&
-      refund.processed_at < bounds.nextStart
-  );
-  const previousRefunds = refunds.filter(
-    (refund) =>
-      refund.processed_at >= bounds.previousStart &&
-      refund.processed_at < bounds.currentStart
-  );
-  const currentGross = currentPayments.reduce(
-    (sum, payment) => sum + number(payment.amount),
-    0
-  );
-  const previousGross = previousPayments.reduce(
-    (sum, payment) => sum + number(payment.amount),
-    0
-  );
-  const currentRefundAmount = currentRefunds.reduce(
-    (sum, refund) => sum + number(refund.amount),
-    0
-  );
-  const previousRefundAmount = previousRefunds.reduce(
-    (sum, refund) => sum + number(refund.amount),
-    0
-  );
-
-  const revenue = {
-    current: currentGross - currentRefundAmount,
-    previous: previousGross - previousRefundAmount,
-    grossCurrent: currentGross,
-    grossPrevious: previousGross,
-    refundsCurrent: currentRefundAmount,
-    refundsPrevious: previousRefundAmount,
-  };
-  const revenueBreakdown = summarizeFinanceRevenue(currentPayments);
-  const revenueStreams = summarizeFinanceRevenueStreams(currentPayments);
-  for (const refund of currentRefunds) {
-    const purpose = refund.payment?.payment_purpose ?? 'other';
-    revenueBreakdown[purpose] -= number(refund.amount);
-    const stream = revenueStreams.find(
-      (candidate) => candidate.purpose === purpose
-    );
-    if (stream) stream.amount -= number(refund.amount);
-  }
-  const expenseSnapshot = summarizeFinanceExpenses(expenseRows, period);
-  const cashFlow = summarizeFinanceCashFlow(
-    payments,
-    expenseRows,
-    period,
-    timeZone,
-    refunds
-  );
-  const expenses = {
-    current: expenseSnapshot.current,
-    previous: expenseSnapshot.previous,
-  };
-  const profit = {
-    current: revenue.current - expenses.current,
-    previous: revenue.previous - expenses.previous,
-  };
-
-  const invoiceHealth: FinanceInvoiceHealth = {
-    paid: 0,
-    partiallyPaid: 0,
-    overdue: 0,
-    open: 0,
-    outstanding: 0,
-    refundReview: 0,
-  };
-  const healthDay = period.end < today ? period.end : today;
-  for (const invoice of invoices) {
-    if (invoice.state === 'void') continue;
-    if (invoice.requires_refund_review) {
-      invoiceHealth.refundReview = (invoiceHealth.refundReview ?? 0) + 1;
-      continue;
-    }
-    const paymentState = invoicePaymentState({
-      fee_amount: invoice.total,
-      amount_paid: Number(invoice.amount_paid) + Number(invoice.credit_applied),
-      balance: invoice.balance,
-    });
-    if (paymentState === 'paid') {
-      invoiceHealth.paid += 1;
-      continue;
-    }
-    if (paymentState === 'no_charge') continue;
-    const balance = number(invoice.balance);
-    if (isChargeableAmount(balance)) invoiceHealth.outstanding += balance;
-    if (isChargeableAmount(invoice.amount_paid)) {
-      invoiceHealth.partiallyPaid += 1;
-    } else if (todayInTz(timeZone, new Date(invoice.issued_at)) < healthDay) {
-      invoiceHealth.overdue += 1;
-    } else {
-      invoiceHealth.open += 1;
-    }
-  }
-
-  const methodStats = new Map<
-    FinanceCollectionMethod['method'],
-    FinanceCollectionMethod
-  >();
-  for (const payment of currentPayments) {
-    const method = paymentMethod(payment.method);
-    const stat = methodStats.get(method) ?? {
-      method,
-      payments: 0,
-      amount: 0,
-    };
-    stat.payments += 1;
-    stat.amount += number(payment.amount);
-    methodStats.set(method, stat);
-  }
-  for (const refund of currentRefunds) {
-    const method = paymentMethod(refund.payment?.method ?? 'other');
-    const stat = methodStats.get(method) ?? {
-      method,
-      payments: 0,
-      amount: 0,
-    };
-    stat.amount -= number(refund.amount);
-    methodStats.set(method, stat);
-  }
-  const collectionMethods = Array.from(methodStats.values()).sort(
-    (left, right) => right.amount - left.amount
-  );
-
-  let projectionAmount = 0;
-  let projectionRenewals = 0;
-  for (const membership of projectionMemberships) {
-    const projected = projectNextInvoice(membership, today);
-    if (!projected || !isChargeableAmount(projected.fee_amount)) continue;
-    projectionAmount += number(projected.fee_amount);
-    projectionRenewals += 1;
-  }
-
-  return {
-    period,
-    revenue,
-    expenses,
-    profit,
-    projection: {
-      amount: projectionAmount,
-      renewals: projectionRenewals,
-    },
-    revenueBreakdown,
-    revenueStreams,
-    trend: cashFlow.current,
-    previousTrend: cashFlow.previous,
-    comparisonThroughDay: financeComparisonThroughDay(month, today),
-    invoiceHealth,
-    collectionMethods,
-    recentTransactions: [
-      ...currentPayments.map((payment) => ({
-        id: payment.id,
-        occurredAt: payment.paid_at,
-        description: payment.contact?.name?.trim() || 'Deleted member',
-        kind: 'membership' as const,
-        method: paymentMethod(payment.method),
-        amount: number(payment.amount),
-        paymentPurpose: payment.payment_purpose ?? 'other',
-      })),
-      ...currentRefunds.map((refund) => ({
-        id: refund.id,
-        occurredAt: refund.processed_at,
-        description: 'Razorpay refund',
-        kind: 'refund' as const,
-        method: paymentMethod(refund.payment?.method ?? 'other'),
-        amount: number(refund.amount),
-        paymentPurpose: refund.payment?.payment_purpose ?? 'other',
-      })),
-      ...expenseSnapshot.transactions,
-    ]
-      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
-      .slice(0, 4),
-  };
+  const { data, error } = await db.rpc('finance_overview_snapshot', {
+    p_account_id: accountId,
+    p_month_start: `${month}-01`,
+    p_time_zone: timeZone,
+    p_today: today,
+  });
+  if (error) throw error;
+  return normalizeFinanceOverviewSnapshot(data);
 }
 
 function csvCell(value: string | number): string {

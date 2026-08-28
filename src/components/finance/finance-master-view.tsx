@@ -25,6 +25,46 @@ const VIEW_LABEL: Record<FinanceView, string> = {
   expenses: 'Expenses',
 };
 
+export const FINANCE_REALTIME_TABLES: Readonly<
+  Record<FinanceView, readonly string[]>
+> = {
+  overview: [
+    'payments',
+    'payment_refunds',
+    'invoices',
+    'invoice_lines',
+    'invoice_credit_allocations',
+    'invoice_adjustment_allocations',
+    'contacts',
+    'memberships',
+    'membership_plans',
+    'plan_pricing_options',
+    'expenses',
+  ],
+  performance: [],
+  invoices: [
+    'payments',
+    'payment_refunds',
+    'invoices',
+    'invoice_lines',
+    'invoice_credit_allocations',
+    'invoice_adjustment_allocations',
+    'contacts',
+    'memberships',
+    'membership_periods',
+    'membership_plans',
+    'plan_pricing_options',
+  ],
+  payments: [
+    'payments',
+    'payment_refunds',
+    'contacts',
+    'memberships',
+    'membership_plans',
+  ],
+  expenses: ['expenses', 'expense_categories'],
+};
+
 export function FinanceMasterView({
   view,
   month: requestedMonth,
@@ -45,82 +85,34 @@ export function FinanceMasterView({
   }, []);
 
   useEffect(() => {
-    if (!accountId) return;
+    const tables = FINANCE_REALTIME_TABLES[view];
+    if (!accountId || tables.length === 0) return;
     const supabase = createClient();
     let timer: number | null = null;
     const bump = () => {
       if (timer) window.clearTimeout(timer);
       timer = window.setTimeout(() => setReloadKey((key) => key + 1), 400);
     };
-    const channel = supabase
-      .channel(`finance-overview:${accountId}`)
-      .on(
+    let channel = supabase.channel(`finance:${view}:${accountId}`);
+    for (const table of tables) {
+      channel = channel.on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'payments',
+          table,
           filter: `account_id=eq.${accountId}`,
         },
         bump
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'contacts',
-          filter: `account_id=eq.${accountId}`,
-        },
-        bump
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'membership_periods',
-          filter: `account_id=eq.${accountId}`,
-        },
-        bump
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'memberships',
-          filter: `account_id=eq.${accountId}`,
-        },
-        bump
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'expenses',
-          filter: `account_id=eq.${accountId}`,
-        },
-        bump
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'expense_categories',
-          filter: `account_id=eq.${accountId}`,
-        },
-        bump
-      )
-      .subscribe();
+      );
+    }
+    channel.subscribe();
 
     return () => {
       if (timer) window.clearTimeout(timer);
       supabase.removeChannel(channel);
     };
-  }, [accountId]);
+  }, [accountId, view]);
 
   function changeView(nextView: FinanceView) {
     router.replace(branchHref(financeHref(nextView, month), accountId), {
