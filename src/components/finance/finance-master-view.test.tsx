@@ -47,6 +47,9 @@ describe('Finance realtime invalidation', () => {
     expect(FINANCE_REALTIME_TABLES.invoices).toContain(
       'invoice_adjustment_allocations'
     );
+    expect(FINANCE_REALTIME_TABLES.invoices).not.toContain(
+      'plan_pricing_options'
+    );
     expect(FINANCE_REALTIME_TABLES.payments).toContain('payment_refunds');
     expect(FINANCE_REALTIME_TABLES.payments).toContain('membership_plans');
   });

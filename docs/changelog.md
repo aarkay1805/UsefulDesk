@@ -2817,3 +2817,17 @@ Added a shared compact provider-mark component (`src/components/brand/provider-m
 ## Gym-first expense category presets
 
 New branches now receive a refined ten-category gym expense catalogue, with **Staff salaries & trainer payouts** replacing the generic Salaries label and **Software & subscriptions** added. Existing active untouched Salaries presets are renamed, Software & subscriptions is backfilled once, previously unseeded branches receive the complete catalogue, and renamed or archived categories are never recreated. Key code: `supabase/migrations/20260820162727_refine_gym_expense_category_presets.sql` and `20260820163041_complete_unseeded_expense_category_catalogues.sql`.
+
+## 2026-08-29 — Finance invoice ledger pagination
+
+- Replaced the Business → Invoices seven-request, five-stage full-month browser
+  waterfall with the tenant-scoped `finance_invoice_ledger_page` invoker RPC in
+  migrations `20260829070000` through `20260829073000`. The listing now returns
+  one clamped 25-row server-filtered/sorted page plus exact counts, summary, and
+  rendered facets; invoice lines, payments, and refunds remain lazy action data
+  and are included only on bounded export pages.
+- `src/lib/finance/invoices.ts` now owns listing normalization and stable-snapshot
+  paged export traversal; `finance-invoices.tsx` consumes server pages, while the
+  finance realtime subscription retains every listing dependency without the
+  obsolete pricing-option refresh. Applied SQL defects were repaired forward,
+  not by editing migration history. No new index or compute upgrade was justified.

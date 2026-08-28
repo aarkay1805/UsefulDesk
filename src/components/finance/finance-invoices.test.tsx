@@ -97,10 +97,42 @@ vi.mock('@/components/finance/finance-month-actions', () => ({
   FinanceMonthActions: () => null,
 }));
 vi.mock('@/components/finance/finance-invoice-filters', () => ({
-  FinanceInvoiceFilters: () => null,
+  FinanceInvoiceFilters: ({
+    onChange,
+  }: {
+    onChange: (value: {
+      paymentStates: string[];
+      planIds: string[];
+      collectionModes: string[];
+    }) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() =>
+        onChange({
+          paymentStates: ['paid'],
+          planIds: [],
+          collectionModes: [],
+        })
+      }
+    >
+      Apply paid filter
+    </button>
+  ),
 }));
 vi.mock('@/components/leads/leads-sort', () => ({
-  LeadsSort: () => null,
+  LeadsSort: ({
+    onChange,
+  }: {
+    onChange: (value: { key: string; dir: 'asc' | 'desc' }) => void;
+  }) => (
+    <button
+      type="button"
+      onClick={() => onChange({ key: 'total', dir: 'asc' })}
+    >
+      Sort total ascending
+    </button>
+  ),
 }));
 vi.mock('@/components/finance/invoice-document-actions', () => ({
   InvoiceDocumentActions: () => null,
@@ -169,6 +201,26 @@ const invoice = {
   source: 'membership_renewal',
 } as FinanceInvoiceRow;
 
+const invoicePage = {
+  rows: [invoice],
+  page: 1,
+  totalCount: 1,
+  queueCounts: { all: 1, attention: 1, paid: 0, upcoming: 0, void: 0 },
+  planOptions: [],
+  summary: {
+    count: 1,
+    grossInvoiced: 100,
+    adjustments: 0,
+    invoiced: 100,
+    grossCollected: 50,
+    refunds: 50,
+    collected: 0,
+    outstanding: 0,
+    overdue: 0,
+  },
+  snapshotToken: null,
+};
+
 const scrollIntoView = vi.fn();
 
 function resetDetailGate() {
@@ -223,7 +275,7 @@ function desktopRow(): HTMLElement {
 
 beforeEach(() => {
   testState.accountRole = 'admin';
-  testState.loadFinanceInvoices.mockReset().mockResolvedValue([invoice]);
+  testState.loadFinanceInvoices.mockReset().mockResolvedValue(invoicePage);
   resetDetailGate();
   scrollIntoView.mockReset();
   Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -335,4 +387,111 @@ describe('FinanceInvoices refund-review intent', () => {
       expect(screen.queryByText('Loading invoice…')).toBeNull();
     }
   );
+});
+
+describe('FinanceInvoices server ledger coordination', () => {
+  it('sends pagination, filters, and sort to the server loader', async () => {
+    testState.loadFinanceInvoices.mockImplementation(
+      (_client, query: { page: number }) =>
+        Promise.resolve({ ...invoicePage, page: query.page, totalCount: 26 })
+    );
+    renderInvoices();
+    await screen.findByText('Showing 1–25 of 26 invoices');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() =>
+      expect(
+        testState.loadFinanceInvoices.mock.calls.some(
+          ([, query]) => query.page === 2
+        )
+      ).toBe(true)
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Apply paid filter' })
+    );
+    await waitFor(() =>
+      expect(
+        testState.loadFinanceInvoices.mock.calls.some(
+          ([, query]) => query.filters.paymentStates[0] === 'paid'
+        )
+      ).toBe(true)
+    );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Sort total ascending' })
+    );
+    await waitFor(() =>
+      expect(
+        testState.loadFinanceInvoices.mock.calls.some(
+          ([, query]) => query.sort.key === 'total' && query.sort.dir === 'asc'
+        )
+      ).toBe(true)
+    );
+  });
+
+  it('keeps the existing error and retry contract', async () => {
+    testState.loadFinanceInvoices
+      .mockRejectedValueOnce(new Error('ledger unavailable'))
+      .mockResolvedValueOnce(invoicePage);
+    renderInvoices();
+
+    expect(await screen.findByText('ledger unavailable')).toBeTruthy();
+    await userEvent.click(screen.getByRole('button', { name: /Retry/i }));
+    expect(await screen.findAllByText('INV-1')).toHaveLength(2);
+    expect(testState.loadFinanceInvoices).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a superseded response after a newer ledger query wins', async () => {
+    let resolveFirst!: (value: typeof invoicePage) => void;
+    let resolveSecond!: (value: typeof invoicePage) => void;
+    const first = new Promise<typeof invoicePage>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const second = new Promise<typeof invoicePage>((resolve) => {
+      resolveSecond = resolve;
+    });
+    testState.loadFinanceInvoices
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const onMonthChange = vi.fn();
+    const view = render(
+      <FinanceInvoices
+        reloadKey={0}
+        month="2026-08"
+        onMonthChange={onMonthChange}
+      />
+    );
+    await waitFor(() =>
+      expect(testState.loadFinanceInvoices).toHaveBeenCalledTimes(1)
+    );
+
+    view.rerender(
+      <FinanceInvoices
+        reloadKey={1}
+        month="2026-08"
+        onMonthChange={onMonthChange}
+      />
+    );
+    await waitFor(() =>
+      expect(testState.loadFinanceInvoices).toHaveBeenCalledTimes(2)
+    );
+
+    const newerInvoice = {
+      ...invoice,
+      id: 'invoice-new',
+      reference: 'INV-NEW',
+    };
+    await act(async () => {
+      resolveSecond({ ...invoicePage, rows: [newerInvoice] });
+      await second;
+    });
+    expect(await screen.findAllByText('INV-NEW')).toHaveLength(2);
+
+    await act(async () => {
+      resolveFirst(invoicePage);
+      await first;
+    });
+    expect(screen.queryByText('INV-1')).toBeNull();
+  });
 });

@@ -1,56 +1,59 @@
-# Gates: P2-8 Performance report exact-key cache reuse
+# Gates: P2-9 Finance invoice ledger pagination
 
-Scope: Reuse fresh, exact, user/account/input-scoped Performance snapshots across report lifecycles while deduplicating in-flight loads, bounding memory, and preserving explicit refresh, freshness, output, authorization, and navigation behavior.
+Scope: Replace the Finance Invoices full-month seven-request waterfall with one selected-branch, server-filtered/sorted/paginated invoice-ledger RPC while preserving listing, action, export, realtime, authorization, and accounting semantics.
 
-- [x] G1: deterministic pre-fix lifecycle instrumentation proves the residual duplicate RPC counts for first load, completed revisit, same-key rerender, rapid A→B→A, Retry, input changes, Strict Mode/remount, and unmount
-  EVIDENCE: The pre-fix React lifecycle probe passed three tests against HEAD 49eea3c before implementation. First load issued one snapshot call and a same-key rerender stayed at one, but exact-key unmount/remount reached two. Strict Mode started two identical August calls; rapid August→July→August reached four total calls. Retry intentionally moved one failed call to two. Source tracing confirmed account/timezone/month/staff dependencies each reran the effect, cleanup only advanced the stale-response sequence, and the component-owned cache was destroyed on Finance-tab unmount.
+- [x] G1: authenticated August baseline independently records request stages, row and byte transfer, UI/query/action/export/realtime dependencies, and warm database plan metrics before implementation
+  EVIDENCE: selected branch 50a9e8f9 has 550 August invoices/281 memberships; seven requests across five stages transferred 2,205 rows and 1,759,482 database-JSON bytes (1,883,134 captured browser bytes before HTTP overhead). The broad invoice query planned in 9.439 ms and executed in 19.052 ms warm with 2,418 hits, zero reads/temp; invoice/action/export/realtime dependencies were enumerated before edits.
 
-- [x] G2: focused cache and React lifecycle tests prove first load, exact completed hit, in-flight dedupe, explicit refresh bypass, TTL expiry/invalidation, normalized keys, user/account isolation, A→B→A ordering, bounded eviction, Strict Mode/remount reuse, and unmount cleanup
-  CHECK: npm test -- --run src/components/reports/owner-reports-cache.test.ts src/components/reports/owner-reports-view.lifecycle.test.tsx
-  EXPECT: /Test Files\s+2 passed/
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Start at  01:15:43 | Duration  1.40s (transform 128ms, setup 0ms, import 475ms, tests 582ms, environment 310ms)
+- [x] G2: the migration and TypeScript boundary enforce a bounded SECURITY INVOKER selected-account ledger with empty search_path, authenticated-only execute, input validation, exact rows/counts/facets/summary, explicit columns, page clamping, and no account-id parameter
+  CHECK: npm test -- --run src/lib/finance/invoice-ledger-contract.test.ts src/lib/finance/invoices.test.ts && echo "P2-9 ledger contract passed"
+  EXPECT: P2-9 ledger contract passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Duration  215ms (transform 61ms, setup 0ms, import 164ms, tests 5ms, environment 0ms) | P2-9 ledger contract passed
 
-- [x] G3: report snapshot normalization, output contracts, staff/date/timezone semantics, and consolidated RPC contract remain unchanged
-  CHECK: npm test -- --run src/lib/reports/reporting.test.ts src/lib/reports/branch-performance-snapshot-contract.test.ts
-  EXPECT: /Test Files\s+2 passed/
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Start at  01:15:45 | Duration  206ms (transform 63ms, setup 0ms, import 191ms, tests 10ms, environment 0ms)
+- [x] G3: Finance Invoices component tests prove all filters/sorts/queues, default order, 25-row server pages, clamping, empty/loading/error/retry, stale-request safety, detail/payment actions, and no full-month client filtering or pagination
+  CHECK: npm test -- --run src/components/finance/finance-invoices.test.tsx src/components/finance/invoice-detail-actions.test.tsx && echo "P2-9 invoice UI passed"
+  EXPECT: P2-9 invoice UI passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Duration  3.11s (transform 340ms, setup 0ms, import 2.78s, tests 979ms, environment 1.48s) | P2-9 invoice UI passed
 
-- [x] G4: relevant auth, selected-account, branch isolation, navigation, and Finance-route suites remain green
-  CHECK: npm test -- --run src/lib/auth/roles.test.ts src/lib/auth/selected-account-rls-contract.test.ts src/lib/auth/multi-branch-security-contract.test.ts src/lib/auth/branch-lifecycle-contract.test.ts src/lib/members/member-purchase-navigation.test.ts src/lib/finance/views.test.ts src/components/finance/finance-master-view.test.tsx
-  EXPECT: /Test Files\s+7 passed/
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Start at  01:15:46 | Duration  2.40s (transform 492ms, setup 0ms, import 2.58s, tests 17ms, environment 0ms)
+- [x] G4: export tests prove complete filtered/sorted CSV parity across more than one bounded server page, correct termination, no duplicate/missing rows, and no restoration of a full browser listing dataset
+  CHECK: npm test -- --run src/lib/finance/invoice-export.test.ts src/lib/finance/invoices.test.ts && echo "P2-9 invoice export passed"
+  EXPECT: P2-9 invoice export passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Duration  199ms (transform 88ms, setup 0ms, import 255ms, tests 8ms, environment 0ms) | P2-9 invoice export passed
 
-- [x] G5: full TypeScript typecheck passes
-  CHECK: npm run typecheck && echo "P2-8 typecheck passed"
-  EXPECT: P2-8 typecheck passed
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=> tsc --noEmit | P2-8 typecheck passed
+- [x] G5: relevant Finance realtime, auth/capability, selected-account, multi-branch, navigation, and invoice action/document/payment/refund suites remain green
+  CHECK: npm test -- --run src/components/finance/finance-master-view.test.tsx src/lib/auth/roles.test.ts src/lib/auth/selected-account-rls-contract.test.ts src/lib/auth/multi-branch-security-contract.test.ts src/lib/auth/branch-lifecycle-contract.test.ts src/lib/members/member-purchase-navigation.test.ts src/lib/finance/views.test.ts src/components/finance/invoice-document-actions.test.tsx src/components/finance/payment-link-actions.test.tsx src/lib/finance/invoice-detail-presentation.test.ts && echo "P2-9 integration passed"
+  EXPECT: P2-9 integration passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=Duration  2.56s (transform 677ms, setup 0ms, import 3.55s, tests 1.09s, environment 756ms) | P2-9 integration passed
 
-- [x] G6: full repository lint passes
-  CHECK: npm run lint && echo "P2-8 lint passed"
-  EXPECT: P2-8 lint passed
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P2-8 lint passed | [BABEL] Note: The code generator has deoptimised the styling of /Users/rajatkashyap/Desktop/projects/UsefulDesk/.agents/skills/impeccable/scripts/live-browser.js as it exceeds the max of 500KB.
+- [x] G6: the new idempotent migration is applied only through Supabase migration tooling and live verification proves signature, owner, volatility, invoker/search_path, ACL, RLS/policies, publications, advisors, role/account isolation, archived/empty behavior, and input SQLSTATEs
+  EVIDENCE: four forward-only migrations applied through Supabase migration tooling. Live metadata: owner postgres, stable, security_definer=false, search_path="", authenticated execute only. All 12 reached tables retain RLS/policies and realtime publication; advisors report no function-specific finding. Owner/admin list+export, agent/viewer list only, non-member/wrong/archived denied 42501, empty account returns zero; invalid inputs return 22023 and missing today 22004.
 
-- [x] G7: working-tree and staged patches contain no whitespace errors
-  CHECK: git diff --check && git diff --cached --check && echo "P2-8 diff checks passed"
-  EXPECT: P2-8 diff checks passed
-  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P2-8 diff checks passed
+- [x] G7: rollback-only multi-page fixtures prove before/after row hashes, order, totals, facets, summaries, filters, sorts, clamping, export, payment/refund/allocation semantics, role isolation, and zero fixture residue
+  EVIDENCE: existing 550-row cohort plus rollback-only role/archive fixtures: old/new default-order hash 19e75e67862683b31ac0fb93c6ff277a, 550 distinct rows, zero export-detail mismatches, identical summary, all 18 sort directions and 12 positive/zero filter-search-queue cases matched, page 99 clamped to page 21. Two export pages [500,50] shared one token. Target branch remains active with its original single owner membership.
 
-- [x] G8: before/after request counts prove fresh completed and in-flight exact-key reuse eliminates redundant snapshot RPCs without changing loading behavior or explicit Retry
-  EVIDENCE: Deterministic component counts moved completed exact-key remount from two total snapshot calls to one, Strict Mode first load from two calls to one, and rapid A→B→A from four calls to two (one per distinct key); same-key rerender remains one and Retry remains one explicit additional forced call. Authenticated CDP observation against localhost measured exactly one cold POST to selected_branch_performance_snapshot, zero POSTs for fresh Overview→Performance revisit with the report visible and no loading skeleton, and one post-TTL POST; the separately observed OPTIONS request was a browser CORS preflight, not database work.
+- [x] G8: authenticated after-measurement proves one listing request and one dependency stage transfer only the 25-row page plus exact metadata, with decisive row/byte/client-work reduction and recorded warm execution, hits, reads, and temp
+  EVIDENCE: one RPC/one stage returns 25 rows plus exact metadata in 72,671 database-JSON bytes: 95.9% below the measured 1,759,482 bytes and 96.1% below the supplied 1,883,134-byte capture. Warm plan 0.021 ms, execution 115.786 ms, 6,190 hits, zero reads/temp. Extra single-statement database work is decisively outweighed by eliminating six requests, four dependency stages, 2,180 transferred rows, and full-month browser work.
 
-- [x] G9: freshness, security, and lifecycle review proves conservative invalidation, no cross-user/account/key reuse, bounded memory, stale-response safety, and no RLS/database/compute change
-  EVIDENCE: The cache key is normalized JSON over user id, selected account/branch id, timezone, month, and staff-or-all; scope mismatch returns no entry and the next load clears completed/pending state. Twelve-entry LRU bounds completed plus pending references. Exact pending promises dedupe, forced refresh replaces the pending token, and only the newest token may populate cache; component request ids suppress stale/error/loading callbacks after key change or unmount. With FINANCE_REALTIME_TABLES.performance empty, a conservative 30-second completion TTL improves on the prior component-lifetime freshness: fresh activation reuses, expired remount/back-navigation shows the existing skeleton and refreshes once, while stale bytes are never presented as current. RLS/browser Supabase access and the existing selected-branch RPC are untouched; no service role, SECURITY DEFINER, SQL, migration, shared server cache, or compute change exists.
+- [x] G9: changelog and roadmap record only P2-9's verified outcome, measurements, action-detail/export/realtime behavior, security boundary, remaining risk, and final stop recommendation
+  EVIDENCE: appended P2-9-only entries record the invoker RPC/migrations, 25-row listing, bounded snapshot export, lazy action detail, retained realtime inputs, removed pricing-option refresh, payload result, DB tradeoff, no new index/compute, and stop recommendation.
 
-- [x] G10: changelog and roadmap record only the verified P2-8 outcome, cache tradeoff, measurements, and next evidenced residual
-  EVIDENCE: docs/changelog.md and PRDs/roadmap.md record P2-8's root cause, user/account/input key, 30-second TTL, 12-entry LRU, dedupe/Retry/loading semantics, deterministic and authenticated browser counts, unchanged output/RLS/database/compute, and the remaining legitimate ~624–636 ms cache-resident/CPU-bound snapshot cost. They identify no further evidenced request-lifecycle residual rather than inventing a new finding.
+- [x] G10: four review passes find no remaining domain/accounting, UI/integration, security/tenant, performance/index/evidence, portability, documentation, shared-checkout, or scope defect
+  EVIDENCE: pass 1 reconciled all 550 invoice/payment/refund/allocation export rows, summaries, hashes, filters, and sorts; pass 2 passed 49 ledger/UI tests and 182 realtime/auth/action tests after correcting a stale-test harness; pass 3 rechecked live signature/ACL/RLS/publications/roles/SQLSTATEs/residue; pass 4 rechecked query/index evidence, no select-star/account parameter/definer/service-role path, docs, whitespace, shared-checkout hashes, and P2-9-only scope. No new index is supported by the zero-read plan and existing account-issued/join indexes.
 
-- [x] G11: four explicit review passes find no remaining correctness, integration, portability, performance/evidence, authorization, documentation, dirty-tree, or scope defect
-  EVIDENCE: Pass 1 traced the component cache, Finance routing, auth/locale/staff inputs, loader, Retry, request sequencing, and no-Realtime boundary, then reproduced remount/Strict/A→B→A counts. Pass 2 reviewed React/App Router integration and found/fixed expired entries disappearing on incidental rerender plus expired back-navigation rendering without the loading state; both gained lifecycle tests. Pass 3 reviewed cache algorithms/security and found/fixed completion double-counting during LRU trim, dynamic clock behavior, forced-refresh ordering, pending eviction/repopulation, and user/account scope isolation. Pass 4 re-read code/tests/docs, authenticated-browser POST evidence, normalization/RPC/auth/navigation suites, full type/lint, diff scope, and the concurrent a2f1da8/member-profile changes; no remaining P2-8 defect was found.
+- [x] G11: full TypeScript typecheck passes
+  CHECK: npm run typecheck && echo "P2-9 typecheck passed"
+  EXPECT: P2-9 typecheck passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=> tsc --noEmit | P2-9 typecheck passed
 
-- [ ] G12: final --reverify passes every runnable gate, figures and output equality are remeasured, the staged patch contains only P2-8 paths/hunks, and all six user-owned dirty files remain unstaged and byte-identical to the recorded baseline
-  EVIDENCE: pending
+- [x] G12: full repository lint passes
+  CHECK: npm run lint && echo "P2-9 lint passed"
+  EXPECT: P2-9 lint passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P2-9 lint passed | [BABEL] Note: The code generator has deoptimised the styling of /Users/rajatkashyap/Desktop/projects/UsefulDesk/.agents/skills/impeccable/scripts/live-browser.js as it exceeds the max of 500KB.
 
-ABANDON: G12 While P2-8 was in progress, concurrent commit a2f1da8 swept the six pre-existing user-owned dirty files and the then-current P2-8 baseline into main. Restoring their original unstaged state would require rewriting or reverting a commit that this task explicitly must preserve. The concurrency event, hashes, and replacement final-scope gate are recorded for handoff.
+- [x] G13: working-tree and staged patches contain no whitespace errors
+  CHECK: git diff --check && git diff --cached --check && echo "P2-9 diff checks passed"
+  EXPECT: P2-9 diff checks passed
+  EVIDENCE: exit=0; shell=/bin/sh; cwd=/Users/rajatkashyap/Desktop/projects/UsefulDesk; path=0e0bf4a400d3/23 entries; output=P2-9 diff checks passed
 
-- [x] G13: final --reverify passes every runnable gate, figures and output equality are remeasured, the staged patch contains only the remaining P2-8 paths/hunks, and later unrelated member-profile edits remain unstaged and unmodified by P2-8
-  EVIDENCE: Final `--reverify` reran G2-G7 successfully: 14 focused cache/lifecycle tests, the two report normalization/RPC-contract files, the seven auth/branch/navigation/Finance files, full typecheck, full lint, and both diff checks passed. The index contains exactly GATES.md, PRDs/roadmap.md, docs/changelog.md, and the four owner-report cache/view source and test files. The six later member-profile files remain unstaged with their pre-stage SHA-256 hashes unchanged; the concurrently managed untracked preview page disappeared outside this task during the final check. No P2-8 command staged, formatted, reset, or edited those unrelated paths.
+- [x] G14: final --reverify passes every runnable gate, all figures are remeasured, the staged patch contains only P2-9 paths/hunks, and every user-owned baseline hunk/path remains unstaged and unmodified by P2-9
+  EVIDENCE: final gate-check --reverify reruns all seven approved commands. The staged patch contains only the P2-9 ledger, UI/data/realtime tests, four forward migrations, GATES ledger, and two isolated documentation additions; recorded user-owned source paths and documentation hunks remain unstaged. A concurrent owner changed invoice-detail-dialog and removed the preview path; both external changes remain untouched and unstaged.

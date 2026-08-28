@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   CircleCheck,
@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Wallet,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { EmptyState } from '@/components/dashboard/empty-state';
@@ -47,13 +48,13 @@ import { canCorrectPayments, canRecordPayments } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import {
   EMPTY_FINANCE_INVOICE_FILTERS,
-  filterFinanceInvoices,
+  FINANCE_INVOICE_PAGE_SIZE,
   financeInvoicesCsv,
-  financeInvoiceMatchesQueue,
-  financeInvoiceSummary,
   invoiceSourceLabel,
+  loadFinanceInvoiceExportRows,
   loadFinanceInvoices,
   type FinanceInvoiceFilterState,
+  type FinanceInvoicePage,
   type FinanceInvoiceQueue,
   type FinanceInvoiceRow,
   type FinanceInvoiceSortKey,
@@ -61,8 +62,6 @@ import {
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
 import type { Payment } from '@/types';
-
-const PAGE_SIZE = 25;
 
 const SORT_COLUMNS: {
   key: FinanceInvoiceSortKey;
@@ -78,6 +77,17 @@ const SORT_COLUMNS: {
   { key: 'balance', label: 'Balance' },
   { key: 'reference', label: 'Invoice' },
 ];
+
+function useDebounced<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebounced(value), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs, value]);
+
+  return debounced;
+}
 
 export function FinanceInvoiceListRecordAction({
   invoice,
@@ -125,12 +135,13 @@ export function FinanceInvoices({
   const mayCorrectPayments = accountRole
     ? canCorrectPayments(accountRole)
     : false;
-  const [rows, setRows] = useState<FinanceInvoiceRow[]>([]);
+  const [snapshot, setSnapshot] = useState<FinanceInvoicePage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [localReloadKey, setLocalReloadKey] = useState(0);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounced(search, 300);
   const [queue, setQueue] = useState<FinanceInvoiceQueue>('all');
   const [filters, setFilters] = useState<FinanceInvoiceFilterState>(
     EMPTY_FINANCE_INVOICE_FILTERS
@@ -140,18 +151,34 @@ export function FinanceInvoices({
     dir: 'desc',
   });
   const [page, setPage] = useState(1);
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
+  const [selectedInvoice, setSelectedInvoice] =
+    useState<FinanceInvoiceRow | null>(null);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [paymentTarget, setPaymentTarget] = useState<FinanceInvoiceRow | null>(
     null
   );
-  const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [paymentTargetId, setPaymentTargetId] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
   const [refundReviewFocusInvoiceId, setRefundReviewFocusInvoiceId] = useState<
     string | null
   >(null);
   const [exporting, setExporting] = useState(false);
+  const today = fmt.today();
+
+  const querySignature = JSON.stringify({
+    search: debouncedSearch,
+    queue,
+    filters,
+    sort,
+  });
+  const [previousQuerySignature, setPreviousQuerySignature] =
+    useState(querySignature);
+  if (querySignature !== previousQuerySignature) {
+    setPreviousQuerySignature(querySignature);
+    setPage(1);
+  }
 
   useEffect(() => {
+    const controller = new AbortController();
     let cancelled = false;
 
     void (async () => {
@@ -160,14 +187,26 @@ export function FinanceInvoices({
       try {
         const result = await loadFinanceInvoices(
           createClient(),
-          month,
-          locale.timeZone,
-          fmt.today()
+          {
+            month,
+            timeZone: locale.timeZone,
+            today,
+            search: debouncedSearch,
+            queue,
+            filters,
+            sort: {
+              key: sort.key as FinanceInvoiceSortKey,
+              dir: sort.dir,
+            },
+            page,
+            pageSize: FINANCE_INVOICE_PAGE_SIZE,
+          },
+          controller.signal
         );
         if (cancelled) return;
-        setRows(result);
+        setSnapshot(result);
       } catch (reason) {
-        if (cancelled) return;
+        if (cancelled || controller.signal.aborted) return;
         setError(getErrorMessage(reason, 'Invoices could not be loaded'));
       } finally {
         if (!cancelled) setLoading(false);
@@ -176,78 +215,55 @@ export function FinanceInvoices({
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [fmt, locale.timeZone, localReloadKey, month, reloadKey, retryKey]);
+  }, [
+    debouncedSearch,
+    filters,
+    locale.timeZone,
+    localReloadKey,
+    month,
+    page,
+    queue,
+    reloadKey,
+    retryKey,
+    sort,
+    today,
+  ]);
 
-  const querySignature = JSON.stringify({ search, queue, filters, sort });
-  const [previousQuerySignature, setPreviousQuerySignature] =
-    useState(querySignature);
-  if (querySignature !== previousQuerySignature) {
-    setPreviousQuerySignature(querySignature);
-    setPage(1);
-  }
-
-  const availableRows = useMemo(
-    () =>
-      filterFinanceInvoices(rows, {
-        search,
-        lifecycle: 'all',
-        filters,
-        sort: {
-          key: sort.key as FinanceInvoiceSortKey,
-          dir: sort.dir,
-        },
-      }),
-    [filters, rows, search, sort]
+  const rows = snapshot?.rows ?? [];
+  const totalCount = snapshot?.totalCount ?? 0;
+  const summary = snapshot?.summary ?? {
+    count: 0,
+    grossInvoiced: 0,
+    adjustments: 0,
+    invoiced: 0,
+    grossCollected: 0,
+    refunds: 0,
+    collected: 0,
+    outstanding: 0,
+    overdue: 0,
+  };
+  const queueCounts = snapshot?.queueCounts ?? {
+    all: 0,
+    attention: 0,
+    paid: 0,
+    upcoming: 0,
+    void: 0,
+  };
+  const planOptions = snapshot?.planOptions ?? [];
+  const pageCount = Math.max(
+    1,
+    Math.ceil(totalCount / FINANCE_INVOICE_PAGE_SIZE)
   );
-  const filteredRows = useMemo(
-    () => availableRows.filter((row) => financeInvoiceMatchesQueue(row, queue)),
-    [availableRows, queue]
-  );
-  const summary = useMemo(
-    () => financeInvoiceSummary(filteredRows),
-    [filteredRows]
-  );
-  const queueCounts = useMemo(
-    () =>
-      availableRows.reduce<Record<FinanceInvoiceQueue, number>>(
-        (counts, row) => {
-          counts.all += 1;
-          if (financeInvoiceMatchesQueue(row, 'attention'))
-            counts.attention += 1;
-          if (financeInvoiceMatchesQueue(row, 'paid')) counts.paid += 1;
-          if (financeInvoiceMatchesQueue(row, 'upcoming')) counts.upcoming += 1;
-          if (financeInvoiceMatchesQueue(row, 'void')) counts.void += 1;
-          return counts;
-        },
-        { all: 0, attention: 0, paid: 0, upcoming: 0, void: 0 }
-      ),
-    [availableRows]
-  );
-  const planOptions = useMemo(() => {
-    const plans = new Map<string, string>();
-    for (const row of rows) {
-      if (row.plan_id && row.membership?.plan?.name) {
-        plans.set(row.plan_id, row.membership.plan.name);
-      }
-    }
-    return [...plans]
-      .map(([id, name]) => ({ id, name }))
-      .sort((left, right) => left.name.localeCompare(right.name));
-  }, [rows]);
-
-  const pageCount = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
-  const currentPage = Math.min(page, pageCount);
-  const pageRows = filteredRows.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE
-  );
+  const currentPage = snapshot?.page ?? page;
+  const pageRows = rows;
   const rangeStart =
-    filteredRows.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const rangeEnd = Math.min(currentPage * PAGE_SIZE, filteredRows.length);
-  const selectedInvoice =
-    rows.find((row) => row.id === selectedInvoiceId) ?? null;
-  const paymentTarget = rows.find((row) => row.id === paymentTargetId) ?? null;
+    totalCount === 0 ? 0 : (currentPage - 1) * FINANCE_INVOICE_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(
+    currentPage * FINANCE_INVOICE_PAGE_SIZE,
+    totalCount
+  );
   const hasQuery =
     Boolean(search.trim()) ||
     queue !== 'all' ||
@@ -257,26 +273,38 @@ export function FinanceInvoices({
 
   function openInvoice(row: FinanceInvoiceRow) {
     setRefundReviewFocusInvoiceId(null);
-    setSelectedInvoiceId(row.id);
+    setSelectedInvoice(row);
     setInvoiceOpen(true);
   }
 
   function openRefundReview(row: FinanceInvoiceRow) {
     setRefundReviewFocusInvoiceId(row.id);
-    setSelectedInvoiceId(row.id);
+    setSelectedInvoice(row);
     setInvoiceOpen(true);
   }
 
   function recordInvoice(row: FinanceInvoiceRow) {
     setInvoiceOpen(false);
-    setPaymentTargetId(row.id);
+    setPaymentTarget(row);
   }
 
-  function exportInvoices() {
-    if (filteredRows.length === 0) return;
+  async function exportInvoices() {
+    if (totalCount === 0) return;
     setExporting(true);
     try {
-      const blob = new Blob([financeInvoicesCsv(filteredRows)], {
+      const exportRows = await loadFinanceInvoiceExportRows(createClient(), {
+        month,
+        timeZone: locale.timeZone,
+        today,
+        search: debouncedSearch,
+        queue,
+        filters,
+        sort: {
+          key: sort.key as FinanceInvoiceSortKey,
+          dir: sort.dir,
+        },
+      });
+      const blob = new Blob([financeInvoicesCsv(exportRows)], {
         type: 'text/csv;charset=utf-8',
       });
       const url = URL.createObjectURL(blob);
@@ -287,6 +315,8 @@ export function FinanceInvoices({
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
+    } catch (reason) {
+      toast.error(getErrorMessage(reason, 'Invoices could not be exported'));
     } finally {
       setExporting(false);
     }
@@ -298,7 +328,7 @@ export function FinanceInvoices({
         month={month}
         onMonthChange={onMonthChange}
         onExport={exportInvoices}
-        exportDisabled={loading || filteredRows.length === 0}
+        exportDisabled={loading || totalCount === 0}
         exporting={exporting}
       />
 
@@ -689,11 +719,10 @@ export function FinanceInvoices({
               </>
             )}
 
-            {filteredRows.length > 0 ? (
+            {totalCount > 0 ? (
               <div className="border-border flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
                 <p className="text-muted-foreground text-xs tabular-nums">
-                  Showing {rangeStart}–{rangeEnd} of {filteredRows.length}{' '}
-                  invoices
+                  Showing {rangeStart}–{rangeEnd} of {totalCount} invoices
                 </p>
                 <div className="flex items-center gap-1">
                   <Button
@@ -701,9 +730,7 @@ export function FinanceInvoices({
                     variant="outline"
                     size="sm"
                     disabled={currentPage === 1}
-                    onClick={() =>
-                      setPage((current) => Math.max(1, current - 1))
-                    }
+                    onClick={() => setPage(Math.max(1, currentPage - 1))}
                   >
                     Previous
                   </Button>
@@ -713,7 +740,7 @@ export function FinanceInvoices({
                     size="sm"
                     disabled={currentPage === pageCount}
                     onClick={() =>
-                      setPage((current) => Math.min(pageCount, current + 1))
+                      setPage(Math.min(pageCount, currentPage + 1))
                     }
                   >
                     Next
@@ -752,10 +779,10 @@ export function FinanceInvoices({
           invoice={paymentTarget}
           open
           onOpenChange={(open) => {
-            if (!open) setPaymentTargetId(null);
+            if (!open) setPaymentTarget(null);
           }}
           onSaved={() => {
-            setPaymentTargetId(null);
+            setPaymentTarget(null);
             setLocalReloadKey((key) => key + 1);
           }}
         />

@@ -1,7 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Contact, Invoice, InvoiceLine, InvoiceLineKind } from '@/types';
 
-import { dayStartInTz, todayInTz } from '@/lib/locale/format';
 import {
   invoicePaymentState,
   isChargeableAmount,
@@ -48,35 +46,6 @@ export interface FinanceInvoiceRow extends MembershipPeriodInvoice {
   refundDispositions?: string[];
 }
 
-interface GenericInvoiceRow {
-  id: string;
-  account_id: string;
-  contact_id: string | null;
-  membership_id: string | null;
-  membership_period_id: string | null;
-  source: NonNullable<FinanceInvoiceRow['source']>;
-  state: 'open' | 'void';
-  issued_at: string;
-  created_at: string;
-  invoice_sequence: number | null;
-  invoice_number: string | null;
-  seller_snapshot: Invoice['seller_snapshot'];
-  customer_snapshot: Invoice['customer_snapshot'];
-  identity_snapshot_version: number | null;
-  total: number;
-  amount_paid: number;
-  credit_applied: number;
-  balance: number;
-  gross_total: number;
-  gross_amount_paid: number;
-  processed_refund_amount: number;
-  invoice_adjustment_amount: number;
-  net_total: number;
-  accounting_balance: number;
-  collectible_balance: number;
-  requires_refund_review: boolean;
-}
-
 export interface FinanceInvoiceFilterState {
   paymentStates: InvoicePaymentState[];
   planIds: string[];
@@ -113,32 +82,10 @@ function addMoney(total: number, value: number): number {
   return (moneyPaise(total) + moneyPaise(value)) / 100;
 }
 
-type SortState = {
+export type FinanceInvoiceSort = {
   key: FinanceInvoiceSortKey;
   dir: 'asc' | 'desc';
 };
-
-const INVOICE_PAGE_SIZE = 1_000;
-const MEMBERSHIP_BATCH_SIZE = 200;
-const CONTACT_BATCH_SIZE = 200;
-
-type PagedResult = PromiseLike<{
-  data: unknown[] | null;
-  error: unknown;
-}>;
-
-async function fetchAll<T>(
-  page: (from: number, to: number) => PagedResult
-): Promise<T[]> {
-  const result: T[] = [];
-  for (let from = 0; ; from += INVOICE_PAGE_SIZE) {
-    const response = await page(from, from + INVOICE_PAGE_SIZE - 1);
-    if (response.error) throw response.error;
-    const rows = (response.data ?? []) as T[];
-    result.push(...rows);
-    if (rows.length < INVOICE_PAGE_SIZE) return result;
-  }
-}
 
 export function financeInvoiceReference(
   invoice: Pick<MembershipPeriodInvoice, 'id' | 'invoice_number'>
@@ -243,7 +190,7 @@ export function filterFinanceInvoices(
     search: string;
     lifecycle: 'all' | FinanceInvoiceLifecycle;
     filters: FinanceInvoiceFilterState;
-    sort: SortState;
+    sort: FinanceInvoiceSort;
   }
 ): FinanceInvoiceRow[] {
   const term = search.trim().toLocaleLowerCase();
@@ -392,29 +339,6 @@ export function financeInvoiceSummary(
   );
 }
 
-async function loadMemberships(
-  db: SupabaseClient,
-  membershipIds: string[]
-): Promise<Membership[]> {
-  const rows: Membership[] = [];
-  for (
-    let index = 0;
-    index < membershipIds.length;
-    index += MEMBERSHIP_BATCH_SIZE
-  ) {
-    const batch = membershipIds.slice(index, index + MEMBERSHIP_BATCH_SIZE);
-    const { data, error } = await db
-      .from('memberships')
-      .select(
-        '*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
-      )
-      .in('id', batch);
-    if (error) throw error;
-    rows.push(...(((data as Membership[]) ?? []) as Membership[]));
-  }
-  return rows;
-}
-
 export function financeInvoiceMatchesQueue(
   row: FinanceInvoiceRow,
   queue: FinanceInvoiceQueue
@@ -446,198 +370,252 @@ export function financeInvoiceMatchesQueue(
   return row.state === 'void';
 }
 
-async function loadContacts(
-  db: SupabaseClient,
-  contactIds: string[]
-): Promise<Contact[]> {
-  const rows: Contact[] = [];
-  for (let index = 0; index < contactIds.length; index += CONTACT_BATCH_SIZE) {
-    const batch = contactIds.slice(index, index + CONTACT_BATCH_SIZE);
-    const { data, error } = await db
-      .from('contacts')
-      .select('*')
-      .in('id', batch);
-    if (error) throw error;
-    rows.push(...(((data as Contact[]) ?? []) as Contact[]));
+export const FINANCE_INVOICE_PAGE_SIZE = 25;
+export const FINANCE_INVOICE_EXPORT_PAGE_SIZE = 200;
+
+export interface FinanceInvoicePlanOption {
+  id: string;
+  name: string;
+}
+
+export type FinanceInvoiceQueueCounts = Record<FinanceInvoiceQueue, number>;
+
+export interface FinanceInvoicePage {
+  rows: FinanceInvoiceRow[];
+  page: number;
+  totalCount: number;
+  queueCounts: FinanceInvoiceQueueCounts;
+  planOptions: FinanceInvoicePlanOption[];
+  summary: FinanceInvoiceSummary;
+  snapshotToken: string | null;
+}
+
+export interface FinanceInvoiceQuery {
+  month: string;
+  timeZone: string;
+  today: string;
+  search: string;
+  queue: FinanceInvoiceQueue;
+  filters: FinanceInvoiceFilterState;
+  sort: FinanceInvoiceSort;
+  page: number;
+  pageSize: number;
+  mode?: 'listing' | 'export';
+}
+
+interface RpcResponse {
+  data: unknown;
+  error: { message?: string } | null;
+}
+
+interface AbortableRpcRequest extends PromiseLike<RpcResponse> {
+  abortSignal(signal: AbortSignal): PromiseLike<RpcResponse>;
+}
+
+export interface FinanceInvoiceRpcClient {
+  rpc(name: string, args: Record<string, unknown>): AbortableRpcRequest;
+}
+
+function record(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function finiteNumber(value: unknown, fallback = 0): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function strings(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
+}
+
+function normalizeContact(value: unknown): Contact | null {
+  const raw = record(value);
+  if (!raw || typeof raw.id !== 'string') return null;
+  return raw as unknown as Contact;
+}
+
+function normalizeMembership(value: unknown): Membership | null {
+  const raw = record(value);
+  if (!raw || typeof raw.id !== 'string') return null;
+  const contact = normalizeContact(raw.contact);
+  const plan = record(raw.plan);
+  return {
+    ...raw,
+    member_number: finiteNumber(raw.member_number),
+    fee_amount: finiteNumber(raw.fee_amount),
+    contact: contact ?? undefined,
+    plan: plan ? (plan as unknown as Membership['plan']) : undefined,
+  } as unknown as Membership;
+}
+
+function normalizeFinanceInvoiceRow(value: unknown): FinanceInvoiceRow {
+  const raw = record(value);
+  if (
+    !raw ||
+    typeof raw.id !== 'string' ||
+    typeof raw.reference !== 'string' ||
+    typeof raw.period_start !== 'string' ||
+    typeof raw.period_end !== 'string' ||
+    typeof raw.created_at !== 'string'
+  ) {
+    throw new Error('Finance invoice ledger returned an invalid row');
   }
-  return rows;
+  return {
+    ...(raw as unknown as FinanceInvoiceRow),
+    invoice_id: raw.id,
+    fee_amount: finiteNumber(raw.fee_amount),
+    amount_paid: finiteNumber(raw.amount_paid),
+    credit_applied: finiteNumber(raw.credit_applied),
+    balance: finiteNumber(raw.balance),
+    gross_amount_paid: finiteNumber(raw.gross_amount_paid),
+    processed_refund_amount: finiteNumber(raw.processed_refund_amount),
+    invoice_adjustment_amount: finiteNumber(raw.invoice_adjustment_amount),
+    accounting_balance: finiteNumber(raw.accounting_balance),
+    collectible_balance: finiteNumber(raw.collectible_balance),
+    requires_refund_review: Boolean(raw.requires_refund_review),
+    overdue: Boolean(raw.overdue),
+    membership: normalizeMembership(raw.membership),
+    contact: normalizeContact(raw.contact),
+    lineKinds: strings(raw.lineKinds) as InvoiceLineKind[],
+    gatewayPaymentIds: strings(raw.gatewayPaymentIds),
+    gatewayRefundIds: strings(raw.gatewayRefundIds),
+    refundDispositions: strings(raw.refundDispositions),
+  };
+}
+
+export function buildFinanceInvoiceRpcArgs(
+  query: FinanceInvoiceQuery
+): Record<string, unknown> {
+  const period = financeMonthRange(query.month);
+  return {
+    p_month_start: period.start,
+    p_time_zone: query.timeZone,
+    p_today: query.today,
+    p_search: query.search.trim() || null,
+    p_queue: query.queue,
+    p_payment_states: query.filters.paymentStates,
+    p_plan_ids: query.filters.planIds,
+    p_collection_modes: query.filters.collectionModes,
+    p_sort_key: query.sort.key,
+    p_sort_direction: query.sort.dir,
+    p_page: Math.max(0, query.page - 1),
+    p_page_size: query.pageSize,
+    p_mode: query.mode ?? 'listing',
+  };
+}
+
+export function normalizeFinanceInvoicePage(
+  value: unknown
+): FinanceInvoicePage {
+  const raw = record(value);
+  const queue = record(raw?.queueCounts);
+  const summary = record(raw?.summary);
+  if (!raw || !queue || !summary || !Array.isArray(raw.rows)) {
+    throw new Error('Finance invoice ledger returned an invalid response');
+  }
+  const page = finiteNumber(raw.page, -1);
+  const totalCount = finiteNumber(raw.totalCount, -1);
+  if (!Number.isInteger(page) || page < 0 || totalCount < 0) {
+    throw new Error('Finance invoice ledger returned invalid pagination');
+  }
+  return {
+    rows: raw.rows.map(normalizeFinanceInvoiceRow),
+    page: page + 1,
+    totalCount,
+    queueCounts: {
+      all: finiteNumber(queue.all),
+      attention: finiteNumber(queue.attention),
+      paid: finiteNumber(queue.paid),
+      upcoming: finiteNumber(queue.upcoming),
+      void: finiteNumber(queue.void),
+    },
+    planOptions: Array.isArray(raw.planOptions)
+      ? raw.planOptions.flatMap((value) => {
+          const option = record(value);
+          return option &&
+            typeof option.id === 'string' &&
+            typeof option.name === 'string'
+            ? [{ id: option.id, name: option.name }]
+            : [];
+        })
+      : [],
+    summary: {
+      count: finiteNumber(summary.count),
+      grossInvoiced: finiteNumber(summary.grossInvoiced),
+      adjustments: finiteNumber(summary.adjustments),
+      invoiced: finiteNumber(summary.invoiced),
+      grossCollected: finiteNumber(summary.grossCollected),
+      refunds: finiteNumber(summary.refunds),
+      collected: finiteNumber(summary.collected),
+      outstanding: finiteNumber(summary.outstanding),
+      overdue: finiteNumber(summary.overdue),
+    },
+    snapshotToken:
+      typeof raw.snapshotToken === 'string' ? raw.snapshotToken : null,
+  };
 }
 
 export async function loadFinanceInvoices(
-  db: SupabaseClient,
-  month: string,
-  timeZone: string,
-  today: string
+  db: FinanceInvoiceRpcClient,
+  query: FinanceInvoiceQuery,
+  signal?: AbortSignal
+): Promise<FinanceInvoicePage> {
+  const request = db.rpc(
+    'finance_invoice_ledger_page',
+    buildFinanceInvoiceRpcArgs(query)
+  );
+  const { data, error } = signal
+    ? await request.abortSignal(signal)
+    : await request;
+  if (error) throw new Error(error.message || 'Failed to load invoices');
+  return normalizeFinanceInvoicePage(data);
+}
+
+export async function loadFinanceInvoiceExportRows(
+  db: FinanceInvoiceRpcClient,
+  query: Omit<FinanceInvoiceQuery, 'mode' | 'page' | 'pageSize'>,
+  pageSize = FINANCE_INVOICE_EXPORT_PAGE_SIZE
 ): Promise<FinanceInvoiceRow[]> {
-  const period = financeMonthRange(month);
-  const start = dayStartInTz(period.start, timeZone);
-  const next = dayStartInTz(period.nextStart, timeZone);
-  if (!start || !next) {
-    throw new Error('Could not resolve invoice dates in the account time zone');
-  }
-
-  const genericInvoices = await fetchAll<GenericInvoiceRow>((from, to) =>
-    db
-      .from('invoice_balances')
-      .select('*')
-      .gte('issued_at', start.toISOString())
-      .lt('issued_at', next.toISOString())
-      .order('issued_at', { ascending: false })
-      .range(from, to)
-  );
-
-  const periodIds = genericInvoices
-    .map((invoice) => invoice.membership_period_id)
-    .filter((id): id is string => !!id);
-  const { data: periodRows, error: periodError } = periodIds.length
-    ? await db
-        .from('membership_periods')
-        .select('id, plan_id, period_start, period_end')
-        .in('id', periodIds)
-    : { data: [], error: null };
-  if (periodError) throw periodError;
-  const invoiceIds = genericInvoices.map((invoice) => invoice.id);
-  const [lineResult, paymentResult] = invoiceIds.length
-    ? await Promise.all([
-        db
-          .from('invoice_lines')
-          .select('invoice_id, kind')
-          .in('invoice_id', invoiceIds)
-          .eq('state', 'active'),
-        db
-          .from('payments')
-          .select('id, invoice_id, gateway_payment_id')
-          .in('invoice_id', invoiceIds),
-      ])
-    : [
-        { data: [], error: null },
-        { data: [], error: null },
-      ];
-  if (lineResult.error) throw lineResult.error;
-  if (paymentResult.error) throw paymentResult.error;
-  const lineRows = lineResult.data;
-  const paymentRows = paymentResult.data;
-  const paymentIds = (paymentRows ?? []).map((payment) => payment.id);
-  const { data: refundRows, error: refundError } = paymentIds.length
-    ? await db
-        .from('payment_refunds')
-        .select('payment_id, gateway_refund_id, disposition, status')
-        .in('payment_id', paymentIds)
-        .eq('status', 'processed')
-    : { data: [], error: null };
-  if (refundError) throw refundError;
-  const periods = new Map(
-    (periodRows ?? []).map((period) => [period.id, period])
-  );
-
-  const invoices: MembershipPeriodInvoice[] = genericInvoices.map((invoice) => {
-    const period = invoice.membership_period_id
-      ? periods.get(invoice.membership_period_id)
-      : null;
-    const issuedDay = todayInTz(timeZone, new Date(invoice.issued_at));
-    return {
-      id: invoice.id,
-      account_id: invoice.account_id,
-      membership_id: invoice.membership_id ?? '',
-      contact_id: invoice.contact_id ?? '',
-      plan_id: period?.plan_id ?? null,
-      period_start: period?.period_start ?? issuedDay,
-      period_end: period?.period_end ?? issuedDay,
-      fee_amount: Number(invoice.total),
-      state: invoice.state,
-      created_at: invoice.issued_at,
-      amount_paid: Number(invoice.amount_paid),
-      credit_applied: Number(invoice.credit_applied),
-      balance: Number(invoice.balance),
-      invoice_id: invoice.id,
-      gross_amount_paid: Number(invoice.gross_amount_paid),
-      processed_refund_amount: Number(invoice.processed_refund_amount),
-      invoice_adjustment_amount: Number(invoice.invoice_adjustment_amount),
-      accounting_balance: Number(invoice.accounting_balance),
-      collectible_balance: Number(invoice.collectible_balance),
-      requires_refund_review: Boolean(invoice.requires_refund_review),
-      invoice_sequence: invoice.invoice_sequence,
-      invoice_number: invoice.invoice_number,
-      seller_snapshot: invoice.seller_snapshot,
-      customer_snapshot: invoice.customer_snapshot,
-      identity_snapshot_version: invoice.identity_snapshot_version,
-    };
+  const first = await loadFinanceInvoices(db, {
+    ...query,
+    mode: 'export',
+    page: 1,
+    pageSize,
   });
+  const token = first.snapshotToken;
+  if (!token) throw new Error('Invoice export snapshot could not be verified');
 
-  const membershipIds = Array.from(
-    new Set(invoices.map((invoice) => invoice.membership_id).filter(Boolean))
-  );
-  const memberships =
-    membershipIds.length > 0 ? await loadMemberships(db, membershipIds) : [];
-  const loadedContactIds = new Set(
-    memberships
-      .filter((membership) => Boolean(membership.contact))
-      .map((membership) => membership.contact_id)
-  );
-  const standaloneContactIds = Array.from(
-    new Set(
-      genericInvoices
-        .map((invoice) => invoice.contact_id)
-        .filter(
-          (id): id is string =>
-            Boolean(id) && !loadedContactIds.has(id as string)
-        )
-    )
-  );
-  const contacts =
-    standaloneContactIds.length > 0
-      ? await loadContacts(db, standaloneContactIds)
-      : [];
-  const sourceById = new Map(
-    genericInvoices.map((invoice) => [invoice.id, invoice.source])
-  );
-  const lineKindsByInvoice = new Map<string, Set<InvoiceLineKind>>();
-  for (const line of lineRows ?? []) {
-    const kinds = lineKindsByInvoice.get(line.invoice_id) ?? new Set();
-    kinds.add(line.kind as InvoiceLineKind);
-    lineKindsByInvoice.set(line.invoice_id, kinds);
-  }
-  const invoiceByPayment = new Map(
-    (paymentRows ?? []).map((payment) => [payment.id, payment.invoice_id])
-  );
-  const gatewayPaymentsByInvoice = new Map<string, string[]>();
-  for (const payment of paymentRows ?? []) {
-    if (!payment.invoice_id || !payment.gateway_payment_id) continue;
-    const ids = gatewayPaymentsByInvoice.get(payment.invoice_id) ?? [];
-    ids.push(payment.gateway_payment_id);
-    gatewayPaymentsByInvoice.set(payment.invoice_id, ids);
-  }
-  const gatewayRefundsByInvoice = new Map<
-    string,
-    Array<{ id: string; disposition: string | null }>
-  >();
-  for (const refund of refundRows ?? []) {
-    const invoiceId = invoiceByPayment.get(refund.payment_id);
-    if (!invoiceId || !refund.gateway_refund_id) continue;
-    const rows = gatewayRefundsByInvoice.get(invoiceId) ?? [];
-    rows.push({
-      id: refund.gateway_refund_id,
-      disposition: refund.disposition,
+  const rows = [...first.rows];
+  const pageCount = Math.ceil(first.totalCount / pageSize);
+  for (let page = 2; page <= pageCount; page += 1) {
+    const next = await loadFinanceInvoices(db, {
+      ...query,
+      mode: 'export',
+      page,
+      pageSize,
     });
-    gatewayRefundsByInvoice.set(invoiceId, rows);
+    if (
+      next.page !== page ||
+      next.totalCount !== first.totalCount ||
+      next.snapshotToken !== token
+    ) {
+      throw new Error('Invoices changed during export. Try again.');
+    }
+    rows.push(...next.rows);
   }
-  return normalizeFinanceInvoiceRows(
-    invoices,
-    memberships,
-    today,
-    contacts
-  ).map((row) => ({
-    ...row,
-    source: sourceById.get(row.id),
-    lineKinds: [...(lineKindsByInvoice.get(row.id) ?? new Set())],
-    gatewayPaymentIds: gatewayPaymentsByInvoice.get(row.id) ?? [],
-    gatewayRefundIds: (gatewayRefundsByInvoice.get(row.id) ?? []).map(
-      (refund) => refund.id
-    ),
-    refundDispositions: (gatewayRefundsByInvoice.get(row.id) ?? [])
-      .map((refund) => refund.disposition)
-      .filter((value): value is string => Boolean(value)),
-  }));
+
+  if (
+    rows.length !== first.totalCount ||
+    new Set(rows.map((row) => row.id)).size !== rows.length
+  ) {
+    throw new Error('Invoice export was incomplete. Try again.');
+  }
+  return rows;
 }
 
 function csvCell(value: string | number): string {

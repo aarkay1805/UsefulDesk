@@ -57,7 +57,6 @@ export const FINANCE_REALTIME_TABLES: Readonly<
     'memberships',
     'membership_periods',
     'membership_plans',
-    'plan_pricing_options',
   ],
   payments: [
     'payments',
