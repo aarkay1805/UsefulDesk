@@ -16,6 +16,7 @@ import { customFieldInputType } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { getErrorMessage } from '@/lib/errors';
+import { useLocale } from '@/hooks/use-locale';
 import {
   findExistingContact,
   isExactMatch,
@@ -67,6 +68,7 @@ export function ContactForm({
 }: ContactFormProps) {
   const supabase = createClient();
   const { accountId, defaultCurrency } = useAuth();
+  const { fmt } = useLocale();
   const { statuses, sources, genders } = useLeadFieldOptions();
   const isEdit = !!contact;
 
@@ -389,7 +391,9 @@ export function ContactForm({
                         onClick={() => onViewExisting(dupMatch.contact.id)}
                         className="font-medium underline underline-offset-2 hover:no-underline"
                       >
-                        View {dupMatch.contact.name || dupMatch.contact.phone}
+                        View{' '}
+                        {dupMatch.contact.name ||
+                          fmt.phone(dupMatch.contact.phone)}
                       </button>
                     )}
                   </div>

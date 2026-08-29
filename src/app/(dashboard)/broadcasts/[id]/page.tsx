@@ -37,6 +37,7 @@ import {
 import { toast } from 'sonner';
 import { getBroadcastStatus, getRecipientStatus } from '@/lib/broadcast-status';
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
+import { useLocale } from '@/hooks/use-locale';
 
 interface StatCardProps {
   label: string;
@@ -145,6 +146,7 @@ function downloadBlob(filename: string, content: string) {
 }
 
 export default function BroadcastDetailPage() {
+  const { fmt } = useLocale();
   const params = useParams();
   const { navigate, isPending } = usePendingNavigation();
   const broadcastId = params.id as string;
@@ -215,7 +217,7 @@ export default function BroadcastDetailPage() {
     ];
     const rows = recipients.map((r) => [
       r.contact?.name ?? '',
-      r.contact?.phone ?? '',
+      fmt.phone(r.contact?.phone),
       r.status,
       r.sent_at ?? '',
       r.delivered_at ?? '',
@@ -523,7 +525,9 @@ export default function BroadcastDetailPage() {
                         {recipient.contact?.name ?? 'Unknown'}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {recipient.contact?.phone ?? '-'}
+                        {recipient.contact?.phone
+                          ? fmt.phone(recipient.contact.phone)
+                          : '-'}
                       </TableCell>
                       <TableCell>
                         <Badge className={rStatus.classes}>

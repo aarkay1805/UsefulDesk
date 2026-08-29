@@ -19,6 +19,7 @@ export const DASHBOARD_ACTIVITY_PREVIEW_LIMIT = 50;
 export interface DashboardInsightsDateContext {
   timeZone: string;
   today: string;
+  phoneCountryCode: string;
 }
 
 /** Resolve calendar inputs from the selected branch, never from the server. */
@@ -29,7 +30,7 @@ export async function loadDashboardInsightsDateContext(
 ): Promise<DashboardInsightsDateContext> {
   const { data, error } = await db
     .from('accounts')
-    .select('timezone')
+    .select('timezone, phone_country_code')
     .eq('id', accountId)
     .maybeSingle();
   if (error) throw error;
@@ -39,6 +40,7 @@ export async function loadDashboardInsightsDateContext(
   return {
     timeZone: locale.timeZone,
     today: todayInTz(locale.timeZone, now),
+    phoneCountryCode: locale.phoneCountryCode,
   };
 }
 
@@ -56,7 +58,11 @@ export async function loadDashboardInsightsSnapshot(
     loadConversationsSeries(db, rangeDays, context.timeZone, context.today),
     loadLeadSourceRatings(db, rangeDays, context.timeZone, context.today),
     loadLeadFunnel(db, context.timeZone, context.today),
-    loadActivity(db, DASHBOARD_ACTIVITY_PREVIEW_LIMIT),
+    loadActivity(
+      db,
+      DASHBOARD_ACTIVITY_PREVIEW_LIMIT,
+      context.phoneCountryCode
+    ),
   ] as const);
   const sections: DashboardInsightsSection[] = [
     'conversations',

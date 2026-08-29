@@ -304,7 +304,7 @@ export function FinanceInvoices({
           dir: sort.dir,
         },
       });
-      const blob = new Blob([financeInvoicesCsv(exportRows)], {
+      const blob = new Blob([financeInvoicesCsv(exportRows, fmt.phone)], {
         type: 'text/csv;charset=utf-8',
       });
       const url = URL.createObjectURL(blob);

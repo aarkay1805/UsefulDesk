@@ -826,7 +826,9 @@ export function MemberForm({
                       {displayName}
                     </p>
                     <p className="text-muted-foreground truncate text-sm">
-                      {phone.trim() || 'Add contact details below'}
+                      {phone.trim()
+                        ? fmt.phone(phone)
+                        : 'Add contact details below'}
                     </p>
                   </div>
                 </div>
@@ -899,7 +901,8 @@ export function MemberForm({
                             className="font-medium underline underline-offset-2 hover:no-underline"
                           >
                             View{' '}
-                            {dupMatch.contact.name || dupMatch.contact.phone}
+                            {dupMatch.contact.name ||
+                              fmt.phone(dupMatch.contact.phone)}
                           </button>
                         )}
                       </div>
@@ -996,7 +999,8 @@ export function MemberForm({
                               className="font-medium underline underline-offset-2 hover:no-underline"
                             >
                               View{' '}
-                              {dupMatch.contact.name || dupMatch.contact.phone}
+                              {dupMatch.contact.name ||
+                                fmt.phone(dupMatch.contact.phone)}
                             </button>
                           )}
                         </div>

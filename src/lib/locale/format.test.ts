@@ -157,3 +157,17 @@ describe('number / money', () => {
     expect(DEFAULT_FORMATTERS.today()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
+
+describe('phone', () => {
+  it('shows the account country code for national and legacy qualified values', () => {
+    expect(IN.phone('9876543210')).toBe('+919876543210');
+    expect(IN.phone('919876543210')).toBe('+919876543210');
+    expect(US.phone('4155550123')).toBe('+14155550123');
+  });
+
+  it('preserves explicit international and invalid values', () => {
+    expect(IN.phone('+44 7700 900123')).toBe('+44 7700 900123');
+    expect(IN.phone('not-a-phone')).toBe('not-a-phone');
+    expect(IN.phone(null)).toBe('');
+  });
+});

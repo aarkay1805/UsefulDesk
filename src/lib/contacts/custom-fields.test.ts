@@ -47,4 +47,13 @@ describe('formatCustomFieldValue', () => {
     expect(formatCustomFieldValue('2026-01-15', 'date')).toBe('Jan 15, 2026');
     expect(formatCustomFieldValue('not-a-date', 'date')).toBe('not-a-date');
   });
+
+  it('qualifies phone fields with the account country code', () => {
+    expect(
+      formatCustomFieldValue('9876543210', 'phone', 'INR', 'en-IN', '+91')
+    ).toBe('+919876543210');
+    expect(
+      formatCustomFieldValue('not-a-phone', 'phone', 'INR', 'en-IN', '+91')
+    ).toBe('not-a-phone');
+  });
 });

@@ -33,6 +33,7 @@ const db = { branch: 'account-1' };
 const dateContext = {
   timeZone: 'Asia/Kolkata',
   today: '2026-08-27',
+  phoneCountryCode: '+91',
 };
 
 describe('GET /api/dashboard/insights', () => {

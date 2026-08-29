@@ -123,7 +123,7 @@ export function ServiceCustomerDetailView({
                   {contact?.name || 'Service customer'}
                 </SheetTitle>
                 <SheetDescription>
-                  {contact?.phone ||
+                  {(contact?.phone ? fmt.phone(contact.phone) : null) ||
                     contact?.email ||
                     'Contact-backed customer'}
                 </SheetDescription>

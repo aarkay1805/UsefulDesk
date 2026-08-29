@@ -15,6 +15,7 @@ import type { LocaleFormatters } from '@/lib/locale/format';
  *   const { fmt, locale } = useLocale();
  *   fmt.date(m.end_date)      // "11 Jul 2026" (IN) · "Jul 11, 2026" (US)
  *   fmt.money(plan.price)     // "₹1,00,000" · "$100,000"
+ *   fmt.phone(contact.phone)  // "+919876543210" · "+14155550123"
  *   fmt.today()               // 'YYYY-MM-DD' in the gym's zone — pass
  *                             // into expiry/dues/trials date math
  *   locale.phoneCountryCode   // "+91" — input placeholders, hints

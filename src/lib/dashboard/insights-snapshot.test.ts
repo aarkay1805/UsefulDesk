@@ -24,7 +24,10 @@ import {
 } from './insights-snapshot';
 
 function localeDb(timezone: string) {
-  const result = { data: { timezone }, error: null };
+  const result = {
+    data: { timezone, phone_country_code: '+1' },
+    error: null,
+  };
   const builder = {
     select: vi.fn(() => builder),
     eq: vi.fn(() => builder),
@@ -58,6 +61,7 @@ describe('dashboard insights snapshot', () => {
     expect(context).toEqual({
       timeZone: 'America/New_York',
       today: '2026-08-26',
+      phoneCountryCode: '+1',
     });
   });
 
@@ -69,6 +73,7 @@ describe('dashboard insights snapshot', () => {
     const snapshot = await loadDashboardInsightsSnapshot(db, 30, {
       timeZone: 'Asia/Kolkata',
       today: '2026-08-27',
+      phoneCountryCode: '+91',
     });
 
     expect(snapshot.series).toEqual([{ day: '2026-08-27' }]);
@@ -95,7 +100,8 @@ describe('dashboard insights snapshot', () => {
     );
     expect(h.loadActivity).toHaveBeenCalledWith(
       db,
-      DASHBOARD_ACTIVITY_PREVIEW_LIMIT
+      DASHBOARD_ACTIVITY_PREVIEW_LIMIT,
+      '+91'
     );
     expect(errorSpy).toHaveBeenCalledOnce();
   });

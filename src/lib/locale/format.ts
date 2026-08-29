@@ -22,6 +22,7 @@ import {
   formatCurrencyExact,
   formatCurrencyShort,
 } from '@/lib/currency';
+import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
 
 const PLAIN_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -235,6 +236,8 @@ export interface LocaleFormatters {
   dateTime(value: DateValue): string;
   /** Grouped number — 'en-IN' → 1,00,000; 'en-US' → 100,000. */
   number(value: number): string;
+  /** Phone with an explicit `+<country code>` when the value is valid. */
+  phone(value: string | null | undefined): string;
   /** Currency in the account's locale grouping; defaults to its currency. */
   money(value: number, currency?: string): string;
   /** Currency retaining its native minor units; intended for immutable amounts. */
@@ -345,6 +348,13 @@ export function buildFormatters(
 
     number(value) {
       return nf(cfg.locale).format(Number(value) || 0);
+    },
+
+    phone(value) {
+      return accountQualifiedPhoneDisplayValue(
+        value ?? '',
+        cfg.phoneCountryCode
+      );
     },
 
     money(value, currency = cfg.currency) {

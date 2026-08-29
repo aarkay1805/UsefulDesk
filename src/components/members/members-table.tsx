@@ -1418,7 +1418,7 @@ export function MembersTable({
         return [
           customer.contact?.name ?? '',
           membership?.member_number ?? '',
-          customer.contact?.phone ?? '',
+          fmt.phone(customer.contact?.phone),
           customer.contact?.email ?? '',
           membership?.plan?.name ?? '',
           membership?.start_date ?? '',

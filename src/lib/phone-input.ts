@@ -36,9 +36,14 @@ function isAccountQualifiedDigits(
 }
 
 /**
- * Add the conventional plus sign only when a display value is already a
- * digits-only account-qualified phone. National numbers, explicit
- * international values, and invalid source text remain untouched.
+ * Present every valid phone with an explicit international dial prefix.
+ *
+ * Persisted contacts may contain a national number, a legacy digits-only
+ * account-qualified number, or an explicit international value. Display is
+ * the one place those storage shapes converge: the account code is added to
+ * national numbers, legacy qualified numbers gain their leading plus, and a
+ * `00` international prefix is presented as `+`. Invalid source text remains
+ * untouched so a formatting pass never disguises a data-quality problem.
  */
 export function accountQualifiedPhoneDisplayValue(
   phone: string,
@@ -46,15 +51,28 @@ export function accountQualifiedPhoneDisplayValue(
 ): string {
   const raw = phone.trim();
   const codeDigits = normalizePhone(canonicalPhoneCountryCode(countryCode));
-  if (!raw || !codeDigits || raw.startsWith('+') || raw.startsWith('00')) {
-    return raw;
-  }
+  if (!raw || raw.startsWith('+')) return raw;
 
   if (!/^[\d\s().-]+$/.test(raw)) return raw;
 
   const digits = normalizePhone(raw);
+  if (raw.startsWith('00')) {
+    return digits.length > 2 ? `+${digits.slice(2)}` : raw;
+  }
+  if (!codeDigits) return raw;
+
   if (isAccountQualifiedDigits(digits, codeDigits, countryCode)) {
     return `+${digits}`;
+  }
+
+  const lengths = nationalPhoneLengths(countryCode);
+  const withoutTrunk = digits.replace(/^0+/, '');
+  const isNational =
+    lengths.size > 0
+      ? lengths.has(digits.length) || lengths.has(withoutTrunk.length)
+      : digits.length >= 7 && digits.length <= 12;
+  if (isNational) {
+    return `+${codeDigits}${withoutTrunk}`;
   }
 
   return raw;

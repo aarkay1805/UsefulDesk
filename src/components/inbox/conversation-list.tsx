@@ -25,6 +25,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { Separator } from '@/components/ui/separator';
+import { useLocale } from '@/hooks/use-locale';
 
 interface ConversationListProps {
   activeConversationId: string | null;
@@ -485,8 +486,9 @@ function ConversationItem({
   onOpenProfile,
   contactPanelOpen,
 }: ConversationItemProps) {
+  const { fmt } = useLocale();
   const contact = conversation.contact;
-  const displayName = contact?.name || contact?.phone || 'Unknown';
+  const displayName = contact?.name || fmt.phone(contact?.phone) || 'Unknown';
   const unread = conversation.unread_count > 0;
 
   const handleClick = useCallback(() => {

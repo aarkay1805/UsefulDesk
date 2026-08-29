@@ -91,7 +91,9 @@ vi.mock('@/hooks/use-locale', () => ({
       date: (value: string) => value,
       money: (value: number) => `₹${value}`,
       number: (value: number) => String(value),
+      phone: (value?: string | null) => value ?? '',
       today: () => '2026-08-16',
+      config: { phoneCountryCode: '+91' },
     },
   }),
 }));

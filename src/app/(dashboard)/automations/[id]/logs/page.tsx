@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { cn } from '@/lib/utils';
 import { formatRelative } from '@/lib/automations/trigger-meta';
+import { useLocale } from '@/hooks/use-locale';
 
 export default function AutomationLogsPage({
   params,
@@ -28,6 +29,7 @@ export default function AutomationLogsPage({
 }) {
   const { id } = use(params);
   const { navigate, isPending } = usePendingNavigation();
+  const { fmt } = useLocale();
 
   const [automation, setAutomation] = useState<Automation | null>(null);
   const [logs, setLogs] = useState<AutomationLog[] | null>(null);
@@ -135,8 +137,7 @@ export default function AutomationLogsPage({
                   <StatusBadge status={log.status} />
                   <div className="min-w-0 flex-1">
                     <div className="text-foreground truncate text-sm font-medium">
-                      {log.contact?.name ??
-                        log.contact?.phone ??
+                      {(log.contact?.name ?? fmt.phone(log.contact?.phone)) ||
                         'Unknown contact'}
                     </div>
                     <div className="text-muted-foreground truncate text-xs">

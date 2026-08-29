@@ -35,6 +35,7 @@ vi.mock('@/hooks/use-locale', () => ({
   useLocale: () => ({
     fmt: {
       date: (value: string) => (value === '2026-09-15' ? '15 Sep 2026' : value),
+      phone: (value?: string | null) => value ?? '',
     },
   }),
 }));

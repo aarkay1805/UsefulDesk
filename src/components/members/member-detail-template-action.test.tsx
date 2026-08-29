@@ -25,6 +25,7 @@ const localeMock = vi.hoisted(() => ({
     date: (value: string) => value,
     dateTime: (value: string) => value,
     money: (value: number) => `₹${value}`,
+    phone: (value?: string | null) => value ?? '',
   },
 }));
 

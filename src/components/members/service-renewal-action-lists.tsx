@@ -339,7 +339,7 @@ export function ServiceRenewalActionLists({
                         {row.member_name || 'Member'}
                       </p>
                       <p className="text-muted-foreground text-xs">
-                        {row.phone || 'No phone'}
+                        {row.phone ? fmt.phone(row.phone) : 'No phone'}
                       </p>
                     </TableCell>
                     <TableCell>{row.item_name_snapshot}</TableCell>

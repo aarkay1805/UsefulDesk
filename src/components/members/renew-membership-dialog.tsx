@@ -241,7 +241,9 @@ export function RenewMembershipDialog({
                     {displayName}
                   </p>
                   <p className="text-muted-foreground truncate text-sm">
-                    {membership.contact?.phone || 'No phone number'}
+                    {membership.contact?.phone
+                      ? fmt.phone(membership.contact.phone)
+                      : 'No phone number'}
                   </p>
                   <p className="text-muted-foreground text-xs">
                     Member ID{' '}

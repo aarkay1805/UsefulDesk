@@ -20,6 +20,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
+import { useLocale } from '@/hooks/use-locale';
 
 /**
  * Run history viewer.
@@ -234,10 +235,13 @@ function RunCard({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const { fmt } = useLocale();
   const meta = STATUS_META[run.status];
   const StatusIcon = meta.icon;
   const contactLabel =
-    run.contact?.name?.trim() || run.contact?.phone || 'Unknown contact';
+    run.contact?.name?.trim() ||
+    fmt.phone(run.contact?.phone) ||
+    'Unknown contact';
   const duration = run.ended_at
     ? formatDistanceToNow(new Date(run.ended_at), {
         addSuffix: false,

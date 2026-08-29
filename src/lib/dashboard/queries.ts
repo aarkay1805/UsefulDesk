@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { daysAgoStart, DOW_SHORT_MON_FIRST, mondayIndex } from './date-utils';
 import { dayStartInTz } from '@/lib/locale/format';
+import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
 import {
   humaniseKey,
   optionLabel,
@@ -264,7 +265,8 @@ export async function loadResponseTime(db: DB): Promise<ResponseTimeSummary> {
 
 export async function loadActivity(
   db: DB,
-  limit = 20
+  limit = 20,
+  phoneCountryCode = ''
 ): Promise<ActivityItem[]> {
   // Pull ~10 from each source (plenty of headroom after merge-sort),
   // then interleave by timestamp. The individual per-table limits
@@ -329,7 +331,13 @@ export async function loadActivity(
     const contact = Array.isArray(conv?.contacts)
       ? conv?.contacts[0]
       : conv?.contacts;
-    const who = contact?.name || contact?.phone || 'Unknown';
+    const who =
+      contact?.name ||
+      accountQualifiedPhoneDisplayValue(
+        contact?.phone ?? '',
+        phoneCountryCode
+      ) ||
+      'Unknown';
     items.push({
       id: `msg-${m.id}`,
       kind: 'message',
@@ -348,7 +356,7 @@ export async function loadActivity(
     items.push({
       id: `contact-${c.id}`,
       kind: 'contact',
-      text: `New lead: ${c.name || c.phone}`,
+      text: `New lead: ${c.name || accountQualifiedPhoneDisplayValue(c.phone, phoneCountryCode)}`,
       at: c.created_at,
       href: '/leads',
     });
@@ -389,7 +397,13 @@ export async function loadActivity(
       ? l.automation[0]
       : l.automation;
     const contact = Array.isArray(l.contact) ? l.contact[0] : l.contact;
-    const who = contact?.name || contact?.phone || 'a contact';
+    const who =
+      contact?.name ||
+      accountQualifiedPhoneDisplayValue(
+        contact?.phone ?? '',
+        phoneCountryCode
+      ) ||
+      'a contact';
     const autoName = automation?.name || 'Automation';
     items.push({
       id: `auto-${l.id}`,

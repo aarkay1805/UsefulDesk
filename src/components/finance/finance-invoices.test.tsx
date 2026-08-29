@@ -26,6 +26,7 @@ const localeState = vi.hoisted(() => ({
     dateTime: (value: string) => value,
     money: (value: number) => `₹${value}`,
     number: (value: number) => String(value),
+    phone: (value?: string | null) => value ?? '',
   },
   locale: {
     timeZone: 'Asia/Kolkata',

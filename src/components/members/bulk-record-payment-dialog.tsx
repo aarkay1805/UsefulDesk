@@ -161,7 +161,7 @@ export function BulkRecordPaymentDialog({
         failedMembershipIds.push(membership.id);
         failedNames.push(
           membership.contact?.name ||
-            membership.contact?.phone ||
+            fmt.phone(membership.contact?.phone) ||
             'Unnamed member'
         );
         continue;
@@ -241,7 +241,7 @@ export function BulkRecordPaymentDialog({
                     >
                       <span className="text-foreground min-w-0 truncate">
                         {membership.contact?.name ||
-                          membership.contact?.phone ||
+                          fmt.phone(membership.contact?.phone) ||
                           'Unnamed member'}
                       </span>
                       <span className="shrink-0 font-medium tabular-nums">

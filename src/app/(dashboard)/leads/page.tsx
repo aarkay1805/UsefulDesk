@@ -68,7 +68,6 @@ import {
 } from '@/components/table/table-skeleton';
 import { formatCustomFieldValue } from '@/lib/contacts/custom-fields';
 import { currencySymbol } from '@/lib/currency';
-import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
 import { useLocale } from '@/hooks/use-locale';
 import { dayStartInTz } from '@/lib/locale/format';
 import { istAddDays } from '@/lib/memberships/expiry';
@@ -450,11 +449,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     defaultWidth: 150,
     minWidth: 110,
     sortColumn: 'phone',
-    // Static fallback; liveColumns overrides it to apply the account's
-    // country code to digits-only stored values.
-    render: (c) => (
-      <span className="text-muted-foreground font-mono text-sm">{c.phone}</span>
-    ),
+    render: (c) => <PhoneCell value={c.phone} />,
     edit: { kind: 'phone', column: 'phone' },
   },
   {
@@ -594,10 +589,20 @@ function CreatedDateCell({ value }: { value: string }) {
   );
 }
 
+function PhoneCell({ value }: { value?: string | null }) {
+  const { fmt } = useLocale();
+  return (
+    <span className="text-muted-foreground font-mono text-sm">
+      {fmt.phone(value)}
+    </span>
+  );
+}
+
 function customColumn(
   field: CustomField,
   currency?: string,
-  localeTag?: string
+  localeTag?: string,
+  phoneCountryCode?: string
 ): ColumnDef {
   return {
     key: `cf:${field.id}`,
@@ -611,7 +616,13 @@ function customColumn(
       return (
         <span className="text-muted-foreground text-sm">
           {raw
-            ? formatCustomFieldValue(raw, field.field_type, currency, localeTag)
+            ? formatCustomFieldValue(
+                raw,
+                field.field_type,
+                currency,
+                localeTag,
+                phoneCountryCode
+              )
             : '-'}
         </span>
       );
@@ -1190,15 +1201,11 @@ export default function LeadsPage() {
       if (col.key === 'phone') {
         return {
           ...col,
-          // Accounts created before localization store digits-only phones;
-          // the formatter adds the plus only when the value is genuinely
-          // account-qualified, so national numbers stay as typed.
+          // Phone display is account-qualified through the locale layer;
+          // persistence and sorting continue to use the raw stored value.
           render: (c) => (
             <span className="text-muted-foreground font-mono text-sm">
-              {accountQualifiedPhoneDisplayValue(
-                c.phone ?? '',
-                locale.phoneCountryCode
-              )}
+              {fmt.phone(c.phone)}
             </span>
           ),
         };
@@ -1486,7 +1493,7 @@ export default function LeadsPage() {
     return [
       ...builtins,
       ...customFields.map((f) =>
-        customColumn(f, defaultCurrency, locale.locale)
+        customColumn(f, defaultCurrency, locale.locale, locale.phoneCountryCode)
       ),
     ];
   }, [
@@ -2411,7 +2418,7 @@ export default function LeadsPage() {
         const receivedBy = auto ?? nameById.get(c.user_id) ?? 'Teammate';
         return [
           c.name ?? '',
-          c.phone,
+          fmt.phone(c.phone),
           c.email ?? '',
           c.company ?? '',
           fieldOptions.statusFor(c.lead_status).label,
@@ -3449,7 +3456,8 @@ export default function LeadsPage() {
                                       v,
                                       col.customType,
                                       defaultCurrency,
-                                      locale.locale
+                                      locale.locale,
+                                      locale.phoneCountryCode
                                     ),
                                   })),
                                   selected: filters.customValues[fieldId] ?? [],
@@ -3574,7 +3582,7 @@ export default function LeadsPage() {
                                     onCheckedChange={() =>
                                       toggleSelect(contact.id)
                                     }
-                                    aria-label={`Select ${contact.name || contact.phone}`}
+                                    aria-label={`Select ${contact.name || fmt.phone(contact.phone)}`}
                                   />
                                 </div>
                               </TableCell>
@@ -3916,7 +3924,7 @@ export default function LeadsPage() {
         leadName={
           transferDialog
             ? transferDialog.contact.name?.trim() ||
-              transferDialog.contact.phone
+              fmt.phone(transferDialog.contact.phone)
             : ''
         }
         submitting={transferSubmitting}
@@ -3959,7 +3967,7 @@ export default function LeadsPage() {
             <DialogDescription className="text-muted-foreground">
               Are you sure you want to delete{' '}
               <span className="text-popover-foreground font-medium">
-                {deleteTarget?.name || deleteTarget?.phone}
+                {deleteTarget?.name || fmt.phone(deleteTarget?.phone)}
               </span>
               ? This action cannot be undone.
             </DialogDescription>

@@ -72,6 +72,47 @@ const isMemberFollowUp = (
 ): followUp is DashboardFollowUpRow & { membership_id: string } =>
   Boolean(followUp.membership_id);
 
+/**
+ * The queue is bounded, not full-bleed. A follow-up record is one unit of
+ * meaning — who, what, how late, whose it is, and the tick that clears it —
+ * and at the dashboard's full width those parts sat ~965px apart with nothing
+ * between them: the subject pinned to the left edge, the state pinned to the
+ * right by `ml-auto`, and the whole middle empty. That distance is a real
+ * reading cost at 100% zoom and a broken row at 200%, where the two ends of a
+ * record are never on screen together.
+ *
+ * 48rem is the measure the record actually needs: the task cell keeps room for
+ * a name plus the note's own 14rem cap, and the meta columns follow it inside
+ * one comfortable fixation. Widening past this buys empty space, not content —
+ * the note is capped in `FollowUpTaskSummary` for every queue that shares it.
+ */
+const FOLLOW_UP_MEASURE = 'max-w-3xl';
+
+/**
+ * Meta alignment is the other half of the fix. A right-anchored cluster is
+ * only as wide as its own content, so `Lead`+`Overdue` (185px) and
+ * `Member`+`22 Feb 2027` (212px) started at different x — no two rows agreed
+ * on where the state column was, and the queue could not be scanned downward
+ * for what is late. Real tracks give each row the same columns.
+ *
+ * `auto` rather than fixed widths: the due cell holds a badge or a localized
+ * medium date, so the column must size to the longest one the account's locale
+ * actually produces. The row re-enters this template through `subgrid`, the
+ * same way `lead-funnel` aligns its stage rows.
+ */
+const FOLLOW_UP_GRID =
+  'sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] sm:gap-x-2.5';
+/** Same template minus the Lead/Member column, which only the All chip shows. */
+const FOLLOW_UP_GRID_NO_KIND =
+  'sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-x-2.5';
+/**
+ * Below `sm` there is no width to distribute, so the row keeps the wrapping
+ * flex line it has always had: the trailing cluster drops below the name
+ * instead of squeezing it. The grid starts where the slack does.
+ */
+const FOLLOW_UP_ROW =
+  'flex flex-wrap items-center gap-x-2.5 gap-y-1.5 px-2 py-2 sm:col-span-full sm:grid sm:grid-cols-subgrid sm:gap-y-0';
+
 export function FollowUpQueue() {
   const canEdit = useCan('send-messages');
   const { fmt } = useLocale();
@@ -125,6 +166,7 @@ export function FollowUpQueue() {
     <DashboardSection
       id="follow-ups"
       title="Follow-ups"
+      className={FOLLOW_UP_MEASURE}
       action={
         // No link under All: no single page owns both queues, and pointing
         // this at one of them would be a promise the destination can't keep.
@@ -179,12 +221,16 @@ export function FollowUpQueue() {
               }
             />
           ) : (
-            <ul className={`${QUEUE_LIST} -my-2`}>
+            <ul
+              className={`${QUEUE_LIST} -my-2 ${
+                scope === 'all' ? FOLLOW_UP_GRID : FOLLOW_UP_GRID_NO_KIND
+              }`}
+            >
               {rows.map((followUp) => {
                 const isMember = isMemberFollowUp(followUp);
                 const who =
                   followUp.contact?.name?.trim() ||
-                  followUp.contact?.phone ||
+                  fmt.phone(followUp.contact?.phone) ||
                   (isMember ? 'Member' : 'Lead');
                 const assignee = followUp.assigned_to
                   ? (nameById.get(followUp.assigned_to) ?? 'Teammate')
@@ -202,10 +248,7 @@ export function FollowUpQueue() {
                 return (
                   <li
                     key={followUp.id}
-                    // Wraps on its own terms: the trailing cluster runs ~194px,
-                    // so on a phone it drops to a second line instead of
-                    // squeezing the person's name into 107px.
-                    className="hover:bg-muted/50 flex cursor-pointer flex-wrap items-center gap-x-2.5 gap-y-1.5 px-2 py-2 transition-colors"
+                    className={`hover:bg-muted/50 cursor-pointer transition-colors ${FOLLOW_UP_ROW}`}
                     tabIndex={0}
                     aria-label={`Open ${who} details`}
                     onClick={open}
@@ -226,7 +269,10 @@ export function FollowUpQueue() {
                         reason={isMember ? followUp.reason : undefined}
                       />
                     </div>
-                    <div className="ml-auto flex shrink-0 items-center gap-2">
+                    {/* One wrapper on a phone so the cluster wraps as a
+                        unit; `contents` dissolves it at `sm` so each part
+                        becomes a real cell in the row's subgrid. */}
+                    <div className="ml-auto flex shrink-0 items-center gap-2 sm:contents">
                       {/* Under a single-scope chip every row is the same kind,
                           so the tag would say nothing. It earns its place only
                           in the mixed list. */}

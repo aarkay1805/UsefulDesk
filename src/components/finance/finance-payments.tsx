@@ -263,9 +263,12 @@ export function FinancePayments({
           dir: sort.dir,
         },
       });
-      const blob = new Blob([financePaymentsCsv(rows, fmt.dateTime)], {
-        type: 'text/csv;charset=utf-8',
-      });
+      const blob = new Blob(
+        [financePaymentsCsv(rows, fmt.dateTime, fmt.phone)],
+        {
+          type: 'text/csv;charset=utf-8',
+        }
+      );
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;

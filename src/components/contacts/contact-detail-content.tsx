@@ -643,6 +643,7 @@ export function ContactDetailContent({
   // requires a Title, so dropping it costs nothing in a11y.)
   const Header = isSheet ? SheetHeader : PanelHeader;
   const Title = isSheet ? SheetTitle : PanelTitle;
+  const displayPhone = fmt.phone(contact.phone);
 
   return (
     <>
@@ -651,7 +652,7 @@ export function ContactDetailContent({
         <Header className="border-border/50 border-b p-4">
           <div className="flex items-center gap-3">
             <UserAvatar
-              name={contact.name?.trim() || contact.phone}
+              name={contact.name?.trim() || displayPhone}
               src={contact.avatar_url}
               className="border-border size-12 border"
             />
@@ -670,7 +671,7 @@ export function ContactDetailContent({
                   className="hover:text-primary-text flex items-center gap-1 transition-colors"
                 >
                   <Phone className="size-3" />
-                  {contact.phone}
+                  {displayPhone}
                   {copiedPhone ? (
                     <Check className="text-primary-text size-3" />
                   ) : (
@@ -762,7 +763,7 @@ export function ContactDetailContent({
               <QuickAction
                 icon={Phone}
                 label="Call"
-                title={`Call ${contact.phone}`}
+                title={`Call ${displayPhone}`}
                 href={`tel:${contact.phone}`}
               />
             )}
@@ -1163,7 +1164,7 @@ export function ContactDetailContent({
           transferTarget ? (nameById.get(transferTarget) ?? 'Teammate') : ''
         }
         targetAvatarUrl={transferTarget ? avatarById.get(transferTarget) : null}
-        leadName={contact.name?.trim() || contact.phone}
+        leadName={contact.name?.trim() || displayPhone}
         submitting={transferSubmitting}
         onConfirm={submitTransferRequest}
       />
@@ -1171,7 +1172,7 @@ export function ContactDetailContent({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              Delete {contact.name?.trim() || contact.phone}?
+              Delete {contact.name?.trim() || displayPhone}?
             </DialogTitle>
             <DialogDescription>
               This permanently deletes the lead and its notes, tags, and custom
@@ -1300,7 +1301,7 @@ function InlineField({
   type?: string;
   onSave: (val: string) => Promise<boolean>;
 }) {
-  const { locale } = useLocale();
+  const { locale, fmt } = useLocale();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -1388,7 +1389,15 @@ function InlineField({
 
   const shown =
     value && value.trim()
-      ? formatCustomFieldValue(value, type, locale.currency, locale.locale)
+      ? type === 'phone'
+        ? fmt.phone(value)
+        : formatCustomFieldValue(
+            value,
+            type,
+            locale.currency,
+            locale.locale,
+            locale.phoneCountryCode
+          )
       : '—';
   return (
     <button

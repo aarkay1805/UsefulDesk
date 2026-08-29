@@ -623,7 +623,11 @@ function csvCell(value: string | number): string {
   return /[",\n]/.test(raw) ? `"${raw.replaceAll('"', '""')}"` : raw;
 }
 
-export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
+export function financeInvoicesCsv(
+  rows: FinanceInvoiceRow[],
+  formatPhone: (value: string | null | undefined) => string = (value) =>
+    value ?? ''
+): string {
   const lines: Array<Array<string | number>> = [
     [
       'Invoice number',
@@ -657,7 +661,7 @@ export function financeInvoicesCsv(rows: FinanceInvoiceRow[]): string {
       row.reference,
       row.membership?.member_number ?? '',
       row.contact?.name ?? 'Deleted customer',
-      row.contact?.phone ?? '',
+      formatPhone(row.contact?.phone),
       row.membership?.plan?.name ?? '',
       row.source ?? '',
       (row.lineKinds ?? []).join(' + '),

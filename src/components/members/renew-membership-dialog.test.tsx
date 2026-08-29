@@ -72,6 +72,7 @@ vi.mock('@/hooks/use-locale', () => ({
       date: (value: string) => value,
       money: (value: number) => `₹${value}`,
       today: () => '2026-08-16',
+      phone: (value?: string | null) => value ?? '',
     },
     locale: { currency: 'INR', locale: 'en-IN', weekStart: 1 },
   }),

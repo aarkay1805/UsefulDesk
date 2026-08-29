@@ -50,7 +50,6 @@ import {
 } from '@/lib/memberships/member-import-candidates';
 import { parseMoney } from '@/lib/memberships/import-commit';
 import { durationLabel } from '@/lib/memberships/pricing';
-import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
 import { cn } from '@/lib/utils';
 import type { CatalogItem, MembershipPlan, Trainer } from '@/types';
 import { MemberIdentity } from './member-identity';
@@ -197,7 +196,7 @@ export function ImportMembersPreview({
   onResolveExistingContact,
   onSetDisposition,
 }: ImportMembersPreviewProps) {
-  const { fmt, locale } = useLocale();
+  const { fmt } = useLocale();
   const sectionId = useId();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<MemberImportCandidateFilter>('all');
@@ -364,7 +363,7 @@ export function ImportMembersPreview({
                           onClick={() => setSelectedGroupKey(group.key)}
                         >
                           <span className="min-w-0 flex-1 truncate text-left">
-                            {groupQueueLabel(group)}
+                            {groupQueueLabel(group, fmt.phone)}
                           </span>
                           {group.candidates.length > 1 ? (
                             <Badge variant="neutral" size="count">
@@ -396,7 +395,7 @@ export function ImportMembersPreview({
                     <SelectContent>
                       {groups.map((group) => (
                         <SelectItem key={group.key} value={group.key}>
-                          {`${groupQueueLabel(group)} · ${group.title}`}
+                          {`${groupQueueLabel(group, fmt.phone)} · ${group.title}`}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -573,10 +572,7 @@ export function ImportMembersPreview({
                                 display={
                                   <span className="text-foreground truncate text-sm">
                                     {candidate.draftValues.phone
-                                      ? accountQualifiedPhoneDisplayValue(
-                                          candidate.draftValues.phone,
-                                          locale.phoneCountryCode
-                                        )
+                                      ? fmt.phone(candidate.draftValues.phone)
                                       : 'Add phone'}
                                   </span>
                                 }
@@ -697,10 +693,7 @@ export function ImportMembersPreview({
                             }
                             secondary={
                               candidate.draftValues.phone
-                                ? accountQualifiedPhoneDisplayValue(
-                                    candidate.draftValues.phone,
-                                    locale.phoneCountryCode
-                                  )
+                                ? fmt.phone(candidate.draftValues.phone)
                                 : 'No phone'
                             }
                             meta={
@@ -798,7 +791,10 @@ export function ImportMembersPreview({
   );
 }
 
-function groupQueueLabel(group: IssueGroup) {
+function groupQueueLabel(
+  group: IssueGroup,
+  formatPhone: (phone: string) => string
+) {
   const first = group.candidates[0];
   switch (group.code) {
     case 'plan-needs-resolution':
@@ -812,14 +808,18 @@ function groupQueueLabel(group: IssueGroup) {
       return first.draftValues.name || `Source row ${first.sourceRow}`;
     case 'invalid-phone':
     case 'shared-phone':
-      return (
-        first.draftValues.phone || first.originalValues.phone || 'Phone issue'
-      );
+      return first.draftValues.phone || first.originalValues.phone
+        ? formatPhone(first.draftValues.phone || first.originalValues.phone)
+        : 'Phone issue';
     case 'payment-conflict':
     case 'purchase-total-mismatch':
       return first.draftValues.name || `Source row ${first.sourceRow}`;
     case 'existing-contact':
-      return first.draftValues.name || first.draftValues.phone;
+      return (
+        first.draftValues.name ||
+        formatPhone(first.draftValues.phone) ||
+        'Member'
+      );
     default:
       // The queue section already names the problem, so a row that falls
       // through must identify the record instead of repeating the title.

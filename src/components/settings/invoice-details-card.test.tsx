@@ -57,7 +57,9 @@ vi.mock('@/hooks/use-auth', () => ({
 }));
 
 vi.mock('@/hooks/use-locale', () => ({
-  useLocale: () => ({ locale: { countryCode: 'IN' } }),
+  useLocale: () => ({
+    locale: { countryCode: 'IN', phoneCountryCode: '+91' },
+  }),
 }));
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -199,7 +201,8 @@ describe('InvoiceDetailsCard', () => {
     expect(screen.getByDisplayValue('Maharashtra')).toBeTruthy();
     expect(screen.getByDisplayValue('400001')).toBeTruthy();
     expect(screen.getByDisplayValue('India')).toBeTruthy();
-    expect(screen.getByDisplayValue('+91 99999 00000')).toBeTruthy();
+    expect(screen.getByText('+91')).toBeTruthy();
+    expect(screen.getByDisplayValue('99999 00000')).toBeTruthy();
     expect(screen.getByDisplayValue('billing@iron.fitness')).toBeTruthy();
   });
 

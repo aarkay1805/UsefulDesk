@@ -351,6 +351,8 @@ Engineering maintenance: **shared phone inputs now canonicalize visible country 
 
 Engineering maintenance: **the Leads table's built-in Phone column now uses the `PhoneInput` master instead of a plain text input, closing the last subscriber phone field that bypassed it; the column also renders stored digits-only numbers with the account's visible country code. Typed phone custom fields, sorting, dedupe, the required-phone guard, and stored values are unchanged.**
 
+Engineering maintenance: **all read-only phone numbers now render through one account-aware formatter across Inbox, Leads, Members, profiles, imports, broadcasts, automations, dashboard activity, follow-up notifications, custom phone fields, invoice settings, and CSV exports; national and legacy digits-only values visibly include `+<country code>`, while persistence, search, clipboard values, and call targets remain unchanged and invalid source text stays visible for correction.**
+
 Engineering maintenance: **member import draft resume now grants the exact Storage signing operation used by private workbook URLs, clears parsed file state when draft initialization fails, and stops acknowledged revisions from recursively scheduling another autosave; the connector-applied production policy and the existing VBF draft were verified through successful live sign/download/resume requests.**
 
 Engineering maintenance: **`package-lock.json` is the single authoritative lockfile; the tracked `pnpm-lock.yaml` and `pnpm-workspace.yaml` are removed and `package.json` pins `"packageManager": "npm@11.9.0"` to match the `npm ci` that CI already ran. Dependency security overrides now survive only in `package.json` `overrides`, and Vercel no longer picks a package manager by lockfile auto-detection.**.

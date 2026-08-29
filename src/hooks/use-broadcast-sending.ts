@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { useLocale } from '@/hooks/use-locale';
 import { fetchBroadcastBatchWithRetry } from '@/lib/broadcast-retry';
 import { Contact, MessageTemplate } from '@/types';
 
@@ -90,7 +91,9 @@ type CustomValueIndex = Map<string, Map<string, string>>;
 export function resolveVariables(
   variables: Record<string, VariableMapping>,
   contact: Contact,
-  customValues?: Map<string, string>
+  customValues?: Map<string, string>,
+  formatPhone: (value: string | null | undefined) => string = (value) =>
+    value ?? ''
 ): string[] {
   // Keys are typically "1","2",... — numeric-aware sort keeps
   // {{1}} before {{10}}.
@@ -108,7 +111,7 @@ export function resolveVariables(
     if (v.type === 'field') {
       const fieldMap: Record<string, string | undefined> = {
         name: contact.name,
-        phone: contact.phone,
+        phone: formatPhone(contact.phone),
         email: contact.email,
         company: contact.company,
       };
@@ -152,6 +155,7 @@ async function fetchCustomValueIndex(
 
 export function useBroadcastSending(): UseBroadcastSendingReturn {
   const { accountId } = useAuth();
+  const { fmt } = useLocale();
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -478,7 +482,8 @@ export function useBroadcastSending(): UseBroadcastSendingReturn {
               ? resolveVariables(
                   payload.variables,
                   r.contact,
-                  customValueIndex.get(r.contact.id)
+                  customValueIndex.get(r.contact.id),
+                  fmt.phone
                 )
               : [],
             ...(messageParams ? { messageParams } : {}),

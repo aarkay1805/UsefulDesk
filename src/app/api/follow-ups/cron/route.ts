@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth';
+import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
 
 /**
  * Follow-up reminder delivery — makes `follow_ups.remind_at` real.
@@ -32,6 +33,7 @@ interface DueReminder {
   due_date: string;
   note: string | null;
   contact: { name: string | null; phone: string | null } | null;
+  account: { phone_country_code: string | null } | null;
 }
 
 const TASK_LABEL: Record<string, string> = {
@@ -60,7 +62,7 @@ export async function GET(request: Request) {
   const { data, error } = await admin
     .from('follow_ups')
     .select(
-      'id, account_id, contact_id, assigned_to, created_by, task_type, due_date, note, contact:contacts(name, phone)'
+      'id, account_id, contact_id, assigned_to, created_by, task_type, due_date, note, contact:contacts(name, phone), account:accounts(phone_country_code)'
     )
     .eq('status', 'open')
     .not('remind_at', 'is', null)
@@ -94,7 +96,13 @@ export async function GET(request: Request) {
     }
 
     const recipient = r.assigned_to ?? r.created_by;
-    const who = r.contact?.name?.trim() || r.contact?.phone || 'a lead';
+    const who =
+      r.contact?.name?.trim() ||
+      accountQualifiedPhoneDisplayValue(
+        r.contact?.phone ?? '',
+        r.account?.phone_country_code ?? ''
+      ) ||
+      'a lead';
     const label = TASK_LABEL[r.task_type] ?? 'Follow-up';
 
     const { error: notifErr } = await admin.from('notifications').insert({

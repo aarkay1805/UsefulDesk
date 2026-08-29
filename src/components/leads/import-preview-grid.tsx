@@ -215,7 +215,7 @@ export function ImportPreviewGrid({
   skippedNoPhone,
   skippedDupes,
 }: ImportPreviewGridProps) {
-  const { locale } = useLocale();
+  const { locale, fmt } = useLocale();
   const localeTag = locale.locale;
   const [editingCell, setEditingCell] = useState<{
     row: number;
@@ -297,7 +297,7 @@ export function ImportPreviewGrid({
         label: 'Phone',
         render: (r) => (
           <span className="text-muted-foreground font-mono text-sm">
-            {r.base.phone}
+            {fmt.phone(r.base.phone)}
           </span>
         ),
         edit: {
@@ -500,7 +500,8 @@ export function ImportPreviewGrid({
                     cv.value,
                     type,
                     defaultCurrency,
-                    localeTag
+                    localeTag,
+                    fmt.config.phoneCountryCode
                   )
                 : '-'}
             </span>
@@ -545,6 +546,7 @@ export function ImportPreviewGrid({
     defaultCurrency,
     localeTag,
     dateOrder,
+    fmt,
   ]);
 
   const shown = rows.slice(0, PREVIEW_CAP);

@@ -13,14 +13,44 @@ describe('accountQualifiedPhoneDisplayValue', () => {
     );
   });
 
-  it('preserves a national phone that happens to begin with its country code', () => {
+  it('adds the account code to a national phone that begins with the same digits', () => {
     expect(accountQualifiedPhoneDisplayValue('1555000044', '+1')).toBe(
-      '1555000044'
+      '+11555000044'
+    );
+  });
+
+  it('adds the account code to a national phone', () => {
+    expect(accountQualifiedPhoneDisplayValue('9876543210', '+91')).toBe(
+      '+919876543210'
+    );
+  });
+
+  it('drops a domestic trunk zero while adding the account code', () => {
+    expect(accountQualifiedPhoneDisplayValue('09876543210', '+91')).toBe(
+      '+919876543210'
+    );
+  });
+
+  it('presents an international 00 prefix with a plus', () => {
+    expect(accountQualifiedPhoneDisplayValue('00447700900123', '+91')).toBe(
+      '+447700900123'
+    );
+  });
+
+  it('preserves invalid source text instead of disguising it', () => {
+    expect(accountQualifiedPhoneDisplayValue('not-a-phone', '+91')).toBe(
+      'not-a-phone'
     );
   });
 
   it('falls back safely for an unlisted configured dial code', () => {
     expect(accountQualifiedPhoneDisplayValue('4915123456789', '+49')).toBe(
+      '+4915123456789'
+    );
+  });
+
+  it('qualifies a national number for an unlisted configured dial code', () => {
+    expect(accountQualifiedPhoneDisplayValue('15123456789', '+49')).toBe(
       '+4915123456789'
     );
   });

@@ -15,6 +15,7 @@ import {
 import { GatedButton } from '@/components/ui/gated-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { useAuth } from '@/hooks/use-auth';
 import { canManageInvoiceProfile } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
@@ -356,18 +357,31 @@ function InvoiceDetailsCardForAccount({
                     key={field}
                   >
                     <Label htmlFor={id}>{label}</Label>
-                    <Input
-                      id={id}
-                      type={field === 'email' ? 'email' : 'text'}
-                      value={profile[field]}
-                      onChange={(event) => setField(field, event.target.value)}
-                      disabled={!mayManage || saving}
-                      autoCapitalize={field === 'email' ? 'none' : undefined}
-                      autoCorrect={field === 'email' ? 'off' : undefined}
-                      spellCheck={field === 'email' ? false : undefined}
-                      aria-invalid={Boolean(error)}
-                      aria-describedby={error ? `${id}-error` : undefined}
-                    />
+                    {field === 'phone' ? (
+                      <PhoneInput
+                        id={id}
+                        value={profile.phone}
+                        onValueChange={(value) => setField('phone', value)}
+                        disabled={!mayManage || saving}
+                        aria-invalid={Boolean(error)}
+                        aria-describedby={error ? `${id}-error` : undefined}
+                      />
+                    ) : (
+                      <Input
+                        id={id}
+                        type={field === 'email' ? 'email' : 'text'}
+                        value={profile[field]}
+                        onChange={(event) =>
+                          setField(field, event.target.value)
+                        }
+                        disabled={!mayManage || saving}
+                        autoCapitalize={field === 'email' ? 'none' : undefined}
+                        autoCorrect={field === 'email' ? 'off' : undefined}
+                        spellCheck={field === 'email' ? false : undefined}
+                        aria-invalid={Boolean(error)}
+                        aria-describedby={error ? `${id}-error` : undefined}
+                      />
+                    )}
                     {error ? (
                       <p
                         id={`${id}-error`}

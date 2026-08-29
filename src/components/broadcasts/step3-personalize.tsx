@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ArrowLeft, ArrowRight, Eye, ImageIcon, Loader2 } from 'lucide-react';
+import { useLocale } from '@/hooks/use-locale';
 
 type VariableType = 'static' | 'field' | 'custom_field';
 
@@ -76,6 +77,7 @@ export function Step3Personalize({
   onNext,
   onBack,
 }: Step3Props) {
+  const { fmt } = useLocale();
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingFields, setLoadingFields] = useState(true);
   const [firstContact, setFirstContact] = useState<Contact | null>(null);
@@ -211,7 +213,7 @@ export function Step3Personalize({
         } else if (mapping.type === 'field' && mapping.value) {
           const fieldMap: Record<string, string | undefined> = {
             name: contact.name,
-            phone: contact.phone,
+            phone: fmt.phone(contact.phone),
             email: contact.email,
             company: contact.company,
           };
@@ -229,10 +231,11 @@ export function Step3Personalize({
     placeholders,
     firstContact,
     firstContactCustomValues,
+    fmt,
   ]);
 
   const previewLabel = firstContact
-    ? firstContact.name || firstContact.phone
+    ? firstContact.name || fmt.phone(firstContact.phone)
     : 'sample data';
 
   return (

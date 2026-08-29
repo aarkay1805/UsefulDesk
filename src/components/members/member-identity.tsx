@@ -10,6 +10,7 @@ import {
   PreviewCardTrigger,
 } from '@/components/ui/preview-card';
 import { UserAvatar } from '@/components/ui/user-avatar';
+import { useLocale } from '@/hooks/use-locale';
 import { cn } from '@/lib/utils';
 
 /**
@@ -51,6 +52,7 @@ export function MemberIdentity({
     onNavigate: () => void;
   };
 }) {
+  const { fmt } = useLocale();
   const display = name?.trim() || 'Unnamed';
   const avatarPreviewTriggerId = useId();
   // Two lines (name + phone) → centre the avatar against the pair. Three
@@ -93,7 +95,7 @@ export function MemberIdentity({
         </div>
         {secondary ? (
           <div className="text-muted-foreground truncate text-xs">
-            {secondary}
+            {fmt.phone(secondary)}
           </div>
         ) : null}
         {meta}

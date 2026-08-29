@@ -6,6 +6,7 @@
 // when it can't parse, so legacy/imported data stays legible.
 
 import { formatCurrency } from '@/lib/currency';
+import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
 
 /** HTML `<input type>` for entering a value of the given field type. */
 export function customFieldInputType(type?: string): string {
@@ -39,7 +40,8 @@ export function formatCustomFieldValue(
   value: string,
   type?: string,
   currency?: string,
-  localeTag?: string
+  localeTag?: string,
+  phoneCountryCode?: string
 ): string {
   switch (type) {
     case 'currency': {
@@ -71,7 +73,9 @@ export function formatCustomFieldValue(
             ...(m ? { timeZone: 'UTC' } : {}),
           });
     }
+    case 'phone':
+      return accountQualifiedPhoneDisplayValue(value, phoneCountryCode ?? '');
     default:
-      return value; // text, email, phone, url
+      return value; // text, email, url
   }
 }

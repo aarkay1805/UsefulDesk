@@ -6,6 +6,46 @@
 
 ---
 
+## Phone numbers always show an international prefix
+
+Read-only phone rendering now routes through the account-aware `fmt.phone`
+formatter across Inbox, Leads, Members, profiles, imports, broadcasts,
+automations, dashboard activity, follow-up notifications, custom phone fields,
+invoice settings, and phone-bearing CSV exports. National and legacy
+digits-only values display with `+<country code>` while stored values, search,
+clipboard content, and `tel:` targets stay unchanged; invalid source text stays
+visible for correction. Key code: `src/lib/phone-input.ts`,
+`src/lib/locale/format.ts`, and `src/components/members/member-identity.tsx`.
+
+## Dashboard follow-up queue reads as one record
+
+The follow-up queue was the only single-column list on the dashboard rendering
+at full page width. At a 1600px viewport its row spanned 1296px with the
+subject pinned left and the state pinned right by `ml-auto`, leaving ~965px of
+empty gutter inside one record — a horizontal saccade at 100% zoom and two
+disconnected halves at 200%. The trailing cluster was also right-anchored, so
+`Lead`+`Overdue` (185px) and `Member`+`22 Feb 2027` (212px) began at different
+x and the queue could not be scanned downward for what was late.
+
+`FollowUpQueue` now caps the section at `max-w-3xl` — which bounds the **See
+all** link with it — and gives the list real tracks that each row re-enters
+through `grid-cols-subgrid`, the `lead-funnel` pattern. Tracks stay `auto`
+because the due cell holds either a badge or a locale-formatted medium date. A
+second template drops the Lead/Member track under the single-scope chips rather
+than leaving an empty column to pay for a gap. Below `sm` the original wrapping
+flex line is untouched; `sm:contents` dissolves the mobile cluster wrapper so
+its children become cells only where there is slack to distribute.
+
+Measured after: meta columns share exact x across rows (798 / 874 / 958 / 988),
+no overflow at 320, 390, 640, 1600, or 1920. Key code:
+`src/components/dashboard/follow-up-queue.tsx`. The rules are in
+`docs/ui-patterns.md` under **Section headings inside a page**.
+
+The rest of the dashboard has the same over-stretch at wide viewports — the
+metric, quick-action, and attention blocks subdivide into peers so they survive
+it, but nothing caps the page itself. That was left alone deliberately; it is a
+shell-level change, not a follow-up-queue one.
+
 ## AutoPay cancellation and service checkout recover cleanly
 
 Rajat's pending AutoPay mandate exposed two independent failures. Immediate

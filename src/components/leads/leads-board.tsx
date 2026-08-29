@@ -254,6 +254,7 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
 
 /** Card ⋮ — the table row menu, verbatim: View details / Edit / Delete. */
 function CardMenu({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
+  const { fmt } = useLocale();
   const canDelete = ctx.accountRole
     ? canDeleteLead(ctx.accountRole, {
         createdBy: lead.created_by ?? null,
@@ -267,7 +268,7 @@ function CardMenu({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
         render={
           <button
             type="button"
-            aria-label={`Actions for ${lead.name || lead.phone}`}
+            aria-label={`Actions for ${lead.name || fmt.phone(lead.phone)}`}
             // Hidden until card hover, but keyboard focus and an open menu
             // both force it visible — no hover-only affordance. pointer-down
             // is stopped so the drag sensor never eats the click.
@@ -388,7 +389,7 @@ const LeadCard = memo(function LeadCard({
 
       <p className="text-muted-foreground mt-1 flex items-center gap-1.5 font-mono text-xs">
         <Phone className="size-3 shrink-0" />
-        <span className="truncate">{lead.phone}</span>
+        <span className="truncate">{fmt.phone(lead.phone)}</span>
       </p>
 
       {/* Comfortable-only detail: company, tags, and the source+date footer

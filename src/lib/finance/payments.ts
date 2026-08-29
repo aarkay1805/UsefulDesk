@@ -357,7 +357,9 @@ function csvCell(value: string | number | null | undefined): string {
 
 export function financePaymentsCsv(
   rows: FinancePaymentRow[],
-  formatDateTime: (value: string) => string
+  formatDateTime: (value: string) => string,
+  formatPhone: (value: string | null | undefined) => string = (value) =>
+    value ?? ''
 ): string {
   const lines: Array<Array<string | number>> = [
     [
@@ -387,7 +389,7 @@ export function financePaymentsCsv(
       (row.refund_dispositions ?? []).join(' + '),
       row.member_number ?? '',
       row.contact_name ?? 'Deleted member',
-      row.contact_phone ?? '',
+      formatPhone(row.contact_phone),
       row.plan_name ?? '',
       formatDateTime(row.paid_at),
       row.method,

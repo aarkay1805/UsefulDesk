@@ -1087,7 +1087,9 @@ function MembershipDetailView({
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Phone className="size-3.5" />
-                      {membership.contact?.phone || 'No phone'}
+                      {membership.contact?.phone
+                        ? fmt.phone(membership.contact.phone)
+                        : 'No phone'}
                     </span>
                     {membership.contact?.email && (
                       <span className="flex items-center gap-1.5">

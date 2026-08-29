@@ -754,7 +754,7 @@ export function LeadAccountabilityView({
         return (
           <div className="flex min-w-0 items-center gap-2.5">
             <UserAvatar
-              name={row.lead.name || row.lead.phone}
+              name={row.lead.name || fmt.phone(row.lead.phone)}
               src={row.lead.avatar_url}
               className="size-8 shrink-0"
             />
@@ -763,7 +763,7 @@ export function LeadAccountabilityView({
                 {row.lead.name?.trim() || 'Unnamed'}
               </p>
               <p className="text-muted-foreground truncate font-mono text-xs">
-                {row.lead.phone}
+                {fmt.phone(row.lead.phone)}
               </p>
             </div>
           </div>

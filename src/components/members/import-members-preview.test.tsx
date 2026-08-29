@@ -24,7 +24,14 @@ vi.mock('@/hooks/use-locale', () => ({
       date: (value: string) => value,
       money: (value: number) => `$${value}`,
       number: (value: number) => String(value),
+      phone: (value?: string | null) => {
+        if (!value || value === 'not-a-phone' || value.startsWith('+')) {
+          return value ?? '';
+        }
+        return value.length === 11 ? `+${value}` : `+1${value}`;
+      },
       today: () => '2026-07-11',
+      config: { phoneCountryCode: '+1' },
     },
   }),
 }));
@@ -197,12 +204,11 @@ describe('ImportMembersPreview conflict resolution', () => {
     expect(within(desktop).queryByText('+1not-a-phone')).toBeNull();
   });
 
-  it('preserves a national phone that begins with its country code', () => {
+  it('shows the country code for a national phone that begins with the same digit', () => {
     renderPreview(candidates([input(2, { phone: '1555000044' })]));
 
     const desktop = screen.getByTestId('member-import-desktop');
-    expect(within(desktop).getByText('1555000044')).toBeTruthy();
-    expect(within(desktop).queryByText('+1555000044')).toBeNull();
+    expect(within(desktop).getByText('+11555000044')).toBeTruthy();
   });
 
   it('keeps the complete phone and icon actions together in a floated editor', async () => {

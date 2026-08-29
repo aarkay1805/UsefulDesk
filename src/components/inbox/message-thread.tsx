@@ -839,7 +839,8 @@ export function MessageThread({
     return map;
   }, [reactions]);
 
-  const contactDisplayName = contact?.name || contact?.phone || 'Customer';
+  const contactDisplayName =
+    contact?.name || fmt.phone(contact?.phone) || 'Customer';
 
   // Author label for a quoted message: "You" when we sent the parent,
   // contact name when the customer sent it.
@@ -975,7 +976,7 @@ export function MessageThread({
     );
   }
 
-  const displayName = contact.name || contact.phone;
+  const displayName = contact.name || fmt.phone(contact.phone);
   const messageGroups = groupMessagesByDate(messages);
   const currentStatus = STATUS_OPTIONS.find(
     (s) => s.value === conversation.status
@@ -1044,7 +1045,7 @@ export function MessageThread({
                 {displayName}
               </div>
               <div className="text-muted-foreground truncate text-xs">
-                {contact.phone}
+                {fmt.phone(contact.phone)}
               </div>
             </div>
           </button>
