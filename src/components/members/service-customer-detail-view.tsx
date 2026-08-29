@@ -5,6 +5,7 @@ import { Plus, ShoppingBag } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useLocale } from '@/hooks/use-locale';
+import { useSheetMountTransition } from '@/hooks/use-sheet-mount-transition';
 import type { Contact, Invoice, MemberService } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -54,6 +55,9 @@ export function ServiceCustomerDetailView({
 }: ServiceCustomerDetailViewProps) {
   const supabase = useMemo(() => createClient(), []);
   const { fmt } = useLocale();
+  // Mounted already-open by MemberDetailView, so Base UI skips the entry
+  // transition without this. `open` below still drives the load.
+  const sheet = useSheetMountTransition(open, onOpenChange);
   const [contact, setContact] = useState<Contact | null>(null);
   const [services, setServices] = useState<MemberService[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -109,7 +113,7 @@ export function ServiceCustomerDetailView({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet {...sheet}>
         <SheetContent className="flex w-full flex-col overflow-hidden sm:max-w-3xl">
           <SheetHeader className="border-border border-b">
             <div className="flex min-w-0 items-center gap-3">

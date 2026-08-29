@@ -3352,6 +3352,12 @@ export default function LeadsPage() {
                 inside a <tr> (hydration error). SortableContext renders no
                 DOM, so it can stay on the header row. */}
                 <DndContext
+                  // Stable id: dnd-kit otherwise derives `DndDescribedBy-<n>`
+                  // from a module-level counter, which climbs across requests
+                  // in the long-lived server process and restarts at 0 in the
+                  // browser — an aria-describedby mismatch on every header
+                  // cell at hydration.
+                  id="leads-table-columns"
                   sensors={dndSensors}
                   collisionDetection={closestCenter}
                   onDragStart={(e) => {

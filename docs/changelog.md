@@ -6,6 +6,76 @@
 
 ---
 
+## Hydration mismatches that were silently discarding the server render
+
+Four SSR-visible values were derived from browser-only state, so the server
+emitted one tree and the client hydrated a different one. React's recovery for
+the structural ones is to regenerate the tree from the root — with no Suspense
+boundary between the sidebar and the root, that meant throwing away the server
+render on most page loads, undoing part of what
+`Improve authenticated navigation performance` had just bought.
+
+- **Mode toggle** (`mode-toggle.tsx`). `DEFAULT_MODE` is `dark`, so the server
+  always rendered the dark variant; every light-mode user hydrated against the
+  wrong icon and label, and saw the moon repaint into a sun. Now BOTH buttons
+  render and the `dark:` variant (`html[data-mode="dark"]`) picks one. Static
+  markup, and the boot script sets `data-mode` before first paint, so there is
+  no swap at all. The inactive button is `display: none` — out of the a11y tree
+  and tab order.
+- **ThemeProvider** (`use-theme.tsx`). `theme` and `mode` are now gated through
+  `useIsClient` on the way out, so every consumer that renders them into markup
+  — settings rail hint, overview subtitle, appearance radio group — matches the
+  server. The internal state stays real; `toggleMode` and the persistence chain
+  are untouched. `ThemedToaster` owned this gate privately and now just reads
+  the context.
+- **Deferred dashboard insights** (`deferred-dashboard-insights.tsx`). Initial
+  state was `typeof IntersectionObserver === 'undefined'`, which is also true
+  during SSR — so the server rendered the insights and the client rendered the
+  placeholder. The no-IntersectionObserver fallback moved behind `useIsClient`,
+  out of the initial state.
+- **dnd-kit contexts** (leads table, leads board, field-options dialog). Each
+  `DndContext` now passes a stable `id`. Without one, dnd-kit derives
+  `DndDescribedBy-<n>` from a module-level counter that climbs across requests
+  in the long-lived server process and restarts at 0 in the browser — an
+  `aria-describedby` mismatch on every draggable header.
+
+`useIsClient` moved to `src/hooks/use-is-client.ts`. Rule of thumb recorded
+there: use it when the browser-only value must reach JavaScript; when it only
+picks an icon, class, or label, prefer CSS keyed off the `<html>` attributes the
+boot script sets, which has no post-hydration swap. Verified with a clean
+console on `/dashboard`, `/leads`, `/members`, `/settings`, `/inbox`,
+`/finance`, and `/notifications`.
+
+---
+
+## The member sheet slides again after code-splitting killed its transition
+
+`Improve authenticated navigation performance` code-split the member sheet and
+switched its hosts to `{selected ? <MemberDetailView open /> : null}`. That
+mounts the sheet already-open, and Base UI's `useTransitionStatus` seeds
+`mounted` from the popup's FIRST `open` value and guards the starting state
+behind `if (open && !mounted)` — so it never emitted `data-starting-style`, the
+slide-in on `SheetContent` never ran, and the sheet just appeared. Nothing was
+wrong with the CSS; the leads sheet animates only because it stays mounted and
+flips `open`. The unmount-on-close cut the exit short for the same reason.
+
+`useSheetMountTransition` (`src/hooks/use-sheet-mount-transition.ts`) bridges
+both directions: it opens one frame after mount so the popup sees a real closed
+-> open flip, and it withholds the host's close callback until Base UI's
+`onOpenChangeComplete` fires so the host's unmount can't clip the slide-out.
+`MembershipDetailView` and `ServiceCustomerDetailView` spread it onto `Sheet`;
+all three hosts (members page, dashboard follow-up queue, finance revenue
+breakdown) are fixed without host changes, and the code-splitting is untouched.
+
+Gotchas: the hook's `open` is for the popup ONLY — data loads and child
+`active` flags keep using the `open` prop so fetches still start on mount, not a
+frame later. Its flip lives inside a `requestAnimationFrame` callback because
+`react-hooks/set-state-in-effect` is enforced and the deferral is the point. Any
+new sheet host that mounts a popup already-open needs this hook, or it ships
+without a transition.
+
+---
+
 ## Membership checkout is three movements, not five cards
 
 The shared checkout panel rendered its five sections as bordered cards inside a

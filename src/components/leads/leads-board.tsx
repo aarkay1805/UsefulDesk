@@ -718,6 +718,8 @@ export function LeadsBoard({
 
   return (
     <DndContext
+      // Stable id — see the note in the leads table's DndContext.
+      id="leads-board"
       sensors={sensors}
       collisionDetection={closestCorners}
       onDragStart={handleDragStart}

@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { toast } from 'sonner';
 
+import { useIsClient } from '@/hooks/use-is-client';
 import { getErrorMessage } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -34,6 +35,16 @@ import {
  * `data-theme` and `data-mode` before React hydrates, so by the time
  * this Provider mounts the page is already painted correctly. We just
  * read what's there and keep it in sync going forward.
+ *
+ * Both values are gated through `useIsClient` on the way OUT. The real
+ * values live in localStorage, so the server can only ever render the
+ * defaults; a consumer that renders `mode` or `theme` into markup —
+ * the settings rail hint, the overview subtitle, the appearance radio
+ * group — otherwise hydrates against server HTML for the other mode,
+ * and React recovers by regenerating the tree from the root. Gating
+ * once here fixes every consumer instead of each call site
+ * remembering to. The internal state stays real, so `toggleMode` and
+ * the persistence chain are unaffected.
  *
  * localStorage is the synchronous paint cache. Authenticated changes
  * are also serialized to the user's profile, and AccountAppearanceSync
@@ -89,6 +100,7 @@ function readInitialMode(): Mode {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeId>(readInitialTheme);
   const [mode, setModeState] = useState<Mode>(readInitialMode);
+  const isClient = useIsClient();
 
   // Keep writes in user-action order. Without serialization, two quick
   // selections can resolve out of order and leave the older choice in
@@ -221,9 +233,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   return (
     <ThemeContext.Provider
       value={{
-        theme,
+        theme: isClient ? theme : DEFAULT_THEME,
         setTheme,
-        mode,
+        mode: isClient ? mode : DEFAULT_MODE,
         setMode,
         toggleMode,
         applyAccountAppearance,

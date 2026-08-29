@@ -264,6 +264,8 @@ function OptionsEditor({
           from being shaved at the left edge. */}
       <div className="-mx-1 max-h-[50vh] space-y-2 overflow-y-auto px-1 py-1">
         <DndContext
+          // Stable id — see the note in the leads table's DndContext.
+          id="lead-field-options"
           sensors={sensors}
           collisionDetection={closestCenter}
           onDragEnd={handleDragEnd}

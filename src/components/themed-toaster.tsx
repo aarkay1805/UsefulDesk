@@ -1,23 +1,8 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
 import { Toaster } from 'sonner';
 
 import { useTheme } from '@/hooks/use-theme';
-import { DEFAULT_MODE } from '@/lib/themes';
-
-// Returns false during SSR and the first hydration render, true after —
-// the sanctioned (warning-free, no setState-in-effect) way to diverge
-// server vs client. Lets us match the server-rendered default on first
-// paint, then adopt the real mode.
-const noopSubscribe = () => () => {};
-function useIsClient() {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => true,
-    () => false
-  );
-}
 
 /**
  * Toaster wrapper that tracks the active light/dark mode.
@@ -27,17 +12,17 @@ function useIsClient() {
  * CSS tokens as the rest of the app, so a toast looks at home in
  * either mode without a second palette to maintain.
  *
- * The theme is gated behind `useIsClient`: the server renders
- * DEFAULT_MODE, so first client paint must too, otherwise a light-mode
- * user hydrates with a different sonner `theme` attribute than the
- * server emitted and React logs a hydration mismatch.
+ * `mode` arrives already hydration-gated — ThemeProvider hands out
+ * DEFAULT_MODE until the first client render is past, so the sonner
+ * `theme` attribute matches the server's. This file used to own that
+ * gate privately; it now lives in the provider so every consumer gets
+ * it. See `use-is-client.ts`.
  */
 export function ThemedToaster() {
   const { mode } = useTheme();
-  const isClient = useIsClient();
   return (
     <Toaster
-      theme={isClient ? mode : DEFAULT_MODE}
+      theme={mode}
       position="top-right"
       toastOptions={{
         style: {

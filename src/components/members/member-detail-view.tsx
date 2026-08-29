@@ -33,6 +33,7 @@ import { createClient } from '@/lib/supabase/client';
 import { getErrorMessage } from '@/lib/errors';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
+import { useSheetMountTransition } from '@/hooks/use-sheet-mount-transition';
 import {
   canCorrectPayments,
   canConfigurePaymentGateway,
@@ -326,6 +327,9 @@ function MembershipDetailView({
   const supabase = createClient();
   const { user, canSendMessages, accountRole } = useAuth();
   const { locale, fmt } = useLocale();
+  // Every host code-splits this sheet and mounts it already-open, which skips
+  // Base UI's entry transition. Keep `open` itself for the loads below.
+  const sheet = useSheetMountTransition(open, onOpenChange);
   const upi = useUpiConfig();
   const canSell = accountRole ? canSellProductsServices(accountRole) : false;
   const canRecordGenericPayment = accountRole
@@ -982,7 +986,7 @@ function MembershipDetailView({
     ? LIFECYCLE_COPY[pendingLifecycle]
     : null;
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet {...sheet}>
       <SheetContent
         side="right"
         // The sheet master caps side=right at sm:max-w-sm via a
