@@ -9,6 +9,7 @@ import {
   verifyPhoneNumber,
 } from '@/lib/whatsapp/meta-api';
 import { encrypt } from '@/lib/whatsapp/encryption';
+import { planEmbeddedRegistration } from '@/lib/whatsapp/registration-plan';
 
 // Lazy-initialised service-role client — same rationale as
 // /api/whatsapp/config: detecting a phone_number_id already claimed
@@ -39,9 +40,9 @@ function supabaseAdmin() {
  *      (client_id/client_secret = the platform app; token is scoped
  *      to the tenant's WABA and does not expire),
  *   2. verifies the phone with Meta (also proves the token covers it),
- *   3. registers the number for Cloud API messaging with a fresh
- *      random 2FA PIN (best-effort, same non-fatal semantics as the
- *      manual /config route),
+ *   3. preserves a same-number registration or registers a new number
+ *      with a fresh random 2FA PIN (best-effort, same non-fatal semantics
+ *      as the manual /config route),
  *   4. subscribes the WABA to our app (inbound webhooks),
  *   5. encrypts + upserts the same whatsapp_config row shape the
  *      manual flow writes — everything downstream (sends, webhook
@@ -117,6 +118,25 @@ export async function POST(request: Request) {
       );
     }
 
+    // Read the current registration marker before reconnecting. Embedded
+    // Signup can return the same already-live number; in that case a fresh
+    // random PIN is guaranteed to conflict with the number's existing PIN.
+    const { data: existing, error: existingError } = await supabase
+      .from('whatsapp_config')
+      .select('id, phone_number_id, registered_at')
+      .eq('account_id', accountId)
+      .maybeSingle();
+    if (existingError) {
+      console.error(
+        '[embedded-signup] existing config lookup failed:',
+        existingError
+      );
+      return NextResponse.json(
+        { error: 'Could not load the existing WhatsApp connection.' },
+        { status: 500 }
+      );
+    }
+
     // 1. Code → business-integration token.
     let accessToken: string;
     try {
@@ -150,23 +170,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // 3. Register for Cloud API messaging. Embedded Signup numbers are
-    //    freshly provisioned, so we set the two-step PIN ourselves
-    //    (random 6 digits — the owner can rotate it in WhatsApp
-    //    Manager). Best-effort like the manual route: a failure is
-    //    stored on the row (last_registration_error) instead of
-    //    failing the whole connection, since credentials + WABA
-    //    subscription are already valid.
-    const pin = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    let registeredAt: string | null = null;
+    // 3. Register a newly selected number for Cloud API messaging. A
+    //    same-number reconnect preserves its successful marker and skips
+    //    /register: Meta requires that number's existing two-step PIN, which
+    //    Guided Signup does not return. If a real registration is needed and
+    //    Meta reports a PIN mismatch, the saved-token recovery endpoint lets
+    //    the owner enter that PIN without falling back to Manual setup.
+    const registrationPlan = planEmbeddedRegistration(
+      existing
+        ? {
+            phoneNumberId: existing.phone_number_id,
+            registeredAt: existing.registered_at,
+          }
+        : null,
+      phoneNumberId
+    );
+    let registeredAt = registrationPlan.registeredAt;
     let registrationError: string | null = null;
-    try {
-      await registerPhoneNumber({ phoneNumberId, accessToken, pin });
-      registeredAt = new Date().toISOString();
-    } catch (err) {
-      registrationError =
-        err instanceof Error ? err.message : 'Unknown Meta API error';
-      console.error('[embedded-signup] /register failed:', registrationError);
+    if (registrationPlan.shouldRegister) {
+      const pin = String(randomInt(0, 1_000_000)).padStart(6, '0');
+      try {
+        await registerPhoneNumber({ phoneNumberId, accessToken, pin });
+        registeredAt = new Date().toISOString();
+      } catch (err) {
+        registrationError =
+          err instanceof Error ? err.message : 'Unknown Meta API error';
+        console.error('[embedded-signup] /register failed:', registrationError);
+      }
     }
 
     // 4. Subscribe the WABA to the platform app so inbound events flow
@@ -211,12 +241,6 @@ export async function POST(request: Request) {
       last_registration_error: registrationError,
       updated_at: new Date().toISOString(),
     };
-
-    const { data: existing } = await supabase
-      .from('whatsapp_config')
-      .select('id')
-      .eq('account_id', accountId)
-      .maybeSingle();
 
     if (existing) {
       const { error: updateError } = await supabase

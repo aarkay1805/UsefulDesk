@@ -29,6 +29,13 @@ Migration `20260829082000_authorize_contact_checkout_writes.sql` is live on the
 UsefulDesk project; a rollback-only authenticated PT checkout for member 1265
 returned the full ₹400 invoice/service result and persisted nothing.**
 
+Engineering maintenance: **WhatsApp guided reconnect now preserves a known-good
+same-number Cloud API registration instead of submitting a new random two-step
+PIN, preventing Meta `133005` from disabling the local inbound-delivery marker.
+Connections already awaiting registration have a PIN-only Fix delivery action
+that uses the encrypted saved token server-side, clears the provider error on
+success, and never stores the PIN or requires Manual setup.**
+
 Engineering maintenance: **Husky and GitHub CI now execute one shared
 `npm run verify` contract covering formatting, lint, typecheck, the full test
 suite, and the production build. Pushes stop locally when any CI stage would

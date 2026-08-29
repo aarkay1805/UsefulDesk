@@ -84,6 +84,7 @@ describe('operational route authorization contract', () => {
     ['whatsapp/react', 'requireOperationalAccess', 1],
     ['whatsapp/broadcast', 'requireOperationalAccess', 1],
     ['whatsapp/config', 'requireSettingsAccess', 3],
+    ['whatsapp/config/register', 'requireSettingsAccess', 1],
     ['whatsapp/config/verify-registration', 'requireSettingsAccess', 1],
     ['whatsapp/embedded-signup', 'requireSettingsAccess', 1],
     ['whatsapp/templates/submit', 'requireSettingsAccess', 1],

@@ -77,20 +77,35 @@ export function FollowUpTaskLabel({
 }
 
 /**
- * A follow-up's note. The `max-w-56` cap belongs to the stacked cell, where
- * the note sits under a heading inside a bounded table column — not to a note
- * that owns a column of its own. Callers opt into a cap through `className`.
+ * A follow-up's note, in one of its two typographic roles.
+ *
+ * `subtitle` is the stacked cell: 12px beneath a 14px heading inside a bounded
+ * table column, where size and tone together carry the demotion. `column` is
+ * the row layout, where the note is a **peer** of the name rather than beneath
+ * it — size cannot demote something sitting beside its heading without just
+ * looking smaller, so the column note matches the name at 14px and lets the
+ * muted tone do the work alone, the way a mail list sets subject and preview.
+ *
+ * The `max-w-56` cap likewise belongs to the stacked cell, not to a note that
+ * owns a column; callers opt into a cap through `className`, which controls
+ * external layout only — never the type role, which is what `variant` names.
  */
 export function FollowUpTaskNote({
   note,
+  variant = 'subtitle',
   className,
 }: {
   note: string;
+  variant?: 'subtitle' | 'column';
   className?: string;
 }) {
   return (
     <p
-      className={cn('text-muted-foreground truncate text-xs', className)}
+      className={cn(
+        'text-muted-foreground truncate',
+        variant === 'column' ? 'text-sm' : 'text-xs',
+        className
+      )}
       title={note}
     >
       {note}

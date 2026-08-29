@@ -280,7 +280,10 @@ export function FollowUpQueue() {
                       }
                     >
                       {followUp.note && (
-                        <FollowUpTaskNote note={followUp.note} />
+                        <FollowUpTaskNote
+                          note={followUp.note}
+                          variant="column"
+                        />
                       )}
                     </div>
                     {/* One wrapper on a phone so the cluster wraps as a

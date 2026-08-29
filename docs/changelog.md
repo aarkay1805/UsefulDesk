@@ -6,6 +6,17 @@
 
 ---
 
+## WhatsApp same-number reconnect keeps inbound delivery live
+
+Meta Embedded Signup no longer re-registers an already-live number with a new
+random PIN, which previously triggered `133005` and erased the successful local
+registration marker. Numbers already left in that warning state now expose a
+PIN-only **Fix delivery** flow that reuses the encrypted saved token server-side
+and never stores the PIN. Key code:
+`src/app/api/whatsapp/embedded-signup/route.ts`,
+`src/app/api/whatsapp/config/register/route.ts`, and
+`src/components/settings/whatsapp-config.tsx`.
+
 ## Lead profiles open one WhatsApp chat and omit Company
 
 Lead profiles now expose one WhatsApp-marked **Chat** action. It resolves or
@@ -56,8 +67,13 @@ column to pay for a gap, and a note-less row still renders its cell
 `follow-up-task-summary.tsx` grew two exports for this — `FollowUpTaskLabel`
 and `FollowUpTaskNote` — sharing the icon/heading resolution with the stacked
 `FollowUpTaskSummary`, whose DOM is unchanged for the Leads, Members, and
-dialog call sites. Do not re-add `max-w-56` inside `FollowUpTaskNote`: that cap
-belongs to the stacked cell and is passed in by that caller.
+dialog call sites (their note stays 12px and capped). `FollowUpTaskNote` names
+its two type roles with `variant`: `subtitle` keeps the stacked 12px, `column`
+matches the name at 14px because a note sitting _beside_ its heading cannot be
+demoted by size without simply reading as smaller text — the muted tone carries
+the hierarchy there, measured at 5.79:1 dark and 5.52:1 light against the card.
+Do not re-add `max-w-56` or a hard-coded size inside `FollowUpTaskNote`, and do
+not push a type role through `className` at a call site.
 
 Below `sm` the original wrapping flex line is preserved — name, note on its own
 `basis-full` line, then the meta cluster — because there is no width to

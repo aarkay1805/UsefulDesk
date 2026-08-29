@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   RotateCcw,
   Wand2,
+  KeyRound,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -118,6 +119,9 @@ export function WhatsAppConfig() {
   const [pin, setPin] = useState('');
   const [tokenEdited, setTokenEdited] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [registrationDialogOpen, setRegistrationDialogOpen] = useState(false);
+  const [registrationPin, setRegistrationPin] = useState('');
+  const [repairingRegistration, setRepairingRegistration] = useState(false);
 
   // True once /register has succeeded on Meta's side (timestamp set
   // in the row). When false, the saved config is metadata-only and
@@ -440,6 +444,38 @@ export function WhatsAppConfig() {
     }
   }
 
+  async function handleRepairRegistration() {
+    if (!/^\d{6}$/.test(registrationPin)) return;
+    setRepairingRegistration(true);
+    try {
+      const res = await fetch('/api/whatsapp/config/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin: registrationPin }),
+      });
+      const data = (await res.json()) as { success?: boolean; error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || 'Meta did not accept the PIN');
+      }
+
+      toast.success('Inbound delivery restored.');
+      setRegistrationDialogOpen(false);
+      setRegistrationPin('');
+      if (accountId) await fetchConfig(accountId);
+    } catch (err) {
+      console.error('WhatsApp registration repair failed:', err);
+      toast.error(
+        getErrorMessage(
+          err,
+          'Could not restore inbound delivery. Check the PIN and try again.'
+        ),
+        { duration: 10000 }
+      );
+    } finally {
+      setRepairingRegistration(false);
+    }
+  }
+
   async function handleReset() {
     try {
       setResetting(true);
@@ -667,31 +703,39 @@ export function WhatsAppConfig() {
                             <span className="text-red-foreground">
                               {lastRegistrationError}
                             </span>
-                            . Open Manual setup, correct the PIN, and save
-                            again.
+                            . Enter this number&apos;s existing two-step PIN to
+                            restore delivery.
                           </>
                         ) : (
-                          'Open Manual setup, enter the 2-step PIN if Meta requires one, and save again.'
+                          'Enter the number’s two-step PIN if Meta requires registration.'
                         )}
                       </p>
                     </div>
                   </div>
-                  <GatedButton
-                    variant="outline"
-                    size="sm"
-                    className="self-start"
-                    onClick={handleVerifyRegistration}
-                    disabled={verifyingRegistration}
-                    canAct={canEdit}
-                    gateReason="verify inbound delivery"
-                  >
-                    {verifyingRegistration ? (
-                      <Loader2 className="animate-spin" />
-                    ) : (
-                      <Zap />
+                  <div className="flex shrink-0 flex-wrap gap-2 self-start">
+                    {!isRegistered && (
+                      <GatedButton
+                        size="sm"
+                        onClick={() => setRegistrationDialogOpen(true)}
+                        canAct={canEdit}
+                        gateReason="repair inbound delivery"
+                      >
+                        <KeyRound />
+                        Fix delivery
+                      </GatedButton>
                     )}
-                    {verifyingRegistration ? 'Checking…' : 'Check delivery'}
-                  </GatedButton>
+                    <GatedButton
+                      variant="outline"
+                      size="sm"
+                      onClick={handleVerifyRegistration}
+                      loading={verifyingRegistration}
+                      canAct={canEdit}
+                      gateReason="verify inbound delivery"
+                    >
+                      <Zap />
+                      Check delivery
+                    </GatedButton>
+                  </div>
                 </div>
               </>
             )}
@@ -1124,6 +1168,72 @@ export function WhatsAppConfig() {
           </div>
         )}
       </div>
+
+      <Dialog
+        open={registrationDialogOpen}
+        onOpenChange={(open) => {
+          if (repairingRegistration) return;
+          setRegistrationDialogOpen(open);
+          if (!open) setRegistrationPin('');
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restore inbound delivery</DialogTitle>
+            <DialogDescription>
+              Enter the existing six-digit two-step verification PIN for this
+              number. UsefulDesk sends it directly to Meta and does not store
+              it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="whatsapp-registration-pin">Two-step PIN</Label>
+            <Input
+              id="whatsapp-registration-pin"
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              autoComplete="one-time-code"
+              autoFocus
+              placeholder="6-digit PIN"
+              value={registrationPin}
+              onChange={(event) =>
+                setRegistrationPin(
+                  event.target.value.replace(/\D/g, '').slice(0, 6)
+                )
+              }
+              className="tracking-widest"
+              disabled={repairingRegistration}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && registrationPin.length === 6) {
+                  event.preventDefault();
+                  void handleRepairRegistration();
+                }
+              }}
+            />
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              If you do not know the PIN, reset it in Meta WhatsApp Manager,
+              then return here and enter the new value.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRegistrationDialogOpen(false)}
+              disabled={repairingRegistration}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRepairRegistration}
+              disabled={registrationPin.length !== 6}
+              loading={repairingRegistration}
+            >
+              Restore delivery
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={resetDialogOpen}
