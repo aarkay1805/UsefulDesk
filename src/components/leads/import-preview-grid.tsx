@@ -352,26 +352,6 @@ export function ImportPreviewGrid({
       });
     }
 
-    if (mappedKeys.has('company')) {
-      cols.push({
-        key: 'company',
-        label: 'Company',
-        render: (r) => (
-          <span className="text-muted-foreground text-sm">
-            {r.base.company || '-'}
-          </span>
-        ),
-        edit: {
-          kind: 'text',
-          value: (r) => r.base.company ?? '',
-          commit: (r, v) => ({
-            ...r,
-            base: { ...r.base, company: v.trim() || undefined },
-          }),
-        },
-      });
-    }
-
     if (mappedKeys.has('source')) {
       cols.push({
         key: 'source',

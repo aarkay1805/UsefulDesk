@@ -51,7 +51,8 @@ vi.mock('@/components/members/use-account-staff', () => ({
   useAccountStaff: () => ({ nameById: new Map(), avatarById: new Map() }),
 }));
 vi.mock('@/components/follow-ups/follow-up-task-summary', () => ({
-  FollowUpTaskSummary: ({ label }: { label: string }) => <span>{label}</span>,
+  FollowUpTaskLabel: ({ label }: { label: string }) => <span>{label}</span>,
+  FollowUpTaskNote: ({ note }: { note: string }) => <span>{note}</span>,
 }));
 vi.mock('@/components/follow-ups/follow-up-completion-control', () => ({
   FollowUpCompletionControl: ({

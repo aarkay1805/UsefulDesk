@@ -14,7 +14,10 @@ import { useCan } from '@/hooks/use-can';
 import { useLocale } from '@/hooks/use-locale';
 import type { Membership } from '@/types';
 import { FollowUpCompletionControl } from '@/components/follow-ups/follow-up-completion-control';
-import { FollowUpTaskSummary } from '@/components/follow-ups/follow-up-task-summary';
+import {
+  FollowUpTaskLabel,
+  FollowUpTaskNote,
+} from '@/components/follow-ups/follow-up-task-summary';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -73,42 +76,40 @@ const isMemberFollowUp = (
   Boolean(followUp.membership_id);
 
 /**
- * The queue is bounded, not full-bleed. A follow-up record is one unit of
- * meaning — who, what, how late, whose it is, and the tick that clears it —
- * and at the dashboard's full width those parts sat ~965px apart with nothing
- * between them: the subject pinned to the left edge, the state pinned to the
- * right by `ml-auto`, and the whole middle empty. That distance is a real
- * reading cost at 100% zoom and a broken row at 200%, where the two ends of a
- * record are never on screen together.
+ * The row is a record laid out in columns, the way a mail list puts sender,
+ * subject, and date in their own tracks. It used to be a subject pinned to the
+ * left edge and a state cluster pinned to the right by `ml-auto`, with ~965px
+ * of nothing between them at a 1600px viewport — a reading cost at 100% zoom
+ * and two disconnected halves at 200%, because the two ends of one record were
+ * never on screen together.
  *
- * 48rem is the measure the record actually needs: the task cell keeps room for
- * a name plus the note's own 14rem cap, and the meta columns follow it inside
- * one comfortable fixation. Widening past this buys empty space, not content —
- * the note is capped in `FollowUpTaskSummary` for every queue that shares it.
- */
-const FOLLOW_UP_MEASURE = 'max-w-3xl';
-
-/**
- * Meta alignment is the other half of the fix. A right-anchored cluster is
- * only as wide as its own content, so `Lead`+`Overdue` (185px) and
- * `Member`+`22 Feb 2027` (212px) started at different x — no two rows agreed
- * on where the state column was, and the queue could not be scanned downward
- * for what is late. Real tracks give each row the same columns.
+ * The note is what fixes that: promoted out of a subtitle into the flexible
+ * track, it is the one field with enough content to carry the width, so the
+ * queue spans the container edge to edge on real text rather than on gutter.
+ * It also stops being clipped at the 14rem the stacked cell caps it to.
  *
- * `auto` rather than fixed widths: the due cell holds a badge or a localized
- * medium date, so the column must size to the longest one the account's locale
- * actually produces. The row re-enters this template through `subgrid`, the
- * same way `lead-funnel` aligns its stage rows.
+ * The name track is `fit-content(16rem)`: short names keep the note close, one
+ * long name widens the column for every row rather than for itself, and no row
+ * pays for a width the queue does not use.
+ *
+ * `auto` for the meta tracks, never fixed widths — the due cell holds a badge
+ * or a **localized** medium date, so only content sizing survives a change of
+ * account locale. A right-anchored flex cluster gave `Lead`+`Overdue` (185px)
+ * and `Member`+`22 Feb 2027` (212px) different x, so no two rows agreed where
+ * the state column was and the queue could not be scanned downward for what is
+ * late. Each row re-enters this template through `subgrid`, the same way
+ * `lead-funnel` aligns its stage rows.
  */
 const FOLLOW_UP_GRID =
-  'sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] sm:gap-x-2.5';
+  'sm:grid sm:grid-cols-[fit-content(16rem)_minmax(0,1fr)_auto_auto_auto_auto] sm:gap-x-2.5';
 /** Same template minus the Lead/Member column, which only the All chip shows. */
 const FOLLOW_UP_GRID_NO_KIND =
-  'sm:grid sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:gap-x-2.5';
+  'sm:grid sm:grid-cols-[fit-content(16rem)_minmax(0,1fr)_auto_auto_auto] sm:gap-x-2.5';
 /**
- * Below `sm` there is no width to distribute, so the row keeps the wrapping
- * flex line it has always had: the trailing cluster drops below the name
- * instead of squeezing it. The grid starts where the slack does.
+ * Below `sm` there is no width to distribute and no room for a third text
+ * column, so the row keeps the wrapping flex line it has always had: name,
+ * then the note on its own full-width line, then the trailing cluster. The
+ * grid starts where the slack does.
  */
 const FOLLOW_UP_ROW =
   'flex flex-wrap items-center gap-x-2.5 gap-y-1.5 px-2 py-2 sm:col-span-full sm:grid sm:grid-cols-subgrid sm:gap-y-0';
@@ -166,7 +167,6 @@ export function FollowUpQueue() {
     <DashboardSection
       id="follow-ups"
       title="Follow-ups"
-      className={FOLLOW_UP_MEASURE}
       action={
         // No link under All: no single page owns both queues, and pointing
         // this at one of them would be a promise the destination can't keep.
@@ -260,14 +260,28 @@ export function FollowUpQueue() {
                       }
                     }}
                   >
-                    <div className="min-w-0 grow basis-48">
-                      <FollowUpTaskSummary
+                    <div className="min-w-0 grow basis-48 sm:basis-auto">
+                      <FollowUpTaskLabel
                         taskType={followUp.task_type}
-                        note={followUp.note}
                         label={who}
                         // Reason is member context only — see ui-patterns.
                         reason={isMember ? followUp.reason : undefined}
                       />
+                    </div>
+                    {/* Always a cell at `sm` so a note-less row keeps the
+                        column count and the meta stays aligned with the rows
+                        around it. On a phone it drops out of flow instead,
+                        where an empty item would only buy a stray row gap. */}
+                    <div
+                      className={
+                        followUp.note
+                          ? 'min-w-0 basis-full ps-6 sm:basis-auto sm:ps-0'
+                          : 'hidden min-w-0 sm:block'
+                      }
+                    >
+                      {followUp.note && (
+                        <FollowUpTaskNote note={followUp.note} />
+                      )}
                     </div>
                     {/* One wrapper on a phone so the cluster wraps as a
                         unit; `contents` dissolves it at `sm` so each part

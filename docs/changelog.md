@@ -6,6 +6,18 @@
 
 ---
 
+## Lead profiles open one WhatsApp chat and omit Company
+
+Lead profiles now expose one WhatsApp-marked **Chat** action. It resolves or
+creates the contact's canonical conversation and opens it directly in the
+branch-aware Inbox; template sending remains inside the conversation composer.
+The inherited B2B Company field is removed from lead create/edit, import and
+preview, table/board, bulk edit, profile, Inbox filtering, and CSV export. The
+legacy database/API column remains for compatibility. Key code:
+`src/components/contacts/contact-detail-content.tsx`,
+`src/app/(dashboard)/leads/page.tsx`, and
+`src/lib/contacts/field-mapping.ts`.
+
 ## Phone numbers always show an international prefix
 
 Read-only phone rendering now routes through the account-aware `fmt.phone`
@@ -17,7 +29,7 @@ clipboard content, and `tel:` targets stay unchanged; invalid source text stays
 visible for correction. Key code: `src/lib/phone-input.ts`,
 `src/lib/locale/format.ts`, and `src/components/members/member-identity.tsx`.
 
-## Dashboard follow-up queue reads as one record
+## Dashboard follow-up queue is a columnar record
 
 The follow-up queue was the only single-column list on the dashboard rendering
 at full page width. At a 1600px viewport its row spanned 1296px with the
@@ -27,23 +39,39 @@ disconnected halves at 200%. The trailing cluster was also right-anchored, so
 `Lead`+`Overdue` (185px) and `Member`+`22 Feb 2027` (212px) began at different
 x and the queue could not be scanned downward for what was late.
 
-`FollowUpQueue` now caps the section at `max-w-3xl` — which bounds the **See
-all** link with it — and gives the list real tracks that each row re-enters
-through `grid-cols-subgrid`, the `lead-funnel` pattern. Tracks stay `auto`
-because the due cell holds either a badge or a locale-formatted medium date. A
-second template drops the Lead/Member track under the single-scope chips rather
-than leaving an empty column to pay for a gap. Below `sm` the original wrapping
-flex line is untouched; `sm:contents` dissolves the mobile cluster wrapper so
-its children become cells only where there is slack to distribute.
+The row is now a mail-list record: name, message, kind, due, assignee, done,
+each in its own track. The note was promoted out of a subtitle into the
+flexible column, which is what lets the queue stay full-bleed — it is the one
+field with enough content to carry the width, and it stops being clipped at the
+14rem the stacked cell caps it to (a long note now shows ~140 characters where
+it used to show ~35). The name track is `fit-content(16rem)`, so short names
+keep the message close and one long name widens the column for every row rather
+than only its own. Meta tracks stay `auto` because the due cell holds a badge or
+a locale-formatted medium date. Each row re-enters the template through
+`grid-cols-subgrid`, the `lead-funnel` pattern; a second template drops the
+Lead/Member track under the single-scope chips rather than leaving an empty
+column to pay for a gap, and a note-less row still renders its cell
+(`hidden … sm:block`) so its meta stays in line with its neighbours.
 
-Measured after: meta columns share exact x across rows (798 / 874 / 958 / 988),
-no overflow at 320, 390, 640, 1600, or 1920. Key code:
+`follow-up-task-summary.tsx` grew two exports for this — `FollowUpTaskLabel`
+and `FollowUpTaskNote` — sharing the icon/heading resolution with the stacked
+`FollowUpTaskSummary`, whose DOM is unchanged for the Leads, Members, and
+dialog call sites. Do not re-add `max-w-56` inside `FollowUpTaskNote`: that cap
+belongs to the stacked cell and is passed in by that caller.
+
+Below `sm` the original wrapping flex line is preserved — name, note on its own
+`basis-full` line, then the meta cluster — because there is no width to
+distribute and no room for a third text column.
+
+Measured after: meta columns share exact x across rows, with and without a
+note, under every scope chip; the name column caps at exactly 256px and
+truncates; no overflow at 320, 390, 640, 1600, or 1920. Key code:
 `src/components/dashboard/follow-up-queue.tsx`. The rules are in
 `docs/ui-patterns.md` under **Section headings inside a page**.
 
 The rest of the dashboard has the same over-stretch at wide viewports — the
 metric, quick-action, and attention blocks subdivide into peers so they survive
-it, but nothing caps the page itself. That was left alone deliberately; it is a
+it, but nothing caps the page itself. Left alone deliberately; it is a
 shell-level change, not a follow-up-queue one.
 
 ## AutoPay cancellation and service checkout recover cleanly

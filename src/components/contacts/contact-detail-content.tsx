@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import type { Contact, Tag, CustomField, MessageTemplate } from '@/types';
+import type { Contact, Tag, CustomField } from '@/types';
 import {
   customFieldInputType,
   formatCustomFieldValue,
@@ -26,11 +26,8 @@ import {
 import { TransferRequestDialog } from '@/components/leads/transfer-request-dialog';
 import { ContactNotesThread } from './contact-notes-thread';
 import { useAccountStaff } from '@/components/members/use-account-staff';
-import {
-  TemplatePicker,
-  type TemplateSendValues,
-} from '@/components/inbox/template-picker';
 import { MemberForm } from '@/components/members/member-form';
+import { WhatsAppMark } from '@/components/brand/provider-mark';
 import { SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import {
   Accordion,
@@ -64,6 +61,8 @@ import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
 import { autoReceivedLabel } from '@/lib/leads/attributes';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { getErrorMessage } from '@/lib/errors';
+import { branchHref } from '@/lib/auth/branch-context';
+import { resolveContactConversation } from '@/lib/whatsapp/resolve-contact-conversation';
 import {
   columnToStatus,
   leadColumnKey,
@@ -72,15 +71,12 @@ import {
 import {
   Phone,
   Mail,
-  Building2,
   ChevronDown,
   Copy,
   Check,
   Loader2,
-  LayoutTemplate,
   Pencil,
   StickyNote,
-  MessageCircle,
   UserPlus,
   Trash2,
   X,
@@ -91,15 +87,13 @@ const SECTION_IDS = ['details', 'tags', 'notes'];
 /**
  * The contact/lead quick actions, in render order. Hosts pass an
  * `actions` allowlist to drop the ones that make no sense for them —
- * the inbox panel hides `chat` (you are already standing in the thread)
- * and `template` (the composer is right there).
+ * the inbox panel hides `chat` because you are already standing in the thread.
  */
 export type ContactQuickActionId =
-  'convert' | 'template' | 'chat' | 'call' | 'note' | 'email';
+  'convert' | 'chat' | 'call' | 'note' | 'email';
 
 const ALL_QUICK_ACTIONS: ContactQuickActionId[] = [
   'convert',
-  'template',
   'chat',
   'call',
   'note',
@@ -119,7 +113,7 @@ interface ContactDetailContentProps {
    * renders plain elements carrying the identical classes.
    */
   variant?: 'sheet' | 'panel';
-  /** Quick actions to render. Defaults to all six. */
+  /** Quick actions to render. Defaults to all five. */
   actions?: ContactQuickActionId[];
   /** Sections that start collapsed (the narrow inbox panel collapses Details). */
   collapsedSections?: string[];
@@ -162,7 +156,7 @@ export function ContactDetailContent({
 }: ContactDetailContentProps) {
   const supabase = createClient();
   const router = useRouter();
-  const { accountRole, user } = useAuth();
+  const { accountId, accountRole, user } = useAuth();
   const { fmt } = useLocale();
   const { staff, nameById, avatarById } = useAccountStaff();
   // Account option lists (status/source/gender) — drive the Details
@@ -177,14 +171,6 @@ export function ContactDetailContent({
   const [loading, setLoading] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
 
-  // Send template — lets the business initiate (or re-open) a conversation
-  // with this contact by sending an approved template. The send route
-  // find-or-creates the conversation, so no inbound message is required.
-  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
-  const [sendingTemplate, setSendingTemplate] = useState(false);
-
-  // Existing WhatsApp thread for this contact — powers the Chat quick action.
-  const [conversationId, setConversationId] = useState<string | null>(null);
   const [openingChat, setOpeningChat] = useState(false);
 
   // Convert-to-member — opens the member form seeded with this contact.
@@ -231,18 +217,6 @@ export function ContactDetailContent({
 
     if (data) setContact(data);
     setLoading(false);
-  }, [contactId, supabase]);
-
-  const fetchConversation = useCallback(async () => {
-    if (!contactId) return;
-    const { data } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('contact_id', contactId)
-      .order('last_message_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle();
-    setConversationId(data?.id ?? null);
   }, [contactId, supabase]);
 
   const fetchTags = useCallback(async () => {
@@ -301,12 +275,7 @@ export function ContactDetailContent({
           (initialFocus === 'followup' && id === 'notes')
       );
       setOpenSections(openIds);
-      await Promise.all([
-        fetchContact(),
-        fetchConversation(),
-        fetchTags(),
-        fetchCustomFields(),
-      ]);
+      await Promise.all([fetchContact(), fetchTags(), fetchCustomFields()]);
       if (cancelled || initialFocus !== 'followup') return;
 
       // Land the user on the follow-up composer once the panel mounts.
@@ -329,7 +298,6 @@ export function ContactDetailContent({
     collapsedKey,
     initialFocus,
     fetchContact,
-    fetchConversation,
     fetchTags,
     fetchCustomFields,
   ]);
@@ -356,17 +324,33 @@ export function ContactDetailContent({
     }, 100);
   }
 
-  // Quick action: jump to this contact's WhatsApp thread in the inbox.
-  function openChat() {
-    if (!conversationId) return;
+  // Quick action: resolve this contact's canonical thread, creating the empty
+  // Inbox shell when necessary, then land directly in that conversation.
+  async function openChat() {
+    if (!contactId || !accountId || !user?.id) {
+      toast.error('Could not open chat');
+      return;
+    }
     setOpeningChat(true);
-    router.push(`/inbox?c=${conversationId}`);
+    try {
+      const conversationId = await resolveContactConversation(
+        supabase,
+        accountId,
+        user.id,
+        contactId
+      );
+      onClose?.();
+      router.push(branchHref(`/inbox?c=${conversationId}`, accountId));
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not open chat'));
+      setOpeningChat(false);
+    }
   }
 
   // Save one core contact column inline (Zoho-style per-field edit).
   // Returns whether the write succeeded so the row can exit edit mode.
   async function saveField(
-    column: 'name' | 'phone' | 'email' | 'company',
+    column: 'name' | 'phone' | 'email',
     val: string
   ): Promise<boolean> {
     if (!contactId) return false;
@@ -584,50 +568,6 @@ export function ContactDetailContent({
     }
   }
 
-  async function handleSendTemplate(
-    template: MessageTemplate,
-    values: TemplateSendValues
-  ) {
-    if (!contactId) return;
-    setSendingTemplate(true);
-    try {
-      const res = await fetch('/api/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // No conversation_id — the route find-or-creates one for this
-          // contact, mirroring the inbox template-send payload otherwise.
-          contact_id: contactId,
-          message_type: 'template',
-          template_name: template.name,
-          template_language: template.language,
-          template_message_params: {
-            body: values.body,
-            headerText: values.headerText,
-            buttonParams: values.buttonParams,
-          },
-          template_params: values.body,
-        }),
-      });
-
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const reason = payload?.error || `HTTP ${res.status}`;
-        toast.error(`Failed to send template: ${reason}`);
-        return;
-      }
-
-      toast.success(`Template "${template.name}" sent`);
-      // The send may have just created the thread — refresh the Chat action.
-      fetchConversation();
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : 'network error';
-      toast.error(`Failed to send template: ${reason}`);
-    } finally {
-      setSendingTemplate(false);
-    }
-  }
-
   if (loading || !contact) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -684,12 +624,6 @@ export function ContactDetailContent({
                     {contact.email}
                   </span>
                 )}
-                {contact.company && (
-                  <span className="flex items-center gap-1">
-                    <Building2 className="size-3" />
-                    {contact.company}
-                  </span>
-                )}
                 {contact.source && (
                   <span className="flex items-center gap-1">
                     <SourceIcon
@@ -736,25 +670,11 @@ export function ContactDetailContent({
                 onClick={() => setConvertOpen(true)}
               />
             )}
-            {showAction('template') && (
-              <QuickAction
-                icon={LayoutTemplate}
-                label="Template"
-                title="Send a WhatsApp template"
-                loading={sendingTemplate}
-                onClick={() => setTemplatePickerOpen(true)}
-              />
-            )}
             {showAction('chat') && (
               <QuickAction
-                icon={MessageCircle}
+                icon={WhatsAppMark}
                 label="Chat"
-                title={
-                  conversationId
-                    ? 'Open conversation in inbox'
-                    : 'No conversation yet — send a template to start one'
-                }
-                disabled={!conversationId}
+                title="Open WhatsApp conversation in Inbox"
                 loading={openingChat}
                 onClick={openChat}
               />
@@ -857,12 +777,6 @@ export function ContactDetailContent({
                     value={contact.email}
                     placeholder="Add email"
                     onSave={(v) => saveField('email', v)}
-                  />
-                  <InlineField
-                    label="Company"
-                    value={contact.company}
-                    placeholder="Add company"
-                    onSave={(v) => saveField('company', v)}
                   />
                   <InlineSelectField
                     label="Source"
@@ -1129,12 +1043,6 @@ export function ContactDetailContent({
 
       {/* Overlays. Nested inside the host's Sheet on /leads — the same
           shape member-detail-view uses for its invoice/payment dialogs. */}
-      <TemplatePicker
-        open={templatePickerOpen}
-        onOpenChange={setTemplatePickerOpen}
-        onSelect={handleSendTemplate}
-        contact={contact}
-      />
       <MemberForm
         open={convertOpen}
         onOpenChange={setConvertOpen}
@@ -1234,7 +1142,7 @@ function QuickAction({
   loading,
   primary,
 }: {
-  icon: typeof Phone;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   title?: string;
   onClick?: () => void;

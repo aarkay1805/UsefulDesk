@@ -251,15 +251,15 @@ export function buildTargets(customFields: CustomFieldRef[]): TargetField[] {
 }
 
 /**
- * Target list for the Leads import variant — the contacts targets plus
- * the lead fields (Status / Source / Gender / Assigned to). Contacts
- * import keeps using `buildTargets`; behaviour there is unchanged.
+ * Target list for the Leads import variant. Company remains available to the
+ * legacy contacts importer for compatibility, but is deliberately absent from
+ * the gym lead lifecycle.
  */
 export function buildLeadTargets(
   customFields: CustomFieldRef[]
 ): TargetField[] {
   return [
-    ...STANDARD_TARGETS,
+    ...STANDARD_TARGETS.filter((target) => target.key !== 'company'),
     ...LEAD_TARGETS,
     { key: 'tags', label: 'Tags', kind: 'tags', required: false },
     ...customFields.map((f) => ({

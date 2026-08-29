@@ -75,7 +75,6 @@ export function ContactForm({
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [company, setCompany] = useState('');
   // '' represents the "New" column — stored as NULL (migration 039).
   const [leadStatus, setLeadStatus] = useState<'' | LeadStatus>('');
   // Free-text attributes with preset lists (migration 041). '' = unset (NULL).
@@ -113,7 +112,6 @@ export function ContactForm({
       setName(contact?.name ?? '');
       setPhone(contact?.phone ?? '');
       setEmail(contact?.email ?? '');
-      setCompany(contact?.company ?? '');
       setLeadStatus(contact?.lead_status ?? '');
       setSource(contact?.source ?? '');
       setGender(contact?.gender ?? '');
@@ -224,7 +222,6 @@ export function ContactForm({
             name: name.trim() || null,
             phone: phone.trim(),
             email: email.trim() || null,
-            company: company.trim() || null,
             lead_status: leadStatus || null,
             source: source || null,
             gender: gender || null,
@@ -241,7 +238,6 @@ export function ContactForm({
             name: name.trim() || null,
             phone: phone.trim(),
             email: email.trim() || null,
-            company: company.trim() || null,
             lead_status: leadStatus || null,
             source: source || null,
             gender: gender || null,
@@ -415,19 +411,6 @@ export function ContactForm({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="john@example.com"
-                className="border-border text-foreground placeholder:text-muted-foreground"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="cf-company" className="text-muted-foreground">
-                Company
-              </Label>
-              <Input
-                id="cf-company"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
-                placeholder="Acme Inc."
                 className="border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>

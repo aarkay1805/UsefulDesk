@@ -46,6 +46,9 @@ import {
   TemplateSendPolicyError,
 } from '@/lib/whatsapp/template-send-policy';
 import { getTemplateContract } from '@/lib/whatsapp/template-contracts';
+import { SendMessageError } from '@/lib/whatsapp/send-message-error';
+
+export { SendMessageError } from '@/lib/whatsapp/send-message-error';
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
@@ -53,22 +56,6 @@ export const VALID_MESSAGE_TYPES = [
   'template',
   ...MEDIA_KINDS,
 ] as const;
-
-/**
- * Typed failure with a machine `code` and a suggested HTTP `status`.
- * Callers map it to their own response shape (`toErrorResponse` for
- * the dashboard route, the v1 envelope for the public endpoint).
- */
-export class SendMessageError extends Error {
-  readonly code: string;
-  readonly status: number;
-  constructor(code: string, message: string, status: number) {
-    super(message);
-    this.name = 'SendMessageError';
-    this.code = code;
-    this.status = status;
-  }
-}
 
 export interface SendMessageParams {
   conversationId: string;

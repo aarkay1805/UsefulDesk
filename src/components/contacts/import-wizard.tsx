@@ -1015,7 +1015,6 @@ export function ImportWizard({
           phone: row.base.phone,
           name: row.base.name || null,
           email: row.base.email || null,
-          company: row.base.company || null,
           // A mapped Assigned-to cell overrides the importer-as-owner
           // default; unmatched/empty cells fall back to the importer.
           // A pending-invite owner keeps the importer in assigned_to (the
@@ -1063,16 +1062,12 @@ export function ImportWizard({
       // the standard fields; ownership is never cleared by an import.
       for (const { row, id } of toUpdate) {
         const patch: Record<string, string | null> = {};
-        const setField = (
-          key: 'name' | 'email' | 'company',
-          value?: string
-        ) => {
+        const setField = (key: 'name' | 'email', value?: string) => {
           if (value && value.trim()) patch[key] = value;
           else if (!dontOverwriteEmpty) patch[key] = null;
         };
         setField('name', row.base.name);
         setField('email', row.base.email);
-        setField('company', row.base.company);
 
         if (hasStatus) {
           if (row.leadStatus) patch.lead_status = statusValue(row.leadStatus);

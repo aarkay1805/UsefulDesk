@@ -146,7 +146,6 @@ describe('lead targets (buildLeadTargets)', () => {
       'phone',
       'name',
       'email',
-      'company',
       'lead_status',
       'source',
       'gender',
@@ -160,6 +159,12 @@ describe('lead targets (buildLeadTargets)', () => {
       'company',
       'tags',
     ]);
+  });
+
+  it('does not offer Company anywhere in lead column mapping', () => {
+    const targets = buildLeadTargets([]);
+    expect(targets.some((target) => target.key === 'company')).toBe(false);
+    expect(autoMapColumns(['Company'], targets)).toEqual([IGNORE_KEY]);
   });
 
   it('auto-maps lead-field header synonyms', () => {

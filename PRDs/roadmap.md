@@ -8,6 +8,13 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Lead-management refinement: **the profile's separate Template and Chat actions
+are now one WhatsApp-marked Chat action that resolves or creates the lead's
+conversation and opens the branch-aware Inbox directly. The inherited Company
+field no longer appears in lead create/edit, import/preview, table/board,
+bulk-edit, detail, Inbox-filter, or export workflows; its database/API column
+remains compatibility-only.**
+
 Engineering maintenance: **Rajat's pending AutoPay mandate now has a reliable
 resolution path: immediate cancellation matches Razorpay's body-less provider
 contract, while disabled, misconfigured, or blocked OAuth returns a clear

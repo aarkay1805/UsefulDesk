@@ -17,4 +17,32 @@ describe('contact detail action contract', () => {
     expect(contactDetail).not.toContain('WhatsApp consent');
     expect(memberSettings).toContain('WhatsAppConsentControl');
   });
+
+  it('offers one WhatsApp Chat action that resolves and opens the conversation', () => {
+    const contactDetail = read(
+      'src/components/contacts/contact-detail-content.tsx'
+    );
+
+    expect(contactDetail).toContain('icon={WhatsAppMark}');
+    expect(contactDetail).toContain('label="Chat"');
+    expect(contactDetail).toContain('resolveContactConversation(');
+    expect(contactDetail).toContain('branchHref(`/inbox?c=${conversationId}`');
+    expect(contactDetail).not.toContain("'template' | 'chat'");
+    expect(contactDetail).not.toContain('<TemplatePicker');
+  });
+
+  it('keeps Company out of every lead-management surface', () => {
+    const surfaces = [
+      'src/components/contacts/contact-detail-content.tsx',
+      'src/components/contacts/contact-form.tsx',
+      'src/app/(dashboard)/leads/page.tsx',
+      'src/components/leads/leads-board.tsx',
+      'src/components/leads/import-preview-grid.tsx',
+      'src/components/inbox/conversation-list.tsx',
+    ];
+
+    for (const surface of surfaces) {
+      expect(read(surface), surface).not.toMatch(/\bcompany\b/i);
+    }
+  });
 });

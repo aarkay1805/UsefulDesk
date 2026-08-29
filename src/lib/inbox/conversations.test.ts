@@ -37,62 +37,25 @@ const tag = (id: string, name = id) => ({
 
 describe('matchesContactFilters', () => {
   it('matches everything when no filters are set', () => {
-    const conv = makeConversation({ company: 'Acme', tags: [tag('t1')] });
-    expect(matchesContactFilters(conv, { tagIds: [], company: null })).toBe(
+    const conv = makeConversation({ tags: [tag('t1')] });
+    expect(matchesContactFilters(conv, { tagIds: [] })).toBe(true);
+    expect(makeConversation(null)).toBeDefined();
+    expect(matchesContactFilters(makeConversation(null), { tagIds: [] })).toBe(
       true
     );
-    expect(makeConversation(null)).toBeDefined();
-    expect(
-      matchesContactFilters(makeConversation(null), {
-        tagIds: [],
-        company: null,
-      })
-    ).toBe(true);
   });
 
   it('uses OR logic across tags', () => {
     const conv = makeConversation({ tags: [tag('t1'), tag('t2')] });
-    expect(
-      matchesContactFilters(conv, { tagIds: ['t2', 't9'], company: null })
-    ).toBe(true);
-    expect(matchesContactFilters(conv, { tagIds: ['t9'], company: null })).toBe(
-      false
-    );
+    expect(matchesContactFilters(conv, { tagIds: ['t2', 't9'] })).toBe(true);
+    expect(matchesContactFilters(conv, { tagIds: ['t9'] })).toBe(false);
   });
 
   it('excludes conversations whose contact has no tags when a tag filter is active', () => {
     const conv = makeConversation({ tags: [] });
-    expect(matchesContactFilters(conv, { tagIds: ['t1'], company: null })).toBe(
-      false
-    );
+    expect(matchesContactFilters(conv, { tagIds: ['t1'] })).toBe(false);
     expect(
-      matchesContactFilters(makeConversation(null), {
-        tagIds: ['t1'],
-        company: null,
-      })
-    ).toBe(false);
-  });
-
-  it('matches company exactly, trimming whitespace', () => {
-    const conv = makeConversation({ company: '  Acme  ' });
-    expect(matchesContactFilters(conv, { tagIds: [], company: 'Acme' })).toBe(
-      true
-    );
-    expect(matchesContactFilters(conv, { tagIds: [], company: 'Other' })).toBe(
-      false
-    );
-  });
-
-  it('requires both tag and company to match when both are set (AND across facets)', () => {
-    const conv = makeConversation({ company: 'Acme', tags: [tag('t1')] });
-    expect(
-      matchesContactFilters(conv, { tagIds: ['t1'], company: 'Acme' })
-    ).toBe(true);
-    expect(
-      matchesContactFilters(conv, { tagIds: ['t1'], company: 'Other' })
-    ).toBe(false);
-    expect(
-      matchesContactFilters(conv, { tagIds: ['tX'], company: 'Acme' })
+      matchesContactFilters(makeConversation(null), { tagIds: ['t1'] })
     ).toBe(false);
   });
 });

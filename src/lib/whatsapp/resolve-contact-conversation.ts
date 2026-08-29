@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
-import { SendMessageError } from './send-message';
+import { SendMessageError } from '@/lib/whatsapp/send-message-error';
 
 const OPEN_CONVERSATION_ERROR =
   'Failed to open a conversation for this contact';

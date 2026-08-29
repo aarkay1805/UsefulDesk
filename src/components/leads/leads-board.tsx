@@ -25,7 +25,6 @@ import {
 import { humaniseKey, UNKNOWN_STATUS_COLOR } from '@/lib/leads/field-options';
 import {
   ArrowRight,
-  Building2,
   Eye,
   MoreHorizontal,
   Pencil,
@@ -74,7 +73,7 @@ interface LeadCardContext {
   assignmentRequests: Record<string, LeadTransfer>;
   currentUserId?: string;
   sourceLabel: (key: string) => string;
-  /** Compact drops company / tags / the source+date footer strip; the
+  /** Compact drops tags / the source+date footer strip; the
       owner + name + phone always show. */
   density: BoardDensity;
 }
@@ -325,7 +324,7 @@ function CardMenu({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
 
 /**
  * One kanban card's VISUAL body — pure presentation, memoised. Information
- * scent mirrors the table row, compressed: name → contact/company meta →
+ * scent mirrors the table row, compressed: name → contact meta →
  * tags → a hairline footer with the origin (source glyph + created date)
  * on the left and the OWNER on the right (assignee avatar, or an amber
  * pending chip when a transfer / assignment approval / invite is in flight
@@ -392,15 +391,8 @@ const LeadCard = memo(function LeadCard({
         <span className="truncate">{fmt.phone(lead.phone)}</span>
       </p>
 
-      {/* Comfortable-only detail: company, tags, and the source+date footer
-          strip. Compact keeps just name / phone / owner for a dense scan. */}
-      {ctx.density === 'comfortable' && lead.company && (
-        <p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
-          <Building2 className="size-3 shrink-0" />
-          <span className="truncate">{lead.company}</span>
-        </p>
-      )}
-
+      {/* Comfortable keeps tags and the source/date footer strip. Compact
+          keeps just name / phone / owner for a dense scan. */}
       {ctx.density === 'comfortable' && tags.length > 0 && (
         <div className="mt-2 flex flex-wrap items-center gap-1">
           {tags.slice(0, CARD_TAG_LIMIT).map((tag) => (

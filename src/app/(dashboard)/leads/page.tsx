@@ -338,7 +338,6 @@ type ContactWithData = LeadListingContact;
 // design: `name` (clicking it opens the detail sheet — the row's main
 // affordance) and `created` (system audit column).
 type EditSpec =
-  | { kind: 'text'; column: 'company' }
   // Phone edits through PhoneInput, so the committed value already carries
   // the account country code — the same shape capture and dedupe store.
   | { kind: 'phone'; column: 'phone' }
@@ -462,17 +461,6 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
       <span className="text-muted-foreground text-sm">{c.email || '-'}</span>
     ),
     edit: { kind: 'email', column: 'email' },
-  },
-  {
-    key: 'company',
-    label: 'Company',
-    defaultWidth: 160,
-    minWidth: 120,
-    sortColumn: 'company',
-    render: (c) => (
-      <span className="text-muted-foreground text-sm">{c.company || '-'}</span>
-    ),
-    edit: { kind: 'text', column: 'company' },
   },
   {
     key: 'source',
@@ -1575,7 +1563,6 @@ export default function LeadsPage() {
       serverKey === 'lead_status' ||
       serverKey === 'phone' ||
       serverKey === 'email' ||
-      serverKey === 'company' ||
       serverKey === 'source' ||
       serverKey === 'gender' ||
       serverKey === 'received_via' ||
@@ -2050,7 +2037,6 @@ export default function LeadsPage() {
         return c.customValues?.[edit.fieldId] ?? '';
       case 'email':
         return c.email ?? '';
-      case 'text':
       case 'phone':
       case 'select':
         return (c[edit.column] as string | undefined) ?? '';
@@ -2168,7 +2154,7 @@ export default function LeadsPage() {
             )
           );
         } else {
-          // Built-in contacts column (text/phone/email/select).
+          // Built-in contacts column (phone/email/select).
           const trimmed = rawValue.trim();
           if (edit.column === 'phone' && !trimmed) {
             toast.error('Phone number is required');
@@ -2404,7 +2390,6 @@ export default function LeadsPage() {
         'Name',
         'Phone',
         'Email',
-        'Company',
         'Status',
         'Source',
         'Gender',
@@ -2420,7 +2405,6 @@ export default function LeadsPage() {
           c.name ?? '',
           fmt.phone(c.phone),
           c.email ?? '',
-          c.company ?? '',
           fieldOptions.statusFor(c.lead_status).label,
           c.source ? fieldOptions.sourceLabel(c.source) : '',
           c.gender ? fieldOptions.genderLabel(c.gender) : '',
@@ -2581,12 +2565,6 @@ export default function LeadsPage() {
           })),
         },
       },
-      {
-        key: 'company',
-        label: 'Company',
-        group: 'Lead fields',
-        editor: { kind: 'text' },
-      },
       ...customFields.map((f): BulkEditProperty => ({
         key: `cf:${f.id}`,
         label: f.field_name,
@@ -2689,7 +2667,7 @@ export default function LeadsPage() {
     if (property.key === 'status') {
       patch = { lead_status: columnToStatus(value as LeadColumnKey) };
     } else {
-      // source / gender / company — raw contacts column, '' clears it.
+      // Source / gender — raw contacts columns; '' clears the value.
       patch = { [property.key]: value.trim() || null };
     }
 
@@ -2731,7 +2709,7 @@ export default function LeadsPage() {
   // Enumerable columns get an Excel-style value filter in their header
   // menu. Each maps to a shared LeadFilters dimension (so the column filter
   // and the Filters panel can't drift) plus the checkbox options to offer.
-  // Free-text columns (name/phone/email/company/dates/custom) aren't listed
+  // Free-text columns (name/phone/email/dates/custom) aren't listed
   // — their menus simply omit the Filter item. received_by → owner and
   // created_by → createdBy both filter on the underlying uuid column.
   const columnFilterConfig = useMemo<

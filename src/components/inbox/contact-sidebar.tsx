@@ -11,7 +11,6 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
  * Quick actions the inbox drops:
  * - `chat` opens the contact's conversation in the inbox — you're already
  *   standing in it.
- * - `template` is redundant next to the thread's own composer.
  * Everything else (Convert, Call, Note, Email) is the same action the
  * /leads sheet fires.
  */

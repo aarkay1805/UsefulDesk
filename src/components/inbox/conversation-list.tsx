@@ -19,7 +19,6 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -86,10 +85,9 @@ export function ConversationList({
   const [loading, setLoading] = useState(true);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
-  // Broadcast audience filtering. Company is an exact match on the field.
+  // Broadcast audience filtering.
   const [tags, setTags] = useState<Tag[]>([]);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState<string | null>(null);
 
   // Keep the latest callback in a ref so the fetch effect below can
   // have a stable, empty-dep identity. Previously the fetch useCallback
@@ -158,18 +156,6 @@ export function ConversationList({
     };
   }, []);
 
-  // Company options are derived from the loaded conversations — there's no
-  // separate companies table, and only companies with a live conversation
-  // are worth offering as an inbox filter.
-  const companies = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of conversations) {
-      const co = c.contact?.company?.trim();
-      if (co) set.add(co);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [conversations]);
-
   const tagsById = useMemo(() => {
     const m = new Map<string, Tag>();
     for (const t of tags) m.set(t.id, t);
@@ -189,13 +175,10 @@ export function ConversationList({
       result = result.filter((c) => c.status === filter);
     }
 
-    // Contact-based filters (tags via OR logic, exact company match).
-    if (selectedTagIds.length > 0 || selectedCompany !== null) {
+    // Contact-based filters (tags via OR logic).
+    if (selectedTagIds.length > 0) {
       result = result.filter((c) =>
-        matchesContactFilters(c, {
-          tagIds: selectedTagIds,
-          company: selectedCompany,
-        })
+        matchesContactFilters(c, { tagIds: selectedTagIds })
       );
     }
 
@@ -210,7 +193,7 @@ export function ConversationList({
     }
 
     return result;
-  }, [conversations, filter, search, selectedTagIds, selectedCompany]);
+  }, [conversations, filter, search, selectedTagIds]);
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -220,18 +203,15 @@ export function ConversationList({
 
   const clearContactFilters = useCallback(() => {
     setSelectedTagIds([]);
-    setSelectedCompany(null);
   }, []);
 
   const clearAllFilters = useCallback(() => {
     setSearch('');
     setFilter('all');
     setSelectedTagIds([]);
-    setSelectedCompany(null);
   }, []);
 
-  const hasContactFilters =
-    selectedTagIds.length > 0 || selectedCompany !== null;
+  const hasContactFilters = selectedTagIds.length > 0;
 
   // Live count on the Unread chip. It counts the whole account, not the
   // current filter's slice — the number's job is to say how much is waiting
@@ -306,56 +286,7 @@ export function ConversationList({
             </DropdownMenu>
           )}
 
-          {companies.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="pill"
-                    size="sm"
-                    aria-pressed={Boolean(selectedCompany)}
-                  />
-                }
-              >
-                <span className="max-w-24 truncate">
-                  {selectedCompany ?? 'Company'}
-                </span>
-                <ChevronDown className="size-3 shrink-0" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="border-border bg-popover max-h-64 w-56"
-              >
-                <DropdownMenuItem
-                  onClick={() => setSelectedCompany(null)}
-                  className={cn(
-                    'text-sm',
-                    selectedCompany === null
-                      ? 'text-primary-text'
-                      : 'text-popover-foreground'
-                  )}
-                >
-                  All companies
-                </DropdownMenuItem>
-                {companies.map((co) => (
-                  <DropdownMenuItem
-                    key={co}
-                    onClick={() => setSelectedCompany(co)}
-                    className={cn(
-                      'text-sm',
-                      selectedCompany === co
-                        ? 'text-primary-text'
-                        : 'text-popover-foreground'
-                    )}
-                  >
-                    <span className="truncate">{co}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {(tags.length > 0 || companies.length > 0) && (
+          {tags.length > 0 && (
             <Separator orientation="vertical" className="h-5" />
           )}
 
@@ -397,15 +328,6 @@ export function ConversationList({
                 </button>
               );
             })}
-            {selectedCompany && (
-              <button
-                onClick={() => setSelectedCompany(null)}
-                className="bg-muted text-foreground hover:bg-muted/70 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]"
-              >
-                <span className="max-w-24 truncate">{selectedCompany}</span>
-                <X className="size-3" />
-              </button>
-            )}
             <Button variant="link" size="xs" onClick={clearContactFilters}>
               Clear all
             </Button>
