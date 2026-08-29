@@ -34,17 +34,22 @@ interface MembersFiltersProps {
   onChange: (next: MemberFilters) => void;
   /** Plan options — useMembershipPlans (include archived so old members filter). */
   plans: MembershipPlan[];
+  assignedOptions: { value: string; label: string }[];
+  trainerOptions: { value: string; label: string }[];
 }
 
 /**
  * The All-members Filters popover — the members-lightweight sibling of
  * the leads Filters panel (same trigger/badge/check-group recipe, member
- * facets only: plan, derived status, fee status, and churn risk).
+ * facets only: plan, derived status, operational ownership, fee status,
+ * follow-ups, and churn risk).
  */
 export function MembersFilters({
   value,
   onChange,
   plans,
+  assignedOptions,
+  trainerOptions,
 }: MembersFiltersProps) {
   const count = activeMemberFilterCount(value);
   const reduceMotion = useReducedMotion();
@@ -113,6 +118,22 @@ export function MembersFilters({
             selected={value.plans}
             onToggle={(v) => toggle('plans', v)}
             emptyHint="No plans yet."
+          />
+
+          <Separator className="my-3" />
+          <CheckGroup
+            label="Assigned to"
+            options={assignedOptions}
+            selected={value.assignees}
+            onToggle={(v) => toggle('assignees', v)}
+          />
+
+          <Separator className="my-3" />
+          <CheckGroup
+            label="Trainer"
+            options={trainerOptions}
+            selected={value.trainers}
+            onToggle={(v) => toggle('trainers', v)}
           />
 
           <Separator className="my-3" />

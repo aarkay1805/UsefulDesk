@@ -63,12 +63,16 @@ export function CopyUpiLinkButton({
   amount,
   note,
   size = 'sm',
+  variant = 'outline',
   blocker,
 }: {
   upi: UpiConfig | null;
   amount: number;
   note?: string;
   size?: 'sm' | 'default';
+  /** Outline beside other outline row actions; ghost inside a footer whose
+      only emphasised control is its primary. */
+  variant?: 'outline' | 'ghost';
   blocker?: ActionBlocker | null;
 }) {
   const { locale } = useLocale();
@@ -89,7 +93,7 @@ export function CopyUpiLinkButton({
   return (
     <ResolvableAction
       trigger={
-        <Button type="button" variant="outline" size={size}>
+        <Button type="button" variant={variant} size={size}>
           <IndianRupee className={size === 'sm' ? 'size-3.5' : 'size-4'} /> UPI
           link
         </Button>

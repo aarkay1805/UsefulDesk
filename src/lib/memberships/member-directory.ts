@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { MemberFilters } from './filters';
+import {
+  NO_TRAINER_MEMBER_FILTER,
+  splitNullableMemberFilterValues,
+  UNASSIGNED_MEMBER_FILTER,
+  type MemberFilters,
+} from './filters';
 import {
   normalizeCustomerDirectoryRow,
   type MemberCustomerDirectoryRow,
@@ -56,12 +61,24 @@ export function memberDirectorySortKey(key: string): string {
 }
 
 export function memberDirectoryRpcArgs(query: MemberDirectoryQuery) {
+  const assignees = splitNullableMemberFilterValues(
+    query.filters.assignees,
+    UNASSIGNED_MEMBER_FILTER
+  );
+  const trainers = splitNullableMemberFilterValues(
+    query.filters.trainers,
+    NO_TRAINER_MEMBER_FILTER
+  );
   return {
     p_today: query.today,
     p_search: query.search,
     p_plan_ids: query.filters.plans,
     p_statuses: query.filters.statuses,
     p_fee_statuses: query.filters.feeStatus,
+    p_assignee_ids: assignees.ids,
+    p_include_unassigned: assignees.includeNull,
+    p_trainer_ids: trainers.ids,
+    p_include_no_trainer: trainers.includeNull,
     p_churn_risk: query.filters.churnRisk,
     p_follow_ups: query.filters.followUps,
     p_sort_key: query.sort ? memberDirectorySortKey(query.sort.key) : null,

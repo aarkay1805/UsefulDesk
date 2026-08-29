@@ -21,6 +21,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 
+export interface BulkAddNoteResult {
+  succeededContactIds: string[];
+  failedContactIds: string[];
+}
+
 export function BulkAddNoteDialog({
   open,
   onOpenChange,
@@ -32,8 +37,8 @@ export function BulkAddNoteDialog({
   onOpenChange: (open: boolean) => void;
   /** The people the note is written to — one `contact_notes` row each. */
   contactIds: string[];
-  /** Called after a successful write so the page can refresh. */
-  onDone?: () => void;
+  /** Called after a proven write so callers can retain partial failures. */
+  onDone?: (result: BulkAddNoteResult) => void;
   /** What a contact is called in the toast/title — 'lead' here, 'member'
    *  when the members bulk toolbar reuses this dialog. */
   noun?: string;
@@ -96,7 +101,10 @@ export function BulkAddNoteDialog({
     // An RLS-blocked insert returns no error and fewer rows (repo gotcha), so
     // `inserted.length` — not the request — decides what the user is told.
     // Reporting "added to 0 leads" as a success was the previous behaviour.
-    const n = inserted.length;
+    const succeeded = new Set(inserted.map((row) => row.contact_id));
+    const succeededContactIds = contactIds.filter((id) => succeeded.has(id));
+    const failedContactIds = contactIds.filter((id) => !succeeded.has(id));
+    const n = succeededContactIds.length;
     if (n === 0) {
       toast.error("The note wasn't added. Refresh and try again.");
       setSaving(false);
@@ -112,7 +120,7 @@ export function BulkAddNoteDialog({
 
     setSaving(false);
     onOpenChange(false);
-    onDone?.();
+    onDone?.({ succeededContactIds, failedContactIds });
   }
 
   return (

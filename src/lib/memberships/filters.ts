@@ -28,6 +28,10 @@ export type ChurnRiskFilter = 'yes' | 'no';
 
 export type FollowUpFilter = 'open';
 
+/** Nullable contact ownership buckets used by both member filter surfaces. */
+export const UNASSIGNED_MEMBER_FILTER = '__unassigned__';
+export const NO_TRAINER_MEMBER_FILTER = '__no_trainer__';
+
 export const CHURN_RISK_OPTIONS: {
   value: ChurnRiskFilter;
   label: string;
@@ -40,6 +44,10 @@ export interface MemberFilters {
   /** membership_plans ids. */
   plans: string[];
   statuses: MemberStatusFilter[];
+  /** profiles.user_id values plus UNASSIGNED_MEMBER_FILTER. */
+  assignees: string[];
+  /** trainers.id values plus NO_TRAINER_MEMBER_FILTER. */
+  trainers: string[];
   feeStatus: ('paid' | 'due')[];
   churnRisk: ChurnRiskFilter[];
   followUps: FollowUpFilter[];
@@ -48,6 +56,8 @@ export interface MemberFilters {
 export const EMPTY_MEMBER_FILTERS: MemberFilters = {
   plans: [],
   statuses: [],
+  assignees: [],
+  trainers: [],
   feeStatus: [],
   churnRisk: [],
   followUps: [],
@@ -58,6 +68,8 @@ export function activeMemberFilterCount(f: MemberFilters): number {
   return (
     (f.plans.length ? 1 : 0) +
     (f.statuses.length ? 1 : 0) +
+    (f.assignees.length ? 1 : 0) +
+    (f.trainers.length ? 1 : 0) +
     (f.feeStatus.length ? 1 : 0) +
     (f.churnRisk.length ? 1 : 0) +
     (f.followUps.length ? 1 : 0)
@@ -103,7 +115,38 @@ export function memberStatusOrClause(
 interface MemberFilterableQuery<Q> {
   in(column: string, values: readonly string[]): Q;
   eq(column: string, value: string | boolean): Q;
-  or(filters: string): Q;
+  is(column: string, value: null): Q;
+  or(filters: string, options?: { referencedTable: string }): Q;
+}
+
+export function splitNullableMemberFilterValues(
+  values: string[],
+  nullSentinel: string
+): { ids: string[]; includeNull: boolean } {
+  return {
+    ids: values.filter((value) => value !== nullSentinel),
+    includeNull: values.includes(nullSentinel),
+  };
+}
+
+function applyNullableContactFilter<Q extends MemberFilterableQuery<Q>>(
+  query: Q,
+  column: 'assigned_to' | 'trainer_id',
+  values: string[],
+  nullSentinel: string
+): Q {
+  const { ids, includeNull } = splitNullableMemberFilterValues(
+    values,
+    nullSentinel
+  );
+  if (ids.length && includeNull) {
+    return query.or(`${column}.in.(${ids.join(',')}),${column}.is.null`, {
+      referencedTable: 'contact',
+    });
+  }
+  if (ids.length) return query.in(`contact.${column}`, ids);
+  if (includeNull) return query.is(`contact.${column}`, null);
+  return query;
 }
 
 /** Apply the Filters panel selections to a memberships query. */
@@ -115,6 +158,18 @@ export function applyMemberFilters<Q extends MemberFilterableQuery<Q>>(
   let q = query;
   if (filters.plans.length) q = q.in('plan_id', filters.plans);
   if (filters.feeStatus.length) q = q.in('fee_status', filters.feeStatus);
+  q = applyNullableContactFilter(
+    q,
+    'assigned_to',
+    filters.assignees,
+    UNASSIGNED_MEMBER_FILTER
+  );
+  q = applyNullableContactFilter(
+    q,
+    'trainer_id',
+    filters.trainers,
+    NO_TRAINER_MEMBER_FILTER
+  );
   // `contact` is the !inner alias embedded by every member-list query.
   // Selecting both values intentionally leaves the boolean facet open,
   // matching the other multi-select facets when all options are checked.

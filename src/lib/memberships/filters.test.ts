@@ -4,7 +4,10 @@ import {
   activeMemberFilterCount,
   applyMemberFilters,
   EMPTY_MEMBER_FILTERS,
+  NO_TRAINER_MEMBER_FILTER,
   memberStatusOrClause,
+  splitNullableMemberFilterValues,
+  UNASSIGNED_MEMBER_FILTER,
 } from './filters';
 
 const TODAY = '2026-07-11';
@@ -47,8 +50,12 @@ describe('applyMemberFilters', () => {
         calls.push(['eq', { column, value }]);
         return q;
       },
-      or(filters: string) {
-        calls.push(['or', filters]);
+      is(column: string, value: null) {
+        calls.push(['is', { column, value }]);
+        return q;
+      },
+      or(filters: string, options?: { referencedTable: string }) {
+        calls.push(['or', options ? { filters, options } : filters]);
         return q;
       },
     };
@@ -66,9 +73,12 @@ describe('applyMemberFilters', () => {
     applyMemberFilters(
       q,
       {
+        ...EMPTY_MEMBER_FILTERS,
         plans: ['p1'],
         feeStatus: ['due'],
         statuses: ['cancelled'],
+        assignees: ['user-1', UNASSIGNED_MEMBER_FILTER],
+        trainers: ['trainer-1'],
         churnRisk: ['yes'],
         followUps: ['open'],
       },
@@ -77,6 +87,14 @@ describe('applyMemberFilters', () => {
     expect(q.calls).toEqual([
       ['in', { column: 'plan_id', values: ['p1'] }],
       ['in', { column: 'fee_status', values: ['due'] }],
+      [
+        'or',
+        {
+          filters: 'assigned_to.in.(user-1),assigned_to.is.null',
+          options: { referencedTable: 'contact' },
+        },
+      ],
+      ['in', { column: 'contact.trainer_id', values: ['trainer-1'] }],
       ['eq', { column: 'contact.churn_risk', value: true }],
       ['eq', { column: 'open_follow_ups.status', value: 'open' }],
       ['or', 'status.eq.cancelled'],
@@ -88,6 +106,7 @@ describe('applyMemberFilters', () => {
     applyMemberFilters(
       q,
       {
+        ...EMPTY_MEMBER_FILTERS,
         plans: [],
         feeStatus: [],
         statuses: [],
@@ -106,6 +125,7 @@ describe('applyMemberFilters', () => {
     applyMemberFilters(
       q,
       {
+        ...EMPTY_MEMBER_FILTERS,
         plans: [],
         feeStatus: [],
         statuses: [],
@@ -115,6 +135,35 @@ describe('applyMemberFilters', () => {
       TODAY
     );
     expect(q.calls).toEqual([]);
+  });
+
+  it('filters the nullable assignee and trainer buckets without fake UUIDs', () => {
+    const q = stub();
+    applyMemberFilters(
+      q,
+      {
+        ...EMPTY_MEMBER_FILTERS,
+        assignees: [UNASSIGNED_MEMBER_FILTER],
+        trainers: ['trainer-1', NO_TRAINER_MEMBER_FILTER],
+      },
+      TODAY
+    );
+    expect(q.calls).toEqual([
+      ['is', { column: 'contact.assigned_to', value: null }],
+      [
+        'or',
+        {
+          filters: 'trainer_id.in.(trainer-1),trainer_id.is.null',
+          options: { referencedTable: 'contact' },
+        },
+      ],
+    ]);
+    expect(
+      splitNullableMemberFilterValues(
+        ['trainer-1', NO_TRAINER_MEMBER_FILTER],
+        NO_TRAINER_MEMBER_FILTER
+      )
+    ).toEqual({ ids: ['trainer-1'], includeNull: true });
   });
 });
 
@@ -129,11 +178,16 @@ describe('activeMemberFilterCount', () => {
     ).toBe(1);
     expect(
       activeMemberFilterCount({
+        ...EMPTY_MEMBER_FILTERS,
         plans: ['a', 'b'],
         statuses: ['active'],
-        feeStatus: [],
-        churnRisk: [],
-        followUps: [],
+      })
+    ).toBe(2);
+    expect(
+      activeMemberFilterCount({
+        ...EMPTY_MEMBER_FILTERS,
+        assignees: [UNASSIGNED_MEMBER_FILTER],
+        trainers: [NO_TRAINER_MEMBER_FILTER],
       })
     ).toBe(2);
   });

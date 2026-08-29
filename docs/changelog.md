@@ -6,6 +6,202 @@
 
 ---
 
+## All Members selection is contact-first and service-safe
+
+All Members now selects every contact-backed customer, including service-only
+rows, through individual checkboxes, page select-all, and the exact unbounded
+**All matching** directory query. Selection identity is `contact_id` first with
+an optional membership id attached, so counts remain honest while membership
+actions can prove the whole selection is compatible.
+
+Bulk **Edit** (Assigned to, Trainer, Churn risk) and **Add note** work across
+membership-only, service-only, and mixed selections. Add note remains note-only.
+Renewal reminders, payment recording, and deletion are omitted for service-only
+selections; mixed selections keep those actions focusable behind the shared
+resolvable blocker, which explains the incompatibility and offers an explicit
+membership-only selection. No action silently drops service customers or runs
+against a hidden subset. Proven successes leave selection while failed or
+unresolved contacts remain selected across edits, notes, reminders, payments,
+and deletion. No schema change was required. Key code:
+`src/lib/memberships/member-selection.ts`,
+`src/components/members/members-table.tsx`,
+`src/components/leads/bulk-add-note-dialog.tsx`, and
+`src/components/members/bulk-record-payment-dialog.tsx`.
+
+## All Members keeps table work inside one bounded viewport
+
+All Members now fills the available Members-page height and gives its data
+region one vertical-and-horizontal scroll owner. The real header stays sticky
+while rows move, the horizontal scrollbar remains at the bottom of that region,
+and the exact range, records-per-page selector, and pager remain pinned beneath
+it. The loading skeleton uses the same sticky header and frozen checkbox/Name
+geometry; row actions, resizing, overflow, and phone behavior are unchanged.
+
+`Table` gained one backward-compatible `containerClassName` layout hook so this
+surface can yield the master wrapper's default horizontal overflow to its outer
+two-axis viewport without nested scrollers. Existing Table consumers keep the
+same default. No schema change was required. Key code:
+`src/components/members/members-table.tsx`,
+`src/app/(dashboard)/members/page.tsx`, `src/components/ui/table.tsx`, and
+`src/components/table/table-skeleton.tsx`.
+
+## All Members bulk edit stays inside safe operational fields
+
+The All Members selection toolbar now opens the existing shared bulk-edit
+dialog with an explicit three-property allowlist: **Assigned to**, **Trainer**,
+and **Churn risk**. Plan, expiry, status, fee, membership lifecycle, billing,
+and every financial field remain unavailable. Assigned-to changes fan out
+through the existing approval-gated `requestLeadAssignment` workflow with a
+bounded worker pool; the result distinguishes immediately approved changes,
+requests sent for approval, already-correct rows, and failures. Trainer choices
+include active trainer identities only, while the table continues loading the
+full trainer roster so archived historical assignments keep their names. Churn
+risk reuses the canonical **Yes / No** vocabulary.
+
+Direct Trainer and Churn-risk writes are account-scoped and chain
+`.select('id')`; only returned rows are treated as successful, so silently
+RLS-filtered rows stay selected for retry. Assignment requests use the same
+rule: approved, pending, and unchanged rows leave the selection, while failed
+rows remain. Proven visible-row changes update local state immediately and
+refresh only the All Members listing when its filter/count snapshot may have
+changed; pending requests refresh only the assignment overlay, while the
+existing realtime dependency router remains responsible for other affected
+Members views. No schema change was required. Key code:
+`src/components/members/members-table.tsx`,
+`src/components/leads/bulk-edit-dialog.tsx`, and
+`src/lib/memberships/member-bulk-edit.ts`.
+
+## All Members can be filtered by owner and trainer
+
+The main All Members Filters popover and the Assigned to / Trainer column-header
+Filter submenus now edit the same `MemberFilters` state. Both facets support
+multiple named choices plus **Unassigned** or **No trainer**. Archived trainer
+identities remain available for existing assignments, while inline reassignment
+continues to offer active trainers only.
+
+The page, exact total, quick-filter counts, select-all-matching, and CSV export
+all serialize these facets through the same `member_customer_directory_page`
+RPC. Migration
+`20260829080000_member_directory_assignment_trainer_filters.sql` replaces the
+old exact function identity with nullable-bucket and UUID-array parameters;
+`20260829081000_default_member_directory_filter_facets.sql` gives those trailing
+parameters empty/false defaults so the pre-feature client remains compatible
+during rollout without restoring an overloaded identity. The directory and
+function stay `SECURITY INVOKER`, with execution granted only to
+`authenticated`. Both migrations were applied and catalog/behavior-verified
+through the approved Supabase connector on the UsefulDesk project; the isolated
+UsefulDesk Razorpay Test project has no member-directory RPC and was not a
+schema target. Key code: `src/lib/memberships/filters.ts`,
+`member-directory.ts`, `member-field-registry.ts`, and
+`src/components/members/members-table.tsx`.
+
+## All Members closes the first Leads table-parity gap
+
+All Members now resets to page 1 for toolbar sorts, column sorts, cleared
+sorts, and records-per-page changes. Re-selecting the active column direction
+clears that sort just as it does in Leads. The persisted `members-all` table
+preferences now drive a 10/20/25/30/40/50 records-per-page selector, while the
+footer reports the exact `Showing X–Y of Z` range and keeps its controls
+available for empty results.
+
+The existing lightweight member column menu remains fixed-order and now adds
+**Reset column widths** as a recovery action; no drag or column reordering was
+introduced. Key code: `src/components/members/members-table.tsx` and
+`src/lib/memberships/member-table-view.ts`.
+
+## The invoice detail dialog is one ledger, not five boxes
+
+The body stacked a `Card` masthead, a bordered items list, a bordered summary,
+and a bordered payment list inside a dialog that is already a container — four
+same-width, same-radius rectangles whose paddings put the title, the item names,
+the summary labels, and the member name on four different left edges. Every box
+is gone. Regions are now separated by rules and space, and every row aligns to
+the dialog's own content edge on the left and one money column on the right.
+
+Items and totals are one ledger: the summary is the foot of the items list, so
+it shares that amount column, clusters its derivation rows tightly, and sets the
+balance off with a rule and a size step instead of a `bg-muted/20` chip. The
+totals no longer carry a rule between every line — a totals block rules above
+the block and above the final figure, not between each row. Refunds indent under
+their payment on a rule rather than opening a third box.
+
+The masthead's `text-xs tracking-wide uppercase` label was the file's only
+uppercase micro-label; it now uses the `MetricCard` recipe verbatim — 14px
+medium muted over the 28px bold Display step — so the balance reads the same way
+as the Finance KPI tiles behind the dialog. Section headings moved from 14px
+medium (identical to the item names beneath them) to the 16px Title step, which
+is the first real hierarchy step this body has had between 12px meta and the
+28px figure.
+
+`headlineDetail` now returns `null` for `balance_due` and `settled`. Those two
+branches restated the Invoice total / Collected / Balance due rows rendered a few
+pixels below — "₹0 collected of ₹1,000" beside a ledger that says exactly that,
+and "The invoice is settled" under a label already reading "Paid in full". The
+line survives only where it says something no ledger row can: refund review,
+void, reopened balance, nothing to collect. Copy for those is untouched.
+
+From `lg` the body is two columns — the invoice on the left (masthead, items,
+totals) and the money that actually moved on the right (payments and their
+refunds) — in a 54rem dialog split 479px / 24px / rule / 24px / 19rem. Items and
+payments no longer compete for the same vertical space, so an invoice with a
+long payment history stops pushing its own line items off screen. The masthead
+spans both columns rather than sitting in the left one: its full-width rule then
+gives the two section headings the same baseline and the same rule beneath them,
+which is what makes the split read as two parallel tables. Putting the masthead
+inside the left column was tried and rejected — it left three rules at three
+different heights across the top of the dialog.
+
+The rail is fixed, not fractional, because the dialog is capped at 54rem and a
+fraction would only ever restate one width. Below `lg` the columns stack in
+reading order and the vertical `Separator` leaves grid flow through `hidden`, so
+the stacked layout is exactly the single-column one; there is deliberately no
+horizontal twin separator (`lead-funnel` renders one because its split survives
+stacking — here the section heading and its own rule already mark the boundary).
+The refund audit grid moved from `sm:grid-cols-2` to `@sm/payments:grid-cols-2`
+under a `@container/payments` on the payment-history section: it has to answer to
+the rail's 304px, not to the 1024px viewport that put it there, or a `break-all`
+provider reference lands in two 119px columns.
+
+The footer is one horizontal strip with one hierarchy step. It had six controls
+across three visual weights — outline collection links, ghost paperwork, filled
+primary — split across two bands and, briefly, across the body's own two columns
+with a collinear rule. That column split is gone: every secondary is now a ghost
+button, so the five ways to chase or send this invoice read as one quiet toolbar
+and **Record payment is the only emphasised control in the dialog**. `contents`
+on the document actions dissolves their own flex wrapper so all five flow as
+siblings at one gap rather than as a block of three beside a block of two.
+
+The strip starts on the dialog's left content edge — the same rule the title,
+the item names and the section headings use — and the primary takes the free
+space with `ml-auto`. Six buttons measure 858px, which is why the dialog gained
+an `xl:max-w-[60rem]` step: at 928px of content they share one line with 38px to
+spare, and below that the primary wraps to its own line while `ml-auto` keeps it
+right. `sm:justify-start` overriding the master's `sm:justify-end` is
+load-bearing, not tidying — once the primary wraps there is no `ml-auto` item
+left on the first line, so `justify-end` right-aligned the strip at `lg` while
+`ml-auto` left-aligned it at `xl`: the same six controls under two alignments.
+
+Nothing stretches to fill a short line any more. That rule existed because a
+stranded outline pill on its own row read as broken, and it cannot survive
+`contents` — a `> button` selector reaches the three collection links but not the
+paperwork, which is still a DOM child of its own wrapper, so mobile grew a
+stretched UPI link beside a natural-width Download invoice. Ghost buttons have no
+edge to strand.
+
+Two deliberate exceptions. `CopyUpiLinkButton` gained a `variant` prop defaulting
+to `outline` rather than being switched outright: its other call site is the
+member detail Billing card, where it sits beside outline row actions. And a
+settled invoice keeps its document actions on `outline`, because it has no
+primary to anchor the band and two borderless controls alone in a muted bar read
+as disabled.
+
+Key file: `src/components/finance/invoice-detail-dialog.tsx`. Gotcha: do not add
+a negative margin to optically pull the payment row's ghost `Void`/`Refund`
+label onto the money column. The dialog body's scroller is `-mx-1 px-1` (the
+focus-ring fix), so a `-mr-2.5` pushes past its padding box and gives the modal a
+horizontal scrollbar at phone widths. The action is box-aligned to the column,
+which is what the dialog footer and every page toolbar already do.
+
 ## Full CI failures are blocked before push
 
 The Husky pre-push hook and GitHub CI now call the same `npm run verify`

@@ -4,11 +4,19 @@ import * as React from 'react';
 
 import { cn } from '@/lib/utils';
 
-function Table({ className, ...props }: React.ComponentProps<'table'>) {
+type TableProps = React.ComponentProps<'table'> & {
+  /**
+   * Layout hook for composed table surfaces that own the scroll viewport.
+   * The default remains the canonical horizontal overflow wrapper.
+   */
+  containerClassName?: string;
+};
+
+function Table({ className, containerClassName, ...props }: TableProps) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn('relative w-full overflow-x-auto', containerClassName)}
     >
       <table
         data-slot="table"

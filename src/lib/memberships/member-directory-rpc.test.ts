@@ -2,7 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-import { EMPTY_MEMBER_FILTERS } from './filters';
+import {
+  EMPTY_MEMBER_FILTERS,
+  NO_TRAINER_MEMBER_FILTER,
+  UNASSIGNED_MEMBER_FILTER,
+} from './filters';
 import {
   loadMemberDirectory,
   memberDirectoryRpcArgs,
@@ -11,10 +15,24 @@ import {
   type MemberDirectoryQuery,
 } from './member-directory';
 
-const migration = readFileSync(
+const directoryMigration = readFileSync(
   resolve(
     process.cwd(),
     'supabase/migrations/20260828210000_member_customer_directory_page.sql'
+  ),
+  'utf8'
+);
+const migration = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260829080000_member_directory_assignment_trainer_filters.sql'
+  ),
+  'utf8'
+);
+const compatibilityMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260829081000_default_member_directory_filter_facets.sql'
   ),
   'utf8'
 );
@@ -33,6 +51,14 @@ const query: MemberDirectoryQuery = {
   filters: {
     plans: ['11111111-1111-1111-1111-111111111111'],
     statuses: ['active'],
+    assignees: [
+      '22222222-2222-2222-2222-222222222222',
+      UNASSIGNED_MEMBER_FILTER,
+    ],
+    trainers: [
+      '33333333-3333-3333-3333-333333333333',
+      NO_TRAINER_MEMBER_FILTER,
+    ],
     feeStatus: ['due'],
     churnRisk: ['yes'],
     followUps: ['open'],
@@ -44,7 +70,7 @@ const query: MemberDirectoryQuery = {
 
 describe('member_customer_directory_page SQL contract', () => {
   it('keeps the directory and RPC on caller privileges with authenticated-only execution', () => {
-    expect(migration).toContain(
+    expect(directoryMigration).toContain(
       'VIEW public.member_customer_directory\nWITH (security_invoker = true)'
     );
     expect(migration).toContain('SECURITY INVOKER');
@@ -58,15 +84,15 @@ describe('member_customer_directory_page SQL contract', () => {
     );
   });
 
-  it('replaces per-contact lateral work with set-wise aggregates and shares one materialized directory', () => {
-    expect(migration).not.toMatch(/\bLATERAL\b/);
+  it('keeps set-wise source aggregates and one materialized directory for each snapshot', () => {
+    expect(directoryMigration).not.toMatch(/\bLATERAL\b/);
     for (const cte of [
       'latest_membership AS',
       'services AS',
       'billing AS',
       'open_follow_ups AS',
     ]) {
-      expect(migration).toContain(cte);
+      expect(directoryMigration).toContain(cte);
     }
     expect(migration.match(/directory AS MATERIALIZED/g)).toHaveLength(1);
     expect(migration.match(/evaluated AS MATERIALIZED/g)).toHaveLength(1);
@@ -101,6 +127,10 @@ describe('member_customer_directory_page SQL contract', () => {
       'membership_fee_status',
       'contact_churn_risk',
       'open_follow_up_count',
+      'contact_assigned_to',
+      "contact ->> 'trainer_id'",
+      'assignee_matches',
+      'trainer_matches',
     ]) {
       expect(migration).toContain(value);
     }
@@ -135,6 +165,10 @@ describe('All-members RPC client contract', () => {
       p_plan_ids: ['11111111-1111-1111-1111-111111111111'],
       p_statuses: ['active'],
       p_fee_statuses: ['due'],
+      p_assignee_ids: ['22222222-2222-2222-2222-222222222222'],
+      p_include_unassigned: true,
+      p_trainer_ids: ['33333333-3333-3333-3333-333333333333'],
+      p_include_no_trainer: true,
       p_churn_risk: ['yes'],
       p_follow_ups: ['open'],
       p_sort_key: 'membership_fee_amount',
@@ -145,6 +179,31 @@ describe('All-members RPC client contract', () => {
     expect(memberDirectorySortKey('name')).toBe('contact_name');
     expect(memberDirectorySortKey('end_date')).toBe('display_expiry');
     expect(memberDirectorySortKey('fee_status')).toBe('membership_fee_status');
+  });
+
+  it('applies both operational facets to rows, total, and every quick count', () => {
+    expect(migration.match(/AND evaluated\.assignee_matches/g)).toHaveLength(5);
+    expect(migration.match(/AND evaluated\.trainer_matches/g)).toHaveLength(5);
+    expect(migration).toContain('OR directory.contact_assigned_to = ANY');
+    expect(migration).toContain("directory.contact ->> 'trainer_id'");
+    expect(migration).toContain('v_include_unassigned');
+    expect(migration).toContain('v_include_no_trainer');
+  });
+
+  it('keeps one backward-compatible identity during the application rollout', () => {
+    expect(compatibilityMigration).toContain(
+      'p_assignee_ids UUID[] DEFAULT ARRAY[]::UUID[]'
+    );
+    expect(compatibilityMigration).toContain(
+      'p_include_unassigned BOOLEAN DEFAULT FALSE'
+    );
+    expect(compatibilityMigration).toContain(
+      'p_trainer_ids UUID[] DEFAULT ARRAY[]::UUID[]'
+    );
+    expect(compatibilityMigration).toContain(
+      'p_include_no_trainer BOOLEAN DEFAULT FALSE'
+    );
+    expect(compatibilityMigration).not.toContain('DROP FUNCTION');
   });
 
   it('normalizes the established row shape and rejects malformed counts', () => {

@@ -49,8 +49,13 @@ interface BulkRecordPaymentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   membershipIds: string[];
-  /** Called after any write so the page can refresh. */
-  onDone: () => void;
+  /** Called after an attempt so callers can retain partial failures. */
+  onDone: (result: BulkRecordPaymentResult) => void;
+}
+
+export interface BulkRecordPaymentResult {
+  completedMembershipIds: string[];
+  failedMembershipIds: string[];
 }
 
 export function BulkRecordPaymentDialog({
@@ -136,6 +141,10 @@ export function BulkRecordPaymentDialog({
 
     let recorded = 0;
     const failedNames: string[] = [];
+    const recordedMembershipIds: string[] = [];
+    const failedMembershipIds = membershipIds.filter(
+      (id) => !(rows ?? []).some((row) => row.membership.id === id)
+    );
     // Per-member transactional RPC so one blocked row doesn't sink the batch.
     for (const { membership, balance } of due) {
       const { error: pErr } = await supabase.rpc('record_membership_payment', {
@@ -149,6 +158,7 @@ export function BulkRecordPaymentDialog({
         p_idempotency_key: crypto.randomUUID(),
       });
       if (pErr) {
+        failedMembershipIds.push(membership.id);
         failedNames.push(
           membership.contact?.name ||
             membership.contact?.phone ||
@@ -157,6 +167,7 @@ export function BulkRecordPaymentDialog({
         continue;
       }
       recorded++;
+      recordedMembershipIds.push(membership.id);
     }
     setSaving(false);
 
@@ -173,7 +184,15 @@ export function BulkRecordPaymentDialog({
       parts.join(' · ')
     );
     onOpenChange(false);
-    onDone();
+    onDone({
+      completedMembershipIds: [
+        ...(rows ?? [])
+          .filter((row) => !isChargeableAmount(row.balance))
+          .map((row) => row.membership.id),
+        ...recordedMembershipIds,
+      ],
+      failedMembershipIds,
+    });
   }
 
   return (

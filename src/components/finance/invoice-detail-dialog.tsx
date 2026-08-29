@@ -13,7 +13,6 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +26,7 @@ import {
   ResolvableAction,
   type ActionBlocker,
 } from '@/components/ui/resolvable-action';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { canRefundGatewayPayments } from '@/lib/auth/roles';
@@ -485,6 +485,11 @@ function InvoiceDetailBody({
     null;
   const headline = invoiceHeadline(currentInvoice);
   const summaryRows = invoiceSummaryRows(currentInvoice);
+  // The headline names the figure; the ledger below derives it. So this line
+  // carries only what the ledger cannot say — why the number is not simply
+  // collectible. `balance_due` and `settled` previously restated the exact
+  // Invoice total / Collected / Balance due rows rendered a few pixels down,
+  // which is what made one number read as three different facts.
   const headlineDetail = (() => {
     if (headline.detail === 'refund_review') {
       return 'Collection is paused pending review';
@@ -495,14 +500,8 @@ function InvoiceDetailBody({
     if (headline.detail === 'balance_reopened') {
       return 'A refund reopened this balance';
     }
-    if (headline.detail === 'balance_due') {
-      if (isChargeableAmount(currentInvoice.credit_applied ?? 0)) {
-        return `${fmt.money(currentInvoice.credit_applied ?? 0)} credit applied · ${fmt.money(currentInvoice.fee_amount)} total`;
-      }
-      return `${fmt.money(currentInvoice.amount_paid)} collected of ${fmt.money(currentInvoice.fee_amount)}`;
-    }
-    if (headline.detail === 'settled') return 'The invoice is settled';
-    return 'Nothing to collect';
+    if (headline.detail === 'nothing_to_collect') return 'Nothing to collect';
+    return null;
   })();
 
   if (loading) {
@@ -524,7 +523,7 @@ function InvoiceDetailBody({
   }
 
   return (
-    <div className="min-w-0 space-y-5">
+    <div className="min-w-0 space-y-8">
       <InvoiceRefundReviewFocusIntent
         invoiceId={currentInvoice.id}
         active={focusRefundReview}
@@ -544,71 +543,85 @@ function InvoiceDetailBody({
         </Alert>
       ) : null}
 
-      <Card size="sm">
-        <CardContent>
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-            <div className="min-w-0">
-              <MemberIdentity
-                name={customer?.name}
-                secondary={customer?.phone}
-                src={customer?.avatar_url}
-                size="lg"
-                meta={
-                  (member?.member_number ??
-                  currentInvoice.membership?.member_number) ? (
-                    <p className="text-muted-foreground mt-1 font-mono text-xs tabular-nums">
-                      Member ID{' '}
-                      {member?.member_number ??
-                        currentInvoice.membership?.member_number}
-                    </p>
-                  ) : null
-                }
-              />
-            </div>
-            <div className="sm:text-right">
-              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                {headline.label}
-              </p>
-              <p className="mt-1 text-2xl font-semibold tabular-nums">
-                {fmt.money(headline.amount)}
-              </p>
-              <p className="text-muted-foreground mt-1 text-xs">
-                {headlineDetail}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-2">
-        <h3 className="font-medium">Invoice items</h3>
-        <div className="border-border divide-border divide-y rounded-lg border">
-          {lines.length === 0 ? (
-            <p className="text-muted-foreground px-3 py-4 text-sm">
-              No invoice lines are available.
+      {/* Masthead, not a card. Who and how much sit on the dialog's own
+          content edge so the title, the item names, the summary labels and
+          the payment rows all share one left rule instead of the four
+          different indents four nested boxes used to produce. */}
+      <div className="border-border grid gap-4 border-b pb-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+        <div className="min-w-0">
+          <MemberIdentity
+            name={customer?.name}
+            secondary={customer?.phone}
+            src={customer?.avatar_url}
+            size="lg"
+            meta={
+              (member?.member_number ??
+              currentInvoice.membership?.member_number) ? (
+                <p className="text-muted-foreground mt-1 font-mono text-xs tabular-nums">
+                  Member ID{' '}
+                  {member?.member_number ??
+                    currentInvoice.membership?.member_number}
+                </p>
+              ) : null
+            }
+          />
+        </div>
+        <div className="sm:text-right">
+          {/* The MetricCard recipe verbatim — the same label/value pairing the
+              owner reads on the Finance KPI tiles behind this dialog. */}
+          <p className="text-muted-foreground text-sm font-medium">
+            {headline.label}
+          </p>
+          <p className="text-foreground mt-2 text-[28px] leading-none font-bold tabular-nums">
+            {fmt.money(headline.amount)}
+          </p>
+          {headlineDetail ? (
+            <p className="text-muted-foreground mt-2 text-xs">
+              {headlineDetail}
             </p>
-          ) : (
-            lines.map((line) => {
-              const period = line.membership_period_id
-                ? periodById.get(line.membership_period_id)
-                : null;
-              const discountAmount = Number(period?.discount_amount ?? 0);
-              const bonusMonths = Number(period?.bonus_months ?? 0);
-              const discountLabel =
-                period?.discount_type === 'percentage' &&
-                period.discount_value != null
-                  ? `Discount (${Number(period.discount_value)}%)`
-                  : 'Discount';
+          ) : null}
+        </div>
+      </div>
 
-              return (
-                <div
-                  key={line.id}
-                  className={
-                    line.state === 'void' ? 'px-3 py-3 opacity-65' : 'px-3 py-3'
-                  }
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
+      {/* Two columns from `lg`: the invoice on the left — what is owed and what
+          it is made of — and the money that has actually moved on the right.
+          The rail is fixed rather than fractional because the dialog is capped
+          at 54rem, so a fraction would only ever restate one width. Below `lg`
+          the columns stack in reading order and the vertical rule leaves grid
+          flow entirely, which is why there is no horizontal twin: the stacked
+          layout is already separated by the section heading and its own rule. */}
+      <div className="grid gap-y-8 lg:grid-cols-[minmax(0,1fr)_auto_19rem] lg:gap-x-6 lg:gap-y-0">
+        {/* Items and totals are one ledger, not two boxes: the summary is the
+            foot of this list, so it shares its amount column and its rules. */}
+        <div className="min-w-0 space-y-2">
+          <h3 className="text-base font-medium">Invoice items</h3>
+          <div className="divide-border border-border divide-y border-y">
+            {lines.length === 0 ? (
+              <p className="text-muted-foreground py-3">
+                No invoice lines are available.
+              </p>
+            ) : (
+              lines.map((line) => {
+                const period = line.membership_period_id
+                  ? periodById.get(line.membership_period_id)
+                  : null;
+                const discountAmount = Number(period?.discount_amount ?? 0);
+                const bonusMonths = Number(period?.bonus_months ?? 0);
+                const discountLabel =
+                  period?.discount_type === 'percentage' &&
+                  period.discount_value != null
+                    ? `Discount (${Number(period.discount_value)}%)`
+                    : 'Discount';
+
+                return (
+                  <div
+                    key={line.id}
+                    className={cn(
+                      'grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 py-3',
+                      line.state === 'void' && 'opacity-65'
+                    )}
+                  >
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-medium">
                           {line.description}
@@ -619,25 +632,25 @@ function InvoiceDetailBody({
                         ) : null}
                       </div>
                       {line.service_start && line.service_end ? (
-                        <p className="text-muted-foreground mt-0.5 text-xs tabular-nums">
+                        <p className="text-muted-foreground mt-1 text-xs tabular-nums">
                           {fmt.date(line.service_start)} –{' '}
                           {fmt.date(line.service_end)}
                         </p>
                       ) : null}
                       {bonusMonths > 0 && period?.standard_period_end ? (
-                        <p className="text-muted-foreground mt-0.5 text-xs">
+                        <p className="text-muted-foreground mt-1 text-xs">
                           Regular expiry {fmt.date(period.standard_period_end)}{' '}
                           · +{bonusMonths}{' '}
                           {bonusMonths === 1 ? 'month' : 'months'}
                         </p>
                       ) : null}
                       {line.override_reason ? (
-                        <p className="text-muted-foreground mt-0.5 text-xs">
+                        <p className="text-muted-foreground mt-1 text-xs">
                           Price override: {line.override_reason}
                         </p>
                       ) : null}
                     </div>
-                    <div className="shrink-0 text-right text-sm">
+                    <div className="text-right">
                       {isChargeableAmount(discountAmount) &&
                       line.list_amount != null ? (
                         <p className="text-muted-foreground text-xs tabular-nums line-through">
@@ -648,316 +661,332 @@ function InvoiceDetailBody({
                         {fmt.money(line.line_amount)}
                       </p>
                       {isChargeableAmount(discountAmount) ? (
-                        <p className="text-muted-foreground text-xs tabular-nums">
+                        <p className="text-muted-foreground mt-1 text-xs tabular-nums">
                           {discountLabel} −{fmt.money(discountAmount)}
                         </p>
                       ) : null}
                     </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      <div className="border-border overflow-hidden rounded-lg border">
-        <dl className="divide-border divide-y">
-          {summaryRows.map((row) => (
-            <div
-              key={row.key}
-              className={cn(
-                'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-3 py-2.5',
-                row.emphasis && 'bg-muted/20'
-              )}
-            >
-              <dt
-                className={cn(
-                  'text-muted-foreground min-w-0',
-                  row.emphasis && 'text-foreground font-medium'
-                )}
-              >
-                {row.label}
-                {row.collectionBreakdown ? (
-                  <span className="mt-0.5 block text-xs font-normal">
-                    <span className="tabular-nums">
-                      {fmt.money(row.collectionBreakdown.gross)}
-                    </span>{' '}
-                    collected ·{' '}
-                    <span className="tabular-nums">
-                      {fmt.money(row.collectionBreakdown.refunded)}
-                    </span>{' '}
-                    refunded
-                  </span>
-                ) : null}
-              </dt>
-              <dd
-                className={cn(
-                  'text-right font-medium tabular-nums',
-                  row.emphasis && 'font-semibold',
-                  row.warning && 'text-amber-foreground'
-                )}
-              >
-                {row.sign === 'minus' ? '−' : ''}
-                {fmt.money(row.amount)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </div>
-
-      <section className="space-y-2" aria-labelledby="payment-history-heading">
-        <h3 id="payment-history-heading" className="font-medium">
-          Payment history
-        </h3>
-        {payments.length === 0 ? (
-          <div className="border-border rounded-lg border px-3 py-4">
-            <p className="text-muted-foreground text-sm">
-              No payments recorded for this invoice.
-            </p>
+                );
+              })
+            )}
           </div>
-        ) : (
-          <div className="border-border divide-border divide-y rounded-lg border">
-            {payments.map((payment) => {
-              const refunds = refundsByPayment.get(payment.id) ?? [];
-              return (
-                <div
-                  key={payment.id}
+
+          {/* Totals cluster tightly (they are one derivation, so no rule
+            between them) and the balance is set off by the rule and a size
+            step — the ledger's terminus, not a tinted chip inside a box. */}
+          <dl className="pt-1">
+            {summaryRows.map((row) => (
+              <div
+                key={row.key}
+                className={cn(
+                  'grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-4 py-1',
+                  row.emphasis && 'border-border mt-1 border-t pt-2 pb-0'
+                )}
+              >
+                <dt
                   className={cn(
-                    'min-w-0 p-3',
-                    payment.status === 'void' && 'opacity-65'
+                    'text-muted-foreground min-w-0',
+                    row.emphasis && 'text-foreground font-medium'
                   )}
                 >
-                  <div className="flex min-w-0 items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-medium">
-                          {METHOD_LABEL[payment.method]}
-                        </p>
-                        {payment.status === 'void' ? (
-                          <VoidedPaymentBadge
-                            payment={payment}
-                            voidedOn={
-                              payment.voided_at
-                                ? fmt.date(payment.voided_at)
-                                : null
-                            }
-                          />
-                        ) : null}
-                        {payment.source === 'auto' ? (
-                          <Badge variant="info">
-                            <Repeat className="size-3" /> Auto
-                          </Badge>
-                        ) : payment.source === 'payment_link' ? (
-                          <Badge variant="info">
-                            <Link2 className="size-3" /> Payment link
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
-                        <span className="tabular-nums">
-                          {fmt.dateTime(payment.paid_at)}
-                        </span>
-                        {payment.user_id ? (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            {staffNameById.has(payment.user_id) ? (
-                              <span className="inline-flex items-center gap-1.5">
-                                <span>Recorded by</span>
-                                <UserAvatar
-                                  name={
-                                    staffNameById.get(payment.user_id) ?? '?'
-                                  }
-                                  src={staffAvatarById.get(payment.user_id)}
-                                  size="xs"
-                                />
-                                <span>
-                                  {staffNameById.get(payment.user_id)}
-                                </span>
-                              </span>
-                            ) : (
-                              <span>Recorded by Former teammate</span>
-                            )}
-                          </>
-                        ) : payment.source ===
-                          'auto' ? null : payment.source === 'payment_link' ? (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span>Collected by Razorpay</span>
-                          </>
-                        ) : (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span>Recorder unavailable</span>
-                          </>
-                        )}
-                      </div>
-                      {payment.note ? (
-                        <p className="text-muted-foreground mt-2 text-xs">
-                          Note: {payment.note}
-                        </p>
-                      ) : null}
-                      {payment.screenshot_url ||
-                      payment.screenshot_path ||
-                      (payment.status === 'void' && payment.void_reason) ? (
-                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-                          {payment.screenshot_url || payment.screenshot_path ? (
-                            <PaymentProofLink payment={payment} />
+                  {row.label}
+                  {row.collectionBreakdown ? (
+                    <span className="mt-0.5 block text-xs font-normal">
+                      <span className="tabular-nums">
+                        {fmt.money(row.collectionBreakdown.gross)}
+                      </span>{' '}
+                      collected ·{' '}
+                      <span className="tabular-nums">
+                        {fmt.money(row.collectionBreakdown.refunded)}
+                      </span>{' '}
+                      refunded
+                    </span>
+                  ) : null}
+                </dt>
+                <dd
+                  className={cn(
+                    'text-right font-medium tabular-nums',
+                    row.emphasis && 'text-base font-semibold',
+                    row.warning && 'text-amber-foreground'
+                  )}
+                >
+                  {row.sign === 'minus' ? '−' : ''}
+                  {fmt.money(row.amount)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        <Separator orientation="vertical" className="hidden lg:block" />
+
+        {/* `@container/payments` and not a viewport breakpoint: the refund audit
+            grid below has to answer to this rail's 304px, not to the 1024px
+            viewport that put it there. */}
+        <section
+          className="@container/payments min-w-0 space-y-2"
+          aria-labelledby="payment-history-heading"
+        >
+          <h3 id="payment-history-heading" className="text-base font-medium">
+            Payment history
+          </h3>
+          {payments.length === 0 ? (
+            <p className="text-muted-foreground border-border border-t py-3">
+              No payments recorded for this invoice.
+            </p>
+          ) : (
+            <div className="divide-border border-border divide-y border-t">
+              {payments.map((payment) => {
+                const refunds = refundsByPayment.get(payment.id) ?? [];
+                return (
+                  <div
+                    key={payment.id}
+                    className={cn(
+                      'min-w-0 py-3',
+                      payment.status === 'void' && 'opacity-65'
+                    )}
+                  >
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-medium">
+                            {METHOD_LABEL[payment.method]}
+                          </p>
+                          {payment.status === 'void' ? (
+                            <VoidedPaymentBadge
+                              payment={payment}
+                              voidedOn={
+                                payment.voided_at
+                                  ? fmt.date(payment.voided_at)
+                                  : null
+                              }
+                            />
                           ) : null}
-                          {payment.status === 'void' && payment.void_reason ? (
-                            <span className="text-muted-foreground">
-                              Void reason: {payment.void_reason}
-                            </span>
+                          {payment.source === 'auto' ? (
+                            <Badge variant="info">
+                              <Repeat className="size-3" /> Auto
+                            </Badge>
+                          ) : payment.source === 'payment_link' ? (
+                            <Badge variant="info">
+                              <Link2 className="size-3" /> Payment link
+                            </Badge>
                           ) : null}
                         </div>
-                      ) : null}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                      <p
-                        className={cn(
-                          'font-medium tabular-nums',
-                          payment.status === 'void' && 'line-through'
-                        )}
-                      >
-                        {fmt.money(payment.amount)}
-                      </p>
-                      <InvoicePaymentActions
-                        payment={payment}
-                        refunds={refunds}
-                        refundScanComplete={refundScanComplete}
-                        canRefund={canRefund}
-                        canVoid={canVoid}
-                        onRefund={() => setRefundPayment(payment)}
-                        onVoid={
-                          onVoidPayment
-                            ? () => onVoidPayment(payment)
-                            : undefined
-                        }
-                        onResolveLineTarget={(refund) =>
-                          setClassification({ payment, refund })
-                        }
-                      />
-                    </div>
-                  </div>
-                  {refunds.length > 0 ? (
-                    <div className="border-border divide-border mt-3 divide-y border-t">
-                      {refunds.map((refund) => {
-                        const refundStatus =
-                          PAYMENT_REFUND_STATUS_PRESENTATION[refund.status];
-                        const eventAt = paymentRefundEventAt(refund);
-                        const hasAuditDetails = Boolean(
-                          refund.reason ||
-                          refund.gateway_refund_id ||
-                          refund.requested_by
-                        );
-
-                        return (
-                          <div
-                            key={refund.id}
-                            className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2.5 py-3 text-xs"
-                          >
-                            <span className="bg-muted text-muted-foreground mt-0.5 flex size-6 items-center justify-center rounded-md">
-                              <RotateCcw className="size-3" />
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                  <PaymentRefundStatusBadge
-                                    status={refund.status}
+                        <div className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs">
+                          <span className="tabular-nums">
+                            {fmt.dateTime(payment.paid_at)}
+                          </span>
+                          {payment.user_id ? (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              {staffNameById.has(payment.user_id) ? (
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span>Recorded by</span>
+                                  <UserAvatar
+                                    name={
+                                      staffNameById.get(payment.user_id) ?? '?'
+                                    }
+                                    src={staffAvatarById.get(payment.user_id)}
+                                    size="xs"
                                   />
-                                  <span className="font-medium">
-                                    {paymentRefundOutcome(refund)}
+                                  <span>
+                                    {staffNameById.get(payment.user_id)}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span>Recorded by Former teammate</span>
+                              )}
+                            </>
+                          ) : payment.source ===
+                            'auto' ? null : payment.source ===
+                            'payment_link' ? (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>Collected by Razorpay</span>
+                            </>
+                          ) : (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span>Recorder unavailable</span>
+                            </>
+                          )}
+                        </div>
+                        {payment.note ? (
+                          <p className="text-muted-foreground mt-2 text-xs">
+                            Note: {payment.note}
+                          </p>
+                        ) : null}
+                        {payment.screenshot_url ||
+                        payment.screenshot_path ||
+                        (payment.status === 'void' && payment.void_reason) ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
+                            {payment.screenshot_url ||
+                            payment.screenshot_path ? (
+                              <PaymentProofLink payment={payment} />
+                            ) : null}
+                            {payment.status === 'void' &&
+                            payment.void_reason ? (
+                              <span className="text-muted-foreground">
+                                Void reason: {payment.void_reason}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <p
+                          className={cn(
+                            'font-medium tabular-nums',
+                            payment.status === 'void' && 'line-through'
+                          )}
+                        >
+                          {fmt.money(payment.amount)}
+                        </p>
+                        {/* Box-aligned to the money column, not label-aligned:
+                          a negative margin to optically pull the ghost label
+                          onto the column pushes past the scroller's padding
+                          box and gives the dialog a horizontal scrollbar. */}
+                        <InvoicePaymentActions
+                          payment={payment}
+                          refunds={refunds}
+                          refundScanComplete={refundScanComplete}
+                          canRefund={canRefund}
+                          canVoid={canVoid}
+                          onRefund={() => setRefundPayment(payment)}
+                          onVoid={
+                            onVoidPayment
+                              ? () => onVoidPayment(payment)
+                              : undefined
+                          }
+                          onResolveLineTarget={(refund) =>
+                            setClassification({ payment, refund })
+                          }
+                        />
+                      </div>
+                    </div>
+                    {/* Refunds belong to their payment, so they hang from it on
+                      an indented rule rather than opening a third box. */}
+                    {refunds.length > 0 ? (
+                      <div className="border-border divide-border mt-3 ml-4 divide-y border-t">
+                        {refunds.map((refund) => {
+                          const refundStatus =
+                            PAYMENT_REFUND_STATUS_PRESENTATION[refund.status];
+                          const eventAt = paymentRefundEventAt(refund);
+                          const hasAuditDetails = Boolean(
+                            refund.reason ||
+                            refund.gateway_refund_id ||
+                            refund.requested_by
+                          );
+
+                          return (
+                            <div
+                              key={refund.id}
+                              className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2.5 py-3 text-xs"
+                            >
+                              <span className="bg-muted text-muted-foreground mt-0.5 flex size-6 items-center justify-center rounded-md">
+                                <RotateCcw className="size-3" />
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                    <PaymentRefundStatusBadge
+                                      status={refund.status}
+                                    />
+                                    <span className="font-medium">
+                                      {paymentRefundOutcome(refund)}
+                                    </span>
+                                  </div>
+                                  <span className="shrink-0 font-semibold tabular-nums">
+                                    {refund.status === 'processed' ? '−' : ''}
+                                    {fmt.money(refund.amount)}
                                   </span>
                                 </div>
-                                <span className="shrink-0 font-semibold tabular-nums">
-                                  {refund.status === 'processed' ? '−' : ''}
-                                  {fmt.money(refund.amount)}
-                                </span>
-                              </div>
 
-                              <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
-                                <time
-                                  dateTime={eventAt}
-                                  className="tabular-nums"
-                                >
-                                  {refundStatus.eventLabel}{' '}
-                                  {fmt.dateTime(eventAt)}
-                                </time>
-                                {refund.source === 'razorpay_dashboard' ? (
-                                  <>
-                                    <span aria-hidden="true">·</span>
-                                    <span>Razorpay Dashboard</span>
-                                  </>
+                                <p className="text-muted-foreground mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                                  <time
+                                    dateTime={eventAt}
+                                    className="tabular-nums"
+                                  >
+                                    {refundStatus.eventLabel}{' '}
+                                    {fmt.dateTime(eventAt)}
+                                  </time>
+                                  {refund.source === 'razorpay_dashboard' ? (
+                                    <>
+                                      <span aria-hidden="true">·</span>
+                                      <span>Razorpay Dashboard</span>
+                                    </>
+                                  ) : null}
+                                </p>
+
+                                {hasAuditDetails ? (
+                                  <dl className="mt-3 grid gap-x-4 gap-y-2 @sm/payments:grid-cols-2">
+                                    {refund.reason ? (
+                                      <div className="min-w-0 @sm/payments:col-span-2">
+                                        <dt className="text-muted-foreground">
+                                          Reason
+                                        </dt>
+                                        <dd className="mt-0.5">
+                                          {refund.reason}
+                                        </dd>
+                                      </div>
+                                    ) : null}
+                                    {refund.gateway_refund_id ? (
+                                      <div className="min-w-0">
+                                        <dt className="text-muted-foreground">
+                                          Provider reference
+                                        </dt>
+                                        <dd className="mt-0.5 font-mono break-all">
+                                          {refund.gateway_refund_id}
+                                        </dd>
+                                      </div>
+                                    ) : null}
+                                    {refund.requested_by ? (
+                                      <div className="min-w-0">
+                                        <dt className="text-muted-foreground">
+                                          Requested by
+                                        </dt>
+                                        <dd className="mt-0.5">
+                                          {staffNameById.get(
+                                            refund.requested_by
+                                          ) ?? 'Former teammate'}
+                                        </dd>
+                                      </div>
+                                    ) : null}
+                                  </dl>
                                 ) : null}
-                              </p>
 
-                              {hasAuditDetails ? (
-                                <dl className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2">
-                                  {refund.reason ? (
-                                    <div className="min-w-0 sm:col-span-2">
-                                      <dt className="text-muted-foreground">
-                                        Reason
-                                      </dt>
-                                      <dd className="mt-0.5">
-                                        {refund.reason}
-                                      </dd>
-                                    </div>
-                                  ) : null}
-                                  {refund.gateway_refund_id ? (
-                                    <div className="min-w-0">
-                                      <dt className="text-muted-foreground">
-                                        Provider reference
-                                      </dt>
-                                      <dd className="mt-0.5 font-mono break-all">
-                                        {refund.gateway_refund_id}
-                                      </dd>
-                                    </div>
-                                  ) : null}
-                                  {refund.requested_by ? (
-                                    <div className="min-w-0">
-                                      <dt className="text-muted-foreground">
-                                        Requested by
-                                      </dt>
-                                      <dd className="mt-0.5">
-                                        {staffNameById.get(
-                                          refund.requested_by
-                                        ) ?? 'Former teammate'}
-                                      </dd>
-                                    </div>
-                                  ) : null}
-                                </dl>
-                              ) : null}
-
-                              {canRefund &&
-                              refund.source === 'razorpay_dashboard' &&
-                              refund.status === 'processed' &&
-                              !refund.disposition ? (
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="mt-3"
-                                  onClick={() =>
-                                    setClassification({ payment, refund })
-                                  }
-                                >
-                                  {refund.allocation_complete
-                                    ? 'Classify refund'
-                                    : 'Resolve refund review'}
-                                </Button>
-                              ) : null}
+                                {canRefund &&
+                                refund.source === 'razorpay_dashboard' &&
+                                refund.status === 'processed' &&
+                                !refund.disposition ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-3"
+                                    onClick={() =>
+                                      setClassification({ payment, refund })
+                                    }
+                                  >
+                                    {refund.allocation_complete
+                                      ? 'Classify refund'
+                                      : 'Resolve refund review'}
+                                  </Button>
+                                ) : null}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
 
       {refundPayment ? (
         <GatewayRefundDialog
@@ -1059,7 +1088,7 @@ export function InvoiceDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-[35rem]">
+      <DialogContent className="max-h-[calc(100dvh-2rem)] min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-[35rem] lg:max-w-[54rem] xl:max-w-[60rem]">
         <DialogHeader className="min-w-0">
           <DialogTitle size="lg" className="flex flex-wrap items-center gap-2">
             <span>{invoice ? `Invoice ${invoice.reference}` : 'Invoice'}</span>
@@ -1094,15 +1123,34 @@ export function InvoiceDetailDialog({
           ) : null}
         </div>
 
-        {/* Two bands by rank, not one wrapping row of equals: the ways to ask
-            for the money first, then the paperwork beside the one action that
-            closes the invoice. Reading order matches DOM order at both sizes.
-            Below `sm` the link buttons fill their rows so a wrap never strands
-            a short one — selected as `> button` rather than `[data-slot=button]`
-            because Base UI rewrites that slot on a blocked action's trigger. */}
-        <DialogFooter className="min-w-0 flex-col gap-5 sm:flex-col sm:gap-4">
+        {/* One horizontal strip, one hierarchy step. Every secondary is a
+            ghost button, so the five ways to chase or send this invoice read as
+            one quiet toolbar and Record payment is the only emphasised control
+            in the dialog. `contents` on the document actions dissolves their own
+            flex wrapper so all five flow as siblings at one gap rather than as a
+            block of three plus a block of two.
+
+            The strip starts on the dialog's own left content edge — the same
+            rule the title, the item names and the section headings use — and the
+            primary takes the free space with `ml-auto`. `sm:justify-start`
+            overrides the master's `sm:justify-end`, which is load-bearing: once
+            the primary wraps there is no `ml-auto` item left on the first line,
+            so `justify-end` would right-align the strip at `lg` while `ml-auto`
+            left-aligns it at `xl` — the same six controls under two alignments.
+            Six buttons measure 858px, so they share a line only once the dialog
+            reaches `xl`; below that the primary wraps to its own line and
+            `ml-auto` keeps it on the right.
+
+            Nothing stretches to fill a short line any more. That rule existed
+            because a stranded outline pill on its own row read as broken, and
+            it cannot survive `contents`: a `> button` selector reaches the three
+            collection links but not the paperwork, which is still a DOM child of
+            its own wrapper — so one row grew a stretched UPI link beside a
+            natural-width Download invoice. Ghost buttons have no edge to strand,
+            so the strip simply wraps at its natural widths. */}
+        <DialogFooter className="min-w-0 flex-row flex-wrap items-center justify-start gap-2 sm:justify-start">
           {activeInvoice && collectionState?.show ? (
-            <div className="flex min-w-0 flex-wrap items-center gap-2 [&>button]:min-w-fit [&>button]:flex-1 sm:[&>button]:flex-none">
+            <>
               <PaymentLinkActions
                 key={activeInvoice.id}
                 invoice={activeInvoice}
@@ -1116,29 +1164,34 @@ export function InvoiceDetailDialog({
                 )}
                 note={`Invoice ${activeInvoice.reference}`}
                 size="default"
+                variant="ghost"
                 blocker={collectionBlocker}
               />
-            </div>
+            </>
           ) : null}
 
-          <div className="flex min-w-0 flex-col gap-3 empty:hidden sm:flex-row sm:items-center sm:justify-end sm:gap-4">
-            {activeInvoice ? (
-              <InvoiceDocumentActions
-                key={activeInvoice.id}
-                invoice={activeInvoice}
-                variant={collectionState?.show ? 'ghost' : 'outline'}
-                className={cn(collectionState?.show && 'sm:mr-auto')}
-                onResolveRefundReview={
-                  canVoid ? focusCurrentRefundReview : undefined
-                }
-                customerPhone={
-                  member?.contact?.phone ??
-                  activeInvoice.membership?.contact?.phone ??
-                  activeInvoice.contact?.phone
-                }
-              />
-            ) : null}
-            {activeInvoice && collectionState?.show ? (
+          {activeInvoice ? (
+            <InvoiceDocumentActions
+              key={activeInvoice.id}
+              invoice={activeInvoice}
+              // Outline only when they are the whole footer: a settled invoice
+              // has no primary to anchor the band, and two borderless actions
+              // alone in a muted bar read as disabled.
+              variant={collectionState?.show ? 'ghost' : 'outline'}
+              className="contents"
+              onResolveRefundReview={
+                canVoid ? focusCurrentRefundReview : undefined
+              }
+              customerPhone={
+                member?.contact?.phone ??
+                activeInvoice.membership?.contact?.phone ??
+                activeInvoice.contact?.phone
+              }
+            />
+          ) : null}
+
+          {activeInvoice && collectionState?.show ? (
+            <div className="ml-auto flex min-w-0 justify-end">
               <InvoiceRecordPaymentAction
                 invoice={activeInvoice}
                 canRecord={canRecord}
@@ -1146,8 +1199,8 @@ export function InvoiceDetailDialog({
                 onRecord={onRecord}
                 onResolveRefundReview={focusCurrentRefundReview}
               />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

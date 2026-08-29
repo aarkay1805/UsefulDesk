@@ -123,16 +123,25 @@ export function TableSkeleton({
   rows = 7,
   label = 'Loading table',
   className,
+  containerClassName,
+  headerClassName,
   style,
 }: {
   columns: readonly TableSkeletonColumn[];
   rows?: number;
   label?: string;
   className?: string;
+  containerClassName?: string;
+  headerClassName?: string;
   style?: CSSProperties;
 }) {
   return (
-    <Table className={className} style={style} aria-busy="true">
+    <Table
+      className={className}
+      containerClassName={containerClassName}
+      style={style}
+      aria-busy="true"
+    >
       {columns.some((column) => column.width) ? (
         <colgroup>
           {columns.map((column, index) => (
@@ -140,7 +149,7 @@ export function TableSkeleton({
           ))}
         </colgroup>
       ) : null}
-      <TableHeader>
+      <TableHeader className={headerClassName}>
         <TableRow className="hover:bg-transparent">
           {columns.map((column, index) => (
             <TableHead

@@ -62,13 +62,14 @@ export interface BulkEditProperty {
   key: string;
   label: string;
   /** Which section of the property picker this sits under. */
-  group: 'Lead fields' | 'Custom fields';
+  group: 'Lead fields' | 'Member fields' | 'Custom fields';
   editor: BulkEditEditor;
 }
 
 // Picker sections render in this order; empty ones are skipped.
 const GROUP_ORDER: BulkEditProperty['group'][] = [
   'Lead fields',
+  'Member fields',
   'Custom fields',
 ];
 
@@ -177,6 +178,7 @@ export function BulkEditDialog({
   open,
   onOpenChange,
   count,
+  noun = 'record',
   properties,
   onApply,
 }: {
@@ -184,6 +186,8 @@ export function BulkEditDialog({
   onOpenChange: (open: boolean) => void;
   /** How many records the edit will touch (for the title). */
   count: number;
+  /** Record noun used in the title. Leads keep the default. */
+  noun?: string;
   properties: BulkEditProperty[];
   /** Persist the edit. Return true on success (dialog closes), false to
       keep the dialog open (the failing write already toasted). */
@@ -234,7 +238,8 @@ export function BulkEditDialog({
       <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            Bulk edit {count} {count === 1 ? 'record' : 'records'}
+            Bulk edit {count} {noun}
+            {count === 1 ? '' : 's'}
           </DialogTitle>
         </DialogHeader>
 

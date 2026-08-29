@@ -352,7 +352,7 @@ export default function MembersPage() {
   }
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
       {/* App-bar actions — portalled into the shared header next to the
           "Members" title, so the page doesn't own a second title row
           (mirrors /leads). */}
@@ -417,7 +417,7 @@ export default function MembersPage() {
         </Tabs>
       </PageHeaderTabs>
 
-      <div>
+      <div className={view === 'all' ? 'min-h-0 flex-1' : undefined}>
         {view === 'renewals' ? (
           <RenewalActionLists
             readiness={readiness}

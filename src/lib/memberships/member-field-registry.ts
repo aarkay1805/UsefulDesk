@@ -1,6 +1,7 @@
 import type { TargetKind } from '@/lib/contacts/field-mapping';
 
-export type MemberFilterDim = 'plans' | 'statuses' | 'feeStatus' | 'churnRisk';
+export type MemberFilterDim =
+  'plans' | 'statuses' | 'assignees' | 'trainers' | 'feeStatus' | 'churnRisk';
 
 export type MemberColumnKey =
   | 'name'
@@ -719,6 +720,7 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     defaultWidth: 170,
     minWidth: 130,
     defaultHidden: true,
+    filterDim: 'assignees',
     importPolicy: {
       kind: 'fields',
       fields: ['assigned_to', 'service_trainer'],
@@ -729,6 +731,7 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     label: 'Trainer',
     defaultWidth: 170,
     minWidth: 130,
+    filterDim: 'trainers',
     importPolicy: { kind: 'fields', fields: ['membership_trainer'] },
   },
   {

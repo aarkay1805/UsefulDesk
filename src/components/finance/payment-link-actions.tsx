@@ -376,7 +376,7 @@ export function PaymentLinkActions({
         trigger={
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             disabled={canManage && creatingFor !== null}
             loading={canManage && (readinessLoading || creatingFor === 'copy')}
           >
@@ -397,7 +397,7 @@ export function PaymentLinkActions({
         trigger={
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             disabled={canManage && creatingFor !== null}
             loading={canManage && (readinessLoading || creatingFor === 'send')}
           >

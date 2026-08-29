@@ -51,7 +51,9 @@ describe('members initial bundle', () => {
 
     expect(source).toContain('}, [fetchAssignmentRequests]);');
     expect(source).not.toContain('}, [fetchAssignmentRequests, reloadKey]);');
-    expect(source).toContain('reloadKey,\n    assignmentNonce,');
+    expect(source).toContain(
+      'reloadKey,\n    listingNonce,\n    assignmentNonce,'
+    );
   });
 
   it('routes follow-up events to the member sheet timeline boundary', () => {

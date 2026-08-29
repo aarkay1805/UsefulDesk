@@ -44,6 +44,8 @@ import {
   CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
   MEMBER_STATUS_OPTIONS,
+  NO_TRAINER_MEMBER_FILTER,
+  UNASSIGNED_MEMBER_FILTER,
   type MemberFilters,
 } from '@/lib/memberships/filters';
 import {
@@ -62,6 +64,25 @@ import {
   type MemberColumnKey,
   type MemberFilterDim,
 } from '@/lib/memberships/member-field-registry';
+import {
+  memberTableRecordRange,
+  nextMemberColumnSort,
+} from '@/lib/memberships/member-table-view';
+import {
+  buildMemberBulkEditProperties,
+  isMemberBulkEditKey,
+  proveMemberBulkWrite,
+  runMemberAssignmentBulkEdit,
+} from '@/lib/memberships/member-bulk-edit';
+import {
+  memberSelectionFromRows,
+  membershipOnlyMemberSelection,
+  retainFailedMemberSelection,
+  summarizeMemberSelection,
+  toggleMemberPageSelection,
+  toggleMemberSelection,
+  type MemberSelection,
+} from '@/lib/memberships/member-selection';
 import type { LeadTransfer, Membership } from '@/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -83,7 +104,18 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { GatedButton } from '@/components/ui/gated-button';
+import {
+  ResolvableAction,
+  type ActionBlocker,
+} from '@/components/ui/resolvable-action';
 import { SearchInput } from '@/components/ui/search-input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import {
@@ -119,7 +151,14 @@ import {
   type ColumnFilterProp,
   type SortDir,
 } from '@/components/table/column-header';
-import { BulkAddNoteDialog } from '@/components/leads/bulk-add-note-dialog';
+import {
+  BulkAddNoteDialog,
+  type BulkAddNoteResult,
+} from '@/components/leads/bulk-add-note-dialog';
+import {
+  BulkEditDialog,
+  type BulkEditProperty,
+} from '@/components/leads/bulk-edit-dialog';
 import { useTablePrefs } from '@/hooks/use-table-prefs';
 import {
   MembershipStatusBadge,
@@ -129,7 +168,10 @@ import {
 import { MembersFilters } from './members-filters';
 import { MemberIdentity } from './member-identity';
 import { buildMemberAvatarPreview } from './member-avatar-quick-view';
-import { BulkRecordPaymentDialog } from './bulk-record-payment-dialog';
+import {
+  BulkRecordPaymentDialog,
+  type BulkRecordPaymentResult,
+} from './bulk-record-payment-dialog';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { FollowUpButton } from '@/components/follow-ups/follow-up-button';
 import { RecordPaymentDialog } from './record-payment-dialog';
@@ -143,6 +185,7 @@ import {
 } from './send-reminder-button';
 
 const PAGE_SIZE = 25;
+const PAGE_SIZE_OPTIONS = [10, 20, 25, 30, 40, 50];
 
 type QuickMemberFilter = keyof MemberDirectoryQuickFilterCounts;
 
@@ -283,12 +326,18 @@ export function MembersTable({
   );
   // Drops out-of-order responses: only the latest fetch may set state.
   const fetchSeq = useRef(0);
+  const [listingNonce, setListingNonce] = useState(0);
 
-  // Selection — membership id → contact id (bulk note needs contact ids,
-  // and select-all-matching spans rows never loaded onto a page).
-  const [selected, setSelected] = useState<Map<string, string>>(new Map());
+  // Selection is contact-first because All Members is a contact-backed
+  // directory. The optional membership id keeps membership-only actions safe.
+  const [selected, setSelected] = useState<MemberSelection>(new Map());
+  const selectionSummary = useMemo(
+    () => summarizeMemberSelection(selected),
+    [selected]
+  );
 
   // Bulk dialogs.
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
@@ -309,10 +358,11 @@ export function MembersTable({
     key: 'assignee' | 'trainer' | 'churnRisk';
   } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
-  // Active trainer roster for the Trainer cell. Unlike the staff roster this
-  // needs no login seat, so it lists gym identities rather than teammates.
+  // Full trainer roster for display/filtering, including archived identities
+  // that may still be referenced by historical assignments. Inline editing
+  // offers active identities only.
   const [trainers, setTrainers] = useState<
-    { id: string; display_name: string }[]
+    { id: string; display_name: string; is_active: boolean }[]
   >([]);
   useEffect(() => {
     if (!accountId) return;
@@ -320,11 +370,14 @@ export function MembersTable({
     void (async () => {
       const { data } = await supabase
         .from('trainers')
-        .select('id, display_name')
-        .eq('is_active', true)
+        .select('id, display_name, is_active')
+        .eq('account_id', accountId)
         .order('display_name');
       if (cancelled) return;
-      setTrainers((data as { id: string; display_name: string }[]) ?? []);
+      setTrainers(
+        (data as { id: string; display_name: string; is_active: boolean }[]) ??
+          []
+      );
     })();
     return () => {
       cancelled = true;
@@ -334,6 +387,30 @@ export function MembersTable({
     () =>
       new Map(trainers.map((trainer) => [trainer.id, trainer.display_name])),
     [trainers]
+  );
+  const assignedFilterOptions = useMemo(
+    () => [
+      { value: UNASSIGNED_MEMBER_FILTER, label: 'Unassigned' },
+      ...staff.map((member) => ({
+        value: member.user_id,
+        label: member.full_name,
+      })),
+    ],
+    [staff]
+  );
+  const trainerFilterOptions = useMemo(
+    () => [
+      { value: NO_TRAINER_MEMBER_FILTER, label: 'No trainer' },
+      ...trainers.map((trainer) => ({
+        value: trainer.id,
+        label: trainer.display_name,
+      })),
+    ],
+    [trainers]
+  );
+  const bulkEditProperties = useMemo(
+    () => buildMemberBulkEditProperties(staff, trainers),
+    [staff, trainers]
   );
 
   // Pending assignment approvals use the same contacts-level workflow as
@@ -496,8 +573,26 @@ export function MembersTable({
     setPrefs((p) => ({ ...p, nameFrozen: !p.nameFrozen }));
   }
 
+  function setPageSize(nextPageSize: number) {
+    setPrefs((p) => ({ ...p, pageSize: nextPageSize }));
+    setPage(0);
+  }
+
+  function setTableSort(next: SortState | null) {
+    setPrefs((p) => ({ ...p, sort: next }));
+    setPage(0);
+  }
+
+  function resetColumnWidths() {
+    setPrefs((p) => ({ ...p, widths: {} }));
+  }
+
   function sortByColumn(key: string, dir: SortDir) {
-    setPrefs((p) => ({ ...p, sort: { key, dir } }));
+    setPrefs((p) => ({
+      ...p,
+      sort: nextMemberColumnSort(p.sort ?? null, key, dir),
+    }));
+    setPage(0);
   }
 
   // Toggle a value in one of the shared MemberFilters facets — used by
@@ -560,17 +655,27 @@ export function MembersTable({
   // free-text columns (name/expiry).
   function filterFor(col: MemberColumn): ColumnFilterProp | undefined {
     if (!col.filterDim) return undefined;
-    const options =
-      col.filterDim === 'plans'
-        ? plans.map((p) => ({ value: p.id, label: p.name }))
-        : col.filterDim === 'statuses'
-          ? MEMBER_STATUS_OPTIONS.map((o) => ({
-              value: o.value,
-              label: o.label,
-            }))
-          : col.filterDim === 'feeStatus'
-            ? FEE_STATUS_OPTIONS
-            : CHURN_RISK_OPTIONS;
+    let options: { value: string; label: string }[];
+    switch (col.filterDim) {
+      case 'plans':
+        options = plans.map((plan) => ({ value: plan.id, label: plan.name }));
+        break;
+      case 'statuses':
+        options = MEMBER_STATUS_OPTIONS;
+        break;
+      case 'assignees':
+        options = assignedFilterOptions;
+        break;
+      case 'trainers':
+        options = trainerFilterOptions;
+        break;
+      case 'feeStatus':
+        options = FEE_STATUS_OPTIONS;
+        break;
+      case 'churnRisk':
+        options = CHURN_RISK_OPTIONS;
+        break;
+    }
     return {
       options,
       selected: (filters[col.filterDim] as string[]) ?? [],
@@ -697,6 +802,177 @@ export function MembersTable({
       setSavingCell(false);
       setEditingCell(null);
     }
+  }
+
+  async function handleBulkEdit(
+    property: BulkEditProperty,
+    value: string
+  ): Promise<boolean> {
+    if (!accountId || !canEdit || !isMemberBulkEditKey(property.key)) {
+      toast.error('You do not have permission to edit members');
+      return false;
+    }
+
+    const selection = new Map(selected);
+    const contactIds = [...selection.keys()];
+    if (contactIds.length === 0) return false;
+
+    if (property.key === 'assignee') {
+      const target = value === UNASSIGNED_MEMBER_FILTER ? null : value;
+      if (
+        target !== null &&
+        !staff.some((member) => member.user_id === target)
+      ) {
+        toast.error('Choose an active account teammate');
+        return false;
+      }
+
+      // Resolve already-correct assignments before requesting changes. The
+      // account predicate and returned ids also prove that every selected
+      // contact is visible inside the current tenant boundary.
+      const { data: currentRows, error: readError } = await supabase
+        .from('contacts')
+        .select('id, assigned_to')
+        .eq('account_id', accountId)
+        .in('id', contactIds);
+      if (readError) {
+        toast.error(getErrorMessage(readError, 'Failed to read assignments'));
+        return false;
+      }
+
+      const currentById = new Map(
+        (currentRows ?? []).map((row) => [row.id, row.assigned_to ?? null])
+      );
+      const missingIds = contactIds.filter((id) => !currentById.has(id));
+      const unchangedIds = contactIds.filter(
+        (id) => currentById.get(id) === target
+      );
+      const requestIds = contactIds.filter(
+        (id) => currentById.has(id) && currentById.get(id) !== target
+      );
+      const result = await runMemberAssignmentBulkEdit(
+        requestIds,
+        (contactId) => requestLeadAssignment(supabase, contactId, target)
+      );
+      const failedIds = [...missingIds, ...result.failed.map(({ id }) => id)];
+      const completedCount =
+        result.approvedIds.length +
+        result.pendingIds.length +
+        unchangedIds.length;
+
+      if (result.approvedIds.length > 0) {
+        const approved = new Set(result.approvedIds);
+        setRows((current) =>
+          current.map((row) =>
+            approved.has(row.contact_id) && row.contact
+              ? {
+                  ...row,
+                  contact_assigned_to: target,
+                  contact: {
+                    ...row.contact,
+                    assigned_to: target,
+                    pending_invitation_id: null,
+                    pending_assignee_name: null,
+                  },
+                }
+              : row
+          )
+        );
+        setListingNonce((nonce) => nonce + 1);
+      }
+      if (result.pendingIds.length > 0) await fetchAssignmentRequests();
+
+      setSelected(retainFailedMemberSelection(selection, new Set(failedIds)));
+
+      const parts: string[] = [];
+      if (result.approvedIds.length) {
+        parts.push(`${result.approvedIds.length} updated`);
+      }
+      if (result.pendingIds.length) {
+        parts.push(`${result.pendingIds.length} sent for approval`);
+      }
+      if (unchangedIds.length) parts.push(`${unchangedIds.length} unchanged`);
+      if (failedIds.length) parts.push(`${failedIds.length} failed`);
+
+      if (completedCount === 0) {
+        toast.error(
+          'No members were updated. Check access or existing assignment requests, then try again.'
+        );
+        return false;
+      }
+      (failedIds.length ? toast.warning : toast.success)(parts.join(' · '));
+      return true;
+    }
+
+    let patch: { trainer_id: string | null } | { churn_risk: boolean };
+    if (property.key === 'trainer') {
+      const target = value === NO_TRAINER_MEMBER_FILTER ? null : value;
+      if (
+        target !== null &&
+        !trainers.some((trainer) => trainer.id === target && trainer.is_active)
+      ) {
+        toast.error('Choose an active trainer');
+        return false;
+      }
+      patch = { trainer_id: target };
+    } else {
+      if (value !== 'yes' && value !== 'no') {
+        toast.error('Choose Yes or No for churn risk');
+        return false;
+      }
+      patch = { churn_risk: value === 'yes' };
+    }
+
+    // RLS may silently filter rows from an UPDATE. The returned ids are the
+    // proof boundary; only proven rows leave the selection or local state.
+    const { data, error } = await supabase
+      .from('contacts')
+      .update(patch)
+      .eq('account_id', accountId)
+      .in('id', contactIds)
+      .select('id');
+    if (error) {
+      toast.error(getErrorMessage(error, 'Failed to update members'));
+      return false;
+    }
+
+    const outcome = proveMemberBulkWrite(contactIds, data);
+    const succeeded = new Set(outcome.succeededIds);
+    if (outcome.succeededIds.length > 0) {
+      setRows((current) =>
+        current.map((row) => {
+          if (!succeeded.has(row.contact_id) || !row.contact) return row;
+          if ('trainer_id' in patch) {
+            return {
+              ...row,
+              contact: { ...row.contact, trainer_id: patch.trainer_id },
+            };
+          }
+          return {
+            ...row,
+            contact_churn_risk: patch.churn_risk,
+            contact: { ...row.contact, churn_risk: patch.churn_risk },
+          };
+        })
+      );
+      setListingNonce((nonce) => nonce + 1);
+    }
+    setSelected(
+      retainFailedMemberSelection(selection, new Set(outcome.failedIds))
+    );
+
+    if (outcome.succeededIds.length === 0) {
+      toast.error('No members were updated. Check your access and try again.');
+      return false;
+    }
+
+    const updated = `${outcome.succeededIds.length} member${outcome.succeededIds.length === 1 ? '' : 's'} updated`;
+    if (outcome.failedIds.length > 0) {
+      toast.warning(`${updated} · ${outcome.failedIds.length} failed`);
+    } else {
+      toast.success(updated);
+    }
+    return true;
   }
 
   async function handleAssignmentAction(
@@ -1030,6 +1306,11 @@ export function MembersTable({
         pageSize,
       });
       if (cancelled || seq !== fetchSeq.current) return;
+      const lastPage = Math.max(0, Math.ceil(result.totalCount / pageSize) - 1);
+      if (page > lastPage) {
+        setPage(lastPage);
+        return;
+      }
       setRows(result.rows);
       setTotalCount(result.totalCount);
       setQuickFilterCounts(result.quickFilterCounts);
@@ -1048,6 +1329,7 @@ export function MembersTable({
   }, [
     supabase,
     reloadKey,
+    listingNonce,
     assignmentNonce,
     search,
     filters,
@@ -1060,45 +1342,23 @@ export function MembersTable({
   const totalPages = Math.ceil(totalCount / pageSize);
   const hasPrev = page > 0;
   const hasNext = page < totalPages - 1;
+  const recordRange = memberTableRecordRange(totalCount, page, pageSize);
 
-  const selectableRows = rows.filter((row) => row.membership_id !== null);
   const allOnPageSelected =
-    selectableRows.length > 0 &&
-    selectableRows.every((row) => selected.has(row.membership_id!));
-  const someOnPageSelected = selectableRows.some((row) =>
-    selected.has(row.membership_id!)
-  );
+    rows.length > 0 && rows.every((row) => selected.has(row.contact_id));
+  const someOnPageSelected = rows.some((row) => selected.has(row.contact_id));
 
   function toggleSelect(customer: NormalizedMemberCustomerDirectoryRow) {
-    if (!customer.membership_id) return;
-    setSelected((prev) => {
-      const next = new Map(prev);
-      if (next.has(customer.membership_id!)) {
-        next.delete(customer.membership_id!);
-      } else {
-        next.set(customer.membership_id!, customer.contact_id);
-      }
-      return next;
-    });
+    setSelected((current) => toggleMemberSelection(current, customer));
   }
 
   function toggleSelectAll() {
-    setSelected((prev) => {
-      const next = new Map(prev);
-      if (allOnPageSelected) {
-        selectableRows.forEach((row) => next.delete(row.membership_id!));
-      } else {
-        selectableRows.forEach((row) =>
-          next.set(row.membership_id!, row.contact_id)
-        );
-      }
-      return next;
-    });
+    setSelected((current) => toggleMemberPageSelection(current, rows));
   }
 
-  // Select every membership-backed customer matching the current search +
-  // filters, including rows on other pages. The explicit action requests the
-  // unbounded form of the same RLS-invoker snapshot, then retains only ids.
+  // Select every contact-backed customer matching the current search +
+  // filters, including service-only rows and rows on other pages. The explicit
+  // action requests the unbounded form of the same RLS-invoker snapshot.
   async function selectAllMatching() {
     const today = fmt.today();
     const result = await loadMemberDirectory(supabase, {
@@ -1113,15 +1373,7 @@ export function MembersTable({
       return null;
     });
     if (!result) return;
-    setSelected(
-      new Map(
-        result.rows.flatMap((customer) =>
-          customer.membership_id
-            ? [[customer.membership_id, customer.contact_id]]
-            : []
-        )
-      )
-    );
+    setSelected(memberSelectionFromRows(result.rows));
   }
 
   function clearSelection() {
@@ -1202,9 +1454,28 @@ export function MembersTable({
     return () => onRegisterExport?.(null);
   }, [onRegisterExport]);
 
-  function bulkDone() {
-    clearSelection();
-    onChanged();
+  function finishContactSafeBulkAction(result: BulkAddNoteResult) {
+    setSelected((current) =>
+      retainFailedMemberSelection(current, new Set(result.failedContactIds))
+    );
+    if (result.succeededContactIds.length > 0) onChanged();
+  }
+
+  function finishMembershipBulkAction(result: BulkRecordPaymentResult) {
+    const failedMembershipIds = new Set(result.failedMembershipIds);
+    setSelected((current) =>
+      retainFailedMemberSelection(
+        current,
+        new Set(
+          [...current].flatMap(([contactId, membershipId]) =>
+            membershipId && failedMembershipIds.has(membershipId)
+              ? [contactId]
+              : []
+          )
+        )
+      )
+    );
+    if (result.completedMembershipIds.length > 0) onChanged();
   }
 
   // Bulk WhatsApp reminders — sequential sends so one member's failure
@@ -1215,19 +1486,31 @@ export function MembersTable({
       return;
     }
     setReminding(true);
-    const ids = [...selected.keys()];
+    const selection = new Map(selected);
+    const ids = [...selection.values()].filter(
+      (id): id is string => id !== null
+    );
     const { data } = await supabase
       .from('memberships')
       .select('*, contact:contacts(*), plan:membership_plans(*)')
       .in('id', ids);
     const memberships = (data as Membership[]) ?? [];
 
+    const membershipById = new Map(memberships.map((row) => [row.id, row]));
+    const failedContactIds = new Set<string>();
     let sent = 0;
     let noPhone = 0;
     let failed = 0;
-    for (const m of memberships) {
+    for (const [contactId, membershipId] of selection) {
+      const m = membershipId ? membershipById.get(membershipId) : null;
+      if (!m) {
+        failed++;
+        failedContactIds.add(contactId);
+        continue;
+      }
       if (!m.contact?.phone?.trim()) {
         noPhone++;
+        failedContactIds.add(contactId);
         continue;
       }
       try {
@@ -1235,6 +1518,7 @@ export function MembersTable({
         sent++;
       } catch {
         failed++;
+        failedContactIds.add(contactId);
       }
     }
     setReminding(false);
@@ -1244,7 +1528,8 @@ export function MembersTable({
     if (noPhone) parts.push(`${noPhone} without a phone skipped`);
     if (failed) parts.push(`${failed} failed`);
     (sent === 0 && failed ? toast.error : toast.success)(parts.join(' · '));
-    bulkDone();
+    setSelected(retainFailedMemberSelection(selection, failedContactIds));
+    if (sent > 0) onChanged();
   }
 
   // Delete through the same admin-gated RPC as the member profile danger
@@ -1256,7 +1541,7 @@ export function MembersTable({
     if (entries.length === 0 || !canDeleteSelected) return;
 
     setDeleting(true);
-    const contactIds = [...new Set(entries.map(([, contactId]) => contactId))];
+    const contactIds = entries.map(([contactId]) => contactId);
     const results: { contactId: string; error: unknown }[] = [];
     let nextIndex = 0;
 
@@ -1287,9 +1572,7 @@ export function MembersTable({
 
     if (deletedCount > 0) {
       setSelected(
-        new Map(
-          entries.filter(([, contactId]) => failedContactIds.has(contactId))
-        )
+        retainFailedMemberSelection(new Map(entries), failedContactIds)
       );
       onChanged();
     }
@@ -1309,12 +1592,41 @@ export function MembersTable({
     }
   }
 
+  function membershipBulkActionBlocker(
+    canAct: boolean,
+    permissionDescription: string
+  ): ActionBlocker | null {
+    if (!canAct) {
+      return {
+        title: 'Read-only access',
+        description: permissionDescription,
+      };
+    }
+    if (selectionSummary.membershipActionState !== 'blocked') return null;
+
+    const serviceNoun =
+      selectionSummary.serviceOnlyCount === 1
+        ? 'service-only customer has'
+        : 'service-only customers have';
+    const membershipNoun =
+      selectionSummary.membershipCount === 1 ? 'customer' : 'customers';
+    return {
+      title: 'Membership customers only',
+      description: `${selectionSummary.serviceOnlyCount} selected ${serviceNoun} no membership. Change the selection before running this membership action.`,
+      resolution: {
+        label: `Keep ${selectionSummary.membershipCount} membership ${membershipNoun}`,
+        onResolve: () =>
+          setSelected((current) => membershipOnlyMemberSelection(current)),
+      },
+    };
+  }
+
   return (
-    <div className="space-y-3">
+    <div className="h-full min-h-0">
       {/* Match the Leads data surface: search and table actions live inside
           the same rounded container as the selection row and table. */}
-      <section className="border-border bg-card overflow-hidden rounded-2xl border">
-        <div className="border-border flex flex-wrap items-center gap-2 border-b p-2">
+      <section className="border-border bg-card flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border">
+        <div className="border-border flex shrink-0 flex-wrap items-center gap-2 border-b p-2">
           <SearchInput
             value={searchInput}
             onValueChange={setSearchInput}
@@ -1330,6 +1642,8 @@ export function MembersTable({
                 value={filters}
                 onChange={setFilters}
                 plans={plans}
+                assignedOptions={assignedFilterOptions}
+                trainerOptions={trainerFilterOptions}
               />
               <motion.div
                 data-slot="member-filter-following-controls"
@@ -1342,7 +1656,7 @@ export function MembersTable({
               >
                 <LeadsSort
                   value={prefs.sort}
-                  onChange={(next) => setPrefs((p) => ({ ...p, sort: next }))}
+                  onChange={setTableSort}
                   columns={SORT_COLUMNS}
                 />
                 <Separator
@@ -1383,7 +1697,7 @@ export function MembersTable({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-48">
                 {MEMBER_COLUMNS.map((col) => {
-                  const shown = !prefs.hidden.includes(col.key);
+                  const shown = !hiddenKeys.has(col.key);
                   return (
                     <DropdownMenuItem
                       key={col.key}
@@ -1406,6 +1720,11 @@ export function MembersTable({
                     </DropdownMenuItem>
                   );
                 })}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={resetColumnWidths}>
+                  <RefreshCw className="size-4" />
+                  Reset column widths
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -1445,11 +1764,11 @@ export function MembersTable({
               variant="ghost"
               size="sm"
               canAct={canEdit}
-              gateReason="send reminders"
-              onClick={() => setRemindOpen(true)}
+              gateReason="edit members"
+              onClick={() => setBulkEditOpen(true)}
             >
-              <MessageCircle />
-              Remind
+              <Pencil />
+              Edit
             </GatedButton>
             <GatedButton
               variant="ghost"
@@ -1461,26 +1780,49 @@ export function MembersTable({
               <StickyNote />
               Add note
             </GatedButton>
-            <GatedButton
-              variant="ghost"
-              size="sm"
-              canAct={canEdit}
-              gateReason="record payments"
-              onClick={() => setPayOpen(true)}
-            >
-              <Wallet />
-              Record payment
-            </GatedButton>
-            <GatedButton
-              variant="destructive-ghost"
-              size="sm"
-              canAct={canDeleteSelected}
-              gateReason="delete members"
-              onClick={() => setDeleteOpen(true)}
-            >
-              <Trash2 />
-              Delete
-            </GatedButton>
+            {selectionSummary.membershipActionState !== 'hidden' && (
+              <>
+                <ResolvableAction
+                  trigger={
+                    <Button variant="ghost" size="sm">
+                      <MessageCircle />
+                      Remind
+                    </Button>
+                  }
+                  onAction={() => setRemindOpen(true)}
+                  blocker={membershipBulkActionBlocker(
+                    canEdit,
+                    'Only an agent, admin, or owner can send renewal reminders.'
+                  )}
+                />
+                <ResolvableAction
+                  trigger={
+                    <Button variant="ghost" size="sm">
+                      <Wallet />
+                      Record payment
+                    </Button>
+                  }
+                  onAction={() => setPayOpen(true)}
+                  blocker={membershipBulkActionBlocker(
+                    canEdit,
+                    'Only an agent, admin, or owner can record payments.'
+                  )}
+                />
+                <ResolvableAction
+                  trigger={
+                    <Button variant="destructive-ghost" size="sm">
+                      <Trash2 />
+                      Delete
+                    </Button>
+                  }
+                  onAction={() => setDeleteOpen(true)}
+                  blocker={membershipBulkActionBlocker(
+                    canDeleteSelected,
+                    'Only an owner or admin can delete members.'
+                  )}
+                />
+              </>
+            )}
 
             <Button
               variant="ghost"
@@ -1494,325 +1836,377 @@ export function MembersTable({
           </div>
         </Collapse>
 
-        {loading && rows.length === 0 ? (
-          <div className="min-w-0">
-            <TableSkeleton
-              className="table-fixed"
-              style={{ minWidth: totalWidth }}
-              label="Loading members"
-              rows={9}
-              columns={[
-                {
-                  label: '',
-                  variant: 'checkbox',
-                  width: CHECKBOX_COL_WIDTH,
-                  headClassName: cn(
-                    'px-0',
-                    prefs.nameFrozen && 'bg-card sticky left-0 z-20'
-                  ),
-                  cellClassName: cn(
-                    'px-0',
-                    prefs.nameFrozen && 'bg-card-2 sticky left-0 z-10'
-                  ),
-                },
-                ...visibleColumns.map((col) => ({
-                  label: col.label,
-                  variant: (col.key === 'name'
-                    ? 'identity'
-                    : col.key === 'status'
-                      ? 'badge'
-                      : col.key === 'fee'
-                        ? 'stacked'
-                        : col.key === 'reminder'
-                          ? 'actions'
-                          : 'text') as TableSkeletonCellVariant,
-                  width: widthOf(col),
-                  headClassName: cn(
-                    col.align === 'right' && 'text-right',
-                    col.key === 'name' && prefs.nameFrozen
-                      ? 'bg-card sticky z-20'
-                      : 'relative'
-                  ),
-                  headStyle:
-                    col.key === 'name' && prefs.nameFrozen
-                      ? {
-                          position: 'sticky' as const,
-                          left: CHECKBOX_COL_WIDTH,
-                        }
-                      : undefined,
-                  cellClassName:
-                    col.key === 'name' && prefs.nameFrozen
-                      ? 'bg-card-2 sticky z-10'
-                      : undefined,
-                  cellStyle:
-                    col.key === 'name' && prefs.nameFrozen
-                      ? {
-                          position: 'sticky' as const,
-                          left: CHECKBOX_COL_WIDTH,
-                        }
-                      : undefined,
-                })),
-              ]}
-            />
-          </div>
-        ) : rows.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 py-12 text-center">
-            <Dumbbell className="text-muted-foreground size-8" />
-            <p className="text-muted-foreground text-sm">
-              {totalCount === 0 && !search.trim()
-                ? 'No members yet. Add your first member.'
-                : 'No members match your search or filters.'}
-            </p>
-          </div>
-        ) : (
-          <div className="min-w-0">
-            <Table className="table-fixed" style={{ minWidth: totalWidth }}>
-              <colgroup>
-                <col style={{ width: CHECKBOX_COL_WIDTH }} />
-                {visibleColumns.map((col) => (
-                  <col key={col.key} style={{ width: widthOf(col) }} />
-                ))}
-              </colgroup>
-              <TableHeader>
-                <TableRow>
-                  <TableHead
-                    className={cn(
+        {/* One bounded two-axis scroll region owns the table and its loading
+            state. The Table wrapper yields overflow to this viewport so the
+            real header and frozen cells share the same sticky container. */}
+        <div
+          data-slot="members-table-scroll-region"
+          className="min-h-0 flex-1 overflow-auto"
+        >
+          {loading && rows.length === 0 ? (
+            <div className="min-w-0">
+              <TableSkeleton
+                className="table-fixed"
+                containerClassName="overflow-visible"
+                headerClassName="bg-card sticky top-0 z-10"
+                style={{ minWidth: totalWidth }}
+                label="Loading members"
+                rows={9}
+                columns={[
+                  {
+                    label: '',
+                    variant: 'checkbox',
+                    width: CHECKBOX_COL_WIDTH,
+                    headClassName: cn(
                       'px-0',
                       prefs.nameFrozen && 'bg-card sticky left-0 z-20'
-                    )}
-                  >
-                    <div className="flex items-center justify-center">
-                      <Checkbox
-                        checked={allOnPageSelected}
-                        indeterminate={!allOnPageSelected && someOnPageSelected}
-                        onCheckedChange={toggleSelectAll}
-                        disabled={rows.length === 0}
-                        aria-label="Select all members on this page"
-                      />
-                    </div>
-                  </TableHead>
+                    ),
+                    cellClassName: cn(
+                      'px-0',
+                      prefs.nameFrozen && 'bg-card-2 sticky left-0 z-10'
+                    ),
+                  },
+                  ...visibleColumns.map((col) => ({
+                    label: col.label,
+                    variant: (col.key === 'name'
+                      ? 'identity'
+                      : col.key === 'status'
+                        ? 'badge'
+                        : col.key === 'fee'
+                          ? 'stacked'
+                          : col.key === 'reminder'
+                            ? 'actions'
+                            : 'text') as TableSkeletonCellVariant,
+                    width: widthOf(col),
+                    headClassName: cn(
+                      col.align === 'right' && 'text-right',
+                      col.key === 'name' && prefs.nameFrozen
+                        ? 'bg-card sticky z-20'
+                        : 'relative'
+                    ),
+                    headStyle:
+                      col.key === 'name' && prefs.nameFrozen
+                        ? {
+                            position: 'sticky' as const,
+                            left: CHECKBOX_COL_WIDTH,
+                          }
+                        : undefined,
+                    cellClassName:
+                      col.key === 'name' && prefs.nameFrozen
+                        ? 'bg-card-2 sticky z-10'
+                        : undefined,
+                    cellStyle:
+                      col.key === 'name' && prefs.nameFrozen
+                        ? {
+                            position: 'sticky' as const,
+                            left: CHECKBOX_COL_WIDTH,
+                          }
+                        : undefined,
+                  })),
+                ]}
+              />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="flex min-h-48 flex-col items-center justify-center gap-2 py-12 text-center">
+              <Dumbbell className="text-muted-foreground size-8" />
+              <p className="text-muted-foreground text-sm">
+                {totalCount === 0 && !search.trim()
+                  ? 'No members yet. Add your first member.'
+                  : 'No members match your search or filters.'}
+              </p>
+            </div>
+          ) : (
+            <div className="min-w-0">
+              <Table
+                className="table-fixed"
+                containerClassName="overflow-visible"
+                style={{ minWidth: totalWidth }}
+              >
+                <colgroup>
+                  <col style={{ width: CHECKBOX_COL_WIDTH }} />
                   {visibleColumns.map((col) => (
+                    <col key={col.key} style={{ width: widthOf(col) }} />
+                  ))}
+                </colgroup>
+                <TableHeader className="bg-card sticky top-0 z-10">
+                  <TableRow>
                     <TableHead
-                      key={col.key}
-                      style={
-                        col.key === 'name' && prefs.nameFrozen
-                          ? { position: 'sticky', left: CHECKBOX_COL_WIDTH }
-                          : undefined
-                      }
                       className={cn(
-                        'text-muted-foreground select-none',
-                        col.key === 'name' && prefs.nameFrozen
-                          ? 'bg-card z-20'
-                          : 'relative'
+                        'px-0',
+                        prefs.nameFrozen && 'bg-card sticky left-0 z-20'
                       )}
                     >
-                      <ColumnHeader
-                        label={col.label}
-                        sortable={Boolean(col.sortKey)}
-                        sortDir={
-                          col.sortKey && sort?.key === col.sortKey
-                            ? sort.dir
-                            : null
-                        }
-                        onSort={(dir) =>
-                          col.sortKey && sortByColumn(col.sortKey, dir)
-                        }
-                        filter={filterFor(col)}
-                        onHide={
-                          col.required ? undefined : () => hideColumn(col.key)
-                        }
-                        frozen={col.key === 'name' && prefs.nameFrozen}
-                        onToggleFreeze={
-                          col.key === 'name' ? toggleNameFrozen : undefined
-                        }
-                      />
-                      {/* Resize grip on the right edge (leads pattern). */}
-                      <span
-                        role="separator"
-                        aria-orientation="vertical"
-                        onMouseDown={(e) => startResize(e, col)}
-                        className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
-                      />
+                      <div className="flex items-center justify-center">
+                        <Checkbox
+                          checked={allOnPageSelected}
+                          indeterminate={
+                            !allOnPageSelected && someOnPageSelected
+                          }
+                          onCheckedChange={toggleSelectAll}
+                          disabled={rows.length === 0}
+                          aria-label="Select all members on this page"
+                        />
+                      </div>
                     </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((customer) => {
-                  const membership = asMembership(customer);
-                  return (
-                    <TableRow
-                      key={customer.contact_id}
-                      className="group cursor-pointer"
-                      onClick={() =>
-                        onSelect({
-                          contactId: customer.contact_id,
-                          membershipId: customer.membership_id,
-                        })
-                      }
-                    >
-                      <TableCell
+                    {visibleColumns.map((col) => (
+                      <TableHead
+                        key={col.key}
+                        style={
+                          col.key === 'name' && prefs.nameFrozen
+                            ? { position: 'sticky', left: CHECKBOX_COL_WIDTH }
+                            : undefined
+                        }
                         className={cn(
-                          'px-0',
-                          prefs.nameFrozen &&
-                            'bg-card group-hover:bg-card-2 sticky left-0 z-10'
+                          'text-muted-foreground select-none',
+                          col.key === 'name' && prefs.nameFrozen
+                            ? 'bg-card z-20'
+                            : 'relative'
                         )}
-                        onClick={(e) => e.stopPropagation()}
                       >
-                        <div className="flex items-center justify-center">
-                          <Checkbox
-                            checked={Boolean(
-                              customer.membership_id &&
-                              selected.has(customer.membership_id)
-                            )}
-                            onCheckedChange={() => toggleSelect(customer)}
-                            disabled={!membership}
-                            aria-label={`Select ${customer.contact?.name || 'customer'}`}
-                          />
-                        </div>
-                      </TableCell>
-                      {visibleColumns.map((col) => (
+                        <ColumnHeader
+                          label={col.label}
+                          sortable={Boolean(col.sortKey)}
+                          sortDir={
+                            col.sortKey && sort?.key === col.sortKey
+                              ? sort.dir
+                              : null
+                          }
+                          onSort={(dir) =>
+                            col.sortKey && sortByColumn(col.sortKey, dir)
+                          }
+                          filter={filterFor(col)}
+                          onHide={
+                            col.required ? undefined : () => hideColumn(col.key)
+                          }
+                          frozen={col.key === 'name' && prefs.nameFrozen}
+                          onToggleFreeze={
+                            col.key === 'name' ? toggleNameFrozen : undefined
+                          }
+                        />
+                        {/* Resize grip on the right edge (leads pattern). */}
+                        <span
+                          role="separator"
+                          aria-orientation="vertical"
+                          onMouseDown={(e) => startResize(e, col)}
+                          className="border-border hover:border-primary absolute top-2 right-0 bottom-2 w-1.5 cursor-col-resize border-r hover:border-r-2"
+                        />
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((customer) => {
+                    return (
+                      <TableRow
+                        key={customer.contact_id}
+                        className="group cursor-pointer"
+                        onClick={() =>
+                          onSelect({
+                            contactId: customer.contact_id,
+                            membershipId: customer.membership_id,
+                          })
+                        }
+                      >
                         <TableCell
-                          key={col.key}
-                          style={
-                            col.key === 'name' && prefs.nameFrozen
-                              ? { position: 'sticky', left: CHECKBOX_COL_WIDTH }
-                              : undefined
-                          }
                           className={cn(
-                            'overflow-hidden',
-                            col.key === 'name' &&
-                              prefs.nameFrozen &&
-                              'bg-card group-hover:bg-card-2 z-10',
-                            (col.key === 'assignee' ||
-                              col.key === 'trainer' ||
-                              col.key === 'churnRisk') &&
-                              canEdit &&
-                              'p-0',
-                            col.align === 'right' && 'text-right'
+                            'px-0',
+                            prefs.nameFrozen &&
+                              'bg-card group-hover:bg-card-2 sticky left-0 z-10'
                           )}
-                          onClick={
-                            col.key === 'reminder'
-                              ? (e) => e.stopPropagation()
-                              : undefined
-                          }
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {col.key === 'assignee' && canEdit ? (
-                            <EditableCell
-                              editing={
-                                editingCell?.id === customer.contact_id &&
-                                editingCell.key === 'assignee'
-                              }
-                              saving={savingCell}
-                              kind="select"
-                              value={customer.contact?.assigned_to ?? ''}
-                              options={assigneeCellOptions(staff)}
-                              display={renderCell(col.key, customer)}
-                              onStart={() =>
-                                setEditingCell({
-                                  id: customer.contact_id,
-                                  key: 'assignee',
-                                })
-                              }
-                              onCommit={(value) =>
-                                void commitAssignee(customer, value)
-                              }
-                              onCancel={() => setEditingCell(null)}
+                          <div className="flex items-center justify-center">
+                            <Checkbox
+                              checked={selected.has(customer.contact_id)}
+                              onCheckedChange={() => toggleSelect(customer)}
+                              aria-label={`Select ${customer.contact?.name || 'customer'}`}
                             />
-                          ) : col.key === 'trainer' && canEdit ? (
-                            <EditableCell
-                              editing={
-                                editingCell?.id === customer.contact_id &&
-                                editingCell.key === 'trainer'
-                              }
-                              saving={savingCell}
-                              kind="select"
-                              value={customer.contact?.trainer_id ?? ''}
-                              options={[
-                                { value: '', label: 'No trainer' },
-                                ...trainers.map((trainer) => ({
-                                  value: trainer.id,
-                                  label: trainer.display_name,
-                                })),
-                              ]}
-                              display={renderCell(col.key, customer)}
-                              onStart={() =>
-                                setEditingCell({
-                                  id: customer.contact_id,
-                                  key: 'trainer',
-                                })
-                              }
-                              onCommit={(value) =>
-                                void commitTrainer(customer, value)
-                              }
-                              onCancel={() => setEditingCell(null)}
-                            />
-                          ) : col.key === 'churnRisk' && canEdit ? (
-                            <EditableCell
-                              editing={
-                                editingCell?.id === customer.contact_id &&
-                                editingCell.key === 'churnRisk'
-                              }
-                              saving={savingCell}
-                              kind="status"
-                              value={
-                                customer.contact?.churn_risk ? 'yes' : 'no'
-                              }
-                              options={CHURN_RISK_CELL_OPTIONS}
-                              display={renderCell(col.key, customer)}
-                              onStart={() =>
-                                setEditingCell({
-                                  id: customer.contact_id,
-                                  key: 'churnRisk',
-                                })
-                              }
-                              onCommit={(value) =>
-                                commitChurnRisk(customer, value)
-                              }
-                              onCancel={() => setEditingCell(null)}
-                            />
-                          ) : (
-                            renderCell(col.key, customer)
-                          )}
+                          </div>
                         </TableCell>
-                      ))}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                        {visibleColumns.map((col) => (
+                          <TableCell
+                            key={col.key}
+                            style={
+                              col.key === 'name' && prefs.nameFrozen
+                                ? {
+                                    position: 'sticky',
+                                    left: CHECKBOX_COL_WIDTH,
+                                  }
+                                : undefined
+                            }
+                            className={cn(
+                              'overflow-hidden',
+                              col.key === 'name' &&
+                                prefs.nameFrozen &&
+                                'bg-card group-hover:bg-card-2 z-10',
+                              (col.key === 'assignee' ||
+                                col.key === 'trainer' ||
+                                col.key === 'churnRisk') &&
+                                canEdit &&
+                                'p-0',
+                              col.align === 'right' && 'text-right'
+                            )}
+                            onClick={
+                              col.key === 'reminder'
+                                ? (e) => e.stopPropagation()
+                                : undefined
+                            }
+                          >
+                            {col.key === 'assignee' && canEdit ? (
+                              <EditableCell
+                                editing={
+                                  editingCell?.id === customer.contact_id &&
+                                  editingCell.key === 'assignee'
+                                }
+                                saving={savingCell}
+                                kind="select"
+                                value={customer.contact?.assigned_to ?? ''}
+                                options={assigneeCellOptions(staff)}
+                                display={renderCell(col.key, customer)}
+                                onStart={() =>
+                                  setEditingCell({
+                                    id: customer.contact_id,
+                                    key: 'assignee',
+                                  })
+                                }
+                                onCommit={(value) =>
+                                  void commitAssignee(customer, value)
+                                }
+                                onCancel={() => setEditingCell(null)}
+                              />
+                            ) : col.key === 'trainer' && canEdit ? (
+                              <EditableCell
+                                editing={
+                                  editingCell?.id === customer.contact_id &&
+                                  editingCell.key === 'trainer'
+                                }
+                                saving={savingCell}
+                                kind="select"
+                                value={customer.contact?.trainer_id ?? ''}
+                                options={[
+                                  { value: '', label: 'No trainer' },
+                                  ...trainers
+                                    .filter((trainer) => trainer.is_active)
+                                    .map((trainer) => ({
+                                      value: trainer.id,
+                                      label: trainer.display_name,
+                                    })),
+                                ]}
+                                display={renderCell(col.key, customer)}
+                                onStart={() =>
+                                  setEditingCell({
+                                    id: customer.contact_id,
+                                    key: 'trainer',
+                                  })
+                                }
+                                onCommit={(value) =>
+                                  void commitTrainer(customer, value)
+                                }
+                                onCancel={() => setEditingCell(null)}
+                              />
+                            ) : col.key === 'churnRisk' && canEdit ? (
+                              <EditableCell
+                                editing={
+                                  editingCell?.id === customer.contact_id &&
+                                  editingCell.key === 'churnRisk'
+                                }
+                                saving={savingCell}
+                                kind="status"
+                                value={
+                                  customer.contact?.churn_risk ? 'yes' : 'no'
+                                }
+                                options={CHURN_RISK_CELL_OPTIONS}
+                                display={renderCell(col.key, customer)}
+                                onStart={() =>
+                                  setEditingCell({
+                                    id: customer.contact_id,
+                                    key: 'churnRisk',
+                                  })
+                                }
+                                onCommit={(value) =>
+                                  commitChurnRisk(customer, value)
+                                }
+                                onCancel={() => setEditingCell(null)}
+                              />
+                            ) : (
+                              renderCell(col.key, customer)
+                            )}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </div>
 
-            {/* Pager footer (leads pattern) */}
-            <div className="border-border flex items-center justify-between border-t px-3 py-2">
-              <p className="text-muted-foreground text-xs">
-                {totalCount > 0
-                  ? `${totalCount} member${totalCount === 1 ? '' : 's'}`
-                  : 'No members'}
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  disabled={!hasPrev}
-                  onClick={() => setPage((p) => p - 1)}
+        {/* Leads-parity footer: exact record range, persisted page size and
+            pager. It stays outside the row-state branches so an empty result
+            still has a stable recovery surface. */}
+        <div
+          data-slot="members-table-footer"
+          className="border-border flex shrink-0 flex-wrap items-center justify-between gap-2 border-t px-3 py-2"
+        >
+          <p className="text-muted-foreground text-xs">
+            {recordRange
+              ? `Showing ${recordRange.start}–${recordRange.end} of ${totalCount}`
+              : 'No records'}
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span
+                id="members-page-size-label"
+                className="text-muted-foreground text-xs whitespace-nowrap"
+              >
+                Records per page
+              </span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(value) => setPageSize(Number(value))}
+              >
+                <SelectTrigger
+                  size="sm"
+                  aria-labelledby="members-page-size-label"
+                  className="min-w-[4.25rem]"
                 >
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <span className="text-muted-foreground px-2 text-xs">
-                  Page {page + 1} of {Math.max(totalPages, 1)}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon-sm"
-                  disabled={!hasNext}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {PAGE_SIZE_OPTIONS.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="icon-sm"
+                disabled={!hasPrev}
+                onClick={() => setPage((p) => p - 1)}
+                aria-label="Previous page"
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span className="text-muted-foreground px-2 text-xs whitespace-nowrap">
+                Page {page + 1} of {Math.max(totalPages, 1)}
+              </span>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                disabled={!hasNext}
+                onClick={() => setPage((p) => p + 1)}
+                aria-label="Next page"
+              >
+                <ChevronRight className="size-4" />
+              </Button>
             </div>
           </div>
-        )}
+        </div>
       </section>
 
       {followUpFor &&
@@ -1851,18 +2245,26 @@ export function MembersTable({
       )}
 
       {/* Bulk dialogs */}
+      <BulkEditDialog
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+        count={selected.size}
+        noun="member"
+        properties={bulkEditProperties}
+        onApply={handleBulkEdit}
+      />
       <BulkAddNoteDialog
         open={noteOpen}
         onOpenChange={setNoteOpen}
-        contactIds={[...new Set(selected.values())]}
-        onDone={bulkDone}
+        contactIds={selectionSummary.contactIds}
+        onDone={finishContactSafeBulkAction}
         noun="member"
       />
       <BulkRecordPaymentDialog
         open={payOpen}
         onOpenChange={setPayOpen}
-        membershipIds={[...selected.keys()]}
-        onDone={bulkDone}
+        membershipIds={selectionSummary.membershipIds}
+        onDone={finishMembershipBulkAction}
       />
 
       <Dialog
