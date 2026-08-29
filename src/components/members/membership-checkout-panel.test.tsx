@@ -170,17 +170,19 @@ describe('MembershipCheckoutPanel', () => {
     const user = userEvent.setup();
     render(<Harness />);
 
+    // The term itself carries no heading — the hosting dialog's title already
+    // names it, and a section heading restating it was the redundant one.
     expect(
       screen
         .getAllByRole('heading', { level: 3 })
         .map((node) => node.textContent)
     ).toEqual([
-      'Membership details',
       'Offer discount',
       'Offer bonus months',
       'Products & services',
       'Collect payment now',
     ]);
+    expect(screen.queryByText('Membership details')).toBeNull();
 
     await user.click(
       screen.getByRole('checkbox', { name: 'Products & services' })
@@ -382,9 +384,30 @@ describe('MembershipCheckoutPanel', () => {
   it('uses renewal price without the setup fee', () => {
     render(<Harness mode="membership_renewal" />);
 
-    expect(screen.getByText('Regular membership fee')).toBeTruthy();
+    expect(screen.getByText('Membership fee')).toBeTruthy();
     expect(screen.getAllByText('₹1000').length).toBeGreaterThan(0);
     expect(screen.queryByText('₹1200')).toBeNull();
+  });
+
+  it('shows one settled figure when no discount, add-on, or credit moves it', async () => {
+    const user = userEvent.setup();
+    render(<Harness availableCredit={0} />);
+
+    // list price === invoice total === cash due, so the intermediate subtotals
+    // would have repeated the same number under three different labels.
+    expect(screen.queryByText('Membership fee')).toBeNull();
+    expect(screen.queryByText('Invoice total')).toBeNull();
+    expect(screen.queryByText('Final membership fee')).toBeNull();
+    expect(screen.getByText('Cash due')).toBeTruthy();
+
+    // A discount makes the arithmetic real, so the line items come back.
+    await user.click(screen.getByRole('checkbox', { name: 'Offer discount' }));
+    await waitFor(() => {
+      expect(screen.getByText('Membership fee')).toBeTruthy();
+    });
+    expect(screen.getByText('Discount')).toBeTruthy();
+    expect(screen.getByText('−₹120')).toBeTruthy();
+    expect(screen.getAllByText('₹1080').length).toBeGreaterThan(0);
   });
 
   it('shows no payment controls when credit leaves zero cash due', () => {

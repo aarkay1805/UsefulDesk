@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { AlertTriangle, Camera, Pencil } from 'lucide-react';
+import { AlertTriangle, Camera, ChevronDown, Pencil } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -22,8 +22,13 @@ import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '@/lib/bmi/bmi';
 import {
   createMembershipCheckoutDraft,
   quoteMembershipCheckout,
+  quoteMembershipCheckoutDraft,
 } from '@/lib/memberships/checkout';
-import { firstCycleFee, optionEndDate } from '@/lib/memberships/pricing';
+import {
+  firstCycleFee,
+  optionEndDate,
+  pricingCadenceLabel,
+} from '@/lib/memberships/pricing';
 import { getErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import type { CheckoutResult, Membership } from '@/types';
@@ -117,6 +122,8 @@ export function MemberForm({
   const [saving, setSaving] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  // Mobile-only disclosure; at lg the CSS keeps the lists open regardless.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [heightCm, setHeightCm] = useState<number | null>(null);
   const [weightKg, setWeightKg] = useState<number | null>(null);
   const [checkoutDraft, setCheckoutDraft] = useState(() =>
@@ -181,6 +188,17 @@ export function MemberForm({
     }
     return selectedOption ? optionEndDate(startDate, selectedOption) : null;
   }
+
+  // The footer restates what this dialog is about to create. It prices the
+  // same draft the checkout panel does, so the two can never disagree.
+  const footerQuote =
+    isCreate && !isTrial
+      ? quoteMembershipCheckoutDraft({
+          mode: isConvert ? 'convert' : 'join',
+          option: selectedOption,
+          draft: checkoutDraft,
+        })
+      : null;
 
   function updateCheckoutDraft(next: typeof checkoutDraft) {
     setCheckoutDraft(next);
@@ -770,7 +788,7 @@ export function MemberForm({
         className={cn(
           'flex max-h-[96vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-md',
           isCreate &&
-            'h-[min(96vh,900px)] sm:max-w-[min(960px,calc(100vw-2rem))]'
+            'max-h-[min(96vh,900px)] sm:max-w-[min(1080px,calc(100vw-2rem))]'
         )}
       >
         <DialogHeader className="border-border shrink-0 border-b p-5">
@@ -795,12 +813,12 @@ export function MemberForm({
             className={cn(
               'min-h-0 flex-1 overflow-y-auto',
               isCreate
-                ? 'grid md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]'
+                ? 'grid lg:grid-cols-[24rem_minmax(0,1fr)] lg:overflow-hidden'
                 : 'px-4 py-2'
             )}
           >
             {isCreate && (
-              <aside className="border-border border-b p-5 md:border-r md:border-b-0">
+              <aside className="border-border border-b p-5 lg:min-h-0 lg:overflow-y-auto lg:border-r lg:border-b-0">
                 <div className="flex items-center gap-4">
                   {seedContact?.id ? (
                     <button
@@ -821,135 +839,166 @@ export function MemberForm({
                   ) : (
                     <UserAvatar size="lg" name={displayName} />
                   )}
-                  <div className="min-w-0 space-y-0.5">
+                  <div className="min-w-0">
                     <p className="text-foreground truncate font-medium">
                       {displayName}
                     </p>
-                    <p className="text-muted-foreground truncate text-sm">
-                      {phone.trim()
-                        ? fmt.phone(phone)
-                        : 'Add contact details below'}
-                    </p>
+                    {!name.trim() && !seedContact?.name?.trim() ? (
+                      <p className="text-muted-foreground truncate text-sm">
+                        {phone.trim()
+                          ? fmt.phone(phone)
+                          : 'Add contact details below'}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
 
-                <div className="mt-7">
-                  <p className="text-foreground mb-3 text-sm font-semibold">
-                    Personal information
-                  </p>
-                  <dl className="border-border divide-border divide-y overflow-hidden rounded-lg border">
-                    <ConversionEditableDetailRow
-                      label="Name"
-                      value={name}
-                      placeholder="Add name"
-                      onSave={(value) => savePersonalField('name', value)}
-                    />
-                    <ConversionEditableDetailRow
-                      label="Phone"
-                      type="tel"
-                      value={phone}
-                      placeholder="Add phone"
-                      onSave={(value) => savePersonalField('phone', value)}
-                    />
-                    <ConversionEditableDetailRow
-                      label="Email"
-                      value={email}
-                      type="email"
-                      placeholder="Add email"
-                      onSave={(value) => savePersonalField('email', value)}
-                    />
-                    <ConversionDateDetailRow
-                      label="Birthday"
-                      value={dateOfBirth}
-                      displayValue={dateOfBirth ? fmt.date(dateOfBirth) : '—'}
-                      max={fmt.today()}
-                      onSave={(value) =>
-                        savePersonalProfileField('date_of_birth', value)
-                      }
-                    />
-                    <ConversionSelectDetailRow
-                      label="Gender"
-                      value={gender}
-                      displayValue={
-                        gender ? fieldOptions.genderLabel(gender) : '—'
-                      }
-                      placeholder="Not specified"
-                      options={fieldOptions.genders.map((option) => ({
-                        value: option.key,
-                        label: option.label,
-                      }))}
-                      onSave={(value) =>
-                        savePersonalProfileField('gender', value)
-                      }
-                    />
-                  </dl>
-                  {!isConvert && dupMatch && (
-                    <div className="text-amber-foreground mt-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs">
-                      <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-                      <div className="space-y-1">
-                        <p>
-                          {dupMatch.isMember
-                            ? `${dupMatch.contact.name || 'This person'} already has a membership — open their profile to renew or edit it.`
-                            : dupMatch.exact
-                              ? `This number already belongs to ${dupMatch.contact.name || 'an existing contact'}. No duplicate is created — the membership attaches to that record, and details added here update it.`
-                              : 'A contact with a very similar number already exists.'}
-                        </p>
-                        {onViewExisting && (
-                          <button
-                            type="button"
-                            onClick={() => onViewExisting(dupMatch.contact.id)}
-                            className="font-medium underline underline-offset-2 hover:no-underline"
-                          >
-                            View{' '}
-                            {dupMatch.contact.name ||
-                              fmt.phone(dupMatch.contact.phone)}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailsOpen((open) => !open)}
+                  aria-expanded={detailsOpen}
+                  aria-controls="mf-lead-details"
+                  className="text-muted-foreground hover:text-foreground mt-6 flex w-full items-center justify-between gap-2 text-xs font-medium transition-colors lg:hidden"
+                >
+                  Details
+                  <ChevronDown
+                    className={cn(
+                      'size-4 transition-transform',
+                      detailsOpen && 'rotate-180'
+                    )}
+                  />
+                </button>
 
-                <div className="mt-6">
-                  <p className="text-foreground mb-3 text-sm font-semibold">
-                    Body measurements
-                  </p>
-                  <dl className="border-border divide-border divide-y overflow-hidden rounded-lg border">
-                    <ConversionEditableDetailRow
-                      label="Height"
-                      type="number"
-                      inputMode="decimal"
-                      value={measurementHeightDraft(
-                        heightCm,
-                        locale.measurementSystem
-                      )}
-                      displayValue={formatMeasurementHeight(
-                        heightCm,
-                        locale.measurementSystem
-                      )}
-                      placeholder={
-                        locale.measurementSystem === 'imperial' ? 'in' : 'cm'
-                      }
-                      onSave={saveDisplayedHeight}
-                    />
-                    <ConversionEditableDetailRow
-                      label="Weight"
-                      type="number"
-                      inputMode="decimal"
-                      value={measurementWeightDraft(
-                        weightKg,
-                        locale.measurementSystem
-                      )}
-                      displayValue={formatMeasurementWeight(
-                        weightKg,
-                        locale.measurementSystem
-                      )}
-                      placeholder={
-                        locale.measurementSystem === 'imperial' ? 'lb' : 'kg'
-                      }
-                      onSave={saveDisplayedWeight}
-                    />
-                  </dl>
+                <div
+                  id="mf-lead-details"
+                  className={cn(
+                    'mt-4 lg:mt-6 lg:block',
+                    !detailsOpen && 'hidden'
+                  )}
+                >
+                  <div>
+                    <p className="text-muted-foreground mb-2 text-xs font-medium">
+                      Personal information
+                    </p>
+                    <dl className="divide-border divide-y">
+                      <ConversionEditableDetailRow
+                        label="Name"
+                        value={name}
+                        placeholder="Add name"
+                        onSave={(value) => savePersonalField('name', value)}
+                      />
+                      <ConversionEditableDetailRow
+                        label="Phone"
+                        type="tel"
+                        value={phone}
+                        displayValue={
+                          phone.trim() ? fmt.phone(phone) : undefined
+                        }
+                        placeholder="Add phone"
+                        onSave={(value) => savePersonalField('phone', value)}
+                      />
+                      <ConversionEditableDetailRow
+                        label="Email"
+                        value={email}
+                        type="email"
+                        placeholder="Add email"
+                        onSave={(value) => savePersonalField('email', value)}
+                      />
+                      <ConversionDateDetailRow
+                        label="Birthday"
+                        value={dateOfBirth}
+                        displayValue={dateOfBirth ? fmt.date(dateOfBirth) : '—'}
+                        max={fmt.today()}
+                        onSave={(value) =>
+                          savePersonalProfileField('date_of_birth', value)
+                        }
+                      />
+                      <ConversionSelectDetailRow
+                        label="Gender"
+                        value={gender}
+                        displayValue={
+                          gender ? fieldOptions.genderLabel(gender) : '—'
+                        }
+                        placeholder="Not specified"
+                        options={fieldOptions.genders.map((option) => ({
+                          value: option.key,
+                          label: option.label,
+                        }))}
+                        onSave={(value) =>
+                          savePersonalProfileField('gender', value)
+                        }
+                      />
+                    </dl>
+                    {!isConvert && dupMatch && (
+                      <div className="text-amber-foreground mt-3 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs">
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                        <div className="space-y-1">
+                          <p>
+                            {dupMatch.isMember
+                              ? `${dupMatch.contact.name || 'This person'} already has a membership — open their profile to renew or edit it.`
+                              : dupMatch.exact
+                                ? `This number already belongs to ${dupMatch.contact.name || 'an existing contact'}. No duplicate is created — the membership attaches to that record, and details added here update it.`
+                                : 'A contact with a very similar number already exists.'}
+                          </p>
+                          {onViewExisting && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onViewExisting(dupMatch.contact.id)
+                              }
+                              className="font-medium underline underline-offset-2 hover:no-underline"
+                            >
+                              View{' '}
+                              {dupMatch.contact.name ||
+                                fmt.phone(dupMatch.contact.phone)}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-border mt-5 border-t pt-4">
+                    <p className="text-muted-foreground mb-2 text-xs font-medium">
+                      Body measurements
+                    </p>
+                    <dl className="divide-border divide-y">
+                      <ConversionEditableDetailRow
+                        label="Height"
+                        type="number"
+                        inputMode="decimal"
+                        value={measurementHeightDraft(
+                          heightCm,
+                          locale.measurementSystem
+                        )}
+                        displayValue={formatMeasurementHeight(
+                          heightCm,
+                          locale.measurementSystem
+                        )}
+                        placeholder={
+                          locale.measurementSystem === 'imperial' ? 'in' : 'cm'
+                        }
+                        onSave={saveDisplayedHeight}
+                      />
+                      <ConversionEditableDetailRow
+                        label="Weight"
+                        type="number"
+                        inputMode="decimal"
+                        value={measurementWeightDraft(
+                          weightKg,
+                          locale.measurementSystem
+                        )}
+                        displayValue={formatMeasurementWeight(
+                          weightKg,
+                          locale.measurementSystem
+                        )}
+                        placeholder={
+                          locale.measurementSystem === 'imperial' ? 'lb' : 'kg'
+                        }
+                        onSave={saveDisplayedWeight}
+                      />
+                    </dl>
+                  </div>
                 </div>
               </aside>
             )}
@@ -957,7 +1006,8 @@ export function MemberForm({
             <div
               className={cn(
                 'min-w-0 space-y-4',
-                isCreate && 'space-y-6 px-5 py-5 sm:px-6'
+                isCreate &&
+                  'space-y-6 px-5 py-5 sm:px-6 lg:min-h-0 lg:overflow-y-auto'
               )}
             >
               {isEdit && (
@@ -1049,6 +1099,7 @@ export function MemberForm({
                     onChange={updateCheckoutDraft}
                     allowTrial
                     startDateEditable
+                    showExpirySummary={false}
                   />
                   {isTrial && (
                     <div className="space-y-2">
@@ -1159,9 +1210,34 @@ export function MemberForm({
 
           <DialogFooter className="border-border m-0 shrink-0">
             {isCreate && (
-              <p className="text-muted-foreground mr-auto self-center text-xs">
-                Member ID will be assigned automatically
-              </p>
+              <div className="mr-auto min-w-0 space-y-0.5 self-center max-sm:order-1">
+                {isTrial ? (
+                  <>
+                    <p className="text-foreground truncate text-sm font-medium">
+                      Trial · free pass
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {fmt.date(startDate)} –{' '}
+                      {fmt.date(istAddDays(startDate, Number(trialDays) || 0))}{' '}
+                      · {trialDays || '0'}-day trial · No fee
+                    </p>
+                  </>
+                ) : footerQuote && selectedPlan && selectedOption ? (
+                  <>
+                    <p className="text-foreground truncate text-sm font-medium">
+                      {selectedPlan.name}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {fmt.date(checkoutDraft.startDate)} –{' '}
+                      {fmt.date(footerQuote.periodEnd)} ·{' '}
+                      {pricingCadenceLabel(selectedPlan, selectedOption)} ·{' '}
+                      <span className="tabular-nums">
+                        {fmt.money(footerQuote.membershipFee)}
+                      </span>
+                    </p>
+                  </>
+                ) : null}
+              </div>
             )}
             <Button
               type="button"
@@ -1232,10 +1308,8 @@ function ConversionEditableDetailRow({
   return (
     <div
       className={cn(
-        'grid min-h-11 px-3',
-        editing
-          ? 'grid-cols-1 items-start gap-2 py-2'
-          : 'grid-cols-[72px_1fr] items-center gap-4'
+        'grid min-h-11 grid-cols-[64px_minmax(0,1fr)] items-center gap-3',
+        editing && 'py-2'
       )}
     >
       <dt className="text-muted-foreground text-xs leading-5">{label}</dt>
@@ -1341,10 +1415,8 @@ function ConversionDateDetailRow({
   return (
     <div
       className={cn(
-        'grid min-h-11 px-3',
-        editing
-          ? 'grid-cols-1 items-start gap-2 py-2'
-          : 'grid-cols-[72px_1fr] items-center gap-4'
+        'grid min-h-11 grid-cols-[64px_minmax(0,1fr)] items-center gap-3',
+        editing && 'py-2'
       )}
     >
       <dt className="text-muted-foreground text-xs leading-5">{label}</dt>
@@ -1407,10 +1479,8 @@ function ConversionSelectDetailRow({
   return (
     <div
       className={cn(
-        'grid min-h-11 px-3',
-        editing
-          ? 'grid-cols-1 items-start gap-2 py-2'
-          : 'grid-cols-[72px_1fr] items-center gap-4'
+        'grid min-h-11 grid-cols-[64px_minmax(0,1fr)] items-center gap-3',
+        editing && 'py-2'
       )}
     >
       <dt className="text-muted-foreground text-xs leading-5">{label}</dt>

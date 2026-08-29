@@ -147,3 +147,37 @@ export function quoteMembershipCheckout(input: {
     installmentsAvailable,
   };
 }
+
+/**
+ * Draft → quote for live UI summaries (checkout panel, conversion footer).
+ *
+ * Returns null while the draft cannot price yet — no billing option picked,
+ * or an incomplete discount / bonus entry — so call sites render their own
+ * "not ready" copy instead of each keeping a private try/catch that can
+ * drift from this one.
+ */
+export function quoteMembershipCheckoutDraft(input: {
+  mode: MembershipCheckoutMode;
+  option: PlanPricingOption | null;
+  draft: MembershipCheckoutDraft;
+  availableCredit?: number;
+}): MembershipCheckoutQuote | null {
+  if (!input.option) return null;
+  try {
+    return quoteMembershipCheckout({
+      mode: input.mode,
+      option: input.option,
+      startDate: input.draft.startDate,
+      discountKind: input.draft.discountKind,
+      discountValue: input.draft.discountValue,
+      bonusMonthsEnabled: input.draft.bonusMonthsEnabled,
+      bonusMonths: input.draft.bonusMonths,
+      selections: input.draft.includeProductsServices
+        ? input.draft.selections
+        : [],
+      availableCredit: input.availableCredit,
+    });
+  } catch {
+    return null;
+  }
+}

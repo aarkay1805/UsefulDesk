@@ -5,6 +5,7 @@ import type { CheckoutSelection, PlanPricingOption } from '@/types';
 import {
   createMembershipCheckoutDraft,
   quoteMembershipCheckout,
+  quoteMembershipCheckoutDraft,
 } from './checkout';
 
 const option: PlanPricingOption = {
@@ -168,5 +169,61 @@ describe('quoteMembershipCheckout', () => {
       installmentLater: 0,
       installmentsAvailable: false,
     });
+  });
+});
+
+describe('quoteMembershipCheckoutDraft', () => {
+  const draft = createMembershipCheckoutDraft({
+    planId: 'plan',
+    optionId: 'option',
+    startDate: '2026-08-16',
+  });
+
+  it('returns null until a billing option is picked', () => {
+    expect(
+      quoteMembershipCheckoutDraft({ mode: 'join', option: null, draft })
+    ).toBeNull();
+  });
+
+  it('prices the draft exactly as the direct quote does', () => {
+    expect(
+      quoteMembershipCheckoutDraft({ mode: 'join', option, draft })
+    ).toEqual(quote());
+  });
+
+  it('drops catalogue lines while products & services stays unchecked', () => {
+    const selections: CheckoutSelection[] = [
+      {
+        item_id: 'item',
+        option_id: 'catalogue-option',
+        quantity: 1,
+        unit_amount: 500,
+      },
+    ];
+
+    expect(
+      quoteMembershipCheckoutDraft({
+        mode: 'join',
+        option,
+        draft: { ...draft, includeProductsServices: false, selections },
+      })?.addOnTotal
+    ).toBe(0);
+    expect(
+      quoteMembershipCheckoutDraft({
+        mode: 'join',
+        option,
+        draft: { ...draft, includeProductsServices: true, selections },
+      })?.addOnTotal
+    ).toBe(500);
+  });
+
+  it('returns null instead of throwing on an incomplete discount', () => {
+    expect(
+      quoteMembershipCheckoutDraft({
+        mode: 'join',
+        option,
+        draft: { ...draft, discountKind: 'percentage', discountValue: '' },
+      })
+    ).toBeNull();
   });
 });

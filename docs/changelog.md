@@ -6,6 +6,68 @@
 
 ---
 
+## Membership checkout is three movements, not five cards
+
+The shared checkout panel rendered its five sections as bordered cards inside a
+bordered dialog, and the conversion rail added two more — seven containers, four
+of which held a single checkbox. The card chrome is gone. Membership details
+(its heading deleted, because the dialog title already names it), the three
+optional modifiers, and the money are now three movements separated by a hairline
+and 32px, with the modifiers as one tight toggle list. The four toggles take the
+repo's checkbox-list row treatment, which also lifts their hit area off the 16px
+label box.
+
+The payment summary showed seven rows where a plain membership produced the same
+number four times — list price, final fee, invoice total and cash due are only
+different when a discount, add-on, or credit moves them, so line items now render
+only when the arithmetic does. A plain conversion reads one line: **Amount due**,
+at the DESIGN.md headline step, the column's one moment of rank. The discount
+panel's own three-row preview is gone for the same reason — it restated what the
+summary below already derives. The section also reordered: what it costs leads,
+whether to collect it now follows.
+
+Conversion's shell was a fixed `h-[min(96vh,900px)]` sized for the card stack; it
+holds ~440px without one, so it is `max-h` and sizes to content. Read-only phone
+in the rail routes through `fmt.phone` (the identity block that used to format it
+was a duplicate of the Phone row below and is gone). Stacked below `lg`, the
+seven reference rows put the plan picker a screen and a half down, so they
+collapse behind one **Details** disclosure — pure CSS at `lg`, so desktop never
+renders them closed and there is no hydration flash.
+
+Renewal shares the panel and inherits all of it; it keeps its Expiry row through
+`showExpirySummary` and its own bordered "Current membership" rail is untouched.
+Key code: `src/components/members/membership-checkout-panel.tsx` and
+`src/components/members/member-form.tsx`.
+
+## Convert to member reviews the lead and the term side by side
+
+The conversion dialog's two panes now scroll independently from `lg` up, so the
+lead's personal information stays put while the checkout column is worked
+through — previously one scroller moved both, and reaching Collect payment now
+pushed the person being converted off screen. Below `lg` the panes stack and
+share one scroller; the split moved from `md` because a 256px rail could not
+hold a label, an editor and its confirm/dismiss pair on one line.
+
+That line is the second change: the inline editors in the rail used to collapse
+the row to a single column while active, dropping the field under its own
+label. They now keep the `64px` label track in both states, and the rail is a
+derived `24rem` — the width at which a `+91` compartment, a ten-digit national
+number and the 4rem actions column all fit without the editor scrolling.
+
+Membership details no longer repeats the resulting expiry date, because the
+dialog footer now carries the whole term: plan name over start – end date,
+billing cadence (`pricingCadenceLabel`) and the final membership fee. The old
+"Member ID will be assigned automatically" note is gone. Renewal keeps its
+Expiry row — its footer only states the start date — so the shared panel takes
+a `showExpirySummary` prop that defaults to true and only conversion opts out.
+
+Both the panel and the footer price the draft through one
+`quoteMembershipCheckoutDraft` helper, so the two summaries cannot disagree; it
+returns null rather than throwing while a draft is unpriceable. Key code:
+`src/components/members/member-form.tsx`,
+`src/components/members/membership-checkout-panel.tsx`, and
+`src/lib/memberships/checkout.ts`.
+
 ## WhatsApp same-number reconnect keeps inbound delivery live
 
 Meta Embedded Signup no longer re-registers an already-live number with a new

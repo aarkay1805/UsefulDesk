@@ -27,7 +27,7 @@ import {
   MAX_CONVERSION_BONUS_MONTHS,
   oneTimeBonusMonthsError,
 } from '@/lib/memberships/bonus-time';
-import { quoteMembershipCheckout } from '@/lib/memberships/checkout';
+import { quoteMembershipCheckoutDraft } from '@/lib/memberships/checkout';
 import {
   oneTimeDiscountError,
   type OneTimeDiscountKind,
@@ -69,26 +69,46 @@ export interface MembershipCheckoutPanelProps {
   allowTrial?: boolean;
   startDateEditable: boolean;
   renewalStartExplanation?: string;
+  /**
+   * Membership details repeats the resulting expiry date. Conversion turns
+   * it off because its dialog footer already carries the full plan summary;
+   * renewal keeps it, because its footer only states the start date.
+   */
+  showExpirySummary?: boolean;
 }
 
 function SummaryRow({
   label,
   value,
   strong = false,
+  total = false,
 }: {
   label: string;
   value: string;
   strong?: boolean;
+  /** The section's settled figure — one step of rank above its line items. */
+  total?: boolean;
 }) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-4 text-sm',
-        strong ? 'text-foreground font-medium' : 'text-muted-foreground'
+        'flex items-baseline justify-between gap-4 text-sm',
+        strong || total
+          ? 'text-foreground font-medium'
+          : 'text-muted-foreground'
       )}
     >
-      <span>{label}</span>
-      <span className="tabular-nums">{value}</span>
+      <span className={cn(total && 'text-muted-foreground font-normal')}>
+        {label}
+      </span>
+      <span
+        className={cn(
+          'tabular-nums',
+          total && 'text-lg leading-7 font-semibold'
+        )}
+      >
+        {value}
+      </span>
     </div>
   );
 }
@@ -104,6 +124,7 @@ export function MembershipCheckoutPanel({
   allowTrial = false,
   startDateEditable,
   renewalStartExplanation,
+  showExpirySummary = true,
 }: MembershipCheckoutPanelProps) {
   const { fmt, locale } = useLocale();
   const [discountTouched, setDiscountTouched] = useState(false);
@@ -136,24 +157,22 @@ export function MembershipCheckoutPanel({
         : 'Enter a discount percentage to continue.'
       : discountError;
 
-  let quote = null;
-  if (selectedOption && !isTrial) {
-    try {
-      quote = quoteMembershipCheckout({
+  const quote = isTrial
+    ? null
+    : quoteMembershipCheckoutDraft({
         mode,
         option: selectedOption,
-        startDate: value.startDate,
-        discountKind: value.discountKind,
-        discountValue: value.discountValue,
-        bonusMonthsEnabled: value.bonusMonthsEnabled,
-        bonusMonths: value.bonusMonths,
-        selections: value.includeProductsServices ? value.selections : [],
+        draft: value,
         availableCredit,
       });
-    } catch {
-      quote = null;
-    }
-  }
+
+  // Every intermediate subtotal in the payment summary equals its neighbour
+  // unless one of these three moves the number.
+  const itemisedTotal =
+    !!quote &&
+    (quote.discountAmount > 0 ||
+      quote.addOnTotal > 0 ||
+      quote.creditApplied > 0);
 
   const quoteBlockedReason = quote
     ? null
@@ -208,12 +227,11 @@ export function MembershipCheckoutPanel({
     <div
       data-testid="shared-membership-checkout"
       data-mode={mode}
-      className="min-w-0 space-y-4"
+      className="min-w-0"
     >
-      <section className="border-border space-y-4 rounded-lg border p-4">
-        <h3 className="text-foreground text-base font-semibold">
-          Membership details
-        </h3>
+      {/* The term. The dialog title already names this section, so it carries
+          no heading of its own — only the two decisions that set the term. */}
+      <section className="space-y-4">
         <PlanOptionPicker
           idPrefix={idPrefix}
           plans={plans}
@@ -261,7 +279,7 @@ export function MembershipCheckoutPanel({
           ) : null}
         </div>
 
-        {quote ? (
+        {showExpirySummary && quote ? (
           <div className="border-border space-y-2 border-t pt-4">
             <SummaryRow
               label="Expiry"
@@ -274,288 +292,332 @@ export function MembershipCheckoutPanel({
 
       {!isTrial ? (
         <>
-          <section className="border-border space-y-4 rounded-lg border p-4">
-            <h3>
-              <Label htmlFor={`${idPrefix}-discount-enabled`}>
-                <Checkbox
-                  id={`${idPrefix}-discount-enabled`}
-                  checked={value.discountKind !== null}
-                  disabled={!selectedOption}
-                  onCheckedChange={(checked) =>
-                    setDiscountEnabled(checked === true)
-                  }
-                />
-                Offer discount
-              </Label>
-            </h3>
-            <Collapse open={value.discountKind !== null}>
-              <div className="-mx-1 space-y-4 px-1 py-1">
-                <div className="grid gap-4 sm:grid-cols-[max-content_minmax(0,1fr)]">
-                  <div className="space-y-2">
-                    <Label>Discount type</Label>
-                    <Toolbar aria-label="Discount type">
-                      <ToolbarToggleGroup<OneTimeDiscountKind>
-                        value={value.discountKind ? [value.discountKind] : []}
-                        onValueChange={(values) => {
-                          const discountKind = values[0];
-                          if (!discountKind) return;
-                          setDiscountTouched(false);
-                          update({
-                            discountKind,
-                            discountValue:
-                              discountKind === 'percentage'
-                                ? DEFAULT_DISCOUNT_PERCENTAGE
-                                : '',
-                          });
-                        }}
-                        aria-label="Discount type"
-                      >
-                        <ToolbarToggleItem value="percentage">
-                          Percentage
-                        </ToolbarToggleItem>
-                        <ToolbarToggleItem value="amount">
-                          Fixed amount
-                        </ToolbarToggleItem>
-                      </ToolbarToggleGroup>
-                    </Toolbar>
-                  </div>
-
-                  <div className="min-w-0 space-y-2">
-                    <Label htmlFor={`${idPrefix}-discount-value`}>
-                      {value.discountKind === 'amount'
-                        ? 'Discount amount'
-                        : 'Discount percentage'}
-                    </Label>
-                    {value.discountKind === 'amount' ? (
-                      <CurrencyInput
-                        id={`${idPrefix}-discount-value`}
-                        symbol={currencySymbol(locale.currency)}
-                        groupLocale={locale.locale}
-                        value={value.discountValue}
-                        onValueChange={(discountValue) => {
-                          setDiscountTouched(true);
-                          update({ discountValue });
-                        }}
-                        onBlur={() => setDiscountTouched(true)}
-                        inputMode="decimal"
-                        aria-invalid={showDiscountError}
-                        aria-describedby={
-                          showDiscountError
-                            ? `${idPrefix}-discount-error`
-                            : undefined
-                        }
-                        className="tabular-nums"
-                      />
-                    ) : (
-                      <div className="flex min-w-0 items-center gap-2">
-                        <ChipGroup<string>
-                          selectionMode="single"
-                          value={
-                            DISCOUNT_PERCENTAGE_PRESETS.includes(
-                              value.discountValue as (typeof DISCOUNT_PERCENTAGE_PRESETS)[number]
-                            )
-                              ? [value.discountValue]
-                              : []
-                          }
+          {/* Adjustments. Three rarely-used modifiers on the term above, so
+              they read as one tight list rather than three peer sections. */}
+          <section className="border-border mt-5 space-y-1 border-t pt-4">
+            <div className="space-y-4">
+              <h3>
+                <Label
+                  htmlFor={`${idPrefix}-discount-enabled`}
+                  className="hover:bg-muted/50 -mx-2 rounded-md px-2 py-2 transition-colors"
+                >
+                  <Checkbox
+                    id={`${idPrefix}-discount-enabled`}
+                    checked={value.discountKind !== null}
+                    disabled={!selectedOption}
+                    onCheckedChange={(checked) =>
+                      setDiscountEnabled(checked === true)
+                    }
+                  />
+                  Offer discount
+                </Label>
+              </h3>
+              <Collapse open={value.discountKind !== null}>
+                <div className="-mx-1 space-y-4 px-1 pt-2 pb-3">
+                  <div className="grid gap-4 sm:grid-cols-[max-content_minmax(0,1fr)]">
+                    <div className="space-y-2">
+                      <Label>Discount type</Label>
+                      <Toolbar aria-label="Discount type">
+                        <ToolbarToggleGroup<OneTimeDiscountKind>
+                          value={value.discountKind ? [value.discountKind] : []}
                           onValueChange={(values) => {
-                            const discountValue = values[0];
-                            if (!discountValue) return;
+                            const discountKind = values[0];
+                            if (!discountKind) return;
+                            setDiscountTouched(false);
+                            update({
+                              discountKind,
+                              discountValue:
+                                discountKind === 'percentage'
+                                  ? DEFAULT_DISCOUNT_PERCENTAGE
+                                  : '',
+                            });
+                          }}
+                          aria-label="Discount type"
+                        >
+                          <ToolbarToggleItem value="percentage">
+                            Percentage
+                          </ToolbarToggleItem>
+                          <ToolbarToggleItem value="amount">
+                            Fixed amount
+                          </ToolbarToggleItem>
+                        </ToolbarToggleGroup>
+                      </Toolbar>
+                    </div>
+
+                    <div className="min-w-0 space-y-2">
+                      <Label htmlFor={`${idPrefix}-discount-value`}>
+                        {value.discountKind === 'amount'
+                          ? 'Discount amount'
+                          : 'Discount percentage'}
+                      </Label>
+                      {value.discountKind === 'amount' ? (
+                        <CurrencyInput
+                          id={`${idPrefix}-discount-value`}
+                          symbol={currencySymbol(locale.currency)}
+                          groupLocale={locale.locale}
+                          value={value.discountValue}
+                          onValueChange={(discountValue) => {
                             setDiscountTouched(true);
                             update({ discountValue });
                           }}
-                          aria-label="Common discount percentages"
-                        >
-                          {DISCOUNT_PERCENTAGE_PRESETS.map((preset) => (
-                            <Chip key={preset} value={preset}>
-                              {preset}%
-                            </Chip>
-                          ))}
-                        </ChipGroup>
-                        <Input
-                          id={`${idPrefix}-discount-value`}
-                          type="number"
-                          min={0}
-                          max={100}
-                          step="0.01"
-                          inputMode="decimal"
-                          value={value.discountValue}
-                          onChange={(event) => {
-                            setDiscountTouched(true);
-                            update({ discountValue: event.target.value });
-                          }}
                           onBlur={() => setDiscountTouched(true)}
-                          placeholder="10"
+                          inputMode="decimal"
                           aria-invalid={showDiscountError}
                           aria-describedby={
                             showDiscountError
                               ? `${idPrefix}-discount-error`
                               : undefined
                           }
-                          className="w-24 shrink-0 tabular-nums"
+                          className="tabular-nums"
                         />
-                      </div>
-                    )}
-                    {showDiscountError ? (
+                      ) : (
+                        <div className="flex min-w-0 items-center gap-2">
+                          <ChipGroup<string>
+                            selectionMode="single"
+                            value={
+                              DISCOUNT_PERCENTAGE_PRESETS.includes(
+                                value.discountValue as (typeof DISCOUNT_PERCENTAGE_PRESETS)[number]
+                              )
+                                ? [value.discountValue]
+                                : []
+                            }
+                            onValueChange={(values) => {
+                              const discountValue = values[0];
+                              if (!discountValue) return;
+                              setDiscountTouched(true);
+                              update({ discountValue });
+                            }}
+                            aria-label="Common discount percentages"
+                          >
+                            {DISCOUNT_PERCENTAGE_PRESETS.map((preset) => (
+                              <Chip key={preset} value={preset}>
+                                {preset}%
+                              </Chip>
+                            ))}
+                          </ChipGroup>
+                          <Input
+                            id={`${idPrefix}-discount-value`}
+                            type="number"
+                            min={0}
+                            max={100}
+                            step="0.01"
+                            inputMode="decimal"
+                            value={value.discountValue}
+                            onChange={(event) => {
+                              setDiscountTouched(true);
+                              update({ discountValue: event.target.value });
+                            }}
+                            onBlur={() => setDiscountTouched(true)}
+                            placeholder="10"
+                            aria-invalid={showDiscountError}
+                            aria-describedby={
+                              showDiscountError
+                                ? `${idPrefix}-discount-error`
+                                : undefined
+                            }
+                            className="w-24 shrink-0 tabular-nums"
+                          />
+                        </div>
+                      )}
+                      {showDiscountError ? (
+                        <p
+                          id={`${idPrefix}-discount-error`}
+                          role="alert"
+                          className="text-destructive text-xs"
+                        >
+                          {discountErrorMessage}
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </Collapse>
+            </div>
+
+            <div className="space-y-4">
+              <h3>
+                <Label
+                  htmlFor={`${idPrefix}-bonus-enabled`}
+                  className="hover:bg-muted/50 -mx-2 rounded-md px-2 py-2 transition-colors"
+                >
+                  <Checkbox
+                    id={`${idPrefix}-bonus-enabled`}
+                    checked={value.bonusMonthsEnabled}
+                    disabled={!selectedOption}
+                    onCheckedChange={(checked) =>
+                      setBonusEnabled(checked === true)
+                    }
+                  />
+                  Offer bonus months
+                </Label>
+              </h3>
+              <Collapse open={value.bonusMonthsEnabled}>
+                <div className="-mx-1 space-y-4 px-1 pt-2 pb-3">
+                  <div className="space-y-2">
+                    <Label htmlFor={`${idPrefix}-bonus-months`}>
+                      Bonus months
+                    </Label>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <ChipGroup<string>
+                        selectionMode="single"
+                        value={
+                          BONUS_MONTH_PRESETS.includes(
+                            value.bonusMonths as (typeof BONUS_MONTH_PRESETS)[number]
+                          )
+                            ? [value.bonusMonths]
+                            : []
+                        }
+                        onValueChange={(values) => {
+                          const bonusMonths = values[0];
+                          if (!bonusMonths) return;
+                          setBonusTouched(true);
+                          update({ bonusMonths });
+                        }}
+                        aria-label="Common bonus month offers"
+                      >
+                        {BONUS_MONTH_PRESETS.map((preset) => (
+                          <Chip key={preset} value={preset}>
+                            +{preset} {preset === '1' ? 'month' : 'months'}
+                          </Chip>
+                        ))}
+                      </ChipGroup>
+                      <Input
+                        id={`${idPrefix}-bonus-months`}
+                        type="number"
+                        min={1}
+                        max={MAX_CONVERSION_BONUS_MONTHS}
+                        step={1}
+                        inputMode="numeric"
+                        value={value.bonusMonths}
+                        onChange={(event) => {
+                          setBonusTouched(true);
+                          update({ bonusMonths: event.target.value });
+                        }}
+                        onBlur={() => setBonusTouched(true)}
+                        aria-invalid={bonusTouched && !!bonusError}
+                        aria-describedby={
+                          bonusTouched && bonusError
+                            ? `${idPrefix}-bonus-error`
+                            : undefined
+                        }
+                        className="w-24 shrink-0 tabular-nums"
+                      />
+                    </div>
+                    {bonusTouched && bonusError ? (
                       <p
-                        id={`${idPrefix}-discount-error`}
+                        id={`${idPrefix}-bonus-error`}
                         role="alert"
                         className="text-destructive text-xs"
                       >
-                        {discountErrorMessage}
+                        {bonusError}
                       </p>
                     ) : null}
                   </div>
-                </div>
 
-                {quote ? (
-                  <div className="border-border space-y-2 border-t pt-4">
-                    <SummaryRow
-                      label="Regular membership fee"
-                      value={fmt.money(quote.listPrice)}
-                    />
-                    <SummaryRow
-                      label="Membership discount"
-                      value={`−${fmt.money(quote.discountAmount)}`}
-                    />
-                    <SummaryRow
-                      label="Final membership fee"
-                      value={fmt.money(quote.membershipFee)}
-                      strong
-                    />
-                  </div>
-                ) : null}
-              </div>
-            </Collapse>
-          </section>
-
-          <section className="border-border space-y-4 rounded-lg border p-4">
-            <h3>
-              <Label htmlFor={`${idPrefix}-bonus-enabled`}>
-                <Checkbox
-                  id={`${idPrefix}-bonus-enabled`}
-                  checked={value.bonusMonthsEnabled}
-                  disabled={!selectedOption}
-                  onCheckedChange={(checked) =>
-                    setBonusEnabled(checked === true)
-                  }
-                />
-                Offer bonus months
-              </Label>
-            </h3>
-            <Collapse open={value.bonusMonthsEnabled}>
-              <div className="-mx-1 space-y-4 px-1 py-1">
-                <div className="space-y-2">
-                  <Label htmlFor={`${idPrefix}-bonus-months`}>
-                    Bonus months
-                  </Label>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <ChipGroup<string>
-                      selectionMode="single"
-                      value={
-                        BONUS_MONTH_PRESETS.includes(
-                          value.bonusMonths as (typeof BONUS_MONTH_PRESETS)[number]
-                        )
-                          ? [value.bonusMonths]
-                          : []
-                      }
-                      onValueChange={(values) => {
-                        const bonusMonths = values[0];
-                        if (!bonusMonths) return;
-                        setBonusTouched(true);
-                        update({ bonusMonths });
-                      }}
-                      aria-label="Common bonus month offers"
-                    >
-                      {BONUS_MONTH_PRESETS.map((preset) => (
-                        <Chip key={preset} value={preset}>
-                          +{preset} {preset === '1' ? 'month' : 'months'}
-                        </Chip>
-                      ))}
-                    </ChipGroup>
-                    <Input
-                      id={`${idPrefix}-bonus-months`}
-                      type="number"
-                      min={1}
-                      max={MAX_CONVERSION_BONUS_MONTHS}
-                      step={1}
-                      inputMode="numeric"
-                      value={value.bonusMonths}
-                      onChange={(event) => {
-                        setBonusTouched(true);
-                        update({ bonusMonths: event.target.value });
-                      }}
-                      onBlur={() => setBonusTouched(true)}
-                      aria-invalid={bonusTouched && !!bonusError}
-                      aria-describedby={
-                        bonusTouched && bonusError
-                          ? `${idPrefix}-bonus-error`
-                          : undefined
-                      }
-                      className="w-24 shrink-0 tabular-nums"
-                    />
-                  </div>
-                  {bonusTouched && bonusError ? (
-                    <p
-                      id={`${idPrefix}-bonus-error`}
-                      role="alert"
-                      className="text-destructive text-xs"
-                    >
-                      {bonusError}
-                    </p>
+                  {quote && quote.bonusMonths > 0 ? (
+                    <div className="border-border space-y-2 border-t pt-4">
+                      <SummaryRow
+                        label="Regular expiry"
+                        value={fmt.date(quote.standardEndDate)}
+                      />
+                      <SummaryRow
+                        label="Bonus time"
+                        value={`+${quote.bonusMonths} ${quote.bonusMonths === 1 ? 'month' : 'months'}`}
+                      />
+                      <SummaryRow
+                        label="Final expiry"
+                        value={fmt.date(quote.periodEnd)}
+                        strong
+                      />
+                    </div>
                   ) : null}
                 </div>
+              </Collapse>
+            </div>
 
-                {quote && quote.bonusMonths > 0 ? (
-                  <div className="border-border space-y-2 border-t pt-4">
+            <div className="space-y-4">
+              <h3>
+                <Label
+                  htmlFor={`${idPrefix}-products-enabled`}
+                  className="hover:bg-muted/50 -mx-2 rounded-md px-2 py-2 transition-colors"
+                >
+                  <Checkbox
+                    id={`${idPrefix}-products-enabled`}
+                    checked={value.includeProductsServices}
+                    disabled={!selectedOption}
+                    onCheckedChange={(checked) =>
+                      setProductsEnabled(checked === true)
+                    }
+                  />
+                  Products &amp; services
+                </Label>
+              </h3>
+              <Collapse open={value.includeProductsServices}>
+                <div className="-mx-1 px-1 pt-2 pb-3">
+                  <ProductsServicesPicker
+                    value={value.selections}
+                    onChange={(selections) => update({ selections })}
+                    membershipEnd={quote?.periodEnd ?? null}
+                    defaultStartDate={value.startDate}
+                    presentation="catalogue"
+                  />
+                </div>
+              </Collapse>
+            </div>
+          </section>
+
+          {/* The money. What it costs leads; whether to take it now follows. */}
+          <section className="border-border mt-5 space-y-4 border-t pt-4">
+            {quote ? (
+              <div className="space-y-2">
+                {/* Line items only where the arithmetic actually moves. With no
+                    discount, add-on or credit, list price and cash due are the
+                    same number, and four labels for one number teach nothing. */}
+                {itemisedTotal ? (
+                  <>
                     <SummaryRow
-                      label="Regular expiry"
-                      value={fmt.date(quote.standardEndDate)}
+                      label="Membership fee"
+                      value={fmt.money(quote.listPrice)}
                     />
-                    <SummaryRow
-                      label="Bonus time"
-                      value={`+${quote.bonusMonths} ${quote.bonusMonths === 1 ? 'month' : 'months'}`}
-                    />
-                    <SummaryRow
-                      label="Final expiry"
-                      value={fmt.date(quote.periodEnd)}
-                      strong
-                    />
-                  </div>
+                    {quote.discountAmount > 0 ? (
+                      <SummaryRow
+                        label="Discount"
+                        value={`−${fmt.money(quote.discountAmount)}`}
+                      />
+                    ) : null}
+                    {quote.addOnTotal > 0 ? (
+                      <SummaryRow
+                        label="Products & services"
+                        value={fmt.money(quote.addOnTotal)}
+                      />
+                    ) : null}
+                    {quote.creditApplied > 0 ? (
+                      <SummaryRow
+                        label="Member credit"
+                        value={`−${fmt.money(quote.creditApplied)}`}
+                      />
+                    ) : null}
+                  </>
                 ) : null}
-              </div>
-            </Collapse>
-          </section>
-
-          <section className="border-border space-y-4 rounded-lg border p-4">
-            <h3>
-              <Label htmlFor={`${idPrefix}-products-enabled`}>
-                <Checkbox
-                  id={`${idPrefix}-products-enabled`}
-                  checked={value.includeProductsServices}
-                  disabled={!selectedOption}
-                  onCheckedChange={(checked) =>
-                    setProductsEnabled(checked === true)
-                  }
-                />
-                Products &amp; services
-              </Label>
-            </h3>
-            <Collapse open={value.includeProductsServices}>
-              <div className="-mx-1 px-1 py-1">
-                <ProductsServicesPicker
-                  value={value.selections}
-                  onChange={(selections) => update({ selections })}
-                  membershipEnd={quote?.periodEnd ?? null}
-                  defaultStartDate={value.startDate}
-                  presentation="catalogue"
+                <SummaryRow
+                  label={value.collectNow ? 'Cash due' : 'Amount due'}
+                  value={fmt.money(quote.cashDue)}
+                  total
                 />
               </div>
-            </Collapse>
-          </section>
+            ) : null}
 
-          <section className="border-border space-y-4 rounded-lg border p-4">
+            {quote && quote.cashDue <= 0 ? (
+              <p className="text-foreground text-sm font-medium">
+                No payment required
+              </p>
+            ) : null}
+
             <h3>
-              <Label htmlFor={`${idPrefix}-collect-now`}>
+              <Label
+                htmlFor={`${idPrefix}-collect-now`}
+                className="hover:bg-muted/50 -mx-2 rounded-md px-2 py-2 transition-colors"
+              >
                 <Checkbox
                   id={`${idPrefix}-collect-now`}
                   checked={
@@ -584,55 +646,9 @@ export function MembershipCheckoutPanel({
               </p>
             ) : null}
 
-            {quote ? (
-              <div className="space-y-2">
-                <SummaryRow
-                  label="Regular membership fee"
-                  value={fmt.money(quote.listPrice)}
-                />
-                {quote.discountAmount > 0 ? (
-                  <SummaryRow
-                    label="Membership discount"
-                    value={`−${fmt.money(quote.discountAmount)}`}
-                  />
-                ) : null}
-                <SummaryRow
-                  label="Final membership fee"
-                  value={fmt.money(quote.membershipFee)}
-                />
-                {quote.addOnTotal > 0 ? (
-                  <SummaryRow
-                    label="Products & services"
-                    value={fmt.money(quote.addOnTotal)}
-                  />
-                ) : null}
-                <SummaryRow
-                  label="Invoice total"
-                  value={fmt.money(quote.invoiceTotal)}
-                />
-                {quote.creditApplied > 0 ? (
-                  <SummaryRow
-                    label="Member credit applied"
-                    value={`−${fmt.money(quote.creditApplied)}`}
-                  />
-                ) : null}
-                <SummaryRow
-                  label={value.collectNow ? 'Cash due' : 'Amount due'}
-                  value={fmt.money(quote.cashDue)}
-                  strong
-                />
-              </div>
-            ) : null}
-
-            {quote && quote.cashDue <= 0 ? (
-              <p className="text-foreground text-sm font-medium">
-                No payment required
-              </p>
-            ) : null}
-
             <Collapse open={!!quote && quote.cashDue > 0 && value.collectNow}>
               {quote ? (
-                <div className="-mx-1 space-y-4 px-1 py-1">
+                <div className="-mx-1 space-y-4 px-1 pt-2 pb-3">
                   <RadioGroup
                     value={
                       quote.installmentsAvailable
