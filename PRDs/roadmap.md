@@ -8,6 +8,22 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **the member profile drawer now states each fact once
+and navigates five anchors instead of eight. Membership status, session usage,
+and auto-pay each print in exactly one place; the two prose lines restating the
+membership stat grid are gone, as are the duplicated load-failure and loading
+sentences and the churn-risk paragraph that repeated its own switch. Attendance
+folded into Membership — promoting Check in to the top of the drawer, with the
+visit list at ten untick-repeated rows because the full history is the
+Attendance tab on /members — the template-send log joined Follow-ups, and
+consent/deletion joined the profile form. Cards inside a nav-named section
+dropped their titles, since the sticky nav's lit tab names the section and each
+section carries that label as its accessible name; the invoice and message
+tables dropped their redundant frames and the message log its constant
+`WhatsApp` channel column. `SECTIONS` ids, `#sec-payments` deep links,
+`revealMemberBilling`, and every action, field, permission gate, and mutation
+path are unchanged**.
+
 Engineering maintenance: **P2-8 gives Finance -> Performance one bounded
 browser-memory cache across component remounts. Exact completed and pending
 keys include the authenticated user, selected account/branch, timezone, month,
@@ -419,7 +435,7 @@ Engineering maintenance: **Razorpay confirmed in writing on 2026-08-21 that Tech
 
 Engineering maintenance: **the single-account Razorpay Live environment pins are replaced by a server-owned rollout authority. RLS and revoked browser grants keep eligibility off the client; Rajat remains enabled and exactly bound to `acc_TCJwBqanN9LTrK`, while designated G12 canary VBF account `9c50dcd9-ed4a-427c-a2fc-07d452f0aec7` is enabled for exactly one first bind. The callback atomically claims the returned unbound merchant, rejects a merchant already bound to another tenant, closes enrollment, and then persists the encrypted grant; a claimed-but-not-persisted retry remains strict first-bind and cannot gain capability fallback. Connect, callback, refresh, and disconnect recovery all require the same account/merchant record. Connector migrations `20260824154937` (isolated Test) and `20260824155039` (Production), 53 focused Razorpay tests, and the full 2,222-test regression passed. Commit `e635b6c` reached Production, the canonical login smoke check passed, and a read-only closeout preserved exact Rajat readiness plus VBF's unbound/zero-queue state. G12 now remains pending only on VBF-owner OAuth consent and the post-consent no-money readiness/isolation/zero-queue closeout. No Payment Link, message, transaction, refund, or money movement was performed.**
 
-Engineering maintenance: **invoice Copy link and Send payment link actions now show the established spinner and accessible busy state while Razorpay, WhatsApp, and template readiness load, then return to their normal icons without changing any role, provider, phone, or template eligibility rule. Active links now show Payment link active as the primary badge with expiry on a separate supporting line, so link expiry cannot be mistaken for invoice expiry.**
+Engineering maintenance: **invoice Copy link and Send payment link actions now show the established spinner and accessible busy state while Razorpay, WhatsApp, and template readiness load, then return to their normal icons without changing any role, provider, phone, or template eligibility rule. Active links now show Payment link active as the primary badge with its expiry as adjacent supporting text on the caption line above the link buttons, so link expiry cannot be mistaken for invoice expiry.**
 
 Engineering maintenance: **WhatsApp feature-template readiness now compares ordered button values structurally instead of comparing serialized JSON object key order, so PostgreSQL `jsonb` normalization cannot falsely block an otherwise exact Approved/synced renewal or payment template as component drift; button sequence and all contract values remain strict.**
 
@@ -516,6 +532,8 @@ Invoice delivery status: **human numbering/customer identity backfill, first-com
 Engineering maintenance: **invoice PDF seller/customer details now use the intended compact 9pt/1.45 line height, with rendered-content regression proof preventing React PDF's 18pt child-style default from reopening the oversized vertical gaps.**
 
 Engineering maintenance: **Business → Invoices now loads one authorized, tenant-scoped, server-filtered/sorted/clamped 25-row ledger page with exact queue counts, summary, and rendered facets instead of hydrating the full month through seven browser requests and five dependency stages. Full filtered CSV export walks bounded server pages under a stable snapshot token, while action-only lines, payments, and refunds stay out of listing responses. Existing invoice/payment/refund/allocation realtime dependencies remain; the unused pricing-option subscription was removed from this tab. Production scale fell from roughly 1.88 MB before HTTP overhead to about 73 KB for the listing page. No evidence-backed index or Supabase compute upgrade was warranted; stop performance changes unless new telemetry identifies another user-visible bottleneck**.
+
+Engineering maintenance: **the invoice detail footer is now ranked into two bands instead of one wrapping row of six equal actions. The payment-link caption claims its own line above Copy link, Send payment link, and UPI link; document actions sit beside Record payment on the closing row and recede to the ghost variant only while a collection cluster outranks them, staying outline when they are a settled invoice's only actions. Below the small breakpoint the link buttons fill their rows so a wrap never strands a short one, and the reversed mobile column is gone, so DOM, focus, and visual order agree at every width. Every action, blocker, permission, and readiness rule is unchanged**.
 
 The shipped Business → Invoices detail flow now uses a responsive 560px desktop cap, preserves card rings inside an explicit shrinkable scroll viewport so long histories cannot escape the dialog, keeps the top-right dismiss affordance without a duplicate footer Close action, and shares one reconciled accounting summary across unpaid, part-paid, paid, no-charge, void, credited, adjusted, refunded, and refund-review states. Refunds render as dated outcome-first ledger events with explicit pending, failed, orphaned, processed, accounting-outcome, and review language plus a labelled reason/provider/source/requester audit grid; net collection carries the gross-collected/refunded breakdown once instead of competing rows.
 

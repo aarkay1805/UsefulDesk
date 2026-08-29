@@ -6,13 +6,7 @@ import { toast } from 'sonner';
 
 import { getErrorMessage } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/client';
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardAction, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import {
   Tooltip,
@@ -96,13 +90,6 @@ export function ChurnRiskCard({
           />
         </CardAction>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <p className="text-muted-foreground text-xs">
-          {risk
-            ? 'This member is marked for retention follow-up.'
-            : 'This member is not marked as a churn risk.'}
-        </p>
-      </CardContent>
     </Card>
   );
 }

@@ -66,7 +66,7 @@ export function MemberDangerZone({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Settings</CardTitle>
+        <CardTitle>Consent &amp; data</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {canManageConsent && (

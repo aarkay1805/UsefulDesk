@@ -1094,23 +1094,15 @@ export function InvoiceDetailDialog({
           ) : null}
         </div>
 
-        <DialogFooter className="min-w-0 sm:flex-wrap">
-          {activeInvoice ? (
-            <InvoiceDocumentActions
-              key={activeInvoice.id}
-              invoice={activeInvoice}
-              onResolveRefundReview={
-                canVoid ? focusCurrentRefundReview : undefined
-              }
-              customerPhone={
-                member?.contact?.phone ??
-                activeInvoice.membership?.contact?.phone ??
-                activeInvoice.contact?.phone
-              }
-            />
-          ) : null}
+        {/* Two bands by rank, not one wrapping row of equals: the ways to ask
+            for the money first, then the paperwork beside the one action that
+            closes the invoice. Reading order matches DOM order at both sizes.
+            Below `sm` the link buttons fill their rows so a wrap never strands
+            a short one — selected as `> button` rather than `[data-slot=button]`
+            because Base UI rewrites that slot on a blocked action's trigger. */}
+        <DialogFooter className="min-w-0 flex-col gap-5 sm:flex-col sm:gap-4">
           {activeInvoice && collectionState?.show ? (
-            <>
+            <div className="flex min-w-0 flex-wrap items-center gap-2 [&>button]:min-w-fit [&>button]:flex-1 sm:[&>button]:flex-none">
               <PaymentLinkActions
                 key={activeInvoice.id}
                 invoice={activeInvoice}
@@ -1126,6 +1118,27 @@ export function InvoiceDetailDialog({
                 size="default"
                 blocker={collectionBlocker}
               />
+            </div>
+          ) : null}
+
+          <div className="flex min-w-0 flex-col gap-3 empty:hidden sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+            {activeInvoice ? (
+              <InvoiceDocumentActions
+                key={activeInvoice.id}
+                invoice={activeInvoice}
+                variant={collectionState?.show ? 'ghost' : 'outline'}
+                className={cn(collectionState?.show && 'sm:mr-auto')}
+                onResolveRefundReview={
+                  canVoid ? focusCurrentRefundReview : undefined
+                }
+                customerPhone={
+                  member?.contact?.phone ??
+                  activeInvoice.membership?.contact?.phone ??
+                  activeInvoice.contact?.phone
+                }
+              />
+            ) : null}
+            {activeInvoice && collectionState?.show ? (
               <InvoiceRecordPaymentAction
                 invoice={activeInvoice}
                 canRecord={canRecord}
@@ -1133,8 +1146,8 @@ export function InvoiceDetailDialog({
                 onRecord={onRecord}
                 onResolveRefundReview={focusCurrentRefundReview}
               />
-            </>
-          ) : null}
+            ) : null}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type Ref,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -88,13 +89,7 @@ import {
 } from '@/components/ui/dialog';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardAction,
-  CardContent,
-} from '@/components/ui/card';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableHeader,
@@ -186,16 +181,22 @@ export function memberInvoiceDetail(
   };
 }
 
-/** Jump-nav sections, in scroll order. Ids double as `#sec-<id>`. */
+/**
+ * Jump-nav anchors, in scroll order. Ids double as `#sec-<id>`.
+ *
+ * Five, not eight. Attendance is the membership's usage rather than its own
+ * queue; the send log belongs beside the follow-ups it explains; consent and
+ * deletion are record admin on the same contact as the profile form. The nav
+ * is sticky, so its lit tab — not a card title under it — names whatever
+ * section you are reading. Ids stay stable so `#sec-payments` deep links and
+ * `revealMemberBilling` keep working.
+ */
 const SECTIONS = [
   { id: 'membership', label: 'Membership' },
-  { id: 'products', label: 'Products & services' },
+  { id: 'products', label: 'Purchases' },
   { id: 'payments', label: 'Billing' },
-  { id: 'notes', label: 'Notes & follow-ups' },
-  { id: 'attendance', label: 'Attendance' },
-  { id: 'communication', label: 'Communication' },
-  { id: 'personal', label: 'Personal info' },
-  { id: 'settings', label: 'Settings' },
+  { id: 'notes', label: 'Follow-ups' },
+  { id: 'personal', label: 'Profile' },
 ] as const;
 
 type LifecycleAction = 'freeze' | 'resume' | 'cancel' | 'reactivate';
@@ -256,10 +257,33 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/** Section wrapper — id anchor for the jump nav and scrollspy. */
-function Section({ id, children }: { id: string; children: ReactNode }) {
+/**
+ * Section wrapper — id anchor for the jump nav and scrollspy. Carries the
+ * nav's own label as its accessible name, because the cards inside no longer
+ * repeat it as a visible title.
+ */
+function Section({
+  id,
+  label,
+  ref,
+  tabIndex,
+  children,
+}: {
+  id: string;
+  label: string;
+  /** Focus target for a programmatic jump (Billing). */
+  ref?: Ref<HTMLElement>;
+  tabIndex?: number;
+  children: ReactNode;
+}) {
   return (
-    <section id={`sec-${id}`} className="min-w-0">
+    <section
+      ref={ref}
+      id={`sec-${id}`}
+      aria-label={label}
+      tabIndex={tabIndex}
+      className="min-w-0 scroll-mt-4 focus:outline-none"
+    >
       {children}
     </section>
   );
@@ -375,7 +399,7 @@ function MembershipDetailView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
-  const billingHeadingRef = useRef<HTMLDivElement>(null);
+  const billingHeadingRef = useRef<HTMLElement>(null);
   const jumpTargetRef = useRef<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>('membership');
 
@@ -408,12 +432,15 @@ function MembershipDetailView({
         servicesResult,
         genericBillingResult,
       ] = await Promise.all([
+        // Ten, not twenty: this list answers "are they still coming?" at a
+        // glance. The full history is the Attendance tab on /members, and
+        // twenty rows pushed every other section off a phone screen.
         supabase
           .from('attendance')
           .select('*')
           .eq('membership_id', membershipId)
           .order('checked_in_at', { ascending: false })
-          .limit(20),
+          .limit(10),
         supabase
           .from('membership_period_invoices')
           .select('*')
@@ -842,7 +869,8 @@ function MembershipDetailView({
   // plan doesn't "expire" — it renews on end_date — so the date column and
   // the amount column relabel by type (recurring | fixed-term | pack), and
   // legacy null-plan rows read as recurring (same rule as the renewal chase).
-  const planType = membership?.plan?.plan_type ?? null;
+  // The relabelled columns ARE the explanation; there is no prose line
+  // restating them underneath.
   const isRecurringMembership = isRenewalChaseable(membership?.plan);
   const pricingOption = membership?.pricing_option ?? null;
   const cadenceLabel = pricingOption
@@ -993,14 +1021,11 @@ function MembershipDetailView({
           <div className="flex h-full flex-col">
             <SheetHeader className="border-border border-b p-4 pr-12 sm:p-5 sm:pr-12">
               <SheetTitle>Member profile</SheetTitle>
-              <SheetDescription>
-                We couldn&apos;t load this member&apos;s details.
-              </SheetDescription>
             </SheetHeader>
             <div className="bg-muted/20 flex flex-1 items-start justify-center p-4 sm:items-center sm:p-6">
               <Alert variant="destructive" className="max-w-md">
                 <CircleAlert className="size-4" />
-                <AlertTitle>Could not load this member safely</AlertTitle>
+                <AlertTitle>Couldn&apos;t load this member</AlertTitle>
                 <AlertDescription>
                   <p>{loadError}</p>
                   <Button
@@ -1020,7 +1045,6 @@ function MembershipDetailView({
           <div className="flex h-full flex-col">
             <SheetHeader className="border-border border-b p-4 pr-12 sm:p-5 sm:pr-12">
               <SheetTitle>Member profile</SheetTitle>
-              <SheetDescription>Loading member details…</SheetDescription>
             </SheetHeader>
             <div
               className="bg-muted/20 text-muted-foreground flex flex-1 items-center justify-center gap-2 p-6"
@@ -1078,7 +1102,6 @@ function MembershipDetailView({
                   <SheetDescription className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
                     <span className="flex items-center gap-1.5">
                       <Hash className="size-3.5" />
-                      Member ID
                       <span className="font-mono tabular-nums">
                         {membership.member_number}
                       </span>
@@ -1175,34 +1198,51 @@ function MembershipDetailView({
                       floors the column at 640px; a raw min-width would also
                       apply on mobile and force the whole sheet to scroll. */}
                   <div className="flex min-w-0 flex-col gap-4">
-                    {/* Membership */}
-                    <Section id="membership">
+                    {/* Membership — the plan, and whether it is being used.
+                        Attendance folded in here: check-in is the front
+                        desk's most-used action, and the usage line used to
+                        print twice (once here, once in its own card). */}
+                    <Section id="membership" label="Membership">
                       <Card>
-                        <CardHeader>
-                          <CardTitle>Membership</CardTitle>
-                          <CardAction>
-                            <MembershipActionsMenu
-                              status={membership.status}
-                              isTrial={!!membership.is_trial}
-                              canManage={canSendMessages}
-                              lifecycleBlockReason={
-                                membershipLifecycleBlockReason
-                              }
-                              busy={busy}
-                              onRenew={() => setRenewOpen(true)}
-                              onChangePlan={() => setChangePlanOpen(true)}
-                              onEdit={() => onEdit(membership)}
-                              onFreeze={() => setPendingLifecycle('freeze')}
-                              onResume={() => setPendingLifecycle('resume')}
-                              onCancel={() => setPendingLifecycle('cancel')}
-                              onReactivate={() =>
-                                setPendingLifecycle('reactivate')
-                              }
-                              onOpenBilling={openBillingResolution}
-                            />
-                          </CardAction>
+                        {/* No title: the sticky nav's lit tab names this
+                            section. A title-less header carries left-aligned,
+                            content-sized controls rather than a CardAction. */}
+                        <CardHeader className="flex flex-wrap items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={checkIn}
+                            loading={checkInBusy}
+                          >
+                            <UserCheck className="size-3.5" /> Check in
+                          </Button>
+                          <MembershipActionsMenu
+                            status={membership.status}
+                            isTrial={!!membership.is_trial}
+                            canManage={canSendMessages}
+                            lifecycleBlockReason={
+                              membershipLifecycleBlockReason
+                            }
+                            busy={busy}
+                            onRenew={() => setRenewOpen(true)}
+                            onChangePlan={() => setChangePlanOpen(true)}
+                            onEdit={() => onEdit(membership)}
+                            onFreeze={() => setPendingLifecycle('freeze')}
+                            onResume={() => setPendingLifecycle('resume')}
+                            onCancel={() => setPendingLifecycle('cancel')}
+                            onReactivate={() =>
+                              setPendingLifecycle('reactivate')
+                            }
+                            onOpenBilling={openBillingResolution}
+                          />
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
+                          {/* The grid states plan, price + cadence, start and
+                              term. Everything the old prose lines added —
+                              "renews every month on <end_date>", "fixed-term
+                              plan — ends <end_date>" — was already in these
+                              four cells. The status badge lives once, in the
+                              sheet header, where it also carries days-to-go. */}
                           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                             <Stat label="Plan">
                               {membership.plan?.name ?? '—'}
@@ -1230,100 +1270,85 @@ function MembershipDetailView({
                               {fmt.date(membership.start_date)}
                             </Stat>
                             <Stat label={termLabel}>
-                              <span className="flex flex-wrap items-center gap-2">
-                                <span className="tabular-nums">
-                                  {fmt.date(membership.end_date)}
-                                </span>
-                                {eff ? (
-                                  <MembershipStatusBadge status={eff} />
-                                ) : null}
+                              <span className="tabular-nums">
+                                {fmt.date(membership.end_date)}
                               </span>
                             </Stat>
                           </dl>
-                          {isRecurringMembership &&
-                            membership.status === 'active' && (
-                              <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                                <Repeat className="size-3.5 shrink-0" />
-                                {mandate?.status === 'active' ? (
-                                  <>
-                                    Auto-renews
-                                    {cadenceLabel
-                                      ? ` every ${cadenceLabel}`
-                                      : ''}{' '}
-                                    on {fmt.date(membership.end_date)}.
-                                  </>
-                                ) : (
-                                  <>
-                                    Renews
-                                    {cadenceLabel
-                                      ? ` every ${cadenceLabel}`
-                                      : ''}{' '}
-                                    — next cycle starts{' '}
-                                    {fmt.date(membership.end_date)}.
-                                  </>
-                                )}
-                              </p>
-                            )}
-                          {planType === 'non_recurring' && (
-                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                              <CalendarDays className="size-3.5 shrink-0" />
-                              Fixed-term plan — ends{' '}
-                              {fmt.date(membership.end_date)} and does not
-                              renew.
-                            </p>
-                          )}
-                          {membership.plan?.plan_type === 'session_pack' &&
-                            usageLine && (
-                              <p
-                                className={`text-xs ${
-                                  usageLine.danger
-                                    ? 'text-red-foreground'
-                                    : 'text-muted-foreground'
-                                }`}
-                              >
-                                {usageLine.text}
-                              </p>
-                            )}
                           {membership.status === 'frozen' &&
                             membership.frozen_at && (
                               <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                                <Snowflake className="size-3.5" />
+                                <Snowflake className="size-3.5 shrink-0" />
                                 Frozen since {fmt.date(membership.frozen_at)} —
                                 the paused days are added back on resume.
                               </p>
                             )}
                           {membership.notes && (
-                            <p className="border-border bg-muted/40 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
+                            <p className="border-border text-muted-foreground border-l pl-3 text-sm">
                               {membership.notes}
                             </p>
                           )}
+
+                          {/* Visits — the plan's usage, not a separate queue.
+                              The per-row tick was identical on every line and
+                              carried nothing the list did not. */}
+                          <div className="border-border flex flex-col gap-3 border-t pt-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-muted-foreground text-xs font-medium">
+                                Recent visits
+                              </p>
+                              {usageLine && (
+                                <Badge
+                                  variant={usageLine.danger ? 'danger' : 'info'}
+                                >
+                                  {usageLine.text}
+                                </Badge>
+                              )}
+                            </div>
+                            {visits.length === 0 ? (
+                              <p className="text-muted-foreground text-sm">
+                                No check-ins yet.
+                              </p>
+                            ) : (
+                              <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                                {visits.map((v) => (
+                                  <li
+                                    key={v.id}
+                                    className="text-muted-foreground text-sm tabular-nums"
+                                  >
+                                    {fmt.dateTime(v.checked_in_at)}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
                         </CardContent>
                       </Card>
                     </Section>
 
-                    {/* Member-only catalogue history. Service dates remain
-                        independent from the membership lifecycle. */}
-                    <Section id="products">
+                    {/* Purchases — member-only catalogue history. Service
+                        dates stay independent of the membership lifecycle.
+                        The item name is the row heading now; it used to be a
+                        Stat *label*, which made every row's columns mean
+                        something different and printed "Merchandise" twice. */}
+                    <Section id="products" label="Purchases">
                       <Card>
-                        <CardHeader>
-                          <CardTitle>Products &amp; services</CardTitle>
-                          {canSell ? (
-                            <CardAction>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={openSale}
-                                loading={openingPurchasePage}
-                              >
-                                <Plus className="size-4" /> Add purchase
-                              </Button>
-                            </CardAction>
-                          ) : null}
-                        </CardHeader>
+                        {canSell ? (
+                          <CardHeader className="flex flex-wrap items-center gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={openSale}
+                              loading={openingPurchasePage}
+                            >
+                              <Plus className="size-4" /> Add purchase
+                            </Button>
+                          </CardHeader>
+                        ) : null}
                         <CardContent>
                           {purchases.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
-                              No products or services purchased yet.
+                              No purchases yet.
                             </p>
                           ) : (
                             <div className="space-y-4">
@@ -1411,64 +1436,63 @@ function MembershipDetailView({
                                       </div>
                                     ) : null}
 
-                                    <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                      <Stat
-                                        label={
-                                          service
-                                            ? service.item_name_snapshot
-                                            : line?.description || 'Merchandise'
-                                        }
-                                      >
-                                        {service
-                                          ? service.trainer_name || '—'
-                                          : 'Merchandise'}
-                                      </Stat>
-                                      <Stat label="Billing">
-                                        <span className="tabular-nums">
-                                          {fmt.money(
-                                            service?.sold_amount ??
-                                              line?.line_amount ??
-                                              0
-                                          )}
-                                          {service ? (
-                                            <span className="text-muted-foreground font-normal">
-                                              {' '}
-                                              /{' '}
-                                              {durationLabel(
-                                                service.option_duration_count,
-                                                service.option_duration_unit
+                                    <p className="text-foreground pr-8 text-sm font-medium">
+                                      {service
+                                        ? service.item_name_snapshot
+                                        : line?.description || 'Merchandise'}
+                                    </p>
+                                    <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                      {service ? (
+                                        <>
+                                          <Stat label="Trainer">
+                                            {service.trainer_name || '—'}
+                                          </Stat>
+                                          <Stat label="Price">
+                                            <span className="tabular-nums">
+                                              {fmt.money(service.sold_amount)}
+                                              <span className="text-muted-foreground font-normal">
+                                                {' '}
+                                                /{' '}
+                                                {durationLabel(
+                                                  service.option_duration_count,
+                                                  service.option_duration_unit
+                                                )}
+                                              </span>
+                                            </span>
+                                          </Stat>
+                                          <Stat label="Started">
+                                            {fmt.date(service.start_date)}
+                                          </Stat>
+                                          <Stat label="Expires">
+                                            <span className="flex flex-wrap items-center gap-2">
+                                              <span className="tabular-nums">
+                                                {fmt.date(service.end_date)}
+                                              </span>
+                                              <MemberServiceStatusBadge
+                                                status={service.derived_status}
+                                              />
+                                            </span>
+                                          </Stat>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Stat label="Quantity">
+                                            <span className="tabular-nums">
+                                              {line?.quantity}
+                                            </span>
+                                          </Stat>
+                                          <Stat label="Price">
+                                            <span className="tabular-nums">
+                                              {fmt.money(
+                                                line?.line_amount ?? 0
                                               )}
                                             </span>
-                                          ) : null}
-                                        </span>
-                                      </Stat>
-                                      <Stat
-                                        label={
-                                          service ? 'Started' : 'Purchased'
-                                        }
-                                      >
-                                        {fmt.date(
-                                          service?.start_date ??
-                                            line?.created_at ??
-                                            ''
-                                        )}
-                                      </Stat>
-                                      <Stat
-                                        label={service ? 'Expires' : 'Quantity'}
-                                      >
-                                        {service ? (
-                                          <span className="flex flex-wrap items-center gap-2">
-                                            <span className="tabular-nums">
-                                              {fmt.date(service.end_date)}
-                                            </span>
-                                            <MemberServiceStatusBadge
-                                              status={service.derived_status}
-                                            />
-                                          </span>
-                                        ) : (
-                                          line?.quantity
-                                        )}
-                                      </Stat>
+                                          </Stat>
+                                          <Stat label="Purchased">
+                                            {fmt.date(line?.created_at ?? '')}
+                                          </Stat>
+                                        </>
+                                      )}
                                     </dl>
                                   </div>
                                 );
@@ -1479,78 +1503,76 @@ function MembershipDetailView({
                       </Card>
                     </Section>
 
-                    {/* Payments */}
-                    <Section id="payments">
+                    {/* Billing — the invoice ledger. Focus target for the
+                        "resolve billing" jump, which used to land on the card
+                        title this section no longer needs. */}
+                    <Section
+                      id="payments"
+                      label="Billing"
+                      ref={billingHeadingRef}
+                      tabIndex={-1}
+                    >
                       <Card>
-                        <CardHeader>
-                          <CardTitle
-                            ref={billingHeadingRef}
-                            role="heading"
-                            aria-level={2}
-                            tabIndex={-1}
-                            className="flex items-center gap-2"
-                          >
-                            Billing
+                        {(membership.plan?.plan_type ||
+                          (!membership.is_trial &&
+                            (canCollectCurrent || canSetupAutoPay))) && (
+                          <CardHeader className="flex flex-wrap items-center gap-2">
                             {membership.plan?.plan_type && (
                               <PlanTypeBadge type={membership.plan.plan_type} />
                             )}
-                          </CardTitle>
-                          {!membership.is_trial &&
-                            (canCollectCurrent || canSetupAutoPay) && (
-                              <CardAction className="col-span-2 col-start-1 row-start-2 mt-2 flex w-full flex-wrap items-center justify-start gap-2 sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:mt-0 sm:w-auto sm:justify-end">
-                                {canCollectCurrent && (
-                                  <>
-                                    <CopyUpiLinkButton
-                                      upi={upi}
-                                      amount={Number(
-                                        currentGenericInvoice!.balance
-                                      )}
-                                      note={`Invoice ${currentGenericInvoice!.reference}`}
-                                      size="sm"
-                                    />
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setReturnToInvoiceAfterPay(false);
-                                        setPaymentTargetId(
-                                          currentGenericInvoice!.id
-                                        );
-                                      }}
-                                    >
-                                      <Wallet className="size-4" /> Record
-                                      payment
-                                    </Button>
-                                  </>
-                                )}
-                                {canSetupAutoPay && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setAutoPayOpen(true)}
-                                  >
-                                    <Repeat className="size-4" /> Set up
-                                    auto-pay
-                                  </Button>
-                                )}
-                              </CardAction>
+                            {!membership.is_trial && canCollectCurrent && (
+                              <>
+                                <CopyUpiLinkButton
+                                  upi={upi}
+                                  amount={Number(
+                                    currentGenericInvoice!.balance
+                                  )}
+                                  note={`Invoice ${currentGenericInvoice!.reference}`}
+                                  size="sm"
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setReturnToInvoiceAfterPay(false);
+                                    setPaymentTargetId(
+                                      currentGenericInvoice!.id
+                                    );
+                                  }}
+                                >
+                                  <Wallet className="size-4" /> Record payment
+                                </Button>
+                              </>
                             )}
-                        </CardHeader>
-                        <CardContent className="space-y-5">
+                            {!membership.is_trial && canSetupAutoPay && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setAutoPayOpen(true)}
+                              >
+                                <Repeat className="size-4" /> Set up auto-pay
+                              </Button>
+                            )}
+                          </CardHeader>
+                        )}
+                        <CardContent className="flex flex-col gap-4">
                           {membership.is_trial ? (
                             <p className="text-muted-foreground text-sm">
-                              Trials are not billed. Convert to a member to
+                              Trials aren&apos;t billed. Convert to a member to
                               start invoicing.
                             </p>
                           ) : (
                             <>
                               {membership.status === 'cancelled' && (
-                                <p className="border-border bg-muted/30 text-muted-foreground rounded-lg border px-3 py-2 text-sm">
-                                  This membership is cancelled. Its current
-                                  billing period is not collectible.
+                                <p className="text-muted-foreground text-sm">
+                                  Cancelled — this billing period is not
+                                  collectible.
                                 </p>
                               )}
 
+                              {/* The one place auto-pay is stated. The
+                                  Membership card used to say it too, in
+                                  different words. */}
                               {mandate && (
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                   <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
@@ -1561,21 +1583,20 @@ function MembershipDetailView({
                                         {mandate.vpa
                                           ? ` · ${mandate.vpa}`
                                           : ' · UPI AutoPay'}
-                                        {' — renewals collect automatically.'}
                                       </>
                                     ) : mandate.status === 'orphaned' ? (
                                       <>
-                                        Auto-pay setup needs payment
-                                        reconciliation review before retrying.
+                                        Auto-pay needs payment reconciliation
+                                        review before retrying.
                                       </>
                                     ) : mandate.status === 'creating' ? (
-                                      <>Auto-pay setup is in progress.</>
+                                      <>Auto-pay setup in progress.</>
                                     ) : mandate.status === 'paused' ? (
-                                      <>Auto-pay is paused and needs review.</>
+                                      <>Auto-pay paused — needs review.</>
                                     ) : (
                                       <>
-                                        Auto-pay mandate pending the
-                                        member&apos;s approval.
+                                        Auto-pay pending the member&apos;s
+                                        approval.
                                       </>
                                     )}
                                   </p>
@@ -1592,231 +1613,178 @@ function MembershipDetailView({
                                 </div>
                               )}
 
-                              <div className="space-y-2">
-                                {billingInvoices.length === 0 ? (
-                                  <p className="text-muted-foreground text-sm">
-                                    No billing history yet.
-                                  </p>
-                                ) : (
-                                  <div className="border-border overflow-hidden rounded-lg border">
-                                    <Table>
-                                      <TableHeader>
-                                        <TableRow className="hover:bg-transparent">
-                                          <TableHead>Invoice</TableHead>
-                                          <TableHead className="hidden sm:table-cell">
-                                            Issued on
-                                          </TableHead>
-                                          <TableHead className="text-right">
-                                            Total
-                                          </TableHead>
-                                          <TableHead className="hidden text-right sm:table-cell">
-                                            Paid
-                                          </TableHead>
-                                          <TableHead className="hidden text-right sm:table-cell">
-                                            Balance
-                                          </TableHead>
-                                        </TableRow>
-                                      </TableHeader>
-                                      <TableBody>
-                                        {billingInvoices.map((invoice) => {
-                                          const payState = invoicePaymentState({
-                                            fee_amount: Number(
-                                              invoice.fee_amount
-                                            ),
-                                            amount_paid:
-                                              Number(invoice.amount_paid) +
-                                              Number(
-                                                invoice.credit_applied ?? 0
-                                              ),
-                                            balance: Number(invoice.balance),
-                                          });
+                              {billingInvoices.length === 0 ? (
+                                <p className="text-muted-foreground text-sm">
+                                  No invoices yet.
+                                </p>
+                              ) : (
+                                /* No frame: the card is already the container,
+                                   and the table's own row rules carry the
+                                   structure. -mx-2 cancels the cell padding so
+                                   the first column lines up with the copy
+                                   above it. */
+                                <div className="-mx-2">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow className="hover:bg-transparent">
+                                        <TableHead>Invoice</TableHead>
+                                        <TableHead className="hidden sm:table-cell">
+                                          Issued on
+                                        </TableHead>
+                                        <TableHead className="text-right">
+                                          Total
+                                        </TableHead>
+                                        <TableHead className="hidden text-right sm:table-cell">
+                                          Paid
+                                        </TableHead>
+                                        <TableHead className="hidden text-right sm:table-cell">
+                                          Balance
+                                        </TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {billingInvoices.map((invoice) => {
+                                        const payState = invoicePaymentState({
+                                          fee_amount: Number(
+                                            invoice.fee_amount
+                                          ),
+                                          amount_paid:
+                                            Number(invoice.amount_paid) +
+                                            Number(invoice.credit_applied ?? 0),
+                                          balance: Number(invoice.balance),
+                                        });
 
-                                          return (
-                                            <TableRow
-                                              key={invoice.id}
-                                              onClick={() => {
+                                        return (
+                                          <TableRow
+                                            key={invoice.id}
+                                            onClick={() => {
+                                              setInvoiceTargetId(invoice.id);
+                                              setInvoiceOpen(true);
+                                            }}
+                                            onKeyDown={(event) => {
+                                              if (
+                                                event.key === 'Enter' ||
+                                                event.key === ' '
+                                              ) {
+                                                event.preventDefault();
                                                 setInvoiceTargetId(invoice.id);
                                                 setInvoiceOpen(true);
-                                              }}
-                                              onKeyDown={(event) => {
-                                                if (
-                                                  event.key === 'Enter' ||
-                                                  event.key === ' '
-                                                ) {
-                                                  event.preventDefault();
-                                                  setInvoiceTargetId(
-                                                    invoice.id
-                                                  );
-                                                  setInvoiceOpen(true);
-                                                }
-                                              }}
-                                              tabIndex={0}
-                                              aria-haspopup="dialog"
-                                              aria-label={`View ${invoice.reference}`}
-                                              className="cursor-pointer"
-                                            >
-                                              <TableCell>
-                                                <span className="inline-flex items-center gap-2">
-                                                  <span className="text-xs font-medium tabular-nums">
-                                                    {invoice.reference}
-                                                  </span>
-                                                  {invoice.state === 'void' ? (
-                                                    <Badge variant="neutral">
-                                                      Void
-                                                    </Badge>
-                                                  ) : (
-                                                    <InvoicePaymentBadge
-                                                      state={payState}
-                                                    />
-                                                  )}
+                                              }
+                                            }}
+                                            tabIndex={0}
+                                            aria-haspopup="dialog"
+                                            aria-label={`View ${invoice.reference}`}
+                                            className="cursor-pointer"
+                                          >
+                                            <TableCell>
+                                              <span className="inline-flex items-center gap-2">
+                                                <span className="text-xs font-medium tabular-nums">
+                                                  {invoice.reference}
                                                 </span>
-                                              </TableCell>
-                                              <TableCell className="text-muted-foreground hidden text-xs tabular-nums sm:table-cell">
-                                                {fmt.date(invoice.created_at)}
-                                              </TableCell>
-                                              <TableCell className="text-right tabular-nums">
-                                                {fmt.money(invoice.fee_amount)}
-                                              </TableCell>
-                                              <TableCell className="text-emerald-foreground hidden text-right tabular-nums sm:table-cell">
-                                                {fmt.money(invoice.amount_paid)}
-                                              </TableCell>
-                                              <TableCell
-                                                className={`hidden text-right tabular-nums sm:table-cell ${
-                                                  isChargeableAmount(
-                                                    invoice.balance
-                                                  )
-                                                    ? 'text-amber-foreground'
-                                                    : ''
-                                                }`}
-                                              >
-                                                {fmt.money(invoice.balance)}
-                                              </TableCell>
-                                            </TableRow>
-                                          );
-                                        })}
-                                      </TableBody>
-                                    </Table>
-                                  </div>
-                                )}
-                              </div>
+                                                {invoice.state === 'void' ? (
+                                                  <Badge variant="neutral">
+                                                    Void
+                                                  </Badge>
+                                                ) : (
+                                                  <InvoicePaymentBadge
+                                                    state={payState}
+                                                  />
+                                                )}
+                                              </span>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground hidden text-xs tabular-nums sm:table-cell">
+                                              {fmt.date(invoice.created_at)}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums">
+                                              {fmt.money(invoice.fee_amount)}
+                                            </TableCell>
+                                            <TableCell className="text-emerald-foreground hidden text-right tabular-nums sm:table-cell">
+                                              {fmt.money(invoice.amount_paid)}
+                                            </TableCell>
+                                            <TableCell
+                                              className={`hidden text-right tabular-nums sm:table-cell ${
+                                                isChargeableAmount(
+                                                  invoice.balance
+                                                )
+                                                  ? 'text-amber-foreground'
+                                                  : ''
+                                              }`}
+                                            >
+                                              {fmt.money(invoice.balance)}
+                                            </TableCell>
+                                          </TableRow>
+                                        );
+                                      })}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              )}
                             </>
                           )}
                         </CardContent>
                       </Card>
                     </Section>
 
-                    {/* Notes & follow-ups — the same activity thread as the lead detail
-                        sheet (a member IS a contact). */}
-                    <Section id="notes">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Notes &amp; follow-ups</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <ContactNotesThread
-                            contactId={membership.contact_id}
-                            membershipId={membership.id}
-                            active={open}
-                            reloadKey={followUpReloadKey}
-                            followUpReason={defaultReason(
-                              membership,
-                              fmt.today()
-                            )}
-                            onFollowUpChanged={refreshAll}
-                          />
-                        </CardContent>
-                      </Card>
-                    </Section>
-
-                    {/* Attendance — promoted from the rail to a full section. */}
-                    <Section id="attendance">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Attendance</CardTitle>
-                          <CardAction>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={checkIn}
-                              loading={checkInBusy}
-                              disabled={checkInBusy}
-                            >
-                              <UserCheck className="size-3.5" /> Check in
-                            </Button>
-                          </CardAction>
-                        </CardHeader>
-                        <CardContent>
-                          {usageLine && (
-                            <p className="mb-2 text-xs">
-                              <Badge
-                                variant={usageLine.danger ? 'danger' : 'info'}
-                              >
-                                {usageLine.text}
-                              </Badge>
-                            </p>
-                          )}
-                          {visits.length === 0 ? (
-                            <p className="text-muted-foreground text-sm">
-                              No check-ins recorded yet.
-                            </p>
-                          ) : (
-                            <ul className="divide-border/50 divide-y">
-                              {visits.map((v) => (
-                                <li
-                                  key={v.id}
-                                  className="text-muted-foreground flex items-center gap-2 py-1.5 text-sm"
-                                >
-                                  <UserCheck className="text-emerald-foreground size-3.5 shrink-0" />
-                                  {fmt.dateTime(v.checked_in_at)}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Section>
-
-                    {/* Communication — template-send log (renewal
-                        reminders etc.), not a chat; replies live in the
-                        Inbox. Keyed by contact so switching members
-                        resets state. */}
-                    <Section id="communication">
-                      <MemberCommunication
-                        key={membership.contact_id}
-                        contactId={membership.contact_id}
-                        active={open}
-                      />
-                    </Section>
-
-                    {/* Personal information */}
-                    <Section id="personal">
-                      {membership.contact && (
-                        <MemberPersonalInfo
+                    {/* Follow-ups — the notes thread (the same one the lead
+                        detail sheet renders; a member IS a contact) and,
+                        beneath it, the log of what was actually sent. Both
+                        answer "where does this conversation stand", so they
+                        share one anchor instead of two. */}
+                    <Section id="notes" label="Follow-ups">
+                      <div className="flex flex-col gap-4">
+                        <Card>
+                          <CardContent>
+                            <ContactNotesThread
+                              contactId={membership.contact_id}
+                              membershipId={membership.id}
+                              active={open}
+                              reloadKey={followUpReloadKey}
+                              followUpReason={defaultReason(
+                                membership,
+                                fmt.today()
+                              )}
+                              onFollowUpChanged={refreshAll}
+                            />
+                          </CardContent>
+                        </Card>
+                        {/* Template-send log, not a chat; replies live in the
+                            Inbox. Keyed by contact so switching members
+                            resets state. */}
+                        <MemberCommunication
                           key={membership.contact_id}
-                          contact={membership.contact}
-                          canEdit={canSendMessages}
-                          onSaved={refreshAll}
+                          contactId={membership.contact_id}
+                          active={open}
                         />
-                      )}
+                      </div>
                     </Section>
 
-                    {/* Settings / danger zone */}
-                    <Section id="settings">
-                      <MemberDangerZone
-                        contactId={membership.contact_id}
-                        memberName={membership.contact?.name || ''}
-                        canDelete={
-                          accountRole ? canDeleteMember(accountRole) : false
-                        }
-                        blockedReason={membershipLifecycleBlockReason}
-                        onDeleted={() => {
-                          onOpenChange(false);
-                          onChanged();
-                        }}
-                      />
+                    {/* Profile — the contact record, then the admin that acts
+                        on the same record (consent, deletion). */}
+                    <Section id="personal" label="Profile">
+                      <div className="flex flex-col gap-4">
+                        {membership.contact && (
+                          <MemberPersonalInfo
+                            key={membership.contact_id}
+                            contact={membership.contact}
+                            canEdit={canSendMessages}
+                            onSaved={refreshAll}
+                          />
+                        )}
+                        <MemberDangerZone
+                          contactId={membership.contact_id}
+                          memberName={membership.contact?.name || ''}
+                          canDelete={
+                            accountRole ? canDeleteMember(accountRole) : false
+                          }
+                          blockedReason={membershipLifecycleBlockReason}
+                          onDeleted={() => {
+                            onOpenChange(false);
+                            onChanged();
+                          }}
+                        />
+                      </div>
                     </Section>
                   </div>
-
                   {/* Rail — profile signals, sticky just under the shared
                       line-tab nav while remaining level with Membership. */}
                   <div className="grid min-w-0 gap-4 lg:sticky lg:top-9 lg:self-start">

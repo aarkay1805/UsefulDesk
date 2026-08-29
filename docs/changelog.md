@@ -6,6 +6,52 @@
 
 ---
 
+## Member profile drawer says each thing once
+
+The sheet carried the same facts in two or three places. The status badge
+printed in the identity header _and_ inside the Membership card's term Stat.
+The session-pack usage line printed in the Membership card _and_ in the
+Attendance card. Auto-pay was narrated in Membership ("Auto-renews every month
+on 7 Sep") and stated again in Billing ("Auto-pay on · vpa"). Two prose lines
+under the stat grid restated cells the grid already held — `Billing ₹2,000 /
+month` plus `Renews 7 Sep 2026` says everything "renews every month on 7 Sep
+2026" says. A failed load said it three times (sheet description, alert title,
+error body) and a loading sheet twice. The churn-risk card's body paragraph was
+its own switch, in words. Each of those now appears once, where it belongs:
+status in the header (which also carries days-to-go), usage beside the visit
+list, auto-pay in Billing.
+
+**Eight jump-nav anchors became five.** Attendance folded into Membership — it
+is the plan's usage, not a separate queue, and folding it moved `Check in` to
+the top of the drawer. The template-send log joined the follow-ups it explains;
+consent/deletion joined the profile form it administers. `SECTIONS` ids stay
+`membership | products | payments | notes | personal`, so `#sec-payments` deep
+links and `revealMemberBilling` keep working; only the labels changed
+(Purchases / Billing / Follow-ups / Profile).
+
+**The sticky nav is the only labelling system now.** A card inside a nav-named
+section has no `CardTitle`; the `<section>` carries the nav's label as
+`aria-label`, and a title-less `CardHeader` uses the shared left-aligned `flex
+flex-wrap items-center gap-2` recipe instead of a `CardAction`, which
+`justify-self-end`s a lone control. `revealMemberBilling` focuses the Billing
+`<section>` (`tabIndex={-1}`) rather than the title it no longer has; its
+exported signature is unchanged.
+
+The remaining cuts are box-in-box and constant-value removals. The invoice and
+message tables lost their `rounded-lg border` frames — the card is already the
+container — and `-mx-2` cancels the cells' `p-2` so column one lines up with
+the copy above it. The message log lost its `Channel` column, every row of
+which rendered a hard-coded `WhatsApp` badge. The visit list lost its per-row
+tick and dropped from 20 rows to 10; the full history is the Attendance tab on
+`/members`, and 20 timestamps pushed every other section off a phone.
+Purchases rows lead with the item name as a heading instead of using it as a
+`Stat` _label_, which had made each row's columns mean something different and
+printed "Merchandise" twice. `MemberDangerZone`'s title moved from "Settings"
+(colliding with the app route) to "Consent & data".
+
+Nothing was de-featured: every action, field, permission gate, and mutation
+path is unchanged.
+
 ## Preset gallery reads as messages, not metadata
 
 The Settings -> Templates "Use a preset" dialog rendered each of the ten
@@ -2831,3 +2877,42 @@ New branches now receive a refined ten-category gym expense catalogue, with **St
   finance realtime subscription retains every listing dependency without the
   obsolete pricing-option refresh. Applied SQL defects were repaired forward,
   not by editing migration history. No new index or compute upgrade was justified.
+
+---
+
+## Invoice footer ranked into bands
+
+The due-invoice dialog footer put six actions into one `flex-wrap justify-end`
+row, so wrap points decided the grouping. Five identical outline buttons and one
+primary staircased across three ragged right-aligned rows; the payment-link
+status used `mr-auto` inside that wrapping row, which only pushes within its own
+line, so the badge and its expiry landed wherever the wrap left them — on mobile
+that was _between_ "Copy link" and "Send on WhatsApp", captioning neither. The
+mobile footer was six full-width bars under `flex-col-reverse`, 313px of a 844px
+sheet, with tab order running bottom-to-top against the visual order.
+
+Now two bands by rank, in `invoice-detail-dialog.tsx`:
+
+- **The ask** — payment-link caption on its own line (`w-full`), then Copy link /
+  Send payment link / UPI link. Below `sm` these fill their rows so a wrap never
+  strands a short button; from `sm` they sit at intrinsic width, flush left.
+- **The close** — document actions left, `Record payment` right. The documents
+  drop to `variant="ghost"` only while a collection cluster outranks them, and
+  stay `outline` when they are the footer's only actions (settled invoices).
+
+Rhythm is 8 / 12–16 / 20px rather than one repeated 8px. Desktop 153px → 141px,
+mobile 313px → 269px. `flex-col-reverse` is gone, so DOM, focus, and visual
+order now agree at both sizes; initial dialog focus consequently lands on the
+first enabled collection action instead of "Download invoice".
+
+Two gotchas a future session must not re-litigate:
+
+- **Do not select these buttons with `[data-slot=button]`.** Base UI's
+  `TooltipTrigger` rewrites that attribute to `tooltip-trigger` on any
+  `ResolvableAction` carrying a blocker, so the selector silently skips exactly
+  the blocked actions. The band uses `[&>button]`, which also excludes the
+  caption `span` for free.
+- **`InvoiceDocumentActions` owns its own group container** rather than
+  returning a fragment. It can render nothing at all, and a wrapper supplied by
+  the footer would have left an empty flex item contributing a phantom `gap`.
+  The close band carries `empty:hidden` for the same reason.

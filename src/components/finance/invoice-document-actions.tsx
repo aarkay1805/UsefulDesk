@@ -25,6 +25,7 @@ import {
 } from '@/lib/finance/invoice-detail-presentation';
 import { isProjectedInvoice } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
+import { cn } from '@/lib/utils';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 import type { InvoicePartySnapshot } from '@/types';
 
@@ -175,10 +176,15 @@ export function InvoiceDocumentActions({
   invoice,
   customerPhone,
   onResolveRefundReview,
+  variant = 'outline',
+  className,
 }: {
   invoice: InvoiceDocumentActionsInvoice;
   customerPhone: string | null | undefined;
   onResolveRefundReview?: () => void;
+  /** `ghost` when a collection cluster outranks these in the same footer. */
+  variant?: 'outline' | 'ghost';
+  className?: string;
 }) {
   const { accountId, accountRole } = useAuth();
   const [loadedReadiness, setLoadedReadiness] =
@@ -359,13 +365,13 @@ export function InvoiceDocumentActions({
   }
 
   return (
-    <>
+    <div className={cn('flex min-w-0 flex-wrap items-center gap-2', className)}>
       {presentation.download.show ? (
         <ResolvableAction
           trigger={
             <Button
               type="button"
-              variant="outline"
+              variant={variant}
               disabled={readinessLoading || (canDownload && documentPreparing)}
               loading={readinessLoading || downloading}
             >
@@ -381,7 +387,7 @@ export function InvoiceDocumentActions({
           trigger={
             <Button
               type="button"
-              variant="outline"
+              variant={variant}
               disabled={readinessLoading || (canShare && documentPreparing)}
               loading={readinessLoading || sharing}
             >
@@ -392,6 +398,6 @@ export function InvoiceDocumentActions({
           blocker={shareBlocker}
         />
       ) : null}
-    </>
+    </div>
   );
 }

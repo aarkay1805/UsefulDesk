@@ -360,7 +360,10 @@ export function PaymentLinkActions({
   return (
     <>
       {showStatus ? (
-        <span className="mr-auto inline-flex flex-col items-start gap-1 text-xs">
+        // Caption for the link buttons below it: `w-full` claims its own line
+        // in the footer's collection band so the badge never has to compete
+        // with a button for horizontal room.
+        <span className="flex w-full min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
           <PaymentLinkStatusBadge status={link.status} />
           {active && link.expiresAt ? (
             <span className="text-muted-foreground whitespace-nowrap tabular-nums">

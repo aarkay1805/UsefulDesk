@@ -241,7 +241,9 @@ describe('PaymentLinkActions readiness', () => {
     const status = screen.getByText('Payment link active');
     const expiry = screen.getByText('Expires 2026-08-22T08:45:00.000Z');
     expect(status.parentElement).toBe(expiry.parentElement);
-    expect(status.parentElement?.classList.contains('flex-col')).toBe(true);
+    // The caption claims its own line in the footer's collection band so the
+    // badge and its expiry read as one label above the link buttons.
+    expect(status.parentElement?.classList.contains('w-full')).toBe(true);
     expect(status.parentElement?.lastElementChild).toBe(expiry);
   });
 

@@ -174,7 +174,7 @@ export function MemberCommunication({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Communication</CardTitle>
+        <CardTitle>Messages sent</CardTitle>
         {conversationId && (
           <CardAction>
             <Link
@@ -189,13 +189,12 @@ export function MemberCommunication({
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="border-border overflow-hidden rounded-lg border">
+          <div className="-mx-2">
             <TableSkeleton
-              label="Loading communication history"
+              label="Loading sent messages"
               rows={5}
               columns={[
                 { label: 'Type', variant: 'stacked' },
-                { label: 'Channel', variant: 'badge' },
                 { label: 'Subject' },
                 {
                   label: 'Status',
@@ -209,20 +208,19 @@ export function MemberCommunication({
         ) : rows.length === 0 ? (
           <div className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-center">
             <MessageSquare className="size-6" />
-            <p className="text-sm">No template messages sent yet.</p>
-            <p className="text-xs">
-              Renewal reminders and other template sends appear here.
-            </p>
+            <p className="text-sm">No messages sent yet.</p>
           </div>
         ) : (
-          <div className="border-border overflow-hidden rounded-lg border">
+          /* Unframed like the Billing table: the card is the container, and
+             every row of a hard-coded "WhatsApp" channel column said the same
+             word. -mx-2 cancels the cell padding so column one lines up. */
+          <div className="-mx-2">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="text-xs">Type</TableHead>
-                  <TableHead className="text-xs">Channel</TableHead>
-                  <TableHead className="text-xs">Subject</TableHead>
-                  <TableHead className="text-right text-xs">Status</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -235,9 +233,6 @@ export function MemberCommunication({
                         <div className="text-muted-foreground text-xs">
                           {fmt.dateTime(new Date(m.created_at))}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="neutral">WhatsApp</Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground whitespace-normal">
                         {reason.subject}

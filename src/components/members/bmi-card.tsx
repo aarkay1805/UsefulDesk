@@ -239,7 +239,7 @@ export function BmiCard({
         ) : (
           <div className="flex flex-col items-center gap-3 py-2 text-center">
             <p className="text-muted-foreground text-sm">
-              No measurements yet — add height and weight to calculate BMI.
+              No measurements yet.
             </p>
             {canEdit && (
               <Button size="sm" variant="outline" onClick={startEdit}>
