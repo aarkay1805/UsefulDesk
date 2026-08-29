@@ -139,7 +139,15 @@ export async function cancelRazorpayMandate(input: {
     );
   }
 
-  const connection = await getRazorpayConnection(input.admin, input.accountId);
+  let connection: Awaited<ReturnType<typeof getRazorpayConnection>>;
+  try {
+    connection = await getRazorpayConnection(input.admin, input.accountId);
+  } catch (error) {
+    throw new MandateCancellationUnavailableError(
+      'Razorpay is unavailable for this account. Check Settings → Payments and the deployment configuration, then retry.',
+      { cause: error }
+    );
+  }
   if (!connection) {
     throw new MandateCancellationConflictError(
       'Reconnect Razorpay before cancelling this auto-pay mandate'

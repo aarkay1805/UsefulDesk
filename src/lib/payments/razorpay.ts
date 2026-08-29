@@ -316,8 +316,14 @@ export async function cancelSubscription(
 ): Promise<RazorpaySubscription> {
   return razorpayFetch<RazorpaySubscription>(
     creds,
-    `/subscriptions/${subscriptionId}/cancel`,
-    { method: 'POST', body: { cancel_at_cycle_end: cancelAtCycleEnd ? 1 : 0 } }
+    `/subscriptions/${encodeURIComponent(subscriptionId)}/cancel`,
+    {
+      method: 'POST',
+      // Razorpay's immediate-cancel contract is the body-less default. The
+      // official SDK sends cancel_at_cycle_end only for a scheduled cancel;
+      // sending 0 is not equivalent across every provider deployment.
+      ...(cancelAtCycleEnd ? { body: { cancel_at_cycle_end: 1 } } : {}),
+    }
   );
 }
 

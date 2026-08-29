@@ -20,6 +20,7 @@ vi.mock('@/lib/payments/razorpay-mandates', () => ({
 }));
 
 import { POST } from './route';
+import { MandateCancellationUnavailableError } from '@/lib/payments/razorpay-mandates';
 
 function request(body: unknown, origin = 'https://desk.example') {
   return new Request(
@@ -84,5 +85,24 @@ describe('Razorpay mandate cancellation route', () => {
 
     expect(response.status).toBe(400);
     expect(mocks.cancel).not.toHaveBeenCalled();
+  });
+
+  it('returns an actionable gateway error instead of an internal error', async () => {
+    mocks.cancel.mockRejectedValue(
+      new MandateCancellationUnavailableError(
+        'Razorpay is unavailable for this account. Check Settings → Payments and the deployment configuration, then retry.'
+      )
+    );
+
+    const response = await POST(
+      request({ reason: 'Member requested cancellation' }),
+      { params: Promise.resolve({ mandateId: 'mandate_1' }) }
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      error:
+        'Razorpay is unavailable for this account. Check Settings → Payments and the deployment configuration, then retry.',
+    });
   });
 });

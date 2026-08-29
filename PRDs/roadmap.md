@@ -8,6 +8,20 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **Rajat's pending AutoPay mandate now has a reliable
+resolution path: immediate cancellation matches Razorpay's body-less provider
+contract, while disabled, misconfigured, or blocked OAuth returns a clear
+Settings → Payments recovery instead of an internal error. The existing
+provider-safety boundary remains intact, so renew/change/freeze/cancel stays
+locked only until Razorpay confirms a terminal mandate. Product and service
+checkout also crosses its intended database-authoritative boundary again:
+`perform_contact_checkout` keeps explicit agent, selected-branch, contact,
+membership, catalogue-price, and idempotency checks but runs as a fixed-path
+definer because all underlying financial tables remain browser read-only.
+Migration `20260829082000_authorize_contact_checkout_writes.sql` is live on the
+UsefulDesk project; a rollback-only authenticated PT checkout for member 1265
+returned the full ₹400 invoice/service result and persisted nothing.**
+
 Engineering maintenance: **Husky and GitHub CI now execute one shared
 `npm run verify` contract covering formatting, lint, typecheck, the full test
 suite, and the production build. Pushes stop locally when any CI stage would

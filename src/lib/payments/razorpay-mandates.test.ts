@@ -163,4 +163,23 @@ describe('Razorpay mandate cancellation convergence', () => {
     expect(mocks.cancelSubscription).not.toHaveBeenCalled();
     expect(memory.rpc).not.toHaveBeenCalled();
   });
+
+  it('turns a missing or blocked deployment connection into an actionable error', async () => {
+    const memory = admin();
+    mocks.getConnection.mockRejectedValue(
+      new Error('RAZORPAY_MODE must be set to test or live')
+    );
+
+    await expect(
+      cancelRazorpayMandate({ admin: memory.client as never, ...input })
+    ).rejects.toMatchObject({
+      name: 'MandateCancellationUnavailableError',
+      message:
+        'Razorpay is unavailable for this account. Check Settings → Payments and the deployment configuration, then retry.',
+    });
+
+    expect(mocks.fetchSubscription).not.toHaveBeenCalled();
+    expect(mocks.cancelSubscription).not.toHaveBeenCalled();
+    expect(memory.rpc).not.toHaveBeenCalled();
+  });
 });

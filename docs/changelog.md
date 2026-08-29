@@ -6,6 +6,24 @@
 
 ---
 
+## AutoPay cancellation and service checkout recover cleanly
+
+Rajat's pending AutoPay mandate exposed two independent failures. Immediate
+Razorpay cancellation now follows the provider's body-less default contract,
+and missing or blocked OAuth/deployment configuration returns an actionable
+Payments error instead of a generic internal error. Provider confirmation is
+still required before the local mandate becomes terminal, so membership
+renew/change remains safely blocked until cancellation succeeds.
+
+Standalone product/service checkout now runs its already agent-gated,
+tenant-validating transaction with definer authority; invoices, lines,
+services, credits, and allocations remain read-only to browser roles. Migration
+`20260829082000_authorize_contact_checkout_writes.sql` is applied to the
+UsefulDesk project. An authenticated rollback-only PT sale for member 1265
+created the complete invoice/service result and left no persisted rows. Key
+code: `src/lib/payments/razorpay.ts`,
+`src/lib/payments/razorpay-mandates.ts`, and `perform_contact_checkout`.
+
 ## All Members selection is contact-first and service-safe
 
 All Members now selects every contact-backed customer, including service-only
