@@ -51,30 +51,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Runs first: it is the cheapest check and the easiest to fix
-      # (`npm run format`), so a formatting slip fails in seconds rather
-      # than after a full build.
-      #
-      # Gotcha: Prettier is not always idempotent. A single `--write`
-      # pass can emit output that `--check` then rejects (it happened to
-      # one file in the initial sweep). If this step fails immediately
-      # after you ran `npm run format`, run it once more — it converges.
-      - name: Format
-        run: npm run format:check
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Typecheck
-        run: npm run typecheck
-
       - name: Install PDF test tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y poppler-utils
 
-      - name: Test
-        run: npm test
-
-      - name: Build
-        run: npm run build
+      # Keep this command identical to the Husky pre-push hook so a local push
+      # cannot skip a validation stage that GitHub will run later. Formatting
+      # remains first because it is the fastest failure to diagnose.
+      - name: Verify
+        run: npm run verify

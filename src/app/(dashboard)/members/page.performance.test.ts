@@ -27,7 +27,8 @@ describe('members initial bundle', () => {
   it('keeps Realtime invalidation dependency-scoped and tenant-filtered', () => {
     const source = readFileSync(resolve(__dirname, 'page.tsx'), 'utf8');
 
-    expect(source).toContain('const MEMBER_REALTIME_DEPENDENCIES = {');
+    expect(source).toContain('MEMBER_REALTIME_TABLES,');
+    expect(source).toContain('memberViewsAffectedByRealtime,');
     expect(source).toContain(
       'const pendingViews = pendingRealtimeViewsRef.current'
     );

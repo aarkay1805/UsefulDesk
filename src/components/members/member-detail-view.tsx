@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type Ref,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -89,7 +88,13 @@ import {
 } from '@/components/ui/dialog';
 import { UserAvatar } from '@/components/ui/user-avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardHeader, CardContent } from '@/components/ui/card';
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardAction,
+  CardContent,
+} from '@/components/ui/card';
 import {
   Table,
   TableHeader,
@@ -184,18 +189,18 @@ export function memberInvoiceDetail(
 /**
  * Jump-nav anchors, in scroll order. Ids double as `#sec-<id>`.
  *
- * Five, not eight. Attendance is the membership's usage rather than its own
- * queue; the send log belongs beside the follow-ups it explains; consent and
- * deletion are record admin on the same contact as the profile form. The nav
- * is sticky, so its lit tab — not a card title under it — names whatever
- * section you are reading. Ids stay stable so `#sec-payments` deep links and
- * `revealMemberBilling` keep working.
+ * Six, not eight. The template-send log belongs beside the follow-ups it
+ * explains, and consent/deletion is record admin on the same contact as the
+ * profile form, so each of those pairs shares one anchor. Attendance keeps
+ * its own, below the follow-up work rather than above it. Ids stay stable so
+ * `#sec-payments` deep links and `revealMemberBilling` keep working.
  */
 const SECTIONS = [
   { id: 'membership', label: 'Membership' },
   { id: 'products', label: 'Purchases' },
   { id: 'payments', label: 'Billing' },
   { id: 'notes', label: 'Follow-ups' },
+  { id: 'attendance', label: 'Attendance' },
   { id: 'personal', label: 'Profile' },
 ] as const;
 
@@ -257,33 +262,10 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-/**
- * Section wrapper — id anchor for the jump nav and scrollspy. Carries the
- * nav's own label as its accessible name, because the cards inside no longer
- * repeat it as a visible title.
- */
-function Section({
-  id,
-  label,
-  ref,
-  tabIndex,
-  children,
-}: {
-  id: string;
-  label: string;
-  /** Focus target for a programmatic jump (Billing). */
-  ref?: Ref<HTMLElement>;
-  tabIndex?: number;
-  children: ReactNode;
-}) {
+/** Section wrapper — id anchor for the jump nav and scrollspy. */
+function Section({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <section
-      ref={ref}
-      id={`sec-${id}`}
-      aria-label={label}
-      tabIndex={tabIndex}
-      className="min-w-0 scroll-mt-4 focus:outline-none"
-    >
+    <section id={`sec-${id}`} className="min-w-0">
       {children}
     </section>
   );
@@ -399,7 +381,7 @@ function MembershipDetailView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const navContainerRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
-  const billingHeadingRef = useRef<HTMLElement>(null);
+  const billingHeadingRef = useRef<HTMLDivElement>(null);
   const jumpTargetRef = useRef<string | null>(null);
   const [activeSection, setActiveSection] = useState<string>('membership');
 
@@ -432,15 +414,12 @@ function MembershipDetailView({
         servicesResult,
         genericBillingResult,
       ] = await Promise.all([
-        // Ten, not twenty: this list answers "are they still coming?" at a
-        // glance. The full history is the Attendance tab on /members, and
-        // twenty rows pushed every other section off a phone screen.
         supabase
           .from('attendance')
           .select('*')
           .eq('membership_id', membershipId)
           .order('checked_in_at', { ascending: false })
-          .limit(10),
+          .limit(20),
         supabase
           .from('membership_period_invoices')
           .select('*')
@@ -1198,43 +1177,32 @@ function MembershipDetailView({
                       floors the column at 640px; a raw min-width would also
                       apply on mobile and force the whole sheet to scroll. */}
                   <div className="flex min-w-0 flex-col gap-4">
-                    {/* Membership — the plan, and whether it is being used.
-                        Attendance folded in here: check-in is the front
-                        desk's most-used action, and the usage line used to
-                        print twice (once here, once in its own card). */}
-                    <Section id="membership" label="Membership">
+                    {/* Membership */}
+                    <Section id="membership">
                       <Card>
-                        {/* No title: the sticky nav's lit tab names this
-                            section. A title-less header carries left-aligned,
-                            content-sized controls rather than a CardAction. */}
-                        <CardHeader className="flex flex-wrap items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={checkIn}
-                            loading={checkInBusy}
-                          >
-                            <UserCheck className="size-3.5" /> Check in
-                          </Button>
-                          <MembershipActionsMenu
-                            status={membership.status}
-                            isTrial={!!membership.is_trial}
-                            canManage={canSendMessages}
-                            lifecycleBlockReason={
-                              membershipLifecycleBlockReason
-                            }
-                            busy={busy}
-                            onRenew={() => setRenewOpen(true)}
-                            onChangePlan={() => setChangePlanOpen(true)}
-                            onEdit={() => onEdit(membership)}
-                            onFreeze={() => setPendingLifecycle('freeze')}
-                            onResume={() => setPendingLifecycle('resume')}
-                            onCancel={() => setPendingLifecycle('cancel')}
-                            onReactivate={() =>
-                              setPendingLifecycle('reactivate')
-                            }
-                            onOpenBilling={openBillingResolution}
-                          />
+                        <CardHeader>
+                          <CardTitle>Membership</CardTitle>
+                          <CardAction>
+                            <MembershipActionsMenu
+                              status={membership.status}
+                              isTrial={!!membership.is_trial}
+                              canManage={canSendMessages}
+                              lifecycleBlockReason={
+                                membershipLifecycleBlockReason
+                              }
+                              busy={busy}
+                              onRenew={() => setRenewOpen(true)}
+                              onChangePlan={() => setChangePlanOpen(true)}
+                              onEdit={() => onEdit(membership)}
+                              onFreeze={() => setPendingLifecycle('freeze')}
+                              onResume={() => setPendingLifecycle('resume')}
+                              onCancel={() => setPendingLifecycle('cancel')}
+                              onReactivate={() =>
+                                setPendingLifecycle('reactivate')
+                              }
+                              onOpenBilling={openBillingResolution}
+                            />
+                          </CardAction>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
                           {/* The grid states plan, price + cadence, start and
@@ -1242,7 +1210,9 @@ function MembershipDetailView({
                               "renews every month on <end_date>", "fixed-term
                               plan — ends <end_date>" — was already in these
                               four cells. The status badge lives once, in the
-                              sheet header, where it also carries days-to-go. */}
+                              sheet header, where it also carries days-to-go,
+                              and the session-usage line lives once, in
+                              Attendance. */}
                           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                             <Stat label="Plan">
                               {membership.plan?.name ?? '—'}
@@ -1288,40 +1258,6 @@ function MembershipDetailView({
                               {membership.notes}
                             </p>
                           )}
-
-                          {/* Visits — the plan's usage, not a separate queue.
-                              The per-row tick was identical on every line and
-                              carried nothing the list did not. */}
-                          <div className="border-border flex flex-col gap-3 border-t pt-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-muted-foreground text-xs font-medium">
-                                Recent visits
-                              </p>
-                              {usageLine && (
-                                <Badge
-                                  variant={usageLine.danger ? 'danger' : 'info'}
-                                >
-                                  {usageLine.text}
-                                </Badge>
-                              )}
-                            </div>
-                            {visits.length === 0 ? (
-                              <p className="text-muted-foreground text-sm">
-                                No check-ins yet.
-                              </p>
-                            ) : (
-                              <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
-                                {visits.map((v) => (
-                                  <li
-                                    key={v.id}
-                                    className="text-muted-foreground text-sm tabular-nums"
-                                  >
-                                    {fmt.dateTime(v.checked_in_at)}
-                                  </li>
-                                ))}
-                              </ul>
-                            )}
-                          </div>
                         </CardContent>
                       </Card>
                     </Section>
@@ -1331,20 +1267,23 @@ function MembershipDetailView({
                         The item name is the row heading now; it used to be a
                         Stat *label*, which made every row's columns mean
                         something different and printed "Merchandise" twice. */}
-                    <Section id="products" label="Purchases">
+                    <Section id="products">
                       <Card>
-                        {canSell ? (
-                          <CardHeader className="flex flex-wrap items-center gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={openSale}
-                              loading={openingPurchasePage}
-                            >
-                              <Plus className="size-4" /> Add purchase
-                            </Button>
-                          </CardHeader>
-                        ) : null}
+                        <CardHeader>
+                          <CardTitle>Purchases</CardTitle>
+                          {canSell ? (
+                            <CardAction>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={openSale}
+                                loading={openingPurchasePage}
+                              >
+                                <Plus className="size-4" /> Add purchase
+                              </Button>
+                            </CardAction>
+                          ) : null}
+                        </CardHeader>
                         <CardContent>
                           {purchases.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
@@ -1503,58 +1442,64 @@ function MembershipDetailView({
                       </Card>
                     </Section>
 
-                    {/* Billing — the invoice ledger. Focus target for the
-                        "resolve billing" jump, which used to land on the card
-                        title this section no longer needs. */}
-                    <Section
-                      id="payments"
-                      label="Billing"
-                      ref={billingHeadingRef}
-                      tabIndex={-1}
-                    >
+                    {/* Billing — the invoice ledger. Its title is the focus
+                        target for the "resolve billing" jump. */}
+                    <Section id="payments">
                       <Card>
-                        {(membership.plan?.plan_type ||
-                          (!membership.is_trial &&
-                            (canCollectCurrent || canSetupAutoPay))) && (
-                          <CardHeader className="flex flex-wrap items-center gap-2">
+                        <CardHeader>
+                          <CardTitle
+                            ref={billingHeadingRef}
+                            role="heading"
+                            aria-level={2}
+                            tabIndex={-1}
+                            className="flex items-center gap-2"
+                          >
+                            Billing
                             {membership.plan?.plan_type && (
                               <PlanTypeBadge type={membership.plan.plan_type} />
                             )}
-                            {!membership.is_trial && canCollectCurrent && (
-                              <>
-                                <CopyUpiLinkButton
-                                  upi={upi}
-                                  amount={Number(
-                                    currentGenericInvoice!.balance
-                                  )}
-                                  note={`Invoice ${currentGenericInvoice!.reference}`}
-                                  size="sm"
-                                />
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setReturnToInvoiceAfterPay(false);
-                                    setPaymentTargetId(
-                                      currentGenericInvoice!.id
-                                    );
-                                  }}
-                                >
-                                  <Wallet className="size-4" /> Record payment
-                                </Button>
-                              </>
+                          </CardTitle>
+                          {!membership.is_trial &&
+                            (canCollectCurrent || canSetupAutoPay) && (
+                              <CardAction className="col-span-2 col-start-1 row-start-2 mt-2 flex w-full flex-wrap items-center justify-start gap-2 sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:mt-0 sm:w-auto sm:justify-end">
+                                {canCollectCurrent && (
+                                  <>
+                                    <CopyUpiLinkButton
+                                      upi={upi}
+                                      amount={Number(
+                                        currentGenericInvoice!.balance
+                                      )}
+                                      note={`Invoice ${currentGenericInvoice!.reference}`}
+                                      size="sm"
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setReturnToInvoiceAfterPay(false);
+                                        setPaymentTargetId(
+                                          currentGenericInvoice!.id
+                                        );
+                                      }}
+                                    >
+                                      <Wallet className="size-4" /> Record
+                                      payment
+                                    </Button>
+                                  </>
+                                )}
+                                {canSetupAutoPay && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setAutoPayOpen(true)}
+                                  >
+                                    <Repeat className="size-4" /> Set up
+                                    auto-pay
+                                  </Button>
+                                )}
+                              </CardAction>
                             )}
-                            {!membership.is_trial && canSetupAutoPay && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setAutoPayOpen(true)}
-                              >
-                                <Repeat className="size-4" /> Set up auto-pay
-                              </Button>
-                            )}
-                          </CardHeader>
-                        )}
+                        </CardHeader>
                         <CardContent className="flex flex-col gap-4">
                           {membership.is_trial ? (
                             <p className="text-muted-foreground text-sm">
@@ -1730,9 +1675,12 @@ function MembershipDetailView({
                         beneath it, the log of what was actually sent. Both
                         answer "where does this conversation stand", so they
                         share one anchor instead of two. */}
-                    <Section id="notes" label="Follow-ups">
+                    <Section id="notes">
                       <div className="flex flex-col gap-4">
                         <Card>
+                          <CardHeader>
+                            <CardTitle>Notes &amp; follow-ups</CardTitle>
+                          </CardHeader>
                           <CardContent>
                             <ContactNotesThread
                               contactId={membership.contact_id}
@@ -1758,9 +1706,58 @@ function MembershipDetailView({
                       </div>
                     </Section>
 
+                    {/* Attendance — the visit log and the front desk's
+                        check-in action. The per-row tick was identical on
+                        every line and carried nothing the list did not, and
+                        the session-usage badge is stated only here. */}
+                    <Section id="attendance">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Attendance</CardTitle>
+                          <CardAction>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={checkIn}
+                              loading={checkInBusy}
+                            >
+                              <UserCheck className="size-3.5" /> Check in
+                            </Button>
+                          </CardAction>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-3">
+                          {usageLine && (
+                            <div>
+                              <Badge
+                                variant={usageLine.danger ? 'danger' : 'info'}
+                              >
+                                {usageLine.text}
+                              </Badge>
+                            </div>
+                          )}
+                          {visits.length === 0 ? (
+                            <p className="text-muted-foreground text-sm">
+                              No check-ins yet.
+                            </p>
+                          ) : (
+                            <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
+                              {visits.map((v) => (
+                                <li
+                                  key={v.id}
+                                  className="text-muted-foreground text-sm tabular-nums"
+                                >
+                                  {fmt.dateTime(v.checked_in_at)}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Section>
+
                     {/* Profile — the contact record, then the admin that acts
                         on the same record (consent, deletion). */}
-                    <Section id="personal" label="Profile">
+                    <Section id="personal">
                       <div className="flex flex-col gap-4">
                         {membership.contact && (
                           <MemberPersonalInfo

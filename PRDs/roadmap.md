@@ -8,19 +8,25 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **Husky and GitHub CI now execute one shared
+`npm run verify` contract covering formatting, lint, typecheck, the full test
+suite, and the production build. Pushes stop locally when any CI stage would
+fail. The Members Realtime dependency matrix is directly testable, so its
+attendance and follow-up coverage survives subscription implementation
+refactors without weakening the behavior contract.**
+
 Engineering maintenance: **the member profile drawer now states each fact once
-and navigates five anchors instead of eight. Membership status, session usage,
+and navigates six anchors instead of eight. Membership status, session usage,
 and auto-pay each print in exactly one place; the two prose lines restating the
 membership stat grid are gone, as are the duplicated load-failure and loading
-sentences and the churn-risk paragraph that repeated its own switch. Attendance
-folded into Membership — promoting Check in to the top of the drawer, with the
-visit list at ten untick-repeated rows because the full history is the
-Attendance tab on /members — the template-send log joined Follow-ups, and
-consent/deletion joined the profile form. Cards inside a nav-named section
-dropped their titles, since the sticky nav's lit tab names the section and each
-section carries that label as its accessible name; the invoice and message
-tables dropped their redundant frames and the message log its constant
-`WhatsApp` channel column. `SECTIONS` ids, `#sec-payments` deep links,
+sentences and the churn-risk paragraph that repeated its own switch. The
+template-send log joined Follow-ups and consent/deletion joined the profile
+form, while Attendance keeps its own card and anchor, now below the follow-up
+work; its visit list drops the per-row tick that was identical on every line.
+Every card keeps its visible title. The invoice and message tables dropped
+their redundant frames and the message log its constant `WhatsApp` channel
+column, and Purchases rows lead with the item name as a heading instead of
+using it as a stat label. `SECTIONS` ids, `#sec-payments` deep links,
 `revealMemberBilling`, and every action, field, permission gate, and mutation
 path are unchanged**.
 

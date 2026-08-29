@@ -6,6 +6,17 @@
 
 ---
 
+## Full CI failures are blocked before push
+
+The Husky pre-push hook and GitHub CI now call the same `npm run verify`
+command: format check, lint, typecheck, the complete Vitest suite, and the
+production build. The member Realtime dependency matrix also lives in the
+directly testable `src/lib/memberships/member-realtime.ts`; its attendance and
+follow-up contract tests no longer depend on obsolete literal subscription
+syntax. Key files: `.husky/pre-push`, `.github/workflows/ci.yml`, `package.json`,
+and `src/lib/memberships/member-realtime.ts`. Gotcha: local pushes now wait for
+the full validation sequence and stop before reaching GitHub on any failure.
+
 ## Member profile drawer says each thing once
 
 The sheet carried the same facts in two or three places. The status badge
@@ -21,30 +32,24 @@ its own switch, in words. Each of those now appears once, where it belongs:
 status in the header (which also carries days-to-go), usage beside the visit
 list, auto-pay in Billing.
 
-**Eight jump-nav anchors became five.** Attendance folded into Membership — it
-is the plan's usage, not a separate queue, and folding it moved `Check in` to
-the top of the drawer. The template-send log joined the follow-ups it explains;
-consent/deletion joined the profile form it administers. `SECTIONS` ids stay
-`membership | products | payments | notes | personal`, so `#sec-payments` deep
-links and `revealMemberBilling` keep working; only the labels changed
-(Purchases / Billing / Follow-ups / Profile).
-
-**The sticky nav is the only labelling system now.** A card inside a nav-named
-section has no `CardTitle`; the `<section>` carries the nav's label as
-`aria-label`, and a title-less `CardHeader` uses the shared left-aligned `flex
-flex-wrap items-center gap-2` recipe instead of a `CardAction`, which
-`justify-self-end`s a lone control. `revealMemberBilling` focuses the Billing
-`<section>` (`tabIndex={-1}`) rather than the title it no longer has; its
-exported signature is unchanged.
+**Eight jump-nav anchors became six.** The template-send log joined the
+follow-ups it explains; consent/deletion joined the profile form it
+administers. Attendance keeps its own anchor and its own card, moved below the
+follow-up work rather than above it — the visit log is reference, and the
+queues that need action come first. `SECTIONS` ids stay `membership | products
+| payments | notes | attendance | personal`, so `#sec-payments` deep links and
+`revealMemberBilling` keep working; the labels shortened to Purchases /
+Billing / Follow-ups / Attendance / Profile. Every card keeps its own
+`CardTitle` — the lit nav tab is a locator, not a substitute for a heading you
+can see when you land mid-scroll.
 
 The remaining cuts are box-in-box and constant-value removals. The invoice and
 message tables lost their `rounded-lg border` frames — the card is already the
 container — and `-mx-2` cancels the cells' `p-2` so column one lines up with
 the copy above it. The message log lost its `Channel` column, every row of
-which rendered a hard-coded `WhatsApp` badge. The visit list lost its per-row
-tick and dropped from 20 rows to 10; the full history is the Attendance tab on
-`/members`, and 20 timestamps pushed every other section off a phone.
-Purchases rows lead with the item name as a heading instead of using it as a
+which rendered a hard-coded `WhatsApp` badge. The visit list keeps its twenty
+rows but lost the per-row tick that was identical on every line, and pairs into
+two columns from the small breakpoint up. Purchases rows lead with the item name as a heading instead of using it as a
 `Stat` _label_, which had made each row's columns mean something different and
 printed "Merchandise" twice. `MemberDangerZone`'s title moved from "Settings"
 (colliding with the app route) to "Consent & data".

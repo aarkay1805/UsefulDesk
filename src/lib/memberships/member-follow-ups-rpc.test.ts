@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { memberViewsAffectedByRealtime } from './member-realtime';
 
 const migration = readFileSync(
   resolve(
@@ -102,7 +103,11 @@ describe('member_follow_ups_page SQL contract', () => {
     expect(migration).toContain(
       'ALTER PUBLICATION supabase_realtime ADD TABLE public.follow_ups'
     );
-    expect(page).toContain("table: 'follow_ups'");
+    expect(memberViewsAffectedByRealtime('follow_ups')).toEqual([
+      'followups',
+      'all',
+    ]);
+    expect(page).toContain('for (const table of MEMBER_REALTIME_TABLES)');
     expect(page).toContain('window.setTimeout');
     expect(page).toContain('supabase.removeChannel(channel)');
   });

@@ -8,6 +8,13 @@ import { Download, Loader2, Plus, Upload } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
 import { membershipIdForContact } from '@/lib/memberships/lookup';
+import {
+  MEMBER_REALTIME_TABLES,
+  MEMBER_VIEWS,
+  memberViewsAffectedByRealtime,
+  type MemberRealtimeTable,
+  type MemberView,
+} from '@/lib/memberships/member-realtime';
 import type { Membership } from '@/types';
 import { Button } from '@/components/ui/button';
 import { GatedButton } from '@/components/ui/gated-button';
@@ -111,16 +118,7 @@ const PaymentsTable = dynamic(
   { loading: MembersTableViewLoading }
 );
 
-type View =
-  | 'renewals'
-  | 'followups'
-  | 'trials'
-  | 'payments'
-  | 'retention'
-  | 'all'
-  | 'attendance';
-
-const INITIAL_RELOAD_KEYS: Record<View, number> = {
+const INITIAL_RELOAD_KEYS: Record<MemberView, number> = {
   renewals: 0,
   followups: 0,
   trials: 0,
@@ -130,54 +128,7 @@ const INITIAL_RELOAD_KEYS: Record<View, number> = {
   attendance: 0,
 };
 
-// Display-data dependencies for every published table consumed by a Members
-// listing. Indirect billing sources are included because membership_dues and
-// member_customer_directory derive balances through invoice line allocations.
-const MEMBER_REALTIME_DEPENDENCIES = {
-  memberships: [
-    'renewals',
-    'followups',
-    'trials',
-    'payments',
-    'retention',
-    'all',
-    'attendance',
-  ],
-  contacts: [
-    'renewals',
-    'followups',
-    'trials',
-    'payments',
-    'retention',
-    'all',
-    'attendance',
-  ],
-  membership_plans: [
-    'renewals',
-    'followups',
-    'trials',
-    'payments',
-    'retention',
-    'all',
-    'attendance',
-  ],
-  member_services: ['renewals', 'all'],
-  payments: ['payments', 'all'],
-  payment_allocations: ['payments', 'all'],
-  payment_refunds: ['payments', 'all'],
-  payment_refund_allocations: ['payments', 'all'],
-  invoice_lines: ['payments', 'all'],
-  invoice_credit_allocations: ['payments', 'all'],
-  invoice_adjustment_allocations: ['payments', 'all'],
-  membership_periods: ['payments'],
-  invoices: ['all'],
-  attendance: ['retention', 'attendance'],
-  follow_ups: ['followups', 'all'],
-} as const satisfies Record<string, readonly View[]>;
-
-type MemberRealtimeTable = keyof typeof MEMBER_REALTIME_DEPENDENCIES;
-
-const VIEW_LABEL: Record<View, string> = {
+const VIEW_LABEL: Record<MemberView, string> = {
   renewals: 'Renewals',
   followups: 'Follow-ups',
   trials: 'Trials',
@@ -187,18 +138,8 @@ const VIEW_LABEL: Record<View, string> = {
   attendance: 'Attendance',
 };
 
-const MEMBER_VIEWS = new Set<View>([
-  'renewals',
-  'followups',
-  'trials',
-  'payments',
-  'retention',
-  'all',
-  'attendance',
-]);
-
-function isMemberView(value: string | null): value is View {
-  return value !== null && MEMBER_VIEWS.has(value as View);
+function isMemberView(value: string | null): value is MemberView {
+  return value !== null && MEMBER_VIEWS.includes(value as MemberView);
 }
 
 function isUuid(value: string | null): value is string {
@@ -216,12 +157,14 @@ export default function MembersPage() {
   const searchParams = useSearchParams();
 
   const requestedView = searchParams.get('view');
-  const view: View = isMemberView(requestedView) ? requestedView : 'renewals';
+  const view: MemberView = isMemberView(requestedView)
+    ? requestedView
+    : 'renewals';
   const [reloadKeys, setReloadKeys] =
-    useState<Record<View, number>>(INITIAL_RELOAD_KEYS);
+    useState<Record<MemberView, number>>(INITIAL_RELOAD_KEYS);
   const [detailReloadKey, setDetailReloadKey] = useState(0);
   const [detailFollowUpReloadKey, setDetailFollowUpReloadKey] = useState(0);
-  const pendingRealtimeViewsRef = useRef(new Set<View>());
+  const pendingRealtimeViewsRef = useRef(new Set<MemberView>());
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Membership | null>(null);
@@ -322,7 +265,7 @@ export default function MembersPage() {
       }
     };
     const schedule = (table: MemberRealtimeTable) => {
-      for (const affectedView of MEMBER_REALTIME_DEPENDENCIES[table]) {
+      for (const affectedView of memberViewsAffectedByRealtime(table)) {
         pendingViews.add(affectedView);
       }
       // The sheet's notes timeline has its own two-read boundary; do not turn a
@@ -333,9 +276,7 @@ export default function MembersPage() {
       timer = window.setTimeout(flush, 400);
     };
     let channel = supabase.channel('member-lists');
-    for (const table of Object.keys(
-      MEMBER_REALTIME_DEPENDENCIES
-    ) as MemberRealtimeTable[]) {
+    for (const table of MEMBER_REALTIME_TABLES) {
       channel = channel.on(
         'postgres_changes',
         {
@@ -404,7 +345,7 @@ export default function MembersPage() {
     setFormOpen(true);
   }
 
-  function changeView(nextView: View) {
+  function changeView(nextView: MemberView) {
     const url = new URL(window.location.href);
     url.searchParams.set('view', nextView);
     window.history.replaceState(null, '', url);
@@ -446,7 +387,7 @@ export default function MembersPage() {
       <PageHeaderTabs>
         <Tabs
           value={view}
-          onValueChange={(v) => changeView(v as View)}
+          onValueChange={(v) => changeView(v as MemberView)}
           className="pt-2 pb-0"
         >
           <TabsList variant="line" className="h-auto gap-5 p-0">
