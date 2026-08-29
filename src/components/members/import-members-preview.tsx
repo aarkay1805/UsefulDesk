@@ -335,9 +335,19 @@ export function ImportMembersPreview({
                         Without that it reads as a fourth, unclickable row. */}
                     <p
                       id={`${sectionId}-${index}`}
-                      className="bg-popover text-muted-foreground sticky top-0 z-10 px-2.5 pt-3 pb-2 text-xs font-semibold tracking-wide"
+                      className="bg-popover text-muted-foreground sticky top-0 z-10 flex items-start gap-1.5 px-2.5 pt-3 pb-2 text-xs font-semibold tracking-wide"
                     >
-                      {section.title}
+                      {/* Every section in this rail blocks the import, so the
+                          marker is the same amber `AlertTriangle` a row's own
+                          status carries. Its left edge lands on the row labels
+                          beneath it, so the rail keeps one left edge and the
+                          heading sits off it instead of alongside it.
+                          Decorative: the heading already names the problem. */}
+                      <AlertTriangle
+                        className="text-amber-foreground mt-px size-3.5 shrink-0"
+                        aria-hidden
+                      />
+                      <span className="min-w-0">{section.title}</span>
                     </p>
                     <div className="space-y-0.5">
                       {section.groups.map((group) => (

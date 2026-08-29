@@ -1355,41 +1355,6 @@ export function ImportMembersCsvDialog({
               </DialogDescription>
             </DialogHeader>
             <StepIndicator step={result ? 4 : step} />
-            {draftManager.draft && !result ? (
-              /* One line at every width. Wrapping put `Start fresh` alone on
-                 a second row, pushed to the far right by `ml-auto`, and cost
-                 the panes below ~28px of a dialog that is already height
-                 constrained. The filename is confirmation rather than a
-                 decision, so it is the part that gives way. */
-              <div className="border-border bg-muted/20 flex items-center gap-2 rounded-lg border px-3 py-2 text-xs">
-                <span
-                  className="text-foreground min-w-0 truncate font-medium"
-                  title={draftManager.draft.sourceFilename}
-                >
-                  {/* On a phone the connector word would eat the whole line
-                      and truncate away the one thing worth reading. `Start
-                      fresh` beside it already says a draft is in progress. */}
-                  <span className="hidden sm:inline">Continuing </span>
-                  {draftManager.draft.sourceFilename}
-                </span>
-                <span
-                  className="text-muted-foreground shrink-0 whitespace-nowrap"
-                  role="status"
-                  aria-live="polite"
-                >
-                  {draftStatusLabel}
-                </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="ml-auto"
-                  onClick={() => setStartFreshConfirm(true)}
-                >
-                  Start fresh
-                </Button>
-              </div>
-            ) : null}
             {resumeError ? (
               <p className="text-destructive text-sm" role="alert">
                 {resumeError}
@@ -1555,7 +1520,11 @@ export function ImportMembersCsvDialog({
           </div>
 
           <DialogFooter className="border-border/80 bg-background/50 mx-0 mt-0 mb-0 shrink-0 items-center gap-2 border-t px-6 py-4 sm:justify-between">
-            <div className="min-w-0 flex-1">
+            {/* The whole draft story — saved, failing, conflicted — plus the
+                step's own aside, on one wrapping row. Block children stacked
+                a second line into a footer that is fixed against a height
+                constrained dialog. */}
+            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
               {(draftManager.saveState === 'error' ||
                 draftAction === 'retrying') &&
               draftManager.draft ? (
@@ -1598,6 +1567,41 @@ export function ImportMembersCsvDialog({
                   >
                     Reload saved draft
                   </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setStartFreshConfirm(true)}
+                  >
+                    Start fresh
+                  </Button>
+                </div>
+              ) : draftManager.draft && !result ? (
+                /* The resting state of the same draft the two branches above
+                   report on, so all three read from one place instead of the
+                   quiet one sitting in the header as a second title block. It
+                   is confirmation rather than a decision, so it stays quiet
+                   and the filename is the part that gives way. */
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                  <span
+                    className="text-foreground min-w-0 truncate text-xs font-medium"
+                    title={draftManager.draft.sourceFilename}
+                  >
+                    {/* On a phone the connector word would eat the whole line
+                        and truncate away the one thing worth reading. `Start
+                        fresh` beside it already says a draft is in progress. */}
+                    <span className="text-muted-foreground hidden font-normal sm:inline">
+                      Continuing{' '}
+                    </span>
+                    {draftManager.draft.sourceFilename}
+                  </span>
+                  <span
+                    className="text-muted-foreground shrink-0 text-xs whitespace-nowrap"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {draftStatusLabel}
+                  </span>
                   <Button
                     type="button"
                     variant="ghost"
