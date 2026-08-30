@@ -44,6 +44,16 @@ or alter thresholds/cadence. Supabase remained independent and healthy: its
 renewals run at `11:41` and ops run at `12:08` succeeded, with retained HTTP
 responses at 200 and no timeout/error.
 
+The alert-delivery gate is now proven independently of that GitHub scheduler
+blocker. On 2026-08-30, no-secret manual failure run `33311076130` and natural
+`production-health` schedule failure `33311077001` both appeared in the
+authenticated primary owner/administrator's GitHub notification inbox as
+`ci activity`; the latter failed only the scheduled-workflow freshness job
+while its login-surface job passed. The manual-only probe workflow was removed
+in the same session, and production cron/freshness definitions were unchanged.
+Only the GitHub inbox channel is proven; no email or mobile receipt is claimed.
+Durable evidence lives in `GATES.md`.
+
 ---
 
 ## Hydration mismatches that were silently discarding the server render

@@ -1,3 +1,40 @@
+# Gates: detachment issue 3 — GitHub Actions alert delivery
+
+Scope: Prove that a failed production-monitoring workflow reaches the primary
+repository owner's GitHub notification inbox without changing production
+schedules, secrets, worker calls, or freshness thresholds.
+
+- [x] D3-1: the primary recipient is the personal-account repository owner with
+  administrator permission, the repository notification subscription is
+  `Participating`, and GitHub Actions is configured to notify for failed
+  workflows
+  EVIDENCE: authenticated repository/settings inspection on 2026-08-30 showed
+  the recipient as repository owner/administrator, the repository Watch control
+  as `Participating`, and Actions failures enabled for the GitHub inbox.
+
+- [x] D3-2: an isolated no-secret, `workflow_dispatch`-only failure produces a
+  completed failed Actions run and a matching GitHub inbox notification
+  EVIDENCE: temporary probe run `33311076130` on 2026-08-30 at 17:47 IST used
+  commit `9da66df`, completed with the expected exit code 1, and appeared in the
+  authenticated owner's GitHub notification inbox as `ci activity` for
+  `Temporary notification failure probe #1`. Delivery channel proven: GitHub
+  notification inbox. No email or mobile receipt is claimed.
+
+- [x] D3-3: the same delivery path is proven by a natural scheduled production
+  monitor failure, not only by manual dispatch
+  EVIDENCE: `production-health` schedule run `33311077001` started at the same
+  2026-08-30 17:47 IST slot; `login-surface` passed, `Scheduled workflow
+  freshness` failed, and `production-health #103` appeared in the authenticated
+  owner's GitHub notification inbox as `ci activity`.
+
+- [x] D3-4: the temporary workflow is removed in the same session and the
+  production scheduler/freshness definitions remain unchanged
+  EVIDENCE: `.github/workflows/notification-failure-probe.yml` is absent from
+  the final tree; the before/after SHA-256 hashes of `ops-crons.yml`,
+  `renewals-cron.yml`, and `production-health.yml` are identical.
+
+---
+
 # Gates: P2-9 Finance invoice ledger pagination
 
 Scope: Replace the Finance Invoices full-month seven-request waterfall with one selected-branch, server-filtered/sorted/paginated invoice-ledger RPC while preserving listing, action, export, realtime, authorization, and accounting semantics.
