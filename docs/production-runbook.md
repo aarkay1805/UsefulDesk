@@ -28,14 +28,14 @@ explicitly delegated owner takes responsibility.
 
 ## Observability
 
-| Signal                | Source                                       | Healthy state                                                                     | Retention / limitation                                                          |
-| --------------------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Public availability   | `production-health` GitHub workflow          | `/login` returns successfully and contains the UsefulDesk title                   | GitHub schedules are best-effort; this is not a hard ten-minute SLA             |
-| Critical workers      | Supabase Cron + `ops-crons` workflow         | latest database aggregate is HTTP 200/`failed: 0`; GitHub succeeds within 75 min  | Either scheduler may mask failure of the other, so inspect both                 |
-| Renewal workers       | Supabase Cron + `renewals-cron` workflow     | latest database aggregate is HTTP 200/`failed: 0`; GitHub succeeds within 2 hours | A delayed run can delay account-local reminders                                 |
-| Backup recovery point | `Production backup` workflow                 | latest nightly database job succeeds; weekly/full run also verifies Storage       | See `docs/backups.md`; old pre-rotation archives are not considered recoverable |
-| Server errors         | Vercel Runtime Logs, Production, Error level | no unexplained burst of errors after a release or alert                           | Hobby runtime logs retain only the latest hour; capture evidence promptly       |
-| Database/Auth         | Supabase Logs and Advisors                   | no correlated 5xx/Auth/database errors and no new error-severity advisor finding  | Dashboard access is required                                                    |
+| Signal                | Source                                       | Healthy state                                                                                                                   | Retention / limitation                                                          |
+| --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Public availability   | `production-health` GitHub workflow          | `/login` returns successfully and contains the UsefulDesk title; scheduled workflow history remains inside the thresholds below | GitHub schedules are best-effort; this is not a hard ten-minute SLA             |
+| Critical workers      | Supabase Cron + `ops-crons` workflow         | latest database aggregate is HTTP 200/`failed: 0`; GitHub succeeds within 75 min                                                | Either scheduler may mask failure of the other, so inspect both                 |
+| Renewal workers       | Supabase Cron + `renewals-cron` workflow     | latest database aggregate is HTTP 200/`failed: 0`; GitHub succeeds within 2 hours                                               | A delayed run can delay account-local reminders                                 |
+| Backup recovery point | `Production backup` workflow                 | latest nightly database job succeeds; weekly/full run also verifies Storage                                                     | See `docs/backups.md`; old pre-rotation archives are not considered recoverable |
+| Server errors         | Vercel Runtime Logs, Production, Error level | no unexplained burst of errors after a release or alert                                                                         | Hobby runtime logs retain only the latest hour; capture evidence promptly       |
+| Database/Auth         | Supabase Logs and Advisors                   | no correlated 5xx/Auth/database errors and no new error-severity advisor finding                                                | Dashboard access is required                                                    |
 
 Quick read-only triage:
 
@@ -86,6 +86,15 @@ Treat a signal as actionable when any threshold below is met:
   Owner response target: 30 minutes.
 - **SEV-3:** one transient probe fails and its retry succeeds, or a noncritical
   degradation has a safe workaround. Review during the same working day.
+
+The `production-health` workflow also runs
+`scripts/github-workflow-freshness.mjs`. It checks only successful scheduled
+runs—not manual dispatches—and turns the existing ops (75 minutes), renewals
+(two hours), and nightly-backup (30 hours) freshness limits into a failed
+Actions run. This detects dropped schedules as soon as GitHub runs the health
+workflow again. It cannot page while GitHub's scheduler itself is completely
+silent; closing that final gap requires an external monitoring provider and a
+separate alert-delivery decision.
 
 One-time alert delivery verification (manual gate):
 

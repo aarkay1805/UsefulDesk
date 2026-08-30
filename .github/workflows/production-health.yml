@@ -11,6 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -29,3 +30,20 @@ jobs:
             --retry 2 --retry-delay 5 --retry-all-errors \
             https://desk.usefulmade.com/login)"
           grep --fixed-strings --quiet '<title>UsefulDesk' <<<"$response"
+
+  scheduled-workflow-freshness:
+    name: Scheduled workflow freshness
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Check scheduled workflow freshness
+        run: node scripts/github-workflow-freshness.mjs

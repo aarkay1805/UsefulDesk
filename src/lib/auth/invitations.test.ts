@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   clampExpiryDays,
   DEFAULT_INVITE_EXPIRY_DAYS,
@@ -7,7 +7,25 @@ import {
   inviteExpiresAt,
   inviteUrl,
   MAX_INVITE_EXPIRY_DAYS,
+  resolveInviteBaseUrl,
 } from './invitations';
+
+const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+const originalAllowedInviteHosts = process.env.ALLOWED_INVITE_HOSTS;
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  if (originalSiteUrl === undefined) {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+  } else {
+    process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl;
+  }
+  if (originalAllowedInviteHosts === undefined) {
+    delete process.env.ALLOWED_INVITE_HOSTS;
+  } else {
+    process.env.ALLOWED_INVITE_HOSTS = originalAllowedInviteHosts;
+  }
+});
 
 describe('generateInviteToken', () => {
   it('returns a 43-character base64url token (32 raw bytes)', () => {
@@ -78,6 +96,20 @@ describe('inviteUrl', () => {
     // The token may contain `-` and `_`. Both are URL-safe; the
     // function must NOT percent-encode them.
     expect(inviteUrl('a-b_c', 'https://x')).toBe('https://x/join/a-b_c');
+  });
+});
+
+describe('resolveInviteBaseUrl', () => {
+  it('falls back to the canonical UsefulDesk production domain', () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    process.env.ALLOWED_INVITE_HOSTS = 'allowed.example';
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const request = new Request('https://request.example/invitations', {
+      headers: { host: 'rejected.example' },
+    });
+
+    expect(resolveInviteBaseUrl(request)).toBe('https://desk.usefulmade.com');
   });
 });
 

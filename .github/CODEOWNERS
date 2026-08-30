@@ -1,8 +1,6 @@
-# Everyone who opens a PR against this repo gets Arnas as a required
-# reviewer. Paired with a branch-protection rule on `main` that
-# requires Code Owner approval, this ensures every change is reviewed
-# before merge.
+# Route every pull request to the UsefulDesk repository owner. A branch rule
+# may require Code Owner approval when the project adds more maintainers.
 #
 # Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-security/customizing-your-repository/about-code-owners
 
-* @ArnasDon
+* @aarkay1805

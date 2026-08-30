@@ -1,19 +1,21 @@
 {
-  "name": "wacrm",
+  "name": "usefuldesk",
   "version": "0.7.0",
   "private": true,
-  "description": "Self-hostable CRM template for WhatsApp built on Next.js and Supabase — shared inbox, contacts, sales pipelines, broadcasts, and no-code automations.",
+  "description": "India-first gym CRM for renewals, payments, attendance, leads, and WhatsApp conversations.",
   "license": "MIT",
-  "author": "Arnas Donauskas",
-  "homepage": "https://github.com/ArnasDon/wacrm",
+  "author": "Rajat Kashyap",
+  "homepage": "https://desk.usefulmade.com",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ArnasDon/wacrm.git"
+    "url": "git+https://github.com/aarkay1805/UsefulDesk.git"
   },
   "bugs": {
-    "url": "https://github.com/ArnasDon/wacrm/issues"
+    "url": "https://github.com/aarkay1805/UsefulDesk/issues"
   },
   "keywords": [
+    "gym-crm",
+    "india",
     "crm",
     "whatsapp",
     "whatsapp-business-api",
@@ -21,8 +23,8 @@
     "supabase",
     "automation",
     "broadcast",
-    "self-hosted",
-    "template"
+    "renewals",
+    "attendance"
   ],
   "engines": {
     "node": ">=20.18.1"

@@ -6,6 +6,27 @@
 
 ---
 
+## UsefulDesk is operationally detached from its upstream template
+
+Active repository identity now points to `aarkay1805/UsefulDesk` and
+`desk.usefulmade.com`: README/contribution/package metadata, GitHub templates,
+CODEOWNERS, Dependabot reviewers, vulnerability reporting, and conduct
+reporting no longer route to the former upstream owner. The local Vercel link
+targets production project `useful-desk`; the archival upstream Git remote is
+fetch-only with an invalid push URL. Historical changelog links and runtime
+compatibility identifiers remain unchanged.
+
+Invite URLs now fall back to the canonical production domain when no explicit
+or accepted request host exists (`src/lib/auth/invitations.ts`). GitHub's
+best-effort scheduler was dropping events even though manual workflows and the
+independent Supabase Cron path were healthy, so `production-health` now runs
+the tested `scripts/github-workflow-freshness.mjs` checker against the existing
+75-minute ops, two-hour renewals, and 30-hour backup thresholds. It reports a
+stale GitHub schedule when GitHub resumes; a total GitHub outage still requires
+an external monitoring provider to page while the outage is in progress.
+
+---
+
 ## Hydration mismatches that were silently discarding the server render
 
 Four SSR-visible values were derived from browser-only state, so the server

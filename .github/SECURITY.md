@@ -1,64 +1,56 @@
 # Security Policy
 
-Thanks for taking the time to look into the security of this template.
+Thank you for helping keep UsefulDesk and the gyms using it safe.
 
 ## Reporting a vulnerability
 
-**Do not open a public GitHub issue for security bugs.** Public issues are
-indexed by search engines and seen by every fork long before the upstream fix
-lands.
+Do not open a public issue for a security bug. Report it privately through
+[GitHub Security
+Advisories](https://github.com/aarkay1805/UsefulDesk/security/advisories/new).
+This is the canonical security-reporting channel for the project.
 
-Instead, please report privately via one of:
+Include, when possible:
 
-- [GitHub Security Advisories](https://github.com/ArnasDon/wacrm/security/advisories/new)
-  (preferred — keeps the disclosure, fix, and CVE all in one place).
-- Email: `a.donauskas@hostinger.com` with `[CRM template security]` in the subject.
+- a description of the issue and its impact;
+- minimal reproduction steps or a proof of concept;
+- the commit or deployment surface you tested;
+- whether you want public credit or prefer to remain anonymous.
 
-Include, if you can:
+Do not include real member data, production tokens, provider credentials, or
+destructive proof-of-concept actions. A maintainer may ask for additional
+details inside the private advisory.
 
-- A description of the issue and the impact.
-- Reproduction steps or a proof-of-concept.
-- The commit or release you're testing against.
-- Whether you'd like credit in the eventual disclosure (we default to
-  crediting by the name or handle you give us, unless you prefer anonymous).
+## Response targets
 
-## What to expect
+- Acknowledgement within 72 hours.
+- Initial assessment within one week.
+- A coordinated fix and disclosure timeline proportional to severity.
 
-- **Acknowledgement** within 72 hours.
-- **Initial assessment** (severity, affected versions, whether a workaround
-  exists) within one week.
-- **Fix + coordinated disclosure** on a timeline proportional to severity.
-  Critical issues ship a patch as soon as one's ready; medium issues bundle
-  with the next release.
+These are response targets, not a guarantee that every report is a confirmed
+vulnerability.
 
 ## Scope
 
 In scope:
 
-- Anything in this repository (`ArnasDon/wacrm`), including webhook and auth
-  flows, token encryption, RLS policies, and the built-in cron endpoints.
-- Default configurations shipped in `docs/` — e.g. if the setup guide leaves
-  an unsafe default.
+- code and configuration in `aarkay1805/UsefulDesk`;
+- authentication, authorization, RLS, webhook, payment, messaging, public API,
+  scheduled-worker, and secret-handling behavior;
+- default documentation that would lead an operator to deploy an unsafe
+  configuration.
 
 Out of scope:
 
-- Vulnerabilities in Supabase, Next.js, Node.js, or other upstream
-  dependencies — please report those to their maintainers. We'll happily
-  bump versions on request.
-- Issues that require a pre-compromised deployment (e.g. a leaked
-  service-role key) unless they widen the blast radius beyond the initial
-  compromise.
-- Social engineering, physical attacks, or third-party services your fork
-  adds after deploy.
+- vulnerabilities in Supabase, Next.js, Node.js, Meta, Razorpay, Vercel, or
+  other upstream services that do not arise from UsefulDesk's integration;
+- issues that require an already compromised deployment unless they increase
+  the blast radius;
+- social engineering, physical attacks, denial-of-service testing, or changes
+  to real gym/member records.
 
 ## Safe harbor
 
-Research conducted under this policy is authorized. We won't pursue legal
-action against anyone who:
-
-- Makes a good-faith effort to avoid data destruction, privacy violations,
-  or service disruption.
-- Gives us reasonable time to respond before any public disclosure.
-- Doesn't exploit the issue beyond what's necessary to demonstrate it.
-
-Thanks for helping keep this template (and its forks) safe.
+Good-faith research under this policy is authorized when it avoids privacy
+violations, data destruction, service disruption, and exploitation beyond what
+is necessary to demonstrate the issue. Give the maintainer reasonable time to
+investigate and fix a confirmed issue before public disclosure.

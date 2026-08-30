@@ -109,7 +109,7 @@ export function clampExpiryDays(expiresInDays: number | undefined): number {
 //   1. NEXT_PUBLIC_SITE_URL — explicit config, trumps everything.
 //   2. X-Forwarded-Host (+ proto) — set by any reverse proxy.
 //   3. Host header + the request's protocol — bare deployments.
-//   4. Marketing-site fallback (essentially unreachable from a
+//   4. Canonical production fallback (essentially unreachable from a
 //      real browser; logs a warning).
 //
 // ALLOWED_INVITE_HOSTS (comma-separated) validates the header-
@@ -167,8 +167,8 @@ export function resolveInviteBaseUrl(request: Request): string {
     });
   } else {
     console.warn(
-      '[invitations] could not derive base URL from request; falling back to marketing domain'
+      '[invitations] could not derive base URL from request; falling back to canonical production domain'
     );
   }
-  return 'https://wacrm.tech';
+  return 'https://desk.usefulmade.com';
 }

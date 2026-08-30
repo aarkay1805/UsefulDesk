@@ -8,6 +8,17 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **UsefulDesk is operationally detached from the
+former CRM template. Active repository metadata, contributor/security forms,
+ownership, dependency review, package identity, and invite fallbacks now route
+to `aarkay1805/UsefulDesk` and `desk.usefulmade.com`; historical changelog links
+and compatibility-sensitive runtime identifiers remain intact. Local Vercel
+metadata targets production project `useful-desk`, while the renamed archival
+upstream remote is fetch-only with pushes disabled. GitHub's delayed/dropped
+scheduled events are now surfaced by a tested freshness check inside
+`production-health` using the existing ops, renewals, and backup thresholds;
+Supabase Cron remains the unchanged database-owned execution path.**
+
 Lead-management refinement: **the profile's separate Template and Chat actions
 are now one WhatsApp-marked Chat action that resolves or creates the lead's
 conversation and opens the branch-aware Inbox directly. The inherited Company
