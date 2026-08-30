@@ -18,7 +18,9 @@ on:
   schedule:
     # Supabase Cron runs the independent database-owned trigger at :41.
     # This off-boundary :47 run remains the redundant pinger and alert path.
-    - cron: '47 * * * *'
+    # The explicit all-hours range preserves the cadence while forcing GitHub
+    # to rebuild this schedule after the repository was detached upstream.
+    - cron: '47 0-23 * * *'
   # Lets you trigger a run by hand from the Actions tab (for testing).
   workflow_dispatch:
 

@@ -23,7 +23,9 @@ name: ops-crons
 
 on:
   schedule:
-    - cron: '11,26,41,56 * * * *'
+    # The explicit all-hours range preserves the cadence while forcing GitHub
+    # to rebuild this schedule after the repository was detached upstream.
+    - cron: '11,26,41,56 0-23 * * *'
   # Lets you trigger a run by hand from the Actions tab (for testing).
   workflow_dispatch:
 

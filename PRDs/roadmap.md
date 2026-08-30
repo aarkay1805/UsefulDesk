@@ -17,7 +17,13 @@ metadata targets production project `useful-desk`, while the renamed archival
 upstream remote is fetch-only with pushes disabled. GitHub's delayed/dropped
 scheduled events are now surfaced by a tested freshness check inside
 `production-health` using the existing ops, renewals, and backup thresholds;
-Supabase Cron remains the unchanged database-owned execution path.**
+Supabase Cron remains the unchanged database-owned execution path. After the
+detached repository continued creating only a small fraction of its GitHub
+schedule events, the ops and renewals definitions were source-refreshed with
+POSIX-equivalent explicit all-hours ranges. This preserves every worker minute,
+freshness threshold, manual-run exclusion, and Supabase schedule while forcing
+GitHub to rebuild the two schedule registrations; natural scheduled runs, not
+manual dispatches, remain the rollout gate.**
 
 Lead-management refinement: **the profile's separate Template and Chat actions
 are now one WhatsApp-marked Chat action that resolves or creates the lead's

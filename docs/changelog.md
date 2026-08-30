@@ -25,6 +25,15 @@ the tested `scripts/github-workflow-freshness.mjs` checker against the existing
 stale GitHub schedule when GitHub resumes; a total GitHub outage still requires
 an external monitoring provider to page while the outage is in progress.
 
+Post-detachment schedule repair keeps those guarantees intact. GitHub reported
+both worker workflows active and accepted green manual runs, but created only
+7 ops and 6 renewal `schedule` events in the sampled 24 hours; disabling and
+re-enabling both workflows still dropped the next two ops slots. Their source
+cron expressions now use equivalent explicit `0-23` hour ranges so GitHub must
+rebuild the schedule definitions without changing any worker minute, threshold,
+or Supabase job. Only a fresh natural `event=schedule` run closes rollout;
+manual dispatch remains diagnostic evidence, never freshness evidence.
+
 ---
 
 ## Hydration mismatches that were silently discarding the server render
