@@ -23,7 +23,11 @@ schedule events, the ops and renewals definitions were source-refreshed with
 POSIX-equivalent explicit all-hours ranges. This preserves every worker minute,
 freshness threshold, manual-run exclusion, and Supabase schedule while forcing
 GitHub to rebuild the two schedule registrations; natural scheduled runs, not
-manual dispatches, remain the rollout gate.**
+manual dispatches, remain the rollout gate. GitHub accepted the refresh and its
+CI/Production deployment passed, but it still dropped the first natural
+renewal, ops, and untouched health-control events. The GitHub path therefore
+remains externally blocked; Supabase Cron continues succeeding on its original
+cadence and no threshold or worker cadence was weakened.**
 
 Lead-management refinement: **the profile's separate Template and Chat actions
 are now one WhatsApp-marked Chat action that resolves or creates the lead's

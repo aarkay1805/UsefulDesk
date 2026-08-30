@@ -34,6 +34,16 @@ rebuild the schedule definitions without changing any worker minute, threshold,
 or Supabase job. Only a fresh natural `event=schedule` run closes rollout;
 manual dispatch remains diagnostic evidence, never freshness evidence.
 
+GitHub accepted refresh commit `0f24818`, CI run `33309609010` passed, and
+Vercel deployment `dpl_FR4URKu6ct4kHAnDM59aybyvvrWv` reached Production
+Ready, but GitHub never created the first post-push renewal (`11:47 UTC`),
+health-control (`11:54 UTC`), or ops (`11:56 UTC`) schedule events. The live
+freshness checker therefore still exits nonzero. This leaves schedule-event
+creation blocked at GitHub's platform boundary; do not substitute a manual run
+or alter thresholds/cadence. Supabase remained independent and healthy: its
+renewals run at `11:41` and ops run at `12:08` succeeded, with retained HTTP
+responses at 200 and no timeout/error.
+
 ---
 
 ## Hydration mismatches that were silently discarding the server render
