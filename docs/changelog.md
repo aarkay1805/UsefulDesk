@@ -36,16 +36,20 @@ manual dispatch remains diagnostic evidence, never freshness evidence.
 
 GitHub accepted refresh commit `0f24818`, CI run `33309609010` passed, and
 Vercel deployment `dpl_FR4URKu6ct4kHAnDM59aybyvvrWv` reached Production
-Ready, but GitHub never created the first post-push renewal (`11:47 UTC`),
-health-control (`11:54 UTC`), or ops (`11:56 UTC`) schedule events. The live
-freshness checker therefore still exits nonzero. This leaves schedule-event
-creation blocked at GitHub's platform boundary; do not substitute a manual run
-or alter thresholds/cadence. Supabase remained independent and healthy: its
-renewals run at `11:41` and ops run at `12:08` succeeded, with retained HTTP
-responses at 200 and no timeout/error.
+Ready. GitHub dropped the first post-push schedule events, then recovered
+naturally: on 2026-08-31 genuine `event=schedule` successes ran as ops
+`33369171851` at `07:37 UTC` and renewals `33369458145` at `07:41 UTC` on the
+current worker SHA. At `08:21 UTC`, the authenticated
+`scripts/github-workflow-freshness.mjs` check exited 0 with ages 45 and 41
+minutes against the unchanged 75- and 120-minute limits; backup freshness also
+passed. The independent Supabase jobs remained active on their original
+cadences and last succeeded at `08:08 UTC` (ops) and `07:41 UTC` (renewals).
+The production login returned HTTP 200. This closes the external scheduler
+blocker without counting manual dispatches or changing any threshold or worker
+cadence.
 
-The alert-delivery gate is now proven independently of that GitHub scheduler
-blocker. On 2026-08-30, no-secret manual failure run `33311076130` and natural
+The alert-delivery gate was proven while the GitHub scheduler remained blocked.
+On 2026-08-30, no-secret manual failure run `33311076130` and natural
 `production-health` schedule failure `33311077001` both appeared in the
 authenticated primary owner/administrator's GitHub notification inbox as
 `ci activity`; the latter failed only the scheduled-workflow freshness job

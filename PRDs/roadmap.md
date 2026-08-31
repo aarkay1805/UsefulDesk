@@ -24,15 +24,18 @@ POSIX-equivalent explicit all-hours ranges. This preserves every worker minute,
 freshness threshold, manual-run exclusion, and Supabase schedule while forcing
 GitHub to rebuild the two schedule registrations; natural scheduled runs, not
 manual dispatches, remain the rollout gate. GitHub accepted the refresh and its
-CI/Production deployment passed, but it still dropped the first natural
-renewal, ops, and untouched health-control events. The GitHub path therefore
-remains externally blocked. Alert delivery is nevertheless live: a no-secret
-manual failure and a natural scheduled `production-health` freshness failure
-both reached the primary repository owner/administrator's authenticated GitHub
-notification inbox as `ci activity` on 2026-08-30. The temporary manual-only
-probe was removed in the same session; no email/mobile delivery is claimed,
-Supabase Cron continues succeeding on its original cadence, and no threshold or
-worker cadence was weakened.**
+CI/Production deployment passed. After dropping the first natural events, the
+platform recovered: genuine scheduled ops and renewal runs both succeeded
+inside their existing freshness windows on 2026-08-31, and the authenticated
+freshness checker exited 0 without counting manual dispatches. The independent
+Supabase Cron jobs remained active and successful on their original cadences,
+and the production login returned HTTP 200, closing the external scheduler
+blocker. Alert delivery was also proven: a no-secret manual failure and a
+natural scheduled `production-health` freshness failure reached the primary
+repository owner/administrator's authenticated GitHub notification inbox as
+`ci activity` on 2026-08-30. The temporary manual-only probe was removed in the
+same session; no email/mobile delivery is claimed, and no threshold or worker
+cadence was weakened.**
 
 Lead-management refinement: **the profile's separate Template and Chat actions
 are now one WhatsApp-marked Chat action that resolves or creates the lead's
