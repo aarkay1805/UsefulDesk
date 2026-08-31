@@ -1,6 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { I18nManager } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeroUINativeProvider, type HeroUINativeConfig } from 'heroui-native';
 
 export const HERO_UI_CONFIG: HeroUINativeConfig = {
@@ -16,9 +17,11 @@ export const HERO_UI_CONFIG: HeroUINativeConfig = {
 export function MobileAppProviders({ children }: PropsWithChildren) {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <HeroUINativeProvider config={HERO_UI_CONFIG}>
-        {children}
-      </HeroUINativeProvider>
+      <SafeAreaProvider>
+        <HeroUINativeProvider config={HERO_UI_CONFIG}>
+          {children}
+        </HeroUINativeProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

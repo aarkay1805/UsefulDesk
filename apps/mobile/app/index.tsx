@@ -1,9 +1,17 @@
-import { Text, View } from 'react-native';
+import { Redirect } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
 
-export default function FoundationScreen() {
-  return (
-    <View accessibilityLabel="UsefulDesk Agent foundation">
-      <Text>UsefulDesk Agent</Text>
-    </View>
-  );
+import { useAuth } from '../src/features/auth/auth-context';
+import { entryRouteForAuthState } from '../src/features/auth/entry-route';
+
+export default function IndexRoute() {
+  const { state } = useAuth();
+  const href = entryRouteForAuthState(state);
+
+  useEffect(() => {
+    if (href) void SplashScreen.hideAsync().catch(() => undefined);
+  }, [href]);
+
+  return href ? <Redirect href={href} /> : null;
 }

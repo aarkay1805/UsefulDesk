@@ -1,19 +1,38 @@
 import '../global.css';
 
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
 
 import { MobileAppProviders } from '../src/core/mobile-app-providers';
-import { AuthProvider } from '../src/features/auth/auth-context';
+import { AuthProvider, useAuth } from '../src/features/auth/auth-context';
 
 WebBrowser.maybeCompleteAuthSession();
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
   return (
     <MobileAppProviders>
       <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <RootNavigator />
       </AuthProvider>
     </MobileAppProviders>
+  );
+}
+
+function RootNavigator() {
+  const { state } = useAuth();
+  const resolved = state.status !== 'booting';
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="index" />
+      <Stack.Protected guard={resolved && state.status !== 'ready'}>
+        <Stack.Screen name="(auth)" />
+      </Stack.Protected>
+      <Stack.Protected guard={state.status === 'ready'}>
+        <Stack.Screen name="(app)" />
+      </Stack.Protected>
+    </Stack>
   );
 }
