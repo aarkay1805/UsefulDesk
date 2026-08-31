@@ -90,12 +90,13 @@ kept as a redundant execution path and the existing alert surface:
 The independent
 [`production-health` workflow](../.github/workflows/production-health.yml)
 also evaluates the latest successful **scheduled** runs through
-`scripts/github-workflow-freshness.mjs`. It fails when ops is older than 75
-minutes, renewals is older than two hours, or the production backup is older
-than 30 hours. Manual dispatches never satisfy those freshness checks. This
-supplements GitHub's failure notifications after delayed or dropped events;
-when GitHub scheduling is completely silent, the alert cannot appear until the
-health workflow itself resumes.
+`scripts/github-workflow-freshness.mjs`. Ops older than 75 minutes and renewals
+older than two hours are annotated as warnings because Supabase Cron is their
+independent primary scheduler; a production backup older than 30 hours remains
+a hard failure because it has no alternate execution path. Manual dispatches
+never satisfy those freshness checks. Failed GitHub worker runs still fail
+their own workflows. When GitHub scheduling is completely silent, even the
+warning cannot appear until the health workflow itself resumes.
 
 The independent
 [Production backup workflow](../.github/workflows/production-backup.yml) does

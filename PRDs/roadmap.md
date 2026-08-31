@@ -35,7 +35,12 @@ natural scheduled `production-health` freshness failure reached the primary
 repository owner/administrator's authenticated GitHub notification inbox as
 `ci activity` on 2026-08-30. The temporary manual-only probe was removed in the
 same session; no email/mobile delivery is claimed, and no threshold or worker
-cadence was weakened.**
+cadence was weakened. Repeated later gaps confirmed the platform's documented
+best-effort behavior while the primary Supabase jobs continued succeeding on
+every retained cadence. Freshness now classifies those redundant GitHub ops and
+renewal gaps as visible warnings; backup staleness remains a hard failure
+because it has no alternate scheduler, and failed worker executions remain red
+in their own workflows.**
 
 Lead-management refinement: **the profile's separate Template and Chat actions
 are now one WhatsApp-marked Chat action that resolves or creates the lead's

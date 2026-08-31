@@ -48,6 +48,17 @@ The production login returned HTTP 200. This closes the external scheduler
 blocker without counting manual dispatches or changing any threshold or worker
 cadence.
 
+Repeated later gaps established that a stale redundant GitHub pinger is an
+observability degradation, not by itself a production-health failure: the
+primary Supabase jobs stayed active, their latest 20 executions succeeded, and
+their corresponding HTTP responses were all 200. The freshness checker now
+emits warnings for stale ops and renewals schedules while retaining their
+75-/120-minute thresholds and manual-run exclusion. Backup staleness still
+emits an error and exits nonzero because no alternate scheduler creates that
+recovery point; actual GitHub worker execution failures remain red in their own
+workflows. Regression coverage lives in
+`scripts/github-workflow-freshness.test.mjs`.
+
 The alert-delivery gate was proven while the GitHub scheduler remained blocked.
 On 2026-08-30, no-secret manual failure run `33311076130` and natural
 `production-health` schedule failure `33311077001` both appeared in the

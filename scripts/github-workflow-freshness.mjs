@@ -5,11 +5,13 @@ export const DEFAULT_WORKFLOWS = Object.freeze([
     file: 'ops-crons.yml',
     name: 'ops-crons',
     maxAgeMinutes: 75,
+    failureOnStale: false,
   }),
   Object.freeze({
     file: 'renewals-cron.yml',
     name: 'renewals-cron',
     maxAgeMinutes: 120,
+    failureOnStale: false,
   }),
   Object.freeze({
     file: 'production-backup.yml',
@@ -35,6 +37,8 @@ export function evaluateWorkflowFreshness({ now, workflows, runsByWorkflow }) {
   }
 
   return workflows.map((workflow) => {
+    const blocksHealth = workflow.failureOnStale !== false;
+    const annotationLevel = blocksHealth ? 'error' : 'warning';
     const latestSuccess = (runsByWorkflow[workflow.file] ?? [])
       .filter(successfulScheduledRun)
       .sort(
@@ -51,6 +55,8 @@ export function evaluateWorkflowFreshness({ now, workflows, runsByWorkflow }) {
         latestSuccessAt: null,
         latestSuccessUrl: null,
         stale: true,
+        annotationLevel,
+        blocksHealth,
         reason: 'no successful scheduled run found',
       };
     }
@@ -67,6 +73,7 @@ export function evaluateWorkflowFreshness({ now, workflows, runsByWorkflow }) {
       latestSuccessAt: latestSuccess.created_at,
       latestSuccessUrl: latestSuccess.html_url ?? null,
       stale,
+      ...(stale ? { annotationLevel, blocksHealth } : {}),
       reason: stale
         ? `latest successful scheduled run is ${ageMinutes} minutes old (limit: ${workflow.maxAgeMinutes})`
         : null,
@@ -132,9 +139,8 @@ async function main() {
       const runLink = status.latestSuccessUrl
         ? ` Last success: ${status.latestSuccessUrl}`
         : '';
-      console.error(
-        `::error title=Stale GitHub schedule::${status.name}: ${status.reason}.${runLink}`
-      );
+      const annotation = `::${status.annotationLevel} title=Stale GitHub schedule::${status.name}: ${status.reason}.${runLink}`;
+      console[status.blocksHealth ? 'error' : 'warn'](annotation);
     } else {
       console.log(
         `${status.name}: healthy (${status.ageMinutes} minutes since the latest scheduled success)`
@@ -142,7 +148,7 @@ async function main() {
     }
   }
 
-  if (statuses.some((status) => status.stale)) {
+  if (statuses.some((status) => status.blocksHealth)) {
     process.exitCode = 1;
   }
 }

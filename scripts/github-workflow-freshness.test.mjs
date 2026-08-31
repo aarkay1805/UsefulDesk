@@ -116,4 +116,32 @@ describe('evaluateWorkflowFreshness', () => {
       'https://github.com/aarkay1805/UsefulDesk/actions/runs/2'
     );
   });
+
+  it('warns without failing health when a redundant scheduler is stale', () => {
+    const [status] = evaluateWorkflowFreshness({
+      now: new Date('2026-08-30T12:00:00.000Z'),
+      workflows: [{ ...workflows[0], failureOnStale: false }],
+      runsByWorkflow: {
+        'ops-crons.yml': [run({ created_at: '2026-08-30T10:44:00.000Z' })],
+      },
+    });
+
+    expect(status.stale).toBe(true);
+    expect(status.annotationLevel).toBe('warning');
+    expect(status.blocksHealth).toBe(false);
+  });
+
+  it('fails health when a required scheduler is stale', () => {
+    const [status] = evaluateWorkflowFreshness({
+      now: new Date('2026-08-30T12:00:00.000Z'),
+      workflows: [{ ...workflows[0], failureOnStale: true }],
+      runsByWorkflow: {
+        'ops-crons.yml': [run({ created_at: '2026-08-30T10:44:00.000Z' })],
+      },
+    });
+
+    expect(status.stale).toBe(true);
+    expect(status.annotationLevel).toBe('error');
+    expect(status.blocksHealth).toBe(true);
+  });
 });
