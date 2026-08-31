@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+@import 'uniwind';
+@import 'heroui-native/styles';
+
+@layer theme {
+  :root {
+    --radius: 0.625rem;
+  }
+}
