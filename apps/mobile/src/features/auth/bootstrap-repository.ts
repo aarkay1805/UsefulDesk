@@ -1,9 +1,9 @@
-import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
-import { branchPreference } from './branch-preference';
+import { mobileSupabase } from '../../data/supabase';
 import type {
   AccountRole,
   AccountSummary,
   BranchAccount,
+  BranchBlockReason,
   MobileBootstrap,
   MobileProfile,
 } from './branch-types';
@@ -19,6 +19,19 @@ export interface BootstrapSource {
   getBranches(): Promise<unknown>;
   getAccount(accountId: string): Promise<unknown>;
 }
+
+export interface BootstrapDiagnostic {
+  stage:
+    | 'profile_and_branches'
+    | 'profile_data'
+    | 'branch_data'
+    | 'selected_account';
+  category: 'exception' | 'unknown';
+}
+
+export type BootstrapDiagnosticReporter = (
+  diagnostic: BootstrapDiagnostic
+) => void;
 
 type UnknownRow = Record<string, unknown>;
 
@@ -202,39 +215,29 @@ function parseAccount(
   };
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (
-    isRow(error) &&
-    typeof error.message === 'string' &&
-    error.message.length > 0
-  ) {
-    return error.message;
-  }
-  return 'Could not load branch access.';
-}
-
-async function clearSelection(): Promise<void> {
-  selectedBranchRef.set(null);
-  await branchPreference.clear();
-}
-
-async function blockedAfterClear(
+function blocked(
   profile: MobileProfile | null,
   branches: BranchAccount[],
-  reason: string
-): Promise<Extract<MobileBootstrap, { status: 'blocked' }>> {
-  try {
-    await clearSelection();
-    return { status: 'blocked', profile, branches, reason };
-  } catch (error) {
-    return {
-      status: 'blocked',
-      profile,
-      branches,
-      reason: `Saved branch state could not be cleared: ${errorMessage(error)}`,
-    };
+  reason: BranchBlockReason
+): Extract<MobileBootstrap, { status: 'blocked' }> {
+  return { status: 'blocked', profile, branches, reason };
+}
+
+function defaultDiagnosticReporter(diagnostic: BootstrapDiagnostic): void {
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('Mobile branch bootstrap diagnostic', diagnostic);
   }
+}
+
+function reportDiagnostic(
+  reporter: BootstrapDiagnosticReporter,
+  stage: BootstrapDiagnostic['stage'],
+  cause: unknown
+): void {
+  reporter({
+    stage,
+    category: cause instanceof Error ? 'exception' : 'unknown',
+  });
 }
 
 export const mobileBootstrapSource: BootstrapSource = {
@@ -259,6 +262,7 @@ export const mobileBootstrapSource: BootstrapSource = {
       .from('accounts')
       .select(ACCOUNT_COLUMNS)
       .eq('id', accountId)
+      .setHeader('x-usefuldesk-account-id', accountId)
       .maybeSingle();
     if (error) throw error;
     return data;
@@ -268,10 +272,9 @@ export const mobileBootstrapSource: BootstrapSource = {
 export async function loadMobileBootstrap(
   source: BootstrapSource,
   userId: string,
-  requestedBranchId: string | null
+  requestedBranchId: string | null,
+  report: BootstrapDiagnosticReporter = defaultDiagnosticReporter
 ): Promise<MobileBootstrap> {
-  selectedBranchRef.set(null);
-
   let rawProfile: unknown;
   let rawBranches: unknown;
   try {
@@ -280,25 +283,29 @@ export async function loadMobileBootstrap(
       source.getBranches(),
     ]);
   } catch (error) {
-    return blockedAfterClear(null, [], errorMessage(error));
+    reportDiagnostic(report, 'profile_and_branches', error);
+    return blocked(null, [], 'branch_access_unavailable');
   }
 
   let branches: BranchAccount[];
   try {
     branches = parseBranches(rawBranches);
   } catch (error) {
-    return blockedAfterClear(null, [], errorMessage(error));
+    reportDiagnostic(report, 'branch_data', error);
+    return blocked(null, [], 'branch_access_unavailable');
   }
 
   let profile: MobileProfile | null;
   try {
     profile = parseProfile(rawProfile);
   } catch (error) {
-    return blockedAfterClear(null, branches, errorMessage(error));
+    reportDiagnostic(report, 'profile_data', error);
+    return blocked(null, branches, 'profile_unavailable');
   }
 
   if (!profile) {
-    return blockedAfterClear(null, branches, 'No profile found for this user.');
+    reportDiagnostic(report, 'profile_data', null);
+    return blocked(null, branches, 'profile_unavailable');
   }
 
   const resolution = resolveSelectedBranch({
@@ -307,30 +314,18 @@ export async function loadMobileBootstrap(
     requestedBranchId,
   });
   if (resolution.status === 'choose') {
-    try {
-      await clearSelection();
-    } catch (error) {
-      return {
-        status: 'blocked',
-        profile,
-        branches: resolution.branches,
-        reason: `Saved branch state could not be cleared: ${errorMessage(error)}`,
-      };
-    }
     return { status: 'choose', profile, branches: resolution.branches };
   }
   if (resolution.status === 'blocked') {
-    return blockedAfterClear(profile, resolution.branches, resolution.reason);
+    return blocked(profile, resolution.branches, resolution.reason);
   }
 
-  selectedBranchRef.set(resolution.branch.account_id);
   try {
     const account = parseAccount(
       await source.getAccount(resolution.branch.account_id),
       resolution.branch.account_id
     );
     if (!account) throw new Error('Selected branch account is unavailable.');
-    await branchPreference.set(resolution.branch.account_id);
 
     return {
       status: 'ready',
@@ -344,6 +339,7 @@ export async function loadMobileBootstrap(
       account,
     };
   } catch (error) {
-    return blockedAfterClear(profile, branches, errorMessage(error));
+    reportDiagnostic(report, 'selected_account', error);
+    return blocked(profile, branches, 'selected_branch_unavailable');
   }
 }

@@ -11,7 +11,9 @@ export function createBranchAwareFetch(
     });
 
     const branchId = getBranchId();
-    if (branchId) headers.set('x-usefuldesk-account-id', branchId);
+    if (branchId && !headers.has('x-usefuldesk-account-id')) {
+      headers.set('x-usefuldesk-account-id', branchId);
+    }
 
     return baseFetch(input, { ...init, headers });
   };

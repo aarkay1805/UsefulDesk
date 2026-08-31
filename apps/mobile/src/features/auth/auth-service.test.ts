@@ -1,4 +1,9 @@
 import { createAuthService } from './auth-service';
+import { createClient } from '@supabase/supabase-js';
+import {
+  createSecureSessionStorage,
+  MOBILE_AUTH_STORAGE_KEY,
+} from '../../data/secure-session-storage';
 
 const REDIRECT_URL = 'usefuldesk-agent://auth/callback';
 
@@ -26,7 +31,8 @@ function createDependencies() {
         },
         error: null,
       }),
-      signOut: jest.fn().mockResolvedValue({ error: null }),
+      startAutoRefresh: jest.fn().mockResolvedValue(undefined),
+      stopAutoRefresh: jest.fn().mockResolvedValue(undefined),
     },
     linking: {
       createURL: jest.fn().mockReturnValue(REDIRECT_URL),
@@ -46,6 +52,16 @@ function createDependencies() {
       set: jest.fn().mockResolvedValue(undefined),
       clear: jest.fn().mockResolvedValue(undefined),
     },
+    sessionStorage: {
+      getItem: jest.fn().mockResolvedValue(null),
+      setItem: jest.fn().mockResolvedValue(undefined),
+      removeItem: jest.fn().mockResolvedValue(undefined),
+      allowWrites: jest.fn(),
+      purge: jest.fn().mockResolvedValue({ status: 'success' }),
+    },
+    remoteSession: {
+      revoke: jest.fn().mockResolvedValue({ status: 'success' }),
+    },
   };
 }
 
@@ -61,6 +77,8 @@ describe('createAuthService', () => {
       email: 'asha@example.com',
       password: 'correct horse',
     });
+    expect(dependencies.sessionStorage.allowWrites).toHaveBeenCalledTimes(1);
+    expect(dependencies.auth.startAutoRefresh).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -86,6 +104,7 @@ describe('createAuthService', () => {
       await expect(
         service.signInWithPassword('asha@example.com', 'wrong password')
       ).resolves.toEqual({ status: 'error', message: displayMessage });
+      expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
     }
   );
 
@@ -111,6 +130,8 @@ describe('createAuthService', () => {
     expect(dependencies.auth.exchangeCodeForSession).toHaveBeenCalledWith(
       'authorization-code'
     );
+    expect(dependencies.sessionStorage.allowWrites).toHaveBeenCalledTimes(1);
+    expect(dependencies.auth.startAutoRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('refuses to start OAuth when Linking does not produce the exact callback', async () => {
@@ -138,75 +159,189 @@ describe('createAuthService', () => {
         status: 'cancelled',
       });
       expect(dependencies.auth.exchangeCodeForSession).not.toHaveBeenCalled();
+      expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
     }
   );
 
-  it('reports successful remote and local sign-out with one cleanup', async () => {
+  it('reports successful remote, local-auth, and branch cleanup', async () => {
     const dependencies = createDependencies();
     const service = createAuthService(dependencies);
 
-    await expect(service.signOut()).resolves.toEqual({
+    await expect(service.signOut('synthetic-access-token')).resolves.toEqual({
       status: 'success',
       remote: 'success',
-      cleanup: 'success',
+      localAuth: 'success',
+      branchPreference: 'success',
     });
-    expect(dependencies.selectedBranch.set).toHaveBeenCalledTimes(1);
-    expect(dependencies.selectedBranch.set).toHaveBeenCalledWith(null);
+    expect(dependencies.remoteSession.revoke).toHaveBeenCalledWith(
+      'synthetic-access-token'
+    );
+    expect(dependencies.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
+    expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
   });
 
   it('distinguishes remote sign-out failure from successful local cleanup', async () => {
     const dependencies = createDependencies();
-    dependencies.auth.signOut.mockResolvedValueOnce({
-      error: new Error('network request failed'),
+    dependencies.remoteSession.revoke.mockResolvedValueOnce({
+      status: 'failed',
     });
     const service = createAuthService(dependencies);
 
-    await expect(service.signOut()).resolves.toEqual({
+    await expect(service.signOut('synthetic-access-token')).resolves.toEqual({
       status: 'error',
       remote: 'failed',
-      cleanup: 'success',
+      localAuth: 'success',
+      branchPreference: 'success',
       message:
         'Signed out on this device, but the remote session could not be closed.',
     });
-    expect(dependencies.selectedBranch.set).toHaveBeenCalledTimes(1);
+    expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
   });
 
-  it('distinguishes local cleanup failure from successful remote sign-out', async () => {
+  it('distinguishes branch-preference cleanup failure from successful local auth purge', async () => {
     const dependencies = createDependencies();
     dependencies.preference.clear.mockRejectedValueOnce(
       new Error('keystore secret failure')
     );
     const service = createAuthService(dependencies);
 
-    await expect(service.signOut()).resolves.toEqual({
+    await expect(service.signOut('synthetic-access-token')).resolves.toEqual({
       status: 'error',
       remote: 'success',
-      cleanup: 'failed',
+      localAuth: 'success',
+      branchPreference: 'failed',
       message: 'Signed out, but local branch data could not be cleared.',
     });
-    expect(dependencies.selectedBranch.set).toHaveBeenCalledTimes(1);
+    expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
   });
 
-  it('reports combined remote and local sign-out failure safely', async () => {
+  it('reports a failed local auth purge separately without exposing diagnostics', async () => {
     const dependencies = createDependencies();
-    dependencies.auth.signOut.mockRejectedValueOnce(
-      new Error('remote infrastructure secret')
-    );
-    dependencies.preference.clear.mockRejectedValueOnce(
-      new Error('keystore secret failure')
+    dependencies.sessionStorage.purge.mockResolvedValueOnce({
+      status: 'failed',
+    });
+    const service = createAuthService(dependencies);
+
+    await expect(service.signOut('synthetic-access-token')).resolves.toEqual({
+      status: 'error',
+      remote: 'success',
+      localAuth: 'failed',
+      branchPreference: 'success',
+      message:
+        "Could not fully clear this device's sign-in. Restart the app before trying again.",
+    });
+    expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
+    expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('purges local auth and branch state before an offline remote attempt settles', async () => {
+    const dependencies = createDependencies();
+    let settleRemote!: (value: { status: 'failed' }) => void;
+    dependencies.remoteSession.revoke.mockReturnValueOnce(
+      new Promise((resolve) => {
+        settleRemote = resolve;
+      })
     );
     const service = createAuthService(dependencies);
 
-    await expect(service.signOut()).resolves.toEqual({
-      status: 'error',
+    const pending = service.signOut('synthetic-access-token');
+    await Promise.resolve();
+
+    expect(dependencies.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
+    expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
+    expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
+
+    settleRemote({ status: 'failed' });
+    await expect(pending).resolves.toMatchObject({
       remote: 'failed',
-      cleanup: 'failed',
-      message: 'Could not close the remote session or clear local branch data.',
+      localAuth: 'success',
+      branchPreference: 'success',
     });
-    expect(dependencies.selectedBranch.set).toHaveBeenCalledTimes(1);
+  });
+
+  it('cannot cold-restore the configured Supabase or PKCE material after offline sign-out', async () => {
+    const values = new Map<string, string>();
+    const storedUser = {
+      id: '00000000-0000-4000-8000-000000000001',
+      aud: 'authenticated',
+      role: 'authenticated',
+      email: 'asha@example.test',
+    };
+    values.set(
+      MOBILE_AUTH_STORAGE_KEY,
+      JSON.stringify({
+        access_token: 'synthetic-old-access-token',
+        refresh_token: 'synthetic-old-refresh-token',
+        expires_at: Math.floor(Date.now() / 1_000) + 3_600,
+        user: storedUser,
+      })
+    );
+    values.set(
+      `${MOBILE_AUTH_STORAGE_KEY}-code-verifier`,
+      JSON.stringify('synthetic-old-code-verifier')
+    );
+    values.set(
+      `${MOBILE_AUTH_STORAGE_KEY}-user`,
+      JSON.stringify({ user: storedUser })
+    );
+    const adapter = {
+      getItemAsync: async (key: string) => values.get(key) ?? null,
+      setItemAsync: async (key: string, value: string) => {
+        values.set(key, value);
+      },
+      deleteItemAsync: async (key: string) => {
+        values.delete(key);
+      },
+    };
+    const mockedDependencies = createDependencies();
+    const dependencies = {
+      ...mockedDependencies,
+      sessionStorage: createSecureSessionStorage(adapter),
+    };
+    dependencies.remoteSession.revoke.mockResolvedValueOnce({
+      status: 'failed',
+    });
+    const service = createAuthService(dependencies);
+
+    await service.signOut('synthetic-access-token');
+
+    const coldStorage = createSecureSessionStorage(adapter);
+    const coldClient = createClient(
+      'https://example.supabase.co',
+      'sb_publishable_synthetic-public-key',
+      {
+        auth: {
+          storage: coldStorage,
+          storageKey: MOBILE_AUTH_STORAGE_KEY,
+          autoRefreshToken: false,
+          persistSession: true,
+          detectSessionInUrl: false,
+        },
+      }
+    );
+    await expect(coldClient.auth.getSession()).resolves.toMatchObject({
+      data: { session: null },
+      error: null,
+    });
+    expect(values.size).toBe(0);
+  });
+
+  it('supports idempotent local-only cleanup for an external signed-out event', async () => {
+    const dependencies = createDependencies();
+    const service = createAuthService(dependencies);
+
+    await expect(service.purgeLocalSession()).resolves.toEqual({
+      localAuth: 'success',
+      branchPreference: 'success',
+    });
+    expect(dependencies.remoteSession.revoke).not.toHaveBeenCalled();
+    expect(dependencies.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
   });
 });

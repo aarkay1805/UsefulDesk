@@ -1,22 +1,14 @@
-import * as SecureStore from 'expo-secure-store';
-
 import { selectedBranchRef } from '../../data/supabase';
-import { branchPreference } from './branch-preference';
 import type {
   AccountSummary,
   BranchAccount,
   MobileProfile,
 } from './branch-types';
+import { branchBlockMessage } from './branch-types';
 import {
   loadMobileBootstrap,
   type BootstrapSource,
 } from './bootstrap-repository';
-
-jest.mock('expo-secure-store', () => ({
-  getItemAsync: jest.fn(),
-  setItemAsync: jest.fn(),
-  deleteItemAsync: jest.fn(),
-}));
 
 const BRANCH_A = 'd3648c54-a4aa-4dd8-8566-1e3b38c1f497';
 const BRANCH_B = 'f8b2a93d-bfa4-485a-8ab1-1b37862d6d72';
@@ -84,40 +76,13 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
-const secureStore = jest.mocked(SecureStore);
-
-describe('branchPreference', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('uses the dedicated selected-branch SecureStore key', async () => {
-    secureStore.getItemAsync.mockResolvedValue(BRANCH_A);
-
-    await expect(branchPreference.get()).resolves.toBe(BRANCH_A);
-    await branchPreference.set(BRANCH_B);
-    await branchPreference.clear();
-
-    expect(secureStore.getItemAsync).toHaveBeenCalledWith(
-      'usefuldesk.mobile.selected-branch'
-    );
-    expect(secureStore.setItemAsync).toHaveBeenCalledWith(
-      'usefuldesk.mobile.selected-branch',
-      BRANCH_B
-    );
-    expect(secureStore.deleteItemAsync).toHaveBeenCalledWith(
-      'usefuldesk.mobile.selected-branch'
-    );
-  });
-});
-
 describe('loadMobileBootstrap', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     selectedBranchRef.set(null);
   });
 
-  it('loads profile and memberships together, then scopes and persists the exact account read', async () => {
+  it('validates the candidate account without changing the published branch header', async () => {
     const profileRead = deferred<MobileProfile | null>();
     const branchRead = deferred<BranchAccount[]>();
     let profileStarted = false;
@@ -126,18 +91,18 @@ describe('loadMobileBootstrap', () => {
     const source: BootstrapSource = {
       getProfile: async (userId) => {
         expect(userId).toBe(USER_ID);
-        expect(selectedBranchRef.get()).toBeNull();
+        expect(selectedBranchRef.get()).toBe(BRANCH_A);
         profileStarted = true;
         return profileRead.promise;
       },
       getBranches: async () => {
-        expect(selectedBranchRef.get()).toBeNull();
+        expect(selectedBranchRef.get()).toBe(BRANCH_A);
         branchesStarted = true;
         return branchRead.promise;
       },
       getAccount: async (accountId) => {
         accountReads.push(accountId);
-        expect(selectedBranchRef.get()).toBe(BRANCH_B);
+        expect(selectedBranchRef.get()).toBe(BRANCH_A);
         return account(accountId);
       },
     };
@@ -160,10 +125,7 @@ describe('loadMobileBootstrap', () => {
       account: account(BRANCH_B),
     });
     expect(accountReads).toEqual([BRANCH_B]);
-    expect(secureStore.setItemAsync).toHaveBeenCalledWith(
-      'usefuldesk.mobile.selected-branch',
-      BRANCH_B
-    );
+    expect(selectedBranchRef.get()).toBe(BRANCH_A);
   });
 
   it('fails closed without loading another account after an explicit unauthorized request', async () => {
@@ -185,15 +147,11 @@ describe('loadMobileBootstrap', () => {
       status: 'blocked',
       profile,
       branches,
-      reason: 'You do not have access to this branch.',
+      reason: 'branch_access_denied',
     });
 
     expect(accountRead).toBe(false);
-    expect(selectedBranchRef.get()).toBeNull();
-    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
-    expect(secureStore.deleteItemAsync).toHaveBeenCalledWith(
-      'usefuldesk.mobile.selected-branch'
-    );
+    expect(selectedBranchRef.get()).toBe(BRANCH_A);
   });
 
   it('returns a choice without loading or persisting an account', async () => {
@@ -216,7 +174,6 @@ describe('loadMobileBootstrap', () => {
 
     expect(accountRead).toBe(false);
     expect(selectedBranchRef.get()).toBeNull();
-    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
   it('blocks a malformed profile before resolving a branch', async () => {
@@ -235,7 +192,7 @@ describe('loadMobileBootstrap', () => {
       status: 'blocked',
       profile: null,
       branches: [branch(BRANCH_A)],
-      reason: 'Invalid profile data.',
+      reason: 'profile_unavailable',
     });
     expect(accountRead).toBe(false);
     expect(selectedBranchRef.get()).toBeNull();
@@ -262,7 +219,7 @@ describe('loadMobileBootstrap', () => {
       status: 'blocked',
       profile,
       branches: [branch(BRANCH_A)],
-      reason: 'You do not have access to this branch.',
+      reason: 'branch_access_denied',
     });
     expect(accountRead).toBe(false);
     expect(selectedBranchRef.get()).toBeNull();
@@ -285,52 +242,60 @@ describe('loadMobileBootstrap', () => {
       status: 'blocked',
       profile,
       branches: [branch(BRANCH_A)],
-      reason: 'Selected branch account response is invalid.',
+      reason: 'selected_branch_unavailable',
     });
     expect(selectedBranchRef.get()).toBeNull();
-    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
-  it('surfaces a saved-branch clear failure instead of returning choose', async () => {
-    const branches = [branch(BRANCH_A), branch(BRANCH_B)];
-    const source: BootstrapSource = {
-      getProfile: async () => ({ ...profile, account_id: null }),
-      getBranches: async () => branches,
-      getAccount: async () => account(BRANCH_A),
-    };
-    secureStore.deleteItemAsync.mockRejectedValueOnce(
-      new Error('secure storage locked')
-    );
-
-    await expect(loadMobileBootstrap(source, USER_ID, null)).resolves.toEqual({
-      status: 'blocked',
-      profile: { ...profile, account_id: null },
-      branches,
-      reason: 'Saved branch state could not be cleared: secure storage locked',
-    });
-    expect(selectedBranchRef.get()).toBeNull();
-    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
-  });
-
-  it('resets branch scope and preference when the exact account read fails', async () => {
+  it('keeps the published branch unchanged when the candidate account read fails', async () => {
     const source: BootstrapSource = {
       getProfile: async () => profile,
       getBranches: async () => [branch(BRANCH_A)],
       getAccount: async () => {
         expect(selectedBranchRef.get()).toBe(BRANCH_A);
-        throw new Error('account unavailable');
+        throw new Error('postgres://user:secret@internal/policy details');
       },
     };
 
+    selectedBranchRef.set(BRANCH_A);
     await expect(loadMobileBootstrap(source, USER_ID, null)).resolves.toEqual({
       status: 'blocked',
       profile,
       branches: [branch(BRANCH_A)],
-      reason: 'account unavailable',
+      reason: 'selected_branch_unavailable',
     });
-    expect(selectedBranchRef.get()).toBeNull();
-    expect(secureStore.deleteItemAsync).toHaveBeenCalledWith(
-      'usefuldesk.mobile.selected-branch'
+    expect(selectedBranchRef.get()).toBe(BRANCH_A);
+  });
+
+  it('returns only safe UI copy and a sanitized diagnostic for sensitive failures', async () => {
+    const diagnostic = jest.fn();
+    const source: BootstrapSource = {
+      getProfile: async () => {
+        throw new Error(
+          'postgres://admin:password@internal row-level policy violation'
+        );
+      },
+      getBranches: async () => [branch(BRANCH_A)],
+      getAccount: async () => account(BRANCH_A),
+    };
+
+    const result = await loadMobileBootstrap(source, USER_ID, null, diagnostic);
+
+    expect(result).toEqual({
+      status: 'blocked',
+      profile: null,
+      branches: [],
+      reason: 'branch_access_unavailable',
+    });
+    if (result.status !== 'blocked') throw new Error('Invalid test result.');
+    expect(branchBlockMessage(result.reason)).toBe(
+      'Could not load your branch access. Check your connection and try again.'
     );
+    expect(JSON.stringify(result)).not.toContain('password');
+    expect(diagnostic).toHaveBeenCalledWith({
+      stage: 'profile_and_branches',
+      category: 'exception',
+    });
+    expect(JSON.stringify(diagnostic.mock.calls)).not.toContain('password');
   });
 });

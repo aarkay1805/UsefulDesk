@@ -50,10 +50,42 @@ export interface AccountSummary {
   setup_reviewed_by: string | null;
 }
 
+export type BranchBlockReason =
+  | 'invalid_branch'
+  | 'branch_access_denied'
+  | 'branch_archived'
+  | 'no_active_branch'
+  | 'profile_unavailable'
+  | 'branch_access_unavailable'
+  | 'selected_branch_unavailable'
+  | 'local_state_unavailable';
+
+const BRANCH_BLOCK_MESSAGES: Record<BranchBlockReason, string> = {
+  invalid_branch: 'This branch link is invalid.',
+  branch_access_denied: 'You do not have access to this branch.',
+  branch_archived: 'This branch is archived.',
+  no_active_branch: 'No active branch access is available.',
+  profile_unavailable: 'Could not load your profile. Sign out and try again.',
+  branch_access_unavailable:
+    'Could not load your branch access. Check your connection and try again.',
+  selected_branch_unavailable:
+    'Could not open this branch. Check your connection and try again.',
+  local_state_unavailable:
+    'Could not update saved branch data. Unlock your device and try again.',
+};
+
+export function branchBlockMessage(reason: BranchBlockReason): string {
+  return BRANCH_BLOCK_MESSAGES[reason];
+}
+
 export type BranchResolution =
   | { status: 'ready'; branch: BranchAccount }
   | { status: 'choose'; branches: BranchAccount[] }
-  | { status: 'blocked'; reason: string; branches: BranchAccount[] };
+  | {
+      status: 'blocked';
+      reason: BranchBlockReason;
+      branches: BranchAccount[];
+    };
 
 export type MobileBootstrap =
   | {
@@ -72,5 +104,5 @@ export type MobileBootstrap =
       status: 'blocked';
       profile: MobileProfile | null;
       branches: BranchAccount[];
-      reason: string;
+      reason: BranchBlockReason;
     };

@@ -67,4 +67,35 @@ describe('authorizationCodeFromCallback', () => {
       message: 'Google sign-in returned an invalid callback.',
     });
   });
+
+  it.each([
+    'usefuldesk-agent://auth/callback?code=first&code=second',
+    'usefuldesk-agent://auth/callback?code=one-time-code&state=unexpected',
+  ])('rejects duplicate or extra callback query data: %s', (url) => {
+    expect(authorizationCodeFromCallback(url)).toEqual({
+      status: 'error',
+      message: 'Google sign-in did not return an authorization code.',
+    });
+  });
+
+  it('decodes the one authorization-code value exactly once', () => {
+    expect(
+      authorizationCodeFromCallback(
+        'usefuldesk-agent://auth/callback?code=one%2Btwo%2Fthree%3D'
+      )
+    ).toEqual({ status: 'code', code: 'one+two/three=' });
+  });
+
+  it.each([
+    'usefuldesk-agent://auth//callback?code=stolen-code',
+    'usefuldesk-agent://auth/callback/?code=stolen-code',
+    'usefuldesk-agent://auth/%63allback?code=stolen-code',
+    'usefuldesk-agent:auth/callback?code=stolen-code',
+    'usefuldesk-agent://user%40example.com@auth/callback?code=stolen-code',
+  ])('rejects non-exact authority and path combinations: %s', (url) => {
+    expect(authorizationCodeFromCallback(url)).toEqual({
+      status: 'error',
+      message: 'Google sign-in returned an invalid callback.',
+    });
+  });
 });

@@ -5,7 +5,10 @@ import { createClient } from '@supabase/supabase-js';
 
 import { createBranchAwareFetch } from './branch-aware-fetch';
 import { mobileEnvironment } from '../core/env';
-import { createSecureSessionStorage } from './secure-session-storage';
+import {
+  createSecureSessionStorage,
+  MOBILE_AUTH_STORAGE_KEY,
+} from './secure-session-storage';
 
 export interface SelectedBranchRef {
   get(): string | null;
@@ -21,14 +24,15 @@ export const selectedBranchRef: SelectedBranchRef = {
   },
 };
 
-const sessionStorage = createSecureSessionStorage(SecureStore);
+export const mobileSessionStorage = createSecureSessionStorage(SecureStore);
 
 export const mobileSupabase = createClient(
   mobileEnvironment.supabaseUrl,
   mobileEnvironment.supabaseAnonKey,
   {
     auth: {
-      storage: sessionStorage,
+      storage: mobileSessionStorage,
+      storageKey: MOBILE_AUTH_STORAGE_KEY,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,

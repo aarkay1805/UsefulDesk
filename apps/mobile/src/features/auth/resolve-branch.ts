@@ -24,7 +24,7 @@ export function resolveSelectedBranch({
 
   if (requestedBranchId !== null) {
     if (!isBranchAccountId(requestedBranchId)) {
-      return { status: 'blocked', reason: 'Invalid branch.', branches };
+      return { status: 'blocked', reason: 'invalid_branch', branches };
     }
 
     const requested = branches.find(
@@ -33,14 +33,14 @@ export function resolveSelectedBranch({
     if (!requested) {
       return {
         status: 'blocked',
-        reason: 'You do not have access to this branch.',
+        reason: 'branch_access_denied',
         branches,
       };
     }
     if (requested.branch_status === 'archived') {
       return {
         status: 'blocked',
-        reason: 'This branch is archived.',
+        reason: 'branch_archived',
         branches,
       };
     }
@@ -59,7 +59,7 @@ export function resolveSelectedBranch({
   }
   return {
     status: 'blocked',
-    reason: 'No active branch access.',
+    reason: 'no_active_branch',
     branches,
   };
 }

@@ -160,7 +160,12 @@ function createDependencies(options?: {
       signOut: jest.fn().mockResolvedValue({
         status: 'success',
         remote: 'success',
-        cleanup: 'success',
+        localAuth: 'success',
+        branchPreference: 'success',
+      }),
+      purgeLocalSession: jest.fn().mockResolvedValue({
+        localAuth: 'success',
+        branchPreference: 'success',
       }),
     },
   };
@@ -211,7 +216,37 @@ describe('AuthProvider', () => {
     expect(setup.raw.auth.getUser).not.toHaveBeenCalled();
     expect(setup.raw.loadBootstrap).not.toHaveBeenCalled();
     expect(setup.raw.selectedBranch.set).toHaveBeenCalledWith(null);
-    expect(setup.raw.preference.clear).toHaveBeenCalledTimes(1);
+    expect(setup.raw.actions.purgeLocalSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('settles a rejected initial restore safely while keeping auth recovery subscribed', async () => {
+    const setup = createDependencies();
+    setup.raw.auth.getSession.mockRejectedValueOnce(
+      new Error('SecureStore platform diagnostic with token material')
+    );
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+
+    await waitFor(() =>
+      expect(latest?.state).toEqual({
+        status: 'signed_out',
+        error: 'Could not restore your session. Sign in again.',
+      })
+    );
+    expect(setup.raw.auth.onAuthStateChange).toHaveBeenCalledTimes(1);
+    expect(setup.unsubscribe).not.toHaveBeenCalled();
+
+    act(() => setup.emit('SIGNED_IN', session('recovered-session')));
+    await waitFor(() => {
+      expect(latest?.state.status).toBe('ready');
+      if (latest?.state.status === 'ready') {
+        expect(latest.state.session.access_token).toBe('recovered-session');
+      }
+    });
   });
 
   it('requires server-validated identity before restoring ready state', async () => {
@@ -243,14 +278,14 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('publishes a newer queued initial session after the old snapshot restoration', async () => {
+  it('publishes a newer initial session without waiting for obsolete restoration', async () => {
     const oldSession = session('old-session');
     const newerSession = session('newer-session');
     const setup = createDependencies({ restoredSession: oldSession });
     const oldBootstrap = deferred<MobileBootstrap>();
     setup.raw.loadBootstrap
       .mockImplementationOnce(async () => oldBootstrap.promise)
-      .mockResolvedValueOnce(readyBootstrap());
+      .mockResolvedValueOnce(readyBootstrap(BRANCH_B));
 
     render(
       <TestProvider dependencies={setup.dependencies}>
@@ -262,18 +297,30 @@ describe('AuthProvider', () => {
     );
 
     act(() => setup.emit('INITIAL_SESSION', newerSession));
-    await act(async () => {
-      oldBootstrap.resolve(readyBootstrap());
-      await oldBootstrap.promise;
-    });
-
     await waitFor(() => {
       expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(2);
       expect(latest?.state.status).toBe('ready');
       if (latest?.state.status === 'ready') {
         expect(latest.state.session).toBe(newerSession);
+        expect(latest.state.branch.account_id).toBe(BRANCH_B);
       }
     });
+    const preferenceCallsBeforeObsolete =
+      setup.raw.preference.set.mock.calls.length;
+
+    await act(async () => {
+      oldBootstrap.resolve(readyBootstrap(BRANCH_A));
+      await oldBootstrap.promise;
+    });
+    expect(latest?.state.status).toBe('ready');
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.session).toBe(newerSession);
+      expect(latest.state.branch.account_id).toBe(BRANCH_B);
+    }
+    expect(setup.raw.preference.set).toHaveBeenCalledTimes(
+      preferenceCallsBeforeObsolete
+    );
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_B);
   });
 
   it('deduplicates an initial session with the same stable identity and access token', async () => {
@@ -367,7 +414,7 @@ describe('AuthProvider', () => {
         status: 'blocked',
         profile,
         branches,
-        reason: 'No active branch access.',
+        reason: 'no_active_branch',
       },
     });
 
@@ -382,7 +429,7 @@ describe('AuthProvider', () => {
       status: 'blocked',
       profile,
       branches,
-      reason: 'No active branch access.',
+      reason: 'no_active_branch',
     });
   });
 
@@ -412,13 +459,13 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('serializes branch selection ahead of a token refresh', async () => {
+  it('keeps branch A published until branch B validation and persistence both succeed', async () => {
     const setup = createDependencies();
     const branchSwitch = deferred<MobileBootstrap>();
+    const preferenceWrite = deferred<void>();
     setup.raw.loadBootstrap
       .mockResolvedValueOnce(readyBootstrap(BRANCH_A))
-      .mockImplementationOnce(async () => branchSwitch.promise)
-      .mockImplementationOnce(async () => readyBootstrap(BRANCH_B));
+      .mockImplementationOnce(async () => branchSwitch.promise);
 
     render(
       <TestProvider dependencies={setup.dependencies}>
@@ -426,6 +473,11 @@ describe('AuthProvider', () => {
       </TestProvider>
     );
     await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.selectedBranch.set.mockClear();
+    setup.raw.preference.set.mockClear();
+    setup.raw.preference.set.mockImplementationOnce(
+      async () => preferenceWrite.promise
+    );
 
     let selection!: Promise<void>;
     act(() => {
@@ -434,15 +486,59 @@ describe('AuthProvider', () => {
     await waitFor(() =>
       expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(2)
     );
-    act(() => setup.emit('TOKEN_REFRESHED', session('queued-refresh')));
-    await Promise.resolve();
-    expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(2);
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_A);
+    expect(latest?.state.status).toBe('ready');
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.branch.account_id).toBe(BRANCH_A);
+    }
 
     await act(async () => {
-      setup.raw.selectedBranch.set(BRANCH_B);
       branchSwitch.resolve(readyBootstrap(BRANCH_B));
+      await branchSwitch.promise;
+    });
+    await waitFor(() =>
+      expect(setup.raw.preference.set).toHaveBeenCalledWith(BRANCH_B)
+    );
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_A);
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.branch.account_id).toBe(BRANCH_A);
+    }
+
+    await act(async () => {
+      preferenceWrite.resolve();
       await selection;
     });
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_B);
+    expect(setup.raw.selectedBranch.set).toHaveBeenCalledTimes(1);
+    expect(latest?.state.status).toBe('ready');
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.branch.account_id).toBe(BRANCH_B);
+    }
+  });
+
+  it('lets a refreshed session supersede delayed branch work without losing the requested branch', async () => {
+    const setup = createDependencies();
+    const obsoleteSwitch = deferred<MobileBootstrap>();
+    setup.raw.loadBootstrap
+      .mockResolvedValueOnce(readyBootstrap(BRANCH_A))
+      .mockImplementationOnce(async () => obsoleteSwitch.promise)
+      .mockResolvedValueOnce(readyBootstrap(BRANCH_B));
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.preference.set.mockClear();
+
+    act(() => {
+      void latest!.selectBranch(BRANCH_B);
+    });
+    await waitFor(() =>
+      expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(2)
+    );
+    act(() => setup.emit('TOKEN_REFRESHED', session('new-refresh')));
 
     await waitFor(() => {
       expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(3);
@@ -451,19 +547,34 @@ describe('AuthProvider', () => {
         USER_ID,
         BRANCH_B
       );
+      expect(latest?.state.status).toBe('ready');
+      if (latest?.state.status === 'ready') {
+        expect(latest.state.session.access_token).toBe('new-refresh');
+        expect(latest.state.branch.account_id).toBe(BRANCH_B);
+      }
     });
+
+    const preferenceCallsBeforeObsolete =
+      setup.raw.preference.set.mock.calls.length;
+    await act(async () => {
+      obsoleteSwitch.resolve(readyBootstrap(BRANCH_B));
+      await obsoleteSwitch.promise;
+    });
+    expect(setup.raw.preference.set).toHaveBeenCalledTimes(
+      preferenceCallsBeforeObsolete
+    );
   });
 
   it('uses service-owned cleanup exactly once for explicit sign-out and its event', async () => {
     const setup = createDependencies();
     setup.raw.actions.signOut.mockImplementationOnce(async () => {
-      setup.raw.selectedBranch.set(null);
       await setup.raw.preference.clear();
       setup.emit('SIGNED_OUT', null);
       return {
         status: 'success',
         remote: 'success',
-        cleanup: 'success',
+        localAuth: 'success',
+        branchPreference: 'success',
       } as const;
     });
 
@@ -473,18 +584,84 @@ describe('AuthProvider', () => {
       </TestProvider>
     );
     await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.selectedBranch.set.mockClear();
+    setup.raw.preference.clear.mockClear();
 
     await act(async () => latest!.signOut());
 
     await waitFor(() => {
       expect(latest?.state).toEqual({ status: 'signed_out' });
     });
+    expect(setup.raw.actions.signOut).toHaveBeenCalledWith('initial-token');
     expect(setup.raw.selectedBranch.set).toHaveBeenCalledTimes(1);
     expect(setup.raw.preference.clear).toHaveBeenCalledTimes(1);
   });
 
+  it('signs out immediately ahead of delayed bootstrap and rejects a later refresh event', async () => {
+    const setup = createDependencies();
+    const obsoleteBootstrap = deferred<MobileBootstrap>();
+    const remoteSignOut =
+      deferred<
+        Awaited<ReturnType<AuthProviderDependencies['actions']['signOut']>>
+      >();
+    setup.raw.loadBootstrap.mockImplementationOnce(
+      async () => obsoleteBootstrap.promise
+    );
+    setup.raw.actions.signOut.mockImplementationOnce(
+      async () => remoteSignOut.promise
+    );
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() =>
+      expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(1)
+    );
+    setup.raw.preference.set.mockClear();
+
+    let pendingSignOut!: Promise<void>;
+    act(() => {
+      pendingSignOut = latest!.signOut();
+    });
+    await waitFor(() => expect(latest?.state.status).toBe('signed_out'));
+    expect(setup.raw.selectedBranch.get()).toBeNull();
+    expect(setup.raw.actions.signOut).toHaveBeenCalledWith('initial-token');
+
+    await act(async () => {
+      obsoleteBootstrap.resolve(readyBootstrap(BRANCH_A));
+      await obsoleteBootstrap.promise;
+    });
+    expect(setup.raw.preference.set).not.toHaveBeenCalled();
+    expect(latest?.state.status).toBe('signed_out');
+
+    remoteSignOut.resolve({
+      status: 'error',
+      remote: 'failed',
+      localAuth: 'success',
+      branchPreference: 'success',
+      message:
+        'Signed out on this device, but the remote session could not be closed.',
+    });
+    await act(async () => pendingSignOut);
+
+    act(() => setup.emit('TOKEN_REFRESHED', session('late-refresh')));
+    await act(async () => Promise.resolve());
+    expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(1);
+    expect(latest?.state.status).toBe('signed_out');
+    expect(setup.raw.actions.purgeLocalSession).toHaveBeenCalled();
+  });
+
   it('clears branch state exactly once for an external signed-out event', async () => {
     const setup = createDependencies();
+    setup.raw.actions.purgeLocalSession.mockImplementationOnce(async () => {
+      await setup.raw.preference.clear();
+      return {
+        localAuth: 'success',
+        branchPreference: 'success',
+      } as const;
+    });
 
     render(
       <TestProvider dependencies={setup.dependencies}>
@@ -492,6 +669,8 @@ describe('AuthProvider', () => {
       </TestProvider>
     );
     await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.selectedBranch.set.mockClear();
+    setup.raw.preference.clear.mockClear();
 
     act(() => setup.emit('SIGNED_OUT', null));
 
@@ -500,6 +679,7 @@ describe('AuthProvider', () => {
     );
     expect(setup.raw.selectedBranch.set).toHaveBeenCalledTimes(1);
     expect(setup.raw.preference.clear).toHaveBeenCalledTimes(1);
+    expect(setup.raw.actions.purgeLocalSession).toHaveBeenCalledTimes(1);
   });
 
   it('does not retain an earlier sign-out failure after a later success', async () => {
@@ -508,14 +688,16 @@ describe('AuthProvider', () => {
       .mockResolvedValueOnce({
         status: 'error',
         remote: 'failed',
-        cleanup: 'success',
+        localAuth: 'success',
+        branchPreference: 'success',
         message:
           'Signed out on this device, but the remote session could not be closed.',
       })
       .mockResolvedValueOnce({
         status: 'success',
         remote: 'success',
-        cleanup: 'success',
+        localAuth: 'success',
+        branchPreference: 'success',
       });
 
     render(
@@ -535,7 +717,7 @@ describe('AuthProvider', () => {
     expect(latest?.state).toEqual({ status: 'signed_out' });
   });
 
-  it('unsubscribes and ignores completed state work after unmount', async () => {
+  it('invalidates unmounted work so it cannot overwrite a remounted provider', async () => {
     const setup = createDependencies();
     const pendingBootstrap = deferred<MobileBootstrap>();
     setup.raw.loadBootstrap.mockImplementationOnce(
@@ -551,10 +733,37 @@ describe('AuthProvider', () => {
     );
 
     view.unmount();
-    pendingBootstrap.resolve(readyBootstrap());
-    await act(async () => Promise.resolve());
-
     expect(setup.unsubscribe).toHaveBeenCalledTimes(1);
+
+    const remount = createDependencies({
+      restoredSession: session('remounted-session'),
+      bootstrap: readyBootstrap(BRANCH_B),
+    });
+    remount.raw.selectedBranch = setup.raw.selectedBranch;
+    remount.raw.preference = setup.raw.preference;
+    render(
+      <TestProvider dependencies={remount.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => {
+      expect(latest?.state.status).toBe('ready');
+      if (latest?.state.status === 'ready') {
+        expect(latest.state.branch.account_id).toBe(BRANCH_B);
+      }
+    });
+
+    setup.raw.preference.set.mockClear();
+    setup.raw.selectedBranch.set.mockClear();
+    pendingBootstrap.resolve(readyBootstrap(BRANCH_A));
+    await act(async () => pendingBootstrap.promise);
+
+    expect(setup.raw.preference.set).not.toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.set).not.toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_B);
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.branch.account_id).toBe(BRANCH_B);
+    }
   });
 });
 

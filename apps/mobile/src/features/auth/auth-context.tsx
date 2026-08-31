@@ -14,9 +14,11 @@ import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
 import {
   signInWithGoogle,
   signInWithPassword,
+  purgeLocalSession,
   signOut,
   type AuthActionResult,
   type GoogleAuthResult,
+  type LocalSessionPurgeResult,
   type SignOutResult,
 } from './auth-service';
 import {
@@ -28,6 +30,7 @@ import { branchPreference, type BranchPreference } from './branch-preference';
 import type {
   AccountSummary,
   BranchAccount,
+  BranchBlockReason,
   MobileBootstrap,
   MobileProfile,
 } from './branch-types';
@@ -53,7 +56,7 @@ export type AuthState =
       status: 'blocked';
       profile: MobileProfile | null;
       branches: BranchAccount[];
-      reason: string;
+      reason: BranchBlockReason;
     };
 
 interface AuthStateAdapter {
@@ -81,7 +84,8 @@ interface AuthActions {
     password: string
   ): Promise<AuthActionResult>;
   signInWithGoogle(): Promise<GoogleAuthResult>;
-  signOut(): Promise<SignOutResult>;
+  signOut(accessToken: string | null): Promise<SignOutResult>;
+  purgeLocalSession(): Promise<LocalSessionPurgeResult>;
 }
 
 export interface AuthProviderDependencies {
@@ -119,7 +123,12 @@ const defaultDependencies: AuthProviderDependencies = {
   loadBootstrap: loadMobileBootstrap,
   preference: branchPreference,
   selectedBranch: selectedBranchRef,
-  actions: { signInWithPassword, signInWithGoogle, signOut },
+  actions: {
+    signInWithPassword,
+    signInWithGoogle,
+    signOut,
+    purgeLocalSession,
+  },
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -167,191 +176,487 @@ export function AuthProvider({
   const [state, setState] = useState<AuthState>({ status: 'booting' });
   const sessionRef = useRef<Session | null>(null);
   const lastAuthSessionRef = useRef<Session | null>(null);
-  const explicitSignOutRef = useRef(false);
+  const requestedBranchRef = useRef<string | null>(null);
+  const explicitSignOutGenerationRef = useRef<number | null>(null);
+  const signedOutBarrierRef = useRef(false);
   const mountedRef = useRef(false);
-  const transitionQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const generationRef = useRef(0);
 
-  const commit = useCallback((nextState: AuthState) => {
-    if (mountedRef.current) setState(nextState);
+  const isCurrent = useCallback((generation: number): boolean => {
+    return mountedRef.current && generationRef.current === generation;
   }, []);
 
-  const enqueue = useCallback(<T,>(work: () => Promise<T>): Promise<T> => {
-    const pending = transitionQueueRef.current.then(work, work);
-    transitionQueueRef.current = pending.then(
-      () => undefined,
-      () => undefined
-    );
-    return pending;
+  const nextGeneration = useCallback((): number => {
+    generationRef.current += 1;
+    return generationRef.current;
   }, []);
 
-  const clearLocalBranch = useCallback(async (): Promise<
-    string | undefined
-  > => {
-    dependencies.selectedBranch.set(null);
-    try {
-      await dependencies.preference.clear();
-      return undefined;
-    } catch {
-      return 'Signed out, but local branch data could not be cleared.';
-    }
-  }, [dependencies]);
-
-  const settleSignedOut = useCallback(
-    async (error?: string) => {
+  const publishSignedOut = useCallback(
+    (
+      generation: number,
+      error?: string,
+      blockSessionEvents = false
+    ): boolean => {
+      if (!isCurrent(generation)) return false;
+      if (blockSessionEvents) signedOutBarrierRef.current = true;
+      requestedBranchRef.current = null;
       sessionRef.current = null;
-      const cleanupError = await clearLocalBranch();
-      commit({
+      lastAuthSessionRef.current = null;
+      dependencies.selectedBranch.set(null);
+      if (!isCurrent(generation)) return false;
+      setState({
         status: 'signed_out',
-        ...(cleanupError || error ? { error: cleanupError ?? error } : {}),
+        ...(error ? { error } : {}),
+      });
+      return true;
+    },
+    [dependencies.selectedBranch, isCurrent]
+  );
+
+  const localPurgeError = useCallback(
+    (result: LocalSessionPurgeResult): string | undefined => {
+      if (result.localAuth === 'failed') {
+        return "Could not fully clear this device's sign-in. Restart the app before trying again.";
+      }
+      if (result.branchPreference === 'failed') {
+        return 'Signed out, but local branch data could not be cleared.';
+      }
+      return undefined;
+    },
+    []
+  );
+
+  const purgeLocalForGeneration = useCallback(
+    async (generation: number): Promise<void> => {
+      if (!isCurrent(generation)) return;
+      let result: LocalSessionPurgeResult;
+      try {
+        result = await dependencies.actions.purgeLocalSession();
+      } catch {
+        result = { localAuth: 'failed', branchPreference: 'failed' };
+      }
+      if (!isCurrent(generation)) return;
+      const error = localPurgeError(result);
+      if (error) {
+        setState((current) =>
+          current.status === 'signed_out'
+            ? { status: 'signed_out', error }
+            : current
+        );
+      }
+    },
+    [dependencies.actions, isCurrent, localPurgeError]
+  );
+
+  const mutatePreference = useCallback(
+    async (
+      generation: number,
+      mutation: () => Promise<void>
+    ): Promise<'success' | 'failed' | 'obsolete'> => {
+      if (!isCurrent(generation)) return 'obsolete';
+      try {
+        await mutation();
+      } catch {
+        return isCurrent(generation) ? 'failed' : 'obsolete';
+      }
+      return isCurrent(generation) ? 'success' : 'obsolete';
+    },
+    [isCurrent]
+  );
+
+  const publishReady = useCallback(
+    (
+      generation: number,
+      session: Session,
+      bootstrap: Extract<MobileBootstrap, { status: 'ready' }>
+    ): boolean => {
+      if (!isCurrent(generation)) return false;
+      dependencies.selectedBranch.set(bootstrap.branch.account_id);
+      if (!isCurrent(generation)) return false;
+      requestedBranchRef.current = null;
+      sessionRef.current = session;
+      setState(stateFromBootstrap(bootstrap, session));
+      return true;
+    },
+    [dependencies.selectedBranch, isCurrent]
+  );
+
+  const publishUnready = useCallback(
+    (
+      generation: number,
+      session: Session,
+      bootstrap: Exclude<MobileBootstrap, { status: 'ready' }>
+    ): boolean => {
+      if (!isCurrent(generation)) return false;
+      dependencies.selectedBranch.set(null);
+      if (!isCurrent(generation)) return false;
+      requestedBranchRef.current = null;
+      sessionRef.current = session;
+      setState(stateFromBootstrap(bootstrap, session));
+      return true;
+    },
+    [dependencies.selectedBranch, isCurrent]
+  );
+
+  const publishLocalStateFailure = useCallback(
+    (
+      generation: number,
+      session: Session,
+      profile: MobileProfile | null,
+      branches: BranchAccount[]
+    ): void => {
+      publishUnready(generation, session, {
+        status: 'blocked',
+        profile,
+        branches,
+        reason: 'local_state_unavailable',
       });
     },
-    [clearLocalBranch, commit]
+    [publishUnready]
   );
 
   const bootstrapSession = useCallback(
-    async (session: Session, requestedBranchId?: string) => {
+    async (
+      session: Session,
+      generation: number,
+      requestedBranchId?: string
+    ): Promise<void> => {
       let validation: Awaited<ReturnType<AuthStateAdapter['getUser']>>;
       try {
         validation = await dependencies.auth.getUser();
       } catch {
-        await settleSignedOut('Could not verify your session. Sign in again.');
+        if (
+          publishSignedOut(
+            generation,
+            'Could not verify your session. Sign in again.',
+            true
+          )
+        ) {
+          void purgeLocalForGeneration(generation);
+        }
         return;
       }
+      if (!isCurrent(generation)) return;
       const { data, error } = validation;
-      if (error || !data.user) {
-        await settleSignedOut('Your session expired. Sign in again.');
+      if (error || !data.user || data.user.id !== session.user.id) {
+        if (
+          publishSignedOut(
+            generation,
+            'Your session expired. Sign in again.',
+            true
+          )
+        ) {
+          void purgeLocalForGeneration(generation);
+        }
         return;
       }
 
-      let requested = requestedBranchId;
+      let requested =
+        requestedBranchId ??
+        requestedBranchRef.current ??
+        dependencies.selectedBranch.get() ??
+        undefined;
       if (requested === undefined) {
-        requested = dependencies.selectedBranch.get() ?? undefined;
-        if (requested === undefined) {
-          try {
-            requested = (await dependencies.preference.get()) ?? undefined;
-          } catch {
-            commit({
-              status: 'blocked',
-              profile: null,
-              branches: [],
-              reason: 'Saved branch could not be read.',
-            });
-            return;
-          }
+        try {
+          requested = (await dependencies.preference.get()) ?? undefined;
+        } catch {
+          if (!isCurrent(generation)) return;
+          publishLocalStateFailure(generation, session, null, []);
+          return;
         }
       }
+      if (!isCurrent(generation)) return;
 
-      const bootstrap = await dependencies.loadBootstrap(
-        dependencies.source,
-        data.user.id,
-        requested ?? null
-      );
-      sessionRef.current = session;
-      commit(stateFromBootstrap(bootstrap, session));
-    },
-    [commit, dependencies, settleSignedOut]
-  );
+      let bootstrap: MobileBootstrap;
+      try {
+        bootstrap = await dependencies.loadBootstrap(
+          dependencies.source,
+          data.user.id,
+          requested ?? null
+        );
+      } catch {
+        bootstrap = {
+          status: 'blocked',
+          profile: null,
+          branches: [],
+          reason: 'branch_access_unavailable',
+        };
+      }
+      if (!isCurrent(generation)) return;
 
-  useEffect(() => {
-    mountedRef.current = true;
-    let subscription: { unsubscribe(): void } | undefined;
-
-    void enqueue(async () => {
-      const { data, error } = await dependencies.auth.getSession();
-      if (!mountedRef.current) return;
-      lastAuthSessionRef.current = data.session;
-
-      subscription = dependencies.auth.onAuthStateChange(
-        (event, nextSession) => {
-          const explicitSignOutOwnsCleanup =
-            event === 'SIGNED_OUT' && explicitSignOutRef.current;
-          void enqueue(async () => {
-            if (event === 'INITIAL_SESSION') {
-              if (isSameSession(lastAuthSessionRef.current, nextSession)) {
-                return;
-              }
-              lastAuthSessionRef.current = nextSession;
-            } else {
-              lastAuthSessionRef.current = nextSession;
-            }
-
-            if (event === 'SIGNED_OUT') {
-              sessionRef.current = null;
-              if (explicitSignOutOwnsCleanup) return;
-              await settleSignedOut();
-              return;
-            }
-            if (!nextSession) {
-              await settleSignedOut();
-              return;
-            }
-            if (
-              event === 'INITIAL_SESSION' ||
-              event === 'SIGNED_IN' ||
-              event === 'TOKEN_REFRESHED' ||
-              event === 'USER_UPDATED'
-            ) {
-              await bootstrapSession(nextSession);
-            }
-          });
+      if (bootstrap.status === 'ready') {
+        const persisted = await mutatePreference(generation, () =>
+          dependencies.preference.set(bootstrap.branch.account_id)
+        );
+        if (persisted === 'obsolete') return;
+        if (persisted === 'failed') {
+          publishLocalStateFailure(
+            generation,
+            session,
+            bootstrap.profile,
+            bootstrap.branches
+          );
+          return;
         }
-      ).data.subscription;
+        publishReady(generation, session, bootstrap);
+        return;
+      }
 
-      if (error || !data.session) {
-        await settleSignedOut(
-          error ? 'Could not restore your session. Sign in again.' : undefined
+      const cleared = await mutatePreference(generation, () =>
+        dependencies.preference.clear()
+      );
+      if (cleared === 'obsolete') return;
+      if (cleared === 'failed') {
+        publishLocalStateFailure(
+          generation,
+          session,
+          bootstrap.profile,
+          bootstrap.branches
         );
         return;
       }
+      publishUnready(generation, session, bootstrap);
+    },
+    [
+      dependencies,
+      isCurrent,
+      mutatePreference,
+      publishLocalStateFailure,
+      publishReady,
+      publishSignedOut,
+      publishUnready,
+      purgeLocalForGeneration,
+    ]
+  );
 
-      sessionRef.current = data.session;
-      await bootstrapSession(data.session);
-    });
+  const beginSessionTransition = useCallback(
+    (event: AuthChangeEvent, nextSession: Session): void => {
+      if (signedOutBarrierRef.current) {
+        void purgeLocalForGeneration(generationRef.current);
+        return;
+      }
+      if (
+        event === 'INITIAL_SESSION' &&
+        isSameSession(lastAuthSessionRef.current, nextSession)
+      ) {
+        return;
+      }
 
-    return () => {
-      mountedRef.current = false;
-      subscription?.unsubscribe();
-    };
-  }, [bootstrapSession, dependencies.auth, enqueue, settleSignedOut]);
+      const previousSession = lastAuthSessionRef.current;
+      const replacingUser = Boolean(
+        previousSession && previousSession.user.id !== nextSession.user.id
+      );
+      const requested = replacingUser
+        ? undefined
+        : (requestedBranchRef.current ??
+          dependencies.selectedBranch.get() ??
+          undefined);
+      const generation = nextGeneration();
+      lastAuthSessionRef.current = nextSession;
+      sessionRef.current = nextSession;
 
-  const selectBranch = useCallback(
-    (accountId: string) =>
-      enqueue(async () => {
-        const session = sessionRef.current;
-        if (!session) {
-          await settleSignedOut();
+      if (replacingUser && isCurrent(generation)) {
+        requestedBranchRef.current = null;
+        dependencies.selectedBranch.set(null);
+        if (isCurrent(generation)) setState({ status: 'booting' });
+      }
+      void bootstrapSession(nextSession, generation, requested);
+    },
+    [
+      bootstrapSession,
+      dependencies.selectedBranch,
+      isCurrent,
+      nextGeneration,
+      purgeLocalForGeneration,
+    ]
+  );
+
+  const handleSignedOutEvent = useCallback((): void => {
+    if (explicitSignOutGenerationRef.current !== null) return;
+    const generation = nextGeneration();
+    signedOutBarrierRef.current = true;
+    if (publishSignedOut(generation, undefined, true)) {
+      void purgeLocalForGeneration(generation);
+    }
+  }, [nextGeneration, publishSignedOut, purgeLocalForGeneration]);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    signedOutBarrierRef.current = false;
+    requestedBranchRef.current = null;
+    sessionRef.current = null;
+    lastAuthSessionRef.current = null;
+    const restorationGeneration = nextGeneration();
+    dependencies.selectedBranch.set(null);
+
+    const subscription = dependencies.auth.onAuthStateChange(
+      (event, nextSession) => {
+        if (event === 'SIGNED_OUT' || !nextSession) {
+          handleSignedOutEvent();
           return;
         }
-        await bootstrapSession(session, accountId);
-      }),
-    [bootstrapSession, enqueue, settleSignedOut]
+        if (
+          event === 'INITIAL_SESSION' ||
+          event === 'SIGNED_IN' ||
+          event === 'TOKEN_REFRESHED' ||
+          event === 'USER_UPDATED'
+        ) {
+          beginSessionTransition(event, nextSession);
+        }
+      }
+    ).data.subscription;
+
+    void (async () => {
+      let restored: Awaited<ReturnType<AuthStateAdapter['getSession']>>;
+      try {
+        restored = await dependencies.auth.getSession();
+      } catch {
+        if (
+          publishSignedOut(
+            restorationGeneration,
+            'Could not restore your session. Sign in again.'
+          )
+        ) {
+          void purgeLocalForGeneration(restorationGeneration);
+        }
+        return;
+      }
+      if (!isCurrent(restorationGeneration)) return;
+      const { data, error } = restored;
+      if (error || !data.session) {
+        if (
+          publishSignedOut(
+            restorationGeneration,
+            error ? 'Could not restore your session. Sign in again.' : undefined
+          )
+        ) {
+          void purgeLocalForGeneration(restorationGeneration);
+        }
+        return;
+      }
+
+      lastAuthSessionRef.current = data.session;
+      sessionRef.current = data.session;
+      const generation = nextGeneration();
+      void bootstrapSession(data.session, generation);
+    })();
+
+    return () => {
+      generationRef.current += 1;
+      mountedRef.current = false;
+      signedOutBarrierRef.current = true;
+      requestedBranchRef.current = null;
+      sessionRef.current = null;
+      lastAuthSessionRef.current = null;
+      subscription.unsubscribe();
+      dependencies.selectedBranch.set(null);
+    };
+  }, [
+    beginSessionTransition,
+    bootstrapSession,
+    dependencies.auth,
+    dependencies.selectedBranch,
+    handleSignedOutEvent,
+    isCurrent,
+    nextGeneration,
+    publishSignedOut,
+    purgeLocalForGeneration,
+  ]);
+
+  const selectBranch = useCallback(
+    async (accountId: string): Promise<void> => {
+      const session = sessionRef.current;
+      if (!session) {
+        const generation = nextGeneration();
+        if (publishSignedOut(generation)) {
+          void purgeLocalForGeneration(generation);
+        }
+        return;
+      }
+      requestedBranchRef.current = accountId;
+      const generation = nextGeneration();
+      await bootstrapSession(session, generation, accountId);
+    },
+    [
+      bootstrapSession,
+      nextGeneration,
+      publishSignedOut,
+      purgeLocalForGeneration,
+    ]
   );
 
-  const signOutFromProvider = useCallback(
-    () =>
-      enqueue(async () => {
-        explicitSignOutRef.current = true;
-        const result = await dependencies.actions.signOut();
-        explicitSignOutRef.current = false;
-        sessionRef.current = null;
-        lastAuthSessionRef.current = null;
-        commit({
-          status: 'signed_out',
-          ...(result.status === 'error' ? { error: result.message } : {}),
-        });
-      }),
-    [commit, dependencies.actions, enqueue]
+  const signInWithPasswordFromProvider = useCallback(
+    async (email: string, password: string): Promise<AuthActionResult> => {
+      signedOutBarrierRef.current = false;
+      const result = await dependencies.actions.signInWithPassword(
+        email,
+        password
+      );
+      if (result.status === 'error') signedOutBarrierRef.current = true;
+      return result;
+    },
+    [dependencies.actions]
   );
+
+  const signInWithGoogleFromProvider =
+    useCallback(async (): Promise<GoogleAuthResult> => {
+      signedOutBarrierRef.current = false;
+      const result = await dependencies.actions.signInWithGoogle();
+      if (result.status === 'error') signedOutBarrierRef.current = true;
+      return result;
+    }, [dependencies.actions]);
+
+  const signOutFromProvider = useCallback(async (): Promise<void> => {
+    const accessToken = sessionRef.current?.access_token ?? null;
+    const generation = nextGeneration();
+    explicitSignOutGenerationRef.current = generation;
+    signedOutBarrierRef.current = true;
+    publishSignedOut(generation, undefined, true);
+
+    let result: SignOutResult;
+    try {
+      result = await dependencies.actions.signOut(accessToken);
+    } catch {
+      await purgeLocalForGeneration(generation);
+      result = {
+        status: 'error',
+        remote: 'failed',
+        localAuth: 'failed',
+        branchPreference: 'failed',
+        message: 'Could not confirm sign-out cleanup on this device.',
+      };
+    }
+    if (explicitSignOutGenerationRef.current === generation) {
+      explicitSignOutGenerationRef.current = null;
+    }
+    if (!isCurrent(generation)) return;
+    setState({
+      status: 'signed_out',
+      ...(result.status === 'error' ? { error: result.message } : {}),
+    });
+  }, [
+    dependencies.actions,
+    isCurrent,
+    nextGeneration,
+    publishSignedOut,
+    purgeLocalForGeneration,
+  ]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       state,
-      signInWithPassword: dependencies.actions.signInWithPassword,
-      signInWithGoogle: dependencies.actions.signInWithGoogle,
+      signInWithPassword: signInWithPasswordFromProvider,
+      signInWithGoogle: signInWithGoogleFromProvider,
       signOut: signOutFromProvider,
       selectBranch,
     }),
-    [dependencies.actions, selectBranch, signOutFromProvider, state]
+    [
+      selectBranch,
+      signInWithGoogleFromProvider,
+      signInWithPasswordFromProvider,
+      signOutFromProvider,
+      state,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

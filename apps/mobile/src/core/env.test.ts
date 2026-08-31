@@ -7,6 +7,11 @@ const valid = {
   EXPO_PUBLIC_APP_ENV: 'test',
 };
 
+const legacyAnonJwt =
+  'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiJ9.synthetic-signature';
+const legacyServiceRoleJwt =
+  'eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoic2VydmljZV9yb2xlIn0.synthetic-signature';
+
 describe('readMobileEnvironment', () => {
   it('eagerly reads the test environment from setup', () => {
     expect(mobileEnvironment).toEqual({
@@ -42,5 +47,94 @@ describe('readMobileEnvironment', () => {
         EXPO_PUBLIC_API_BASE_URL: 'http://desk.example.com',
       })
     ).toThrow('HTTPS');
+  });
+
+  it.each([
+    ['EXPO_PUBLIC_SUPABASE_URL', 'not a URL'],
+    ['EXPO_PUBLIC_API_BASE_URL', 'desk.example.com'],
+  ])('rejects a malformed %s', (key, value) => {
+    expect(() => readMobileEnvironment({ ...valid, [key]: value })).toThrow(
+      key
+    );
+  });
+
+  it.each(['EXPO_PUBLIC_SUPABASE_URL', 'EXPO_PUBLIC_API_BASE_URL'])(
+    'rejects HTTP for production %s, including loopback',
+    (key) => {
+      expect(() =>
+        readMobileEnvironment({
+          ...valid,
+          EXPO_PUBLIC_APP_ENV: 'production',
+          EXPO_PUBLIC_SUPABASE_ANON_KEY:
+            'sb_publishable_synthetic-mobile-export-key',
+          [key]: 'http://127.0.0.1:54321',
+        })
+      ).toThrow('HTTPS');
+    }
+  );
+
+  it('permits HTTP only for loopback outside production', () => {
+    expect(
+      readMobileEnvironment({
+        ...valid,
+        EXPO_PUBLIC_SUPABASE_URL: 'http://127.0.0.1:54321',
+        EXPO_PUBLIC_API_BASE_URL: 'http://localhost:3000',
+        EXPO_PUBLIC_APP_ENV: 'development',
+      })
+    ).toMatchObject({
+      supabaseUrl: 'http://127.0.0.1:54321',
+      apiBaseUrl: 'http://localhost:3000',
+    });
+
+    expect(() =>
+      readMobileEnvironment({
+        ...valid,
+        EXPO_PUBLIC_API_BASE_URL: 'http://desk.example.com',
+        EXPO_PUBLIC_APP_ENV: 'development',
+      })
+    ).toThrow('HTTPS or a loopback HTTP URL');
+  });
+
+  it.each(['sb_secret_synthetic-server-key', legacyServiceRoleJwt])(
+    'rejects a server credential without logging it',
+    (key) => {
+      const log = jest.spyOn(console, 'log').mockImplementation();
+      const error = jest.spyOn(console, 'error').mockImplementation();
+
+      expect(() =>
+        readMobileEnvironment({
+          ...valid,
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: key,
+        })
+      ).toThrow('EXPO_PUBLIC_SUPABASE_ANON_KEY');
+      expect(log).not.toHaveBeenCalled();
+      expect(error).not.toHaveBeenCalled();
+
+      log.mockRestore();
+      error.mockRestore();
+    }
+  );
+
+  it.each(['sb_publishable_synthetic-mobile-export-key', legacyAnonJwt])(
+    'accepts a recognized production public key',
+    (key) => {
+      expect(
+        readMobileEnvironment({
+          ...valid,
+          EXPO_PUBLIC_APP_ENV: 'production',
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: key,
+        }).supabaseAnonKey
+      ).toBe(key);
+    }
+  );
+
+  it('rejects an unrecognized production key form', () => {
+    expect(() =>
+      readMobileEnvironment({
+        ...valid,
+        EXPO_PUBLIC_APP_ENV: 'production',
+        EXPO_PUBLIC_SUPABASE_ANON_KEY: 'anon-key',
+      })
+    ).toThrow('EXPO_PUBLIC_SUPABASE_ANON_KEY');
   });
 });

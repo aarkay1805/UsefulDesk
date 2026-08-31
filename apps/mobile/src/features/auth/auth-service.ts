@@ -1,9 +1,15 @@
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
-import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
+import { mobileEnvironment } from '../../core/env';
+import type { SecureSessionStorage } from '../../data/secure-session-storage';
+import { mobileSessionStorage, mobileSupabase } from '../../data/supabase';
 import { branchPreference, type BranchPreference } from './branch-preference';
 import { authorizationCodeFromCallback } from './google-callback';
+import {
+  createRemoteSessionRevoker,
+  type RemoteSessionRevoker,
+} from './session-revocation';
 
 type AuthError = { message: string };
 const GOOGLE_REDIRECT_URL = 'usefuldesk-agent://auth/callback';
@@ -18,7 +24,8 @@ interface AuthAdapter {
     options: { redirectTo: string; skipBrowserRedirect: true };
   }): Promise<{ data: { url: string | null }; error: AuthError | null }>;
   exchangeCodeForSession(code: string): Promise<{ error: AuthError | null }>;
-  signOut(): Promise<{ error: AuthError | null }>;
+  startAutoRefresh(): Promise<void>;
+  stopAutoRefresh(): Promise<void>;
 }
 
 interface LinkingAdapter {
@@ -32,17 +39,13 @@ interface BrowserAdapter {
   ): Promise<{ type: string; url?: string }>;
 }
 
-interface SelectedBranchAdapter {
-  get(): string | null;
-  set(id: string | null): void;
-}
-
 export interface AuthServiceDependencies {
   auth: AuthAdapter;
   linking: LinkingAdapter;
   browser: BrowserAdapter;
-  selectedBranch: SelectedBranchAdapter;
   preference: BranchPreference;
+  sessionStorage: SecureSessionStorage;
+  remoteSession: RemoteSessionRevoker;
 }
 
 export type AuthActionResult =
@@ -50,26 +53,21 @@ export type AuthActionResult =
 
 export type GoogleAuthResult = AuthActionResult | { status: 'cancelled' };
 
+export type LocalSessionPurgeResult = {
+  localAuth: 'success' | 'failed';
+  branchPreference: 'success' | 'failed';
+};
+
 export type SignOutResult =
-  | { status: 'success'; remote: 'success'; cleanup: 'success' }
-  | {
+  | (LocalSessionPurgeResult & {
+      status: 'success';
+      remote: 'success' | 'not_attempted';
+    })
+  | (LocalSessionPurgeResult & {
       status: 'error';
-      remote: 'failed';
-      cleanup: 'success';
+      remote: 'success' | 'failed' | 'not_attempted';
       message: string;
-    }
-  | {
-      status: 'error';
-      remote: 'success';
-      cleanup: 'failed';
-      message: string;
-    }
-  | {
-      status: 'error';
-      remote: 'failed';
-      cleanup: 'failed';
-      message: string;
-    };
+    });
 
 function passwordErrorMessage(error: AuthError): string {
   const normalized = error.message.toLowerCase();
@@ -86,21 +84,56 @@ function passwordErrorMessage(error: AuthError): string {
 }
 
 export function createAuthService(dependencies: AuthServiceDependencies) {
+  const abandonAuthAttempt = async () => {
+    await Promise.allSettled([
+      dependencies.auth.stopAutoRefresh(),
+      dependencies.sessionStorage.purge(),
+    ]);
+  };
+
+  const purgeLocalSession = async (): Promise<LocalSessionPurgeResult> => {
+    const stopRefresh = dependencies.auth.stopAutoRefresh().then(
+      () => true,
+      () => false
+    );
+    const purgeAuth = dependencies.sessionStorage.purge().then(
+      (result) => result.status === 'success',
+      () => false
+    );
+    const clearPreference = dependencies.preference.clear().then(
+      () => true,
+      () => false
+    );
+    const [refreshStopped, authPurged, preferenceCleared] = await Promise.all([
+      stopRefresh,
+      purgeAuth,
+      clearPreference,
+    ]);
+    return {
+      localAuth: refreshStopped && authPurged ? 'success' : 'failed',
+      branchPreference: preferenceCleared ? 'success' : 'failed',
+    };
+  };
+
   return {
     async signInWithPassword(
       email: string,
       password: string
     ): Promise<AuthActionResult> {
+      dependencies.sessionStorage.allowWrites();
       try {
         const { error } = await dependencies.auth.signInWithPassword({
           email: email.trim().toLowerCase(),
           password,
         });
         if (error) {
+          await abandonAuthAttempt();
           return { status: 'error', message: passwordErrorMessage(error) };
         }
+        await dependencies.auth.startAutoRefresh();
         return { status: 'success' };
       } catch {
+        await abandonAuthAttempt();
         return {
           status: 'error',
           message: 'Could not sign in. Please try again.',
@@ -109,6 +142,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
     },
 
     async signInWithGoogle(): Promise<GoogleAuthResult> {
+      let storageEnabled = false;
       try {
         const redirectTo = dependencies.linking.createURL('auth/callback', {
           scheme: 'usefuldesk-agent',
@@ -119,11 +153,14 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
             message: 'Could not start Google sign-in. Please try again.',
           };
         }
+        dependencies.sessionStorage.allowWrites();
+        storageEnabled = true;
         const { data, error } = await dependencies.auth.signInWithOAuth({
           provider: 'google',
           options: { redirectTo, skipBrowserRedirect: true },
         });
         if (error || !data.url) {
+          await abandonAuthAttempt();
           return {
             status: 'error',
             message: 'Could not start Google sign-in. Please try again.',
@@ -138,9 +175,11 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           browserResult.type === 'cancel' ||
           browserResult.type === 'dismiss'
         ) {
+          await abandonAuthAttempt();
           return { status: 'cancelled' };
         }
         if (browserResult.type !== 'success' || !browserResult.url) {
+          await abandonAuthAttempt();
           return {
             status: 'error',
             message: 'Google sign-in was not completed.',
@@ -148,18 +187,24 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
         }
 
         const callback = authorizationCodeFromCallback(browserResult.url);
-        if (callback.status === 'error') return callback;
+        if (callback.status === 'error') {
+          await abandonAuthAttempt();
+          return callback;
+        }
 
         const { error: exchangeError } =
           await dependencies.auth.exchangeCodeForSession(callback.code);
         if (exchangeError) {
+          await abandonAuthAttempt();
           return {
             status: 'error',
             message: 'Could not complete Google sign-in. Please try again.',
           };
         }
+        await dependencies.auth.startAutoRefresh();
         return { status: 'success' };
       } catch {
+        if (storageEnabled) await abandonAuthAttempt();
         return {
           status: 'error',
           message: 'Could not complete Google sign-in. Please try again.',
@@ -167,51 +212,48 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
       }
     },
 
-    async signOut(): Promise<SignOutResult> {
-      let remoteFailed = false;
-      try {
-        const { error } = await dependencies.auth.signOut();
-        remoteFailed = error !== null;
-      } catch {
-        remoteFailed = true;
-      }
+    purgeLocalSession,
 
-      dependencies.selectedBranch.set(null);
-      let cleanupFailed = false;
-      try {
-        await dependencies.preference.clear();
-      } catch {
-        cleanupFailed = true;
-      }
+    async signOut(accessToken: string | null): Promise<SignOutResult> {
+      const remotePromise = accessToken
+        ? dependencies.remoteSession.revoke(accessToken)
+        : Promise.resolve({ status: 'not_attempted' as const });
+      const localPromise = purgeLocalSession();
+      const [remoteResult, local] = await Promise.all([
+        remotePromise,
+        localPromise,
+      ]);
+      const remote = remoteResult.status;
 
-      if (remoteFailed && cleanupFailed) {
+      if (local.localAuth === 'failed') {
         return {
           status: 'error',
-          remote: 'failed',
-          cleanup: 'failed',
+          remote,
+          ...local,
           message:
-            'Could not close the remote session or clear local branch data.',
+            local.branchPreference === 'failed'
+              ? "Could not fully clear this device's sign-in or branch data."
+              : "Could not fully clear this device's sign-in. Restart the app before trying again.",
         };
       }
-
-      if (remoteFailed) {
+      if (local.branchPreference === 'failed') {
         return {
           status: 'error',
-          remote: 'failed',
-          cleanup: 'success',
+          remote,
+          ...local,
+          message: 'Signed out, but local branch data could not be cleared.',
+        };
+      }
+      if (remote === 'failed') {
+        return {
+          status: 'error',
+          remote,
+          ...local,
           message:
             'Signed out on this device, but the remote session could not be closed.',
         };
       }
-      if (cleanupFailed) {
-        return {
-          status: 'error',
-          remote: 'success',
-          cleanup: 'failed',
-          message: 'Signed out, but local branch data could not be cleared.',
-        };
-      }
-      return { status: 'success', remote: 'success', cleanup: 'success' };
+      return { status: 'success', remote, ...local };
     },
   };
 }
@@ -220,10 +262,12 @@ const authService = createAuthService({
   auth: mobileSupabase.auth,
   linking: Linking,
   browser: WebBrowser,
-  selectedBranch: selectedBranchRef,
   preference: branchPreference,
+  sessionStorage: mobileSessionStorage,
+  remoteSession: createRemoteSessionRevoker(fetch, mobileEnvironment),
 });
 
 export const signInWithPassword = authService.signInWithPassword;
 export const signInWithGoogle = authService.signInWithGoogle;
+export const purgeLocalSession = authService.purgeLocalSession;
 export const signOut = authService.signOut;

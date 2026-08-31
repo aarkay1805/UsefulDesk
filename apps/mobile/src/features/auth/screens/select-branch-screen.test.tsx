@@ -163,7 +163,7 @@ describe('SelectBranchScreen', () => {
           status: 'blocked',
           profile,
           branches: [activeBranch],
-          reason: 'Your saved branch is no longer available.',
+          reason: 'selected_branch_unavailable',
         },
       })
     );
@@ -171,7 +171,9 @@ describe('SelectBranchScreen', () => {
     render(<SelectBranchScreen />);
 
     expect(
-      screen.getByText('Your saved branch is no longer available.')
+      screen.getByText(
+        'Could not open this branch. Check your connection and try again.'
+      )
     ).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Choose Indiranagar branch' })

@@ -73,4 +73,34 @@ describe('createBranchAwareFetch', () => {
     expect(capturedInit?.method).toBe('PATCH');
     expect(capturedInit?.body).toBe('{"status":"active"}');
   });
+
+  it('lets overriding init headers win for a direct Request candidate read', async () => {
+    const publishedBranch = 'd3648c54-a4aa-4dd8-8566-1e3b38c1f497';
+    const candidateBranch = 'f8b2a93d-bfa4-485a-8ab1-1b37862d6d72';
+    let capturedInit: RequestInit | undefined;
+    const baseFetch: typeof fetch = async (_input, init) => {
+      capturedInit = init;
+      return new Response(null, { status: 204 });
+    };
+    const request = new Request(
+      'https://example.supabase.co/rest/v1/accounts',
+      {
+        headers: {
+          Authorization: 'Bearer request-token',
+          'x-usefuldesk-account-id': publishedBranch,
+        },
+      }
+    );
+
+    await createBranchAwareFetch(baseFetch, () => publishedBranch)(request, {
+      headers: {
+        Authorization: 'Bearer init-token',
+        'x-usefuldesk-account-id': candidateBranch,
+      },
+    });
+
+    const headers = new Headers(capturedInit?.headers);
+    expect(headers.get('authorization')).toBe('Bearer init-token');
+    expect(headers.get('x-usefuldesk-account-id')).toBe(candidateBranch);
+  });
 });

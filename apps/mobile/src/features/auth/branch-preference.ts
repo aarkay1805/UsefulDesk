@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-const SELECTED_BRANCH_KEY = 'usefuldesk.mobile.selected-branch';
+export const SELECTED_BRANCH_KEY = 'usefuldesk.mobile.selected-branch';
 
 export interface BranchPreference {
   get(): Promise<string | null>;
@@ -8,8 +8,30 @@ export interface BranchPreference {
   clear(): Promise<void>;
 }
 
-export const branchPreference: BranchPreference = {
-  get: () => SecureStore.getItemAsync(SELECTED_BRANCH_KEY),
-  set: (id) => SecureStore.setItemAsync(SELECTED_BRANCH_KEY, id),
-  clear: () => SecureStore.deleteItemAsync(SELECTED_BRANCH_KEY),
-};
+interface BranchPreferenceStorage {
+  getItemAsync(key: string): Promise<string | null>;
+  setItemAsync(key: string, value: string): Promise<void>;
+  deleteItemAsync(key: string): Promise<void>;
+}
+
+export function createBranchPreference(
+  storage: BranchPreferenceStorage
+): BranchPreference {
+  let operationTail = Promise.resolve();
+  const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
+    const result = operationTail.then(operation, operation);
+    operationTail = result.then(
+      () => undefined,
+      () => undefined
+    );
+    return result;
+  };
+
+  return {
+    get: () => enqueue(() => storage.getItemAsync(SELECTED_BRANCH_KEY)),
+    set: (id) => enqueue(() => storage.setItemAsync(SELECTED_BRANCH_KEY, id)),
+    clear: () => enqueue(() => storage.deleteItemAsync(SELECTED_BRANCH_KEY)),
+  };
+}
+
+export const branchPreference = createBranchPreference(SecureStore);

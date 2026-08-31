@@ -49,7 +49,7 @@ describe('resolveSelectedBranch', () => {
         profileBranchId: BRANCH_A,
         requestedBranchId: 'not-a-uuid',
       })
-    ).toEqual({ status: 'blocked', reason: 'Invalid branch.', branches });
+    ).toEqual({ status: 'blocked', reason: 'invalid_branch', branches });
   });
 
   it('blocks a requested branch outside the memberships', () => {
@@ -63,7 +63,7 @@ describe('resolveSelectedBranch', () => {
       })
     ).toEqual({
       status: 'blocked',
-      reason: 'You do not have access to this branch.',
+      reason: 'branch_access_denied',
       branches,
     });
   });
@@ -79,7 +79,7 @@ describe('resolveSelectedBranch', () => {
       })
     ).toEqual({
       status: 'blocked',
-      reason: 'This branch is archived.',
+      reason: 'branch_archived',
       branches,
     });
   });
@@ -123,7 +123,7 @@ describe('resolveSelectedBranch', () => {
       })
     ).toEqual({
       status: 'blocked',
-      reason: 'No active branch access.',
+      reason: 'no_active_branch',
       branches,
     });
   });

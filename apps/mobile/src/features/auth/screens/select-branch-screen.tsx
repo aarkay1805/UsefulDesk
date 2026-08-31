@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../../../ui';
 import { useAuth } from '../auth-context';
-import type { BranchAccount } from '../branch-types';
+import { branchBlockMessage, type BranchAccount } from '../branch-types';
 
 interface BranchChoicesProps {
   branches: BranchAccount[];
@@ -103,7 +103,8 @@ export function SelectBranchScreen() {
     state.status === 'choose_branch' || state.status === 'blocked'
       ? state.branches
       : [];
-  const reason = state.status === 'blocked' ? state.reason : null;
+  const reason =
+    state.status === 'blocked' ? branchBlockMessage(state.reason) : null;
   const hasAvailableBranch = branches.some(
     (branch) => branch.branch_status !== 'archived'
   );
