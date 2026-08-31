@@ -219,6 +219,99 @@ describe('loadMobileBootstrap', () => {
     expect(secureStore.setItemAsync).not.toHaveBeenCalled();
   });
 
+  it('blocks a malformed profile before resolving a branch', async () => {
+    let accountRead = false;
+    const source: BootstrapSource = {
+      getProfile: async () =>
+        ({ ...profile, account_id: 'not-a-uuid' }) as MobileProfile,
+      getBranches: async () => [branch(BRANCH_A)],
+      getAccount: async () => {
+        accountRead = true;
+        return account(BRANCH_A);
+      },
+    };
+
+    await expect(loadMobileBootstrap(source, USER_ID, null)).resolves.toEqual({
+      status: 'blocked',
+      profile: null,
+      branches: [branch(BRANCH_A)],
+      reason: 'Invalid profile data.',
+    });
+    expect(accountRead).toBe(false);
+    expect(selectedBranchRef.get()).toBeNull();
+  });
+
+  it('filters a malformed membership row so it cannot authorize an explicit target', async () => {
+    let accountRead = false;
+    const malformedMembership = {
+      ...branch(BRANCH_B),
+      role: 'manager',
+    } as unknown as BranchAccount;
+    const source: BootstrapSource = {
+      getProfile: async () => profile,
+      getBranches: async () => [branch(BRANCH_A), malformedMembership],
+      getAccount: async () => {
+        accountRead = true;
+        return account(BRANCH_B);
+      },
+    };
+
+    await expect(
+      loadMobileBootstrap(source, USER_ID, BRANCH_B)
+    ).resolves.toEqual({
+      status: 'blocked',
+      profile,
+      branches: [branch(BRANCH_A)],
+      reason: 'You do not have access to this branch.',
+    });
+    expect(accountRead).toBe(false);
+    expect(selectedBranchRef.get()).toBeNull();
+  });
+
+  it.each([
+    ['mismatched identity', account(BRANCH_B)],
+    [
+      'malformed numeric field',
+      { ...account(BRANCH_A), week_start: '1' } as unknown as AccountSummary,
+    ],
+  ])('blocks an account response with %s', async (_case, accountResponse) => {
+    const source: BootstrapSource = {
+      getProfile: async () => profile,
+      getBranches: async () => [branch(BRANCH_A)],
+      getAccount: async () => accountResponse,
+    };
+
+    await expect(loadMobileBootstrap(source, USER_ID, null)).resolves.toEqual({
+      status: 'blocked',
+      profile,
+      branches: [branch(BRANCH_A)],
+      reason: 'Selected branch account response is invalid.',
+    });
+    expect(selectedBranchRef.get()).toBeNull();
+    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
+  });
+
+  it('surfaces a saved-branch clear failure instead of returning choose', async () => {
+    const branches = [branch(BRANCH_A), branch(BRANCH_B)];
+    const source: BootstrapSource = {
+      getProfile: async () => ({ ...profile, account_id: null }),
+      getBranches: async () => branches,
+      getAccount: async () => account(BRANCH_A),
+    };
+    secureStore.deleteItemAsync.mockRejectedValueOnce(
+      new Error('secure storage locked')
+    );
+
+    await expect(loadMobileBootstrap(source, USER_ID, null)).resolves.toEqual({
+      status: 'blocked',
+      profile: { ...profile, account_id: null },
+      branches,
+      reason: 'Saved branch state could not be cleared: secure storage locked',
+    });
+    expect(selectedBranchRef.get()).toBeNull();
+    expect(secureStore.setItemAsync).not.toHaveBeenCalled();
+  });
+
   it('resets branch scope and preference when the exact account read fails', async () => {
     const source: BootstrapSource = {
       getProfile: async () => profile,
