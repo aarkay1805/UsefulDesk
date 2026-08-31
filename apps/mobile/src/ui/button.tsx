@@ -2,7 +2,11 @@ import type { ComponentProps, ReactNode } from 'react';
 import { ActivityIndicator } from 'react-native';
 import { Button as HeroButton } from 'heroui-native';
 
-type ButtonProps = Omit<
+type DistributiveOmit<T, K extends PropertyKey> = T extends unknown
+  ? Omit<T, Extract<keyof T, K>>
+  : never;
+
+type ButtonProps = DistributiveOmit<
   ComponentProps<typeof HeroButton>,
   'children' | 'isDisabled'
 > & {

@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { render, screen } from '@testing-library/react-native';
 
 import { Button } from './button';
@@ -22,6 +23,24 @@ jest.mock('heroui-native', () => {
 
   return { Button: MockButton };
 });
+
+type UsefulDeskButtonProps = ComponentProps<typeof Button>;
+
+const scaleFeedbackProps = {
+  children: 'Save',
+  feedbackVariant: 'scale',
+  animation: { scale: { value: 0.98 } },
+} satisfies UsefulDeskButtonProps;
+
+// @ts-expect-error Feedback-free buttons only accept the disable-all sentinel.
+const invalidNoFeedbackAnimation: UsefulDeskButtonProps = {
+  children: 'Save',
+  feedbackVariant: 'none',
+  animation: { scale: { value: 0.98 } },
+};
+
+void scaleFeedbackProps;
+void invalidNoFeedbackAnimation;
 
 describe('Button', () => {
   it('announces loading, prevents repeat activation, and replaces its label', () => {
