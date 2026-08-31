@@ -17,6 +17,7 @@ import {
   signOut,
   type AuthActionResult,
   type GoogleAuthResult,
+  type SignOutResult,
 } from './auth-service';
 import {
   loadMobileBootstrap,
@@ -80,7 +81,7 @@ interface AuthActions {
     password: string
   ): Promise<AuthActionResult>;
   signInWithGoogle(): Promise<GoogleAuthResult>;
-  signOut(): Promise<AuthActionResult>;
+  signOut(): Promise<SignOutResult>;
 }
 
 export interface AuthProviderDependencies {
@@ -147,18 +148,25 @@ function stateFromBootstrap(
   };
 }
 
+function isSameSession(left: Session | null, right: Session | null): boolean {
+  if (left === null || right === null) return left === right;
+  return (
+    left.user.id === right.user.id && left.access_token === right.access_token
+  );
+}
+
 export function AuthProvider({
   children,
   dependencies = defaultDependencies,
 }: PropsWithChildren<{ dependencies?: AuthProviderDependencies }>) {
   const [state, setState] = useState<AuthState>({ status: 'booting' });
-  const stateRef = useRef<AuthState>(state);
   const sessionRef = useRef<Session | null>(null);
+  const lastAuthSessionRef = useRef<Session | null>(null);
+  const explicitSignOutRef = useRef(false);
   const mountedRef = useRef(false);
   const transitionQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const commit = useCallback((nextState: AuthState) => {
-    stateRef.current = nextState;
     if (mountedRef.current) setState(nextState);
   }, []);
 
@@ -187,15 +195,9 @@ export function AuthProvider({
     async (error?: string) => {
       sessionRef.current = null;
       const cleanupError = await clearLocalBranch();
-      const existingError =
-        stateRef.current.status === 'signed_out'
-          ? stateRef.current.error
-          : undefined;
       commit({
         status: 'signed_out',
-        ...(cleanupError || error || existingError
-          ? { error: cleanupError ?? error ?? existingError }
-          : {}),
+        ...(cleanupError || error ? { error: cleanupError ?? error } : {}),
       });
     },
     [clearLocalBranch, commit]
@@ -252,16 +254,34 @@ export function AuthProvider({
     void enqueue(async () => {
       const { data, error } = await dependencies.auth.getSession();
       if (!mountedRef.current) return;
+      lastAuthSessionRef.current = data.session;
 
       subscription = dependencies.auth.onAuthStateChange(
         (event, nextSession) => {
-          if (event === 'INITIAL_SESSION') return;
+          const explicitSignOutOwnsCleanup =
+            event === 'SIGNED_OUT' && explicitSignOutRef.current;
           void enqueue(async () => {
-            if (event === 'SIGNED_OUT' || !nextSession) {
+            if (event === 'INITIAL_SESSION') {
+              if (isSameSession(lastAuthSessionRef.current, nextSession)) {
+                return;
+              }
+              lastAuthSessionRef.current = nextSession;
+            } else {
+              lastAuthSessionRef.current = nextSession;
+            }
+
+            if (event === 'SIGNED_OUT') {
+              sessionRef.current = null;
+              if (explicitSignOutOwnsCleanup) return;
+              await settleSignedOut();
+              return;
+            }
+            if (!nextSession) {
               await settleSignedOut();
               return;
             }
             if (
+              event === 'INITIAL_SESSION' ||
               event === 'SIGNED_IN' ||
               event === 'TOKEN_REFRESHED' ||
               event === 'USER_UPDATED'
@@ -305,21 +325,17 @@ export function AuthProvider({
   const signOutFromProvider = useCallback(
     () =>
       enqueue(async () => {
+        explicitSignOutRef.current = true;
         const result = await dependencies.actions.signOut();
+        explicitSignOutRef.current = false;
         sessionRef.current = null;
-        const cleanupError = await clearLocalBranch();
+        lastAuthSessionRef.current = null;
         commit({
           status: 'signed_out',
-          ...(cleanupError || result.status === 'error'
-            ? {
-                error:
-                  cleanupError ??
-                  (result.status === 'error' ? result.message : undefined),
-              }
-            : {}),
+          ...(result.status === 'error' ? { error: result.message } : {}),
         });
       }),
-    [clearLocalBranch, commit, dependencies.actions, enqueue]
+    [commit, dependencies.actions, enqueue]
   );
 
   const value = useMemo<AuthContextValue>(

@@ -50,6 +50,27 @@ export type AuthActionResult =
 
 export type GoogleAuthResult = AuthActionResult | { status: 'cancelled' };
 
+export type SignOutResult =
+  | { status: 'success'; remote: 'success'; cleanup: 'success' }
+  | {
+      status: 'error';
+      remote: 'failed';
+      cleanup: 'success';
+      message: string;
+    }
+  | {
+      status: 'error';
+      remote: 'success';
+      cleanup: 'failed';
+      message: string;
+    }
+  | {
+      status: 'error';
+      remote: 'failed';
+      cleanup: 'failed';
+      message: string;
+    };
+
 function passwordErrorMessage(error: AuthError): string {
   const normalized = error.message.toLowerCase();
   if (normalized.includes('invalid login credentials')) {
@@ -146,7 +167,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
       }
     },
 
-    async signOut(): Promise<AuthActionResult> {
+    async signOut(): Promise<SignOutResult> {
       let remoteFailed = false;
       try {
         const { error } = await dependencies.auth.signOut();
@@ -156,23 +177,41 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
       }
 
       dependencies.selectedBranch.set(null);
+      let cleanupFailed = false;
       try {
         await dependencies.preference.clear();
       } catch {
+        cleanupFailed = true;
+      }
+
+      if (remoteFailed && cleanupFailed) {
         return {
           status: 'error',
-          message: 'Signed out, but local branch data could not be cleared.',
+          remote: 'failed',
+          cleanup: 'failed',
+          message:
+            'Could not close the remote session or clear local branch data.',
         };
       }
 
       if (remoteFailed) {
         return {
           status: 'error',
+          remote: 'failed',
+          cleanup: 'success',
           message:
             'Signed out on this device, but the remote session could not be closed.',
         };
       }
-      return { status: 'success' };
+      if (cleanupFailed) {
+        return {
+          status: 'error',
+          remote: 'success',
+          cleanup: 'failed',
+          message: 'Signed out, but local branch data could not be cleared.',
+        };
+      }
+      return { status: 'success', remote: 'success', cleanup: 'success' };
     },
   };
 }

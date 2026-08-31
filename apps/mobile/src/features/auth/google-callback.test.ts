@@ -41,6 +41,17 @@ describe('authorizationCodeFromCallback', () => {
   });
 
   it.each([
+    'usefuldesk-agent://user@auth/callback?code=stolen-code',
+    'usefuldesk-agent://user:password@auth/callback?code=stolen-code',
+    'usefuldesk-agent://auth:443/callback?code=stolen-code',
+  ])('rejects callback authority credentials or a port: %s', (url) => {
+    expect(authorizationCodeFromCallback(url)).toEqual({
+      status: 'error',
+      message: 'Google sign-in returned an invalid callback.',
+    });
+  });
+
+  it.each([
     'usefuldesk-agent://auth/callback#access_token=fragment-token',
     'usefuldesk-agent://auth/callback?code=query-code#refresh_token=fragment-token',
   ])('rejects fragment credentials: %s', (url) => {

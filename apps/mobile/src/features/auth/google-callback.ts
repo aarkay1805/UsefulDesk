@@ -18,6 +18,9 @@ export function authorizationCodeFromCallback(
   if (
     parsed.protocol !== 'usefuldesk-agent:' ||
     parsed.hostname !== 'auth' ||
+    parsed.username.length > 0 ||
+    parsed.password.length > 0 ||
+    parsed.port.length > 0 ||
     parsed.pathname !== '/callback' ||
     parsed.hash.length > 0
   ) {

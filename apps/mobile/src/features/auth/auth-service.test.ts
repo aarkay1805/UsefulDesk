@@ -141,7 +141,21 @@ describe('createAuthService', () => {
     }
   );
 
-  it('clears branch scope even when remote sign-out reports an error', async () => {
+  it('reports successful remote and local sign-out with one cleanup', async () => {
+    const dependencies = createDependencies();
+    const service = createAuthService(dependencies);
+
+    await expect(service.signOut()).resolves.toEqual({
+      status: 'success',
+      remote: 'success',
+      cleanup: 'success',
+    });
+    expect(dependencies.selectedBranch.set).toHaveBeenCalledTimes(1);
+    expect(dependencies.selectedBranch.set).toHaveBeenCalledWith(null);
+    expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('distinguishes remote sign-out failure from successful local cleanup', async () => {
     const dependencies = createDependencies();
     dependencies.auth.signOut.mockResolvedValueOnce({
       error: new Error('network request failed'),
@@ -150,14 +164,16 @@ describe('createAuthService', () => {
 
     await expect(service.signOut()).resolves.toEqual({
       status: 'error',
+      remote: 'failed',
+      cleanup: 'success',
       message:
         'Signed out on this device, but the remote session could not be closed.',
     });
-    expect(dependencies.selectedBranch.set).toHaveBeenCalledWith(null);
+    expect(dependencies.selectedBranch.set).toHaveBeenCalledTimes(1);
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
   });
 
-  it('reports local branch cleanup failure without exposing storage details', async () => {
+  it('distinguishes local cleanup failure from successful remote sign-out', async () => {
     const dependencies = createDependencies();
     dependencies.preference.clear.mockRejectedValueOnce(
       new Error('keystore secret failure')
@@ -166,8 +182,31 @@ describe('createAuthService', () => {
 
     await expect(service.signOut()).resolves.toEqual({
       status: 'error',
+      remote: 'success',
+      cleanup: 'failed',
       message: 'Signed out, but local branch data could not be cleared.',
     });
-    expect(dependencies.selectedBranch.set).toHaveBeenCalledWith(null);
+    expect(dependencies.selectedBranch.set).toHaveBeenCalledTimes(1);
+    expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports combined remote and local sign-out failure safely', async () => {
+    const dependencies = createDependencies();
+    dependencies.auth.signOut.mockRejectedValueOnce(
+      new Error('remote infrastructure secret')
+    );
+    dependencies.preference.clear.mockRejectedValueOnce(
+      new Error('keystore secret failure')
+    );
+    const service = createAuthService(dependencies);
+
+    await expect(service.signOut()).resolves.toEqual({
+      status: 'error',
+      remote: 'failed',
+      cleanup: 'failed',
+      message: 'Could not close the remote session or clear local branch data.',
+    });
+    expect(dependencies.selectedBranch.set).toHaveBeenCalledTimes(1);
+    expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
   });
 });

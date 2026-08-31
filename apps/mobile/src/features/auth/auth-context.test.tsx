@@ -156,7 +156,11 @@ function createDependencies(options?: {
     actions: {
       signInWithPassword: jest.fn(),
       signInWithGoogle: jest.fn(),
-      signOut: jest.fn().mockResolvedValue({ status: 'success' }),
+      signOut: jest.fn().mockResolvedValue({
+        status: 'success',
+        remote: 'success',
+        cleanup: 'success',
+      }),
     },
   };
 
@@ -236,6 +240,64 @@ describe('AuthProvider', () => {
       branch: bootstrap.branch,
       account: bootstrap.account,
     });
+  });
+
+  it('publishes a newer queued initial session after the old snapshot restoration', async () => {
+    const oldSession = session('old-session');
+    const newerSession = session('newer-session');
+    const setup = createDependencies({ restoredSession: oldSession });
+    const oldBootstrap = deferred<MobileBootstrap>();
+    setup.raw.loadBootstrap
+      .mockImplementationOnce(async () => oldBootstrap.promise)
+      .mockResolvedValueOnce(readyBootstrap());
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() =>
+      expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(1)
+    );
+
+    act(() => setup.emit('INITIAL_SESSION', newerSession));
+    await act(async () => {
+      oldBootstrap.resolve(readyBootstrap());
+      await oldBootstrap.promise;
+    });
+
+    await waitFor(() => {
+      expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(2);
+      expect(latest?.state.status).toBe('ready');
+      if (latest?.state.status === 'ready') {
+        expect(latest.state.session).toBe(newerSession);
+      }
+    });
+  });
+
+  it('deduplicates an initial session with the same stable identity and access token', async () => {
+    const restoredSession = session('same-session');
+    const setup = createDependencies({ restoredSession });
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+
+    act(() =>
+      setup.emit('INITIAL_SESSION', {
+        ...restoredSession,
+        user: { ...restoredSession.user },
+      })
+    );
+    await act(async () => Promise.resolve());
+
+    expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(1);
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.session).toBe(restoredSession);
+    }
   });
 
   it('does not bootstrap when the stored session cannot be validated', async () => {
@@ -391,12 +453,17 @@ describe('AuthProvider', () => {
     });
   });
 
-  it('signs out and clears branch state even when remote cleanup reports an error', async () => {
+  it('uses service-owned cleanup exactly once for explicit sign-out and its event', async () => {
     const setup = createDependencies();
-    setup.raw.actions.signOut.mockResolvedValueOnce({
-      status: 'error',
-      message:
-        'Signed out on this device, but the remote session could not be closed.',
+    setup.raw.actions.signOut.mockImplementationOnce(async () => {
+      setup.raw.selectedBranch.set(null);
+      await setup.raw.preference.clear();
+      setup.emit('SIGNED_OUT', null);
+      return {
+        status: 'success',
+        remote: 'success',
+        cleanup: 'success',
+      } as const;
     });
 
     render(
@@ -408,13 +475,63 @@ describe('AuthProvider', () => {
 
     await act(async () => latest!.signOut());
 
-    expect(latest?.state).toEqual({
-      status: 'signed_out',
-      error:
-        'Signed out on this device, but the remote session could not be closed.',
+    await waitFor(() => {
+      expect(latest?.state).toEqual({ status: 'signed_out' });
     });
-    expect(setup.raw.selectedBranch.set).toHaveBeenLastCalledWith(null);
-    expect(setup.raw.preference.clear).toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.set).toHaveBeenCalledTimes(1);
+    expect(setup.raw.preference.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears branch state exactly once for an external signed-out event', async () => {
+    const setup = createDependencies();
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+
+    act(() => setup.emit('SIGNED_OUT', null));
+
+    await waitFor(() =>
+      expect(latest?.state).toEqual({ status: 'signed_out' })
+    );
+    expect(setup.raw.selectedBranch.set).toHaveBeenCalledTimes(1);
+    expect(setup.raw.preference.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not retain an earlier sign-out failure after a later success', async () => {
+    const setup = createDependencies();
+    setup.raw.actions.signOut
+      .mockResolvedValueOnce({
+        status: 'error',
+        remote: 'failed',
+        cleanup: 'success',
+        message:
+          'Signed out on this device, but the remote session could not be closed.',
+      })
+      .mockResolvedValueOnce({
+        status: 'success',
+        remote: 'success',
+        cleanup: 'success',
+      });
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+
+    await act(async () => latest!.signOut());
+    expect(latest?.state.status).toBe('signed_out');
+    if (latest?.state.status === 'signed_out') {
+      expect(latest.state.error).toBeDefined();
+    }
+
+    await act(async () => latest!.signOut());
+    expect(latest?.state).toEqual({ status: 'signed_out' });
   });
 
   it('unsubscribes and ignores completed state work after unmount', async () => {
