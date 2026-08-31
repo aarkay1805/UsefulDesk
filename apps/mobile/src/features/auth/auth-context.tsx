@@ -108,6 +108,11 @@ export interface AuthContextValue {
   selectBranch(accountId: string): Promise<void>;
 }
 
+export type ReadyAuthState = Extract<AuthState, { status: 'ready' }>;
+export type ReadyAuthContextValue = Omit<AuthContextValue, 'state'> & {
+  state: ReadyAuthState;
+};
+
 const defaultDependencies: AuthProviderDependencies = {
   auth: mobileSupabase.auth,
   source: mobileBootstrapSource,
@@ -356,4 +361,17 @@ export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within AuthProvider.');
   return context;
+}
+
+export function requireReadyAuth(
+  context: AuthContextValue
+): ReadyAuthContextValue {
+  if (context.state.status !== 'ready') {
+    throw new Error('Protected route rendered without ready authentication.');
+  }
+  return context as ReadyAuthContextValue;
+}
+
+export function useReadyAuth(): ReadyAuthContextValue {
+  return requireReadyAuth(useAuth());
 }

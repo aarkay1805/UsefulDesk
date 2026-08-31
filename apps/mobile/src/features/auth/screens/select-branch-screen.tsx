@@ -32,11 +32,12 @@ export function BranchChoices({
     try {
       await onSelect(accountId);
     } catch {
-      selectingRef.current = false;
-      setPendingBranchId(null);
       setError(
         'Could not open this branch. Check your connection and try again.'
       );
+    } finally {
+      selectingRef.current = false;
+      setPendingBranchId(null);
     }
   };
 

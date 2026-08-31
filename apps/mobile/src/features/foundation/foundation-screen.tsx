@@ -4,15 +4,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { mobileEnvironment } from '../../core/env';
 import { Button } from '../../ui';
-import { useAuth } from '../auth/auth-context';
+import { useReadyAuth } from '../auth/auth-context';
 
 const titleCase = (value: string) =>
   value.replaceAll('_', ' ').replace(/^./, (first) => first.toUpperCase());
 
 export function FoundationScreen() {
   const router = useRouter();
-  const { state } = useAuth();
-  if (state.status !== 'ready') return null;
+  const { state } = useReadyAuth();
 
   const details = [
     ['Branch', state.branch.account_name],

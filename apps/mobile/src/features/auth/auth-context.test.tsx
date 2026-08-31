@@ -10,6 +10,7 @@ import type {
 } from './branch-types';
 import {
   AuthProvider,
+  requireReadyAuth,
   type AuthContextValue,
   type AuthProviderDependencies,
   useAuth,
@@ -554,5 +555,38 @@ describe('AuthProvider', () => {
     await act(async () => Promise.resolve());
 
     expect(setup.unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('requireReadyAuth', () => {
+  const actions = {
+    signInWithPassword: jest.fn(),
+    signInWithGoogle: jest.fn(),
+    signOut: jest.fn(),
+    selectBranch: jest.fn(),
+  };
+
+  it('fails closed when a protected screen receives unresolved auth state', () => {
+    expect(() =>
+      requireReadyAuth({ state: { status: 'booting' }, ...actions })
+    ).toThrow('Protected route rendered without ready authentication.');
+  });
+
+  it('returns a ready provider value without weakening its state type', () => {
+    const ready = readyBootstrap();
+    if (ready.status !== 'ready') throw new Error('Invalid test fixture.');
+    const value: AuthContextValue = {
+      state: {
+        status: 'ready',
+        session: session('ready-token'),
+        profile: ready.profile,
+        branches: ready.branches,
+        branch: ready.branch,
+        account: ready.account,
+      },
+      ...actions,
+    };
+
+    expect(requireReadyAuth(value)).toBe(value);
   });
 });

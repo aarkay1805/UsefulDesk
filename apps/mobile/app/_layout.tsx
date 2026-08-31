@@ -5,10 +5,11 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as WebBrowser from 'expo-web-browser';
 
 import { MobileAppProviders } from '../src/core/mobile-app-providers';
+import { preventSplashAutoHide } from '../src/core/splash-control';
 import { AuthProvider, useAuth } from '../src/features/auth/auth-context';
 
 WebBrowser.maybeCompleteAuthSession();
-void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+void preventSplashAutoHide(SplashScreen);
 
 export default function RootLayout() {
   return (

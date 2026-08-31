@@ -3,14 +3,13 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Button } from '../../ui';
-import { useAuth } from '../auth/auth-context';
+import { useReadyAuth } from '../auth/auth-context';
 import { BranchChoices } from '../auth/screens/select-branch-screen';
 
 export function AccountScreen() {
-  const auth = useAuth();
+  const auth = useReadyAuth();
   const [signingOut, setSigningOut] = useState(false);
   const signingOutRef = useRef(false);
-  if (auth.state.status !== 'ready') return null;
 
   const { state } = auth;
   const handleSignOut = async () => {

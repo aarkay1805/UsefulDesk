@@ -83,11 +83,29 @@ describe('SignInScreen', () => {
       'email-address'
     );
     expect(screen.getByLabelText('Email')).toHaveProp('autoCapitalize', 'none');
+    expect(screen.getByLabelText('Email')).toHaveProp('returnKeyType', 'done');
     expect(screen.getByLabelText('Password')).toHaveProp(
       'secureTextEntry',
       true
     );
     expect(screen.queryByText(/sign up|create account/i)).toBeNull();
+  });
+
+  it('shows and hides the password from a visible labelled control', () => {
+    mockUseAuth.mockReturnValue(authValue());
+    render(<SignInScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Show password' }));
+
+    expect(screen.getByLabelText('Password')).toHaveProp(
+      'secureTextEntry',
+      false
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Hide password' }));
+    expect(screen.getByLabelText('Password')).toHaveProp(
+      'secureTextEntry',
+      true
+    );
   });
 
   it('submits password credentials once while pending and retains input after an error', async () => {

@@ -136,6 +136,26 @@ describe('SelectBranchScreen', () => {
     expect(choose).toBeDisabled();
   });
 
+  it('allows a new attempt after a resolved selection leaves the screen mounted', async () => {
+    const selectBranch = jest.fn().mockResolvedValue(undefined);
+    mockUseAuth.mockReturnValue(authValue({ selectBranch }));
+    render(<SelectBranchScreen />);
+    const choose = screen.getByRole('button', {
+      name: 'Choose Indiranagar branch',
+    });
+
+    fireEvent.press(choose);
+    fireEvent.press(choose);
+
+    await waitFor(() => {
+      expect(selectBranch).toHaveBeenCalledTimes(1);
+      expect(choose).toBeEnabled();
+    });
+
+    fireEvent.press(choose);
+    await waitFor(() => expect(selectBranch).toHaveBeenCalledTimes(2));
+  });
+
   it('shows a blocking explanation and permits a safe branch retry', () => {
     mockUseAuth.mockReturnValue(
       authValue({

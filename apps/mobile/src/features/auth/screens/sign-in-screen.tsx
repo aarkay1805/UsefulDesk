@@ -18,6 +18,7 @@ export function SignInScreen() {
   const auth = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordVisible, setPasswordVisible] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const pendingRef = useRef(false);
@@ -98,7 +99,7 @@ export function SignInScreen() {
               autoComplete="email"
               keyboardType="email-address"
               onChangeText={setEmail}
-              returnKeyType="next"
+              returnKeyType="done"
               textContentType="emailAddress"
               value={email}
             />
@@ -110,10 +111,19 @@ export function SignInScreen() {
               onChangeText={setPassword}
               onSubmitEditing={() => void submitPassword()}
               returnKeyType="done"
-              secureTextEntry
+              secureTextEntry={!passwordVisible}
               textContentType="password"
               value={password}
             />
+            <Button
+              accessibilityLabel={
+                passwordVisible ? 'Hide password' : 'Show password'
+              }
+              onPress={() => setPasswordVisible((visible) => !visible)}
+              variant="ghost"
+            >
+              {passwordVisible ? 'Hide password' : 'Show password'}
+            </Button>
 
             {error ? (
               <Text
