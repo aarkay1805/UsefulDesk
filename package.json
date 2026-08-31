@@ -2,6 +2,10 @@
   "name": "usefuldesk",
   "version": "0.7.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "description": "India-first gym CRM for renewals, payments, attendance, leads, and WhatsApp conversations.",
   "license": "MIT",
   "author": "Rajat Kashyap",
@@ -43,6 +47,12 @@
     "format:staged": "lint-staged",
     "test": "vitest run",
     "test:watch": "vitest",
+    "mobile:start": "npm run start --workspace @usefuldesk/mobile",
+    "mobile:ios": "npm run ios --workspace @usefuldesk/mobile",
+    "mobile:android": "npm run android --workspace @usefuldesk/mobile",
+    "mobile:test": "npm run test --workspace @usefuldesk/mobile --",
+    "mobile:typecheck": "npm run typecheck --workspace @usefuldesk/mobile",
+    "mobile:verify": "npm run verify --workspace @usefuldesk/mobile",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
     "accept:razorpay": "node scripts/razorpay-provider-acceptance.mjs",
     "accept:razorpay-refunds": "node scripts/razorpay-refund-provider-preflight.mjs",

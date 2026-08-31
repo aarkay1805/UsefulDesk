@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     'next-env.d.ts',
     // Vendored minified opus-recorder encoder worker (served statically).
     'public/opus/**',
+    // Native workspace uses Expo-specific globals and lint configuration.
+    'apps/mobile/**',
   ]),
 ]);
 
