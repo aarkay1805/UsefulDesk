@@ -9,13 +9,17 @@ Membership plans, including responsive label-free billing-option comparison card
 ## ✅ Phase 2 — India-first workflows
 
 Engineering maintenance: **the secure UsefulDesk Agent mobile foundation is
-built in `apps/mobile`: an Expo development client accepts only public
-Supabase/API configuration, persists auth in SecureStore, revalidates branch
-membership at startup, and fails closed through branch selection and switching
-before rendering its protected native status surface. Local generated iOS and
-Android projects stay ignored, and remote EAS builds require separate explicit
-authorization. Read-only Inbox is next; the WhatsApp Inbox, customer sends,
-financial-provider mutations, and later mobile workflows are not shipped.**
+built in `apps/mobile`: its cross-platform Expo development-client
+configuration accepts only public Supabase/API values, persists auth in
+SecureStore, revalidates branch membership at startup, and fails closed through
+branch selection and switching before rendering its protected native status
+surface. Static mobile checks and iOS/Android bundle exports pass; local
+development-client launch, authentication, and platform-interaction smoke
+remain pending because the checked macOS host lacked CocoaPods and had no
+Android target. Generated native projects stay ignored, and remote EAS builds
+require separate explicit authorization. Read-only Inbox is next; the WhatsApp
+Inbox, customer sends, financial-provider mutations, and later mobile workflows
+are not shipped.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

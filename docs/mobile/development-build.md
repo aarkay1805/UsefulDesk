@@ -143,13 +143,21 @@ Never print or persist real environment values in test output.
 ## Remote EAS checkpoint — separate authorization required
 
 `apps/mobile/eas.json` provides an iOS simulator profile and an internal device
-profile. The following commands create external EAS project/build state, require
-an authenticated Expo account, and may request Apple or Google credentials.
-Do not run either command without separate explicit owner authorization:
+profile. EAS CLI is intentionally not installed in the repository; use the
+exact Node 20-compatible version on demand. This version-only check does not
+log in or create external state:
 
 ```bash
-npx eas build --profile development-simulator --platform ios
-npx eas build --profile development-device --platform android
+npx --yes eas-cli@18.0.1 --version
+```
+
+The following commands create external EAS project/build state, require an
+authenticated Expo account, and may request Apple or Google credentials. Do
+not run either command without separate explicit owner authorization:
+
+```bash
+npx --yes eas-cli@18.0.1 build --profile development-simulator --platform ios
+npx --yes eas-cli@18.0.1 build --profile development-device --platform android
 ```
 
 When authorized later, run them from `apps/mobile` and record only build IDs and
