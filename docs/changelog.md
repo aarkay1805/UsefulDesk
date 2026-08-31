@@ -3416,15 +3416,3 @@ Two gotchas a future session must not re-litigate:
   returning a fragment. It can render nothing at all, and a wrapper supplied by
   the footer would have left an empty flex item contributing a phantom `gap`.
   The close band carries `empty:hidden` for the same reason.
-
----
-
-## Native Agent app workspace foundation
-
-`apps/mobile` is now the isolated `@usefuldesk/mobile` Expo SDK 57 npm
-workspace. The Next.js app remains at the repository root; root `mobile:*`
-scripts delegate to the native workspace, while root TypeScript and ESLint
-ignore it. The scaffold exposes Expo Router through `app/_layout.tsx` with a
-temporary foundation screen, uses the repository lockfile only, and is covered
-by `scripts/mobile-workspace-contract.test.mjs`. The temporary `app.json` is
-expected to become `app.config.ts` in the following mobile task.
