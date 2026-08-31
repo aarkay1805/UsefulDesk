@@ -1,4 +1,4 @@
-import { readMobileEnvironment } from './env';
+import { mobileEnvironment, readMobileEnvironment } from './env';
 
 const valid = {
   EXPO_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
@@ -8,6 +8,15 @@ const valid = {
 };
 
 describe('readMobileEnvironment', () => {
+  it('eagerly reads the test environment from setup', () => {
+    expect(mobileEnvironment).toEqual({
+      supabaseUrl: 'https://example.supabase.co',
+      supabaseAnonKey: 'test-anon-key',
+      apiBaseUrl: 'http://localhost:3000',
+      appEnvironment: 'test',
+    });
+  });
+
   it('returns a validated public environment', () => {
     expect(readMobileEnvironment(valid)).toEqual({
       supabaseUrl: valid.EXPO_PUBLIC_SUPABASE_URL,
