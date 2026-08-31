@@ -10,7 +10,6 @@ function splashAdapter(
   return {
     preventAutoHideAsync: jest.fn().mockResolvedValue(true),
     hideAsync: jest.fn().mockResolvedValue(undefined),
-    hide: jest.fn(),
     ...overrides,
   };
 }
@@ -33,40 +32,65 @@ describe('splash control', () => {
     );
   });
 
-  it('reports an async hide failure and uses the synchronous hide fallback', async () => {
-    const error = new Error('async hide unavailable');
+  it('recovers from a transient failure by retrying the one native hide operation', async () => {
+    const error = new Error('native hide temporarily unavailable');
+    const report = jest.fn();
+    const adapter = splashAdapter({
+      hideAsync: jest
+        .fn()
+        .mockRejectedValueOnce(error)
+        .mockResolvedValueOnce(undefined),
+    });
+
+    const result = await hideSplashAfterAuthResolution(adapter, {
+      report,
+      retryDelayMs: 0,
+    });
+
+    expect(report).toHaveBeenCalledWith(
+      'Startup splash hide attempt 1 of 3 failed; retrying.',
+      error
+    );
+    expect(adapter.hideAsync).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ status: 'hidden', attempts: 2 });
+  });
+
+  it('returns and reports a terminal failure after bounded retries', async () => {
+    const error = new Error('native hide unavailable');
     const report = jest.fn();
     const adapter = splashAdapter({
       hideAsync: jest.fn().mockRejectedValue(error),
     });
 
-    await hideSplashAfterAuthResolution(adapter, report);
+    const result = await hideSplashAfterAuthResolution(adapter, {
+      report,
+      retryDelayMs: 0,
+    });
 
-    expect(report).toHaveBeenCalledWith(
-      'Could not hide the startup splash asynchronously.',
+    expect(adapter.hideAsync).toHaveBeenCalledTimes(3);
+    expect(report).toHaveBeenLastCalledWith(
+      'Startup splash could not be hidden after 3 attempts.',
       error
     );
-    expect(adapter.hide).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({
+      status: 'failed',
+      attempts: 3,
+      error,
+    });
   });
 
-  it('reports a synchronous fallback failure instead of swallowing it', async () => {
-    const asyncError = new Error('async hide unavailable');
-    const fallbackError = new Error('sync hide unavailable');
-    const report = jest.fn();
+  it('resolves terminal failure state without an unhandled rejection contract', async () => {
+    const error = new Error('native hide unavailable');
 
-    await hideSplashAfterAuthResolution(
-      splashAdapter({
-        hideAsync: jest.fn().mockRejectedValue(asyncError),
-        hide: jest.fn(() => {
-          throw fallbackError;
-        }),
-      }),
-      report
-    );
-
-    expect(report).toHaveBeenLastCalledWith(
-      'Could not hide the startup splash with the fallback.',
-      fallbackError
-    );
+    await expect(
+      hideSplashAfterAuthResolution(
+        splashAdapter({ hideAsync: jest.fn().mockRejectedValue(error) }),
+        { report: jest.fn(), retryDelayMs: 0 }
+      )
+    ).resolves.toMatchObject({
+      status: 'failed',
+      attempts: 3,
+      error,
+    });
   });
 });
