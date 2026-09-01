@@ -1,1 +1,1 @@
-export { FoundationScreen as default } from '../../src/features/foundation/foundation-screen';
+export { InboxScreen as default } from '../../src/features/inbox/screens/inbox-screen';

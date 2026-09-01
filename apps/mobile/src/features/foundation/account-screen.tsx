@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button, ScreenSafeAreaView } from '../../ui';
@@ -6,6 +7,7 @@ import { useReadyAuth } from '../auth/auth-context';
 import { BranchChoices } from '../auth/screens/select-branch-screen';
 
 export function AccountScreen() {
+  const router = useRouter();
   const auth = useReadyAuth();
   const [signingOut, setSigningOut] = useState(false);
   const signingOutRef = useRef(false);
@@ -16,6 +18,10 @@ export function AccountScreen() {
     signingOutRef.current = true;
     setSigningOut(true);
     await auth.signOut();
+  };
+  const handleSelectBranch = async (accountId: string) => {
+    await auth.selectBranch(accountId);
+    router.replace('/(app)');
   };
 
   return (
@@ -46,7 +52,7 @@ export function AccountScreen() {
             branches={state.branches}
             currentAccountId={state.branch.account_id}
             key={state.branch.account_id}
-            onSelect={auth.selectBranch}
+            onSelect={handleSelectBranch}
           />
         </View>
 
