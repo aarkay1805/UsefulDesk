@@ -27,7 +27,7 @@ describe('MessageRepository', () => {
         cursor: null,
         limit: 40,
       })
-    ).rejects.toThrow('Conversation is unavailable');
+    ).rejects.toEqual(new Error('Conversation is unavailable'));
     expect(source.listMessages).not.toHaveBeenCalled();
   });
 
@@ -96,7 +96,7 @@ describe('MessageRepository', () => {
         cursor: null,
         limit: 40,
       })
-    ).rejects.toThrow('Conversation is unavailable');
+    ).rejects.toEqual(new Error('Conversation is unavailable'));
     expect(from).not.toHaveBeenCalled();
     from.mockRestore();
     selectedBranchRef.set(null);
@@ -111,7 +111,7 @@ describe('MessageRepository', () => {
         conversationId: CONVERSATION_ID,
         messageId: MESSAGE_1_ID,
       })
-    ).rejects.toThrow('Conversation is unavailable');
+    ).rejects.toEqual(new Error('Conversation is unavailable'));
     expect(from).not.toHaveBeenCalled();
     from.mockRestore();
     selectedBranchRef.set(null);

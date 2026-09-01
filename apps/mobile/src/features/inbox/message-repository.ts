@@ -154,7 +154,6 @@ export const mobileMessageQuerySource: MessageQuerySource = {
 
   async listMessages(input) {
     requireSelectedBranch(input.accountId, CONVERSATION_UNAVAILABLE);
-    requireSelectedBranch(input.accountId, CONVERSATION_UNAVAILABLE);
     let query = mobileSupabase
       .from('messages')
       .select(MESSAGE_SELECT)
@@ -174,7 +173,6 @@ export const mobileMessageQuerySource: MessageQuerySource = {
   },
 
   async findMessage(input) {
-    requireSelectedBranch(input.accountId, CONVERSATION_UNAVAILABLE);
     requireSelectedBranch(input.accountId, CONVERSATION_UNAVAILABLE);
     const { data, error } = await mobileSupabase
       .from('messages')
