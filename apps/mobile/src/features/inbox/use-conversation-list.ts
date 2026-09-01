@@ -221,11 +221,89 @@ export function useConversationList({
     const currentRealtimeGeneration = ++realtimeGeneration.current;
     const activeHydrations = hydrations.current;
     const snapshot = realtime.getSnapshot();
+    let disposed = false;
+    let refreshInFlight = false;
+    let refreshPending = false;
+
+    const refreshActiveQuery = () => {
+      if (disposed || refreshInFlight) {
+        refreshPending = !disposed;
+        return;
+      }
+      const currentAccountId = activeAccountId.current;
+      const currentAccountGeneration = accountGeneration.current;
+      const currentListGeneration = listGeneration.current;
+      const currentFilter = latestFilter.current;
+      const currentSearch = latestSearch.current;
+      const currentRequestId = ++requestId.current;
+      refreshInFlight = true;
+
+      void (async () => {
+        try {
+          const [page, unreadCount] = await Promise.all([
+            repository.list({
+              accountId: currentAccountId,
+              filter: currentFilter,
+              search: currentSearch,
+              cursor: null,
+            }),
+            repository.unreadCount(currentAccountId),
+          ]);
+          if (
+            disposed ||
+            !mounted.current ||
+            activeAccountId.current !== currentAccountId ||
+            accountGeneration.current !== currentAccountGeneration ||
+            realtimeGeneration.current !== currentRealtimeGeneration ||
+            listGeneration.current !== currentListGeneration ||
+            requestId.current !== currentRequestId
+          ) {
+            return;
+          }
+          setState({
+            accountId: currentAccountId,
+            items: page.items,
+            cursor: page.nextCursor,
+            status: 'ready',
+            error: null,
+            paginationError: null,
+            unreadCount,
+            refreshing: false,
+          });
+        } catch {
+          if (
+            disposed ||
+            !mounted.current ||
+            activeAccountId.current !== currentAccountId ||
+            accountGeneration.current !== currentAccountGeneration ||
+            realtimeGeneration.current !== currentRealtimeGeneration ||
+            listGeneration.current !== currentListGeneration ||
+            requestId.current !== currentRequestId
+          ) {
+            return;
+          }
+          setState((previous) => ({
+            ...previous,
+            error: LOAD_ERROR,
+            refreshing: false,
+          }));
+        } finally {
+          refreshInFlight = false;
+          if (refreshPending) {
+            refreshPending = false;
+            refreshActiveQuery();
+          }
+        }
+      })();
+    };
+
     resyncGeneration.current = snapshot.resyncGeneration;
     setConnection(snapshot.connection);
     const eventCleanup = realtime.listen((event) => {
       const currentAccountId = activeAccountId.current;
       if (event.accountId !== currentAccountId) return;
+
+      refreshActiveQuery();
 
       if (event.table === 'conversations' && event.eventType === 'DELETE') {
         tombstoneGenerations.current.set(
@@ -247,6 +325,9 @@ export function useConversationList({
 
       if (activeHydrations.has(event.conversationId)) return;
       const currentAccountGeneration = accountGeneration.current;
+      const currentListGeneration = listGeneration.current;
+      const currentFilter = latestFilter.current;
+      const currentSearch = latestSearch.current;
       const tombstoneGeneration =
         tombstoneGenerations.current.get(event.conversationId) ?? 0;
       const hydrate = (async () => {
@@ -260,12 +341,14 @@ export function useConversationList({
             activeAccountId.current !== currentAccountId ||
             accountGeneration.current !== currentAccountGeneration ||
             realtimeGeneration.current !== currentRealtimeGeneration ||
+            listGeneration.current !== currentListGeneration ||
             (tombstoneGenerations.current.get(event.conversationId) ?? 0) !==
               tombstoneGeneration ||
             item.accountId !== currentAccountId
           ) {
             return;
           }
+          if (currentFilter !== 'all' || currentSearch) return;
           setState((previous) => {
             if (previous.accountId !== currentAccountId) return previous;
             const index = previous.items.findIndex((row) => row.id === item.id);
@@ -301,6 +384,8 @@ export function useConversationList({
     });
 
     return () => {
+      disposed = true;
+      refreshPending = false;
       realtimeGeneration.current += 1;
       activeHydrations.clear();
       eventCleanup();

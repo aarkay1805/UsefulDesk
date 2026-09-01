@@ -190,6 +190,97 @@ describe('useConversationList', () => {
     expect(repository.list).toHaveBeenCalledTimes(1);
   });
 
+  it('removes a hydrated read conversation from Unread and refreshes its count', async () => {
+    const readConversation = conversation({
+      accountId: BRANCH_A,
+      unreadCount: 0,
+    });
+    repository.list
+      .mockResolvedValueOnce(page([conversationA]))
+      .mockResolvedValueOnce(page([conversationA]))
+      .mockResolvedValueOnce(page([]));
+    repository.unreadCount
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(2);
+    repository.get.mockResolvedValueOnce(readConversation);
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    act(() => result.current.setFilter('unread'));
+    await waitFor(() => expect(repository.list).toHaveBeenCalledTimes(2));
+
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'UPDATE',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    );
+
+    await waitFor(() => expect(result.current.items).toEqual([]));
+    expect(result.current.unreadCount).toBe(2);
+  });
+
+  it('does not insert an unknown hydrated row that misses the active search', async () => {
+    repository.list
+      .mockResolvedValueOnce(page([]))
+      .mockResolvedValueOnce(page([]))
+      .mockResolvedValueOnce(page([]));
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    act(() => result.current.setSearch('not a match'));
+    await waitFor(() => expect(repository.list).toHaveBeenCalledTimes(2));
+
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    );
+
+    await waitFor(() => expect(repository.list).toHaveBeenCalledTimes(3));
+    expect(result.current.items).toEqual([]);
+  });
+
+  it('refreshes the unread count after deleting an unread conversation', async () => {
+    repository.list
+      .mockResolvedValueOnce(page([conversationA]))
+      .mockResolvedValueOnce(page([conversationA]))
+      .mockResolvedValueOnce(page([]));
+    repository.unreadCount
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(2);
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    act(() => result.current.setFilter('unread'));
+    await waitFor(() => expect(repository.list).toHaveBeenCalledTimes(2));
+
+    await act(async () =>
+      realtime.emit({
+        table: 'conversations',
+        eventType: 'DELETE',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: null,
+      })
+    );
+
+    await waitFor(() => expect(result.current.unreadCount).toBe(2));
+    expect(result.current.items).toEqual([]);
+  });
+
   it('hydrates an unknown message event only inside the active branch', async () => {
     repository.list.mockResolvedValueOnce(page([]));
     const { result } = renderHook(() =>
@@ -236,7 +327,7 @@ describe('useConversationList', () => {
 
   it('does not restore a conversation when its deferred hydrate loses to delete', async () => {
     const hydrate = deferred<InboxConversation>();
-    repository.list.mockResolvedValueOnce(page([]));
+    repository.list.mockResolvedValue(page([]));
     repository.get.mockReturnValueOnce(hydrate.promise);
     const { result } = renderHook(() =>
       useConversationList({ accountId: BRANCH_A, repository, realtime })
