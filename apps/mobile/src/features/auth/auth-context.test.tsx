@@ -16,6 +16,12 @@ import {
   useAuth,
 } from './auth-context';
 
+type RequiredRecovery =
+  undefined extends AuthContextValue['recoverUnauthorizedSession']
+    ? never
+    : true;
+const requiredRecovery: RequiredRecovery = true;
+
 const BRANCH_A = 'd3648c54-a4aa-4dd8-8566-1e3b38c1f497';
 const BRANCH_B = 'f8b2a93d-bfa4-485a-8ab1-1b37862d6d72';
 const USER_ID = '53f7dd9e-e2fd-4824-a773-a0ce541048ec';
@@ -201,6 +207,7 @@ function TestProvider({
 describe('AuthProvider', () => {
   beforeEach(() => {
     latest = undefined;
+    expect(requiredRecovery).toBe(true);
   });
 
   it('settles cold start without a stored session as signed out', async () => {
@@ -748,8 +755,8 @@ describe('AuthProvider', () => {
     let firstRecovery!: Promise<void>;
     let secondRecovery!: Promise<void>;
     act(() => {
-      firstRecovery = latest!.recoverUnauthorizedSession!();
-      secondRecovery = latest!.recoverUnauthorizedSession!();
+      firstRecovery = latest!.recoverUnauthorizedSession();
+      secondRecovery = latest!.recoverUnauthorizedSession();
     });
     await waitFor(() => expect(latest?.state.status).toBe('signing_out'));
     expect(setup.raw.actions.signOut).toHaveBeenCalledTimes(1);
@@ -1148,6 +1155,7 @@ describe('requireReadyAuth', () => {
     signInWithPassword: jest.fn(),
     signInWithGoogle: jest.fn(),
     signOut: jest.fn(),
+    recoverUnauthorizedSession: jest.fn(),
     selectBranch: jest.fn(),
   };
 

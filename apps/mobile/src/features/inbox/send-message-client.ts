@@ -59,6 +59,14 @@ interface MobileAuthTransport {
 }
 
 export interface MobileSendDependencies {
+  apiBaseUrl?: string;
+  fetch?: typeof fetch;
+  auth?: MobileAuthTransport;
+  selectedBranch?: { get(): string | null };
+  recoverUnauthorizedSession(): Promise<void>;
+}
+
+interface ResolvedMobileSendDependencies {
   apiBaseUrl: string;
   fetch: typeof fetch;
   auth: MobileAuthTransport;
@@ -66,15 +74,21 @@ export interface MobileSendDependencies {
   recoverUnauthorizedSession(): Promise<void>;
 }
 
-const defaultDependencies: MobileSendDependencies = {
+const defaultTransport = {
   apiBaseUrl: mobileEnvironment.apiBaseUrl,
   fetch,
   auth: mobileSupabase.auth,
   selectedBranch: selectedBranchRef,
-  // The transport is consumed through an AuthProvider. Callers supply that
-  // provider's guarded recovery callback when wiring a composer.
-  async recoverUnauthorizedSession() {},
 };
+
+function resolveDependencies(
+  dependencies: MobileSendDependencies
+): ResolvedMobileSendDependencies {
+  return {
+    ...defaultTransport,
+    ...dependencies,
+  };
+}
 
 function errorForStatus(status: number): MobileSendError {
   if (status === 401) {
@@ -153,7 +167,7 @@ async function sendWithToken(
   input: MobileSendInput,
   token: string,
   body: string,
-  dependencies: MobileSendDependencies
+  dependencies: ResolvedMobileSendDependencies
 ): Promise<Response> {
   try {
     return await dependencies.fetch(
@@ -205,8 +219,9 @@ async function refreshedToken(
 
 export async function sendConversationMessage(
   input: MobileSendInput,
-  dependencies: MobileSendDependencies = defaultDependencies
+  options: MobileSendDependencies
 ): Promise<MobileSendResult> {
+  const dependencies = resolveDependencies(options);
   const body = requestBody(input);
   if (dependencies.selectedBranch.get() !== input.accountId) {
     throw new MobileSendError(

@@ -272,6 +272,7 @@ function readyAuthValue(accountId = BRANCH_ID): ReadyAuthContextValue {
     signInWithPassword: jest.fn(),
     signInWithGoogle: jest.fn(),
     signOut: jest.fn(),
+    recoverUnauthorizedSession: jest.fn(),
     selectBranch: jest.fn(),
   };
 }

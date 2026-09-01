@@ -99,6 +99,7 @@ function authValue(
     signInWithPassword: jest.fn(),
     signInWithGoogle: jest.fn(),
     signOut: jest.fn(),
+    recoverUnauthorizedSession: jest.fn(),
     selectBranch: jest.fn().mockResolvedValue(undefined),
     ...overrides,
   };

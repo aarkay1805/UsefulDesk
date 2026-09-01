@@ -113,7 +113,7 @@ export interface AuthContextValue {
   ): Promise<AuthActionResult>;
   signInWithGoogle(): Promise<GoogleAuthResult>;
   signOut(): Promise<void>;
-  recoverUnauthorizedSession?(): Promise<void>;
+  recoverUnauthorizedSession(): Promise<void>;
   selectBranch(accountId: string): Promise<void>;
 }
 

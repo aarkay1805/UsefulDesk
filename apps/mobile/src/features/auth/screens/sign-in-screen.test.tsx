@@ -67,6 +67,7 @@ function authValue(
     signInWithPassword: jest.fn().mockResolvedValue({ status: 'success' }),
     signInWithGoogle: jest.fn().mockResolvedValue({ status: 'success' }),
     signOut: jest.fn(),
+    recoverUnauthorizedSession: jest.fn(),
     selectBranch: jest.fn(),
     ...overrides,
   };

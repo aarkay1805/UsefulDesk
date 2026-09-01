@@ -2,11 +2,28 @@ import {
   MobileSendError,
   sendConversationMessage,
   type MobileSendDependencies,
+  type MobileSendInput,
 } from './send-message-client';
 
 const ACCOUNT_ID = 'd3648c54-a4aa-4dd8-8566-1e3b38c1f497';
 const CONVERSATION_ID = '7d6ec8ac-fb05-4df8-9e15-3ba7c5ba2141';
 const API_BASE = 'https://api.usefuldesk.test';
+
+const textInput: MobileSendInput = {
+  kind: 'text',
+  accountId: ACCOUNT_ID,
+  conversationId: CONVERSATION_ID,
+  text: 'Hello',
+};
+const productionOptions: MobileSendDependencies = {
+  recoverUnauthorizedSession: async () => undefined,
+};
+
+if (false) {
+  void sendConversationMessage(textInput, productionOptions);
+  // @ts-expect-error Production sends must supply AuthProvider recovery.
+  void sendConversationMessage(textInput);
+}
 
 function response(status: number, body: string): Response {
   return {
