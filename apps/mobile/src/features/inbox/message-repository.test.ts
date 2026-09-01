@@ -1,7 +1,9 @@
 import {
   createMessageRepository,
+  mobileMessageQuerySource,
   type MessageQuerySource,
 } from './message-repository';
+import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
 import {
   BRANCH_ID,
   CONVERSATION_ID,
@@ -32,22 +34,20 @@ describe('MessageRepository', () => {
   it('returns chronological items and a cursor for the next older page', async () => {
     const source: MessageQuerySource = {
       conversationExists: jest.fn().mockResolvedValue(true),
-      listMessages: jest
-        .fn()
-        .mockResolvedValue([
-          rawMessage({
-            id: MESSAGE_3_ID,
-            created_at: '2026-09-01T08:03:00.000Z',
-          }),
-          rawMessage({
-            id: MESSAGE_2_ID,
-            created_at: '2026-09-01T08:02:00.000Z',
-          }),
-          rawMessage({
-            id: MESSAGE_1_ID,
-            created_at: '2026-09-01T08:01:00.000Z',
-          }),
-        ]),
+      listMessages: jest.fn().mockResolvedValue([
+        rawMessage({
+          id: MESSAGE_3_ID,
+          created_at: '2026-09-01T08:03:00.000Z',
+        }),
+        rawMessage({
+          id: MESSAGE_2_ID,
+          created_at: '2026-09-01T08:02:00.000Z',
+        }),
+        rawMessage({
+          id: MESSAGE_1_ID,
+          created_at: '2026-09-01T08:01:00.000Z',
+        }),
+      ]),
       findMessage: jest.fn(),
     };
     const page = await createMessageRepository(source).list({
@@ -84,5 +84,36 @@ describe('MessageRepository', () => {
       conversationId: CONVERSATION_ID,
       messageId: MESSAGE_1_ID,
     });
+  });
+
+  it('rejects a list source call when the selected account does not match', async () => {
+    const from = jest.spyOn(mobileSupabase, 'from');
+    selectedBranchRef.set('ab92ad08-3808-4a3e-8d50-7a5fa2a6a770');
+    await expect(
+      mobileMessageQuerySource.listMessages({
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        cursor: null,
+        limit: 40,
+      })
+    ).rejects.toThrow('Conversation is unavailable');
+    expect(from).not.toHaveBeenCalled();
+    from.mockRestore();
+    selectedBranchRef.set(null);
+  });
+
+  it('rejects realtime hydration source calls across selected accounts', async () => {
+    const from = jest.spyOn(mobileSupabase, 'from');
+    selectedBranchRef.set('ab92ad08-3808-4a3e-8d50-7a5fa2a6a770');
+    await expect(
+      mobileMessageQuerySource.findMessage({
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    ).rejects.toThrow('Conversation is unavailable');
+    expect(from).not.toHaveBeenCalled();
+    from.mockRestore();
+    selectedBranchRef.set(null);
   });
 });
