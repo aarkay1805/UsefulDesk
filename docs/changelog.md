@@ -6,6 +6,23 @@
 
 ---
 
+## Secure mobile agent foundation
+
+`apps/mobile` now provides the cross-platform Expo development-client
+foundation for UsefulDesk agents: public-only environment configuration,
+SecureStore-backed Supabase authentication, startup membership revalidation,
+and fail-closed branch selection/switching feed one protected native status
+surface. Static mobile verification and iOS/Android bundle exports pass. Local
+development-client launch plus authentication and platform-interaction smoke
+remain pending because the checked macOS host lacked CocoaPods and had no
+Android target. Remote EAS simulator/device builds remain an explicit
+authorization checkpoint. Read-only Inbox implementation is next; customer
+messaging, financial-provider mutations, and later mobile workflows are not
+shipped. Key configuration: `apps/mobile/eas.json`; runbook:
+`docs/mobile/development-build.md`.
+
+---
+
 ## UsefulDesk is operationally detached from its upstream template
 
 Active repository identity now points to `aarkay1805/UsefulDesk` and

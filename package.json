@@ -2,6 +2,10 @@
   "name": "usefuldesk",
   "version": "0.7.0",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "description": "India-first gym CRM for renewals, payments, attendance, leads, and WhatsApp conversations.",
   "license": "MIT",
   "author": "Rajat Kashyap",
@@ -43,6 +47,12 @@
     "format:staged": "lint-staged",
     "test": "vitest run",
     "test:watch": "vitest",
+    "mobile:start": "npm run start --workspace @usefuldesk/mobile",
+    "mobile:ios": "npm run ios --workspace @usefuldesk/mobile",
+    "mobile:android": "npm run android --workspace @usefuldesk/mobile",
+    "mobile:test": "npm run test --workspace @usefuldesk/mobile --",
+    "mobile:typecheck": "npm run typecheck --workspace @usefuldesk/mobile",
+    "mobile:verify": "npm run verify --workspace @usefuldesk/mobile",
     "verify": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build",
     "accept:razorpay": "node scripts/razorpay-provider-acceptance.mjs",
     "accept:razorpay-refunds": "node scripts/razorpay-refund-provider-preflight.mjs",
@@ -75,9 +85,9 @@
     "motion": "^12.42.2",
     "next": "16.3.0",
     "opus-recorder": "^8.0.5",
-    "react": "^19.2.7",
+    "react": "19.2.3",
     "react-day-picker": "^10.0.1",
-    "react-dom": "^19.2.7",
+    "react-dom": "19.2.3",
     "react-easy-crop": "^6.2.2",
     "read-excel-file": "^9.3.4",
     "recharts": "^3.8.1",
@@ -101,6 +111,7 @@
     "lint-staged": "^16.4.0",
     "prettier": "^3.9.1",
     "prettier-plugin-tailwindcss": "^0.8.0",
+    "react-native-svg": "15.15.4",
     "tailwindcss": "^4",
     "typescript": "^6",
     "vitest": "^4.1.9"
@@ -118,7 +129,10 @@
     "@hono/node-server": "^2.0.5",
     "body-parser": "^2.3.0",
     "undici": "^7.29.0",
-    "nanoid": "^3.3.17"
+    "nanoid": "^3.3.17",
+    "heroui-native@1.0.9": {
+      "react-native-svg": "15.15.4"
+    }
   },
   "lint-staged": {
     "*": "prettier --ignore-unknown --write"
