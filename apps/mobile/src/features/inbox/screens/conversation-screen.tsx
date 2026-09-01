@@ -40,10 +40,15 @@ export function distanceFromBottom(
 export function shouldFollowLatest(
   previousLatestId: string | null,
   nextLatestId: string | null,
+  previousItemCount: number,
+  nextItemCount: number,
   wasNearBottom: boolean
 ): boolean {
   return (
-    nextLatestId !== null && previousLatestId !== nextLatestId && wasNearBottom
+    nextLatestId !== null &&
+    previousLatestId !== nextLatestId &&
+    nextItemCount > previousItemCount &&
+    wasNearBottom
   );
 }
 
@@ -119,9 +124,13 @@ function ConversationThread({
   const initialPositionedRef = useRef(false);
   const stickToBottomRef = useRef(true);
   const topLoadTriggeredRef = useRef(false);
-  const previousLatestIdRef = useRef(thread.items.at(-1)?.id ?? null);
+  const previousItemsRef = useRef({
+    count: thread.items.length,
+    latestId: thread.items.at(-1)?.id ?? null,
+  });
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const latestId = thread.items.at(-1)?.id ?? null;
+  const itemCount = thread.items.length;
   const firstId = thread.items.at(0)?.id ?? null;
   const displayItems = buildThreadItems(thread.items, fmt.date);
   const title =
@@ -131,15 +140,21 @@ function ConversationThread({
       : 'Conversation');
 
   useEffect(() => {
-    const previousLatestId = previousLatestIdRef.current;
-    previousLatestIdRef.current = latestId;
+    const previousItems = previousItemsRef.current;
+    previousItemsRef.current = { count: itemCount, latestId };
     if (
       initialPositionedRef.current &&
-      shouldFollowLatest(previousLatestId, latestId, stickToBottomRef.current)
+      shouldFollowLatest(
+        previousItems.latestId,
+        latestId,
+        previousItems.count,
+        itemCount,
+        stickToBottomRef.current
+      )
     ) {
       listRef.current?.scrollToEnd({ animated: true });
     }
-  }, [latestId]);
+  }, [itemCount, latestId]);
 
   useEffect(() => {
     if (!thread.loadingOlder) topLoadTriggeredRef.current = false;

@@ -8,6 +8,7 @@ import {
   CONVERSATION_ID,
   conversation,
   message,
+  MESSAGE_0_ID,
   MESSAGE_1_ID,
   MESSAGE_2_ID,
   MESSAGE_3_ID,
@@ -73,12 +74,18 @@ jest.mock('react-native', () => {
         typeof props.ListHeaderComponent === 'function'
           ? React.createElement(props.ListHeaderComponent)
           : props.ListHeaderComponent;
+      const empty =
+        children.length === 0
+          ? typeof props.ListEmptyComponent === 'function'
+            ? React.createElement(props.ListEmptyComponent)
+            : props.ListEmptyComponent
+          : null;
 
       return React.createElement(
         native.ScrollView,
         props as never,
         header,
-        children,
+        children.length > 0 ? children : empty,
         footer
       );
     }
@@ -116,6 +123,36 @@ jest.mock('../use-message-thread', () => ({
 jest.mock('../inbox-realtime-provider', () => ({
   useInboxRealtimeFeed: () => screenRealtime,
 }));
+
+jest.mock('../components/message-bubble', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { Text, View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+
+  return {
+    MessageBubble: ({
+      message: item,
+      formattedTime,
+      startsRun,
+    }: {
+      message: { id: string; contentText: string | null };
+      formattedTime: string;
+      startsRun: boolean;
+    }) =>
+      React.createElement(
+        View,
+        {
+          accessibilityLabel: `Message ${item.id}, ${
+            startsRun ? 'starts run' : 'continues run'
+          }`,
+          testID: `message-probe-${item.id}`,
+        },
+        React.createElement(Text, null, item.contentText),
+        React.createElement(Text, null, formattedTime)
+      ),
+  };
+});
 
 jest.mock('heroui-native', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -273,11 +310,23 @@ function readyThreadResult(
 }
 
 describe('conversation scroll policy', () => {
-  it('measures the bottom band and follows only a changed latest message', () => {
+  it('measures the bottom band and follows only insert-shaped tail growth', () => {
     expect(distanceFromBottom(1000, 700, 200)).toBe(100);
-    expect(shouldFollowLatest(MESSAGE_1_ID, MESSAGE_2_ID, true)).toBe(true);
-    expect(shouldFollowLatest(MESSAGE_1_ID, MESSAGE_2_ID, false)).toBe(false);
-    expect(shouldFollowLatest(MESSAGE_2_ID, MESSAGE_2_ID, true)).toBe(false);
+    expect(shouldFollowLatest(MESSAGE_1_ID, MESSAGE_2_ID, 1, 2, true)).toBe(
+      true
+    );
+    expect(shouldFollowLatest(MESSAGE_1_ID, MESSAGE_2_ID, 1, 2, false)).toBe(
+      false
+    );
+    expect(shouldFollowLatest(MESSAGE_2_ID, MESSAGE_2_ID, 1, 2, true)).toBe(
+      false
+    );
+    expect(shouldFollowLatest(MESSAGE_2_ID, MESSAGE_1_ID, 2, 1, true)).toBe(
+      false
+    );
+    expect(shouldFollowLatest(MESSAGE_1_ID, MESSAGE_2_ID, 2, 2, true)).toBe(
+      false
+    );
   });
 
   it('requests older messages only at an available idle top boundary', () => {
@@ -301,11 +350,50 @@ describe('ConversationScreen', () => {
   });
 
   it('renders chronological runs in the native titled route without a composer', () => {
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        items: [
+          message({
+            id: MESSAGE_1_ID,
+            senderType: 'customer',
+            contentText: 'First',
+            createdAt: '2026-09-01T08:01:00.000Z',
+          }),
+          message({
+            id: MESSAGE_2_ID,
+            senderType: 'customer',
+            contentText: 'Second',
+            createdAt: '2026-09-01T08:02:00.000Z',
+          }),
+          message({
+            id: MESSAGE_3_ID,
+            senderType: 'agent',
+            contentText: 'Third',
+            createdAt: '2026-09-01T08:03:00.000Z',
+          }),
+        ],
+      })
+    );
     render(<ConversationScreen />);
 
     expect(screen.getByText('Asha Rao')).toBeTruthy();
-    expect(screen.getByText(/^Hello/)).toBeTruthy();
-    expect(screen.getByText(/^How can I help\?/)).toBeTruthy();
+    expect(screen.getByText('1 Sept 2026')).toBeTruthy();
+    expect(
+      screen.getAllByTestId(/^message-probe-/).map((node) => node.props.testID)
+    ).toEqual([
+      `message-probe-${MESSAGE_1_ID}`,
+      `message-probe-${MESSAGE_2_ID}`,
+      `message-probe-${MESSAGE_3_ID}`,
+    ]);
+    expect(
+      screen.getByLabelText(`Message ${MESSAGE_1_ID}, starts run`)
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText(`Message ${MESSAGE_2_ID}, continues run`)
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText(`Message ${MESSAGE_3_ID}, starts run`)
+    ).toBeTruthy();
     expect(screen.queryByPlaceholderText(/message/i)).toBeNull();
     expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
     expect(mockStackOptions.current).toEqual({ title: 'Asha Rao' });
@@ -345,11 +433,12 @@ describe('ConversationScreen', () => {
 
   it('loads older history near the top and preserves the visible anchor', () => {
     const loadOlder = jest.fn();
-    mockUseMessageThread.mockReturnValue(
-      readyThreadResult({ loadOlder, hasOlder: true })
-    );
-    render(<ConversationScreen />);
+    const initial = readyThreadResult({ loadOlder, hasOlder: true });
+    mockUseMessageThread.mockReturnValue(initial);
+    const { rerender } = render(<ConversationScreen />);
     const list = screen.getByTestId('message-list');
+    fireEvent(list, 'contentSizeChange', 390, 1200);
+    mockScrollToEnd.mockClear();
 
     expect(list.props.maintainVisibleContentPosition).toEqual({
       minIndexForVisible: 1,
@@ -361,13 +450,20 @@ describe('ConversationScreen', () => {
         layoutMeasurement: { height: 700, width: 390 },
       },
     });
-    fireEvent.scroll(list, {
-      nativeEvent: {
-        contentOffset: { y: 20 },
-        contentSize: { height: 1400, width: 390 },
-        layoutMeasurement: { height: 700, width: 390 },
-      },
-    });
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        items: [
+          message({
+            id: MESSAGE_0_ID,
+            contentText: 'Older message',
+            createdAt: '2026-09-01T07:59:00.000Z',
+          }),
+          ...initial.items,
+        ],
+        loadOlder,
+      })
+    );
+    rerender(<ConversationScreen />);
 
     expect(loadOlder).toHaveBeenCalledTimes(1);
     expect(mockScrollToEnd).not.toHaveBeenCalled();
@@ -399,6 +495,49 @@ describe('ConversationScreen', () => {
     rerender(<ConversationScreen />);
 
     expect(mockScrollToEnd).toHaveBeenCalledWith({ animated: true });
+  });
+
+  it('does not follow when the latest message is deleted', () => {
+    const initial = readyThreadResult({
+      items: [
+        ...readyThreadResult().items,
+        message({ id: MESSAGE_3_ID, contentText: 'Delete me' }),
+      ],
+    });
+    mockUseMessageThread.mockReturnValue(initial);
+    const { rerender } = render(<ConversationScreen />);
+    const list = screen.getByTestId('message-list');
+    fireEvent(list, 'contentSizeChange', 390, 1200);
+    mockScrollToEnd.mockClear();
+
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({ items: initial.items.slice(0, -1) })
+    );
+    rerender(<ConversationScreen />);
+
+    expect(mockScrollToEnd).not.toHaveBeenCalled();
+  });
+
+  it('does not follow a same-count tail replacement or refresh', () => {
+    const initial = readyThreadResult();
+    mockUseMessageThread.mockReturnValue(initial);
+    const { rerender } = render(<ConversationScreen />);
+    const list = screen.getByTestId('message-list');
+    fireEvent(list, 'contentSizeChange', 390, 1200);
+    mockScrollToEnd.mockClear();
+
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        items: [
+          initial.items[0],
+          message({ id: MESSAGE_3_ID, contentText: 'Replacement tail' }),
+        ],
+        refreshing: true,
+      })
+    );
+    rerender(<ConversationScreen />);
+
+    expect(mockScrollToEnd).not.toHaveBeenCalled();
   });
 
   it('keeps an older reader in place and exposes a 48dp Jump to latest control', () => {
@@ -465,6 +604,20 @@ describe('ConversationScreen', () => {
     );
     rerender(<ConversationScreen />);
     expect(screen.getByText('Conversation is unavailable')).toBeTruthy();
+  });
+
+  it('renders the ready empty state and wires pull-to-refresh state', () => {
+    const refresh = jest.fn();
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({ items: [], refresh, refreshing: true })
+    );
+    render(<ConversationScreen />);
+    const list = screen.getByTestId('message-list');
+
+    expect(screen.getByText('No messages yet')).toBeTruthy();
+    expect(list.props.refreshing).toBe(true);
+    fireEvent(list, 'refresh');
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it('keeps history visible with unread, offline, pagination, and loading states', () => {
