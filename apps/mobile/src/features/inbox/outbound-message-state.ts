@@ -9,10 +9,12 @@ export interface OutboundMessageAliases {
 export interface OutboundThreadState {
   messages: InboxMessage[];
   aliases: OutboundMessageAliases;
+  sendingAttempts: Readonly<Record<string, string>>;
 }
 
 export interface OptimisticTextInput {
   temporaryId: string;
+  attemptId: string;
   conversationId: string;
   senderId: string | null;
   text: string;
@@ -43,6 +45,7 @@ export function emptyOutboundThreadState(
       messageId: {},
       whatsappMessageId: {},
     },
+    sendingAttempts: {},
   };
 }
 
@@ -83,6 +86,29 @@ function canonicalForMessage(
       ? state.aliases.whatsappMessageId[item.providerMessageId]
       : undefined) ??
     item.id
+  );
+}
+
+function canonicalForIdentity(
+  state: OutboundThreadState,
+  identity: string
+): string {
+  return (
+    state.aliases.messageId[identity] ??
+    state.aliases.temporaryId[identity] ??
+    identity
+  );
+}
+
+function withoutAttemptsForCanonicalIds(
+  state: OutboundThreadState,
+  canonicalIds: ReadonlySet<string>
+): Readonly<Record<string, string>> {
+  return Object.fromEntries(
+    Object.entries(state.sendingAttempts).filter(([temporaryId]) => {
+      const canonicalId = state.aliases.temporaryId[temporaryId] ?? temporaryId;
+      return !canonicalIds.has(canonicalId);
+    })
   );
 }
 
@@ -181,6 +207,10 @@ export function appendOptimisticText(
         [input.temporaryId]: canonicalId,
       },
     },
+    sendingAttempts: {
+      ...state.sendingAttempts,
+      [input.temporaryId]: input.attemptId,
+    },
   };
 }
 
@@ -246,6 +276,7 @@ export function applySendAcknowledgement(
           }
         : aliases.whatsappMessageId,
     },
+    sendingAttempts: withoutAttemptsForCanonicalIds(state, canonicalIds),
   };
 }
 
@@ -265,6 +296,7 @@ export function applyRealtimeMessage(
   );
   const aliases = aliasValuesFor(state.aliases, canonicalIds, canonicalId);
   const { messages } = mergeLogicalRows(state, canonicalIds, canonicalId, item);
+  const resolved = messages.find((message) => message.id === canonicalId);
   return {
     messages,
     aliases: {
@@ -277,21 +309,36 @@ export function applyRealtimeMessage(
           }
         : aliases.whatsappMessageId,
     },
+    sendingAttempts:
+      resolved && statusRank[resolved.status] >= statusRank.sent
+        ? withoutAttemptsForCanonicalIds(state, canonicalIds)
+        : state.sendingAttempts,
   };
 }
 
 export function markOptimisticFailed(
   state: OutboundThreadState,
   temporaryId: string,
-  errorTitle: string
+  errorTitle: string,
+  attemptId: string
 ): OutboundThreadState {
+  if (state.sendingAttempts[temporaryId] !== attemptId) return state;
   const canonicalId = state.aliases.temporaryId[temporaryId] ?? temporaryId;
   const messages = state.messages.map((item) =>
-    canonicalForMessage(state, item) === canonicalId
+    canonicalForMessage(state, item) === canonicalId &&
+    item.status === 'sending'
       ? { ...item, status: 'failed' as const, providerErrorTitle: errorTitle }
       : item
   );
-  return { ...state, messages };
+  return {
+    ...state,
+    messages,
+    sendingAttempts: Object.fromEntries(
+      Object.entries(state.sendingAttempts).filter(
+        ([alias]) => alias !== temporaryId
+      )
+    ),
+  };
 }
 
 export function hasTemporaryAliasForMessage(
@@ -310,5 +357,15 @@ export function messageForTemporaryId(
     state.messages.find(
       (item) => canonicalForMessage(state, item) === canonicalId
     ) ?? null
+  );
+}
+
+export function hasMessageIdentity(
+  state: OutboundThreadState,
+  identity: string
+): boolean {
+  const canonicalId = canonicalForIdentity(state, identity);
+  return state.messages.some(
+    (item) => canonicalForMessage(state, item) === canonicalId
   );
 }

@@ -1951,6 +1951,152 @@ describe('useMessageThread', () => {
       expect(result.current.items).toHaveLength(1);
     });
 
+    it('admits an update through a noncanonical persisted ID alias', async () => {
+      messages.list.mockResolvedValueOnce(page([]));
+      messages.get
+        .mockResolvedValueOnce(
+          message({
+            id: MESSAGE_1_ID,
+            senderType: 'agent',
+            senderId,
+            providerMessageId: 'wamid.shared-alias',
+            status: 'sent',
+          })
+        )
+        .mockResolvedValueOnce(
+          message({
+            id: MESSAGE_2_ID,
+            senderType: 'agent',
+            senderId,
+            providerMessageId: 'wamid.shared-alias',
+            status: 'delivered',
+          })
+        )
+        .mockResolvedValueOnce(
+          message({
+            id: MESSAGE_2_ID,
+            senderType: 'agent',
+            senderId,
+            providerMessageId: 'wamid.shared-alias',
+            status: 'read',
+          })
+        );
+      const { result } = renderHook(() => useConfiguredThread());
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+
+      await act(async () => {
+        await realtime.emit({
+          table: 'messages',
+          eventType: 'INSERT',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          messageId: MESSAGE_1_ID,
+        });
+        await realtime.emit({
+          table: 'messages',
+          eventType: 'INSERT',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          messageId: MESSAGE_2_ID,
+        });
+      });
+      await waitFor(() => expect(result.current.items).toHaveLength(1));
+      expect(result.current.items[0].status).toBe('delivered');
+
+      await act(async () =>
+        realtime.emit({
+          table: 'messages',
+          eventType: 'UPDATE',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          messageId: MESSAGE_2_ID,
+        })
+      );
+
+      await waitFor(() => expect(result.current.items[0].status).toBe('read'));
+      expect(result.current.items).toHaveLength(1);
+      expect(messages.get).toHaveBeenCalledTimes(3);
+    });
+
+    it('coalesces overlapping retries for the same temporary row', async () => {
+      const retry = deferred<MobileSendResult>();
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockReturnValueOnce(retry.promise);
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await act(async () => {
+        await result.current.sendText('Retry only once');
+      });
+
+      let first!: Promise<{ temporaryId: string; status: 'sent' | 'failed' }>;
+      let second!: Promise<{ temporaryId: string; status: 'sent' | 'failed' }>;
+      act(() => {
+        first = result.current.retryText(temporaryId);
+        second = result.current.retryText(temporaryId);
+      });
+
+      expect(second).toBe(first);
+      expect(sendMessage).toHaveBeenCalledTimes(2);
+      expect(
+        result.current.items.filter(
+          (item) => item.contentText === 'Retry only once'
+        )
+      ).toEqual([expect.objectContaining({ status: 'sending' })]);
+
+      await act(async () => {
+        retry.resolve(acknowledgement);
+        await Promise.all([first, second]);
+      });
+      expect(
+        result.current.items.filter(
+          (item) => item.contentText === 'Retry only once'
+        )
+      ).toEqual([expect.objectContaining({ status: 'sent' })]);
+    });
+
+    it('does not let a late rejection downgrade a newer acknowledged attempt', async () => {
+      messages.list.mockResolvedValueOnce(page([]));
+      const first = deferred<MobileSendResult>();
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockReturnValueOnce(first.promise)
+        .mockResolvedValueOnce(acknowledgement);
+      const dependencies = outbound(sendMessage);
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: dependencies })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+
+      let older!: Promise<{ temporaryId: string; status: 'sent' | 'failed' }>;
+      act(() => {
+        older = result.current.sendText('Same temporary row');
+      });
+      await act(async () => {
+        await result.current.sendText('Same temporary row');
+      });
+      expect(result.current.items).toHaveLength(1);
+      expect(result.current.items[0].status).toBe('sent');
+
+      await act(async () => {
+        first.reject(new Error('late network failure'));
+        await older;
+      });
+
+      expect(result.current.items).toHaveLength(1);
+      expect(result.current.items[0].status).toBe('sent');
+      expect(result.current.items[0].providerErrorTitle).toBeNull();
+    });
+
     it('does not publish an old branch send completion', async () => {
       messages.list
         .mockResolvedValueOnce(page([]))

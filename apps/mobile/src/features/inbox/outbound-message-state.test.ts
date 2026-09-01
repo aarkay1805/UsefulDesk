@@ -18,10 +18,12 @@ const CREATED_AT = '2026-09-01T08:03:00.000Z';
 
 function optimistic(
   state = emptyOutboundThreadState(),
-  temporaryId = TEMPORARY_ID
+  temporaryId = TEMPORARY_ID,
+  attemptId = 'attempt:one'
 ) {
   return appendOptimisticText(state, {
     temporaryId,
+    attemptId,
     conversationId: CONVERSATION_ID,
     senderId: '30250c1e-ee34-4af5-8752-2ad170d65713',
     text: 'See you tomorrow',
@@ -153,7 +155,8 @@ describe('outbound message state', () => {
     const state = markOptimisticFailed(
       optimistic(),
       TEMPORARY_ID,
-      'Could not send'
+      'Could not send',
+      'attempt:one'
     );
 
     expect(state.messages).toHaveLength(1);
@@ -166,11 +169,54 @@ describe('outbound message state', () => {
     );
   });
 
+  it('ignores failure from an attempt that no longer owns the sending row', () => {
+    let state = optimistic();
+    state = optimistic(state, TEMPORARY_ID, 'attempt:two');
+    state = markOptimisticFailed(
+      state,
+      TEMPORARY_ID,
+      'Late first failure',
+      'attempt:one'
+    );
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]).toEqual(
+      expect.objectContaining({ status: 'sending', providerErrorTitle: null })
+    );
+  });
+
+  it.each(['sent', 'delivered', 'read'] as const)(
+    'never downgrades a %s row when its send attempt rejects late',
+    (status) => {
+      let state = optimistic();
+      state = applySendAcknowledgement(state, {
+        temporaryId: TEMPORARY_ID,
+        messageId: MESSAGE_1_ID,
+        whatsappMessageId: PROVIDER_ID,
+      });
+      if (status !== 'sent') {
+        state = applyRealtimeMessage(state, persisted(status));
+      }
+
+      state = markOptimisticFailed(
+        state,
+        TEMPORARY_ID,
+        'Late failure',
+        'attempt:one'
+      );
+
+      expect(state.messages).toHaveLength(1);
+      expect(state.messages[0].status).toBe(status);
+      expect(state.messages[0].providerErrorTitle).toBeNull();
+    }
+  );
+
   it('retries through the same temporary row instead of appending', () => {
     const failed = markOptimisticFailed(
       optimistic(),
       TEMPORARY_ID,
-      'Could not send'
+      'Could not send',
+      'attempt:one'
     );
     const retrying = optimistic(failed);
 

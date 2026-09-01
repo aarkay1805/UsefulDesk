@@ -19,6 +19,7 @@ import {
   applyRealtimeMessage,
   applySendAcknowledgement,
   emptyOutboundThreadState,
+  hasMessageIdentity,
   hasTemporaryAliasForMessage,
   markOptimisticFailed,
   messageForTemporaryId,
@@ -198,6 +199,8 @@ export function useMessageThread({
   const nextPaginationOwner = useRef(0);
   const activePaginationOwner = useRef<number | null>(null);
   const unreadClear = useRef<UnreadClear | null>(null);
+  const nextSendAttempt = useRef(0);
+  const activeRetries = useRef(new Map<string, Promise<SendAttemptResult>>());
   const activeMainRequest = useRef<MainRequestOwner | null>(null);
   const feedReloadNeededScope = useRef<number | null>(null);
   const acknowledgedResyncGeneration = useRef(
@@ -217,6 +220,7 @@ export function useMessageThread({
     messageGenerations.current.clear();
     messageMutations.current.clear();
     mutationSequence.current = 0;
+    activeRetries.current.clear();
   }
   if (activeRealtime.current !== realtime) {
     const interruptedCurrentScopeLoad =
@@ -238,6 +242,7 @@ export function useMessageThread({
     messageGenerations.current.clear();
     messageMutations.current.clear();
     mutationSequence.current = 0;
+    activeRetries.current.clear();
   }
   activeAccountId.current = accountId;
   activeConversationId.current = conversationId;
@@ -248,6 +253,7 @@ export function useMessageThread({
   useEffect(() => {
     const activeHydrations = hydrations.current;
     const activeMutations = messageMutations.current;
+    const mountedRetries = activeRetries.current;
     mounted.current = true;
     return () => {
       mounted.current = false;
@@ -257,6 +263,7 @@ export function useMessageThread({
       activePaginationOwner.current = null;
       activeHydrations.clear();
       activeMutations.clear();
+      mountedRetries.clear();
     };
   }, []);
 
@@ -621,8 +628,9 @@ export function useMessageThread({
         return;
       }
 
-      const existing = latestState.current.thread.messages.some(
-        (item) => item.id === messageId
+      const existing = hasMessageIdentity(
+        latestState.current.thread,
+        messageId
       );
       const optimisticOutbound = hasTemporaryAliasForMessage(
         latestState.current.thread,
@@ -679,11 +687,10 @@ export function useMessageThread({
             ) {
               return previous;
             }
-            const index = previous.thread.messages.findIndex(
-              (message) => message.id === messageId
-            );
             if (event.eventType === 'UPDATE') {
-              if (index < 0) return previous;
+              if (!hasMessageIdentity(previous.thread, messageId)) {
+                return previous;
+              }
               return {
                 ...previous,
                 thread: applyRealtimeMessage(previous.thread, item),
@@ -748,6 +755,7 @@ export function useMessageThread({
   const performTextSend = useCallback(
     async (
       temporaryId: string,
+      attemptId: string,
       text: string,
       createdAt: string,
       dependencies: MessageThreadOutboundDependencies
@@ -769,6 +777,7 @@ export function useMessageThread({
           ...previous,
           thread: appendOptimisticText(previous.thread, {
             temporaryId,
+            attemptId,
             conversationId: sendConversationId,
             senderId: dependencies.senderId,
             text,
@@ -831,7 +840,8 @@ export function useMessageThread({
               thread: markOptimisticFailed(
                 previous.thread,
                 temporaryId,
-                'Could not send message'
+                'Could not send message',
+                attemptId
               ),
             };
           });
@@ -855,6 +865,7 @@ export function useMessageThread({
         `temp:${globalThis.crypto.randomUUID()}`;
       return performTextSend(
         temporaryId,
+        `attempt:${++nextSendAttempt.current}`,
         draft.trim(),
         dependencies.now?.() ?? new Date().toISOString(),
         dependencies
@@ -871,18 +882,28 @@ export function useMessageThread({
           new Error('Outbound message dependencies are unavailable')
         );
       }
+      const activeRetry = activeRetries.current.get(temporaryId);
+      if (activeRetry) return activeRetry;
       const current = latestState.current.thread;
       const candidate = messageForTemporaryId(current, temporaryId);
       const failed = candidate?.status === 'failed' ? candidate : null;
       if (!failed?.contentText) {
         return Promise.resolve({ temporaryId, status: 'failed' });
       }
-      return performTextSend(
+      const retry = performTextSend(
         temporaryId,
+        `attempt:${++nextSendAttempt.current}`,
         failed.contentText,
         failed.createdAt,
         dependencies
       );
+      activeRetries.current.set(temporaryId, retry);
+      void retry.finally(() => {
+        if (activeRetries.current.get(temporaryId) === retry) {
+          activeRetries.current.delete(temporaryId);
+        }
+      });
+      return retry;
     },
     [performTextSend]
   );
