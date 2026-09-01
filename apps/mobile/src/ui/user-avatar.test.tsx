@@ -12,13 +12,20 @@ jest.mock('heroui-native', () => {
     return React.createElement(View, props);
   }
 
-  MockAvatar.Image = (props: import('react-native').ImageProps) =>
-    React.createElement(Image, props);
-  MockAvatar.Fallback = ({
+  function MockAvatarImage(props: import('react-native').ImageProps) {
+    return React.createElement(Image, props);
+  }
+
+  function MockAvatarFallback({
     children,
   }: {
     children?: import('react').ReactNode;
-  }) => React.createElement(Text, null, children);
+  }) {
+    return React.createElement(Text, null, children);
+  }
+
+  MockAvatar.Image = MockAvatarImage;
+  MockAvatar.Fallback = MockAvatarFallback;
 
   return { Avatar: MockAvatar };
 });

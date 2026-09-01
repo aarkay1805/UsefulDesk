@@ -12,8 +12,15 @@ jest.mock('heroui-native', () => {
     return React.createElement(Pressable, props);
   }
 
-  MockChip.Label = ({ children }: { children?: import('react').ReactNode }) =>
-    React.createElement(Text, null, children);
+  function MockChipLabel({
+    children,
+  }: {
+    children?: import('react').ReactNode;
+  }) {
+    return React.createElement(Text, null, children);
+  }
+
+  MockChip.Label = MockChipLabel;
 
   return { Chip: MockChip };
 });

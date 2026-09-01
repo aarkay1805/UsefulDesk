@@ -21,19 +21,27 @@ jest.mock('heroui-native', () => {
     return React.createElement(View, null, children);
   }
 
-  MockSearchField.Group = ({
+  function MockSearchFieldGroup({
     children,
   }: {
     children?: import('react').ReactNode;
-  }) => React.createElement(View, null, children);
-  MockSearchField.SearchIcon = () => null;
-  MockSearchField.Input = (props: import('react-native').TextInputProps) =>
-    React.createElement(TextInput, props);
-  MockSearchField.ClearButton = ({
+  }) {
+    return React.createElement(View, null, children);
+  }
+
+  function MockSearchFieldSearchIcon() {
+    return null;
+  }
+
+  function MockSearchFieldInput(props: import('react-native').TextInputProps) {
+    return React.createElement(TextInput, props);
+  }
+
+  function MockSearchFieldClearButton({
     isDisabled,
     ...props
-  }: import('react-native').PressableProps & { isDisabled?: boolean }) =>
-    React.createElement(Pressable, {
+  }: import('react-native').PressableProps & { isDisabled?: boolean }) {
+    return React.createElement(Pressable, {
       ...props,
       disabled: isDisabled,
       accessibilityState: { disabled: isDisabled },
@@ -44,6 +52,12 @@ jest.mock('heroui-native', () => {
         }
       },
     });
+  }
+
+  MockSearchField.Group = MockSearchFieldGroup;
+  MockSearchField.SearchIcon = MockSearchFieldSearchIcon;
+  MockSearchField.Input = MockSearchFieldInput;
+  MockSearchField.ClearButton = MockSearchFieldClearButton;
 
   return { SearchField: MockSearchField };
 });

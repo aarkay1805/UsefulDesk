@@ -16,19 +16,38 @@ jest.mock('heroui-native', () => {
     });
   }
 
-  MockAlert.Indicator = () => null;
-  MockAlert.Content = ({
+  function MockAlertIndicator() {
+    return null;
+  }
+
+  function MockAlertContent({
     children,
   }: {
     children?: import('react').ReactNode;
-  }) => React.createElement(View, null, children);
-  MockAlert.Title = ({ children }: { children?: import('react').ReactNode }) =>
-    React.createElement(Text, null, children);
-  MockAlert.Description = ({
+  }) {
+    return React.createElement(View, null, children);
+  }
+
+  function MockAlertTitle({
     children,
   }: {
     children?: import('react').ReactNode;
-  }) => React.createElement(Text, null, children);
+  }) {
+    return React.createElement(Text, null, children);
+  }
+
+  function MockAlertDescription({
+    children,
+  }: {
+    children?: import('react').ReactNode;
+  }) {
+    return React.createElement(Text, null, children);
+  }
+
+  MockAlert.Indicator = MockAlertIndicator;
+  MockAlert.Content = MockAlertContent;
+  MockAlert.Title = MockAlertTitle;
+  MockAlert.Description = MockAlertDescription;
 
   function MockButton(props: import('react-native').PressableProps) {
     return React.createElement(Pressable, {
@@ -37,10 +56,21 @@ jest.mock('heroui-native', () => {
     });
   }
 
-  MockButton.Label = ({ children }: { children?: import('react').ReactNode }) =>
-    React.createElement(Text, null, children);
+  function MockButtonLabel({
+    children,
+  }: {
+    children?: import('react').ReactNode;
+  }) {
+    return React.createElement(Text, null, children);
+  }
 
-  return { Alert: MockAlert, Button: MockButton, Spinner: () => null };
+  MockButton.Label = MockButtonLabel;
+
+  function MockSpinner() {
+    return null;
+  }
+
+  return { Alert: MockAlert, Button: MockButton, Spinner: MockSpinner };
 });
 
 it('exposes recoverable errors as alerts with one retry', () => {
