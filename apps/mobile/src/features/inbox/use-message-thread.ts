@@ -40,7 +40,18 @@ interface MessageThreadState {
 
 interface UnreadClear {
   scopeGeneration: number;
+  feedGeneration: number;
   promise: Promise<void>;
+}
+
+type RealtimeMessageMutation =
+  | { sequence: number; kind: 'delete' }
+  | { sequence: number; kind: 'upsert'; item: InboxMessage };
+
+interface MainRequestOwner {
+  scopeGeneration: number;
+  requestGeneration: number;
+  feedGeneration: number;
 }
 
 export interface UseMessageThreadResult {
@@ -100,6 +111,26 @@ function uniqueChronological(items: InboxMessage[]): InboxMessage[] {
     .sort(compareMessages);
 }
 
+function reconcileMessageSnapshot(
+  snapshotItems: InboxMessage[],
+  currentItems: InboxMessage[],
+  mutations: Map<string, RealtimeMessageMutation>,
+  afterSequence: number
+): InboxMessage[] {
+  const byId = new Map<string, InboxMessage>();
+  snapshotItems.forEach((item) => byId.set(item.id, item));
+  currentItems.forEach((item) => byId.set(item.id, item));
+  mutations.forEach((mutation, messageId) => {
+    if (mutation.sequence <= afterSequence) return;
+    if (mutation.kind === 'delete') {
+      byId.delete(messageId);
+    } else {
+      byId.set(messageId, mutation.item);
+    }
+  });
+  return [...byId.values()].sort(compareMessages);
+}
+
 function isUnavailable(error: unknown): boolean {
   return error instanceof Error && error.message === UNAVAILABLE_ERROR;
 }
@@ -124,15 +155,20 @@ export function useMessageThread({
   const activeScope = useRef(`${accountId}:${conversationId}`);
   const scopeGeneration = useRef(0);
   const requestGeneration = useRef(0);
+  const activeRealtime = useRef(realtime);
+  const feedGeneration = useRef(0);
   const realtimeGeneration = useRef(0);
   const headerGeneration = useRef(0);
   const messageGenerations = useRef(new Map<string, number>());
   const hydrations = useRef(new Map<string, Promise<void>>());
+  const messageMutations = useRef(new Map<string, RealtimeMessageMutation>());
+  const mutationSequence = useRef(0);
   const latestState = useRef(state);
   const mounted = useRef(true);
   const nextPaginationOwner = useRef(0);
   const activePaginationOwner = useRef<number | null>(null);
   const unreadClear = useRef<UnreadClear | null>(null);
+  const activeMainRequest = useRef<MainRequestOwner | null>(null);
   const resyncGeneration = useRef(realtime.getSnapshot().resyncGeneration);
 
   const nextScope = `${accountId}:${conversationId}`;
@@ -144,6 +180,20 @@ export function useMessageThread({
     activePaginationOwner.current = null;
     hydrations.current.clear();
     messageGenerations.current.clear();
+    messageMutations.current.clear();
+    mutationSequence.current = 0;
+  }
+  if (activeRealtime.current !== realtime) {
+    activeRealtime.current = realtime;
+    feedGeneration.current += 1;
+    requestGeneration.current += 1;
+    headerGeneration.current += 1;
+    activePaginationOwner.current = null;
+    unreadClear.current = null;
+    hydrations.current.clear();
+    messageGenerations.current.clear();
+    messageMutations.current.clear();
+    mutationSequence.current = 0;
   }
   activeAccountId.current = accountId;
   activeConversationId.current = conversationId;
@@ -152,6 +202,7 @@ export function useMessageThread({
 
   useEffect(() => {
     const activeHydrations = hydrations.current;
+    const activeMutations = messageMutations.current;
     mounted.current = true;
     return () => {
       mounted.current = false;
@@ -160,6 +211,7 @@ export function useMessageThread({
       headerGeneration.current += 1;
       activePaginationOwner.current = null;
       activeHydrations.clear();
+      activeMutations.clear();
     };
   }, []);
 
@@ -167,10 +219,16 @@ export function useMessageThread({
     (
       clearAccountId: string,
       clearConversationId: string,
-      clearScopeGeneration: number
+      clearScopeGeneration: number,
+      clearFeedGeneration: number
     ) => {
       if (!canClearConversationUnread(activeRole.current)) return;
-      if (unreadClear.current?.scopeGeneration === clearScopeGeneration) return;
+      if (
+        unreadClear.current?.scopeGeneration === clearScopeGeneration &&
+        unreadClear.current.feedGeneration === clearFeedGeneration
+      ) {
+        return;
+      }
 
       const promise = conversations
         .markRead(clearAccountId, clearConversationId)
@@ -178,6 +236,7 @@ export function useMessageThread({
           if (
             mounted.current &&
             scopeGeneration.current === clearScopeGeneration &&
+            feedGeneration.current === clearFeedGeneration &&
             activeAccountId.current === clearAccountId &&
             activeConversationId.current === clearConversationId
           ) {
@@ -188,6 +247,7 @@ export function useMessageThread({
           if (
             mounted.current &&
             scopeGeneration.current === clearScopeGeneration &&
+            feedGeneration.current === clearFeedGeneration &&
             activeAccountId.current === clearAccountId &&
             activeConversationId.current === clearConversationId
           ) {
@@ -202,7 +262,11 @@ export function useMessageThread({
             unreadClear.current = null;
           }
         });
-      unreadClear.current = { scopeGeneration: clearScopeGeneration, promise };
+      unreadClear.current = {
+        scopeGeneration: clearScopeGeneration,
+        feedGeneration: clearFeedGeneration,
+        promise,
+      };
     },
     [conversations]
   );
@@ -210,6 +274,14 @@ export function useMessageThread({
   useEffect(() => {
     const currentScopeGeneration = scopeGeneration.current;
     const currentRequestGeneration = ++requestGeneration.current;
+    const currentFeedGeneration = feedGeneration.current;
+    const snapshotMutationSequence = mutationSequence.current;
+    const requestOwner: MainRequestOwner = {
+      scopeGeneration: currentScopeGeneration,
+      requestGeneration: currentRequestGeneration,
+      feedGeneration: currentFeedGeneration,
+    };
+    activeMainRequest.current = requestOwner;
     let cancelled = false;
 
     void (async () => {
@@ -244,6 +316,7 @@ export function useMessageThread({
           !mounted.current ||
           scopeGeneration.current !== currentScopeGeneration ||
           requestGeneration.current !== currentRequestGeneration ||
+          feedGeneration.current !== currentFeedGeneration ||
           activeAccountId.current !== accountId ||
           activeConversationId.current !== conversationId
         ) {
@@ -259,7 +332,12 @@ export function useMessageThread({
           accountId,
           conversationId,
           conversation: verifiedConversation,
-          items: uniqueChronological(page.items),
+          items: reconcileMessageSnapshot(
+            page.items,
+            [],
+            messageMutations.current,
+            snapshotMutationSequence
+          ),
           cursor: page.nextCursor,
           status: 'ready',
           error: null,
@@ -267,13 +345,19 @@ export function useMessageThread({
           paginationError: null,
           refreshing: false,
         });
-        clearUnread(accountId, conversationId, currentScopeGeneration);
+        clearUnread(
+          accountId,
+          conversationId,
+          currentScopeGeneration,
+          currentFeedGeneration
+        );
       } catch (error) {
         if (
           cancelled ||
           !mounted.current ||
           scopeGeneration.current !== currentScopeGeneration ||
           requestGeneration.current !== currentRequestGeneration ||
+          feedGeneration.current !== currentFeedGeneration ||
           activeAccountId.current !== accountId ||
           activeConversationId.current !== conversationId
         ) {
@@ -291,6 +375,10 @@ export function useMessageThread({
           paginationError: null,
           refreshing: false,
         });
+      } finally {
+        if (activeMainRequest.current === requestOwner) {
+          activeMainRequest.current = null;
+        }
       }
     })();
 
@@ -308,8 +396,17 @@ export function useMessageThread({
 
   useEffect(() => {
     const currentRealtimeGeneration = ++realtimeGeneration.current;
+    const currentFeedGeneration = feedGeneration.current;
     const activeHydrations = hydrations.current;
+    const activeMutations = messageMutations.current;
     const snapshot = realtime.getSnapshot();
+    const previousResyncGeneration = resyncGeneration.current;
+    const retryInterruptedLoad =
+      currentFeedGeneration > 0 && activeMainRequest.current !== null;
+    const refreshReplacement =
+      currentFeedGeneration > 0 &&
+      (retryInterruptedLoad ||
+        snapshot.resyncGeneration > previousResyncGeneration);
     let disposed = false;
 
     const isCurrentScope = (
@@ -320,13 +417,20 @@ export function useMessageThread({
       !disposed &&
       mounted.current &&
       realtimeGeneration.current === currentRealtimeGeneration &&
+      feedGeneration.current === currentFeedGeneration &&
       scopeGeneration.current === eventScopeGeneration &&
       activeAccountId.current === eventAccountId &&
       activeConversationId.current === eventConversationId;
 
     resyncGeneration.current = snapshot.resyncGeneration;
     void Promise.resolve().then(() => {
-      if (!disposed && mounted.current) setConnection(snapshot.connection);
+      if (!disposed && mounted.current) {
+        setConnection(snapshot.connection);
+        setLoadingOlder(false);
+        if (refreshReplacement) {
+          setRefreshNonce((value) => value + 1);
+        }
+      }
     });
 
     const eventCleanup = realtime.listen((event) => {
@@ -348,6 +452,8 @@ export function useMessageThread({
           activePaginationOwner.current = null;
           setLoadingOlder(false);
           activeHydrations.clear();
+          activeMutations.clear();
+          mutationSequence.current = 0;
           setState({
             accountId: eventAccountId,
             conversationId: eventConversationId,
@@ -400,6 +506,10 @@ export function useMessageThread({
 
       const messageId = event.messageId;
       if (event.eventType === 'DELETE') {
+        activeMutations.set(messageId, {
+          sequence: ++mutationSequence.current,
+          kind: 'delete',
+        });
         messageGenerations.current.set(
           messageId,
           (messageGenerations.current.get(messageId) ?? 0) + 1
@@ -461,6 +571,11 @@ export function useMessageThread({
             !latestState.current.items.some(
               (message) => message.id === messageId
             );
+          activeMutations.set(messageId, {
+            sequence: ++mutationSequence.current,
+            kind: 'upsert',
+            item,
+          });
           setState((previous) => {
             if (
               previous.accountId !== eventAccountId ||
@@ -488,7 +603,8 @@ export function useMessageThread({
             clearUnread(
               eventAccountId,
               eventConversationId,
-              eventScopeGeneration
+              eventScopeGeneration,
+              currentFeedGeneration
             );
           }
         } catch {
@@ -519,6 +635,7 @@ export function useMessageThread({
       disposed = true;
       realtimeGeneration.current += 1;
       activeHydrations.clear();
+      activeMutations.clear();
       eventCleanup();
       statusCleanup();
     };
@@ -537,6 +654,8 @@ export function useMessageThread({
     const currentConversationId = activeConversationId.current;
     const currentScopeGeneration = scopeGeneration.current;
     const currentRequestGeneration = requestGeneration.current;
+    const currentFeedGeneration = feedGeneration.current;
+    const snapshotMutationSequence = mutationSequence.current;
     if (
       activePaginationOwner.current !== null ||
       current.accountId !== currentAccountId ||
@@ -562,6 +681,7 @@ export function useMessageThread({
           !mounted.current ||
           scopeGeneration.current !== currentScopeGeneration ||
           requestGeneration.current !== currentRequestGeneration ||
+          feedGeneration.current !== currentFeedGeneration ||
           activeAccountId.current !== currentAccountId ||
           activeConversationId.current !== currentConversationId
         ) {
@@ -576,7 +696,12 @@ export function useMessageThread({
           }
           return {
             ...previous,
-            items: uniqueChronological([...page.items, ...previous.items]),
+            items: reconcileMessageSnapshot(
+              page.items,
+              previous.items,
+              messageMutations.current,
+              snapshotMutationSequence
+            ),
             cursor: page.nextCursor,
           };
         });
@@ -585,6 +710,7 @@ export function useMessageThread({
           mounted.current &&
           scopeGeneration.current === currentScopeGeneration &&
           requestGeneration.current === currentRequestGeneration &&
+          feedGeneration.current === currentFeedGeneration &&
           activeAccountId.current === currentAccountId &&
           activeConversationId.current === currentConversationId
         ) {

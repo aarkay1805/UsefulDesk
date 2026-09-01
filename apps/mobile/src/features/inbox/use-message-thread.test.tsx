@@ -761,6 +761,473 @@ describe('useMessageThread', () => {
     expect(result.current.items).toEqual([nextMessage]);
   });
 
+  it('keeps a realtime delete over a deferred initial snapshot', async () => {
+    const initialMessages = deferred<MessagePage>();
+    messages.list.mockReturnValueOnce(initialMessages.promise);
+    const { result } = renderHook(() => useConfiguredThread());
+
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'DELETE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    );
+    await act(async () => {
+      initialMessages.resolve(
+        page([
+          message({ id: MESSAGE_1_ID }),
+          message({
+            id: MESSAGE_2_ID,
+            createdAt: '2026-09-01T08:02:00.000Z',
+          }),
+        ])
+      );
+      await initialMessages.promise;
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.items.map((item) => item.id)).toEqual([MESSAGE_2_ID]);
+  });
+
+  it('keeps a realtime insert over a deferred initial snapshot', async () => {
+    const initialMessages = deferred<MessagePage>();
+    messages.list.mockReturnValueOnce(initialMessages.promise);
+    messages.get.mockResolvedValueOnce(
+      message({
+        id: MESSAGE_0_ID,
+        createdAt: '2026-09-01T08:00:00.000Z',
+      })
+    );
+    const { result } = renderHook(() => useConfiguredThread());
+
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_0_ID,
+      })
+    );
+    await act(async () => {
+      initialMessages.resolve(page([message({ id: MESSAGE_1_ID })]));
+      await initialMessages.promise;
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.items.map((item) => item.id)).toEqual([
+      MESSAGE_0_ID,
+      MESSAGE_1_ID,
+    ]);
+  });
+
+  it('keeps a realtime delete over a deferred resync snapshot', async () => {
+    const resyncMessages = deferred<MessagePage>();
+    messages.list
+      .mockResolvedValueOnce(
+        page([
+          message({ id: MESSAGE_1_ID }),
+          message({
+            id: MESSAGE_2_ID,
+            createdAt: '2026-09-01T08:02:00.000Z',
+          }),
+        ])
+      )
+      .mockReturnValueOnce(resyncMessages.promise);
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await act(async () => realtime.emitStatus('connected', 1));
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'DELETE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    );
+    await act(async () => {
+      resyncMessages.resolve(
+        page([
+          message({ id: MESSAGE_1_ID }),
+          message({
+            id: MESSAGE_2_ID,
+            createdAt: '2026-09-01T08:02:00.000Z',
+          }),
+        ])
+      );
+      await resyncMessages.promise;
+    });
+
+    expect(result.current.items.map((item) => item.id)).toEqual([MESSAGE_2_ID]);
+  });
+
+  it('keeps a realtime insert over a deferred resync snapshot', async () => {
+    const resyncMessages = deferred<MessagePage>();
+    messages.list
+      .mockResolvedValueOnce(page([message({ id: MESSAGE_1_ID })]))
+      .mockReturnValueOnce(resyncMessages.promise);
+    messages.get.mockResolvedValueOnce(
+      message({
+        id: MESSAGE_2_ID,
+        createdAt: '2026-09-01T08:02:00.000Z',
+      })
+    );
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await act(async () => realtime.emitStatus('connected', 1));
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_2_ID,
+      })
+    );
+    await waitFor(() =>
+      expect(result.current.items.map((item) => item.id)).toEqual([
+        MESSAGE_1_ID,
+        MESSAGE_2_ID,
+      ])
+    );
+    await act(async () => {
+      resyncMessages.resolve(page([message({ id: MESSAGE_1_ID })]));
+      await resyncMessages.promise;
+    });
+
+    expect(result.current.items.map((item) => item.id)).toEqual([
+      MESSAGE_1_ID,
+      MESSAGE_2_ID,
+    ]);
+  });
+
+  it('keeps a realtime delete over a deferred older-page snapshot', async () => {
+    const older = deferred<MessagePage>();
+    const cursor: MessageCursor = {
+      createdAt: '2026-09-01T08:01:00.000Z',
+      id: MESSAGE_1_ID,
+    };
+    messages.list
+      .mockResolvedValueOnce(page([message({ id: MESSAGE_1_ID })], cursor))
+      .mockReturnValueOnce(older.promise);
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.loadOlder());
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'DELETE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    );
+    await act(async () => {
+      older.resolve(
+        page([
+          message({
+            id: MESSAGE_0_ID,
+            createdAt: '2026-09-01T08:00:00.000Z',
+          }),
+          message({ id: MESSAGE_1_ID }),
+        ])
+      );
+      await older.promise;
+    });
+
+    expect(result.current.items.map((item) => item.id)).toEqual([MESSAGE_0_ID]);
+  });
+
+  it('preserves a realtime update when an older page overlaps its id', async () => {
+    const older = deferred<MessagePage>();
+    const cursor: MessageCursor = {
+      createdAt: '2026-09-01T08:01:00.000Z',
+      id: MESSAGE_1_ID,
+    };
+    messages.list
+      .mockResolvedValueOnce(
+        page([message({ id: MESSAGE_1_ID, status: 'delivered' })], cursor)
+      )
+      .mockReturnValueOnce(older.promise);
+    messages.get.mockResolvedValueOnce(
+      message({ id: MESSAGE_1_ID, senderType: 'agent', status: 'read' })
+    );
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.loadOlder());
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'UPDATE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    );
+    await waitFor(() => expect(result.current.items[0]?.status).toBe('read'));
+    await act(async () => {
+      older.resolve(
+        page([
+          message({
+            id: MESSAGE_0_ID,
+            createdAt: '2026-09-01T08:00:00.000Z',
+          }),
+          message({ id: MESSAGE_1_ID, status: 'delivered' }),
+        ])
+      );
+      await older.promise;
+    });
+
+    expect(result.current.items.map((item) => item.id)).toEqual([
+      MESSAGE_0_ID,
+      MESSAGE_1_ID,
+    ]);
+    expect(result.current.items[1]?.status).toBe('read');
+  });
+
+  it('invalidates old feed work and refreshes from a higher replacement snapshot', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    await secondFeed.emitStatus('connected', 4);
+    const firstConversation = deferred<InboxConversation>();
+    const firstMessages = deferred<MessagePage>();
+    const freshConversation = conversation({ status: 'pending' });
+    const freshMessage = message({ id: MESSAGE_3_ID });
+    conversations.get
+      .mockReturnValueOnce(firstConversation.promise)
+      .mockResolvedValueOnce(freshConversation);
+    messages.list
+      .mockReturnValueOnce(firstMessages.promise)
+      .mockResolvedValueOnce(page([freshMessage]));
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      { realtime: InboxRealtimeFeed }
+    >(
+      ({ realtime: currentFeed }) =>
+        useConfiguredThread({ realtime: currentFeed }),
+      {
+        initialProps: { realtime: firstFeed },
+      }
+    );
+
+    rerender({ realtime: secondFeed });
+    await act(async () => {
+      firstConversation.resolve(conversation());
+      firstMessages.resolve(page([message({ id: MESSAGE_1_ID })]));
+      await Promise.all([firstConversation.promise, firstMessages.promise]);
+    });
+
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(result.current.conversation).toEqual(freshConversation)
+    );
+    expect(result.current.items).toEqual([freshMessage]);
+    expect(result.current.connection).toBe('connected');
+  });
+
+  it('invalidates pagination, hydrate, header, and unread work from a replaced feed', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    const older = deferred<MessagePage>();
+    const hydrate = deferred<InboxMessage>();
+    const header = deferred<InboxConversation>();
+    const clear = deferred<void>();
+    const cursor: MessageCursor = {
+      createdAt: '2026-09-01T08:01:00.000Z',
+      id: MESSAGE_1_ID,
+    };
+    conversations.get
+      .mockResolvedValueOnce(conversation())
+      .mockReturnValueOnce(header.promise);
+    conversations.markRead.mockReturnValueOnce(clear.promise);
+    messages.list
+      .mockResolvedValueOnce(page([message({ id: MESSAGE_1_ID })], cursor))
+      .mockReturnValueOnce(older.promise);
+    messages.get.mockReturnValueOnce(hydrate.promise);
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      { realtime: InboxRealtimeFeed }
+    >(
+      ({ realtime: currentFeed }) =>
+        useConfiguredThread({ realtime: currentFeed }),
+      {
+        initialProps: { realtime: firstFeed },
+      }
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.loadOlder());
+    await act(async () => {
+      await firstFeed.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_3_ID,
+      });
+      await firstFeed.emit({
+        table: 'conversations',
+        eventType: 'UPDATE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: null,
+      });
+    });
+    rerender({ realtime: secondFeed });
+    await act(async () => {
+      older.resolve(page([message({ id: MESSAGE_0_ID })]));
+      hydrate.resolve(message({ id: MESSAGE_3_ID }));
+      header.resolve(conversation({ status: 'closed' }));
+      clear.reject(new Error('Denied'));
+      await Promise.all([
+        older.promise,
+        hydrate.promise,
+        header.promise,
+        clear.promise.catch(() => undefined),
+      ]);
+      await Promise.resolve();
+    });
+
+    expect(result.current.items).toEqual([message({ id: MESSAGE_1_ID })]);
+    expect(result.current.conversation).toEqual(conversation());
+    expect(result.current.unreadWarning).toBeNull();
+    expect(result.current.loadingOlder).toBe(false);
+  });
+
+  it('allows replacement-feed pagination before the invalidated page settles', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    const oldPage = deferred<MessagePage>();
+    const freshPage = deferred<MessagePage>();
+    const cursor: MessageCursor = {
+      createdAt: '2026-09-01T08:01:00.000Z',
+      id: MESSAGE_1_ID,
+    };
+    messages.list
+      .mockResolvedValueOnce(page([message({ id: MESSAGE_1_ID })], cursor))
+      .mockReturnValueOnce(oldPage.promise)
+      .mockReturnValueOnce(freshPage.promise);
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      { realtime: InboxRealtimeFeed }
+    >(
+      ({ realtime: currentFeed }) =>
+        useConfiguredThread({ realtime: currentFeed }),
+      {
+        initialProps: { realtime: firstFeed },
+      }
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.loadOlder());
+    rerender({ realtime: secondFeed });
+    await waitFor(() => expect(result.current.loadingOlder).toBe(false));
+    act(() => result.current.loadOlder());
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(3));
+
+    await act(async () => {
+      freshPage.resolve(
+        page([
+          message({
+            id: MESSAGE_0_ID,
+            createdAt: '2026-09-01T08:00:00.000Z',
+          }),
+        ])
+      );
+      await freshPage.promise;
+    });
+    await act(async () => {
+      oldPage.resolve(page([message({ id: MESSAGE_2_ID })]));
+      await oldPage.promise;
+    });
+
+    expect(result.current.items.map((item) => item.id)).toEqual([
+      MESSAGE_0_ID,
+      MESSAGE_1_ID,
+    ]);
+  });
+
+  it('lets conversation delete beat a pending header refresh', async () => {
+    const header = deferred<InboxConversation>();
+    conversations.get
+      .mockResolvedValueOnce(conversation())
+      .mockReturnValueOnce(header.promise);
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await act(async () =>
+      realtime.emit({
+        table: 'conversations',
+        eventType: 'UPDATE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: null,
+      })
+    );
+    await act(async () =>
+      realtime.emit({
+        table: 'conversations',
+        eventType: 'DELETE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: null,
+      })
+    );
+    await act(async () => {
+      header.resolve(conversation({ status: 'closed' }));
+      await header.promise;
+    });
+
+    expect(result.current.status).toBe('unavailable');
+    expect(result.current.conversation).toBeNull();
+  });
+
+  it('keeps the newest header refresh when two complete out of order', async () => {
+    const firstHeader = deferred<InboxConversation>();
+    const secondHeader = deferred<InboxConversation>();
+    conversations.get
+      .mockResolvedValueOnce(conversation())
+      .mockReturnValueOnce(firstHeader.promise)
+      .mockReturnValueOnce(secondHeader.promise);
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    const headerEvent: InboxRealtimeEvent = {
+      table: 'conversations',
+      eventType: 'UPDATE',
+      accountId: BRANCH_ID,
+      conversationId: CONVERSATION_ID,
+      messageId: null,
+    };
+
+    await act(async () => {
+      await realtime.emit(headerEvent);
+      await realtime.emit(headerEvent);
+    });
+    await act(async () => {
+      secondHeader.resolve(conversation({ status: 'pending' }));
+      await secondHeader.promise;
+    });
+    await waitFor(() =>
+      expect(result.current.conversation?.status).toBe('pending')
+    );
+    await act(async () => {
+      firstHeader.resolve(conversation({ status: 'closed' }));
+      await firstHeader.promise;
+    });
+
+    expect(result.current.conversation?.status).toBe('pending');
+  });
+
   it('removes both local realtime listeners on cleanup', async () => {
     const { result, unmount } = renderHook(() => useConfiguredThread());
     await waitFor(() => expect(result.current.status).toBe('ready'));
