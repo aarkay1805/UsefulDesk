@@ -29,6 +29,7 @@ import {
   canEditSettings,
   canEditAuthoredContent,
   canCompleteBranchSetup,
+  canClearConversationUnread,
   canManageMembers,
   canManageInvoiceProfile,
   canReassignLeadsDirectly,
@@ -157,6 +158,15 @@ describe('capability predicates', () => {
     expect(canSendMessages('admin')).toBe(true);
     expect(canSendMessages('agent')).toBe(true);
     expect(canSendMessages('viewer')).toBe(false);
+  });
+
+  it.each([
+    ['owner', true],
+    ['admin', true],
+    ['agent', true],
+    ['viewer', false],
+  ] as const)('canClearConversationUnread(%s) is %s', (role, expected) => {
+    expect(canClearConversationUnread(role)).toBe(expected);
   });
 
   it('canCompleteBranchSetup: admin+ only', () => {

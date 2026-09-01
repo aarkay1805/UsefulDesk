@@ -15,11 +15,17 @@
 // changes a one-file diff.
 // ============================================================
 
-import type { ReceivedVia } from '@/types';
-import { isHumanReceived } from '@/lib/leads/attributes';
-
 export type AccountRole = 'owner' | 'admin' | 'agent' | 'viewer';
 export type OrganizationRole = 'owner';
+
+// Keep this canonical capability module dependency-free so native Metro can
+// consume it. This mirrors the lead-origin union in src/types/index.ts.
+type ReceivedVia =
+  'manual' | 'import' | 'whatsapp' | 'meta' | 'api' | 'automation' | 'form';
+
+function isHumanReceived(value?: ReceivedVia | null): boolean {
+  return !value || value === 'manual' || value === 'import';
+}
 
 /** Ordered list of every valid role, lowest privilege first. */
 export const ACCOUNT_ROLES: readonly AccountRole[] = [
@@ -105,6 +111,11 @@ export function canShareInvoiceDocuments(role: AccountRole): boolean {
  * Viewers are read-only.
  */
 export function canSendMessages(role: AccountRole): boolean {
+  return hasMinRole(role, 'agent');
+}
+
+/** Agent+ may clear the shared unread count after opening a conversation. */
+export function canClearConversationUnread(role: AccountRole): boolean {
   return hasMinRole(role, 'agent');
 }
 
