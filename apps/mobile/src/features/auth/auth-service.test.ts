@@ -981,6 +981,63 @@ describe('createAuthService', () => {
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
   });
 
+  it('publishes cleanup latches before synchronous retirement reentry', async () => {
+    const dependencies = createDependencies();
+    dependencies.auth.signInWithPassword.mockResolvedValueOnce({
+      data: { session: null, user: null },
+      error: new Error('Invalid login credentials'),
+    });
+    const retire =
+      dependencies.refreshCoordinator.retire.getMockImplementation();
+    if (!retire) throw new Error('Missing retirement fixture.');
+    let service!: ReturnType<typeof createAuthService>;
+    let retireReentry: ReturnType<typeof service.purgeLocalSession> | null =
+      null;
+    let preferenceReentry: ReturnType<typeof service.purgeLocalSession> | null =
+      null;
+    let didReenterRetirement = false;
+    let didReenterPreference = false;
+    dependencies.refreshCoordinator.retire.mockImplementation(() => {
+      if (!didReenterRetirement) {
+        didReenterRetirement = true;
+        retireReentry = service.purgeLocalSession();
+      }
+      return retire();
+    });
+    dependencies.preference.clear.mockImplementation(() => {
+      if (!didReenterPreference) {
+        didReenterPreference = true;
+        preferenceReentry = service.purgeLocalSession();
+      }
+      return Promise.resolve();
+    });
+    service = createAuthService(dependencies);
+
+    const authResult = await service.signInWithPassword(
+      'asha@example.com',
+      'wrong password'
+    );
+    if (!retireReentry) throw new Error('Retirement did not reenter cleanup.');
+    const purgeResult = await retireReentry;
+
+    expect(authResult).toEqual({
+      status: 'error',
+      message: 'Email or password is incorrect.',
+    });
+    expect(preferenceReentry).toBe(retireReentry);
+    await expect(preferenceReentry).resolves.toBe(purgeResult);
+    expect(purgeResult).toEqual({
+      localAuth: 'success',
+      branchPreference: 'success',
+    });
+    expect(dependencies.refreshCoordinator.retire).toHaveBeenCalledTimes(1);
+    expect(dependencies.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
+    expect(dependencies.auth.signOut).toHaveBeenCalledTimes(1);
+    expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
+    expect(dependencies.refreshCoordinator.isQuiescent()).toBe(true);
+  });
+
   it('clears a failed coalesced cleanup so a secure retry can start', async () => {
     const dependencies = createDependencies();
     dependencies.auth.signOut

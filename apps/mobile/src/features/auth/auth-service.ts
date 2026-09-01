@@ -141,7 +141,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
       lifecycle ? [lifecycle.beforeLocalSignOut] : []
     );
     localTeardownAcceptsOwners = true;
-    const operation = (async (): Promise<boolean> => {
+    const run = async (): Promise<boolean> => {
       try {
         const retirement = dependencies.refreshCoordinator.retire();
         const stopRefresh = (async () => {
@@ -199,17 +199,23 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
       } catch {
         return false;
       }
-    })();
+    };
+    let resolveOperation!: (result: boolean) => void;
+    let rejectOperation!: (reason?: unknown) => void;
+    const operation = new Promise<boolean>((resolve, reject) => {
+      resolveOperation = resolve;
+      rejectOperation = reject;
+    });
     let tracked!: Promise<boolean>;
-    tracked = operation.then((result) => {
+    tracked = operation.finally(() => {
       if (localTeardownInFlight === tracked) {
         localTeardownInFlight = null;
         localTeardownAcceptsOwners = false;
         localTeardownOwners.clear();
       }
-      return result;
     });
     localTeardownInFlight = tracked;
+    void run().then(resolveOperation, rejectOperation);
     return tracked;
   };
 
@@ -219,7 +225,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
 
   const purgeLocalSession = (): Promise<LocalSessionPurgeResult> => {
     if (localPurgeInFlight) return localPurgeInFlight;
-    const operation = (async (): Promise<LocalSessionPurgeResult> => {
+    const run = async (): Promise<LocalSessionPurgeResult> => {
       const clearPreference = (async () => {
         try {
           await dependencies.preference.clear();
@@ -236,13 +242,21 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
         localAuth: authPurged ? 'success' : 'failed',
         branchPreference: preferenceCleared ? 'success' : 'failed',
       };
-    })();
+    };
+    let resolveOperation!: (result: LocalSessionPurgeResult) => void;
+    let rejectOperation!: (reason?: unknown) => void;
+    const operation = new Promise<LocalSessionPurgeResult>(
+      (resolve, reject) => {
+        resolveOperation = resolve;
+        rejectOperation = reject;
+      }
+    );
     let tracked!: Promise<LocalSessionPurgeResult>;
-    tracked = operation.then((result) => {
+    tracked = operation.finally(() => {
       if (localPurgeInFlight === tracked) localPurgeInFlight = null;
-      return result;
     });
     localPurgeInFlight = tracked;
+    void run().then(resolveOperation, rejectOperation);
     return tracked;
   };
 
