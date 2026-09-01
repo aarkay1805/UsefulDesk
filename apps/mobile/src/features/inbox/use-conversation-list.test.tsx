@@ -463,6 +463,43 @@ describe('useConversationList', () => {
     );
   });
 
+  it('does not append a deferred page after realtime deletes its query membership', async () => {
+    const cursor: ConversationCursor = {
+      phase: 'messaged',
+      lastMessageAt: conversationA.lastMessageAt!,
+      id: conversationA.id,
+    };
+    const more = deferred<ConversationPage>();
+    repository.list
+      .mockResolvedValueOnce(page([conversationA], cursor))
+      .mockReturnValueOnce(more.promise)
+      .mockResolvedValueOnce(page([]));
+    repository.unreadCount.mockResolvedValueOnce(3).mockResolvedValueOnce(2);
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.loadMore());
+    await act(async () =>
+      realtime.emit({
+        table: 'conversations',
+        eventType: 'DELETE',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: null,
+      })
+    );
+    await waitFor(() => expect(result.current.items).toEqual([]));
+    await act(async () => {
+      more.resolve(page([conversationA]));
+      await more.promise;
+      await Promise.resolve();
+    });
+
+    expect(result.current.items).toEqual([]);
+  });
+
   it('deduplicates repeated ids within one pagination page', async () => {
     const cursor: ConversationCursor = {
       phase: 'messaged',

@@ -232,7 +232,7 @@ export function useConversationList({
       }
       const currentAccountId = activeAccountId.current;
       const currentAccountGeneration = accountGeneration.current;
-      const currentListGeneration = listGeneration.current;
+      const currentListGeneration = ++listGeneration.current;
       const currentFilter = latestFilter.current;
       const currentSearch = latestSearch.current;
       const currentRequestId = ++requestId.current;
