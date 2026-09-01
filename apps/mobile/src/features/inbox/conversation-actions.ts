@@ -56,7 +56,9 @@ function isServiceWindowOpen(
   const nowMs = instant(now);
   const latestInboundMs = instant(latestInboundAt);
   if (nowMs === null || latestInboundMs === null) return false;
-  return nowMs - latestInboundMs < SERVICE_WINDOW_MS;
+  return (
+    nowMs >= latestInboundMs && nowMs - latestInboundMs < SERVICE_WINDOW_MS
+  );
 }
 
 function providerBlocker(readiness: ConnectionReadiness): ActionBlocker {

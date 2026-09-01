@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, type TextInput as TextInputType, View } from 'react-native';
 
 import { Button, ComposerField, IconButton } from '../../../ui';
@@ -22,6 +22,7 @@ export function ConversationComposer({
 }: ConversationComposerProps) {
   const inputRef = useRef<TextInputType>(null);
   const inFlightRef = useRef(false);
+  const focusAfterSettledFailureRef = useRef(false);
   const [draft, setDraft] = useState('');
   const [pending, setPending] = useState(false);
   const [failedAttempt, setFailedAttempt] = useState<FailedAttempt | null>(
@@ -29,9 +30,15 @@ export function ConversationComposer({
   );
   const trimmedDraft = draft.trim();
 
-  const focusDraft = useCallback(() => {
-    inputRef.current?.focus();
+  const requestDraftFocus = useCallback(() => {
+    focusAfterSettledFailureRef.current = true;
   }, []);
+
+  useEffect(() => {
+    if (pending || !focusAfterSettledFailureRef.current) return;
+    focusAfterSettledFailureRef.current = false;
+    inputRef.current?.focus();
+  }, [pending]);
 
   const resolveAttempt = useCallback(
     (result: SendAttemptResult) => {
@@ -41,9 +48,9 @@ export function ConversationComposer({
         return;
       }
       setFailedAttempt({ temporaryId: result.temporaryId });
-      focusDraft();
+      requestDraftFocus();
     },
-    [focusDraft]
+    [requestDraftFocus]
   );
 
   const send = useCallback(async () => {
@@ -55,12 +62,12 @@ export function ConversationComposer({
       resolveAttempt(await onSend(trimmedDraft));
     } catch {
       setFailedAttempt({ temporaryId: null });
-      focusDraft();
+      requestDraftFocus();
     } finally {
       inFlightRef.current = false;
       setPending(false);
     }
-  }, [focusDraft, onSend, pending, resolveAttempt, trimmedDraft]);
+  }, [onSend, pending, requestDraftFocus, resolveAttempt, trimmedDraft]);
 
   const retry = useCallback(async () => {
     if (
@@ -77,12 +84,12 @@ export function ConversationComposer({
       resolveAttempt(await onRetry(failedAttempt.temporaryId));
     } catch {
       setFailedAttempt({ temporaryId: failedAttempt.temporaryId });
-      focusDraft();
+      requestDraftFocus();
     } finally {
       inFlightRef.current = false;
       setPending(false);
     }
-  }, [failedAttempt, focusDraft, onRetry, pending, resolveAttempt]);
+  }, [failedAttempt, onRetry, pending, requestDraftFocus, resolveAttempt]);
 
   const canRetry = failedAttempt?.temporaryId !== null && !!failedAttempt;
 

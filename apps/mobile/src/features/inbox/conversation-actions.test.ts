@@ -73,6 +73,16 @@ describe('resolveConversationActions', () => {
     ).toEqual({ kind: 'closed_template' });
   });
 
+  it('fails closed when the latest inbound timestamp is in the future', () => {
+    expect(
+      resolveConversationActions(
+        input({
+          latestInboundAt: new Date(Date.parse(NOW) + 1).toISOString(),
+        })
+      )
+    ).toEqual({ kind: 'closed_template' });
+  });
+
   it('keeps text open without any template availability', () => {
     expect(
       resolveConversationActions(

@@ -5,10 +5,11 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
-import { TextInput } from 'react-native';
 
 import type { SendAttemptResult } from '../use-message-thread';
 import { ConversationComposer } from './conversation-composer';
+
+const mockFocusWhenEditable = jest.fn();
 
 jest.mock('heroui-native', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -35,9 +36,13 @@ jest.mock('heroui-native', () => {
     { isDisabled, onChangeText, ...props }: any,
     ref: any
   ) {
+    React.useImperativeHandle(ref, () => ({
+      focus: () => {
+        if (!isDisabled) mockFocusWhenEditable();
+      },
+    }));
     return React.createElement(NativeTextInput, {
       ...props,
-      ref,
       editable: !isDisabled && props.editable,
       onChangeText: isDisabled ? undefined : onChangeText,
     });
@@ -159,10 +164,8 @@ describe('ConversationComposer', () => {
   ])(
     'retains and refocuses the draft after %s failure',
     async (failureMessage) => {
-      const focus = jest
-        .spyOn(TextInput.prototype, 'focus')
-        .mockImplementation(jest.fn());
       const onSend = jest.fn().mockRejectedValue(new Error(failureMessage));
+      mockFocusWhenEditable.mockClear();
 
       render(<ConversationComposer onRetry={jest.fn()} onSend={onSend} />);
 
@@ -179,11 +182,13 @@ describe('ConversationComposer', () => {
       expect(screen.getByLabelText('Message').props.value).toBe(
         'Keep this draft'
       );
-      expect(focus).toHaveBeenCalled();
+      expect(screen.getByLabelText('Message').props.accessibilityState).toEqual(
+        { disabled: false }
+      );
+      expect(mockFocusWhenEditable).toHaveBeenCalledTimes(1);
       expect(
         screen.queryByRole('button', { name: 'Retry message' })
       ).toBeNull();
-      focus.mockRestore();
     }
   );
 
