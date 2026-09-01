@@ -47,11 +47,12 @@ const validString = (
   typeof value === 'string' || (nullable && value === null);
 const uuid = (value: unknown): value is string =>
   typeof value === 'string' && UUID.test(value);
+export const isStrictIsoTimestamp = (value: unknown): value is string =>
+  typeof value === 'string' &&
+  /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(value) &&
+  Number.isFinite(Date.parse(value));
 const iso = (value: unknown, nullable = false): value is string | null =>
-  (nullable && value === null) ||
-  (typeof value === 'string' &&
-    /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z$/.test(value) &&
-    Number.isFinite(Date.parse(value)));
+  (nullable && value === null) || isStrictIsoTimestamp(value);
 const nullableUuid = (value: unknown): value is string | null =>
   value === null || uuid(value);
 

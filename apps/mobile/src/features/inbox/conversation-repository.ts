@@ -1,5 +1,8 @@
 import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
-import { parseConversationRows } from './inbox-normalizers';
+import {
+  isStrictIsoTimestamp,
+  parseConversationRows,
+} from './inbox-normalizers';
 import type {
   ConversationCursor,
   ConversationFilter,
@@ -83,20 +86,12 @@ function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID.test(value);
 }
 
-function isIsoTimestamp(value: unknown): value is string {
-  return (
-    typeof value === 'string' &&
-    /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z$/.test(value) &&
-    Number.isFinite(Date.parse(value))
-  );
-}
-
 function isCursor(value: ConversationCursor | null): boolean {
   if (value === null) return true;
   return value.phase === 'messaged'
-    ? isIsoTimestamp(value.lastMessageAt) && isUuid(value.id)
+    ? isStrictIsoTimestamp(value.lastMessageAt) && isUuid(value.id)
     : value.phase === 'empty' &&
-        isIsoTimestamp(value.createdAt) &&
+        isStrictIsoTimestamp(value.createdAt) &&
         isUuid(value.id);
 }
 

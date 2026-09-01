@@ -152,6 +152,45 @@ describe('ConversationRepository', () => {
     });
   });
 
+  it('paginates PostgREST offset-form timestamp cursors', async () => {
+    const querySource = source();
+    const firstTimestamp = '2026-09-01T08:00:00.123456+00:00';
+    querySource.listMessaged = jest.fn().mockResolvedValue([
+      rawConversation({
+        last_message_at: firstTimestamp,
+        created_at: firstTimestamp,
+        updated_at: firstTimestamp,
+      }),
+      rawConversation({
+        id: '00cdd031-972a-4038-8178-029e6470f722',
+        last_message_at: '2026-08-31T08:00:00.654321+00:00',
+        created_at: '2026-08-31T08:00:00.654321+00:00',
+        updated_at: '2026-08-31T08:00:00.654321+00:00',
+      }),
+    ]);
+
+    await expect(
+      createConversationRepository(querySource).list({
+        accountId: BRANCH_ID,
+        filter: 'all',
+        search: '',
+        cursor: {
+          phase: 'messaged',
+          lastMessageAt: firstTimestamp,
+          id: CONVERSATION_ID,
+        },
+        limit: 1,
+      })
+    ).resolves.toMatchObject({
+      items: [{ id: CONVERSATION_ID, lastMessageAt: firstTimestamp }],
+      nextCursor: {
+        phase: 'messaged',
+        lastMessageAt: firstTimestamp,
+        id: CONVERSATION_ID,
+      },
+    });
+  });
+
   it('keeps a messaged cursor when a full page has empty-phase rows after it', async () => {
     const querySource = source();
     querySource.listMessaged = jest.fn().mockResolvedValue([rawConversation()]);

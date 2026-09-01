@@ -31,6 +31,52 @@ test('normalizes membership presence and nullable previews', () => {
   expect(rows[0]).toMatchObject({ isMember: true, lastMessageText: null });
 });
 
+test('accepts a complete PostgREST conversation row with offset timestamps', () => {
+  const timestamp = '2026-09-01T08:00:00.123456+00:00';
+
+  expect(
+    parseConversationRows(
+      [
+        rawConversation({
+          last_message_at: timestamp,
+          created_at: timestamp,
+          updated_at: timestamp,
+        }),
+      ],
+      BRANCH_ID
+    )
+  ).toMatchObject([
+    {
+      lastMessageAt: timestamp,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ]);
+});
+
+test('accepts a complete PostgREST message row with an offset timestamp', () => {
+  const timestamp = '2026-09-01T08:01:00.123456+00:00';
+
+  expect(
+    parseMessageRows([rawMessage({ created_at: timestamp })], CONVERSATION_ID)
+  ).toMatchObject([{ createdAt: timestamp }]);
+});
+
+test('rejects malformed and timezone-less timestamps', () => {
+  expect(() =>
+    parseConversationRows(
+      [rawConversation({ created_at: '2026-09-01 08:00:00+00:00' })],
+      BRANCH_ID
+    )
+  ).toThrow('Invalid conversation row');
+  expect(() =>
+    parseMessageRows(
+      [rawMessage({ created_at: '2026-09-01T08:01:00.123456' })],
+      CONVERSATION_ID
+    )
+  ).toThrow('Invalid message row');
+});
+
 test('rejects a message belonging to another conversation', () => {
   expect(() =>
     parseMessageRows(
