@@ -520,11 +520,12 @@ describe('useConversationList', () => {
       accountId: BRANCH_A,
     });
     const oldPage = deferred<ConversationPage>();
+    const freshPage = deferred<ConversationPage>();
     repository.list
       .mockResolvedValueOnce(page([conversationA], initialCursor))
       .mockReturnValueOnce(oldPage.promise)
       .mockResolvedValueOnce(page([refreshedConversation], refreshedCursor))
-      .mockResolvedValueOnce(page([freshPageConversation]));
+      .mockReturnValueOnce(freshPage.promise);
     repository.unreadCount.mockResolvedValueOnce(3).mockResolvedValueOnce(2);
     const { result } = renderHook(() =>
       useConversationList({ accountId: BRANCH_A, repository, realtime })
@@ -545,16 +546,21 @@ describe('useConversationList', () => {
       expect(result.current.items).toEqual([refreshedConversation])
     );
 
-    await act(async () => result.current.loadMore());
-    expect(result.current.items).toEqual([
-      refreshedConversation,
-      freshPageConversation,
-    ]);
-    expect(result.current.loadingMore).toBe(false);
+    act(() => result.current.loadMore());
+    expect(result.current.loadingMore).toBe(true);
 
     await act(async () => {
       oldPage.resolve(page([conversationA]));
       await oldPage.promise;
+      await Promise.resolve();
+    });
+
+    expect(result.current.items).toEqual([refreshedConversation]);
+    expect(result.current.loadingMore).toBe(true);
+
+    await act(async () => {
+      freshPage.resolve(page([freshPageConversation]));
+      await freshPage.promise;
       await Promise.resolve();
     });
 
