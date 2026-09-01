@@ -873,6 +873,26 @@ export function useMessageThread({
             kind: 'upsert',
             item,
           });
+          if (event.eventType === 'INSERT' && item.senderType === 'customer') {
+            setSendReadiness((previous) => {
+              if (
+                previous.status !== 'ready' ||
+                previous.accountId !== eventAccountId ||
+                previous.conversationId !== eventConversationId ||
+                previous.feedGeneration !== currentFeedGeneration
+              ) {
+                return previous;
+              }
+              const previousInboundMs = previous.latestInboundAt
+                ? Date.parse(previous.latestInboundAt)
+                : Number.NEGATIVE_INFINITY;
+              const insertedInboundMs = Date.parse(item.createdAt);
+              return Number.isFinite(insertedInboundMs) &&
+                insertedInboundMs > previousInboundMs
+                ? { ...previous, latestInboundAt: item.createdAt }
+                : previous;
+            });
+          }
           setState((previous) => {
             if (
               previous.accountId !== eventAccountId ||

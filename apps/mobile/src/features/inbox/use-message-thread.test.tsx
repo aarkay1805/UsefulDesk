@@ -416,6 +416,60 @@ describe('useMessageThread', () => {
     });
   });
 
+  it('advances latest inbound readiness for realtime customer inserts without regressing for an older insert', async () => {
+    messages.getLatestCustomerMessageAt.mockResolvedValueOnce(
+      '2026-09-01T08:01:00.000Z'
+    );
+    messages.get
+      .mockResolvedValueOnce(
+        message({
+          id: MESSAGE_3_ID,
+          senderType: 'customer',
+          createdAt: '2026-09-01T10:00:00.000Z',
+        })
+      )
+      .mockResolvedValueOnce(
+        message({
+          id: MESSAGE_0_ID,
+          senderType: 'customer',
+          createdAt: '2026-09-01T09:00:00.000Z',
+        })
+      );
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() =>
+      expect(result.current.sendReadiness.status).toBe('ready')
+    );
+
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_3_ID,
+      })
+    );
+    await waitFor(() =>
+      expect(result.current.sendReadiness.latestInboundAt).toBe(
+        '2026-09-01T10:00:00.000Z'
+      )
+    );
+
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_0_ID,
+      })
+    );
+
+    expect(result.current.sendReadiness.latestInboundAt).toBe(
+      '2026-09-01T10:00:00.000Z'
+    );
+  });
+
   it('does not clear shared unread state for a viewer', async () => {
     renderHook(() =>
       useMessageThread({

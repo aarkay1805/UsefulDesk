@@ -1,4 +1,5 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -564,6 +565,14 @@ describe('ConversationScreen', () => {
     mockUseReadyAuth.mockReturnValue(readyAuthValue(BRANCH_ID, 'viewer'));
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
+        items: [
+          message({
+            id: 'temp:viewer-failed',
+            senderType: 'agent',
+            status: 'failed',
+            providerErrorTitle: 'Could not send message',
+          }),
+        ],
         sendReadiness: {
           status: 'hidden',
           latestInboundAt: null,
@@ -578,6 +587,9 @@ describe('ConversationScreen', () => {
 
     expect(screen.queryByLabelText('Message')).toBeNull();
     expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Retry failed message' })
+    ).toBeNull();
     expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: 'viewer', outbound: undefined })
@@ -632,6 +644,155 @@ describe('ConversationScreen', () => {
     await waitFor(() =>
       expect(retryText).toHaveBeenCalledWith('temp:screen-failed')
     );
+  });
+
+  it('renders a pending-safe row Retry for every failed optimistic message using its stable temporary ID', async () => {
+    let finishRetry!: (result: { temporaryId: string; status: 'sent' }) => void;
+    const pendingRetry = new Promise<{
+      temporaryId: string;
+      status: 'sent';
+    }>((resolve) => {
+      finishRetry = resolve;
+    });
+    const retryText = jest.fn().mockReturnValue(pendingRetry);
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        retryText,
+        items: [
+          ...readyThreadResult().items,
+          message({
+            id: 'temp:screen-failed-one',
+            senderType: 'agent',
+            status: 'failed',
+            providerErrorTitle: 'Could not send message',
+            contentText: 'First failed message',
+          }),
+          message({
+            id: 'temp:screen-failed-two',
+            senderType: 'agent',
+            status: 'failed',
+            providerErrorTitle: 'Could not send message',
+            contentText: 'Second failed message',
+          }),
+        ],
+      })
+    );
+    render(<ConversationScreen />);
+
+    const retries = screen.getAllByRole('button', {
+      name: 'Retry failed message',
+    });
+    expect(retries).toHaveLength(2);
+    expect(retries[0].props.className).toContain('min-h-11');
+    expect(retries[1].props.className).toContain('min-h-11');
+
+    fireEvent.press(retries[1]);
+
+    expect(retryText).toHaveBeenCalledTimes(1);
+    expect(retryText).toHaveBeenCalledWith('temp:screen-failed-two');
+    expect(
+      screen.getAllByRole('button', { name: 'Retry failed message' })[1].props
+        .accessibilityState
+    ).toEqual({ disabled: true, busy: true });
+    fireEvent.press(
+      screen.getAllByRole('button', { name: 'Retry failed message' })[1]
+    );
+    expect(retryText).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      finishRetry({
+        temporaryId: 'temp:screen-failed-two',
+        status: 'sent',
+      });
+      await pendingRetry;
+    });
+  });
+
+  it('keeps a failed-row Retry after a later composer success clears the composer failure', async () => {
+    const retryText = jest.fn().mockResolvedValue({
+      temporaryId: 'temp:persistent-row',
+      status: 'sent',
+    });
+    const sendText = jest
+      .fn()
+      .mockResolvedValueOnce({
+        temporaryId: 'temp:persistent-row',
+        status: 'failed',
+      })
+      .mockResolvedValueOnce({
+        temporaryId: 'temp:later-success',
+        status: 'sent',
+      });
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        retryText,
+        sendText,
+        items: [
+          ...readyThreadResult().items,
+          message({
+            id: 'temp:persistent-row',
+            senderType: 'agent',
+            status: 'failed',
+            providerErrorTitle: 'Could not send message',
+            contentText: 'Persistent failed message',
+          }),
+        ],
+      })
+    );
+    render(<ConversationScreen />);
+
+    fireEvent.changeText(screen.getByLabelText('Message'), 'First attempt');
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+    expect(
+      await screen.findByRole('button', { name: 'Retry message' })
+    ).toBeTruthy();
+
+    fireEvent.changeText(screen.getByLabelText('Message'), 'Later success');
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(sendText).toHaveBeenCalledTimes(2));
+
+    expect(screen.queryByRole('button', { name: 'Retry message' })).toBeNull();
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Retry failed message' })
+    );
+    await waitFor(() =>
+      expect(retryText).toHaveBeenCalledWith('temp:persistent-row')
+    );
+  });
+
+  it('closes the open service window at the exact 24-hour boundary without another render', () => {
+    jest.useFakeTimers();
+    const latestInboundAt = '2026-09-01T08:00:00.000Z';
+    jest.setSystemTime(new Date(latestInboundAt));
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt,
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    const view = render(<ConversationScreen />);
+
+    try {
+      expect(screen.getByLabelText('Message')).toBeTruthy();
+      act(() => jest.advanceTimersByTime(24 * 60 * 60 * 1000 - 1));
+      expect(screen.getByLabelText('Message')).toBeTruthy();
+
+      act(() => jest.advanceTimersByTime(1));
+
+      expect(screen.queryByLabelText('Message')).toBeNull();
+      expect(screen.getByTestId('closed-window-action-bar')).toBeTruthy();
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
   });
 
   it('replaces the composer with an amber closed-window bar whose only action is Send a template', () => {
@@ -716,9 +877,11 @@ describe('ConversationScreen', () => {
     expect(screen.getByText('Send approved template')).toBeTruthy();
   });
 
-  it('fails closed to one readiness blocker without exposing another send action', () => {
+  it('fails closed to one readiness blocker with one pending-safe setup retry', () => {
+    const refresh = jest.fn();
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
+        refresh,
         sendReadiness: {
           status: 'error',
           latestInboundAt: null,
@@ -729,19 +892,47 @@ describe('ConversationScreen', () => {
       })
     );
 
-    render(<ConversationScreen />);
+    const view = render(<ConversationScreen />);
 
     expect(screen.getAllByTestId('conversation-action-blocker')).toHaveLength(
       1
     );
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(screen.queryByLabelText('Message')).toBeNull();
-    expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+    expect(
+      screen
+        .getAllByRole('button')
+        .map((button) => button.props.accessibilityLabel)
+    ).toEqual(['Retry send setup']);
+    fireEvent.press(screen.getByRole('button', { name: 'Retry send setup' }));
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        refresh,
+        refreshing: true,
+        sendReadiness: {
+          status: 'error',
+          latestInboundAt: null,
+          templates: [],
+          connectionReadiness: null,
+          templateReadiness: null,
+        },
+      })
+    );
+    view.rerender(<ConversationScreen />);
+
+    expect(
+      screen.getByRole('button', { name: 'Retry send setup' }).props
+        .accessibilityState
+    ).toEqual({ disabled: true, busy: true });
   });
 
   it('renders only the highest-priority closed-window blocker', () => {
+    const refresh = jest.fn();
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
+        refresh,
         sendReadiness: {
           status: 'ready',
           latestInboundAt: null,
@@ -765,7 +956,49 @@ describe('ConversationScreen', () => {
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByText('No sendable templates')).toBeTruthy();
     expect(screen.queryByText('WhatsApp is unavailable')).toBeNull();
-    expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+    expect(
+      screen
+        .getAllByRole('button')
+        .map((button) => button.props.accessibilityLabel)
+    ).toEqual(['Retry send setup']);
+    fireEvent.press(screen.getByRole('button', { name: 'Retry send setup' }));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the same single recovery action for a provider blocker', () => {
+    const refresh = jest.fn();
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        refresh,
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [staticTemplate],
+          connectionReadiness: {
+            status: 'disconnected',
+            ready: false,
+            reason: 'WhatsApp is disconnected for this branch.',
+            connectedAt: null,
+          },
+          templateReadiness: {
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByText('WhatsApp is unavailable')).toBeTruthy();
+    expect(
+      screen
+        .getAllByRole('button')
+        .map((button) => button.props.accessibilityLabel)
+    ).toEqual(['Retry send setup']);
+    fireEvent.press(screen.getByRole('button', { name: 'Retry send setup' }));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the list and action footer in native keyboard avoidance inside the bottom safe area', () => {

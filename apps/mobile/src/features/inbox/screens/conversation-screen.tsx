@@ -25,6 +25,7 @@ import { MessageBubble } from '../components/message-bubble';
 import { TemplatePicker } from '../components/template-picker';
 import {
   resolveConversationActions,
+  SERVICE_WINDOW_MS,
   type ActionBlocker,
   type ConversationActionState,
 } from '../conversation-actions';
@@ -127,6 +128,52 @@ interface ConversationThreadProps {
   outbound?: MessageThreadOutboundDependencies;
 }
 
+interface FailedMessageRetryProps {
+  onRetry(temporaryId: string): Promise<unknown>;
+  temporaryId: string;
+}
+
+function FailedMessageRetry({ onRetry, temporaryId }: FailedMessageRetryProps) {
+  const mounted = useRef(true);
+  const inFlight = useRef(false);
+  const [pending, setPending] = useState(false);
+
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    []
+  );
+
+  const retry = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
+    try {
+      await onRetry(temporaryId);
+    } finally {
+      inFlight.current = false;
+      if (mounted.current) setPending(false);
+    }
+  };
+
+  return (
+    <View className="items-end px-1 pt-1">
+      <Button
+        accessibilityLabel="Retry failed message"
+        className="min-h-11"
+        disabled={pending}
+        loading={pending}
+        onPress={retry}
+        size="sm"
+        variant="ghost"
+      >
+        Retry
+      </Button>
+    </View>
+  );
+}
+
 function ConversationThread({
   accountId,
   conversationId,
@@ -155,6 +202,7 @@ function ConversationThread({
   const [templatePickerFeed, setTemplatePickerFeed] = useState<
     typeof realtime | null
   >(null);
+  const [actionClockMs, setActionClockMs] = useState(() => Date.now());
   const latestId = thread.items.at(-1)?.id ?? null;
   const itemCount = thread.items.length;
   const firstId = thread.items.at(0)?.id ?? null;
@@ -164,6 +212,11 @@ function ConversationThread({
     (thread.conversation
       ? fmt.phone(thread.conversation.contact.phone)
       : 'Conversation');
+  const readyLatestInboundAt =
+    thread.sendReadiness.status === 'ready'
+      ? thread.sendReadiness.latestInboundAt
+      : null;
+  const renderClockMs = new Date().getTime();
   let actionState: ConversationActionState | null = null;
   if (thread.sendReadiness.status === 'error') {
     actionState = { kind: 'blocked', blocker: SEND_READINESS_BLOCKER };
@@ -174,7 +227,7 @@ function ConversationThread({
   ) {
     actionState = resolveConversationActions({
       role,
-      now: new Date(),
+      now: new Date(Math.max(actionClockMs, renderClockMs)),
       latestInboundAt: thread.sendReadiness.latestInboundAt,
       templateReadiness: thread.sendReadiness.templateReadiness,
       connectionReadiness: thread.sendReadiness.connectionReadiness,
@@ -182,6 +235,17 @@ function ConversationThread({
   }
   const templatePickerOpen =
     actionState?.kind === 'closed_template' && templatePickerFeed === realtime;
+
+  useEffect(() => {
+    if (!canSendMessages(role) || readyLatestInboundAt === null) return;
+    const latestInboundMs = Date.parse(readyLatestInboundAt);
+    if (!Number.isFinite(latestInboundMs)) return;
+    const boundaryMs = latestInboundMs + SERVICE_WINDOW_MS;
+    const delayMs = boundaryMs - Date.now();
+    if (delayMs <= 0) return;
+    const timeout = setTimeout(() => setActionClockMs(boundaryMs), delayMs);
+    return () => clearTimeout(timeout);
+  }, [readyLatestInboundAt, role]);
 
   useEffect(() => {
     const previousItems = previousItemsRef.current;
@@ -279,12 +343,27 @@ function ConversationThread({
       );
     }
 
+    const retryableTemporaryId =
+      canSendMessages(role) &&
+      item.message.status === 'failed' &&
+      item.message.senderType === 'agent' &&
+      item.message.id.startsWith('temp:')
+        ? item.message.id
+        : null;
     return (
-      <MessageBubble
-        formattedTime={fmt.time(item.message.createdAt)}
-        message={item.message}
-        startsRun={item.startsRun}
-      />
+      <View>
+        <MessageBubble
+          formattedTime={fmt.time(item.message.createdAt)}
+          message={item.message}
+          startsRun={item.startsRun}
+        />
+        {retryableTemporaryId ? (
+          <FailedMessageRetry
+            onRetry={thread.retryText}
+            temporaryId={retryableTemporaryId}
+          />
+        ) : null}
+      </View>
     );
   };
 
@@ -351,18 +430,33 @@ function ConversationThread({
     }
     return (
       <View
-        accessible
-        accessibilityLiveRegion="polite"
-        accessibilityRole="alert"
-        className="bg-warning-soft gap-1 px-4 py-3"
+        className="bg-warning-soft gap-2 px-4 py-3"
         testID="conversation-action-blocker"
       >
-        <Text className="text-warning-soft-foreground text-base font-semibold">
-          {actionState.blocker.title}
-        </Text>
-        <Text className="text-warning-soft-foreground text-sm leading-5">
-          {actionState.blocker.reason}
-        </Text>
+        <View
+          accessible
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          className="gap-1"
+        >
+          <Text className="text-warning-soft-foreground text-base font-semibold">
+            {actionState.blocker.title}
+          </Text>
+          <Text className="text-warning-soft-foreground text-sm leading-5">
+            {actionState.blocker.reason}
+          </Text>
+        </View>
+        <Button
+          accessibilityLabel="Retry send setup"
+          className="min-h-11 self-start"
+          disabled={thread.refreshing}
+          loading={thread.refreshing}
+          onPress={thread.refresh}
+          size="sm"
+          variant="ghost"
+        >
+          Check again
+        </Button>
       </View>
     );
   })();
