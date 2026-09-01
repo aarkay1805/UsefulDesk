@@ -6,8 +6,14 @@ import {
   MOBILE_AUTH_STORAGE_KEYS,
 } from '../../data/secure-session-storage';
 import { createRemoteSessionRevoker } from './session-revocation';
+import {
+  AUTH_QUIESCENCE_TIMEOUT_MS,
+  createAuthRefreshCoordinator,
+} from '../../data/auth-refresh-coordinator';
 
 const REDIRECT_URL = 'usefuldesk-agent://auth/callback';
+const SYNTHETIC_SUPABASE_URL = 'https://example.supabase.co';
+const SYNTHETIC_PUBLIC_KEY = 'sb_publishable_synthetic-public-key';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -17,7 +23,153 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function encodeJwtPart(value: unknown): string {
+  return globalThis
+    .btoa(JSON.stringify(value))
+    .replace(/=/g, '')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_');
+}
+
+function syntheticSession(
+  userId: string,
+  email: string,
+  refreshToken: string,
+  signatureCharacter: string
+) {
+  const expiresAt = Math.floor(Date.now() / 1_000) + 3_600;
+  const user = {
+    id: userId,
+    aud: 'authenticated',
+    role: 'authenticated',
+    email,
+  };
+  return {
+    access_token: `${encodeJwtPart({ alg: 'HS256', typ: 'JWT' })}.${encodeJwtPart(
+      { sub: userId, role: 'authenticated', exp: expiresAt }
+    )}.${signatureCharacter.repeat(43)}`,
+    refresh_token: refreshToken,
+    expires_at: expiresAt,
+    expires_in: 3_600,
+    token_type: 'bearer',
+    user,
+  };
+}
+
+function jsonResponse(data: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => data,
+    headers: { get: () => 'application/json' },
+  } as unknown as Response;
+}
+
+function createRealAuthRaceHarness(refreshResponse: Promise<Response>) {
+  const sessionA = syntheticSession(
+    '00000000-0000-4000-8000-000000000001',
+    'asha@example.test',
+    'synthetic-refresh-a',
+    'a'
+  );
+  const sessionB = syntheticSession(
+    '00000000-0000-4000-8000-000000000002',
+    'bharat@example.test',
+    'synthetic-refresh-b',
+    'b'
+  );
+  const values = new Map<string, string>([
+    [MOBILE_AUTH_STORAGE_KEY, JSON.stringify(sessionA)],
+    [
+      `${MOBILE_AUTH_STORAGE_KEY}-user`,
+      JSON.stringify({ user: sessionA.user }),
+    ],
+  ]);
+  const sessionStorage = createSecureSessionStorage({
+    getItemAsync: async (key) => values.get(key) ?? null,
+    setItemAsync: async (key, value) => {
+      values.set(key, value);
+    },
+    deleteItemAsync: async (key) => {
+      values.delete(key);
+    },
+  });
+  const refreshStarted = deferred<void>();
+  const passwordStarted = deferred<void>();
+  let refreshSignal: AbortSignal | null = null;
+  const authFetch = jest.fn(
+    (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const url = String(input);
+      if (url.includes('/auth/v1/token?grant_type=refresh_token')) {
+        refreshSignal = init?.signal ?? null;
+        refreshStarted.resolve(undefined);
+        return refreshResponse;
+      }
+      if (url.includes('/auth/v1/token?grant_type=password')) {
+        passwordStarted.resolve(undefined);
+        return Promise.resolve(jsonResponse(sessionB));
+      }
+      return Promise.reject(new Error('Unexpected Auth JS network request'));
+    }
+  );
+  const refreshCoordinator = createAuthRefreshCoordinator(
+    authFetch,
+    SYNTHETIC_SUPABASE_URL
+  );
+  const client = createClient(SYNTHETIC_SUPABASE_URL, SYNTHETIC_PUBLIC_KEY, {
+    global: { fetch: refreshCoordinator.fetch },
+    auth: {
+      storage: sessionStorage,
+      storageKey: MOBILE_AUTH_STORAGE_KEY,
+      autoRefreshToken: false,
+      persistSession: true,
+      detectSessionInUrl: false,
+      lock: refreshCoordinator.lock,
+      lockAcquireTimeout: AUTH_QUIESCENCE_TIMEOUT_MS,
+    },
+  });
+  const revokeFetch = jest.fn(
+    async () => ({ ok: true, status: 200 }) as Response
+  );
+  const service = createAuthService({
+    auth: client.auth,
+    linking: { createURL: jest.fn().mockReturnValue(REDIRECT_URL) },
+    browser: {
+      openAuthSessionAsync: jest
+        .fn()
+        .mockResolvedValue({ type: 'cancel' as const }),
+    },
+    preference: {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+      clear: jest.fn().mockResolvedValue(undefined),
+    },
+    sessionStorage,
+    remoteSession: createRemoteSessionRevoker(revokeFetch, {
+      supabaseUrl: SYNTHETIC_SUPABASE_URL,
+      supabaseAnonKey: SYNTHETIC_PUBLIC_KEY,
+    }),
+    refreshCoordinator,
+  });
+
+  return {
+    authFetch,
+    client,
+    passwordStarted,
+    refreshCoordinator,
+    refreshSignal: () => refreshSignal,
+    refreshStarted,
+    revokeFetch,
+    service,
+    sessionA,
+    sessionB,
+    values,
+  };
+}
+
 function createDependencies() {
+  let refreshGeneration = 0;
+  let refreshQuiescent = true;
   return {
     auth: {
       signInWithPassword: jest.fn().mockResolvedValue({
@@ -72,6 +224,22 @@ function createDependencies() {
     },
     remoteSession: {
       revoke: jest.fn().mockResolvedValue({ status: 'success' }),
+    },
+    refreshCoordinator: {
+      retire: jest.fn(() => {
+        refreshGeneration += 1;
+        refreshQuiescent = false;
+        return {
+          generation: refreshGeneration,
+          waitForRequests: jest.fn().mockResolvedValue(undefined),
+        };
+      }),
+      complete: jest.fn((retirement: { generation: number }) => {
+        if (retirement.generation !== refreshGeneration) return false;
+        refreshQuiescent = true;
+        return true;
+      }),
+      isQuiescent: jest.fn(() => refreshQuiescent),
     },
   };
 }
@@ -247,6 +415,8 @@ describe('createAuthService', () => {
     expect(dependencies.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
     expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
     expect(dependencies.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(dependencies.refreshCoordinator.retire).toHaveBeenCalledTimes(1);
+    expect(dependencies.refreshCoordinator.complete).toHaveBeenCalledTimes(1);
     expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
   });
@@ -471,17 +641,23 @@ describe('createAuthService', () => {
       refreshStarted.resolve(undefined);
       return refreshResponse.promise;
     });
+    const refreshCoordinator = createAuthRefreshCoordinator(
+      authFetch,
+      'https://example.supabase.co'
+    );
     const client = createClient(
       'https://example.supabase.co',
       'sb_publishable_synthetic-public-key',
       {
-        global: { fetch: authFetch },
+        global: { fetch: refreshCoordinator.fetch },
         auth: {
           storage: sessionStorage,
           storageKey: MOBILE_AUTH_STORAGE_KEY,
           autoRefreshToken: false,
           persistSession: true,
           detectSessionInUrl: false,
+          lock: refreshCoordinator.lock,
+          lockAcquireTimeout: AUTH_QUIESCENCE_TIMEOUT_MS,
         },
       }
     );
@@ -517,6 +693,7 @@ describe('createAuthService', () => {
       },
       sessionStorage,
       remoteSession,
+      refreshCoordinator,
     });
 
     const refresh = client.auth.refreshSession();
@@ -570,6 +747,177 @@ describe('createAuthService', () => {
     subscription.unsubscribe();
   });
 
+  it('waits for a winning invalid-refresh continuation before replacement authentication', async () => {
+    const rawRefresh = deferred<Response>();
+    const harness = createRealAuthRaceHarness(rawRefresh.promise);
+    await expect(harness.client.auth.getSession()).resolves.toMatchObject({
+      data: { session: { access_token: harness.sessionA.access_token } },
+    });
+
+    const initialSession = deferred<void>();
+    const staleSignedOutStarted = deferred<void>();
+    const releaseStaleSignedOut = deferred<void>();
+    const events: string[] = [];
+    let holdFirstSignedOut = true;
+    const subscription = harness.client.auth.onAuthStateChange(
+      async (event) => {
+        events.push(event);
+        if (event === 'INITIAL_SESSION') initialSession.resolve(undefined);
+        if (event === 'SIGNED_OUT' && holdFirstSignedOut) {
+          holdFirstSignedOut = false;
+          staleSignedOutStarted.resolve(undefined);
+          await releaseStaleSignedOut.promise;
+        }
+      }
+    ).data.subscription;
+
+    try {
+      await initialSession.promise;
+      const refresh = harness.client.auth.refreshSession();
+      await harness.refreshStarted.promise;
+      rawRefresh.resolve(
+        jsonResponse(
+          {
+            error_code: 'refresh_token_not_found',
+            message: 'Invalid Refresh Token',
+          },
+          400
+        )
+      );
+      await staleSignedOutStarted.promise;
+
+      let signOutSettled = false;
+      const signOut = harness.service
+        .signOut(harness.sessionA.access_token)
+        .then((result) => {
+          signOutSettled = true;
+          return result;
+        });
+      await Promise.resolve();
+
+      await expect(
+        harness.service.signInWithPassword(
+          harness.sessionB.user.email,
+          'synthetic-password'
+        )
+      ).resolves.toEqual({
+        status: 'error',
+        message: 'Secure sign-out is still in progress.',
+      });
+      expect(signOutSettled).toBe(false);
+
+      releaseStaleSignedOut.resolve(undefined);
+      await expect(refresh).resolves.toMatchObject({
+        data: { session: null },
+        error: { message: 'Invalid Refresh Token' },
+      });
+      await expect(signOut).resolves.toMatchObject({
+        status: 'success',
+        localAuth: 'success',
+      });
+      expect(harness.refreshCoordinator.isQuiescent()).toBe(true);
+
+      await expect(
+        harness.service.signInWithPassword(
+          harness.sessionB.user.email,
+          'synthetic-password'
+        )
+      ).resolves.toEqual({ status: 'success' });
+      const replacementEvent = events.lastIndexOf('SIGNED_IN');
+      expect(replacementEvent).toBeGreaterThan(-1);
+      expect(events.slice(replacementEvent + 1)).not.toContain('SIGNED_OUT');
+      await expect(harness.client.auth.getSession()).resolves.toMatchObject({
+        data: { session: { access_token: harness.sessionB.access_token } },
+      });
+      expect(
+        JSON.parse(harness.values.get(MOBILE_AUTH_STORAGE_KEY) ?? '{}')
+      ).toMatchObject({ access_token: harness.sessionB.access_token });
+    } finally {
+      releaseStaleSignedOut.resolve(undefined);
+      subscription.unsubscribe();
+      await harness.client.auth.stopAutoRefresh();
+    }
+  });
+
+  it('aborts a never-settling refresh and ignores its late invalid response after user B signs in', async () => {
+    const rawRefresh = deferred<Response>();
+    const harness = createRealAuthRaceHarness(rawRefresh.promise);
+    await expect(harness.client.auth.getSession()).resolves.toMatchObject({
+      data: { session: { access_token: harness.sessionA.access_token } },
+    });
+
+    const initialSession = deferred<void>();
+    const events: string[] = [];
+    const subscription = harness.client.auth.onAuthStateChange((event) => {
+      events.push(event);
+      if (event === 'INITIAL_SESSION') initialSession.resolve(undefined);
+    }).data.subscription;
+
+    try {
+      await initialSession.promise;
+      const refresh = harness.client.auth.refreshSession();
+      await harness.refreshStarted.promise;
+      const signOut = harness.service.signOut(harness.sessionA.access_token);
+
+      await expect(
+        harness.service.signInWithPassword(
+          harness.sessionB.user.email,
+          'synthetic-password'
+        )
+      ).resolves.toEqual({
+        status: 'error',
+        message: 'Secure sign-out is still in progress.',
+      });
+      await expect(refresh).resolves.toMatchObject({
+        data: { session: null },
+        error: { message: 'Auth refresh request retired' },
+      });
+      await expect(signOut).resolves.toMatchObject({
+        status: 'success',
+        localAuth: 'success',
+      });
+      expect(harness.refreshSignal()?.aborted).toBe(true);
+
+      await expect(
+        harness.service.signInWithPassword(
+          harness.sessionB.user.email,
+          'synthetic-password'
+        )
+      ).resolves.toEqual({ status: 'success' });
+      await harness.passwordStarted.promise;
+      const replacementEvent = events.lastIndexOf('SIGNED_IN');
+      expect(replacementEvent).toBeGreaterThan(-1);
+
+      rawRefresh.resolve(
+        jsonResponse(
+          {
+            error_code: 'refresh_token_not_found',
+            message: 'Invalid Refresh Token',
+          },
+          400
+        )
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(events.slice(replacementEvent + 1)).not.toContain('SIGNED_OUT');
+      await expect(harness.client.auth.getSession()).resolves.toMatchObject({
+        data: { session: { access_token: harness.sessionB.access_token } },
+      });
+      expect(
+        JSON.parse(harness.values.get(MOBILE_AUTH_STORAGE_KEY) ?? '{}')
+      ).toMatchObject({ access_token: harness.sessionB.access_token });
+      expect(harness.client.realtime.accessTokenValue).toBe(
+        harness.sessionB.access_token
+      );
+      expect(harness.authFetch).toHaveBeenCalledTimes(2);
+      expect(harness.revokeFetch).toHaveBeenCalledTimes(1);
+    } finally {
+      subscription.unsubscribe();
+      await harness.client.auth.stopAutoRefresh();
+    }
+  });
+
   it('supports idempotent local-only cleanup for an external signed-out event', async () => {
     const dependencies = createDependencies();
     const service = createAuthService(dependencies);
@@ -587,7 +935,13 @@ describe('createAuthService', () => {
   it('runs supported in-process teardown only after owned storage is blocked and purged', async () => {
     const dependencies = createDependencies();
     const purge = deferred<{ status: 'success' }>();
+    const refreshesRetired = deferred<void>();
     dependencies.sessionStorage.purge.mockReturnValueOnce(purge.promise);
+    dependencies.refreshCoordinator.retire.mockReturnValueOnce({
+      generation: 1,
+      waitForRequests: jest.fn(() => refreshesRetired.promise),
+    });
+    dependencies.refreshCoordinator.complete.mockReturnValueOnce(true);
     const service = createAuthService(dependencies);
 
     const pending = service.purgeLocalSession();
@@ -597,11 +951,58 @@ describe('createAuthService', () => {
     expect(dependencies.auth.signOut).not.toHaveBeenCalled();
 
     purge.resolve({ status: 'success' });
+    await Promise.resolve();
+    expect(dependencies.auth.signOut).not.toHaveBeenCalled();
+
+    refreshesRetired.resolve(undefined);
     await expect(pending).resolves.toEqual({
       localAuth: 'success',
       branchPreference: 'success',
     });
     expect(dependencies.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+    expect(dependencies.refreshCoordinator.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps authentication disabled until refresh quiescence is proven', async () => {
+    const dependencies = createDependencies();
+    dependencies.refreshCoordinator.isQuiescent.mockReturnValue(false);
+    const service = createAuthService(dependencies);
+
+    await expect(
+      service.signInWithPassword('asha@example.com', 'correct horse')
+    ).resolves.toEqual({
+      status: 'error',
+      reason: 'cleanup_failed',
+      message:
+        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+    });
+    await expect(service.signInWithGoogle()).resolves.toMatchObject({
+      status: 'error',
+      reason: 'cleanup_failed',
+    });
+    expect(dependencies.sessionStorage.allowWrites).not.toHaveBeenCalled();
+    expect(dependencies.auth.signInWithPassword).not.toHaveBeenCalled();
+    expect(dependencies.auth.signInWithOAuth).not.toHaveBeenCalled();
+  });
+
+  it('does not reopen authentication when the supported quiescence teardown fails', async () => {
+    const dependencies = createDependencies();
+    dependencies.auth.signOut.mockResolvedValueOnce({
+      error: new Error('synthetic local teardown failure'),
+    });
+    const service = createAuthService(dependencies);
+
+    await expect(service.purgeLocalSession()).resolves.toMatchObject({
+      localAuth: 'failed',
+    });
+    expect(dependencies.refreshCoordinator.complete).not.toHaveBeenCalled();
+    await expect(
+      service.signInWithPassword('asha@example.com', 'correct horse')
+    ).resolves.toMatchObject({
+      status: 'error',
+      reason: 'cleanup_failed',
+    });
+    expect(dependencies.auth.signInWithPassword).not.toHaveBeenCalled();
   });
 
   it('keeps password and Google authentication disabled after unverifiable cleanup', async () => {

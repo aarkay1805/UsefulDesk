@@ -4,10 +4,12 @@ import {
 } from './secure-session-storage';
 import { createClient } from '@supabase/supabase-js';
 import {
+  mobileAuthRefreshCoordinator,
   mobileSessionStorage,
   mobileSupabase,
   selectedBranchRef,
 } from './supabase';
+import { AUTH_QUIESCENCE_TIMEOUT_MS } from './auth-refresh-coordinator';
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => ({ auth: {} })),
@@ -34,8 +36,10 @@ describe('mobile Supabase singleton', () => {
           persistSession: true,
           detectSessionInUrl: false,
           flowType: 'pkce',
+          lock: mobileAuthRefreshCoordinator.lock,
+          lockAcquireTimeout: AUTH_QUIESCENCE_TIMEOUT_MS,
         }),
-        global: { fetch: expect.any(Function) },
+        global: { fetch: mobileAuthRefreshCoordinator.fetch },
       })
     );
     expect(mobileSupabase).toBe(mockCreateClient.mock.results[0].value);

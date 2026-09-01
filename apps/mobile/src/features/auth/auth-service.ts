@@ -2,8 +2,13 @@ import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 
 import { mobileEnvironment } from '../../core/env';
+import type { AuthRefreshLifecycle } from '../../data/auth-refresh-coordinator';
 import type { SecureSessionStorage } from '../../data/secure-session-storage';
-import { mobileSessionStorage, mobileSupabase } from '../../data/supabase';
+import {
+  mobileAuthRefreshCoordinator,
+  mobileSessionStorage,
+  mobileSupabase,
+} from '../../data/supabase';
 import { branchPreference, type BranchPreference } from './branch-preference';
 import { authorizationCodeFromCallback } from './google-callback';
 import {
@@ -47,6 +52,7 @@ export interface AuthServiceDependencies {
   preference: BranchPreference;
   sessionStorage: SecureSessionStorage;
   remoteSession: RemoteSessionRevoker;
+  refreshCoordinator: AuthRefreshLifecycle;
 }
 
 export type AuthActionResult =
@@ -106,6 +112,9 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
         message: 'Secure sign-out is still in progress.',
       };
     }
+    if (!dependencies.refreshCoordinator.isQuiescent()) {
+      return cleanupFailure();
+    }
     if (!dependencies.sessionStorage.allowWrites()) {
       return cleanupFailure();
     }
@@ -113,6 +122,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
   };
 
   const teardownLocalAuth = async (): Promise<boolean> => {
+    const retirement = dependencies.refreshCoordinator.retire();
     const stopRefresh = (async () => {
       try {
         await dependencies.auth.stopAutoRefresh();
@@ -121,13 +131,22 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
         return false;
       }
     })();
-    let authPurged = false;
-    try {
-      authPurged =
-        (await dependencies.sessionStorage.purge()).status === 'success';
-    } catch {
-      authPurged = false;
-    }
+    const purgeStorage = (async () => {
+      try {
+        return (await dependencies.sessionStorage.purge()).status === 'success';
+      } catch {
+        return false;
+      }
+    })();
+    const waitForRefreshes = retirement.waitForRequests().then(
+      () => true,
+      () => false
+    );
+    const [refreshStopped, authPurged, refreshesRetired] = await Promise.all([
+      stopRefresh,
+      purgeStorage,
+      waitForRefreshes,
+    ]);
     let inProcessTeardown = false;
     try {
       inProcessTeardown =
@@ -135,36 +154,18 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
     } catch {
       inProcessTeardown = false;
     }
-    return (await stopRefresh) && authPurged && inProcessTeardown;
+    if (
+      !refreshStopped ||
+      !authPurged ||
+      !refreshesRetired ||
+      !inProcessTeardown
+    ) {
+      return false;
+    }
+    return dependencies.refreshCoordinator.complete(retirement);
   };
 
-  const abandonAuthAttempt = async (
-    sessionAcquired = false
-  ): Promise<boolean> => {
-    if (sessionAcquired) {
-      return teardownLocalAuth();
-    }
-    const stopRefresh = (async () => {
-      try {
-        await dependencies.auth.stopAutoRefresh();
-        return true;
-      } catch {
-        return false;
-      }
-    })();
-    const purge = (async () => {
-      try {
-        return (await dependencies.sessionStorage.purge()).status === 'success';
-      } catch {
-        return false;
-      }
-    })();
-    const [refreshStopped, storagePurged] = await Promise.all([
-      stopRefresh,
-      purge,
-    ]);
-    return refreshStopped && storagePurged;
-  };
+  const abandonAuthAttempt = async (): Promise<boolean> => teardownLocalAuth();
 
   const purgeLocalSession = async (): Promise<LocalSessionPurgeResult> => {
     const clearPreference = dependencies.preference.clear().then(
@@ -188,7 +189,6 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
     ): Promise<AuthActionResult> {
       const storageError = enableAuthStorage();
       if (storageError) return storageError;
-      let sessionAcquired = false;
       try {
         const { error } = await dependencies.auth.signInWithPassword({
           email: email.trim().toLowerCase(),
@@ -198,11 +198,10 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           if (!(await abandonAuthAttempt())) return cleanupFailure();
           return { status: 'error', message: passwordErrorMessage(error) };
         }
-        sessionAcquired = true;
         await dependencies.auth.startAutoRefresh();
         return { status: 'success' };
       } catch {
-        if (!(await abandonAuthAttempt(sessionAcquired))) {
+        if (!(await abandonAuthAttempt())) {
           return cleanupFailure();
         }
         return {
@@ -214,7 +213,6 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
 
     async signInWithGoogle(): Promise<GoogleAuthResult> {
       let storageEnabled = false;
-      let sessionAcquired = false;
       try {
         const redirectTo = dependencies.linking.createURL('auth/callback', {
           scheme: 'usefuldesk-agent',
@@ -274,11 +272,10 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
             message: 'Could not complete Google sign-in. Please try again.',
           };
         }
-        sessionAcquired = true;
         await dependencies.auth.startAutoRefresh();
         return { status: 'success' };
       } catch {
-        if (storageEnabled && !(await abandonAuthAttempt(sessionAcquired))) {
+        if (storageEnabled && !(await abandonAuthAttempt())) {
           return cleanupFailure();
         }
         return {
@@ -347,6 +344,7 @@ const authService = createAuthService({
   preference: branchPreference,
   sessionStorage: mobileSessionStorage,
   remoteSession: createRemoteSessionRevoker(fetch, mobileEnvironment),
+  refreshCoordinator: mobileAuthRefreshCoordinator,
 });
 
 export const signInWithPassword = authService.signInWithPassword;
