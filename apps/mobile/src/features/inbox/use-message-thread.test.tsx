@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { Suspense, type ReactNode } from 'react';
 
 import type { ConversationRepository } from './conversation-repository';
 import type { InboxRealtimeFeed } from './inbox-realtime-provider';
@@ -1155,6 +1156,134 @@ describe('useMessageThread', () => {
       MESSAGE_0_ID,
       MESSAGE_1_ID,
     ]);
+  });
+
+  it('ignores old-feed callbacks fired during replacement render', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    let firedOldCallbacks = false;
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      { realtime: InboxRealtimeFeed; fireOldCallbacks: boolean }
+    >(
+      ({ realtime: currentFeed, fireOldCallbacks }) => {
+        const thread = useConfiguredThread({ realtime: currentFeed });
+        if (fireOldCallbacks && !firedOldCallbacks) {
+          firedOldCallbacks = true;
+          void firstFeed.emit({
+            table: 'conversations',
+            eventType: 'DELETE',
+            accountId: BRANCH_ID,
+            conversationId: CONVERSATION_ID,
+            messageId: null,
+          });
+          void firstFeed.emit({
+            table: 'messages',
+            eventType: 'DELETE',
+            accountId: BRANCH_ID,
+            conversationId: CONVERSATION_ID,
+            messageId: MESSAGE_1_ID,
+          });
+          void firstFeed.emitStatus('disconnected', 99);
+        }
+        return thread;
+      },
+      {
+        initialProps: { realtime: firstFeed, fireOldCallbacks: false },
+      }
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    const initialItems = result.current.items;
+    messages.list.mockRejectedValueOnce(new Error('stale status refresh'));
+
+    rerender({ realtime: secondFeed, fireOldCallbacks: true });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.status).toBe('ready');
+    expect(result.current.items).toEqual(initialItems);
+    expect(result.current.connection).toBe('connected');
+    expect(messages.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('restarts an interrupted main load after its owner clears during replacement render', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    const oldConversation = deferred<InboxConversation>();
+    const oldMessages = deferred<MessagePage>();
+    const freshConversation = conversation({ status: 'pending' });
+    const freshMessage = message({ id: MESSAGE_3_ID });
+    conversations.get
+      .mockReturnValueOnce(oldConversation.promise)
+      .mockResolvedValueOnce(freshConversation);
+    messages.list
+      .mockReturnValueOnce(oldMessages.promise)
+      .mockResolvedValueOnce(page([freshMessage]));
+    const replacementCommit = deferred<void>();
+    function SuspenseBoundary({ children }: { children: ReactNode }) {
+      return <Suspense fallback={null}>{children}</Suspense>;
+    }
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      {
+        realtime: InboxRealtimeFeed;
+        holdReplacement: boolean;
+        renderTick: number;
+      }
+    >(
+      ({ realtime: currentFeed, holdReplacement }) => {
+        const thread = useConfiguredThread({ realtime: currentFeed });
+        if (holdReplacement) throw replacementCommit.promise;
+        return thread;
+      },
+      {
+        initialProps: {
+          realtime: firstFeed,
+          holdReplacement: false,
+          renderTick: 0,
+        },
+        wrapper: SuspenseBoundary,
+      }
+    );
+    expect(messages.list).toHaveBeenCalledTimes(1);
+
+    rerender({
+      realtime: secondFeed,
+      holdReplacement: true,
+      renderTick: 1,
+    });
+    await act(async () => {
+      oldConversation.resolve(conversation());
+      oldMessages.resolve(page([message({ id: MESSAGE_1_ID })]));
+      await Promise.all([oldConversation.promise, oldMessages.promise]);
+      await Promise.resolve();
+    });
+    expect(messages.list).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      replacementCommit.resolve();
+      rerender({
+        realtime: secondFeed,
+        holdReplacement: false,
+        renderTick: 2,
+      });
+      await replacementCommit.promise;
+    });
+
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.conversation).toEqual(freshConversation);
+    expect(result.current.items).toEqual([freshMessage]);
+
+    rerender({
+      realtime: secondFeed,
+      holdReplacement: false,
+      renderTick: 3,
+    });
+    await act(async () => Promise.resolve());
+    expect(messages.list).toHaveBeenCalledTimes(2);
   });
 
   it('lets conversation delete beat a pending header refresh', async () => {

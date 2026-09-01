@@ -169,6 +169,7 @@ export function useMessageThread({
   const activePaginationOwner = useRef<number | null>(null);
   const unreadClear = useRef<UnreadClear | null>(null);
   const activeMainRequest = useRef<MainRequestOwner | null>(null);
+  const pendingFeedReloadGeneration = useRef<number | null>(null);
   const resyncGeneration = useRef(realtime.getSnapshot().resyncGeneration);
 
   const nextScope = `${accountId}:${conversationId}`;
@@ -184,8 +185,12 @@ export function useMessageThread({
     mutationSequence.current = 0;
   }
   if (activeRealtime.current !== realtime) {
+    const interruptedMainLoad = activeMainRequest.current !== null;
     activeRealtime.current = realtime;
     feedGeneration.current += 1;
+    pendingFeedReloadGeneration.current = interruptedMainLoad
+      ? feedGeneration.current
+      : null;
     requestGeneration.current += 1;
     headerGeneration.current += 1;
     activePaginationOwner.current = null;
@@ -402,29 +407,35 @@ export function useMessageThread({
     const snapshot = realtime.getSnapshot();
     const previousResyncGeneration = resyncGeneration.current;
     const retryInterruptedLoad =
-      currentFeedGeneration > 0 && activeMainRequest.current !== null;
+      pendingFeedReloadGeneration.current === currentFeedGeneration;
+    if (retryInterruptedLoad) {
+      pendingFeedReloadGeneration.current = null;
+    }
     const refreshReplacement =
       currentFeedGeneration > 0 &&
       (retryInterruptedLoad ||
         snapshot.resyncGeneration > previousResyncGeneration);
     let disposed = false;
 
+    const isCurrentListener = () =>
+      !disposed &&
+      mounted.current &&
+      realtimeGeneration.current === currentRealtimeGeneration &&
+      feedGeneration.current === currentFeedGeneration;
+
     const isCurrentScope = (
       eventAccountId: string,
       eventConversationId: string,
       eventScopeGeneration: number
     ) =>
-      !disposed &&
-      mounted.current &&
-      realtimeGeneration.current === currentRealtimeGeneration &&
-      feedGeneration.current === currentFeedGeneration &&
+      isCurrentListener() &&
       scopeGeneration.current === eventScopeGeneration &&
       activeAccountId.current === eventAccountId &&
       activeConversationId.current === eventConversationId;
 
     resyncGeneration.current = snapshot.resyncGeneration;
     void Promise.resolve().then(() => {
-      if (!disposed && mounted.current) {
+      if (isCurrentListener()) {
         setConnection(snapshot.connection);
         setLoadingOlder(false);
         if (refreshReplacement) {
@@ -434,6 +445,7 @@ export function useMessageThread({
     });
 
     const eventCleanup = realtime.listen((event) => {
+      if (!isCurrentListener()) return;
       if (
         event.accountId !== activeAccountId.current ||
         event.conversationId !== activeConversationId.current
@@ -620,7 +632,7 @@ export function useMessageThread({
     });
 
     const statusCleanup = realtime.listenStatus((nextSnapshot) => {
-      if (disposed || !mounted.current) return;
+      if (!isCurrentListener()) return;
       setConnection(nextSnapshot.connection);
       if (nextSnapshot.resyncGeneration > resyncGeneration.current) {
         resyncGeneration.current = nextSnapshot.resyncGeneration;
