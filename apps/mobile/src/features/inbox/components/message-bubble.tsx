@@ -58,7 +58,9 @@ function BubbleMeta({
 
   return (
     <Text
-      className={`${metaTone} text-xs${inline ? '' : 'self-end pt-0.5'}`}
+      className={`${metaTone} ${
+        inline ? 'text-xs' : 'self-end pt-0.5 text-xs'
+      }`}
       testID="message-metadata"
     >
       {formattedTime}

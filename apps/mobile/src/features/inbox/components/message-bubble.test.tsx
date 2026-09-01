@@ -115,8 +115,12 @@ describe('MessageBubble', () => {
     );
 
     const metadata = screen.getByTestId('message-metadata');
+    const metadataClasses = metadata.props.className.split(/\s+/);
 
     expect(metadata.props.className).not.toContain('absolute');
+    expect(metadataClasses).toEqual(
+      expect.arrayContaining(['text-xs', 'self-end', 'pt-0.5'])
+    );
     expect(screen.queryByTestId('message-text-content')).toBeNull();
     expect(screen.getByText('Document unavailable')).toBeTruthy();
   });
