@@ -158,6 +158,7 @@ export function InboxScreen() {
 
       {inbox.connection === 'disconnected' ? (
         <View
+          accessible
           accessibilityLiveRegion="polite"
           accessibilityRole="alert"
           className="bg-warning-soft mx-4 mb-3 gap-1 rounded-xl p-4"
@@ -167,6 +168,19 @@ export function InboxScreen() {
           </Text>
           <Text className="text-warning-soft-foreground text-sm leading-5">
             Pull to refresh while the connection recovers.
+          </Text>
+        </View>
+      ) : null}
+
+      {inbox.refreshWarning ? (
+        <View
+          accessible
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          className="mx-4 mb-3"
+        >
+          <Text className="text-danger text-center text-sm leading-5">
+            {inbox.refreshWarning}
           </Text>
         </View>
       ) : null}

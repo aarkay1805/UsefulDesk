@@ -202,6 +202,89 @@ describe('useMessageThread', () => {
     expect(result.current.items).toEqual([]);
   });
 
+  it('preserves visible history and warns when manual refresh fails', async () => {
+    messages.list
+      .mockResolvedValueOnce(
+        page([
+          message({
+            id: MESSAGE_1_ID,
+            createdAt: '2026-09-01T08:01:00.000Z',
+          }),
+          message({
+            id: MESSAGE_2_ID,
+            createdAt: '2026-09-01T08:02:00.000Z',
+          }),
+        ])
+      )
+      .mockRejectedValueOnce(new Error('Could not load messages'));
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.refresh());
+
+    await waitFor(() =>
+      expect(result.current.refreshWarning).toBe('Could not refresh messages')
+    );
+    expect(result.current.conversation).toEqual(conversation());
+    expect(result.current.items.map((item) => item.id)).toEqual([
+      MESSAGE_1_ID,
+      MESSAGE_2_ID,
+    ]);
+    expect(result.current.status).toBe('ready');
+    expect(result.current.error).toBeNull();
+    expect(result.current.refreshing).toBe(false);
+  });
+
+  it('preserves visible history across failed foreground and reconnect resyncs', async () => {
+    messages.list
+      .mockResolvedValueOnce(
+        page([
+          message({
+            id: MESSAGE_1_ID,
+            createdAt: '2026-09-01T08:01:00.000Z',
+          }),
+          message({
+            id: MESSAGE_2_ID,
+            createdAt: '2026-09-01T08:02:00.000Z',
+          }),
+        ])
+      )
+      .mockRejectedValueOnce(new Error('Foreground refresh failed'))
+      .mockRejectedValueOnce(new Error('Reconnect refresh failed'));
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await act(async () => realtime.emitStatus('connected', 1));
+    await waitFor(() =>
+      expect(result.current.refreshWarning).toBe('Could not refresh messages')
+    );
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.refreshing).toBe(false);
+
+    await act(async () => realtime.emitStatus('disconnected', 1));
+    await act(async () => realtime.emitStatus('connected', 2));
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.status).toBe('ready');
+    expect(result.current.refreshWarning).toBe('Could not refresh messages');
+  });
+
+  it('publishes unavailable when a refresh verifies the conversation is gone', async () => {
+    conversations.get
+      .mockResolvedValueOnce(conversation())
+      .mockRejectedValueOnce(new Error('Conversation is unavailable'));
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.refresh());
+
+    await waitFor(() => expect(result.current.status).toBe('unavailable'));
+    expect(result.current.conversation).toBeNull();
+    expect(result.current.items).toEqual([]);
+    expect(result.current.refreshWarning).toBeNull();
+  });
+
   it('keeps readable history and warns when clearing unread fails', async () => {
     conversations.markRead.mockRejectedValueOnce(new Error('Denied'));
     const { result } = renderHook(() => useConfiguredThread());

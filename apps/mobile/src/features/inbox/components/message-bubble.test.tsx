@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react-native';
 
 import { message } from '../inbox-test-fixtures';
-import { MessageBubble } from './message-bubble';
+import { messageImageSizeForViewport, MessageBubble } from './message-bubble';
 
 jest.mock('expo-image', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -16,6 +16,17 @@ jest.mock('expo-image', () => {
 });
 
 describe('MessageBubble', () => {
+  it('clamps 4:3 photos to the padded bubble on a 320dp portrait viewport', () => {
+    expect(messageImageSizeForViewport(320)).toEqual({
+      height: 129,
+      width: 172,
+    });
+    expect(messageImageSizeForViewport(768)).toEqual({
+      height: 180,
+      width: 240,
+    });
+  });
+
   it.each([
     ['template', 'Template'],
     ['interactive', 'Button reply'],

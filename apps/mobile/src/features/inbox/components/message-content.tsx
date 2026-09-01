@@ -18,10 +18,15 @@ const MEDIA_LABEL: Record<
 
 interface MessageContentProps {
   message: InboxMessage;
+  imageSize?: { height: number; width: number };
   trailingMeta?: ReactNode;
 }
 
-export function MessageContent({ message, trailingMeta }: MessageContentProps) {
+export function MessageContent({
+  message,
+  imageSize = { height: 180, width: 240 },
+  trailingMeta,
+}: MessageContentProps) {
   const [imageUnavailable, setImageUnavailable] = useState(false);
   const [openFailed, setOpenFailed] = useState(false);
   const [opening, setOpening] = useState(false);
@@ -54,7 +59,7 @@ export function MessageContent({ message, trailingMeta }: MessageContentProps) {
             contentFit="cover"
             onError={() => setImageUnavailable(true)}
             source={{ uri: safeUrl }}
-            style={{ height: 180, width: 240 }}
+            style={imageSize}
           />
         ) : (
           <Text className="text-foreground text-sm">Photo unavailable</Text>

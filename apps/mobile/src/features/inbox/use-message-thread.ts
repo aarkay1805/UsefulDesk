@@ -21,6 +21,7 @@ import type {
 } from './inbox-types';
 
 const LOAD_ERROR = 'Could not load messages';
+const REFRESH_ERROR = 'Could not refresh messages';
 const PAGINATION_ERROR = 'Could not load older messages';
 const UNREAD_ERROR = 'Could not clear unread messages';
 const UNAVAILABLE_ERROR = 'Conversation is unavailable';
@@ -33,6 +34,7 @@ interface MessageThreadState {
   cursor: MessageCursor | null;
   status: 'loading' | 'ready' | 'unavailable' | 'error';
   error: string | null;
+  refreshWarning: string | null;
   unreadWarning: string | null;
   paginationError: string | null;
   refreshing: boolean;
@@ -59,6 +61,7 @@ export interface UseMessageThreadResult {
   items: InboxMessage[];
   status: 'loading' | 'ready' | 'unavailable' | 'error';
   error: string | null;
+  refreshWarning: string | null;
   unreadWarning: string | null;
   paginationError: string | null;
   connection: InboxConnectionState;
@@ -87,6 +90,7 @@ function initialState(): MessageThreadState {
     cursor: null,
     status: 'loading',
     error: null,
+    refreshWarning: null,
     unreadWarning: null,
     paginationError: null,
     refreshing: true,
@@ -317,6 +321,7 @@ export function useMessageThread({
           status:
             sameScope && previous.status === 'ready' ? 'ready' : 'loading',
           error: null,
+          refreshWarning: null,
           unreadWarning: null,
           paginationError: null,
           refreshing: true,
@@ -358,6 +363,7 @@ export function useMessageThread({
           cursor: page.nextCursor,
           status: 'ready',
           error: null,
+          refreshWarning: null,
           unreadWarning: null,
           paginationError: null,
           refreshing: false,
@@ -380,17 +386,34 @@ export function useMessageThread({
         ) {
           return;
         }
-        setState({
-          accountId,
-          conversationId,
-          conversation: null,
-          items: [],
-          cursor: null,
-          status: isUnavailable(error) ? 'unavailable' : 'error',
-          error: isUnavailable(error) ? null : LOAD_ERROR,
-          unreadWarning: null,
-          paginationError: null,
-          refreshing: false,
+        const unavailable = isUnavailable(error);
+        setState((previous) => {
+          const sameReadyScope =
+            previous.accountId === accountId &&
+            previous.conversationId === conversationId &&
+            previous.status === 'ready' &&
+            previous.conversation !== null;
+          if (!unavailable && sameReadyScope) {
+            return {
+              ...previous,
+              error: null,
+              refreshWarning: REFRESH_ERROR,
+              refreshing: false,
+            };
+          }
+          return {
+            accountId,
+            conversationId,
+            conversation: null,
+            items: [],
+            cursor: null,
+            status: unavailable ? 'unavailable' : 'error',
+            error: unavailable ? null : LOAD_ERROR,
+            refreshWarning: null,
+            unreadWarning: null,
+            paginationError: null,
+            refreshing: false,
+          };
         });
       } finally {
         if (activeMainRequest.current === requestOwner) {
@@ -495,6 +518,7 @@ export function useMessageThread({
             cursor: null,
             status: 'unavailable',
             error: null,
+            refreshWarning: null,
             unreadWarning: null,
             paginationError: null,
             refreshing: false,
@@ -696,6 +720,7 @@ export function useMessageThread({
       current.accountId !== currentAccountId ||
       current.conversationId !== currentConversationId ||
       current.status !== 'ready' ||
+      current.refreshing ||
       !current.cursor
     ) {
       return;
@@ -770,6 +795,7 @@ export function useMessageThread({
     items: stateMatchesScope ? state.items : [],
     status: stateMatchesScope ? state.status : 'loading',
     error: stateMatchesScope ? state.error : null,
+    refreshWarning: stateMatchesScope ? state.refreshWarning : null,
     unreadWarning: stateMatchesScope ? state.unreadWarning : null,
     paginationError: stateMatchesScope ? state.paginationError : null,
     connection,

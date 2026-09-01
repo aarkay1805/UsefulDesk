@@ -29,10 +29,12 @@ type ConversationPage = Page<InboxConversation, ConversationCursor>;
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((done, fail) => {
     resolve = done;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }
 
 function fakeRealtimeFeed(): InboxRealtimeFeed & {
@@ -149,6 +151,112 @@ describe('useConversationList', () => {
     await waitFor(() => expect(result.current.status).toBe('error'));
     expect(result.current.items).toEqual([]);
     expect(result.current.unreadCount).toBe(0);
+  });
+
+  it('clears previous query rows when the new query load fails', async () => {
+    repository.list
+      .mockResolvedValueOnce(page([conversationA]))
+      .mockRejectedValueOnce(new Error('Could not load conversations'));
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.items).toEqual([conversationA]));
+
+    act(() => result.current.setSearch('renewal'));
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.items).toEqual([]);
+    expect(result.current.refreshWarning).toBeNull();
+  });
+
+  it('preserves visible rows and warns when manual refresh fails', async () => {
+    repository.list
+      .mockResolvedValueOnce(page([conversationA]))
+      .mockRejectedValueOnce(new Error('Could not load conversations'));
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.refresh());
+
+    await waitFor(() =>
+      expect(result.current.refreshWarning).toBe(
+        'Could not refresh conversations'
+      )
+    );
+    expect(result.current.items).toEqual([conversationA]);
+    expect(result.current.status).toBe('ready');
+    expect(result.current.error).toBeNull();
+    expect(result.current.refreshing).toBe(false);
+  });
+
+  it('preserves visible rows across failed foreground and reconnect resyncs', async () => {
+    const resyncRealtime = fakeRealtimeFeed();
+    repository.list
+      .mockResolvedValueOnce(page([conversationA]))
+      .mockRejectedValueOnce(new Error('Foreground refresh failed'))
+      .mockRejectedValueOnce(new Error('Reconnect refresh failed'));
+    const { result } = renderHook(() =>
+      useConversationList({
+        accountId: BRANCH_A,
+        repository,
+        realtime: resyncRealtime,
+      })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await act(async () => resyncRealtime.emitStatus('connected', 1));
+    await waitFor(() =>
+      expect(result.current.refreshWarning).toBe(
+        'Could not refresh conversations'
+      )
+    );
+    expect(result.current.items).toEqual([conversationA]);
+    expect(result.current.refreshing).toBe(false);
+
+    await act(async () => resyncRealtime.emitStatus('disconnected', 1));
+    await act(async () => resyncRealtime.emitStatus('connected', 2));
+    await waitFor(() => expect(repository.list).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(result.current.items).toEqual([conversationA]);
+    expect(result.current.status).toBe('ready');
+    expect(result.current.refreshWarning).toBe(
+      'Could not refresh conversations'
+    );
+  });
+
+  it('shows the full error when an event refresh interrupts the initial load', async () => {
+    const initial = deferred<ConversationPage>();
+    const eventRealtime = fakeRealtimeFeed();
+    repository.list
+      .mockReturnValueOnce(initial.promise)
+      .mockRejectedValueOnce(new Error('Could not load conversations'));
+    const { result } = renderHook(() =>
+      useConversationList({
+        accountId: BRANCH_A,
+        repository,
+        realtime: eventRealtime,
+      })
+    );
+
+    await act(async () =>
+      eventRealtime.emit({
+        table: 'conversations',
+        eventType: 'DELETE',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: null,
+      })
+    );
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.items).toEqual([]);
+    expect(result.current.error).toBe('Could not load conversations');
+    expect(result.current.refreshWarning).toBeNull();
+    expect(result.current.refreshing).toBe(false);
+
+    initial.resolve(page([conversationA]));
   });
 
   it('does not invalidate an in-flight load for a normalized-equivalent search', async () => {

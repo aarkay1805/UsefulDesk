@@ -1,4 +1,4 @@
-import { Text, View } from 'react-native';
+import { Text, useWindowDimensions, View } from 'react-native';
 
 import type { InboxMessage, MessageStatus } from '../inbox-types';
 import { MessageContent } from './message-content';
@@ -18,6 +18,25 @@ const DELIVERY_TICK: Record<MessageStatus, string> = {
   read: '✓✓',
   failed: '!',
 };
+
+const THREAD_HORIZONTAL_PADDING = 12;
+const BUBBLE_MAX_WIDTH_RATIO = 0.65;
+const BUBBLE_HORIZONTAL_PADDING = 10;
+const MAX_IMAGE_WIDTH = 240;
+const IMAGE_ASPECT_RATIO = 4 / 3;
+
+export function messageImageSizeForViewport(viewportWidth: number): {
+  height: number;
+  width: number;
+} {
+  const rowWidth = Math.max(0, viewportWidth - THREAD_HORIZONTAL_PADDING * 2);
+  const contentWidth = Math.max(
+    0,
+    rowWidth * BUBBLE_MAX_WIDTH_RATIO - BUBBLE_HORIZONTAL_PADDING * 2
+  );
+  const width = Math.min(MAX_IMAGE_WIDTH, Math.floor(contentWidth));
+  return { height: width / IMAGE_ASPECT_RATIO, width };
+}
 
 interface DeliveryIndicatorProps {
   status: MessageStatus;
@@ -85,6 +104,8 @@ export function MessageBubble({
   formattedTime,
   startsRun,
 }: MessageBubbleProps) {
+  const { width: viewportWidth } = useWindowDimensions();
+  const imageSize = messageImageSizeForViewport(viewportWidth);
   const isOutbound = message.senderType !== 'customer';
   const marker =
     message.contentType === 'template'
@@ -122,6 +143,7 @@ export function MessageBubble({
             <Text className={`${metaTone} text-xs`}>{marker}</Text>
           ) : null}
           <MessageContent
+            imageSize={imageSize}
             message={message}
             trailingMeta={
               hasTrailingText ? (

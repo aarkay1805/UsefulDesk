@@ -14,14 +14,17 @@ import type {
 } from './inbox-types';
 
 const LOAD_ERROR = 'Could not load conversations';
+const REFRESH_ERROR = 'Could not refresh conversations';
 const MORE_ERROR = 'Could not load more conversations';
 
 interface ConversationListState {
   accountId: string | null;
+  scopeKey: string | null;
   items: InboxConversation[];
   cursor: ConversationCursor | null;
   status: 'loading' | 'ready' | 'error';
   error: string | null;
+  refreshWarning: string | null;
   paginationError: string | null;
   unreadCount: number;
   refreshing: boolean;
@@ -31,6 +34,7 @@ export interface UseConversationListResult {
   items: InboxConversation[];
   status: 'loading' | 'ready' | 'error';
   error: string | null;
+  refreshWarning: string | null;
   paginationError: string | null;
   connection: InboxConnectionState;
   filter: ConversationFilter;
@@ -87,10 +91,12 @@ function compareConversations(
 function initialState(): ConversationListState {
   return {
     accountId: null,
+    scopeKey: null,
     items: [],
     cursor: null,
     status: 'loading',
     error: null,
+    refreshWarning: null,
     paginationError: null,
     unreadCount: 0,
     refreshing: true,
@@ -114,6 +120,7 @@ export function useConversationList({
     () => normalizeConversationSearch(search),
     [search]
   );
+  const scopeKey = `${accountId}:${filter}:${normalizedSearch}`;
   const activeAccountId = useRef(accountId);
   const latestState = useRef(state);
   const latestFilter = useRef(filter);
@@ -157,11 +164,18 @@ export function useConversationList({
 
     void (async () => {
       setState((previous) => ({
-        ...previous,
-        cursor: null,
-        status: 'loading',
+        accountId,
+        scopeKey,
+        items: previous.scopeKey === scopeKey ? previous.items : [],
+        cursor: previous.scopeKey === scopeKey ? previous.cursor : null,
+        status:
+          previous.scopeKey === scopeKey && previous.status === 'ready'
+            ? 'ready'
+            : 'loading',
         error: null,
+        refreshWarning: null,
         paginationError: null,
+        unreadCount: previous.scopeKey === scopeKey ? previous.unreadCount : 0,
         refreshing: true,
       }));
 
@@ -184,10 +198,12 @@ export function useConversationList({
         }
         setState({
           accountId,
+          scopeKey,
           items: page.items,
           cursor: page.nextCursor,
           status: 'ready',
           error: null,
+          refreshWarning: null,
           paginationError: null,
           unreadCount,
           refreshing: false,
@@ -200,23 +216,35 @@ export function useConversationList({
         ) {
           return;
         }
-        setState((previous) => ({
-          accountId,
-          items: [],
-          cursor: null,
-          status: 'error',
-          error: LOAD_ERROR,
-          paginationError: null,
-          unreadCount: 0,
-          refreshing: false,
-        }));
+        setState((previous) => {
+          if (previous.scopeKey === scopeKey && previous.status === 'ready') {
+            return {
+              ...previous,
+              error: null,
+              refreshWarning: REFRESH_ERROR,
+              refreshing: false,
+            };
+          }
+          return {
+            accountId,
+            scopeKey,
+            items: [],
+            cursor: null,
+            status: 'error',
+            error: LOAD_ERROR,
+            refreshWarning: null,
+            paginationError: null,
+            unreadCount: 0,
+            refreshing: false,
+          };
+        });
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [accountId, filter, normalizedSearch, refreshNonce, repository]);
+  }, [accountId, filter, normalizedSearch, refreshNonce, repository, scopeKey]);
 
   useEffect(() => {
     const currentRealtimeGeneration = ++realtimeGeneration.current;
@@ -236,9 +264,22 @@ export function useConversationList({
       const currentListGeneration = ++listGeneration.current;
       const currentFilter = latestFilter.current;
       const currentSearch = latestSearch.current;
+      const currentScopeKey = `${currentAccountId}:${currentFilter}:${currentSearch}`;
       const currentRequestId = ++requestId.current;
       activePaginationOwner.current = null;
       if (mounted.current) setLoadingMore(false);
+      if (mounted.current) {
+        setState((previous) =>
+          previous.scopeKey === currentScopeKey && previous.status === 'ready'
+            ? {
+                ...previous,
+                refreshWarning: null,
+                paginationError: null,
+                refreshing: true,
+              }
+            : previous
+        );
+      }
       refreshInFlight = true;
 
       void (async () => {
@@ -265,10 +306,12 @@ export function useConversationList({
           }
           setState({
             accountId: currentAccountId,
+            scopeKey: currentScopeKey,
             items: page.items,
             cursor: page.nextCursor,
             status: 'ready',
             error: null,
+            refreshWarning: null,
             paginationError: null,
             unreadCount,
             refreshing: false,
@@ -285,11 +328,31 @@ export function useConversationList({
           ) {
             return;
           }
-          setState((previous) => ({
-            ...previous,
-            error: LOAD_ERROR,
-            refreshing: false,
-          }));
+          setState((previous) => {
+            if (
+              previous.scopeKey === currentScopeKey &&
+              previous.status === 'ready'
+            ) {
+              return {
+                ...previous,
+                error: null,
+                refreshWarning: REFRESH_ERROR,
+                refreshing: false,
+              };
+            }
+            return {
+              accountId: currentAccountId,
+              scopeKey: currentScopeKey,
+              items: [],
+              cursor: null,
+              status: 'error',
+              error: LOAD_ERROR,
+              refreshWarning: null,
+              paginationError: null,
+              unreadCount: 0,
+              refreshing: false,
+            };
+          });
         } finally {
           refreshInFlight = false;
           if (refreshPending) {
@@ -430,6 +493,7 @@ export function useConversationList({
     if (
       activePaginationOwner.current !== null ||
       current.status !== 'ready' ||
+      current.refreshing ||
       current.accountId !== currentAccountId ||
       !current.cursor
     ) {
@@ -485,19 +549,21 @@ export function useConversationList({
     })();
   }, [repository]);
 
-  const items = state.accountId === accountId ? state.items : [];
+  const stateMatchesScope = state.scopeKey === scopeKey;
+  const items = stateMatchesScope ? state.items : [];
   return {
     items,
-    status: state.status,
-    error: state.error,
-    paginationError: state.paginationError,
+    status: stateMatchesScope ? state.status : 'loading',
+    error: stateMatchesScope ? state.error : null,
+    refreshWarning: stateMatchesScope ? state.refreshWarning : null,
+    paginationError: stateMatchesScope ? state.paginationError : null,
     connection,
     filter,
     search,
-    unreadCount: state.accountId === accountId ? state.unreadCount : 0,
-    refreshing: state.refreshing,
+    unreadCount: stateMatchesScope ? state.unreadCount : 0,
+    refreshing: stateMatchesScope ? state.refreshing : true,
     loadingMore,
-    hasMore: state.accountId === accountId && state.cursor !== null,
+    hasMore: stateMatchesScope && state.cursor !== null,
     setFilter,
     setSearch,
     refresh,

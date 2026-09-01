@@ -239,6 +239,7 @@ function listResult(
     items: [conversation({ unreadCount: 0 })],
     status: 'ready',
     error: null,
+    refreshWarning: null,
     paginationError: null,
     connection: 'connected',
     filter: 'all',
@@ -332,6 +333,22 @@ describe('InboxScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Retry loading more' }));
     expect(result.loadMore).toHaveBeenCalledTimes(1);
     expect(result.refresh).not.toHaveBeenCalled();
+  });
+
+  it('keeps rows and the connection banner visible with an inline refresh warning', () => {
+    mockUseConversationList.mockReturnValue(
+      listResult({
+        connection: 'disconnected',
+        refreshWarning: 'Could not refresh conversations',
+      })
+    );
+
+    render(<InboxScreen />);
+
+    expect(screen.getByText('Asha Rao')).toBeTruthy();
+    expect(screen.getByText('Live updates unavailable')).toBeTruthy();
+    expect(screen.getByText('Could not refresh conversations')).toBeTruthy();
+    expect(screen.getAllByRole('alert')).toHaveLength(2);
   });
 
   it('supports pull refresh and loads the next page at the list boundary', () => {

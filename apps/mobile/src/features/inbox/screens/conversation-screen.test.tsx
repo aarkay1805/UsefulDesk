@@ -297,6 +297,7 @@ function readyThreadResult(
     ],
     status: 'ready',
     error: null,
+    refreshWarning: null,
     unreadWarning: null,
     paginationError: null,
     connection: 'connected',
@@ -625,6 +626,7 @@ describe('ConversationScreen', () => {
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
         connection: 'disconnected',
+        refreshWarning: 'Could not refresh messages',
         unreadWarning: 'Could not clear unread messages',
         paginationError: 'Could not load older messages',
         loadOlder,
@@ -634,6 +636,7 @@ describe('ConversationScreen', () => {
 
     expect(screen.getByText(/^Hello/)).toBeTruthy();
     expect(screen.getByText('Live updates unavailable')).toBeTruthy();
+    expect(screen.getByText('Could not refresh messages')).toBeTruthy();
     expect(screen.getByText('Could not clear unread messages')).toBeTruthy();
     expect(screen.getByText('Could not load older messages')).toBeTruthy();
     fireEvent.press(

@@ -281,6 +281,7 @@ function ConversationThread({
 
       {thread.connection === 'disconnected' ? (
         <View
+          accessible
           accessibilityLiveRegion="polite"
           accessibilityRole="alert"
           className="bg-warning-soft mx-4 mt-3 gap-1 rounded-xl p-4"
@@ -296,12 +297,26 @@ function ConversationThread({
 
       {thread.unreadWarning ? (
         <View
+          accessible
           accessibilityLiveRegion="polite"
           accessibilityRole="alert"
           className="mx-4 mt-3"
         >
           <Text className="text-foreground text-center text-sm leading-5">
             Could not clear unread messages
+          </Text>
+        </View>
+      ) : null}
+
+      {thread.refreshWarning ? (
+        <View
+          accessible
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          className="mx-4 mt-3"
+        >
+          <Text className="text-danger text-center text-sm leading-5">
+            {thread.refreshWarning}
           </Text>
         </View>
       ) : null}

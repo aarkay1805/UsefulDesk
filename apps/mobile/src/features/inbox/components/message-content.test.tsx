@@ -61,6 +61,24 @@ describe('MessageContent', () => {
     expect(screen.queryByText('Photo')).toBeNull();
   });
 
+  it('renders a narrow-bubble photo at the supplied 4:3 bounds', () => {
+    render(
+      <MessageContent
+        imageSize={{ height: 129, width: 172 }}
+        message={message({
+          contentType: 'image',
+          contentText: null,
+          mediaUrl: 'https://cdn.example.com/photo.jpg',
+        })}
+      />
+    );
+
+    expect(screen.getByLabelText('Photo attachment').props.style).toEqual({
+      height: 129,
+      width: 172,
+    });
+  });
+
   it.each(['video', 'audio', 'document', 'location'] as const)(
     'renders safe %s media with its open action',
     (contentType) => {
