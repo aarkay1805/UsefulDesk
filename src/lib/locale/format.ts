@@ -21,8 +21,8 @@ import {
   formatCurrency,
   formatCurrencyExact,
   formatCurrencyShort,
-} from '@/lib/currency';
-import { accountQualifiedPhoneDisplayValue } from '@/lib/phone-input';
+} from '../currency';
+import { accountQualifiedPhoneDisplayValue } from '../phone-input';
 
 const PLAIN_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 

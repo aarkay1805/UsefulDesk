@@ -1,5 +1,5 @@
-import { COUNTRY_PRESETS } from '@/lib/locale/config';
-import { normalizePhone } from '@/lib/whatsapp/phone-utils';
+import { COUNTRY_PRESETS } from './locale/config';
+import { normalizePhone } from './whatsapp/phone-utils';
 
 /**
  * Canonical visible dial prefix. Accounts created before localization may
