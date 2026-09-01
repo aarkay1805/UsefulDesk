@@ -197,7 +197,6 @@ export const mobileMessageQuerySource: MessageQuerySource = {
     let query = mobileSupabase
       .from('messages')
       .select(MESSAGE_SELECT)
-      .eq('account_id', input.accountId)
       .eq('conversation_id', input.conversationId)
       .setHeader('x-usefuldesk-account-id', input.accountId);
     if (input.cursor) {
@@ -218,7 +217,6 @@ export const mobileMessageQuerySource: MessageQuerySource = {
     const { data, error } = await mobileSupabase
       .from('messages')
       .select(MESSAGE_SELECT)
-      .eq('account_id', input.accountId)
       .eq('conversation_id', input.conversationId)
       .eq('id', input.messageId)
       .setHeader('x-usefuldesk-account-id', input.accountId)
@@ -232,9 +230,8 @@ export const mobileMessageQuerySource: MessageQuerySource = {
     const { data, error } = await mobileSupabase
       .from('messages')
       .select('created_at')
-      .eq('account_id', accountId)
       .eq('conversation_id', conversationId)
-      .eq('direction', 'inbound')
+      .eq('sender_type', 'customer')
       .setHeader('x-usefuldesk-account-id', accountId)
       .order('created_at', { ascending: false })
       .limit(1)

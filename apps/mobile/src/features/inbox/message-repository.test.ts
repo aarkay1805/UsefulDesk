@@ -115,6 +115,10 @@ describe('MessageRepository', () => {
         CONVERSATION_ID
       )
     ).resolves.toBe('2026-09-01T08:04:00.000Z');
+    expect(source.conversationExists).toHaveBeenCalledWith(
+      BRANCH_ID,
+      CONVERSATION_ID
+    );
     expect(calls).toEqual(['conversation', 'latest']);
   });
 
@@ -177,7 +181,84 @@ describe('MessageRepository', () => {
     selectedBranchRef.set(null);
   });
 
-  it('sends the selected-branch header with the latest inbound query', async () => {
+  it('loads message pages through the conversation without filtering a nonexistent message account', async () => {
+    const query = {
+      select: jest.fn(),
+      eq: jest.fn(),
+      setHeader: jest.fn(),
+      order: jest.fn(),
+      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.setHeader.mockReturnValue(query);
+    query.order.mockReturnValue(query);
+    const from = jest
+      .spyOn(mobileSupabase, 'from')
+      .mockReturnValue(query as never);
+    selectedBranchRef.set(BRANCH_ID);
+
+    try {
+      await mobileMessageQuerySource.listMessages({
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        cursor: null,
+        limit: 40,
+      });
+
+      expect(query.eq.mock.calls).toEqual([
+        ['conversation_id', CONVERSATION_ID],
+      ]);
+      expect(query.setHeader).toHaveBeenCalledWith(
+        'x-usefuldesk-account-id',
+        BRANCH_ID
+      );
+    } finally {
+      from.mockRestore();
+      selectedBranchRef.set(null);
+    }
+  });
+
+  it('hydrates a message through the conversation without filtering a nonexistent message account', async () => {
+    const query = {
+      select: jest.fn(),
+      eq: jest.fn(),
+      setHeader: jest.fn(),
+      maybeSingle: jest.fn().mockResolvedValue({
+        data: rawMessage(),
+        error: null,
+      }),
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.setHeader.mockReturnValue(query);
+    const from = jest
+      .spyOn(mobileSupabase, 'from')
+      .mockReturnValue(query as never);
+    selectedBranchRef.set(BRANCH_ID);
+
+    try {
+      await mobileMessageQuerySource.findMessage({
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      });
+
+      expect(query.eq.mock.calls).toEqual([
+        ['conversation_id', CONVERSATION_ID],
+        ['id', MESSAGE_1_ID],
+      ]);
+      expect(query.setHeader).toHaveBeenCalledWith(
+        'x-usefuldesk-account-id',
+        BRANCH_ID
+      );
+    } finally {
+      from.mockRestore();
+      selectedBranchRef.set(null);
+    }
+  });
+
+  it('loads the latest customer message through canonical sender and conversation fields', async () => {
     const query = {
       select: jest.fn(),
       eq: jest.fn(),
@@ -204,15 +285,18 @@ describe('MessageRepository', () => {
       conversationId: CONVERSATION_ID,
     });
 
-    expect(query.eq).toHaveBeenCalledWith('account_id', BRANCH_ID);
-    expect(query.eq).toHaveBeenCalledWith('conversation_id', CONVERSATION_ID);
-    expect(query.eq).toHaveBeenCalledWith('direction', 'inbound');
-    expect(query.setHeader).toHaveBeenCalledWith(
-      'x-usefuldesk-account-id',
-      BRANCH_ID
-    );
-
-    from.mockRestore();
-    selectedBranchRef.set(null);
+    try {
+      expect(query.eq.mock.calls).toEqual([
+        ['conversation_id', CONVERSATION_ID],
+        ['sender_type', 'customer'],
+      ]);
+      expect(query.setHeader).toHaveBeenCalledWith(
+        'x-usefuldesk-account-id',
+        BRANCH_ID
+      );
+    } finally {
+      from.mockRestore();
+      selectedBranchRef.set(null);
+    }
   });
 });
