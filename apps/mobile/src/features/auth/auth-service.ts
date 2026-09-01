@@ -55,6 +55,10 @@ export interface AuthServiceDependencies {
   refreshCoordinator: AuthRefreshLifecycle;
 }
 
+export interface AuthAttemptLifecycle {
+  readonly beforeLocalSignOut: () => void;
+}
+
 export type AuthActionResult =
   | { status: 'success' }
   | {
@@ -97,6 +101,10 @@ function passwordErrorMessage(error: AuthError): string {
 
 export function createAuthService(dependencies: AuthServiceDependencies) {
   let signOutPending = false;
+  let localTeardownInFlight: Promise<boolean> | null = null;
+  let localTeardownOwners = new Set<() => void>();
+  let localTeardownAcceptsOwners = false;
+  let localPurgeInFlight: Promise<LocalSessionPurgeResult> | null = null;
 
   const cleanupFailure = (): AuthActionResult => ({
     status: 'error',
@@ -121,71 +129,128 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
     return null;
   };
 
-  const teardownLocalAuth = async (): Promise<boolean> => {
-    const retirement = dependencies.refreshCoordinator.retire();
-    const stopRefresh = (async () => {
-      try {
-        await dependencies.auth.stopAutoRefresh();
-        return true;
-      } catch {
-        return false;
-      }
-    })();
-    const purgeStorage = (async () => {
-      try {
-        return (await dependencies.sessionStorage.purge()).status === 'success';
-      } catch {
-        return false;
-      }
-    })();
-    const waitForRefreshes = retirement.waitForRequests().then(
-      () => true,
-      () => false
+  const teardownLocalAuth = (
+    lifecycle?: AuthAttemptLifecycle
+  ): Promise<boolean> => {
+    if (lifecycle && localTeardownAcceptsOwners) {
+      localTeardownOwners.add(lifecycle.beforeLocalSignOut);
+    }
+    if (localTeardownInFlight) return localTeardownInFlight;
+
+    localTeardownOwners = new Set(
+      lifecycle ? [lifecycle.beforeLocalSignOut] : []
     );
-    const [refreshStopped, authPurged, refreshesRetired] = await Promise.all([
-      stopRefresh,
-      purgeStorage,
-      waitForRefreshes,
-    ]);
-    let inProcessTeardown = false;
-    try {
-      inProcessTeardown =
-        (await dependencies.auth.signOut({ scope: 'local' })).error === null;
-    } catch {
-      inProcessTeardown = false;
-    }
-    if (
-      !refreshStopped ||
-      !authPurged ||
-      !refreshesRetired ||
-      !inProcessTeardown
-    ) {
-      return false;
-    }
-    return dependencies.refreshCoordinator.complete(retirement);
+    localTeardownAcceptsOwners = true;
+    const operation = (async (): Promise<boolean> => {
+      try {
+        const retirement = dependencies.refreshCoordinator.retire();
+        const stopRefresh = (async () => {
+          try {
+            await dependencies.auth.stopAutoRefresh();
+            return true;
+          } catch {
+            return false;
+          }
+        })();
+        const purgeStorage = (async () => {
+          try {
+            return (
+              (await dependencies.sessionStorage.purge()).status === 'success'
+            );
+          } catch {
+            return false;
+          }
+        })();
+        const waitForRefreshes = retirement.waitForRequests().then(
+          () => true,
+          () => false
+        );
+        const [refreshStopped, authPurged, refreshesRetired] =
+          await Promise.all([stopRefresh, purgeStorage, waitForRefreshes]);
+
+        localTeardownAcceptsOwners = false;
+        const owners = [...localTeardownOwners];
+        localTeardownOwners.clear();
+        for (const ownEvent of owners) {
+          try {
+            ownEvent();
+          } catch {
+            // Event ownership is advisory; secure teardown must still run.
+          }
+        }
+
+        let inProcessTeardown = false;
+        try {
+          inProcessTeardown =
+            (await dependencies.auth.signOut({ scope: 'local' })).error ===
+            null;
+        } catch {
+          inProcessTeardown = false;
+        }
+        if (
+          !refreshStopped ||
+          !authPurged ||
+          !refreshesRetired ||
+          !inProcessTeardown
+        ) {
+          return false;
+        }
+        return dependencies.refreshCoordinator.complete(retirement);
+      } catch {
+        return false;
+      }
+    })();
+    let tracked!: Promise<boolean>;
+    tracked = operation.then((result) => {
+      if (localTeardownInFlight === tracked) {
+        localTeardownInFlight = null;
+        localTeardownAcceptsOwners = false;
+        localTeardownOwners.clear();
+      }
+      return result;
+    });
+    localTeardownInFlight = tracked;
+    return tracked;
   };
 
-  const abandonAuthAttempt = async (): Promise<boolean> => teardownLocalAuth();
+  const abandonAuthAttempt = (
+    lifecycle?: AuthAttemptLifecycle
+  ): Promise<boolean> => teardownLocalAuth(lifecycle);
 
-  const purgeLocalSession = async (): Promise<LocalSessionPurgeResult> => {
-    const clearPreference = dependencies.preference.clear().then(
-      () => true,
-      () => false
-    );
-    const [authPurged, preferenceCleared] = await Promise.all([
-      teardownLocalAuth(),
-      clearPreference,
-    ]);
-    return {
-      localAuth: authPurged ? 'success' : 'failed',
-      branchPreference: preferenceCleared ? 'success' : 'failed',
-    };
+  const purgeLocalSession = (): Promise<LocalSessionPurgeResult> => {
+    if (localPurgeInFlight) return localPurgeInFlight;
+    const operation = (async (): Promise<LocalSessionPurgeResult> => {
+      const clearPreference = (async () => {
+        try {
+          await dependencies.preference.clear();
+          return true;
+        } catch {
+          return false;
+        }
+      })();
+      const [authPurged, preferenceCleared] = await Promise.all([
+        teardownLocalAuth(),
+        clearPreference,
+      ]);
+      return {
+        localAuth: authPurged ? 'success' : 'failed',
+        branchPreference: preferenceCleared ? 'success' : 'failed',
+      };
+    })();
+    let tracked!: Promise<LocalSessionPurgeResult>;
+    tracked = operation.then((result) => {
+      if (localPurgeInFlight === tracked) localPurgeInFlight = null;
+      return result;
+    });
+    localPurgeInFlight = tracked;
+    return tracked;
   };
 
   return {
     async signInWithPassword(
       email: string,
-      password: string
+      password: string,
+      lifecycle?: AuthAttemptLifecycle
     ): Promise<AuthActionResult> {
       const storageError = enableAuthStorage();
       if (storageError) return storageError;
@@ -195,13 +260,13 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           password,
         });
         if (error) {
-          if (!(await abandonAuthAttempt())) return cleanupFailure();
+          if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return { status: 'error', message: passwordErrorMessage(error) };
         }
         await dependencies.auth.startAutoRefresh();
         return { status: 'success' };
       } catch {
-        if (!(await abandonAuthAttempt())) {
+        if (!(await abandonAuthAttempt(lifecycle))) {
           return cleanupFailure();
         }
         return {
@@ -211,7 +276,9 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
       }
     },
 
-    async signInWithGoogle(): Promise<GoogleAuthResult> {
+    async signInWithGoogle(
+      lifecycle?: AuthAttemptLifecycle
+    ): Promise<GoogleAuthResult> {
       let storageEnabled = false;
       try {
         const redirectTo = dependencies.linking.createURL('auth/callback', {
@@ -231,7 +298,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           options: { redirectTo, skipBrowserRedirect: true },
         });
         if (error || !data.url) {
-          if (!(await abandonAuthAttempt())) return cleanupFailure();
+          if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return {
             status: 'error',
             message: 'Could not start Google sign-in. Please try again.',
@@ -246,11 +313,11 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           browserResult.type === 'cancel' ||
           browserResult.type === 'dismiss'
         ) {
-          if (!(await abandonAuthAttempt())) return cleanupFailure();
+          if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return { status: 'cancelled' };
         }
         if (browserResult.type !== 'success' || !browserResult.url) {
-          if (!(await abandonAuthAttempt())) return cleanupFailure();
+          if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return {
             status: 'error',
             message: 'Google sign-in was not completed.',
@@ -259,14 +326,14 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
 
         const callback = authorizationCodeFromCallback(browserResult.url);
         if (callback.status === 'error') {
-          if (!(await abandonAuthAttempt())) return cleanupFailure();
+          if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return callback;
         }
 
         const { error: exchangeError } =
           await dependencies.auth.exchangeCodeForSession(callback.code);
         if (exchangeError) {
-          if (!(await abandonAuthAttempt())) return cleanupFailure();
+          if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return {
             status: 'error',
             message: 'Could not complete Google sign-in. Please try again.',
@@ -275,7 +342,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
         await dependencies.auth.startAutoRefresh();
         return { status: 'success' };
       } catch {
-        if (storageEnabled && !(await abandonAuthAttempt())) {
+        if (storageEnabled && !(await abandonAuthAttempt(lifecycle))) {
           return cleanupFailure();
         }
         return {

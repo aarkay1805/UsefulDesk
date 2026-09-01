@@ -308,6 +308,30 @@ describe('createAuthService', () => {
     });
   });
 
+  it('owns the exact supported sign-out event immediately before rollback teardown', async () => {
+    const dependencies = createDependencies();
+    const beforeLocalSignOut = jest.fn();
+    dependencies.auth.signInWithPassword.mockResolvedValueOnce({
+      data: { session: null, user: null },
+      error: new Error('Invalid login credentials'),
+    });
+    dependencies.auth.signOut.mockImplementationOnce(async () => {
+      expect(beforeLocalSignOut).toHaveBeenCalledTimes(1);
+      return { error: null };
+    });
+    const service = createAuthService(dependencies);
+
+    await expect(
+      service.signInWithPassword('asha@example.com', 'wrong password', {
+        beforeLocalSignOut,
+      })
+    ).resolves.toEqual({
+      status: 'error',
+      message: 'Email or password is incorrect.',
+    });
+    expect(beforeLocalSignOut).toHaveBeenCalledTimes(1);
+  });
+
   it('opens the exact PKCE callback and exchanges only its authorization code', async () => {
     const dependencies = createDependencies();
     const service = createAuthService(dependencies);
@@ -930,6 +954,51 @@ describe('createAuthService', () => {
     expect(dependencies.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
     expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces concurrent local cleanup into one deterministic operation', async () => {
+    const dependencies = createDependencies();
+    const localSignOut = deferred<{ error: null }>();
+    dependencies.auth.signOut.mockReturnValue(localSignOut.promise);
+    const service = createAuthService(dependencies);
+
+    const first = service.purgeLocalSession();
+    await Promise.resolve();
+    await Promise.resolve();
+    const second = service.purgeLocalSession();
+    localSignOut.resolve({ error: null });
+
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    expect(firstResult).toEqual({
+      localAuth: 'success',
+      branchPreference: 'success',
+    });
+    expect(secondResult).toBe(firstResult);
+    expect(dependencies.refreshCoordinator.retire).toHaveBeenCalledTimes(1);
+    expect(dependencies.auth.stopAutoRefresh).toHaveBeenCalledTimes(1);
+    expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
+    expect(dependencies.auth.signOut).toHaveBeenCalledTimes(1);
+    expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears a failed coalesced cleanup so a secure retry can start', async () => {
+    const dependencies = createDependencies();
+    dependencies.auth.signOut
+      .mockRejectedValueOnce(new Error('synthetic teardown failure'))
+      .mockResolvedValueOnce({ error: null });
+    const service = createAuthService(dependencies);
+
+    await expect(service.purgeLocalSession()).resolves.toEqual({
+      localAuth: 'failed',
+      branchPreference: 'success',
+    });
+    await expect(service.purgeLocalSession()).resolves.toEqual({
+      localAuth: 'success',
+      branchPreference: 'success',
+    });
+    expect(dependencies.refreshCoordinator.retire).toHaveBeenCalledTimes(2);
+    expect(dependencies.auth.signOut).toHaveBeenCalledTimes(2);
+    expect(dependencies.preference.clear).toHaveBeenCalledTimes(2);
   });
 
   it('runs supported in-process teardown only after owned storage is blocked and purged', async () => {

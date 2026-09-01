@@ -17,6 +17,7 @@ import {
   purgeLocalSession,
   signOut,
   type AuthActionResult,
+  type AuthAttemptLifecycle,
   type GoogleAuthResult,
   type LocalSessionPurgeResult,
   type SignOutResult,
@@ -83,9 +84,10 @@ interface SelectedBranchAdapter {
 interface AuthActions {
   signInWithPassword(
     email: string,
-    password: string
+    password: string,
+    lifecycle?: AuthAttemptLifecycle
   ): Promise<AuthActionResult>;
-  signInWithGoogle(): Promise<GoogleAuthResult>;
+  signInWithGoogle(lifecycle?: AuthAttemptLifecycle): Promise<GoogleAuthResult>;
   signOut(accessToken: string | null): Promise<SignOutResult>;
   purgeLocalSession(): Promise<LocalSessionPurgeResult>;
 }
@@ -654,10 +656,18 @@ export function AuthProvider({
     async (email: string, password: string): Promise<AuthActionResult> => {
       const attempt = beginAuthAttempt();
       if ('error' in attempt) return attempt.error;
+      const lifecycle: AuthAttemptLifecycle = {
+        beforeLocalSignOut() {
+          if (isCurrent(attempt.generation)) {
+            ownedSignOutEventGenerationRef.current = attempt.generation;
+          }
+        },
+      };
       try {
         const result = await dependencies.actions.signInWithPassword(
           email,
-          password
+          password,
+          lifecycle
         );
         if (result.status === 'error') {
           const cleanupFailed = result.reason === 'cleanup_failed';
@@ -678,17 +688,28 @@ export function AuthProvider({
           status: 'error',
           message: 'Could not sign in. Please try again.',
         };
+      } finally {
+        if (ownedSignOutEventGenerationRef.current === attempt.generation) {
+          ownedSignOutEventGenerationRef.current = null;
+        }
       }
     },
-    [beginAuthAttempt, dependencies.actions, settleFailedAuthAttempt]
+    [beginAuthAttempt, dependencies.actions, isCurrent, settleFailedAuthAttempt]
   );
 
   const signInWithGoogleFromProvider =
     useCallback(async (): Promise<GoogleAuthResult> => {
       const attempt = beginAuthAttempt();
       if ('error' in attempt) return attempt.error;
+      const lifecycle: AuthAttemptLifecycle = {
+        beforeLocalSignOut() {
+          if (isCurrent(attempt.generation)) {
+            ownedSignOutEventGenerationRef.current = attempt.generation;
+          }
+        },
+      };
       try {
-        const result = await dependencies.actions.signInWithGoogle();
+        const result = await dependencies.actions.signInWithGoogle(lifecycle);
         if (result.status !== 'success') {
           const cleanupFailed =
             result.status === 'error' && result.reason === 'cleanup_failed';
@@ -709,8 +730,17 @@ export function AuthProvider({
           status: 'error',
           message: 'Could not complete Google sign-in. Please try again.',
         };
+      } finally {
+        if (ownedSignOutEventGenerationRef.current === attempt.generation) {
+          ownedSignOutEventGenerationRef.current = null;
+        }
       }
-    }, [beginAuthAttempt, dependencies.actions, settleFailedAuthAttempt]);
+    }, [
+      beginAuthAttempt,
+      dependencies.actions,
+      isCurrent,
+      settleFailedAuthAttempt,
+    ]);
 
   const signOutFromProvider = useCallback(async (): Promise<void> => {
     if (cleanupInFlightGenerationRef.current !== null) return;

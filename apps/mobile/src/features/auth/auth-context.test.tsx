@@ -788,6 +788,40 @@ describe('AuthProvider', () => {
     expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(bootstrapCalls);
   });
 
+  it('does not indefinitely own a rollback event that never arrives', async () => {
+    const setup = createDependencies({ restoredSession: null });
+    setup.raw.actions.signInWithPassword.mockImplementationOnce(
+      async (_email, _password, lifecycle) => {
+        lifecycle?.beforeLocalSignOut();
+        return {
+          status: 'error',
+          message: 'Could not sign in. Please try again.',
+        } as const;
+      }
+    );
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('signed_out'));
+    setup.raw.actions.purgeLocalSession.mockClear();
+
+    await expect(
+      latest!.signInWithPassword('asha@example.com', 'password')
+    ).resolves.toEqual({
+      status: 'error',
+      message: 'Could not sign in. Please try again.',
+    });
+    act(() => setup.emit('SIGNED_OUT', null));
+
+    await waitFor(() => {
+      expect(setup.raw.actions.purgeLocalSession).toHaveBeenCalledTimes(1);
+      expect(latest?.state.status).toBe('signed_out');
+    });
+  });
+
   it('publishes explicit cleanup failure when a sign-in rollback cannot be verified', async () => {
     const setup = createDependencies({ restoredSession: null });
 
