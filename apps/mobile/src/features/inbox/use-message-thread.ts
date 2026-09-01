@@ -169,13 +169,15 @@ export function useMessageThread({
   const activePaginationOwner = useRef<number | null>(null);
   const unreadClear = useRef<UnreadClear | null>(null);
   const activeMainRequest = useRef<MainRequestOwner | null>(null);
-  const pendingFeedReloadGeneration = useRef<number | null>(null);
+  const feedReloadNeededScope = useRef<number | null>(null);
   const resyncGeneration = useRef(realtime.getSnapshot().resyncGeneration);
 
   const nextScope = `${accountId}:${conversationId}`;
-  if (activeScope.current !== nextScope) {
+  const scopeChanged = activeScope.current !== nextScope;
+  if (scopeChanged) {
     activeScope.current = nextScope;
     scopeGeneration.current += 1;
+    feedReloadNeededScope.current = null;
     requestGeneration.current += 1;
     headerGeneration.current += 1;
     activePaginationOwner.current = null;
@@ -185,12 +187,17 @@ export function useMessageThread({
     mutationSequence.current = 0;
   }
   if (activeRealtime.current !== realtime) {
-    const interruptedMainLoad = activeMainRequest.current !== null;
+    const interruptedCurrentScopeLoad =
+      activeMainRequest.current?.scopeGeneration === scopeGeneration.current;
     activeRealtime.current = realtime;
     feedGeneration.current += 1;
-    pendingFeedReloadGeneration.current = interruptedMainLoad
-      ? feedGeneration.current
-      : null;
+    if (
+      !scopeChanged &&
+      (interruptedCurrentScopeLoad ||
+        feedReloadNeededScope.current === scopeGeneration.current)
+    ) {
+      feedReloadNeededScope.current = scopeGeneration.current;
+    }
     requestGeneration.current += 1;
     headerGeneration.current += 1;
     activePaginationOwner.current = null;
@@ -287,6 +294,9 @@ export function useMessageThread({
       feedGeneration: currentFeedGeneration,
     };
     activeMainRequest.current = requestOwner;
+    if (feedReloadNeededScope.current === currentScopeGeneration) {
+      feedReloadNeededScope.current = null;
+    }
     let cancelled = false;
 
     void (async () => {
@@ -402,19 +412,17 @@ export function useMessageThread({
   useEffect(() => {
     const currentRealtimeGeneration = ++realtimeGeneration.current;
     const currentFeedGeneration = feedGeneration.current;
+    const currentScopeGeneration = scopeGeneration.current;
     const activeHydrations = hydrations.current;
     const activeMutations = messageMutations.current;
     const snapshot = realtime.getSnapshot();
     const previousResyncGeneration = resyncGeneration.current;
     const retryInterruptedLoad =
-      pendingFeedReloadGeneration.current === currentFeedGeneration;
-    if (retryInterruptedLoad) {
-      pendingFeedReloadGeneration.current = null;
-    }
-    const refreshReplacement =
       currentFeedGeneration > 0 &&
-      (retryInterruptedLoad ||
-        snapshot.resyncGeneration > previousResyncGeneration);
+      feedReloadNeededScope.current === currentScopeGeneration;
+    const refreshForNewSnapshot =
+      currentFeedGeneration > 0 &&
+      snapshot.resyncGeneration > previousResyncGeneration;
     let disposed = false;
 
     const isCurrentListener = () =>
@@ -438,7 +446,14 @@ export function useMessageThread({
       if (isCurrentListener()) {
         setConnection(snapshot.connection);
         setLoadingOlder(false);
-        if (refreshReplacement) {
+        const claimInterruptedReload =
+          retryInterruptedLoad &&
+          scopeGeneration.current === currentScopeGeneration &&
+          feedReloadNeededScope.current === currentScopeGeneration;
+        if (claimInterruptedReload) {
+          feedReloadNeededScope.current = null;
+        }
+        if (claimInterruptedReload || refreshForNewSnapshot) {
           setRefreshNonce((value) => value + 1);
         }
       }

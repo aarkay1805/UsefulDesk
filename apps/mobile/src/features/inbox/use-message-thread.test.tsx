@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
-import { Suspense, type ReactNode } from 'react';
+import { Suspense, type ReactNode, useEffect, useState } from 'react';
 
 import type { ConversationRepository } from './conversation-repository';
 import type { InboxRealtimeFeed } from './inbox-realtime-provider';
@@ -1283,6 +1283,202 @@ describe('useMessageThread', () => {
       renderTick: 3,
     });
     await act(async () => Promise.resolve());
+    expect(messages.list).toHaveBeenCalledTimes(2);
+  });
+
+  it('transfers a suspended replacement reload to a newer equal-generation feed', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    const thirdFeed = fakeThreadRealtimeFeed();
+    const oldConversation = deferred<InboxConversation>();
+    const oldMessages = deferred<MessagePage>();
+    const freshConversation = conversation({ status: 'pending' });
+    const freshMessage = message({ id: MESSAGE_3_ID });
+    conversations.get
+      .mockReturnValueOnce(oldConversation.promise)
+      .mockResolvedValueOnce(freshConversation);
+    messages.list
+      .mockReturnValueOnce(oldMessages.promise)
+      .mockResolvedValueOnce(page([freshMessage]));
+    const suspendedReplacement = deferred<void>();
+    function SuspenseBoundary({ children }: { children: ReactNode }) {
+      return <Suspense fallback={null}>{children}</Suspense>;
+    }
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      { realtime: InboxRealtimeFeed; suspend: boolean }
+    >(
+      ({ realtime: currentFeed, suspend }) => {
+        const thread = useConfiguredThread({ realtime: currentFeed });
+        if (suspend) throw suspendedReplacement.promise;
+        return thread;
+      },
+      {
+        initialProps: { realtime: firstFeed, suspend: false },
+        wrapper: SuspenseBoundary,
+      }
+    );
+    expect(messages.list).toHaveBeenCalledTimes(1);
+
+    rerender({ realtime: secondFeed, suspend: true });
+    await act(async () => {
+      oldConversation.resolve(conversation());
+      oldMessages.resolve(page([message({ id: MESSAGE_1_ID })]));
+      await Promise.all([oldConversation.promise, oldMessages.promise]);
+      await Promise.resolve();
+    });
+    expect(messages.list).toHaveBeenCalledTimes(1);
+
+    rerender({ realtime: thirdFeed, suspend: false });
+
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.conversation).toEqual(freshConversation);
+    expect(result.current.items).toEqual([freshMessage]);
+  });
+
+  it('transfers reload intent when its replacement effect is disposed before publication', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    const thirdFeed = fakeThreadRealtimeFeed();
+    const oldConversation = deferred<InboxConversation>();
+    const oldMessages = deferred<MessagePage>();
+    const freshConversation = conversation({ status: 'closed' });
+    const freshMessage = message({ id: MESSAGE_3_ID });
+    conversations.get
+      .mockReturnValueOnce(oldConversation.promise)
+      .mockResolvedValueOnce(freshConversation);
+    messages.list
+      .mockReturnValueOnce(oldMessages.promise)
+      .mockResolvedValueOnce(page([freshMessage]));
+    const suspendedReplacement = deferred<void>();
+    function SuspenseBoundary({ children }: { children: ReactNode }) {
+      return <Suspense fallback={null}>{children}</Suspense>;
+    }
+    const { result, rerender } = renderHook<
+      { thread: UseMessageThreadResult; realtime: InboxRealtimeFeed },
+      {
+        requestedFeed: InboxRealtimeFeed;
+        suspend: boolean;
+        supersede: boolean;
+      }
+    >(
+      ({ requestedFeed, suspend, supersede }) => {
+        const [overrideFeed, setOverrideFeed] =
+          useState<InboxRealtimeFeed | null>(null);
+        const currentFeed = overrideFeed ?? requestedFeed;
+        const thread = useConfiguredThread({ realtime: currentFeed });
+        useEffect(() => {
+          if (supersede && currentFeed === secondFeed) {
+            setOverrideFeed(thirdFeed);
+          }
+        }, [currentFeed, supersede]);
+        if (suspend && currentFeed === secondFeed) {
+          throw suspendedReplacement.promise;
+        }
+        return { thread, realtime: currentFeed };
+      },
+      {
+        initialProps: {
+          requestedFeed: firstFeed,
+          suspend: false,
+          supersede: false,
+        },
+        wrapper: SuspenseBoundary,
+      }
+    );
+    expect(messages.list).toHaveBeenCalledTimes(1);
+
+    rerender({
+      requestedFeed: secondFeed,
+      suspend: true,
+      supersede: false,
+    });
+    await act(async () => {
+      oldConversation.resolve(conversation());
+      oldMessages.resolve(page([message({ id: MESSAGE_1_ID })]));
+      await Promise.all([oldConversation.promise, oldMessages.promise]);
+      await Promise.resolve();
+    });
+    expect(messages.list).toHaveBeenCalledTimes(1);
+
+    rerender({
+      requestedFeed: secondFeed,
+      suspend: false,
+      supersede: true,
+    });
+
+    await waitFor(() => expect(result.current.realtime).toBe(thirdFeed));
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.thread.status).toBe('ready'));
+    expect(result.current.thread.conversation).toEqual(freshConversation);
+    expect(result.current.thread.items).toEqual([freshMessage]);
+  });
+
+  it('lets a simultaneous scope load subsume replacement-feed reload intent', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    const oldConversation = deferred<InboxConversation>();
+    const oldMessages = deferred<MessagePage>();
+    const freshConversation = conversation({
+      id: OTHER_CONVERSATION_ID,
+      accountId: OTHER_BRANCH_ID,
+      status: 'pending',
+    });
+    const freshMessage = message({
+      id: MESSAGE_3_ID,
+      conversationId: OTHER_CONVERSATION_ID,
+    });
+    conversations.get
+      .mockReturnValueOnce(oldConversation.promise)
+      .mockResolvedValue(freshConversation);
+    messages.list
+      .mockReturnValueOnce(oldMessages.promise)
+      .mockResolvedValue(page([freshMessage]));
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      {
+        accountId: string;
+        conversationId: string;
+        realtime: InboxRealtimeFeed;
+      }
+    >(
+      ({ accountId, conversationId, realtime: currentFeed }) =>
+        useConfiguredThread({
+          accountId,
+          conversationId,
+          realtime: currentFeed,
+        }),
+      {
+        initialProps: {
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          realtime: firstFeed,
+        },
+      }
+    );
+    expect(messages.list).toHaveBeenCalledTimes(1);
+
+    rerender({
+      accountId: OTHER_BRANCH_ID,
+      conversationId: OTHER_CONVERSATION_ID,
+      realtime: secondFeed,
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(result.current.conversation).toEqual(freshConversation);
+    expect(result.current.items).toEqual([freshMessage]);
+    expect(messages.list).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      oldConversation.resolve(conversation());
+      oldMessages.resolve(page([message({ id: MESSAGE_1_ID })]));
+      await Promise.all([oldConversation.promise, oldMessages.promise]);
+    });
     expect(messages.list).toHaveBeenCalledTimes(2);
   });
 
