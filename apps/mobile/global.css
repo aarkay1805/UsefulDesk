@@ -3,6 +3,35 @@
 @import 'heroui-native/styles';
 
 @layer theme {
+  @theme inline {
+    --color-chat-canvas: color-mix(
+      in oklab,
+      var(--background) 96%,
+      var(--foreground) 4%
+    );
+    --color-chat-bubble-in: var(--surface);
+    --color-chat-bubble-out: color-mix(
+      in oklab,
+      var(--accent) 12%,
+      var(--surface) 88%
+    );
+    --color-chat-meta: color-mix(
+      in oklab,
+      var(--color-chat-bubble-in) 45%,
+      var(--foreground) 55%
+    );
+    --color-chat-meta-out: color-mix(
+      in oklab,
+      var(--color-chat-bubble-out) 45%,
+      var(--foreground) 55%
+    );
+    --color-chat-read: color-mix(
+      in oklab,
+      oklch(0.685 0.169 237.323) 55%,
+      var(--foreground) 45%
+    );
+  }
+
   :root {
     --radius: 0.625rem;
   }
