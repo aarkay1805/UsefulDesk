@@ -57,15 +57,13 @@ function queryResult(data: unknown) {
 describe('TemplateRepository', () => {
   it('returns only valid branch templates in stable name order', async () => {
     const querySource = source();
-    querySource.listTemplates = jest
-      .fn()
-      .mockResolvedValue([
-        rawTemplate({
-          id: '0552d03c-9d8c-4cf4-b8c6-a10b9b233571',
-          name: 'zebra',
-        }),
-        rawTemplate({ name: 'alpha' }),
-      ]);
+    querySource.listTemplates = jest.fn().mockResolvedValue([
+      rawTemplate({
+        id: '0552d03c-9d8c-4cf4-b8c6-a10b9b233571',
+        name: 'zebra',
+      }),
+      rawTemplate({ name: 'alpha' }),
+    ]);
 
     await expect(
       createTemplateRepository(querySource).listSendableTemplates(BRANCH_ID)
@@ -77,6 +75,8 @@ describe('TemplateRepository', () => {
     const cases = [
       rawTemplate({ account_id: OTHER_BRANCH_ID }),
       rawTemplate({ parameter_format: 'NAMED' }),
+      rawTemplate({ header_content: 'Hello {{1}}' }),
+      rawTemplate({ header_media_url: 'https://x.test/a.jpg' }),
       rawTemplate({ buttons: [{ type: 'URL', text: 'Broken' }] }),
     ];
 

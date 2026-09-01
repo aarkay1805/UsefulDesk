@@ -149,7 +149,9 @@ function parseNativeTemplate(row: unknown, accountId: string): NativeTemplate {
     template.provider_missing_since !== null ||
     template.provider_components_sync_required_at !== null ||
     !nullableString(template.header_content) ||
-    !nullableString(template.header_media_url)
+    !nullableString(template.header_media_url) ||
+    (template.header_type === null &&
+      (template.header_content !== null || template.header_media_url !== null))
   ) {
     return invalidTemplate();
   }

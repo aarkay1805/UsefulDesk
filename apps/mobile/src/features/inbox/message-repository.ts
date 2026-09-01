@@ -235,6 +235,7 @@ export const mobileMessageQuerySource: MessageQuerySource = {
       .eq('account_id', accountId)
       .eq('conversation_id', conversationId)
       .eq('direction', 'inbound')
+      .setHeader('x-usefuldesk-account-id', accountId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();

@@ -176,4 +176,43 @@ describe('MessageRepository', () => {
     from.mockRestore();
     selectedBranchRef.set(null);
   });
+
+  it('sends the selected-branch header with the latest inbound query', async () => {
+    const query = {
+      select: jest.fn(),
+      eq: jest.fn(),
+      order: jest.fn(),
+      limit: jest.fn(),
+      setHeader: jest.fn(),
+      maybeSingle: jest.fn().mockResolvedValue({
+        data: { created_at: '2026-09-01T08:04:00.000Z' },
+        error: null,
+      }),
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.order.mockReturnValue(query);
+    query.limit.mockReturnValue(query);
+    query.setHeader.mockReturnValue(query);
+    const from = jest
+      .spyOn(mobileSupabase, 'from')
+      .mockReturnValue(query as never);
+    selectedBranchRef.set(BRANCH_ID);
+
+    await mobileMessageQuerySource.findLatestInboundMessage({
+      accountId: BRANCH_ID,
+      conversationId: CONVERSATION_ID,
+    });
+
+    expect(query.eq).toHaveBeenCalledWith('account_id', BRANCH_ID);
+    expect(query.eq).toHaveBeenCalledWith('conversation_id', CONVERSATION_ID);
+    expect(query.eq).toHaveBeenCalledWith('direction', 'inbound');
+    expect(query.setHeader).toHaveBeenCalledWith(
+      'x-usefuldesk-account-id',
+      BRANCH_ID
+    );
+
+    from.mockRestore();
+    selectedBranchRef.set(null);
+  });
 });
