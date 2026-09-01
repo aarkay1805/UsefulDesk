@@ -13,12 +13,17 @@ foundation for UsefulDesk agents: public-only environment configuration,
 SecureStore-backed Supabase authentication, startup membership revalidation,
 and fail-closed branch selection/switching feed one protected native status
 surface. Static mobile verification and iOS/Android bundle exports pass. Local
-development-client launch plus authentication and platform-interaction smoke
-remain pending because the checked macOS host lacked CocoaPods and had no
-Android target. Remote EAS simulator/device builds remain an explicit
-authorization checkpoint. Read-only Inbox implementation is next; customer
-messaging, financial-provider mutations, and later mobile workflows are not
-shipped. Key configuration: `apps/mobile/eas.json`; runbook:
+development-client build, signing, installation, and JavaScript startup are
+proven on a physical iPhone, including Supabase sign-in, branch resolution, and
+the branch-scoped native account surface; other platform-interaction smoke plus
+an Android target remain pending. Native screens use the shared
+`ScreenSafeAreaView` adapter so Uniwind styling reaches the third-party safe-area
+component and every route fills the viewport instead of collapsing into an
+apparently blank white screen. Remote EAS simulator/device builds remain an
+explicit authorization checkpoint. Read-only Inbox implementation is next;
+customer messaging, financial-provider mutations, and later mobile workflows
+are not shipped. Key configuration: `apps/mobile/eas.json`; shared screen root:
+`apps/mobile/src/ui/screen-safe-area-view.tsx`; runbook:
 `docs/mobile/development-build.md`.
 
 ---

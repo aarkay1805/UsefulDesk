@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '../../../ui';
+import { Button, ScreenSafeAreaView } from '../../../ui';
 import { useAuth } from '../auth-context';
 import { branchBlockMessage, type BranchAccount } from '../branch-types';
 
@@ -120,7 +119,7 @@ export function SelectBranchScreen() {
   };
 
   return (
-    <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>
+    <ScreenSafeAreaView className="bg-background" edges={['top', 'bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View className="gap-2">
           <Text
@@ -162,7 +161,7 @@ export function SelectBranchScreen() {
           </Button>
         ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

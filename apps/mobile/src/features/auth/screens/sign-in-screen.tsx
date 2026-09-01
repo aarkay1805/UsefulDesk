@@ -7,9 +7,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button, TextField } from '../../../ui';
+import { Button, ScreenSafeAreaView, TextField } from '../../../ui';
 import { useAuth } from '../auth-context';
 
 type PendingAction = 'password' | 'google' | 'cleanup' | null;
@@ -83,7 +82,7 @@ export function SignInScreen() {
 
   if (auth.state.status === 'signing_out') {
     return (
-      <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>
+      <ScreenSafeAreaView className="bg-background" edges={['top', 'bottom']}>
         <View className="flex-1 justify-center gap-3 px-6 py-8">
           <Text
             accessibilityRole="header"
@@ -98,13 +97,13 @@ export function SignInScreen() {
             Signing out securely…
           </Text>
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 
   if (auth.state.status === 'cleanup_failed') {
     return (
-      <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>
+      <ScreenSafeAreaView className="bg-background" edges={['top', 'bottom']}>
         <View className="flex-1 justify-center gap-5 px-6 py-8">
           <View className="gap-2">
             <Text
@@ -132,12 +131,12 @@ export function SignInScreen() {
             Retry secure sign-out
           </Button>
         </View>
-      </SafeAreaView>
+      </ScreenSafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>
+    <ScreenSafeAreaView className="bg-background" edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -240,7 +239,7 @@ export function SignInScreen() {
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

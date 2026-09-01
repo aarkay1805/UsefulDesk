@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { Button } from '../../ui';
+import { Button, ScreenSafeAreaView } from '../../ui';
 import { useReadyAuth } from '../auth/auth-context';
 import { BranchChoices } from '../auth/screens/select-branch-screen';
 
@@ -20,7 +19,7 @@ export function AccountScreen() {
   };
 
   return (
-    <SafeAreaView className="bg-background flex-1" edges={['bottom']}>
+    <ScreenSafeAreaView className="bg-background" edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View className="gap-1">
           <Text className="text-foreground text-base font-semibold">
@@ -60,7 +59,7 @@ export function AccountScreen() {
           Sign out
         </Button>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 

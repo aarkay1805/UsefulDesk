@@ -4,6 +4,8 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { AuthContextValue } from '../auth-context';
 import { SignInScreen } from './sign-in-screen';
@@ -89,6 +91,15 @@ describe('SignInScreen', () => {
       true
     );
     expect(screen.queryByText(/sign up|create account/i)).toBeNull();
+  });
+
+  it('fills the native screen when signed out', () => {
+    mockUseAuth.mockReturnValue(authValue());
+
+    const view = render(<SignInScreen />);
+    const root = view.UNSAFE_getByType(SafeAreaView);
+
+    expect(StyleSheet.flatten(root.props.style)).toMatchObject({ flex: 1 });
   });
 
   it('shows and hides the password from a visible labelled control', () => {

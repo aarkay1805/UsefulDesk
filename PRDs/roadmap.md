@@ -14,12 +14,15 @@ configuration accepts only public Supabase/API values, persists auth in
 SecureStore, revalidates branch membership at startup, and fails closed through
 branch selection and switching before rendering its protected native status
 surface. Static mobile checks and iOS/Android bundle exports pass; local
-development-client launch, authentication, and platform-interaction smoke
-remain pending because the checked macOS host lacked CocoaPods and had no
-Android target. Generated native projects stay ignored, and remote EAS builds
-require separate explicit authorization. Read-only Inbox is next; the WhatsApp
-Inbox, customer sends, financial-provider mutations, and later mobile workflows
-are not shipped.**
+development-client build, signing, installation, and JavaScript startup are
+proven on a physical iPhone, with a shared Uniwind-aware safe-area screen root
+preventing native routes from collapsing into an apparently blank white screen.
+Supabase sign-in, branch resolution, and the branch-scoped native account
+surface are also proven there; other platform-interaction smoke plus an Android
+target remain pending. Generated native projects stay ignored, and remote EAS
+builds require separate explicit authorization. Read-only Inbox is next; the
+WhatsApp Inbox, customer sends, financial-provider mutations, and later mobile
+workflows are not shipped.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

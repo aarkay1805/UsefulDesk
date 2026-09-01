@@ -1,9 +1,8 @@
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { mobileEnvironment } from '../../core/env';
-import { Button } from '../../ui';
+import { Button, ScreenSafeAreaView } from '../../ui';
 import { useReadyAuth } from '../auth/auth-context';
 
 const titleCase = (value: string) =>
@@ -22,7 +21,7 @@ export function FoundationScreen() {
   ] as const;
 
   return (
-    <SafeAreaView className="bg-background flex-1" edges={['bottom']}>
+    <ScreenSafeAreaView className="bg-background" edges={['bottom']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View className="gap-2">
           <Text
@@ -73,7 +72,7 @@ export function FoundationScreen() {
           Account
         </Button>
       </ScrollView>
-    </SafeAreaView>
+    </ScreenSafeAreaView>
   );
 }
 
