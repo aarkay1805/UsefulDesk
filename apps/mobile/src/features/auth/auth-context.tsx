@@ -113,6 +113,7 @@ export interface AuthContextValue {
   ): Promise<AuthActionResult>;
   signInWithGoogle(): Promise<GoogleAuthResult>;
   signOut(): Promise<void>;
+  recoverUnauthorizedSession?(): Promise<void>;
   selectBranch(accountId: string): Promise<void>;
 }
 
@@ -836,6 +837,7 @@ export function AuthProvider({
       signInWithPassword: signInWithPasswordFromProvider,
       signInWithGoogle: signInWithGoogleFromProvider,
       signOut: signOutFromProvider,
+      recoverUnauthorizedSession: signOutFromProvider,
       selectBranch,
     }),
     [

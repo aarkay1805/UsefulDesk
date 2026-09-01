@@ -727,6 +727,52 @@ describe('AuthProvider', () => {
     expect(setup.raw.preference.clear).toHaveBeenCalledTimes(1);
   });
 
+  it('recovers an unauthorized session through one guarded secure sign-out without republishing ready state', async () => {
+    const setup = createDependencies();
+    const remoteSignOut =
+      deferred<
+        Awaited<ReturnType<AuthProviderDependencies['actions']['signOut']>>
+      >();
+    setup.raw.actions.signOut.mockImplementationOnce(
+      async () => remoteSignOut.promise
+    );
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.loadBootstrap.mockClear();
+
+    let firstRecovery!: Promise<void>;
+    let secondRecovery!: Promise<void>;
+    act(() => {
+      firstRecovery = latest!.recoverUnauthorizedSession!();
+      secondRecovery = latest!.recoverUnauthorizedSession!();
+    });
+    await waitFor(() => expect(latest?.state.status).toBe('signing_out'));
+    expect(setup.raw.actions.signOut).toHaveBeenCalledTimes(1);
+    expect(setup.raw.actions.signOut).toHaveBeenCalledWith('initial-token');
+
+    act(() => setup.emit('TOKEN_REFRESHED', session('stale-refresh')));
+    await act(async () => Promise.resolve());
+    expect(setup.raw.loadBootstrap).not.toHaveBeenCalled();
+    expect(latest?.state.status).toBe('signing_out');
+
+    remoteSignOut.resolve({
+      status: 'success',
+      remote: 'success',
+      localAuth: 'success',
+      branchPreference: 'success',
+    });
+    await act(async () => {
+      await Promise.all([firstRecovery, secondRecovery]);
+    });
+    expect(latest?.state).toEqual({ status: 'signed_out' });
+    expect(setup.raw.actions.signOut).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps authentication unavailable while sign-out is pending and rejects a later refresh event', async () => {
     const setup = createDependencies();
     const obsoleteBootstrap = deferred<MobileBootstrap>();
