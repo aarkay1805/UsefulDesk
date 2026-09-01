@@ -93,9 +93,19 @@ function hasContiguousBodyIndices(indices: number[]): boolean {
   return indices.every((index, position) => index === position + 1);
 }
 
-function hasValidHeader(template: NativeTemplate): boolean {
+function record(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function hasValidHeader(template: Record<string, unknown>): boolean {
   if (template.headerType === null) return template.headerContent === null;
-  if (template.headerType !== 'text' || !template.headerContent?.trim()) {
+  if (
+    template.headerType !== 'text' ||
+    typeof template.headerContent !== 'string' ||
+    !template.headerContent.trim()
+  ) {
     return false;
   }
   const indices = positionalIndices(template.headerContent);
@@ -105,44 +115,56 @@ function hasValidHeader(template: NativeTemplate): boolean {
   );
 }
 
-function isSendableTemplate(value: NativeTemplate): boolean {
-  const bodyIndices = positionalIndices(value.bodyText);
+function hasValidButton(value: unknown): boolean {
+  const button = record(value);
+  if (
+    !button ||
+    typeof button.type !== 'string' ||
+    typeof button.text !== 'string' ||
+    !button.text.trim()
+  ) {
+    return false;
+  }
+  if (button.type === 'URL') {
+    const indices = positionalIndices(button.url);
+    return (
+      typeof button.url === 'string' &&
+      indices !== null &&
+      (indices.length === 0 || (indices.length === 1 && indices[0] === 1))
+    );
+  }
+  if (button.type === 'COPY_CODE') {
+    return typeof button.example === 'string' && Boolean(button.example.trim());
+  }
+  if (button.type === 'PHONE_NUMBER') {
+    return (
+      typeof button.phoneNumber === 'string' &&
+      Boolean(button.phoneNumber.trim())
+    );
+  }
+  return button.type === 'QUICK_REPLY';
+}
+
+function isSendableTemplate(value: unknown): value is NativeTemplate {
+  const template = record(value);
+  if (!template || !Array.isArray(template.buttons)) return false;
+  const bodyIndices = positionalIndices(template.bodyText);
   return (
-    value.status === 'APPROVED' &&
-    value.parameterFormat === 'POSITIONAL' &&
-    value.providerMissingSince === null &&
-    value.providerComponentsSyncRequiredAt === null &&
-    value.headerMediaUrl === null &&
-    typeof value.name === 'string' &&
-    Boolean(value.name.trim()) &&
-    typeof value.language === 'string' &&
-    Boolean(value.language.trim()) &&
-    typeof value.bodyText === 'string' &&
-    Boolean(value.bodyText.trim()) &&
+    template.status === 'APPROVED' &&
+    template.parameterFormat === 'POSITIONAL' &&
+    template.providerMissingSince === null &&
+    template.providerComponentsSyncRequiredAt === null &&
+    template.headerMediaUrl === null &&
+    typeof template.name === 'string' &&
+    Boolean(template.name.trim()) &&
+    typeof template.language === 'string' &&
+    Boolean(template.language.trim()) &&
+    typeof template.bodyText === 'string' &&
+    Boolean(template.bodyText.trim()) &&
     bodyIndices !== null &&
     hasContiguousBodyIndices(bodyIndices) &&
-    hasValidHeader(value) &&
-    value.buttons.every((button) => {
-      if (typeof button.text !== 'string' || !button.text.trim()) return false;
-      if (button.type === 'URL') {
-        const indices = positionalIndices(button.url);
-        return (
-          typeof button.url === 'string' &&
-          indices !== null &&
-          (indices.length === 0 || (indices.length === 1 && indices[0] === 1))
-        );
-      }
-      if (button.type === 'COPY_CODE')
-        return (
-          typeof button.example === 'string' && Boolean(button.example.trim())
-        );
-      if (button.type === 'PHONE_NUMBER')
-        return (
-          typeof button.phoneNumber === 'string' &&
-          Boolean(button.phoneNumber.trim())
-        );
-      return button.type === 'QUICK_REPLY';
-    })
+    hasValidHeader(template) &&
+    template.buttons.every(hasValidButton)
   );
 }
 
@@ -221,11 +243,12 @@ export function TemplatePicker({
 }: TemplatePickerProps) {
   const auth = useReadyAuth();
   const resolvedBlocker = resolveBlocker(blocker, templates);
+  const firstTemplate = resolvedBlocker ? null : (templates[0] ?? null);
   const [selectedTemplateId, setSelectedTemplateId] = useState(
-    templates[0]?.id ?? null
+    firstTemplate?.id ?? null
   );
   const [values, setValues] = useState<FieldValues>(() =>
-    templates[0] ? valuesForTemplate(templates[0]) : {}
+    firstTemplate ? valuesForTemplate(firstTemplate) : {}
   );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);
@@ -233,9 +256,11 @@ export function TemplatePicker({
   const inFlightRef = useRef(false);
 
   const selectedTemplate =
-    templates.find((template) => template.id === selectedTemplateId) ??
-    templates[0] ??
-    null;
+    resolvedBlocker === null
+      ? (templates.find((template) => template.id === selectedTemplateId) ??
+        templates[0] ??
+        null)
+      : null;
   const fields = useMemo(
     () => (selectedTemplate ? templateFields(selectedTemplate) : []),
     [selectedTemplate]

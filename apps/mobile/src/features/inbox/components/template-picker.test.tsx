@@ -208,6 +208,7 @@ describe('TemplatePicker', () => {
       'a text header missing its content',
       { headerType: 'text', headerContent: null },
     ],
+    ['a non-array button payload', { buttons: null }],
   ])('fails closed for %s', (_name, overrides) => {
     renderPicker({
       templates: [{ ...membershipTemplate, ...overrides } as NativeTemplate],
