@@ -1,5 +1,6 @@
 import {
   createMessageRepository,
+  getLatestCustomerMessageAt,
   mobileMessageQuerySource,
   type MessageQuerySource,
 } from './message-repository';
@@ -19,6 +20,7 @@ describe('MessageRepository', () => {
       conversationExists: jest.fn().mockResolvedValue(false),
       listMessages: jest.fn(),
       findMessage: jest.fn(),
+      findLatestInboundMessage: jest.fn(),
     };
     await expect(
       createMessageRepository(source).list({
@@ -49,6 +51,7 @@ describe('MessageRepository', () => {
         }),
       ]),
       findMessage: jest.fn(),
+      findLatestInboundMessage: jest.fn(),
     };
     const page = await createMessageRepository(source).list({
       accountId: BRANCH_ID,
@@ -71,6 +74,7 @@ describe('MessageRepository', () => {
       conversationExists: jest.fn().mockResolvedValue(true),
       listMessages: jest.fn(),
       findMessage: jest.fn().mockResolvedValue(rawMessage()),
+      findLatestInboundMessage: jest.fn(),
     };
     await expect(
       createMessageRepository(source).get(
@@ -84,6 +88,51 @@ describe('MessageRepository', () => {
       conversationId: CONVERSATION_ID,
       messageId: MESSAGE_1_ID,
     });
+  });
+
+  it('gets the latest customer timestamp only after proving conversation ownership', async () => {
+    const calls: string[] = [];
+    const source = {
+      conversationExists: jest.fn().mockImplementation(async () => {
+        calls.push('conversation');
+        return true;
+      }),
+      listMessages: jest.fn(),
+      findMessage: jest.fn(),
+      findLatestInboundMessage: jest.fn().mockImplementation(async (input) => {
+        calls.push('latest');
+        expect(input).toEqual({
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+        });
+        return { created_at: '2026-09-01T08:04:00.000Z' };
+      }),
+    } as unknown as MessageQuerySource;
+
+    await expect(
+      createMessageRepository(source).getLatestCustomerMessageAt(
+        BRANCH_ID,
+        CONVERSATION_ID
+      )
+    ).resolves.toBe('2026-09-01T08:04:00.000Z');
+    expect(calls).toEqual(['conversation', 'latest']);
+  });
+
+  it('fails closed instead of reading the latest customer message for an unavailable conversation', async () => {
+    const source = {
+      conversationExists: jest.fn().mockResolvedValue(false),
+      listMessages: jest.fn(),
+      findMessage: jest.fn(),
+      findLatestInboundMessage: jest.fn(),
+    } as unknown as MessageQuerySource;
+
+    await expect(
+      createMessageRepository(source).getLatestCustomerMessageAt(
+        BRANCH_ID,
+        CONVERSATION_ID
+      )
+    ).rejects.toEqual(new Error('Conversation is unavailable'));
+    expect(source.findLatestInboundMessage).not.toHaveBeenCalled();
   });
 
   it('rejects a list source call when the selected account does not match', async () => {
@@ -111,6 +160,17 @@ describe('MessageRepository', () => {
         conversationId: CONVERSATION_ID,
         messageId: MESSAGE_1_ID,
       })
+    ).rejects.toEqual(new Error('Conversation is unavailable'));
+    expect(from).not.toHaveBeenCalled();
+    from.mockRestore();
+    selectedBranchRef.set(null);
+  });
+
+  it('fails closed before a latest-customer query across selected accounts', async () => {
+    const from = jest.spyOn(mobileSupabase, 'from');
+    selectedBranchRef.set('ab92ad08-3808-4a3e-8d50-7a5fa2a6a770');
+    await expect(
+      getLatestCustomerMessageAt(BRANCH_ID, CONVERSATION_ID)
     ).rejects.toEqual(new Error('Conversation is unavailable'));
     expect(from).not.toHaveBeenCalled();
     from.mockRestore();

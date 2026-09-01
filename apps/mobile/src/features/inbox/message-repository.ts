@@ -1,5 +1,5 @@
 import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
-import { parseMessageRows } from './inbox-normalizers';
+import { isStrictIsoTimestamp, parseMessageRows } from './inbox-normalizers';
 import type { InboxMessage, MessageCursor, Page } from './inbox-types';
 
 export const MESSAGE_PAGE_SIZE = 40;
@@ -41,6 +41,13 @@ export interface MessageRepository {
   ): Promise<InboxMessage>;
 }
 
+export interface SessionWindowMessageRepository extends MessageRepository {
+  getLatestCustomerMessageAt(
+    accountId: string,
+    conversationId: string
+  ): Promise<string | null>;
+}
+
 export interface MessageQuerySource {
   conversationExists(
     accountId: string,
@@ -57,11 +64,15 @@ export interface MessageQuerySource {
     conversationId: string;
     messageId: string;
   }): Promise<unknown | null>;
+  findLatestInboundMessage(input: {
+    accountId: string;
+    conversationId: string;
+  }): Promise<unknown | null>;
 }
 
 export function createMessageRepository(
   source: MessageQuerySource
-): MessageRepository {
+): SessionWindowMessageRepository {
   return {
     async list(input) {
       try {
@@ -131,6 +142,35 @@ export function createMessageRepository(
         throw new Error(MESSAGE_UNAVAILABLE);
       }
     },
+
+    async getLatestCustomerMessageAt(accountId, conversationId) {
+      try {
+        if (!(await source.conversationExists(accountId, conversationId))) {
+          throw new Error(CONVERSATION_UNAVAILABLE);
+        }
+        const row = await source.findLatestInboundMessage({
+          accountId,
+          conversationId,
+        });
+        if (row === null) return null;
+        const createdAt =
+          row !== null && typeof row === 'object' && !Array.isArray(row)
+            ? (row as Record<string, unknown>).created_at
+            : null;
+        if (!isStrictIsoTimestamp(createdAt)) {
+          throw new Error(MESSAGE_UNAVAILABLE);
+        }
+        return createdAt;
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message === CONVERSATION_UNAVAILABLE
+        ) {
+          throw error;
+        }
+        throw new Error(MESSAGE_UNAVAILABLE);
+      }
+    },
   };
 }
 
@@ -157,6 +197,7 @@ export const mobileMessageQuerySource: MessageQuerySource = {
     let query = mobileSupabase
       .from('messages')
       .select(MESSAGE_SELECT)
+      .eq('account_id', input.accountId)
       .eq('conversation_id', input.conversationId)
       .setHeader('x-usefuldesk-account-id', input.accountId);
     if (input.cursor) {
@@ -177,9 +218,25 @@ export const mobileMessageQuerySource: MessageQuerySource = {
     const { data, error } = await mobileSupabase
       .from('messages')
       .select(MESSAGE_SELECT)
+      .eq('account_id', input.accountId)
       .eq('conversation_id', input.conversationId)
       .eq('id', input.messageId)
       .setHeader('x-usefuldesk-account-id', input.accountId)
+      .maybeSingle();
+    if (error) throw new Error(MESSAGE_UNAVAILABLE);
+    return data;
+  },
+
+  async findLatestInboundMessage({ accountId, conversationId }) {
+    requireSelectedBranch(accountId, CONVERSATION_UNAVAILABLE);
+    const { data, error } = await mobileSupabase
+      .from('messages')
+      .select('created_at')
+      .eq('account_id', accountId)
+      .eq('conversation_id', conversationId)
+      .eq('direction', 'inbound')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (error) throw new Error(MESSAGE_UNAVAILABLE);
     return data;
@@ -189,3 +246,13 @@ export const mobileMessageQuerySource: MessageQuerySource = {
 export const mobileMessageRepository = createMessageRepository(
   mobileMessageQuerySource
 );
+
+export function getLatestCustomerMessageAt(
+  accountId: string,
+  conversationId: string
+): Promise<string | null> {
+  return mobileMessageRepository.getLatestCustomerMessageAt(
+    accountId,
+    conversationId
+  );
+}

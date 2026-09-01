@@ -63,3 +63,42 @@ export type ConversationFilter = 'all' | 'unread';
 export type ThreadDisplayItem =
   | { kind: 'date'; key: string; label: string }
   | { kind: 'message'; key: string; message: InboxMessage; startsRun: boolean };
+
+export type NativeTemplateButton =
+  | { type: 'QUICK_REPLY'; text: string }
+  | { type: 'URL'; text: string; url: string; example?: string }
+  | { type: 'PHONE_NUMBER'; text: string; phoneNumber: string }
+  | { type: 'COPY_CODE'; text: string; example: string };
+
+export interface NativeTemplate {
+  id: string;
+  name: string;
+  language: string;
+  category: 'Marketing' | 'Utility' | 'Authentication';
+  bodyText: string;
+  headerType: 'text' | null;
+  headerContent: string | null;
+  headerMediaUrl: null;
+  buttons: NativeTemplateButton[];
+  status: 'APPROVED';
+  parameterFormat: 'POSITIONAL';
+  providerMissingSince: null;
+  providerComponentsSyncRequiredAt: null;
+}
+
+export type TemplateField =
+  | { kind: 'body'; variable: number; label: `Body variable ${number}` }
+  | { kind: 'header'; variable: 1; label: 'Header variable' }
+  | {
+      kind: 'button';
+      buttonIndex: number;
+      label: string;
+      defaultValue?: string;
+    };
+
+export interface ConnectionReadiness {
+  status: 'absent' | 'disconnected' | 'connected';
+  ready: boolean;
+  reason: string | null;
+  connectedAt: string | null;
+}
