@@ -93,7 +93,7 @@
   ```ts
   export async function requireSendOperationalAccess(
     request: NextRequest
-  ): Promise<OperationalAccess> {
+  ): Promise<AccountContext> {
     const authorization = request.headers.get('authorization');
     if (authorization === null) return requireOperationalAccess();
     return requireMobileOperationalAccess(request);
@@ -112,7 +112,7 @@
 
 - [ ] **Step 6: Wire the resolver into the existing route**
 
-  Pass `request` to `requireSendOperationalAccess`, keep `checkRateLimit('send:' + user.id)` after authorization, and leave body validation, account-scoped conversation lookup, `sendMessageToConversation`, and JSON response shape unchanged.
+  Pass `request` to `requireSendOperationalAccess`, keep `checkRateLimit('send:' + userId)` after authorization, and leave body validation, account-scoped conversation lookup, `sendMessageToConversation`, and JSON response shape unchanged.
 
 - [ ] **Step 7: Run focused tests and typecheck**
 
