@@ -9,7 +9,7 @@ import {
 import type { ActionBlocker } from '../conversation-actions';
 import type { NativeTemplate } from '../inbox-types';
 import { sendConversationMessage } from '../send-message-client';
-import { TemplatePicker } from './template-picker';
+import { keyboardAvoidingBehavior, TemplatePicker } from './template-picker';
 
 const ACCOUNT_ID = 'd3648c54-a4aa-4dd8-8566-1e3b38c1f497';
 const CONVERSATION_ID = '7d6ec8ac-fb05-4df8-9e15-3ba7c5ba2141';
@@ -106,11 +106,22 @@ const copyCodeTemplate: NativeTemplate = {
   id: 'template-2',
   name: 'gym_offer',
   bodyText: 'Use code {{1}} this week.',
+  headerType: null,
   headerContent: null,
   buttons: [
     { type: 'QUICK_REPLY', text: 'Talk to us' },
     { type: 'COPY_CODE', text: 'Copy offer', example: 'WELCOME20' },
   ],
+};
+
+const staticTemplate: NativeTemplate = {
+  ...membershipTemplate,
+  id: 'template-3',
+  name: 'static_notice',
+  bodyText: 'The gym opens at 6 AM.',
+  headerType: null,
+  headerContent: null,
+  buttons: [],
 };
 
 function renderPicker(options?: {
@@ -175,6 +186,42 @@ describe('TemplatePicker', () => {
     expect(
       screen.queryByRole('button', { name: 'gym_membership_renewal, Approved' })
     ).toBeNull();
+  });
+
+  it.each([
+    ['a non-contiguous body variable', { bodyText: 'Hi {{2}}.' }],
+    [
+      'a malformed dynamic URL placeholder',
+      {
+        buttons: [
+          { type: 'URL', text: 'Renew now', url: 'https://pay.test/{{2}}' },
+        ],
+      },
+    ],
+    [
+      'an empty COPY_CODE default',
+      {
+        buttons: [{ type: 'COPY_CODE', text: 'Copy offer', example: '   ' }],
+      },
+    ],
+    [
+      'a text header missing its content',
+      { headerType: 'text', headerContent: null },
+    ],
+  ])('fails closed for %s', (_name, overrides) => {
+    renderPicker({
+      templates: [{ ...membershipTemplate, ...overrides } as NativeTemplate],
+    });
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByText('Template setup needs attention')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('uses native keyboard avoidance for both supported platforms', () => {
+    expect(keyboardAvoidingBehavior('ios')).toBe('padding');
+    expect(keyboardAvoidingBehavior('android')).toBe('height');
   });
 
   it('lists approved templates, previews static content, and preserves template field order', () => {
@@ -278,6 +325,27 @@ describe('TemplatePicker', () => {
             body: ['OFFER25'],
             buttonParams: { 1: 'CUSTOM25' },
           },
+        }),
+        { recoverUnauthorizedSession: mockRecoverUnauthorizedSession }
+      );
+    });
+  });
+
+  it('sends a valid static template with exact empty positional values', async () => {
+    send.mockResolvedValue({
+      messageId: 'message-3',
+      whatsappMessageId: null,
+    });
+    renderPicker({ templates: [staticTemplate] });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+    await waitFor(() => {
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          templateName: 'static_notice',
+          templateParams: [],
+          templateMessageParams: { body: [] },
         }),
         { recoverUnauthorizedSession: mockRecoverUnauthorizedSession }
       );

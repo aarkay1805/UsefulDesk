@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import type { KeyboardAvoidingViewProps } from 'react-native';
 
 import { Button, ScreenSafeAreaView, TextField } from '../../../ui';
 import { useReadyAuth } from '../../auth/auth-context';
@@ -65,21 +66,90 @@ function valuesForTemplate(template: NativeTemplate): FieldValues {
   );
 }
 
+function positionalIndices(text: unknown): number[] | null {
+  if (typeof text !== 'string') return null;
+  const matches = [...text.matchAll(/\{\{([^}]+)\}\}/g)];
+  if (
+    matches.some(
+      (match) =>
+        !/^[1-9]\d*$/.test(match[1]) || !Number.isSafeInteger(Number(match[1]))
+    )
+  ) {
+    return null;
+  }
+  const withoutPlaceholders = text.replace(/\{\{[1-9]\d*\}\}/g, '');
+  if (
+    withoutPlaceholders.includes('{{') ||
+    withoutPlaceholders.includes('}}')
+  ) {
+    return null;
+  }
+  return [...new Set(matches.map((match) => Number(match[1])))].sort(
+    (left, right) => left - right
+  );
+}
+
+function hasContiguousBodyIndices(indices: number[]): boolean {
+  return indices.every((index, position) => index === position + 1);
+}
+
+function hasValidHeader(template: NativeTemplate): boolean {
+  if (template.headerType === null) return template.headerContent === null;
+  if (template.headerType !== 'text' || !template.headerContent?.trim()) {
+    return false;
+  }
+  const indices = positionalIndices(template.headerContent);
+  return (
+    indices !== null &&
+    (indices.length === 0 || (indices.length === 1 && indices[0] === 1))
+  );
+}
+
 function isSendableTemplate(value: NativeTemplate): boolean {
+  const bodyIndices = positionalIndices(value.bodyText);
   return (
     value.status === 'APPROVED' &&
     value.parameterFormat === 'POSITIONAL' &&
     value.providerMissingSince === null &&
     value.providerComponentsSyncRequiredAt === null &&
     value.headerMediaUrl === null &&
-    (value.headerType === null || value.headerType === 'text') &&
+    typeof value.name === 'string' &&
+    Boolean(value.name.trim()) &&
+    typeof value.language === 'string' &&
+    Boolean(value.language.trim()) &&
+    typeof value.bodyText === 'string' &&
+    Boolean(value.bodyText.trim()) &&
+    bodyIndices !== null &&
+    hasContiguousBodyIndices(bodyIndices) &&
+    hasValidHeader(value) &&
     value.buttons.every((button) => {
-      if (button.type === 'URL') return typeof button.url === 'string';
+      if (typeof button.text !== 'string' || !button.text.trim()) return false;
+      if (button.type === 'URL') {
+        const indices = positionalIndices(button.url);
+        return (
+          typeof button.url === 'string' &&
+          indices !== null &&
+          (indices.length === 0 || (indices.length === 1 && indices[0] === 1))
+        );
+      }
       if (button.type === 'COPY_CODE')
-        return typeof button.example === 'string';
-      return button.type === 'QUICK_REPLY' || button.type === 'PHONE_NUMBER';
+        return (
+          typeof button.example === 'string' && Boolean(button.example.trim())
+        );
+      if (button.type === 'PHONE_NUMBER')
+        return (
+          typeof button.phoneNumber === 'string' &&
+          Boolean(button.phoneNumber.trim())
+        );
+      return button.type === 'QUICK_REPLY';
     })
   );
+}
+
+export function keyboardAvoidingBehavior(
+  platform: string
+): KeyboardAvoidingViewProps['behavior'] {
+  return platform === 'ios' ? 'padding' : 'height';
 }
 
 function resolveBlocker(
@@ -243,7 +313,7 @@ export function TemplatePicker({
       visible
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={keyboardAvoidingBehavior(Platform.OS)}
         className="flex-1"
       >
         <ScreenSafeAreaView edges={['bottom']} className="flex-1">
