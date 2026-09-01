@@ -34,7 +34,10 @@ export function MessageContent({ message, trailingMeta }: MessageContentProps) {
     message.contentType === 'interactive'
   ) {
     return (
-      <Text className="text-foreground text-base leading-5">
+      <Text
+        className="text-foreground text-base leading-5"
+        testID="message-text-content"
+      >
         {caption ?? messagePreview(message)}
         {trailingMeta ? <> {trailingMeta}</> : null}
       </Text>

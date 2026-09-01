@@ -12,12 +12,14 @@ type ButtonProps = DistributiveOmit<
 > & {
   children: ReactNode;
   disabled?: boolean;
+  labelClassName?: string;
   loading?: boolean;
 };
 
 export function Button({
   children,
   disabled = false,
+  labelClassName,
   loading = false,
   ...props
 }: ButtonProps) {
@@ -33,7 +35,9 @@ export function Button({
       {loading ? (
         <ActivityIndicator accessibilityLabel="Working" />
       ) : (
-        <HeroButton.Label>{children}</HeroButton.Label>
+        <HeroButton.Label className={labelClassName}>
+          {children}
+        </HeroButton.Label>
       )}
     </HeroButton>
   );

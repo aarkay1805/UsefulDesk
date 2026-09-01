@@ -57,8 +57,9 @@ jest.mock('heroui-native', () => {
   }
   MockButton.Label = function MockButtonLabel({
     children,
-  }: import('react').PropsWithChildren) {
-    return React.createElement(Text, null, children);
+    className,
+  }: import('react').PropsWithChildren<{ className?: string }>) {
+    return React.createElement(Text, { className }, children);
   };
 
   function MockChip(props: import('react-native').PressableProps) {
@@ -285,6 +286,9 @@ describe('InboxScreen', () => {
   it('renders Account in the native header and opens the Account route', () => {
     render(<InboxScreen />);
 
+    expect(screen.getByText('Account').props.className).toContain(
+      'text-zinc-950'
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Account' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/(app)/account');
   });

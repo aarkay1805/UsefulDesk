@@ -52,20 +52,73 @@ describe('MessageBubble', () => {
     }
   );
 
-  it('reserves text metadata inline and overlays the visible metadata', () => {
-    const result = render(
+  it('keeps outbound time and delivery ticks inline with a short text reply', () => {
+    render(
       <MessageBubble
         formattedTime="1:30 pm"
-        message={message({ senderType: 'agent', contentText: 'A short reply' })}
+        message={message({
+          senderType: 'agent',
+          status: 'read',
+          contentText: 'OK',
+        })}
         startsRun
       />
     );
 
+    const metadata = screen.getByTestId('message-metadata');
+
     expect(
-      result.UNSAFE_getByProps({ testID: 'message-metadata-reservation' }).props
-        .className
-    ).toContain('opacity-0');
-    expect(screen.getByTestId('message-metadata')).toBeTruthy();
+      screen
+        .getByTestId('message-text-content')
+        .findByProps({ testID: 'message-metadata' })
+    ).toBeTruthy();
+    expect(metadata.props.className).not.toContain('absolute');
+    expect(screen.queryByTestId('message-metadata-reservation')).toBeNull();
+    expect(screen.getByLabelText('Read')).toBeTruthy();
+  });
+
+  it.each([
+    ['customer', 'text'],
+    ['customer', 'interactive'],
+    ['agent', 'template'],
+  ] as const)(
+    'keeps %s %s metadata in the text flow',
+    (senderType, contentType) => {
+      render(
+        <MessageBubble
+          formattedTime="1:30 pm"
+          message={message({ senderType, contentType, contentText: 'Yes' })}
+          startsRun
+        />
+      );
+
+      expect(
+        screen
+          .getByTestId('message-text-content')
+          .findByProps({ testID: 'message-metadata' })
+      ).toBeTruthy();
+    }
+  );
+
+  it('places non-text metadata in normal flow beneath the content', () => {
+    render(
+      <MessageBubble
+        formattedTime="1:30 pm"
+        message={message({
+          senderType: 'customer',
+          contentType: 'document',
+          contentText: null,
+          mediaUrl: null,
+        })}
+        startsRun
+      />
+    );
+
+    const metadata = screen.getByTestId('message-metadata');
+
+    expect(metadata.props.className).not.toContain('absolute');
+    expect(screen.queryByTestId('message-text-content')).toBeNull();
+    expect(screen.getByText('Document unavailable')).toBeTruthy();
   });
 
   it('uses opening and within-run spacing with sender alignment', () => {

@@ -15,10 +15,12 @@ jest.mock('heroui-native', () => {
 
   MockButton.Label = function MockButtonLabel({
     children,
+    className,
   }: {
     children?: import('react').ReactNode;
+    className?: string;
   }) {
-    return React.createElement(Text, null, children);
+    return React.createElement(Text, { className }, children);
   };
 
   return { Button: MockButton };
@@ -43,6 +45,23 @@ void scaleFeedbackProps;
 void invalidNoFeedbackAnimation;
 
 describe('Button', () => {
+  it('applies an optional label class without forwarding it to the button root', () => {
+    render(
+      <Button
+        labelClassName="text-zinc-950"
+        testID="account-button"
+        variant="ghost"
+      >
+        Account
+      </Button>
+    );
+
+    expect(screen.getByText('Account').props.className).toBe('text-zinc-950');
+    expect(screen.getByTestId('account-button').props.labelClassName).toBe(
+      undefined
+    );
+  });
+
   it('announces loading, prevents repeat activation, and replaces its label', () => {
     render(
       <Button testID="save-button" loading>

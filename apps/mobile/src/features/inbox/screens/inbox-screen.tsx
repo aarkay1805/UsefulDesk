@@ -130,6 +130,7 @@ export function InboxScreen() {
             <Button
               accessibilityLabel="Account"
               className="min-h-12"
+              labelClassName="text-zinc-950"
               onPress={() => router.push('/(app)/account')}
               size="sm"
               variant="ghost"
