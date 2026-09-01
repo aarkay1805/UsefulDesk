@@ -31,19 +31,74 @@ describe('MessageBubble', () => {
       );
 
       expect(screen.getByText(marker)).toBeTruthy();
-      expect(screen.getByText('Hello')).toBeTruthy();
+      expect(screen.getByText(/Hello/)).toBeTruthy();
     }
   );
 
-  it('announces delivery state independently of color', () => {
-    render(
+  it.each(['sending', 'sent', 'delivered', 'read', 'failed'] as const)(
+    'announces the %s delivery state independently of color',
+    (status) => {
+      render(
+        <MessageBubble
+          formattedTime="1:30 pm"
+          message={message({ senderType: 'agent', status })}
+          startsRun
+        />
+      );
+
+      expect(
+        screen.getByLabelText(status.charAt(0).toUpperCase() + status.slice(1))
+      ).toBeTruthy();
+    }
+  );
+
+  it('reserves text metadata inline and overlays the visible metadata', () => {
+    const result = render(
       <MessageBubble
         formattedTime="1:30 pm"
-        message={message({ senderType: 'agent', status: 'read' })}
+        message={message({ senderType: 'agent', contentText: 'A short reply' })}
         startsRun
       />
     );
 
-    expect(screen.getByLabelText('Read')).toBeTruthy();
+    expect(
+      result.UNSAFE_getByProps({ testID: 'message-metadata-reservation' }).props
+        .className
+    ).toContain('opacity-0');
+    expect(screen.getByTestId('message-metadata')).toBeTruthy();
+  });
+
+  it('uses opening and within-run spacing with sender alignment', () => {
+    const { rerender } = render(
+      <MessageBubble
+        formattedTime="1:30 pm"
+        message={message({ senderType: 'customer' })}
+        startsRun
+      />
+    );
+
+    expect(screen.getByTestId('message-bubble').props.className).toContain(
+      'items-start'
+    );
+    expect(screen.getByTestId('message-bubble').props.className).toContain(
+      'mt-3'
+    );
+    expect(screen.getByTestId('message-bubble-tail')).toBeTruthy();
+
+    rerender(
+      <MessageBubble
+        formattedTime="1:31 pm"
+        message={message({ senderType: 'agent' })}
+        startsRun={false}
+      />
+    );
+
+    expect(screen.getByTestId('message-bubble').props.className).toContain(
+      'items-end'
+    );
+    expect(screen.getByTestId('message-bubble').props.className).toContain(
+      'mt-0.5'
+    );
+    expect(screen.queryByTestId('message-bubble-tail')).toBeNull();
   });
 });

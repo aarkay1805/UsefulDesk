@@ -22,22 +22,94 @@ jest.mock('expo-image', () => {
 });
 
 describe('MessageContent', () => {
-  it('renders unsafe media as unavailable instead of opening it', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    ['text', null, 'Hello'],
+    ['template', null, 'Template content'],
+    ['interactive', null, 'Button reply content'],
+    ['image', 'https://cdn.example.com/photo.jpg', 'Photo caption'],
+    ['video', 'https://cdn.example.com/video.mp4', 'Video caption'],
+    ['audio', 'https://cdn.example.com/voice.ogg', 'Audio caption'],
+    ['document', 'https://cdn.example.com/receipt.pdf', 'Document caption'],
+    ['location', 'https://maps.example.com/place', 'Location caption'],
+  ] as const)(
+    'renders %s content and its caption honestly',
+    (contentType, mediaUrl, contentText) => {
+      render(
+        <MessageContent
+          message={message({ contentType, contentText, mediaUrl })}
+        />
+      );
+
+      expect(screen.getByText(contentText)).toBeTruthy();
+    }
+  );
+
+  it.each([
+    ['image', 'Photo'],
+    ['video', 'Video'],
+    ['audio', 'Audio'],
+    ['document', 'Document'],
+    ['location', 'Location'],
+  ] as const)(
+    'renders safe %s media and keeps its fixed preview label when no caption exists',
+    (contentType, label) => {
+      render(
+        <MessageContent
+          message={message({
+            contentType,
+            contentText: null,
+            mediaUrl: `https://cdn.example.com/${contentType}`,
+          })}
+        />
+      );
+
+      expect(screen.getByText(label)).toBeTruthy();
+    }
+  );
+
+  it.each([
+    ['image', 'Photo'],
+    ['video', 'Video'],
+    ['audio', 'Audio'],
+    ['document', 'Document'],
+    ['location', 'Location'],
+  ] as const)(
+    'renders unsafe %s media as unavailable while preserving its caption',
+    (contentType, label) => {
+      render(
+        <MessageContent
+          message={message({
+            contentType,
+            contentText: `${label} caption`,
+            mediaUrl: 'file:///secret',
+          })}
+        />
+      );
+
+      expect(screen.getByText(`${label} unavailable`)).toBeTruthy();
+      expect(screen.getByText(`${label} caption`)).toBeTruthy();
+      expect(screen.queryByRole('button')).toBeNull();
+    }
+  );
+
+  it('keeps location text visible without a URL', () => {
     render(
       <MessageContent
         message={message({
-          contentType: 'document',
-          mediaUrl: 'file:///secret',
+          contentType: 'location',
+          contentText: 'Front desk, 14 MG Road',
+          mediaUrl: null,
         })}
       />
     );
 
-    expect(screen.getByText('Document unavailable')).toBeTruthy();
-    expect(screen.queryByRole('link')).toBeNull();
-    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByText('Location unavailable')).toBeTruthy();
+    expect(screen.getByText('Front desk, 14 MG Road')).toBeTruthy();
   });
 
-  it('renders a safe photo with a native accessibility description', () => {
+  it('falls back when a safe photo fails to load', () => {
     render(
       <MessageContent
         message={message({
@@ -47,13 +119,19 @@ describe('MessageContent', () => {
       />
     );
 
-    expect(screen.getByLabelText('Photo attachment')).toBeTruthy();
+    fireEvent(screen.getByLabelText('Photo attachment'), 'error');
+
+    expect(screen.getByText('Photo unavailable')).toBeTruthy();
   });
 
-  it('shows an inline failure when opening a safe attachment fails', async () => {
-    jest
-      .spyOn(Linking, 'openURL')
-      .mockRejectedValueOnce(new Error('Unavailable'));
+  it('disables repeated attachment opens while the URL is opening', async () => {
+    let rejectOpen: (reason?: unknown) => void = () => undefined;
+    jest.spyOn(Linking, 'openURL').mockImplementationOnce(
+      () =>
+        new Promise<void>((_resolve, reject) => {
+          rejectOpen = reject;
+        })
+    );
 
     render(
       <MessageContent
@@ -64,7 +142,17 @@ describe('MessageContent', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: 'Open audio' }));
+    const openButton = screen.getByRole('button', { name: 'Open audio' });
+    fireEvent.press(openButton);
+
+    expect(openButton.props.accessibilityState).toEqual({
+      busy: true,
+      disabled: true,
+    });
+    fireEvent.press(openButton);
+    expect(Linking.openURL).toHaveBeenCalledTimes(1);
+
+    rejectOpen(new Error('Unavailable'));
 
     await waitFor(() => {
       expect(screen.getByText('Unable to open audio')).toBeTruthy();
