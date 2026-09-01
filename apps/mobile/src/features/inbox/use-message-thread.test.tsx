@@ -23,6 +23,11 @@ import {
 } from './inbox-test-fixtures';
 import type { MessageRepository } from './message-repository';
 import type {
+  MobileSendDependencies,
+  MobileSendInput,
+  MobileSendResult,
+} from './send-message-client';
+import type {
   InboxConversation,
   InboxMessage,
   MessageCursor,
@@ -1693,5 +1698,348 @@ describe('useMessageThread', () => {
 
     expect(realtime.eventCleanup).toHaveBeenCalledTimes(1);
     expect(realtime.statusCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  describe('outbound text commands', () => {
+    const senderId = '30250c1e-ee34-4af5-8752-2ad170d65713';
+    const temporaryId = 'temp:hook-one';
+    const createdAt = '2026-09-01T08:03:00.000Z';
+    const acknowledgement: MobileSendResult = {
+      messageId: MESSAGE_3_ID,
+      whatsappMessageId: 'wamid.hook-one',
+    };
+
+    function outbound(
+      sendMessage: jest.Mock<
+        Promise<MobileSendResult>,
+        [MobileSendInput, MobileSendDependencies]
+      >
+    ) {
+      return {
+        senderId,
+        recoverUnauthorizedSession: jest.fn().mockResolvedValue(undefined),
+        sendMessage,
+        createTemporaryId: () => temporaryId,
+        now: () => createdAt,
+      };
+    }
+
+    it('appends immediately, sends once, and reconciles the acknowledgement', async () => {
+      const pending = deferred<MobileSendResult>();
+      const sendMessage = jest.fn<
+        Promise<MobileSendResult>,
+        [MobileSendInput, MobileSendDependencies]
+      >(() => pending.promise);
+      const dependencies = outbound(sendMessage);
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: dependencies })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+
+      let attempt!: Promise<{ temporaryId: string; status: 'sent' | 'failed' }>;
+      act(() => {
+        attempt = result.current.sendText('  See you tomorrow  ');
+      });
+
+      expect(result.current.items.at(-1)).toEqual(
+        expect.objectContaining({
+          id: temporaryId,
+          contentText: 'See you tomorrow',
+          status: 'sending',
+        })
+      );
+      expect(sendMessage).toHaveBeenCalledWith(
+        {
+          kind: 'text',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          text: 'See you tomorrow',
+        },
+        {
+          recoverUnauthorizedSession: dependencies.recoverUnauthorizedSession,
+        }
+      );
+
+      await act(async () => {
+        pending.resolve(acknowledgement);
+        await attempt;
+      });
+      expect(await attempt).toEqual({ temporaryId, status: 'sent' });
+      expect(
+        result.current.items.filter((item) => item.id === MESSAGE_3_ID)
+      ).toHaveLength(1);
+      expect(result.current.items.at(-1)).toEqual(
+        expect.objectContaining({
+          id: MESSAGE_3_ID,
+          providerMessageId: 'wamid.hook-one',
+          status: 'sent',
+        })
+      );
+    });
+
+    it('keeps the caller text visible as failed when transport rejects', async () => {
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockRejectedValue(new Error('network details'));
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+
+      let attempt!: { temporaryId: string; status: 'sent' | 'failed' };
+      await act(async () => {
+        attempt = await result.current.sendText('Keep this draft');
+      });
+
+      expect(attempt).toEqual({ temporaryId, status: 'failed' });
+      expect(result.current.items.at(-1)).toEqual(
+        expect.objectContaining({
+          id: temporaryId,
+          contentText: 'Keep this draft',
+          status: 'failed',
+        })
+      );
+    });
+
+    it('retries a failed temporary row without appending another row', async () => {
+      const retry = deferred<MobileSendResult>();
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockReturnValueOnce(retry.promise);
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await act(async () => {
+        await result.current.sendText('Retry me');
+      });
+
+      let retryAttempt!: Promise<{
+        temporaryId: string;
+        status: 'sent' | 'failed';
+      }>;
+      act(() => {
+        retryAttempt = result.current.retryText(temporaryId);
+      });
+      expect(
+        result.current.items.filter((item) => item.contentText === 'Retry me')
+      ).toHaveLength(1);
+      expect(result.current.items.at(-1)?.status).toBe('sending');
+
+      await act(async () => {
+        retry.resolve(acknowledgement);
+        await retryAttempt;
+      });
+      expect(await retryAttempt).toEqual({ temporaryId, status: 'sent' });
+      expect(
+        result.current.items.filter((item) => item.contentText === 'Retry me')
+      ).toHaveLength(1);
+      expect(sendMessage).toHaveBeenCalledTimes(2);
+    });
+
+    it('reconciles realtime before API acknowledgement and patches the same row', async () => {
+      messages.list.mockResolvedValueOnce(page([]));
+      const pending = deferred<MobileSendResult>();
+      const sendMessage = jest.fn<
+        Promise<MobileSendResult>,
+        [MobileSendInput, MobileSendDependencies]
+      >(() => pending.promise);
+      messages.get.mockResolvedValue(
+        message({
+          id: MESSAGE_3_ID,
+          senderType: 'agent',
+          senderId,
+          contentText: 'Race me',
+          providerMessageId: 'wamid.hook-one',
+          status: 'delivered',
+          createdAt,
+        })
+      );
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      let attempt!: Promise<{ temporaryId: string; status: 'sent' | 'failed' }>;
+      act(() => {
+        attempt = result.current.sendText('Race me');
+      });
+      await act(async () =>
+        realtime.emit({
+          table: 'messages',
+          eventType: 'INSERT',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          messageId: MESSAGE_3_ID,
+        })
+      );
+      await waitFor(() => expect(result.current.items).toHaveLength(2));
+
+      await act(async () => {
+        pending.resolve(acknowledgement);
+        await attempt;
+      });
+      expect(result.current.items).toHaveLength(1);
+      expect(result.current.items[0].status).toBe('delivered');
+
+      messages.get.mockResolvedValueOnce(
+        message({
+          ...result.current.items[0],
+          status: 'read',
+        })
+      );
+      await act(async () =>
+        realtime.emit({
+          table: 'messages',
+          eventType: 'UPDATE',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          messageId: MESSAGE_3_ID,
+        })
+      );
+      await waitFor(() => expect(result.current.items[0].status).toBe('read'));
+      expect(result.current.items).toHaveLength(1);
+    });
+
+    it('reconciles API acknowledgement before duplicate realtime inserts', async () => {
+      messages.list.mockResolvedValueOnce(page([]));
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockResolvedValue(acknowledgement);
+      messages.get.mockResolvedValue(
+        message({
+          id: MESSAGE_3_ID,
+          senderType: 'agent',
+          senderId,
+          contentText: 'API first',
+          providerMessageId: 'wamid.hook-one',
+          status: 'delivered',
+          createdAt,
+        })
+      );
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await act(async () => {
+        await result.current.sendText('API first');
+      });
+
+      const insert: InboxRealtimeEvent = {
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_3_ID,
+      };
+      await act(async () => {
+        await realtime.emit(insert);
+        await realtime.emit(insert);
+      });
+      await waitFor(() =>
+        expect(result.current.items[0].status).toBe('delivered')
+      );
+      expect(result.current.items).toHaveLength(1);
+    });
+
+    it('does not publish an old branch send completion', async () => {
+      messages.list
+        .mockResolvedValueOnce(page([]))
+        .mockResolvedValueOnce(page([]));
+      conversations.get
+        .mockResolvedValueOnce(conversation())
+        .mockResolvedValueOnce(
+          conversation({
+            id: OTHER_CONVERSATION_ID,
+            accountId: OTHER_BRANCH_ID,
+          })
+        );
+      const pending = deferred<MobileSendResult>();
+      const sendMessage = jest.fn<
+        Promise<MobileSendResult>,
+        [MobileSendInput, MobileSendDependencies]
+      >(() => pending.promise);
+      const dependencies = outbound(sendMessage);
+      const { result, rerender } = renderHook<
+        UseMessageThreadResult,
+        { accountId: string; conversationId: string }
+      >(
+        ({ accountId, conversationId }) =>
+          useConfiguredThread({
+            accountId,
+            conversationId,
+            outbound: dependencies,
+          }),
+        {
+          initialProps: {
+            accountId: BRANCH_ID,
+            conversationId: CONVERSATION_ID,
+          },
+        }
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      let attempt!: Promise<{ temporaryId: string; status: 'sent' | 'failed' }>;
+      act(() => {
+        attempt = result.current.sendText('Old branch');
+      });
+
+      rerender({
+        accountId: OTHER_BRANCH_ID,
+        conversationId: OTHER_CONVERSATION_ID,
+      });
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await act(async () => {
+        pending.resolve(acknowledgement);
+        await attempt;
+      });
+      expect(result.current.items).toEqual([]);
+    });
+
+    it('does not publish a send completion owned by a replaced feed', async () => {
+      messages.list.mockResolvedValue(page([]));
+      const pending = deferred<MobileSendResult>();
+      const sendMessage = jest.fn<
+        Promise<MobileSendResult>,
+        [MobileSendInput, MobileSendDependencies]
+      >(() => pending.promise);
+      const dependencies = outbound(sendMessage);
+      const firstFeed = realtime;
+      const secondFeed = fakeThreadRealtimeFeed();
+      const { result, rerender } = renderHook<
+        UseMessageThreadResult,
+        { currentFeed: InboxRealtimeFeed }
+      >(
+        ({ currentFeed }) =>
+          useConfiguredThread({
+            realtime: currentFeed,
+            outbound: dependencies,
+          }),
+        { initialProps: { currentFeed: firstFeed } }
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      let attempt!: Promise<{ temporaryId: string; status: 'sent' | 'failed' }>;
+      act(() => {
+        attempt = result.current.sendText('Old feed');
+      });
+
+      rerender({ currentFeed: secondFeed });
+      await waitFor(() => expect(firstFeed.eventCleanup).toHaveBeenCalled());
+      await act(async () => {
+        pending.resolve(acknowledgement);
+        await attempt;
+      });
+      expect(result.current.items).toEqual([
+        expect.objectContaining({ id: temporaryId, status: 'sending' }),
+      ]);
+    });
   });
 });

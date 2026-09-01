@@ -14,6 +14,22 @@ import {
   mobileMessageRepository,
   type MessageRepository,
 } from './message-repository';
+import {
+  appendOptimisticText,
+  applyRealtimeMessage,
+  applySendAcknowledgement,
+  emptyOutboundThreadState,
+  hasTemporaryAliasForMessage,
+  markOptimisticFailed,
+  messageForTemporaryId,
+  type OutboundThreadState,
+} from './outbound-message-state';
+import {
+  sendConversationMessage,
+  type MobileSendDependencies,
+  type MobileSendInput,
+  type MobileSendResult,
+} from './send-message-client';
 import type {
   InboxConversation,
   InboxMessage,
@@ -30,7 +46,7 @@ interface MessageThreadState {
   accountId: string | null;
   conversationId: string | null;
   conversation: InboxConversation | null;
-  items: InboxMessage[];
+  thread: OutboundThreadState;
   cursor: MessageCursor | null;
   status: 'loading' | 'ready' | 'unavailable' | 'error';
   error: string | null;
@@ -70,6 +86,24 @@ export interface UseMessageThreadResult {
   hasOlder: boolean;
   refresh(): void;
   loadOlder(): void;
+  sendText(draft: string): Promise<SendAttemptResult>;
+  retryText(temporaryId: string): Promise<SendAttemptResult>;
+}
+
+export interface SendAttemptResult {
+  temporaryId: string;
+  status: 'sent' | 'failed';
+}
+
+export interface MessageThreadOutboundDependencies {
+  senderId: string;
+  recoverUnauthorizedSession(): Promise<void>;
+  sendMessage?: (
+    input: MobileSendInput,
+    dependencies: MobileSendDependencies
+  ) => Promise<MobileSendResult>;
+  createTemporaryId?: () => string;
+  now?: () => string;
 }
 
 export interface UseMessageThreadOptions {
@@ -79,6 +113,7 @@ export interface UseMessageThreadOptions {
   conversations?: ConversationRepository;
   messages?: MessageRepository;
   realtime: InboxRealtimeFeed;
+  outbound?: MessageThreadOutboundDependencies;
 }
 
 function initialState(): MessageThreadState {
@@ -86,7 +121,7 @@ function initialState(): MessageThreadState {
     accountId: null,
     conversationId: null,
     conversation: null,
-    items: [],
+    thread: emptyOutboundThreadState(),
     cursor: null,
     status: 'loading',
     error: null,
@@ -102,17 +137,6 @@ function compareMessages(first: InboxMessage, second: InboxMessage): number {
     return first.createdAt.localeCompare(second.createdAt);
   }
   return first.id.localeCompare(second.id);
-}
-
-function uniqueChronological(items: InboxMessage[]): InboxMessage[] {
-  const seen = new Set<string>();
-  return items
-    .filter((item) => {
-      if (seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    })
-    .sort(compareMessages);
 }
 
 function reconcileMessageSnapshot(
@@ -146,6 +170,7 @@ export function useMessageThread({
   conversations = mobileConversationRepository,
   messages = mobileMessageRepository,
   realtime,
+  outbound,
 }: UseMessageThreadOptions): UseMessageThreadResult {
   const [state, setState] = useState<MessageThreadState>(initialState);
   const [connection, setConnection] = useState<InboxConnectionState>(
@@ -156,6 +181,7 @@ export function useMessageThread({
   const activeAccountId = useRef(accountId);
   const activeConversationId = useRef(conversationId);
   const activeRole = useRef(role);
+  const activeOutbound = useRef(outbound);
   const activeScope = useRef(`${accountId}:${conversationId}`);
   const scopeGeneration = useRef(0);
   const requestGeneration = useRef(0);
@@ -216,6 +242,7 @@ export function useMessageThread({
   activeAccountId.current = accountId;
   activeConversationId.current = conversationId;
   activeRole.current = role;
+  activeOutbound.current = outbound;
   latestState.current = state;
 
   useEffect(() => {
@@ -316,7 +343,7 @@ export function useMessageThread({
           accountId,
           conversationId,
           conversation: sameScope ? previous.conversation : null,
-          items: sameScope ? previous.items : [],
+          thread: sameScope ? previous.thread : emptyOutboundThreadState(),
           cursor: sameScope ? previous.cursor : null,
           status:
             sameScope && previous.status === 'ready' ? 'ready' : 'loading',
@@ -354,11 +381,13 @@ export function useMessageThread({
           accountId,
           conversationId,
           conversation: verifiedConversation,
-          items: reconcileMessageSnapshot(
-            page.items,
-            [],
-            messageMutations.current,
-            snapshotMutationSequence
+          thread: emptyOutboundThreadState(
+            reconcileMessageSnapshot(
+              page.items,
+              [],
+              messageMutations.current,
+              snapshotMutationSequence
+            )
           ),
           cursor: page.nextCursor,
           status: 'ready',
@@ -405,7 +434,7 @@ export function useMessageThread({
             accountId,
             conversationId,
             conversation: null,
-            items: [],
+            thread: emptyOutboundThreadState(),
             cursor: null,
             status: unavailable ? 'unavailable' : 'error',
             error: unavailable ? null : LOAD_ERROR,
@@ -514,7 +543,7 @@ export function useMessageThread({
             accountId: eventAccountId,
             conversationId: eventConversationId,
             conversation: null,
-            items: [],
+            thread: emptyOutboundThreadState(),
             cursor: null,
             status: 'unavailable',
             error: null,
@@ -579,19 +608,28 @@ export function useMessageThread({
           ) {
             return previous;
           }
-          const items = previous.items.filter((item) => item.id !== messageId);
-          return items.length === previous.items.length
+          const messages = previous.thread.messages.filter(
+            (item) => item.id !== messageId
+          );
+          return messages.length === previous.thread.messages.length
             ? previous
-            : { ...previous, items };
+            : {
+                ...previous,
+                thread: { ...previous.thread, messages },
+              };
         });
         return;
       }
 
-      const existing = latestState.current.items.some(
+      const existing = latestState.current.thread.messages.some(
         (item) => item.id === messageId
       );
+      const optimisticOutbound = hasTemporaryAliasForMessage(
+        latestState.current.thread,
+        messageId
+      );
       if (
-        (event.eventType === 'INSERT' && existing) ||
+        (event.eventType === 'INSERT' && existing && !optimisticOutbound) ||
         (event.eventType === 'UPDATE' && !existing) ||
         activeHydrations.has(messageId)
       ) {
@@ -625,7 +663,7 @@ export function useMessageThread({
             latestState.current.accountId === eventAccountId &&
             latestState.current.conversationId === eventConversationId &&
             latestState.current.status === 'ready' &&
-            !latestState.current.items.some(
+            !latestState.current.thread.messages.some(
               (message) => message.id === messageId
             );
           activeMutations.set(messageId, {
@@ -641,19 +679,19 @@ export function useMessageThread({
             ) {
               return previous;
             }
-            const index = previous.items.findIndex(
+            const index = previous.thread.messages.findIndex(
               (message) => message.id === messageId
             );
             if (event.eventType === 'UPDATE') {
               if (index < 0) return previous;
-              const items = [...previous.items];
-              items[index] = item;
-              return { ...previous, items: items.sort(compareMessages) };
+              return {
+                ...previous,
+                thread: applyRealtimeMessage(previous.thread, item),
+              };
             }
-            if (index >= 0) return previous;
             return {
               ...previous,
-              items: uniqueChronological([...previous.items, item]),
+              thread: applyRealtimeMessage(previous.thread, item),
             };
           });
           if (shouldClearUnread) {
@@ -707,6 +745,148 @@ export function useMessageThread({
     setRefreshNonce((value) => value + 1);
   }, []);
 
+  const performTextSend = useCallback(
+    async (
+      temporaryId: string,
+      text: string,
+      createdAt: string,
+      dependencies: MessageThreadOutboundDependencies
+    ): Promise<SendAttemptResult> => {
+      const sendAccountId = activeAccountId.current;
+      const sendConversationId = activeConversationId.current;
+      const sendScopeGeneration = scopeGeneration.current;
+      const sendFeedGeneration = feedGeneration.current;
+
+      setState((previous) => {
+        if (
+          previous.accountId !== sendAccountId ||
+          previous.conversationId !== sendConversationId ||
+          previous.status !== 'ready'
+        ) {
+          return previous;
+        }
+        return {
+          ...previous,
+          thread: appendOptimisticText(previous.thread, {
+            temporaryId,
+            conversationId: sendConversationId,
+            senderId: dependencies.senderId,
+            text,
+            createdAt,
+          }),
+        };
+      });
+
+      const isCurrentSend = () =>
+        mounted.current &&
+        scopeGeneration.current === sendScopeGeneration &&
+        feedGeneration.current === sendFeedGeneration &&
+        activeAccountId.current === sendAccountId &&
+        activeConversationId.current === sendConversationId;
+
+      try {
+        const acknowledgement = await (
+          dependencies.sendMessage ?? sendConversationMessage
+        )(
+          {
+            kind: 'text',
+            accountId: sendAccountId,
+            conversationId: sendConversationId,
+            text,
+          },
+          {
+            recoverUnauthorizedSession: dependencies.recoverUnauthorizedSession,
+          }
+        );
+        if (isCurrentSend()) {
+          setState((previous) => {
+            if (
+              previous.accountId !== sendAccountId ||
+              previous.conversationId !== sendConversationId
+            ) {
+              return previous;
+            }
+            return {
+              ...previous,
+              thread: applySendAcknowledgement(previous.thread, {
+                temporaryId,
+                messageId: acknowledgement.messageId,
+                whatsappMessageId: acknowledgement.whatsappMessageId,
+              }),
+            };
+          });
+        }
+        return { temporaryId, status: 'sent' };
+      } catch {
+        if (isCurrentSend()) {
+          setState((previous) => {
+            if (
+              previous.accountId !== sendAccountId ||
+              previous.conversationId !== sendConversationId
+            ) {
+              return previous;
+            }
+            return {
+              ...previous,
+              thread: markOptimisticFailed(
+                previous.thread,
+                temporaryId,
+                'Could not send message'
+              ),
+            };
+          });
+        }
+        return { temporaryId, status: 'failed' };
+      }
+    },
+    []
+  );
+
+  const sendText = useCallback(
+    (draft: string): Promise<SendAttemptResult> => {
+      const dependencies = activeOutbound.current;
+      if (!dependencies) {
+        return Promise.reject(
+          new Error('Outbound message dependencies are unavailable')
+        );
+      }
+      const temporaryId =
+        dependencies.createTemporaryId?.() ??
+        `temp:${globalThis.crypto.randomUUID()}`;
+      return performTextSend(
+        temporaryId,
+        draft.trim(),
+        dependencies.now?.() ?? new Date().toISOString(),
+        dependencies
+      );
+    },
+    [performTextSend]
+  );
+
+  const retryText = useCallback(
+    (temporaryId: string): Promise<SendAttemptResult> => {
+      const dependencies = activeOutbound.current;
+      if (!dependencies) {
+        return Promise.reject(
+          new Error('Outbound message dependencies are unavailable')
+        );
+      }
+      const current = latestState.current.thread;
+      const candidate = messageForTemporaryId(current, temporaryId);
+      const failed = candidate?.status === 'failed' ? candidate : null;
+      if (!failed?.contentText) {
+        return Promise.resolve({ temporaryId, status: 'failed' });
+      }
+      return performTextSend(
+        temporaryId,
+        failed.contentText,
+        failed.createdAt,
+        dependencies
+      );
+    },
+    [performTextSend]
+  );
+
   const loadOlder = useCallback(() => {
     const current = latestState.current;
     const currentAccountId = activeAccountId.current;
@@ -756,12 +936,15 @@ export function useMessageThread({
           }
           return {
             ...previous,
-            items: reconcileMessageSnapshot(
-              page.items,
-              previous.items,
-              messageMutations.current,
-              snapshotMutationSequence
-            ),
+            thread: {
+              ...previous.thread,
+              messages: reconcileMessageSnapshot(
+                page.items,
+                previous.thread.messages,
+                messageMutations.current,
+                snapshotMutationSequence
+              ),
+            },
             cursor: page.nextCursor,
           };
         });
@@ -792,7 +975,7 @@ export function useMessageThread({
     state.accountId === accountId && state.conversationId === conversationId;
   return {
     conversation: stateMatchesScope ? state.conversation : null,
-    items: stateMatchesScope ? state.items : [],
+    items: stateMatchesScope ? state.thread.messages : [],
     status: stateMatchesScope ? state.status : 'loading',
     error: stateMatchesScope ? state.error : null,
     refreshWarning: stateMatchesScope ? state.refreshWarning : null,
@@ -804,5 +987,7 @@ export function useMessageThread({
     hasOlder: stateMatchesScope && state.cursor !== null,
     refresh,
     loadOlder,
+    sendText,
+    retryText,
   };
 }

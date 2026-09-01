@@ -307,6 +307,14 @@ function readyThreadResult(
     hasOlder: false,
     refresh: jest.fn(),
     loadOlder: jest.fn(),
+    sendText: jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-test',
+      status: 'sent',
+    }),
+    retryText: jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-test',
+      status: 'sent',
+    }),
     ...overrides,
   };
 }
