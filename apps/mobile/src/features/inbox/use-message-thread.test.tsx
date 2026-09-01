@@ -1415,6 +1415,55 @@ describe('useMessageThread', () => {
     expect(result.current.thread.items).toEqual([freshMessage]);
   });
 
+  it('keeps an unacknowledged resync refresh when its observing feed is disposed', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    const thirdFeed = fakeThreadRealtimeFeed();
+    await secondFeed.emitStatus('connected', 7);
+    await thirdFeed.emitStatus('connected', 7);
+    const initialConversation = conversation({ status: 'open' });
+    const initialMessage = message({ id: MESSAGE_1_ID });
+    const freshConversation = conversation({ status: 'pending' });
+    const freshMessage = message({ id: MESSAGE_3_ID });
+    conversations.get
+      .mockResolvedValueOnce(initialConversation)
+      .mockResolvedValueOnce(freshConversation);
+    messages.list
+      .mockResolvedValueOnce(page([initialMessage]))
+      .mockResolvedValueOnce(page([freshMessage]));
+    const { result, rerender } = renderHook<
+      { thread: UseMessageThreadResult; realtime: InboxRealtimeFeed },
+      { requestedFeed: InboxRealtimeFeed; supersede: boolean }
+    >(
+      ({ requestedFeed, supersede }) => {
+        const [overrideFeed, setOverrideFeed] =
+          useState<InboxRealtimeFeed | null>(null);
+        const currentFeed = overrideFeed ?? requestedFeed;
+        const thread = useConfiguredThread({ realtime: currentFeed });
+        useEffect(() => {
+          if (supersede && currentFeed === secondFeed) {
+            setOverrideFeed(thirdFeed);
+          }
+        }, [currentFeed, supersede]);
+        return { thread, realtime: currentFeed };
+      },
+      {
+        initialProps: { requestedFeed: firstFeed, supersede: false },
+      }
+    );
+    await waitFor(() => expect(result.current.thread.status).toBe('ready'));
+    expect(result.current.thread.conversation).toEqual(initialConversation);
+    expect(messages.list).toHaveBeenCalledTimes(1);
+
+    rerender({ requestedFeed: secondFeed, supersede: true });
+
+    await waitFor(() => expect(result.current.realtime).toBe(thirdFeed));
+    await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.thread.status).toBe('ready'));
+    expect(result.current.thread.conversation).toEqual(freshConversation);
+    expect(result.current.thread.items).toEqual([freshMessage]);
+  });
+
   it('lets a simultaneous scope load subsume replacement-feed reload intent', async () => {
     const firstFeed = fakeThreadRealtimeFeed();
     const secondFeed = fakeThreadRealtimeFeed();

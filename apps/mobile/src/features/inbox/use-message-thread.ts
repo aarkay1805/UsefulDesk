@@ -170,7 +170,9 @@ export function useMessageThread({
   const unreadClear = useRef<UnreadClear | null>(null);
   const activeMainRequest = useRef<MainRequestOwner | null>(null);
   const feedReloadNeededScope = useRef<number | null>(null);
-  const resyncGeneration = useRef(realtime.getSnapshot().resyncGeneration);
+  const acknowledgedResyncGeneration = useRef(
+    realtime.getSnapshot().resyncGeneration
+  );
 
   const nextScope = `${accountId}:${conversationId}`;
   const scopeChanged = activeScope.current !== nextScope;
@@ -416,13 +418,12 @@ export function useMessageThread({
     const activeHydrations = hydrations.current;
     const activeMutations = messageMutations.current;
     const snapshot = realtime.getSnapshot();
-    const previousResyncGeneration = resyncGeneration.current;
     const retryInterruptedLoad =
       currentFeedGeneration > 0 &&
       feedReloadNeededScope.current === currentScopeGeneration;
     const refreshForNewSnapshot =
       currentFeedGeneration > 0 &&
-      snapshot.resyncGeneration > previousResyncGeneration;
+      snapshot.resyncGeneration > acknowledgedResyncGeneration.current;
     let disposed = false;
 
     const isCurrentListener = () =>
@@ -441,7 +442,6 @@ export function useMessageThread({
       activeAccountId.current === eventAccountId &&
       activeConversationId.current === eventConversationId;
 
-    resyncGeneration.current = snapshot.resyncGeneration;
     void Promise.resolve().then(() => {
       if (isCurrentListener()) {
         setConnection(snapshot.connection);
@@ -453,7 +453,13 @@ export function useMessageThread({
         if (claimInterruptedReload) {
           feedReloadNeededScope.current = null;
         }
-        if (claimInterruptedReload || refreshForNewSnapshot) {
+        const claimResyncRefresh =
+          refreshForNewSnapshot &&
+          snapshot.resyncGeneration > acknowledgedResyncGeneration.current;
+        if (claimResyncRefresh) {
+          acknowledgedResyncGeneration.current = snapshot.resyncGeneration;
+        }
+        if (claimInterruptedReload || claimResyncRefresh) {
           setRefreshNonce((value) => value + 1);
         }
       }
@@ -649,8 +655,10 @@ export function useMessageThread({
     const statusCleanup = realtime.listenStatus((nextSnapshot) => {
       if (!isCurrentListener()) return;
       setConnection(nextSnapshot.connection);
-      if (nextSnapshot.resyncGeneration > resyncGeneration.current) {
-        resyncGeneration.current = nextSnapshot.resyncGeneration;
+      if (
+        nextSnapshot.resyncGeneration > acknowledgedResyncGeneration.current
+      ) {
+        acknowledgedResyncGeneration.current = nextSnapshot.resyncGeneration;
         requestGeneration.current += 1;
         activePaginationOwner.current = null;
         setLoadingOlder(false);
