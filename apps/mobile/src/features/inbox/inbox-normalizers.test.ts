@@ -1,4 +1,8 @@
-import { parseConversationRows, parseMessageRows } from './inbox-normalizers';
+import {
+  isStrictIsoTimestamp,
+  parseConversationRows,
+  parseMessageRows,
+} from './inbox-normalizers';
 import {
   CONVERSATION_ID,
   OTHER_BRANCH_ID,
@@ -7,6 +11,40 @@ import {
   rawConversation,
   rawMessage,
 } from './inbox-test-fixtures';
+
+describe('isStrictIsoTimestamp', () => {
+  test.each([
+    '2026-09-01T08:00:00Z',
+    '2026-09-01T08:00:00.123456Z',
+    '2026-09-01T08:00:00+00:00',
+    '2026-09-01T08:00:00+05:30',
+    '2026-09-01T08:00:00-04:30',
+  ])('accepts valid timestamp %s', (value) => {
+    expect(isStrictIsoTimestamp(value)).toBe(true);
+  });
+
+  test.each([
+    '2026-09-01T08:00:00+24:00',
+    '2026-09-01T08:00:00+00:60',
+    '2026-09-01T08:00:00',
+    '2026-02-30T08:00:00Z',
+    '2026-04-31T08:00:00Z',
+    '2026-00-01T08:00:00Z',
+    '2026-09-00T08:00:00Z',
+    '2026-09-01T24:00:00Z',
+    '2026-09-01T08:60:00Z',
+    '2026-09-01T08:00:60Z',
+  ])('rejects invalid timestamp %s', (value) => {
+    expect(isStrictIsoTimestamp(value)).toBe(false);
+  });
+
+  test('rejects a regex-matching timestamp that Date.parse cannot parse', () => {
+    const value = '2026-13-01T08:00:00Z';
+
+    expect(Date.parse(value)).toBeNaN();
+    expect(isStrictIsoTimestamp(value)).toBe(false);
+  });
+});
 
 test('rejects a conversation from another branch', () => {
   expect(() =>

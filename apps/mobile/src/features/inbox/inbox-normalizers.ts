@@ -9,6 +9,8 @@ import type {
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const ISO_TIMESTAMP =
+  /^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)(?:\.\d+)?(?:Z|([+-])(\d\d):(\d\d))$/;
 const statuses = new Set<ConversationStatus>(['open', 'pending', 'closed']);
 const senders = new Set<SenderType>(['customer', 'agent', 'bot']);
 const contentTypes = new Set<ContentType>([
@@ -47,10 +49,38 @@ const validString = (
   typeof value === 'string' || (nullable && value === null);
 const uuid = (value: unknown): value is string =>
   typeof value === 'string' && UUID.test(value);
-export const isStrictIsoTimestamp = (value: unknown): value is string =>
-  typeof value === 'string' &&
-  /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|[+-]\d\d:\d\d)$/.test(value) &&
-  Number.isFinite(Date.parse(value));
+const daysInMonth = (year: number, month: number): number => {
+  if (month === 2)
+    return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28;
+  return [4, 6, 9, 11].includes(month) ? 30 : 31;
+};
+export const isStrictIsoTimestamp = (value: unknown): value is string => {
+  if (typeof value !== 'string') return false;
+  const matches = ISO_TIMESTAMP.exec(value);
+  if (!matches) return false;
+  const year = Number(matches[1]);
+  const month = Number(matches[2]);
+  const day = Number(matches[3]);
+  const hour = Number(matches[4]);
+  const minute = Number(matches[5]);
+  const second = Number(matches[6]);
+  const offsetHour = Number(matches[8]);
+  const offsetMinute = Number(matches[9]);
+
+  if (
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > daysInMonth(year, month) ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59 ||
+    (matches[7] !== undefined && (offsetHour > 23 || offsetMinute > 59))
+  ) {
+    return false;
+  }
+  return Number.isFinite(Date.parse(value));
+};
 const iso = (value: unknown, nullable = false): value is string | null =>
   (nullable && value === null) || isStrictIsoTimestamp(value);
 const nullableUuid = (value: unknown): value is string | null =>

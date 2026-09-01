@@ -191,6 +191,46 @@ describe('ConversationRepository', () => {
     });
   });
 
+  it('paginates empty conversations with an offset created-at cursor', async () => {
+    const querySource = source();
+    const firstTimestamp = '2026-09-01T08:00:00.123456+05:30';
+    querySource.listEmpty = jest.fn().mockResolvedValue([
+      rawConversation({
+        id: EMPTY_CONVERSATION_ID,
+        last_message_at: null,
+        created_at: firstTimestamp,
+        updated_at: firstTimestamp,
+      }),
+      rawConversation({
+        id: '00cdd031-972a-4038-8178-029e6470f722',
+        last_message_at: null,
+        created_at: '2026-08-31T08:00:00.654321-04:30',
+        updated_at: '2026-08-31T08:00:00.654321-04:30',
+      }),
+    ]);
+
+    await expect(
+      createConversationRepository(querySource).list({
+        accountId: BRANCH_ID,
+        filter: 'all',
+        search: '',
+        cursor: {
+          phase: 'empty',
+          createdAt: firstTimestamp,
+          id: EMPTY_CONVERSATION_ID,
+        },
+        limit: 1,
+      })
+    ).resolves.toMatchObject({
+      items: [{ id: EMPTY_CONVERSATION_ID, createdAt: firstTimestamp }],
+      nextCursor: {
+        phase: 'empty',
+        createdAt: firstTimestamp,
+        id: EMPTY_CONVERSATION_ID,
+      },
+    });
+  });
+
   it('keeps a messaged cursor when a full page has empty-phase rows after it', async () => {
     const querySource = source();
     querySource.listMessaged = jest.fn().mockResolvedValue([rawConversation()]);
