@@ -127,7 +127,12 @@ describe('AccountScreen branch navigation', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('returns to a clean Inbox after a successful branch switch', async () => {
-    const accountRouter = { replace: jest.fn() };
+    const accountRouter = {
+      dismissAll: jest.fn(),
+      dismissTo: jest.fn(),
+      push: jest.fn(),
+      replace: jest.fn(),
+    };
     const mockSelectBranch = jest.fn().mockResolvedValue(undefined);
     mockUseRouter.mockReturnValue(accountRouter);
     mockUseReadyAuth.mockReturnValue(
@@ -142,11 +147,19 @@ describe('AccountScreen branch navigation', () => {
     await waitFor(() =>
       expect(mockSelectBranch).toHaveBeenCalledWith(OTHER_BRANCH_ID)
     );
-    expect(accountRouter.replace).toHaveBeenCalledWith('/(app)');
+    expect(accountRouter.dismissAll).toHaveBeenCalledTimes(1);
+    expect(accountRouter.dismissTo).not.toHaveBeenCalled();
+    expect(accountRouter.push).not.toHaveBeenCalled();
+    expect(accountRouter.replace).not.toHaveBeenCalled();
   });
 
   it('stays on Account when the branch transition fails', async () => {
-    const accountRouter = { replace: jest.fn() };
+    const accountRouter = {
+      dismissAll: jest.fn(),
+      dismissTo: jest.fn(),
+      push: jest.fn(),
+      replace: jest.fn(),
+    };
     const mockSelectBranch = jest.fn().mockRejectedValue(new Error('offline'));
     mockUseRouter.mockReturnValue(accountRouter);
     mockUseReadyAuth.mockReturnValue(
@@ -163,6 +176,9 @@ describe('AccountScreen branch navigation', () => {
         'Could not open this branch. Check your connection and try again.'
       )
     ).toBeTruthy();
+    expect(accountRouter.dismissAll).not.toHaveBeenCalled();
+    expect(accountRouter.dismissTo).not.toHaveBeenCalled();
+    expect(accountRouter.push).not.toHaveBeenCalled();
     expect(accountRouter.replace).not.toHaveBeenCalled();
   });
 });

@@ -21,7 +21,7 @@ export function AccountScreen() {
   };
   const handleSelectBranch = async (accountId: string) => {
     await auth.selectBranch(accountId);
-    router.replace('/(app)');
+    router.dismissAll();
   };
 
   return (
