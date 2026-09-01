@@ -21,18 +21,21 @@ import {
   message,
   page,
 } from './inbox-test-fixtures';
-import type { MessageRepository } from './message-repository';
+import type { SessionWindowMessageRepository } from './message-repository';
 import type {
   MobileSendDependencies,
   MobileSendInput,
   MobileSendResult,
 } from './send-message-client';
 import type {
+  ConnectionReadiness,
   InboxConversation,
   InboxMessage,
   MessageCursor,
+  NativeTemplate,
   Page,
 } from './inbox-types';
+import type { TemplateRepository } from './template-repository';
 import {
   type UseMessageThreadOptions,
   type UseMessageThreadResult,
@@ -57,8 +60,11 @@ const conversations: jest.Mocked<ConversationRepository> = {
   get: jest.fn().mockResolvedValue(conversation()),
   markRead: jest.fn().mockResolvedValue(undefined),
 };
-const messages: jest.Mocked<MessageRepository> = {
+const messages: jest.Mocked<SessionWindowMessageRepository> = {
   get: jest.fn().mockResolvedValue(message()),
+  getLatestCustomerMessageAt: jest
+    .fn()
+    .mockResolvedValue('2026-09-01T08:01:00.000Z'),
   list: jest
     .fn()
     .mockResolvedValue(
@@ -67,6 +73,36 @@ const messages: jest.Mocked<MessageRepository> = {
         message({ id: MESSAGE_2_ID, createdAt: '2026-09-01T08:02:00.000Z' }),
       ])
     ),
+};
+
+const connectedReadiness: ConnectionReadiness = {
+  status: 'connected',
+  ready: true,
+  reason: null,
+  connectedAt: '2026-09-01T08:00:00.000Z',
+};
+
+const sendableTemplate: NativeTemplate = {
+  id: '5b52d03c-9d8c-4cf4-b8c6-a10b9b233571',
+  name: 'static_notice',
+  language: 'en',
+  category: 'Utility',
+  bodyText: 'The gym opens at 6 AM.',
+  headerType: null,
+  headerContent: null,
+  headerMediaUrl: null,
+  buttons: [],
+  status: 'APPROVED',
+  parameterFormat: 'POSITIONAL',
+  providerMissingSince: null,
+  providerComponentsSyncRequiredAt: null,
+};
+
+const templateRepository: jest.Mocked<TemplateRepository> = {
+  listSendableTemplates: jest.fn().mockResolvedValue([sendableTemplate]),
+  getWhatsAppConnectionReadiness: jest
+    .fn()
+    .mockResolvedValue(connectedReadiness),
 };
 
 function fakeThreadRealtimeFeed(): InboxRealtimeFeed & {
@@ -130,6 +166,7 @@ function useConfiguredThread(
     conversations,
     messages,
     realtime,
+    templates: templateRepository,
     ...overrides,
   });
 }
@@ -146,6 +183,15 @@ beforeEach(() => {
       ])
     );
   messages.get.mockReset().mockResolvedValue(message());
+  messages.getLatestCustomerMessageAt
+    .mockReset()
+    .mockResolvedValue('2026-09-01T08:01:00.000Z');
+  templateRepository.listSendableTemplates
+    .mockReset()
+    .mockResolvedValue([sendableTemplate]);
+  templateRepository.getWhatsAppConnectionReadiness
+    .mockReset()
+    .mockResolvedValue(connectedReadiness);
   realtime = fakeThreadRealtimeFeed();
 });
 
@@ -170,6 +216,204 @@ describe('useMessageThread', () => {
       BRANCH_ID,
       CONVERSATION_ID
     );
+  });
+
+  it('loads latest inbound, sendable templates, and connection readiness for the current branch owner', async () => {
+    const { result } = renderHook(() => useConfiguredThread());
+
+    await waitFor(() =>
+      expect(result.current.sendReadiness.status).toBe('ready')
+    );
+
+    expect(messages.getLatestCustomerMessageAt).toHaveBeenCalledWith(
+      BRANCH_ID,
+      CONVERSATION_ID
+    );
+    expect(templateRepository.listSendableTemplates).toHaveBeenCalledWith(
+      BRANCH_ID
+    );
+    expect(
+      templateRepository.getWhatsAppConnectionReadiness
+    ).toHaveBeenCalledWith(BRANCH_ID);
+    expect(result.current.sendReadiness).toEqual({
+      status: 'ready',
+      latestInboundAt: '2026-09-01T08:01:00.000Z',
+      templates: [sendableTemplate],
+      connectionReadiness: connectedReadiness,
+      templateReadiness: {
+        hasLocalTemplates: true,
+        contractReady: true,
+      },
+    });
+  });
+
+  it('does not load customer-send readiness for a viewer', async () => {
+    const { result } = renderHook(() =>
+      useConfiguredThread({ role: 'viewer' })
+    );
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    expect(result.current.sendReadiness.status).toBe('hidden');
+    expect(messages.getLatestCustomerMessageAt).not.toHaveBeenCalled();
+    expect(templateRepository.listSendableTemplates).not.toHaveBeenCalled();
+    expect(
+      templateRepository.getWhatsAppConnectionReadiness
+    ).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a readiness repository errors or returns an inconsistent result', async () => {
+    templateRepository.listSendableTemplates.mockResolvedValueOnce([
+      {
+        ...sendableTemplate,
+        parameterFormat: 'NAMED',
+      } as unknown as NativeTemplate,
+    ]);
+    const { result } = renderHook(() => useConfiguredThread());
+
+    await waitFor(() =>
+      expect(result.current.sendReadiness.status).toBe('error')
+    );
+    expect(result.current.sendReadiness.templates).toEqual([]);
+
+    templateRepository.listSendableTemplates.mockRejectedValueOnce(
+      new Error('Could not load sendable templates')
+    );
+    act(() => result.current.refresh());
+
+    await waitFor(() =>
+      expect(templateRepository.listSendableTemplates).toHaveBeenCalledTimes(2)
+    );
+    await waitFor(() =>
+      expect(result.current.sendReadiness.status).toBe('error')
+    );
+  });
+
+  it('drops stale readiness completions after a branch and conversation change', async () => {
+    const oldLatest = deferred<string | null>();
+    const oldTemplates = deferred<NativeTemplate[]>();
+    const oldConnection = deferred<ConnectionReadiness>();
+    messages.getLatestCustomerMessageAt
+      .mockReturnValueOnce(oldLatest.promise)
+      .mockResolvedValueOnce('2026-09-01T09:00:00.000Z');
+    templateRepository.listSendableTemplates
+      .mockReturnValueOnce(oldTemplates.promise)
+      .mockResolvedValueOnce([sendableTemplate]);
+    templateRepository.getWhatsAppConnectionReadiness
+      .mockReturnValueOnce(oldConnection.promise)
+      .mockResolvedValueOnce(connectedReadiness);
+    conversations.get
+      .mockResolvedValueOnce(conversation())
+      .mockResolvedValueOnce(
+        conversation({
+          id: OTHER_CONVERSATION_ID,
+          accountId: OTHER_BRANCH_ID,
+        })
+      );
+    messages.list
+      .mockResolvedValueOnce(page([]))
+      .mockResolvedValueOnce(page([]));
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      { accountId: string; conversationId: string }
+    >(
+      ({ accountId, conversationId }) =>
+        useConfiguredThread({ accountId, conversationId }),
+      {
+        initialProps: {
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+        },
+      }
+    );
+
+    rerender({
+      accountId: OTHER_BRANCH_ID,
+      conversationId: OTHER_CONVERSATION_ID,
+    });
+    await waitFor(() =>
+      expect(result.current.sendReadiness).toMatchObject({
+        status: 'ready',
+        latestInboundAt: '2026-09-01T09:00:00.000Z',
+      })
+    );
+
+    await act(async () => {
+      oldLatest.resolve('2026-09-01T07:00:00.000Z');
+      oldTemplates.resolve([]);
+      oldConnection.resolve({
+        status: 'disconnected',
+        ready: false,
+        reason: 'Old branch is disconnected.',
+        connectedAt: null,
+      });
+      await Promise.all([
+        oldLatest.promise,
+        oldTemplates.promise,
+        oldConnection.promise,
+      ]);
+    });
+
+    expect(result.current.sendReadiness).toMatchObject({
+      status: 'ready',
+      latestInboundAt: '2026-09-01T09:00:00.000Z',
+      templates: [sendableTemplate],
+      connectionReadiness: connectedReadiness,
+    });
+  });
+
+  it('drops stale readiness completions after the realtime feed changes', async () => {
+    const firstFeed = fakeThreadRealtimeFeed();
+    const secondFeed = fakeThreadRealtimeFeed();
+    const oldLatest = deferred<string | null>();
+    const oldTemplates = deferred<NativeTemplate[]>();
+    const oldConnection = deferred<ConnectionReadiness>();
+    messages.getLatestCustomerMessageAt
+      .mockReturnValueOnce(oldLatest.promise)
+      .mockResolvedValue('2026-09-01T10:00:00.000Z');
+    templateRepository.listSendableTemplates
+      .mockReturnValueOnce(oldTemplates.promise)
+      .mockResolvedValueOnce([sendableTemplate]);
+    templateRepository.getWhatsAppConnectionReadiness
+      .mockReturnValueOnce(oldConnection.promise)
+      .mockResolvedValueOnce(connectedReadiness);
+    const { result, rerender } = renderHook<
+      UseMessageThreadResult,
+      { currentFeed: InboxRealtimeFeed }
+    >(({ currentFeed }) => useConfiguredThread({ realtime: currentFeed }), {
+      initialProps: { currentFeed: firstFeed },
+    });
+
+    rerender({ currentFeed: secondFeed });
+    await waitFor(() =>
+      expect(result.current.sendReadiness).toMatchObject({
+        status: 'ready',
+        latestInboundAt: '2026-09-01T10:00:00.000Z',
+      })
+    );
+
+    await act(async () => {
+      oldLatest.resolve(null);
+      oldTemplates.resolve([]);
+      oldConnection.resolve({
+        status: 'absent',
+        ready: false,
+        reason: 'Old feed result.',
+        connectedAt: null,
+      });
+      await Promise.all([
+        oldLatest.promise,
+        oldTemplates.promise,
+        oldConnection.promise,
+      ]);
+    });
+
+    expect(result.current.sendReadiness).toMatchObject({
+      status: 'ready',
+      latestInboundAt: '2026-09-01T10:00:00.000Z',
+      templates: [sendableTemplate],
+      connectionReadiness: connectedReadiness,
+    });
   });
 
   it('does not clear shared unread state for a viewer', async () => {

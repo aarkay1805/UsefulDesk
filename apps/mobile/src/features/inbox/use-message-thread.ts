@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   canClearConversationUnread,
+  canSendMessages,
   type AccountRole,
 } from '../../../../../src/lib/auth/roles';
 import {
@@ -10,9 +11,10 @@ import {
 } from './conversation-repository';
 import type { InboxRealtimeFeed } from './inbox-realtime-provider';
 import type { InboxConnectionState } from './inbox-realtime';
+import { isStrictIsoTimestamp } from './inbox-normalizers';
 import {
   mobileMessageRepository,
-  type MessageRepository,
+  type SessionWindowMessageRepository,
 } from './message-repository';
 import {
   appendOptimisticText,
@@ -32,10 +34,16 @@ import {
   type MobileSendResult,
 } from './send-message-client';
 import type {
+  ConnectionReadiness,
   InboxConversation,
   InboxMessage,
   MessageCursor,
+  NativeTemplate,
 } from './inbox-types';
+import {
+  mobileTemplateRepository,
+  type TemplateRepository,
+} from './template-repository';
 
 const LOAD_ERROR = 'Could not load messages';
 const REFRESH_ERROR = 'Could not refresh messages';
@@ -73,6 +81,23 @@ interface MainRequestOwner {
   feedGeneration: number;
 }
 
+export interface ConversationSendReadiness {
+  status: 'hidden' | 'loading' | 'ready' | 'error';
+  latestInboundAt: string | null;
+  templates: NativeTemplate[];
+  connectionReadiness: ConnectionReadiness | null;
+  templateReadiness: {
+    hasLocalTemplates: boolean;
+    contractReady: boolean;
+  } | null;
+}
+
+interface OwnedConversationSendReadiness extends ConversationSendReadiness {
+  accountId: string | null;
+  conversationId: string | null;
+  feedGeneration: number;
+}
+
 export interface UseMessageThreadResult {
   conversation: InboxConversation | null;
   items: InboxMessage[];
@@ -85,6 +110,7 @@ export interface UseMessageThreadResult {
   refreshing: boolean;
   loadingOlder: boolean;
   hasOlder: boolean;
+  sendReadiness: ConversationSendReadiness;
   refresh(): void;
   loadOlder(): void;
   sendText(draft: string): Promise<SendAttemptResult>;
@@ -112,7 +138,8 @@ export interface UseMessageThreadOptions {
   conversationId: string;
   role: AccountRole;
   conversations?: ConversationRepository;
-  messages?: MessageRepository;
+  messages?: SessionWindowMessageRepository;
+  templates?: TemplateRepository;
   realtime: InboxRealtimeFeed;
   outbound?: MessageThreadOutboundDependencies;
 }
@@ -131,6 +158,68 @@ function initialState(): MessageThreadState {
     paginationError: null,
     refreshing: true,
   };
+}
+
+function emptySendReadiness(
+  status: ConversationSendReadiness['status'],
+  accountId: string | null = null,
+  conversationId: string | null = null,
+  feedGeneration = -1
+): OwnedConversationSendReadiness {
+  return {
+    accountId,
+    conversationId,
+    feedGeneration,
+    status,
+    latestInboundAt: null,
+    templates: [],
+    connectionReadiness: null,
+    templateReadiness: null,
+  };
+}
+
+function publicSendReadiness(
+  readiness: OwnedConversationSendReadiness
+): ConversationSendReadiness {
+  return {
+    status: readiness.status,
+    latestInboundAt: readiness.latestInboundAt,
+    templates: readiness.templates,
+    connectionReadiness: readiness.connectionReadiness,
+    templateReadiness: readiness.templateReadiness,
+  };
+}
+
+function readinessResultIsConsistent(
+  latestInboundAt: string | null,
+  templates: NativeTemplate[],
+  connectionReadiness: ConnectionReadiness
+): boolean {
+  if (
+    (latestInboundAt !== null && !isStrictIsoTimestamp(latestInboundAt)) ||
+    !Array.isArray(templates)
+  ) {
+    return false;
+  }
+  const templatesAreSendable = templates.every(
+    (template) =>
+      template !== null &&
+      typeof template === 'object' &&
+      template.status === 'APPROVED' &&
+      template.parameterFormat === 'POSITIONAL' &&
+      template.providerMissingSince === null &&
+      template.providerComponentsSyncRequiredAt === null &&
+      template.headerMediaUrl === null
+  );
+  const connectionIsConsistent =
+    connectionReadiness !== null &&
+    typeof connectionReadiness === 'object' &&
+    connectionReadiness.ready ===
+      (connectionReadiness.status === 'connected') &&
+    (connectionReadiness.ready
+      ? connectionReadiness.reason === null
+      : typeof connectionReadiness.reason === 'string');
+  return templatesAreSendable && connectionIsConsistent;
 }
 
 function compareMessages(first: InboxMessage, second: InboxMessage): number {
@@ -170,6 +259,7 @@ export function useMessageThread({
   role,
   conversations = mobileConversationRepository,
   messages = mobileMessageRepository,
+  templates = mobileTemplateRepository,
   realtime,
   outbound,
 }: UseMessageThreadOptions): UseMessageThreadResult {
@@ -179,6 +269,10 @@ export function useMessageThread({
   );
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [loadingOlder, setLoadingOlder] = useState(false);
+  const [sendReadiness, setSendReadiness] =
+    useState<OwnedConversationSendReadiness>(() =>
+      emptySendReadiness('loading')
+    );
   const activeAccountId = useRef(accountId);
   const activeConversationId = useRef(conversationId);
   const activeRole = useRef(role);
@@ -468,6 +562,106 @@ export function useMessageThread({
     conversations,
     messages,
     refreshNonce,
+  ]);
+
+  useEffect(() => {
+    const readinessAccountId = accountId;
+    const readinessConversationId = conversationId;
+    const readinessScopeGeneration = scopeGeneration.current;
+    const readinessRequestGeneration = requestGeneration.current;
+    const readinessFeedGeneration = feedGeneration.current;
+    let cancelled = false;
+
+    if (!canSendMessages(role)) {
+      setSendReadiness(
+        emptySendReadiness(
+          'hidden',
+          readinessAccountId,
+          readinessConversationId,
+          readinessFeedGeneration
+        )
+      );
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setSendReadiness(
+      emptySendReadiness(
+        'loading',
+        readinessAccountId,
+        readinessConversationId,
+        readinessFeedGeneration
+      )
+    );
+
+    const isCurrentReadinessOwner = () =>
+      !cancelled &&
+      mounted.current &&
+      scopeGeneration.current === readinessScopeGeneration &&
+      requestGeneration.current === readinessRequestGeneration &&
+      feedGeneration.current === readinessFeedGeneration &&
+      activeAccountId.current === readinessAccountId &&
+      activeConversationId.current === readinessConversationId;
+
+    void (async () => {
+      try {
+        const [latestInboundAt, sendableTemplates, connectionReadiness] =
+          await Promise.all([
+            messages.getLatestCustomerMessageAt(
+              readinessAccountId,
+              readinessConversationId
+            ),
+            templates.listSendableTemplates(readinessAccountId),
+            templates.getWhatsAppConnectionReadiness(readinessAccountId),
+          ]);
+        if (!isCurrentReadinessOwner()) return;
+        if (
+          !readinessResultIsConsistent(
+            latestInboundAt,
+            sendableTemplates,
+            connectionReadiness
+          )
+        ) {
+          throw new Error('Send readiness is inconsistent');
+        }
+        setSendReadiness({
+          accountId: readinessAccountId,
+          conversationId: readinessConversationId,
+          feedGeneration: readinessFeedGeneration,
+          status: 'ready',
+          latestInboundAt,
+          templates: sendableTemplates,
+          connectionReadiness,
+          templateReadiness: {
+            hasLocalTemplates: sendableTemplates.length > 0,
+            contractReady: sendableTemplates.length > 0,
+          },
+        });
+      } catch {
+        if (!isCurrentReadinessOwner()) return;
+        setSendReadiness(
+          emptySendReadiness(
+            'error',
+            readinessAccountId,
+            readinessConversationId,
+            readinessFeedGeneration
+          )
+        );
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accountId,
+    conversationId,
+    messages,
+    realtime,
+    refreshNonce,
+    role,
+    templates,
   ]);
 
   useEffect(() => {
@@ -994,6 +1188,25 @@ export function useMessageThread({
 
   const stateMatchesScope =
     state.accountId === accountId && state.conversationId === conversationId;
+  const sendReadinessMatchesOwner =
+    sendReadiness.accountId === accountId &&
+    sendReadiness.conversationId === conversationId &&
+    sendReadiness.feedGeneration === feedGeneration.current;
+  const visibleSendReadiness = !canSendMessages(role)
+    ? emptySendReadiness(
+        'hidden',
+        accountId,
+        conversationId,
+        feedGeneration.current
+      )
+    : sendReadinessMatchesOwner
+      ? sendReadiness
+      : emptySendReadiness(
+          'loading',
+          accountId,
+          conversationId,
+          feedGeneration.current
+        );
   return {
     conversation: stateMatchesScope ? state.conversation : null,
     items: stateMatchesScope ? state.thread.messages : [],
@@ -1006,6 +1219,7 @@ export function useMessageThread({
     refreshing: stateMatchesScope ? state.refreshing : true,
     loadingOlder: stateMatchesScope ? loadingOlder : false,
     hasOlder: stateMatchesScope && state.cursor !== null,
+    sendReadiness: publicSendReadiness(visibleSendReadiness),
     refresh,
     loadOlder,
     sendText,

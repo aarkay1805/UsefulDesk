@@ -1,8 +1,15 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
+import { Platform } from 'react-native';
 
 import type { ReadyAuthContextValue } from '../../auth/auth-context';
 import type { AccountSummary, BranchAccount } from '../../auth/branch-types';
 import type { InboxRealtimeFeed } from '../inbox-realtime-provider';
+import type { ConnectionReadiness, NativeTemplate } from '../inbox-types';
 import {
   BRANCH_ID,
   CONVERSATION_ID,
@@ -15,6 +22,7 @@ import {
   OTHER_BRANCH_ID,
 } from '../inbox-test-fixtures';
 import type { UseMessageThreadResult } from '../use-message-thread';
+import { sendConversationMessage } from '../send-message-client';
 import {
   ConversationScreen,
   distanceFromBottom,
@@ -27,6 +35,7 @@ const mockUseLocalSearchParams = jest.fn();
 const mockUseMessageThread = jest.fn();
 const mockUseReadyAuth = jest.fn<ReadyAuthContextValue, []>();
 const mockScrollToEnd = jest.fn();
+const mockFocus = jest.fn();
 const mockStackOptions: { current: Record<string, unknown> | undefined } = {
   current: undefined,
 };
@@ -92,7 +101,20 @@ jest.mock('react-native', () => {
   );
   MockFlatList.displayName = 'MockFlatList';
 
-  return Object.setPrototypeOf({ FlatList: MockFlatList }, native);
+  function MockKeyboardAvoidingView({
+    children,
+    ...props
+  }: import('react-native').KeyboardAvoidingViewProps) {
+    return React.createElement(native.View, props, children);
+  }
+
+  return Object.setPrototypeOf(
+    {
+      FlatList: MockFlatList,
+      KeyboardAvoidingView: MockKeyboardAvoidingView,
+    },
+    native
+  );
 });
 
 jest.mock('expo-router', () => ({
@@ -122,6 +144,10 @@ jest.mock('../use-message-thread', () => ({
 
 jest.mock('../inbox-realtime-provider', () => ({
   useInboxRealtimeFeed: () => screenRealtime,
+}));
+
+jest.mock('../send-message-client', () => ({
+  sendConversationMessage: jest.fn(),
 }));
 
 jest.mock('../components/message-bubble', () => {
@@ -156,7 +182,7 @@ jest.mock('../components/message-bubble', () => {
 
 jest.mock('heroui-native', () => {
   const React = jest.requireActual('react') as typeof import('react');
-  const { Pressable, Text, View } = jest.requireActual(
+  const { Pressable, Text, TextInput, View } = jest.requireActual(
     'react-native'
   ) as typeof import('react-native');
 
@@ -175,6 +201,33 @@ jest.mock('heroui-native', () => {
   }: import('react').PropsWithChildren) {
     return React.createElement(Text, null, children);
   };
+
+  function MockTextField({ children }: import('react').PropsWithChildren) {
+    return React.createElement(View, null, children);
+  }
+
+  let currentFieldLabel = '';
+  function MockLabel({ children }: import('react').PropsWithChildren) {
+    currentFieldLabel = String(children);
+    return React.createElement(Text, null, children);
+  }
+
+  const MockInput = React.forwardRef(function MockInput(
+    { isDisabled, onChangeText, ...props }: any,
+    ref: any
+  ) {
+    React.useImperativeHandle(ref, () => ({ focus: mockFocus }));
+    return React.createElement(TextInput, {
+      ...props,
+      accessibilityLabel: props.accessibilityLabel ?? currentFieldLabel,
+      editable: !isDisabled,
+      onChangeText: isDisabled ? undefined : onChangeText,
+    });
+  });
+
+  function MockFieldError({ children }: import('react').PropsWithChildren) {
+    return React.createElement(Text, { accessibilityRole: 'alert' }, children);
+  }
 
   function MockAlert(props: import('react-native').ViewProps) {
     return React.createElement(View, {
@@ -206,7 +259,27 @@ jest.mock('heroui-native', () => {
     return React.createElement(View, props);
   }
 
-  return { Alert: MockAlert, Button: MockButton, Spinner: MockSpinner };
+  return {
+    Alert: MockAlert,
+    Button: MockButton,
+    FieldError: MockFieldError,
+    Input: MockInput,
+    Label: MockLabel,
+    Spinner: MockSpinner,
+    TextField: MockTextField,
+  };
+});
+
+jest.mock('expo-symbols', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+
+  return {
+    SymbolView: (props: { name: string }) =>
+      React.createElement(View, { ...props, testID: 'screen-symbol' }),
+  };
 });
 
 function accountSummary(id = BRANCH_ID): AccountSummary {
@@ -233,7 +306,10 @@ function accountSummary(id = BRANCH_ID): AccountSummary {
   };
 }
 
-function readyAuthValue(accountId = BRANCH_ID): ReadyAuthContextValue {
+function readyAuthValue(
+  accountId = BRANCH_ID,
+  role: BranchAccount['role'] = 'admin'
+): ReadyAuthContextValue {
   const branch: BranchAccount = {
     account_id: accountId,
     account_name: 'Indiranagar',
@@ -241,7 +317,7 @@ function readyAuthValue(accountId = BRANCH_ID): ReadyAuthContextValue {
     organization_name: 'Useful Fitness',
     legal_entity_id: '895fd4ad-7219-4982-b8e4-a0c84f83e8d4',
     legal_entity_name: 'Useful Fitness Private Limited',
-    role: 'admin',
+    role,
     branch_status: 'active',
     readiness_state: 'ready',
     default_currency: 'INR',
@@ -263,7 +339,7 @@ function readyAuthValue(accountId = BRANCH_ID): ReadyAuthContextValue {
         role: null,
         beta_features: [],
         account_id: accountId,
-        account_role: 'admin',
+        account_role: role,
       },
       branches: [branch],
       branch,
@@ -277,8 +353,44 @@ function readyAuthValue(accountId = BRANCH_ID): ReadyAuthContextValue {
   };
 }
 
+interface TestSendReadiness {
+  status: 'hidden' | 'loading' | 'ready' | 'error';
+  latestInboundAt: string | null;
+  templates: NativeTemplate[];
+  connectionReadiness: ConnectionReadiness | null;
+  templateReadiness: {
+    hasLocalTemplates: boolean;
+    contractReady: boolean;
+  } | null;
+}
+
+const connectedReadiness: ConnectionReadiness = {
+  status: 'connected',
+  ready: true,
+  reason: null,
+  connectedAt: '2026-09-01T08:00:00.000Z',
+};
+
+const staticTemplate: NativeTemplate = {
+  id: '5b52d03c-9d8c-4cf4-b8c6-a10b9b233571',
+  name: 'static_notice',
+  language: 'en',
+  category: 'Utility',
+  bodyText: 'The gym opens at 6 AM.',
+  headerType: null,
+  headerContent: null,
+  headerMediaUrl: null,
+  buttons: [],
+  status: 'APPROVED',
+  parameterFormat: 'POSITIONAL',
+  providerMissingSince: null,
+  providerComponentsSyncRequiredAt: null,
+};
+
 function readyThreadResult(
-  overrides: Partial<UseMessageThreadResult> = {}
+  overrides: Partial<UseMessageThreadResult> & {
+    sendReadiness?: TestSendReadiness;
+  } = {}
 ): UseMessageThreadResult {
   return {
     conversation: conversation(),
@@ -315,8 +427,18 @@ function readyThreadResult(
       temporaryId: 'temp:screen-test',
       status: 'sent',
     }),
+    sendReadiness: {
+      status: 'ready',
+      latestInboundAt: new Date().toISOString(),
+      templates: [staticTemplate],
+      connectionReadiness: connectedReadiness,
+      templateReadiness: {
+        hasLocalTemplates: true,
+        contractReady: true,
+      },
+    },
     ...overrides,
-  };
+  } as UseMessageThreadResult;
 }
 
 describe('conversation scroll policy', () => {
@@ -359,7 +481,7 @@ describe('ConversationScreen', () => {
     mockUseMessageThread.mockReturnValue(readyThreadResult());
   });
 
-  it('renders chronological runs in the native titled route without a composer', () => {
+  it('renders chronological runs in the native titled route with the open-window composer', () => {
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
         items: [
@@ -404,8 +526,8 @@ describe('ConversationScreen', () => {
     expect(
       screen.getByLabelText(`Message ${MESSAGE_3_ID}, starts run`)
     ).toBeTruthy();
-    expect(screen.queryByPlaceholderText(/message/i)).toBeNull();
-    expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+    expect(screen.getByPlaceholderText(/message/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeTruthy();
     expect(mockStackOptions.current).toEqual({ title: 'Asha Rao' });
     expect(mockUseMessageThread).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -415,6 +537,247 @@ describe('ConversationScreen', () => {
         role: 'admin',
       })
     );
+  });
+
+  it.each(['owner', 'admin', 'agent'] as const)(
+    'passes authenticated outbound dependencies and renders text for an open %s window',
+    (role) => {
+      const auth = readyAuthValue(BRANCH_ID, role);
+      mockUseReadyAuth.mockReturnValue(auth);
+
+      render(<ConversationScreen />);
+
+      expect(screen.getByLabelText('Message')).toBeTruthy();
+      expect(mockUseMessageThread).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          role,
+          outbound: {
+            senderId: auth.state.profile.id,
+            recoverUnauthorizedSession: auth.recoverUnauthorizedSession,
+          },
+        })
+      );
+    }
+  );
+
+  it('keeps viewers read-only without loading or outbound dependencies leaking into controls', () => {
+    mockUseReadyAuth.mockReturnValue(readyAuthValue(BRANCH_ID, 'viewer'));
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'hidden',
+          latestInboundAt: null,
+          templates: [],
+          connectionReadiness: null,
+          templateReadiness: null,
+        },
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    expect(screen.queryByLabelText('Message')).toBeNull();
+    expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+    expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
+    expect(mockUseMessageThread).toHaveBeenLastCalledWith(
+      expect.objectContaining({ role: 'viewer', outbound: undefined })
+    );
+  });
+
+  it('shows no send surface until readiness finishes loading', () => {
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'loading',
+          latestInboundAt: null,
+          templates: [],
+          connectionReadiness: null,
+          templateReadiness: null,
+        },
+      })
+    );
+    const { rerender } = render(<ConversationScreen />);
+
+    expect(screen.queryByLabelText('Message')).toBeNull();
+    expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+
+    mockUseMessageThread.mockReturnValue(readyThreadResult());
+    rerender(<ConversationScreen />);
+
+    expect(screen.getByLabelText('Message')).toBeTruthy();
+  });
+
+  it('routes open-window send failure and Retry through the message hook', async () => {
+    const sendText = jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-failed',
+      status: 'failed',
+    });
+    const retryText = jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-failed',
+      status: 'sent',
+    });
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({ sendText, retryText })
+    );
+    render(<ConversationScreen />);
+
+    fireEvent.changeText(screen.getByLabelText('Message'), '  Please renew  ');
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+
+    await waitFor(() => expect(sendText).toHaveBeenCalledWith('Please renew'));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Retry message' })
+    );
+
+    await waitFor(() =>
+      expect(retryText).toHaveBeenCalledWith('temp:screen-failed')
+    );
+  });
+
+  it('replaces the composer with an amber closed-window bar whose only action is Send a template', () => {
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: '2026-01-01T00:00:00.000Z',
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    const bar = screen.getByTestId('closed-window-action-bar');
+    expect(bar.props.className).toContain('bg-warning-soft');
+    expect(screen.queryByLabelText('Message')).toBeNull();
+    expect(
+      screen
+        .getAllByRole('button')
+        .map((button) => button.props.accessibilityLabel)
+    ).toEqual(['Send a template']);
+  });
+
+  it('opens the existing template picker, sends, refreshes, and closes it', async () => {
+    const refresh = jest.fn();
+    jest.mocked(sendConversationMessage).mockResolvedValue({
+      messageId: MESSAGE_3_ID,
+      whatsappMessageId: 'wamid.screen-template',
+    });
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        refresh,
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    render(<ConversationScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+    expect(screen.getByText('Send approved template')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+    await waitFor(() => expect(sendConversationMessage).toHaveBeenCalled());
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Send approved template')).toBeNull();
+  });
+
+  it('keeps the template picker open when the hook returns an equivalent readiness value on rerender', () => {
+    mockUseMessageThread.mockImplementation(() =>
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    render(<ConversationScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+
+    expect(screen.getByText('Send approved template')).toBeTruthy();
+  });
+
+  it('fails closed to one readiness blocker without exposing another send action', () => {
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'error',
+          latestInboundAt: null,
+          templates: [],
+          connectionReadiness: null,
+          templateReadiness: null,
+        },
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    expect(screen.getAllByTestId('conversation-action-blocker')).toHaveLength(
+      1
+    );
+    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.queryByLabelText('Message')).toBeNull();
+    expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+  });
+
+  it('renders only the highest-priority closed-window blocker', () => {
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [],
+          connectionReadiness: {
+            status: 'disconnected',
+            ready: false,
+            reason: 'WhatsApp is disconnected for this branch.',
+            connectedAt: null,
+          },
+          templateReadiness: {
+            hasLocalTemplates: false,
+            contractReady: false,
+          },
+        },
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByText('No sendable templates')).toBeTruthy();
+    expect(screen.queryByText('WhatsApp is unavailable')).toBeNull();
+    expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+  });
+
+  it('keeps the list and action footer in native keyboard avoidance inside the bottom safe area', () => {
+    render(<ConversationScreen />);
+
+    const keyboard = screen.getByTestId('conversation-keyboard-avoiding-view');
+    expect(keyboard.props.behavior).toBe(
+      Platform.OS === 'ios' ? 'padding' : 'height'
+    );
+    expect(keyboard.props.keyboardVerticalOffset).toBeUndefined();
+    expect(screen.getByTestId('message-list')).toBeTruthy();
+    expect(screen.getByLabelText('Message')).toBeTruthy();
   });
 
   it.each([undefined, 'not-a-uuid', [CONVERSATION_ID, MESSAGE_1_ID]])(
@@ -479,7 +842,7 @@ describe('ConversationScreen', () => {
     expect(mockScrollToEnd).not.toHaveBeenCalled();
   });
 
-  it('follows a realtime insert only while the reader is near the bottom', () => {
+  it('follows an optimistic outbound append while the reader is near the bottom', () => {
     const initial = readyThreadResult();
     mockUseMessageThread.mockReturnValue(initial);
     const { rerender } = render(<ConversationScreen />);
@@ -498,7 +861,12 @@ describe('ConversationScreen', () => {
       readyThreadResult({
         items: [
           ...initial.items,
-          message({ id: MESSAGE_3_ID, contentText: 'Near-bottom update' }),
+          message({
+            id: 'temp:screen-optimistic',
+            senderType: 'agent',
+            status: 'sending',
+            contentText: 'Near-bottom optimistic send',
+          }),
         ],
       })
     );
