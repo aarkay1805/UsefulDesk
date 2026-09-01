@@ -4,6 +4,8 @@ import { entryRouteForAuthState } from './entry-route';
 describe('entryRouteForAuthState', () => {
   it.each([
     ['signed_out', '/(auth)/sign-in'],
+    ['signing_out', '/(auth)/sign-in'],
+    ['cleanup_failed', '/(auth)/sign-in'],
     ['choose_branch', '/(auth)/select-branch'],
     ['ready', '/(app)'],
     ['blocked', '/(auth)/select-branch'],

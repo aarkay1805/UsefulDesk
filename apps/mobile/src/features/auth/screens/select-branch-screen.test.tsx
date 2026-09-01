@@ -179,4 +179,29 @@ describe('SelectBranchScreen', () => {
       screen.getByRole('button', { name: 'Choose Indiranagar branch' })
     ).toBeEnabled();
   });
+
+  it('always exposes sign-out recovery for an unavailable profile even when branch rows exist', async () => {
+    const signOut = jest.fn().mockResolvedValue(undefined);
+    mockUseAuth.mockReturnValue(
+      authValue({
+        state: {
+          status: 'blocked',
+          profile: null,
+          branches: [activeBranch],
+          reason: 'profile_unavailable',
+        },
+        signOut,
+      })
+    );
+
+    render(<SelectBranchScreen />);
+
+    expect(
+      screen.getByText('Could not load your profile. Sign out and try again.')
+    ).toBeTruthy();
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Sign out and try again' })
+    );
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+  });
 });

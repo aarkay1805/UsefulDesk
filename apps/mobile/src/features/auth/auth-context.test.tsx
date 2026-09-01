@@ -240,7 +240,13 @@ describe('AuthProvider', () => {
     expect(setup.raw.auth.onAuthStateChange).toHaveBeenCalledTimes(1);
     expect(setup.unsubscribe).not.toHaveBeenCalled();
 
-    act(() => setup.emit('SIGNED_IN', session('recovered-session')));
+    setup.raw.actions.signInWithPassword.mockImplementationOnce(async () => {
+      setup.emit('SIGNED_IN', session('recovered-session'));
+      return { status: 'success' } as const;
+    });
+    await act(async () => {
+      await latest!.signInWithPassword('asha@example.com', 'password');
+    });
     await waitFor(() => {
       expect(latest?.state.status).toBe('ready');
       if (latest?.state.status === 'ready') {
@@ -597,7 +603,7 @@ describe('AuthProvider', () => {
     expect(setup.raw.preference.clear).toHaveBeenCalledTimes(1);
   });
 
-  it('signs out immediately ahead of delayed bootstrap and rejects a later refresh event', async () => {
+  it('keeps authentication unavailable while sign-out is pending and rejects a later refresh event', async () => {
     const setup = createDependencies();
     const obsoleteBootstrap = deferred<MobileBootstrap>();
     const remoteSignOut =
@@ -625,16 +631,34 @@ describe('AuthProvider', () => {
     act(() => {
       pendingSignOut = latest!.signOut();
     });
-    await waitFor(() => expect(latest?.state.status).toBe('signed_out'));
+    await waitFor(() => expect(latest?.state.status).toBe('signing_out'));
     expect(setup.raw.selectedBranch.get()).toBeNull();
     expect(setup.raw.actions.signOut).toHaveBeenCalledWith('initial-token');
+
+    await expect(
+      latest!.signInWithPassword('asha@example.com', 'password')
+    ).resolves.toEqual({
+      status: 'error',
+      message: 'Secure sign-out is still in progress.',
+    });
+    await expect(latest!.signInWithGoogle()).resolves.toEqual({
+      status: 'error',
+      message: 'Secure sign-out is still in progress.',
+    });
+    expect(setup.raw.actions.signInWithPassword).not.toHaveBeenCalled();
+    expect(setup.raw.actions.signInWithGoogle).not.toHaveBeenCalled();
+
+    act(() => setup.emit('SIGNED_IN', session('blocked-new-session')));
+    await act(async () => Promise.resolve());
+    expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(1);
+    expect(latest?.state.status).toBe('signing_out');
 
     await act(async () => {
       obsoleteBootstrap.resolve(readyBootstrap(BRANCH_A));
       await obsoleteBootstrap.promise;
     });
     expect(setup.raw.preference.set).not.toHaveBeenCalled();
-    expect(latest?.state.status).toBe('signed_out');
+    expect(latest?.state.status).toBe('signing_out');
 
     remoteSignOut.resolve({
       status: 'error',
@@ -651,6 +675,154 @@ describe('AuthProvider', () => {
     expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(1);
     expect(latest?.state.status).toBe('signed_out');
     expect(setup.raw.actions.purgeLocalSession).toHaveBeenCalled();
+  });
+
+  it('keeps unverifiable cleanup non-authenticating until a secure sign-out retry succeeds', async () => {
+    const setup = createDependencies();
+    setup.raw.actions.signOut
+      .mockResolvedValueOnce({
+        status: 'error',
+        remote: 'success',
+        localAuth: 'failed',
+        branchPreference: 'success',
+        message: 'platform storage diagnostic with token material',
+      })
+      .mockResolvedValueOnce({
+        status: 'success',
+        remote: 'not_attempted',
+        localAuth: 'success',
+        branchPreference: 'success',
+      });
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+
+    await act(async () => latest!.signOut());
+    expect(latest?.state).toEqual({
+      status: 'cleanup_failed',
+      error:
+        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+    });
+    await expect(
+      latest!.signInWithPassword('asha@example.com', 'password')
+    ).resolves.toMatchObject({ status: 'error' });
+    await expect(latest!.signInWithGoogle()).resolves.toMatchObject({
+      status: 'error',
+    });
+    expect(setup.raw.actions.signInWithPassword).not.toHaveBeenCalled();
+    expect(setup.raw.actions.signInWithGoogle).not.toHaveBeenCalled();
+
+    await act(async () => latest!.signOut());
+    expect(setup.raw.actions.signOut).toHaveBeenLastCalledWith(null);
+    expect(latest?.state).toEqual({ status: 'signed_out' });
+  });
+
+  it('does not suppress a legitimate signed-out event for a newer authenticated generation', async () => {
+    const setup = createDependencies();
+    setup.raw.actions.signOut.mockImplementationOnce(async () => {
+      setup.emit('SIGNED_OUT', null);
+      return {
+        status: 'success',
+        remote: 'success',
+        localAuth: 'success',
+        branchPreference: 'success',
+      } as const;
+    });
+    setup.raw.actions.signInWithPassword.mockImplementationOnce(async () => {
+      setup.emit('SIGNED_IN', session('new-session'));
+      return { status: 'success' } as const;
+    });
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    await act(async () => latest!.signOut());
+    expect(latest?.state.status).toBe('signed_out');
+
+    await act(async () => {
+      await latest!.signInWithPassword('asha@example.com', 'password');
+    });
+    await waitFor(() => {
+      expect(latest?.state.status).toBe('ready');
+      if (latest?.state.status === 'ready') {
+        expect(latest.state.session.access_token).toBe('new-session');
+      }
+    });
+
+    setup.raw.actions.purgeLocalSession.mockClear();
+    act(() => setup.emit('SIGNED_OUT', null));
+    await waitFor(() => expect(latest?.state.status).toBe('signed_out'));
+    expect(setup.raw.actions.purgeLocalSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores the signed-out barrier after Google cancellation', async () => {
+    const setup = createDependencies({ restoredSession: null });
+    setup.raw.actions.signInWithGoogle.mockResolvedValueOnce({
+      status: 'cancelled',
+    });
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('signed_out'));
+    const bootstrapCalls = setup.raw.loadBootstrap.mock.calls.length;
+    setup.raw.actions.purgeLocalSession.mockClear();
+
+    await expect(latest!.signInWithGoogle()).resolves.toEqual({
+      status: 'cancelled',
+    });
+    act(() => setup.emit('TOKEN_REFRESHED', session('cancelled-refresh')));
+    await waitFor(() => {
+      expect(setup.raw.actions.purgeLocalSession).toHaveBeenCalledTimes(1);
+      expect(latest?.state.status).toBe('signed_out');
+    });
+    expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(bootstrapCalls);
+  });
+
+  it('publishes explicit cleanup failure when a sign-in rollback cannot be verified', async () => {
+    const setup = createDependencies({ restoredSession: null });
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('signed_out'));
+    setup.raw.actions.signInWithGoogle.mockResolvedValueOnce({
+      status: 'error',
+      reason: 'cleanup_failed',
+      message: 'platform secure storage diagnostic with token material',
+    });
+
+    let result!: Awaited<ReturnType<AuthContextValue['signInWithGoogle']>>;
+    await act(async () => {
+      result = await latest!.signInWithGoogle();
+    });
+    expect(result).toMatchObject({
+      status: 'error',
+      reason: 'cleanup_failed',
+      message:
+        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+    });
+    expect(latest?.state).toEqual({
+      status: 'cleanup_failed',
+      error:
+        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+    });
+
+    await expect(
+      latest!.signInWithPassword('asha@example.com', 'password')
+    ).resolves.toMatchObject({ status: 'error' });
+    expect(setup.raw.actions.signInWithPassword).not.toHaveBeenCalled();
   });
 
   it('clears branch state exactly once for an external signed-out event', async () => {

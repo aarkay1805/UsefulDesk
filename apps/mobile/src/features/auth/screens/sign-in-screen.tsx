@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, TextField } from '../../../ui';
 import { useAuth } from '../auth-context';
 
-type PendingAction = 'password' | 'google' | null;
+type PendingAction = 'password' | 'google' | 'cleanup' | null;
 
 export function SignInScreen() {
   const auth = useAuth();
@@ -24,7 +24,9 @@ export function SignInScreen() {
   const pendingRef = useRef(false);
 
   const authError =
-    auth.state.status === 'signed_out' ? (auth.state.error ?? null) : null;
+    auth.state.status === 'signed_out' || auth.state.status === 'cleanup_failed'
+      ? (auth.state.error ?? null)
+      : null;
   const error = actionError ?? authError;
 
   const begin = (action: Exclude<PendingAction, null>): boolean => {
@@ -65,6 +67,74 @@ export function SignInScreen() {
       finish();
     }
   };
+
+  const retrySecureSignOut = async () => {
+    if (!begin('cleanup')) return;
+    try {
+      await auth.signOut();
+    } catch {
+      setActionError(
+        'Secure sign-out is incomplete. Retry secure sign-out before signing in.'
+      );
+    } finally {
+      finish();
+    }
+  };
+
+  if (auth.state.status === 'signing_out') {
+    return (
+      <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>
+        <View className="flex-1 justify-center gap-3 px-6 py-8">
+          <Text
+            accessibilityRole="header"
+            className="text-foreground text-3xl font-bold"
+          >
+            UsefulDesk Agent
+          </Text>
+          <Text
+            accessibilityLiveRegion="polite"
+            className="text-muted text-base leading-6"
+          >
+            Signing out securely…
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (auth.state.status === 'cleanup_failed') {
+    return (
+      <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>
+        <View className="flex-1 justify-center gap-5 px-6 py-8">
+          <View className="gap-2">
+            <Text
+              accessibilityRole="header"
+              className="text-foreground text-3xl font-bold"
+            >
+              Secure sign-out needs attention
+            </Text>
+            <Text className="text-muted text-base leading-6">
+              Finish clearing this device before signing in again.
+            </Text>
+          </View>
+          <Text
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="text-danger text-sm leading-5"
+          >
+            {error}
+          </Text>
+          <Button
+            accessibilityLabel="Retry secure sign-out"
+            loading={pendingAction === 'cleanup'}
+            onPress={() => void retrySecureSignOut()}
+          >
+            Retry secure sign-out
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="bg-background flex-1" edges={['top', 'bottom']}>

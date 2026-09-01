@@ -9,6 +9,8 @@ export function entryRouteForAuthState(
   switch (state.status) {
     case 'booting':
       return null;
+    case 'signing_out':
+    case 'cleanup_failed':
     case 'signed_out':
       return '/(auth)/sign-in';
     case 'choose_branch':

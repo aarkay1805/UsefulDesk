@@ -108,6 +108,9 @@ export function SelectBranchScreen() {
   const hasAvailableBranch = branches.some(
     (branch) => branch.branch_status !== 'archived'
   );
+  const needsSignOutRecovery =
+    !hasAvailableBranch ||
+    (state.status === 'blocked' && state.reason === 'profile_unavailable');
 
   const retryFromSignIn = async () => {
     if (signingOutRef.current) return;
@@ -148,7 +151,7 @@ export function SelectBranchScreen() {
 
         <BranchChoices branches={branches} onSelect={auth.selectBranch} />
 
-        {!hasAvailableBranch ? (
+        {needsSignOutRecovery ? (
           <Button
             accessibilityLabel="Sign out and try again"
             loading={signingOut}

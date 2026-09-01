@@ -37,6 +37,8 @@ import type {
 
 export type AuthState =
   | { status: 'booting' }
+  | { status: 'signing_out' }
+  | { status: 'cleanup_failed'; error: string }
   | { status: 'signed_out'; error?: string }
   | {
       status: 'choose_branch';
@@ -177,7 +179,11 @@ export function AuthProvider({
   const sessionRef = useRef<Session | null>(null);
   const lastAuthSessionRef = useRef<Session | null>(null);
   const requestedBranchRef = useRef<string | null>(null);
-  const explicitSignOutGenerationRef = useRef<number | null>(null);
+  const ownedSignOutEventGenerationRef = useRef<number | null>(null);
+  const cleanupInFlightGenerationRef = useRef<number | null>(null);
+  const authAvailabilityRef = useRef<'blocked' | 'allowed' | 'cleanup_failed'>(
+    'blocked'
+  );
   const signedOutBarrierRef = useRef(false);
   const mountedRef = useRef(false);
   const generationRef = useRef(0);
@@ -191,32 +197,40 @@ export function AuthProvider({
     return generationRef.current;
   }, []);
 
-  const publishSignedOut = useCallback(
-    (
-      generation: number,
-      error?: string,
-      blockSessionEvents = false
-    ): boolean => {
+  const publishSigningOut = useCallback(
+    (generation: number): boolean => {
       if (!isCurrent(generation)) return false;
-      if (blockSessionEvents) signedOutBarrierRef.current = true;
+      signedOutBarrierRef.current = true;
+      authAvailabilityRef.current = 'blocked';
       requestedBranchRef.current = null;
       sessionRef.current = null;
       lastAuthSessionRef.current = null;
       dependencies.selectedBranch.set(null);
       if (!isCurrent(generation)) return false;
+      setState({ status: 'signing_out' });
+      return true;
+    },
+    [dependencies.selectedBranch, isCurrent]
+  );
+
+  const publishSignedOut = useCallback(
+    (generation: number, error?: string): boolean => {
+      if (!isCurrent(generation)) return false;
+      signedOutBarrierRef.current = true;
+      authAvailabilityRef.current = 'allowed';
       setState({
         status: 'signed_out',
         ...(error ? { error } : {}),
       });
       return true;
     },
-    [dependencies.selectedBranch, isCurrent]
+    [isCurrent]
   );
 
   const localPurgeError = useCallback(
     (result: LocalSessionPurgeResult): string | undefined => {
       if (result.localAuth === 'failed') {
-        return "Could not fully clear this device's sign-in. Restart the app before trying again.";
+        return 'Secure sign-out is incomplete. Retry secure sign-out before signing in.';
       }
       if (result.branchPreference === 'failed') {
         return 'Signed out, but local branch data could not be cleared.';
@@ -227,25 +241,43 @@ export function AuthProvider({
   );
 
   const purgeLocalForGeneration = useCallback(
-    async (generation: number): Promise<void> => {
-      if (!isCurrent(generation)) return;
+    async (generation: number, settledError?: string): Promise<void> => {
+      if (!publishSigningOut(generation)) return;
+      cleanupInFlightGenerationRef.current = generation;
+      ownedSignOutEventGenerationRef.current = generation;
       let result: LocalSessionPurgeResult;
       try {
         result = await dependencies.actions.purgeLocalSession();
       } catch {
         result = { localAuth: 'failed', branchPreference: 'failed' };
       }
+      if (ownedSignOutEventGenerationRef.current === generation) {
+        ownedSignOutEventGenerationRef.current = null;
+      }
+      if (cleanupInFlightGenerationRef.current === generation) {
+        cleanupInFlightGenerationRef.current = null;
+      }
       if (!isCurrent(generation)) return;
       const error = localPurgeError(result);
-      if (error) {
-        setState((current) =>
-          current.status === 'signed_out'
-            ? { status: 'signed_out', error }
-            : current
-        );
+      if (result.localAuth === 'failed') {
+        authAvailabilityRef.current = 'cleanup_failed';
+        setState({
+          status: 'cleanup_failed',
+          error:
+            error ??
+            'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+        });
+        return;
       }
+      publishSignedOut(generation, error ?? settledError);
     },
-    [dependencies.actions, isCurrent, localPurgeError]
+    [
+      dependencies.actions,
+      isCurrent,
+      localPurgeError,
+      publishSignedOut,
+      publishSigningOut,
+    ]
   );
 
   const mutatePreference = useCallback(
@@ -275,6 +307,7 @@ export function AuthProvider({
       if (!isCurrent(generation)) return false;
       requestedBranchRef.current = null;
       sessionRef.current = session;
+      authAvailabilityRef.current = 'blocked';
       setState(stateFromBootstrap(bootstrap, session));
       return true;
     },
@@ -292,6 +325,7 @@ export function AuthProvider({
       if (!isCurrent(generation)) return false;
       requestedBranchRef.current = null;
       sessionRef.current = session;
+      authAvailabilityRef.current = 'blocked';
       setState(stateFromBootstrap(bootstrap, session));
       return true;
     },
@@ -325,29 +359,19 @@ export function AuthProvider({
       try {
         validation = await dependencies.auth.getUser();
       } catch {
-        if (
-          publishSignedOut(
-            generation,
-            'Could not verify your session. Sign in again.',
-            true
-          )
-        ) {
-          void purgeLocalForGeneration(generation);
-        }
+        void purgeLocalForGeneration(
+          generation,
+          'Could not verify your session. Sign in again.'
+        );
         return;
       }
       if (!isCurrent(generation)) return;
       const { data, error } = validation;
       if (error || !data.user || data.user.id !== session.user.id) {
-        if (
-          publishSignedOut(
-            generation,
-            'Your session expired. Sign in again.',
-            true
-          )
-        ) {
-          void purgeLocalForGeneration(generation);
-        }
+        void purgeLocalForGeneration(
+          generation,
+          'Your session expired. Sign in again.'
+        );
         return;
       }
 
@@ -423,7 +447,6 @@ export function AuthProvider({
       mutatePreference,
       publishLocalStateFailure,
       publishReady,
-      publishSignedOut,
       publishUnready,
       purgeLocalForGeneration,
     ]
@@ -432,7 +455,9 @@ export function AuthProvider({
   const beginSessionTransition = useCallback(
     (event: AuthChangeEvent, nextSession: Session): void => {
       if (signedOutBarrierRef.current) {
-        void purgeLocalForGeneration(generationRef.current);
+        if (cleanupInFlightGenerationRef.current !== generationRef.current) {
+          void purgeLocalForGeneration(nextGeneration());
+        }
         return;
       }
       if (
@@ -452,6 +477,8 @@ export function AuthProvider({
           dependencies.selectedBranch.get() ??
           undefined);
       const generation = nextGeneration();
+      ownedSignOutEventGenerationRef.current = null;
+      authAvailabilityRef.current = 'blocked';
       lastAuthSessionRef.current = nextSession;
       sessionRef.current = nextSession;
 
@@ -472,17 +499,25 @@ export function AuthProvider({
   );
 
   const handleSignedOutEvent = useCallback((): void => {
-    if (explicitSignOutGenerationRef.current !== null) return;
-    const generation = nextGeneration();
-    signedOutBarrierRef.current = true;
-    if (publishSignedOut(generation, undefined, true)) {
-      void purgeLocalForGeneration(generation);
+    if (
+      ownedSignOutEventGenerationRef.current !== null &&
+      ownedSignOutEventGenerationRef.current === generationRef.current
+    ) {
+      ownedSignOutEventGenerationRef.current = null;
+      return;
     }
-  }, [nextGeneration, publishSignedOut, purgeLocalForGeneration]);
+    ownedSignOutEventGenerationRef.current = null;
+    if (cleanupInFlightGenerationRef.current === generationRef.current) return;
+    const generation = nextGeneration();
+    void purgeLocalForGeneration(generation);
+  }, [nextGeneration, purgeLocalForGeneration]);
 
   useEffect(() => {
     mountedRef.current = true;
     signedOutBarrierRef.current = false;
+    authAvailabilityRef.current = 'blocked';
+    ownedSignOutEventGenerationRef.current = null;
+    cleanupInFlightGenerationRef.current = null;
     requestedBranchRef.current = null;
     sessionRef.current = null;
     lastAuthSessionRef.current = null;
@@ -511,27 +546,19 @@ export function AuthProvider({
       try {
         restored = await dependencies.auth.getSession();
       } catch {
-        if (
-          publishSignedOut(
-            restorationGeneration,
-            'Could not restore your session. Sign in again.'
-          )
-        ) {
-          void purgeLocalForGeneration(restorationGeneration);
-        }
+        void purgeLocalForGeneration(
+          restorationGeneration,
+          'Could not restore your session. Sign in again.'
+        );
         return;
       }
       if (!isCurrent(restorationGeneration)) return;
       const { data, error } = restored;
       if (error || !data.session) {
-        if (
-          publishSignedOut(
-            restorationGeneration,
-            error ? 'Could not restore your session. Sign in again.' : undefined
-          )
-        ) {
-          void purgeLocalForGeneration(restorationGeneration);
-        }
+        void purgeLocalForGeneration(
+          restorationGeneration,
+          error ? 'Could not restore your session. Sign in again.' : undefined
+        );
         return;
       }
 
@@ -545,6 +572,9 @@ export function AuthProvider({
       generationRef.current += 1;
       mountedRef.current = false;
       signedOutBarrierRef.current = true;
+      authAvailabilityRef.current = 'blocked';
+      ownedSignOutEventGenerationRef.current = null;
+      cleanupInFlightGenerationRef.current = null;
       requestedBranchRef.current = null;
       sessionRef.current = null;
       lastAuthSessionRef.current = null;
@@ -559,7 +589,6 @@ export function AuthProvider({
     handleSignedOutEvent,
     isCurrent,
     nextGeneration,
-    publishSignedOut,
     purgeLocalForGeneration,
   ]);
 
@@ -568,78 +597,176 @@ export function AuthProvider({
       const session = sessionRef.current;
       if (!session) {
         const generation = nextGeneration();
-        if (publishSignedOut(generation)) {
-          void purgeLocalForGeneration(generation);
-        }
+        void purgeLocalForGeneration(generation);
         return;
       }
       requestedBranchRef.current = accountId;
       const generation = nextGeneration();
       await bootstrapSession(session, generation, accountId);
     },
-    [
-      bootstrapSession,
-      nextGeneration,
-      publishSignedOut,
-      purgeLocalForGeneration,
-    ]
+    [bootstrapSession, nextGeneration, purgeLocalForGeneration]
+  );
+
+  const beginAuthAttempt = useCallback(():
+    { generation: number } | { error: AuthActionResult } => {
+    if (authAvailabilityRef.current !== 'allowed') {
+      return {
+        error: {
+          status: 'error',
+          message:
+            authAvailabilityRef.current === 'cleanup_failed'
+              ? 'Secure sign-out is incomplete. Retry secure sign-out before signing in.'
+              : 'Secure sign-out is still in progress.',
+          ...(authAvailabilityRef.current === 'cleanup_failed'
+            ? { reason: 'cleanup_failed' as const }
+            : {}),
+        },
+      };
+    }
+
+    const generation = nextGeneration();
+    ownedSignOutEventGenerationRef.current = null;
+    cleanupInFlightGenerationRef.current = null;
+    authAvailabilityRef.current = 'blocked';
+    signedOutBarrierRef.current = false;
+    return { generation };
+  }, [nextGeneration]);
+
+  const settleFailedAuthAttempt = useCallback(
+    (generation: number, cleanupFailed = false): void => {
+      if (!isCurrent(generation)) return;
+      signedOutBarrierRef.current = true;
+      if (cleanupFailed) {
+        authAvailabilityRef.current = 'cleanup_failed';
+        setState({
+          status: 'cleanup_failed',
+          error:
+            'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+        });
+        return;
+      }
+      authAvailabilityRef.current = 'allowed';
+    },
+    [isCurrent]
   );
 
   const signInWithPasswordFromProvider = useCallback(
     async (email: string, password: string): Promise<AuthActionResult> => {
-      signedOutBarrierRef.current = false;
-      const result = await dependencies.actions.signInWithPassword(
-        email,
-        password
-      );
-      if (result.status === 'error') signedOutBarrierRef.current = true;
-      return result;
+      const attempt = beginAuthAttempt();
+      if ('error' in attempt) return attempt.error;
+      try {
+        const result = await dependencies.actions.signInWithPassword(
+          email,
+          password
+        );
+        if (result.status === 'error') {
+          const cleanupFailed = result.reason === 'cleanup_failed';
+          settleFailedAuthAttempt(attempt.generation, cleanupFailed);
+          if (cleanupFailed) {
+            return {
+              status: 'error',
+              reason: 'cleanup_failed',
+              message:
+                'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+            };
+          }
+        }
+        return result;
+      } catch {
+        settleFailedAuthAttempt(attempt.generation);
+        return {
+          status: 'error',
+          message: 'Could not sign in. Please try again.',
+        };
+      }
     },
-    [dependencies.actions]
+    [beginAuthAttempt, dependencies.actions, settleFailedAuthAttempt]
   );
 
   const signInWithGoogleFromProvider =
     useCallback(async (): Promise<GoogleAuthResult> => {
-      signedOutBarrierRef.current = false;
-      const result = await dependencies.actions.signInWithGoogle();
-      if (result.status === 'error') signedOutBarrierRef.current = true;
-      return result;
-    }, [dependencies.actions]);
+      const attempt = beginAuthAttempt();
+      if ('error' in attempt) return attempt.error;
+      try {
+        const result = await dependencies.actions.signInWithGoogle();
+        if (result.status !== 'success') {
+          const cleanupFailed =
+            result.status === 'error' && result.reason === 'cleanup_failed';
+          settleFailedAuthAttempt(attempt.generation, cleanupFailed);
+          if (cleanupFailed) {
+            return {
+              status: 'error',
+              reason: 'cleanup_failed',
+              message:
+                'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+            };
+          }
+        }
+        return result;
+      } catch {
+        settleFailedAuthAttempt(attempt.generation);
+        return {
+          status: 'error',
+          message: 'Could not complete Google sign-in. Please try again.',
+        };
+      }
+    }, [beginAuthAttempt, dependencies.actions, settleFailedAuthAttempt]);
 
   const signOutFromProvider = useCallback(async (): Promise<void> => {
+    if (cleanupInFlightGenerationRef.current !== null) return;
     const accessToken = sessionRef.current?.access_token ?? null;
     const generation = nextGeneration();
-    explicitSignOutGenerationRef.current = generation;
-    signedOutBarrierRef.current = true;
-    publishSignedOut(generation, undefined, true);
+    if (!publishSigningOut(generation)) return;
+    cleanupInFlightGenerationRef.current = generation;
+    ownedSignOutEventGenerationRef.current = generation;
 
     let result: SignOutResult;
     try {
       result = await dependencies.actions.signOut(accessToken);
     } catch {
-      await purgeLocalForGeneration(generation);
+      let local: LocalSessionPurgeResult;
+      try {
+        ownedSignOutEventGenerationRef.current = generation;
+        local = await dependencies.actions.purgeLocalSession();
+      } catch {
+        local = { localAuth: 'failed', branchPreference: 'failed' };
+      }
       result = {
         status: 'error',
         remote: 'failed',
-        localAuth: 'failed',
-        branchPreference: 'failed',
-        message: 'Could not confirm sign-out cleanup on this device.',
+        ...local,
+        message:
+          local.localAuth === 'failed'
+            ? 'Secure sign-out is incomplete. Retry secure sign-out before signing in.'
+            : 'Signed out on this device, but the remote session could not be closed.',
       };
     }
-    if (explicitSignOutGenerationRef.current === generation) {
-      explicitSignOutGenerationRef.current = null;
+    if (ownedSignOutEventGenerationRef.current === generation) {
+      ownedSignOutEventGenerationRef.current = null;
+    }
+    if (cleanupInFlightGenerationRef.current === generation) {
+      cleanupInFlightGenerationRef.current = null;
     }
     if (!isCurrent(generation)) return;
-    setState({
-      status: 'signed_out',
-      ...(result.status === 'error' ? { error: result.message } : {}),
-    });
+    if (result.localAuth === 'failed') {
+      authAvailabilityRef.current = 'cleanup_failed';
+      setState({
+        status: 'cleanup_failed',
+        error:
+          'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      });
+      return;
+    }
+    publishSignedOut(
+      generation,
+      result.status === 'error' ? result.message : undefined
+    );
   }, [
     dependencies.actions,
     isCurrent,
     nextGeneration,
     publishSignedOut,
-    purgeLocalForGeneration,
+    publishSigningOut,
   ]);
 
   const value = useMemo<AuthContextValue>(

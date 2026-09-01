@@ -56,14 +56,42 @@ function publicBaseUrl(
   throw new Error(`${key} must use HTTPS or a loopback HTTP URL`);
 }
 
+const base64UrlSegment = /^[A-Za-z0-9_-]+$/;
+
+function decodeBase64Url(segment: string): string | null {
+  if (!segment || !base64UrlSegment.test(segment) || segment.length % 4 === 1) {
+    return null;
+  }
+
+  try {
+    const normalized = segment.replace(/-/g, '+').replace(/_/g, '/');
+    return globalThis.atob(
+      normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')
+    );
+  } catch {
+    return null;
+  }
+}
+
 function legacyJwtRole(value: string): string | null {
   const parts = value.split('.');
-  if (parts.length !== 3) return null;
+  if (parts.length !== 3) return value.includes('.') ? '' : null;
+
+  const headerSource = decodeBase64Url(parts[0]);
+  const payloadSource = decodeBase64Url(parts[1]);
+  const signature = decodeBase64Url(parts[2]);
+  if (!headerSource || !payloadSource || signature?.length !== 32) return '';
+
   try {
-    const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-    const padded = payload.padEnd(Math.ceil(payload.length / 4) * 4, '=');
-    const decoded = JSON.parse(globalThis.atob(padded)) as unknown;
+    const header = JSON.parse(headerSource) as unknown;
+    const decoded = JSON.parse(payloadSource) as unknown;
     if (
+      typeof header === 'object' &&
+      header !== null &&
+      'alg' in header &&
+      header.alg === 'HS256' &&
+      'typ' in header &&
+      header.typ === 'JWT' &&
       typeof decoded === 'object' &&
       decoded !== null &&
       'role' in decoded &&

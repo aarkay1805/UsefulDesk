@@ -156,4 +156,52 @@ describe('SignInScreen', () => {
 
     await waitFor(() => expect(signInWithGoogle).toHaveBeenCalledTimes(1));
   });
+
+  it('shows only secure sign-out remediation when cleanup is unverified', async () => {
+    const signOut = jest.fn().mockResolvedValue(undefined);
+    mockUseAuth.mockReturnValue(
+      authValue({
+        state: {
+          status: 'cleanup_failed',
+          error:
+            'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+        },
+        signOut,
+      })
+    );
+
+    render(<SignInScreen />);
+
+    expect(
+      screen.getByText(
+        'Secure sign-out is incomplete. Retry secure sign-out before signing in.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByLabelText('Email')).toBeNull();
+    expect(screen.queryByLabelText('Password')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Continue with Google' })
+    ).toBeNull();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Retry secure sign-out' })
+    );
+    await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
+  });
+
+  it('does not expose sign-in actions while secure sign-out is pending', () => {
+    mockUseAuth.mockReturnValue(
+      authValue({ state: { status: 'signing_out' } })
+    );
+
+    render(<SignInScreen />);
+
+    expect(screen.getByText('Signing out securely…')).toBeTruthy();
+    expect(screen.queryByLabelText('Email')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Continue with Google' })
+    ).toBeNull();
+  });
 });

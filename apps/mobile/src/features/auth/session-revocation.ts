@@ -1,5 +1,9 @@
 export type RemoteSessionRevocation =
-  { status: 'success' } | { status: 'failed' };
+  | { status: 'success' }
+  | {
+      status: 'failed';
+      reason: 'timeout' | 'unavailable' | 'unconfirmed';
+    };
 
 export interface RemoteSessionRevoker {
   revoke(accessToken: string): Promise<RemoteSessionRevocation>;
@@ -10,9 +14,16 @@ interface RemoteSessionEnvironment {
   supabaseAnonKey: string;
 }
 
+interface RemoteSessionRevokerOptions {
+  timeoutMs?: number;
+}
+
+const DEFAULT_REVOCATION_TIMEOUT_MS = 8_000;
+
 export function createRemoteSessionRevoker(
   baseFetch: typeof fetch,
-  environment: RemoteSessionEnvironment
+  environment: RemoteSessionEnvironment,
+  options: RemoteSessionRevokerOptions = {}
 ): RemoteSessionRevoker {
   const logoutUrl = new URL(
     '/auth/v1/logout?scope=global',
@@ -21,26 +32,42 @@ export function createRemoteSessionRevoker(
 
   return {
     async revoke(accessToken) {
-      try {
-        const response = await baseFetch(logoutUrl, {
-          method: 'POST',
-          headers: {
-            apikey: environment.supabaseAnonKey,
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-        if (
-          response.ok ||
-          response.status === 401 ||
-          response.status === 403 ||
-          response.status === 404
-        ) {
-          return { status: 'success' };
+      const controller = new AbortController();
+      let timedOut = false;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      const request = (async (): Promise<RemoteSessionRevocation> => {
+        try {
+          const response = await baseFetch(logoutUrl, {
+            method: 'POST',
+            headers: {
+              apikey: environment.supabaseAnonKey,
+              Authorization: `Bearer ${accessToken}`,
+            },
+            signal: controller.signal,
+          });
+          return response.ok
+            ? { status: 'success' }
+            : { status: 'failed', reason: 'unconfirmed' };
+        } catch {
+          return {
+            status: 'failed',
+            reason: timedOut ? 'timeout' : 'unavailable',
+          };
         }
-      } catch {
-        // The caller still owns guaranteed local cleanup.
+      })();
+      const deadline = new Promise<RemoteSessionRevocation>((resolve) => {
+        timeout = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+          resolve({ status: 'failed', reason: 'timeout' });
+        }, options.timeoutMs ?? DEFAULT_REVOCATION_TIMEOUT_MS);
+      });
+
+      try {
+        return await Promise.race([request, deadline]);
+      } finally {
+        if (timeout !== undefined) clearTimeout(timeout);
       }
-      return { status: 'failed' };
     },
   };
 }

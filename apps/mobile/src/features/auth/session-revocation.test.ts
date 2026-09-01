@@ -31,10 +31,19 @@ describe('createRemoteSessionRevoker', () => {
   });
 
   it.each([401, 403, 404])(
-    'treats terminal session status %s as remotely closed',
+    'keeps remote revocation unconfirmed for HTTP %s without reading a body',
     async (status) => {
+      const bodyRead = jest.fn(() => {
+        throw new Error('response body must stay private');
+      });
       const revoker = createRemoteSessionRevoker(
-        async () => new Response(null, { status }),
+        async () =>
+          ({
+            ok: false,
+            status,
+            text: bodyRead,
+            json: bodyRead,
+          }) as unknown as Response,
         {
           supabaseUrl: 'https://example.supabase.co',
           supabaseAnonKey: 'sb_publishable_synthetic-public-key',
@@ -42,28 +51,72 @@ describe('createRemoteSessionRevoker', () => {
       );
 
       await expect(revoker.revoke('expired-access-token')).resolves.toEqual({
-        status: 'success',
+        status: 'failed',
+        reason: 'unconfirmed',
       });
+      expect(bodyRead).not.toHaveBeenCalled();
     }
   );
 
-  it.each([
-    async () => new Response(null, { status: 503 }),
-    async () => {
-      throw new Error('offline diagnostic with credentials');
-    },
-  ])(
-    'returns only a structured failure for an unavailable remote',
-    async (run) => {
-      const revoker = createRemoteSessionRevoker(run as typeof fetch, {
+  it('returns a structured unconfirmed result for any non-2xx response', async () => {
+    const revoker = createRemoteSessionRevoker(
+      async () => new Response(null, { status: 503 }),
+      {
         supabaseUrl: 'https://example.supabase.co',
         supabaseAnonKey: 'sb_publishable_synthetic-public-key',
-      });
+      }
+    );
 
-      const result: RemoteSessionRevocation = await revoker.revoke(
-        'synthetic-access-token'
+    const result: RemoteSessionRevocation = await revoker.revoke(
+      'synthetic-access-token'
+    );
+    expect(result).toEqual({ status: 'failed', reason: 'unconfirmed' });
+  });
+
+  it('returns only a structured unavailable result when fetch rejects', async () => {
+    const revoker = createRemoteSessionRevoker(
+      async () => {
+        throw new Error('offline diagnostic with credentials');
+      },
+      {
+        supabaseUrl: 'https://example.supabase.co',
+        supabaseAnonKey: 'sb_publishable_synthetic-public-key',
+      }
+    );
+
+    await expect(revoker.revoke('synthetic-access-token')).resolves.toEqual({
+      status: 'failed',
+      reason: 'unavailable',
+    });
+  });
+
+  it('aborts and settles a hanging revocation at its configured deadline', async () => {
+    jest.useFakeTimers();
+    try {
+      let capturedSignal: AbortSignal | null = null;
+      const revoker = createRemoteSessionRevoker(
+        async (_input, init) => {
+          capturedSignal = init?.signal ?? null;
+          return new Promise<Response>(() => {});
+        },
+        {
+          supabaseUrl: 'https://example.supabase.co',
+          supabaseAnonKey: 'sb_publishable_synthetic-public-key',
+        },
+        { timeoutMs: 50 }
       );
-      expect(result).toEqual({ status: 'failed' });
+
+      const pending = revoker.revoke('synthetic-access-token');
+      await jest.advanceTimersByTimeAsync(50);
+
+      await expect(pending).resolves.toEqual({
+        status: 'failed',
+        reason: 'timeout',
+      });
+      expect(capturedSignal).not.toBeNull();
+      expect((capturedSignal as unknown as AbortSignal).aborted).toBe(true);
+    } finally {
+      jest.useRealTimers();
     }
-  );
+  });
 });

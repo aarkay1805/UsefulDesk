@@ -7,7 +7,13 @@ export default function AuthLayout() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={state.status === 'signed_out'}>
+      <Stack.Protected
+        guard={
+          state.status === 'signed_out' ||
+          state.status === 'signing_out' ||
+          state.status === 'cleanup_failed'
+        }
+      >
         <Stack.Screen name="sign-in" />
       </Stack.Protected>
       <Stack.Protected
