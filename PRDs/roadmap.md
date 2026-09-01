@@ -8,21 +8,26 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
-Engineering maintenance: **the secure UsefulDesk Agent mobile foundation is
-built in `apps/mobile`: its cross-platform Expo development-client
-configuration accepts only public Supabase/API values, persists auth in
-SecureStore, revalidates branch membership at startup, and fails closed through
-branch selection and switching before rendering its protected native status
-surface. Static mobile checks and iOS/Android bundle exports pass; local
-development-client build, signing, installation, and JavaScript startup are
-proven on a physical iPhone, with a shared Uniwind-aware safe-area screen root
-preventing native routes from collapsing into an apparently blank white screen.
-Supabase sign-in, branch resolution, and the branch-scoped native account
-surface are also proven there; other platform-interaction smoke plus an Android
-target remain pending. Generated native projects stay ignored, and remote EAS
-builds require separate explicit authorization. Read-only Inbox is next; the
-WhatsApp Inbox, customer sends, financial-provider mutations, and later mobile
-workflows are not shipped.**
+Engineering maintenance: **the secure UsefulDesk Agent mobile foundation and
+Stage 1 read-only native Inbox are built in `apps/mobile`: public-only Expo
+configuration, SecureStore auth, startup membership revalidation, and
+fail-closed branch selection lead to a selected-branch Inbox with All/Unread,
+search, refresh, exact pagination and counts, role-safe unread clearing, and
+chronological localized history whose older-message loading preserves the
+reader. Reconnect, foreground, duplicate/out-of-order event, sign-out, and
+branch teardown behavior have deterministic coverage. Because selected-branch
+custom headers cannot travel over Realtime WebSockets, private account-topic
+Broadcast carries identifiers only and the repositories always rehydrate with
+explicit selected-account predicates. Valid PostgREST offset timestamps remain
+intact for parsing and pagination. Mobile lint/typecheck and all 38 Jest
+suites/361 tests, Expo Doctor, both platform exports, and the root
+lint/typecheck/Vitest/Next build gates pass. Physical iPhone Air acceptance
+proves conversation navigation/history, header and metadata rendering, and
+cross-branch isolation without a stale back stack; a live realtime incoming
+event was not exercised. Stage 1 contains no composer or message sending.
+Generated native projects stay ignored, Android interaction smoke and remote
+EAS builds remain pending, and Stage 2 text/templates plus Stage 3 rich chat are
+still deferred.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

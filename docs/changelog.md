@@ -8,22 +8,39 @@
 
 ## Secure mobile agent foundation
 
-`apps/mobile` now provides the cross-platform Expo development-client
-foundation for UsefulDesk agents: public-only environment configuration,
+`apps/mobile` now ships the cross-platform Expo development-client foundation
+and Stage 1 read-only native Inbox. Public-only configuration,
 SecureStore-backed Supabase authentication, startup membership revalidation,
-and fail-closed branch selection/switching feed one protected native status
-surface. Static mobile verification and iOS/Android bundle exports pass. Local
-development-client build, signing, installation, and JavaScript startup are
-proven on a physical iPhone, including Supabase sign-in, branch resolution, and
-the branch-scoped native account surface; other platform-interaction smoke plus
-an Android target remain pending. Native screens use the shared
-`ScreenSafeAreaView` adapter so Uniwind styling reaches the third-party safe-area
-component and every route fills the viewport instead of collapsing into an
-apparently blank white screen. Remote EAS simulator/device builds remain an
-explicit authorization checkpoint. Read-only Inbox implementation is next;
-customer messaging, financial-provider mutations, and later mobile workflows
-are not shipped. Key configuration: `apps/mobile/eas.json`; shared screen root:
-`apps/mobile/src/ui/screen-safe-area-view.tsx`; runbook:
+and fail-closed branch selection/switching lead to a selected-branch Inbox with
+All/Unread, search, refresh, exact pagination, shared unread clearing for
+agent-or-higher, and chronological localized history with stable older-message
+loading. Viewer access remains read-only, and Stage 1 has no composer or send
+action. Static verification, all 38 mobile Jest suites/361 tests, Expo Doctor,
+iOS/Android exports, and the root lint/typecheck/Vitest/Next build gates pass.
+Physical iPhone Air acceptance proves conversation open/history/back, header
+and message-metadata rendering, and branch switching without a stale navigation
+stack or cross-branch rows; the real failure-state contract passed implementation
+review, while a live realtime incoming event was not exercised. Android
+interaction smoke and remote EAS builds remain pending, and Stage 2
+text/templates plus Stage 3 rich chat are not shipped.
+
+The route boundary lives in `apps/mobile/app/(app)/index.tsx` and
+`apps/mobile/app/(app)/conversation/[conversationId].tsx`; list/history state,
+repositories, rendering, and realtime recovery live under
+`apps/mobile/src/features/inbox/`. Selected-branch custom headers cannot travel
+over Realtime WebSockets, so `inbox-realtime.ts` subscribes to a private
+`account:<uuid>` Broadcast whose payload contains identifiers only; every event
+is rehydrated through `conversation-repository.ts` or `message-repository.ts`
+with explicit selected-account predicates before data reaches the UI.
+PostgREST timestamps can contain microseconds and numeric UTC offsets, so the
+strict normalizer accepts valid offset forms while rejecting malformed,
+timezone-less, or impossible values; cursor pagination preserves the original
+offset timestamp rather than rewriting it. Migration
+`supabase/migrations/20260901090000_mobile_inbox_private_broadcast.sql` supplies
+the private receive policy and identifier-only triggers and was applied to
+Production as remote version `20260901115440` (`mobile_inbox_private_broadcast`).
+Shared screen root remains
+`apps/mobile/src/ui/screen-safe-area-view.tsx`; build/acceptance guidance is in
 `docs/mobile/development-build.md`.
 
 ---

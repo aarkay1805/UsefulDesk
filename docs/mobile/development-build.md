@@ -1,9 +1,11 @@
 # Mobile development builds
 
-This runbook verifies the UsefulDesk Agent native foundation. It covers the
-development client, authentication, secure session restoration, and
-branch-scoped access. The next product boundary is a read-only Inbox; this
-foundation does not ship Inbox data or any customer/provider mutation.
+This runbook verifies the UsefulDesk Agent native foundation and the shipped
+Stage 1 read-only Inbox. It covers the development client, authentication,
+secure session restoration, branch-scoped conversation lists and history, and
+realtime recovery. Stage 1 contains no composer or send action; Stage 2
+text/templates, Stage 3 rich chat, and customer/provider mutations remain
+outside this boundary.
 
 ## Prerequisites
 
@@ -124,6 +126,25 @@ membership, and render the foundation only. Do not send a customer message,
 create or change a payment, invoke a financial provider, change a mandate,
 refund money, or perform any other customer/provider mutation.
 
+### Native Inbox Stage 1
+
+- Inbox opens as the authenticated home for the selected branch.
+- All and Unread, search, pull-to-refresh, and pagination never show another branch.
+- Opening a conversation shows chronological history without a composer or send action.
+- Scrolling upward loads older history without moving the visible message.
+- Incoming messages update the list and open thread once, without forcing an older reader to the bottom.
+- Reconnect and foreground resync recover missed events.
+- Agent-or-higher clears shared unread state; viewer remains read-only.
+- Switching branch clears the old list/thread before the new branch loads.
+
+Acceptance record:
+
+- Device: physical iPhone Air (iPhone18,4) / iOS 26.6
+- Stage 1 deterministic checks: pass
+- Stage 1 native navigation/history: pass
+- Realtime incoming test: not exercised
+- Cross-branch isolation: pass
+
 ## Deterministic checks
 
 From the repository root, use non-secret synthetic `EXPO_PUBLIC_*` values for
@@ -132,13 +153,26 @@ bundle-only checks when approved local values are unavailable:
 ```bash
 npm run mobile:verify
 (cd apps/mobile && npx expo-doctor)
-(cd apps/mobile && npx expo export --platform ios --output-dir "$(mktemp -d)/usefuldesk-ios-export")
-(cd apps/mobile && npx expo export --platform android --output-dir "$(mktemp -d)/usefuldesk-android-export")
+mobile_ios_export="$(mktemp -d /tmp/usefuldesk-inbox-ios.XXXXXX)"
+(cd apps/mobile && npx expo export --platform ios --output-dir "$mobile_ios_export")
+mobile_android_export="$(mktemp -d /tmp/usefuldesk-inbox-android.XXXXXX)"
+(cd apps/mobile && npx expo export --platform android --output-dir "$mobile_android_export")
 npm run verify
 git diff --check
+git status --short
 ```
 
 Never print or persist real environment values in test output.
+
+Stage 1 acceptance passed mobile lint/typecheck and all 38 Jest suites with 361
+tests, all 21 Expo Doctor checks, both platform exports, and the root lint,
+typecheck, Vitest, and Next production-build gates. The aggregate
+`npm run verify` remains blocked at its first repository-wide Prettier gate by
+the unrelated, untouched baseline file
+`docs/pricing-and-packaging-research.md`; its diff from baseline `c1f7489` is
+empty, while the changed mobile runbook and `git diff --check` pass. Do not
+classify that pre-existing formatting defect as a Stage 1 implementation
+failure.
 
 ## Remote EAS checkpoint — separate authorization required
 
