@@ -500,6 +500,71 @@ describe('useConversationList', () => {
     expect(result.current.items).toEqual([]);
   });
 
+  it('allows fresh pagination before an invalidated page settles', async () => {
+    const initialCursor: ConversationCursor = {
+      phase: 'messaged',
+      lastMessageAt: conversationA.lastMessageAt!,
+      id: conversationA.id,
+    };
+    const refreshedConversation = conversation({
+      id: OTHER_CONVERSATION_ID,
+      accountId: BRANCH_A,
+    });
+    const refreshedCursor: ConversationCursor = {
+      phase: 'messaged',
+      lastMessageAt: refreshedConversation.lastMessageAt!,
+      id: refreshedConversation.id,
+    };
+    const freshPageConversation = conversation({
+      id: '0c096d41-c240-4a63-bd04-46f96ba3c810',
+      accountId: BRANCH_A,
+    });
+    const oldPage = deferred<ConversationPage>();
+    repository.list
+      .mockResolvedValueOnce(page([conversationA], initialCursor))
+      .mockReturnValueOnce(oldPage.promise)
+      .mockResolvedValueOnce(page([refreshedConversation], refreshedCursor))
+      .mockResolvedValueOnce(page([freshPageConversation]));
+    repository.unreadCount.mockResolvedValueOnce(3).mockResolvedValueOnce(2);
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => result.current.loadMore());
+    await act(async () =>
+      realtime.emit({
+        table: 'conversations',
+        eventType: 'DELETE',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: null,
+      })
+    );
+    await waitFor(() =>
+      expect(result.current.items).toEqual([refreshedConversation])
+    );
+
+    await act(async () => result.current.loadMore());
+    expect(result.current.items).toEqual([
+      refreshedConversation,
+      freshPageConversation,
+    ]);
+    expect(result.current.loadingMore).toBe(false);
+
+    await act(async () => {
+      oldPage.resolve(page([conversationA]));
+      await oldPage.promise;
+      await Promise.resolve();
+    });
+
+    expect(result.current.items).toEqual([
+      refreshedConversation,
+      freshPageConversation,
+    ]);
+    expect(result.current.loadingMore).toBe(false);
+  });
+
   it('deduplicates repeated ids within one pagination page', async () => {
     const cursor: ConversationCursor = {
       phase: 'messaged',

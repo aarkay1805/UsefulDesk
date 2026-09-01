@@ -120,7 +120,8 @@ export function useConversationList({
   const latestSearch = useRef(normalizedSearch);
   const listGeneration = useRef(0);
   const requestId = useRef(0);
-  const loadingMoreRef = useRef(false);
+  const nextPaginationOwner = useRef(0);
+  const activePaginationOwner = useRef<number | null>(null);
   const knownConversationIds = useRef(new Set<string>());
   const hydrations = useRef(new Map<string, Promise<void>>());
   const tombstoneGenerations = useRef(new Map<string, number>());
@@ -236,6 +237,8 @@ export function useConversationList({
       const currentFilter = latestFilter.current;
       const currentSearch = latestSearch.current;
       const currentRequestId = ++requestId.current;
+      activePaginationOwner.current = null;
+      if (mounted.current) setLoadingMore(false);
       refreshInFlight = true;
 
       void (async () => {
@@ -425,7 +428,7 @@ export function useConversationList({
     const generation = listGeneration.current;
     const currentAccountId = activeAccountId.current;
     if (
-      loadingMoreRef.current ||
+      activePaginationOwner.current !== null ||
       current.status !== 'ready' ||
       current.accountId !== currentAccountId ||
       !current.cursor
@@ -433,7 +436,8 @@ export function useConversationList({
       return;
     }
 
-    loadingMoreRef.current = true;
+    const paginationOwner = ++nextPaginationOwner.current;
+    activePaginationOwner.current = paginationOwner;
     setLoadingMore(true);
     setState((previous) => ({ ...previous, paginationError: null }));
     void (async () => {
@@ -473,8 +477,10 @@ export function useConversationList({
           }));
         }
       } finally {
-        loadingMoreRef.current = false;
-        if (mounted.current) setLoadingMore(false);
+        if (activePaginationOwner.current === paginationOwner) {
+          activePaginationOwner.current = null;
+          if (mounted.current) setLoadingMore(false);
+        }
       }
     })();
   }, [repository]);
