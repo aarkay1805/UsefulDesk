@@ -522,7 +522,128 @@ describe('AuthProvider', () => {
     }
   });
 
-  it('lets a refreshed session supersede delayed branch work without losing the requested branch', async () => {
+  it('rejects a recoverable branch load failure without unpublishing the ready branch', async () => {
+    const setup = createDependencies();
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.loadBootstrap.mockRejectedValueOnce(new Error('offline'));
+    setup.raw.preference.set.mockClear();
+    setup.raw.preference.clear.mockClear();
+    setup.raw.selectedBranch.set.mockClear();
+
+    await expect(latest!.selectBranch(BRANCH_B)).rejects.toBeInstanceOf(Error);
+
+    expect(setup.raw.preference.set).not.toHaveBeenCalled();
+    expect(setup.raw.preference.clear).not.toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.set).not.toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_A);
+    expect(latest?.state.status).toBe('ready');
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.branch.account_id).toBe(BRANCH_A);
+    }
+
+    act(() => setup.emit('TOKEN_REFRESHED', session('after-failed-switch')));
+    await waitFor(() =>
+      expect(setup.raw.loadBootstrap).toHaveBeenLastCalledWith(
+        setup.raw.source,
+        USER_ID,
+        BRANCH_A
+      )
+    );
+  });
+
+  it('preserves the ready branch when switch validation is temporarily unavailable', async () => {
+    const setup = createDependencies();
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.auth.getUser.mockRejectedValueOnce(new Error('offline'));
+    setup.raw.selectedBranch.set.mockClear();
+
+    await act(async () => {
+      await expect(latest!.selectBranch(BRANCH_B)).rejects.toBeInstanceOf(
+        Error
+      );
+    });
+
+    expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(1);
+    expect(setup.raw.selectedBranch.set).not.toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_A);
+    expect(latest?.state.status).toBe('ready');
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.branch.account_id).toBe(BRANCH_A);
+    }
+  });
+
+  it('rejects failed branch preference persistence without publishing the new branch', async () => {
+    const setup = createDependencies();
+    setup.raw.loadBootstrap
+      .mockResolvedValueOnce(readyBootstrap(BRANCH_A))
+      .mockResolvedValueOnce(readyBootstrap(BRANCH_B));
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.preference.set.mockClear();
+    setup.raw.preference.clear.mockClear();
+    setup.raw.selectedBranch.set.mockClear();
+    setup.raw.preference.set.mockRejectedValueOnce(new Error('storage full'));
+
+    await expect(latest!.selectBranch(BRANCH_B)).rejects.toBeInstanceOf(Error);
+
+    expect(setup.raw.preference.set).toHaveBeenCalledWith(BRANCH_B);
+    expect(setup.raw.preference.clear).not.toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.set).not.toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_A);
+    expect(latest?.state.status).toBe('ready');
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.branch.account_id).toBe(BRANCH_A);
+    }
+  });
+
+  it('rejects a blocked branch switch without clearing the current preference', async () => {
+    const setup = createDependencies();
+    setup.raw.loadBootstrap.mockResolvedValueOnce(readyBootstrap(BRANCH_A));
+
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+    setup.raw.loadBootstrap.mockResolvedValueOnce({
+      status: 'blocked',
+      profile,
+      branches: [branch(BRANCH_A), branch(BRANCH_B)],
+      reason: 'selected_branch_unavailable',
+    });
+    setup.raw.preference.set.mockClear();
+    setup.raw.preference.clear.mockClear();
+
+    await expect(latest!.selectBranch(BRANCH_B)).rejects.toBeInstanceOf(Error);
+
+    expect(setup.raw.preference.set).not.toHaveBeenCalled();
+    expect(setup.raw.preference.clear).not.toHaveBeenCalled();
+    expect(setup.raw.selectedBranch.get()).toBe(BRANCH_A);
+    expect(latest?.state.status).toBe('ready');
+    if (latest?.state.status === 'ready') {
+      expect(latest.state.branch.account_id).toBe(BRANCH_A);
+    }
+  });
+
+  it('reports delayed branch work obsolete while a refresh commits the requested branch', async () => {
     const setup = createDependencies();
     const obsoleteSwitch = deferred<MobileBootstrap>();
     setup.raw.loadBootstrap
@@ -538,8 +659,9 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(latest?.state.status).toBe('ready'));
     setup.raw.preference.set.mockClear();
 
+    let selection!: Promise<void>;
     act(() => {
-      void latest!.selectBranch(BRANCH_B);
+      selection = latest!.selectBranch(BRANCH_B);
     });
     await waitFor(() =>
       expect(setup.raw.loadBootstrap).toHaveBeenCalledTimes(2)
@@ -562,10 +684,12 @@ describe('AuthProvider', () => {
 
     const preferenceCallsBeforeObsolete =
       setup.raw.preference.set.mock.calls.length;
+    const obsoleteResult = expect(selection).rejects.toBeInstanceOf(Error);
     await act(async () => {
       obsoleteSwitch.resolve(readyBootstrap(BRANCH_B));
       await obsoleteSwitch.promise;
     });
+    await obsoleteResult;
     expect(setup.raw.preference.set).toHaveBeenCalledTimes(
       preferenceCallsBeforeObsolete
     );

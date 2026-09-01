@@ -173,6 +173,9 @@ function isSameSession(left: Session | null, right: Session | null): boolean {
   );
 }
 
+type BootstrapSessionOutcome =
+  'published_ready' | 'published_unready' | 'failed' | 'obsolete';
+
 export function AuthProvider({
   children,
   dependencies = defaultDependencies,
@@ -355,26 +358,28 @@ export function AuthProvider({
     async (
       session: Session,
       generation: number,
-      requestedBranchId?: string
-    ): Promise<void> => {
+      requestedBranchId?: string,
+      preserveReadyState = false
+    ): Promise<BootstrapSessionOutcome> => {
       let validation: Awaited<ReturnType<AuthStateAdapter['getUser']>>;
       try {
         validation = await dependencies.auth.getUser();
       } catch {
+        if (preserveReadyState && isCurrent(generation)) return 'failed';
         void purgeLocalForGeneration(
           generation,
           'Could not verify your session. Sign in again.'
         );
-        return;
+        return isCurrent(generation) ? 'failed' : 'obsolete';
       }
-      if (!isCurrent(generation)) return;
+      if (!isCurrent(generation)) return 'obsolete';
       const { data, error } = validation;
       if (error || !data.user || data.user.id !== session.user.id) {
         void purgeLocalForGeneration(
           generation,
           'Your session expired. Sign in again.'
         );
-        return;
+        return isCurrent(generation) ? 'failed' : 'obsolete';
       }
 
       let requested =
@@ -386,12 +391,12 @@ export function AuthProvider({
         try {
           requested = (await dependencies.preference.get()) ?? undefined;
         } catch {
-          if (!isCurrent(generation)) return;
+          if (!isCurrent(generation)) return 'obsolete';
           publishLocalStateFailure(generation, session, null, []);
-          return;
+          return 'failed';
         }
       }
-      if (!isCurrent(generation)) return;
+      if (!isCurrent(generation)) return 'obsolete';
 
       let bootstrap: MobileBootstrap;
       try {
@@ -401,6 +406,9 @@ export function AuthProvider({
           requested ?? null
         );
       } catch {
+        if (preserveReadyState) {
+          return isCurrent(generation) ? 'failed' : 'obsolete';
+        }
         bootstrap = {
           status: 'blocked',
           profile: null,
@@ -408,30 +416,37 @@ export function AuthProvider({
           reason: 'branch_access_unavailable',
         };
       }
-      if (!isCurrent(generation)) return;
+      if (!isCurrent(generation)) return 'obsolete';
 
       if (bootstrap.status === 'ready') {
         const persisted = await mutatePreference(generation, () =>
           dependencies.preference.set(bootstrap.branch.account_id)
         );
-        if (persisted === 'obsolete') return;
+        if (persisted === 'obsolete') return 'obsolete';
         if (persisted === 'failed') {
-          publishLocalStateFailure(
-            generation,
-            session,
-            bootstrap.profile,
-            bootstrap.branches
-          );
-          return;
+          if (!preserveReadyState) {
+            publishLocalStateFailure(
+              generation,
+              session,
+              bootstrap.profile,
+              bootstrap.branches
+            );
+          }
+          return 'failed';
         }
-        publishReady(generation, session, bootstrap);
-        return;
+        return publishReady(generation, session, bootstrap)
+          ? 'published_ready'
+          : 'obsolete';
+      }
+
+      if (preserveReadyState) {
+        return 'failed';
       }
 
       const cleared = await mutatePreference(generation, () =>
         dependencies.preference.clear()
       );
-      if (cleared === 'obsolete') return;
+      if (cleared === 'obsolete') return 'obsolete';
       if (cleared === 'failed') {
         publishLocalStateFailure(
           generation,
@@ -439,9 +454,11 @@ export function AuthProvider({
           bootstrap.profile,
           bootstrap.branches
         );
-        return;
+        return 'failed';
       }
-      publishUnready(generation, session, bootstrap);
+      return publishUnready(generation, session, bootstrap)
+        ? 'published_unready'
+        : 'obsolete';
     },
     [
       dependencies,
@@ -600,13 +617,27 @@ export function AuthProvider({
       if (!session) {
         const generation = nextGeneration();
         void purgeLocalForGeneration(generation);
-        return;
+        throw new Error('Branch selection was not committed.');
       }
       requestedBranchRef.current = accountId;
       const generation = nextGeneration();
-      await bootstrapSession(session, generation, accountId);
+      const outcome = await bootstrapSession(
+        session,
+        generation,
+        accountId,
+        state.status === 'ready'
+      );
+      if (outcome === 'published_ready') return;
+      if (isCurrent(generation)) requestedBranchRef.current = null;
+      throw new Error('Branch selection was not committed.');
     },
-    [bootstrapSession, nextGeneration, purgeLocalForGeneration]
+    [
+      bootstrapSession,
+      isCurrent,
+      nextGeneration,
+      purgeLocalForGeneration,
+      state.status,
+    ]
   );
 
   const beginAuthAttempt = useCallback(():
