@@ -109,6 +109,15 @@ Postgres RLS remains authoritative. Every conversation query also filters
 explicitly by the selected account id; membership in another branch must never
 make that branch's row eligible for the current mobile state.
 
+Supabase Realtime WebSockets cannot carry the custom selected-branch HTTP
+header used by `private.requested_account_id()`. Stage 1 therefore uses one
+private database Broadcast topic per account rather than subscribing directly
+to Postgres Changes. A migration adds identifier-only conversation/message
+triggers that call `realtime.send`; a `realtime.messages` SELECT policy permits
+the topic only when `auth.uid()` has membership in the account encoded by the
+topic. Reads still rehydrate through the branch-aware repository and existing
+domain RLS, so Broadcast is never an authorization or data source.
+
 The Inbox repository provides narrow operations:
 
 - Fetch a keyset-paginated conversation page ordered by
@@ -152,13 +161,15 @@ open/download action where safe; it is never silently omitted.
 
 ### Realtime and resynchronization
 
-One branch-lifetime channel listens to conversation changes filtered by
-`account_id`. Message rows have no account id, so message events rely on the
-existing message RLS path through their conversation and are then reconciled
-only into known or successfully hydrated **current-branch** conversations.
-Hydration includes an explicit selected-account predicate, so an event from a
-different branch the same user can access is ignored. The open thread accepts
-message updates only for ids it contains.
+One branch-lifetime private channel listens to the selected account topic.
+Database triggers broadcast only table, operation, account, conversation, and
+optional message ids—never message text, contact data, or provider payloads.
+Realtime Authorization validates account membership from the topic before the
+channel joins. Events are reconciled only into known or successfully hydrated
+**current-branch** conversations. Hydration includes an explicit
+selected-account predicate, so an event from a different branch is ignored.
+The open thread accepts message updates only for ids it already contains;
+inserts and unknown conversation changes rehydrate through the repository.
 
 Stable ids are the reconciliation key. Insert handlers ignore duplicates;
 updates return the previous collection unchanged when the target is absent.
