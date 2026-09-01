@@ -46,15 +46,24 @@ describe('MessageContent', () => {
     }
   );
 
-  it.each([
-    ['image', 'Photo'],
-    ['video', 'Video'],
-    ['audio', 'Audio'],
-    ['document', 'Document'],
-    ['location', 'Location'],
-  ] as const)(
-    'renders safe %s media and keeps its fixed preview label when no caption exists',
-    (contentType, label) => {
+  it('renders a safe photo with its native accessibility description and no redundant label', () => {
+    render(
+      <MessageContent
+        message={message({
+          contentType: 'image',
+          contentText: null,
+          mediaUrl: 'https://cdn.example.com/photo.jpg',
+        })}
+      />
+    );
+
+    expect(screen.getByLabelText('Photo attachment')).toBeTruthy();
+    expect(screen.queryByText('Photo')).toBeNull();
+  });
+
+  it.each(['video', 'audio', 'document', 'location'] as const)(
+    'renders safe %s media with its open action',
+    (contentType) => {
       render(
         <MessageContent
           message={message({
@@ -65,7 +74,33 @@ describe('MessageContent', () => {
         />
       );
 
-      expect(screen.getByText(label)).toBeTruthy();
+      expect(
+        screen.getByRole('button', { name: `Open ${contentType}` })
+      ).toBeTruthy();
+    }
+  );
+
+  it.each([
+    ['image', 'Photo'],
+    ['video', 'Video'],
+    ['audio', 'Audio'],
+    ['document', 'Document'],
+    ['location', 'Location'],
+  ] as const)(
+    'does not repeat the %s preview beside unavailable no-caption media',
+    (contentType, label) => {
+      render(
+        <MessageContent
+          message={message({
+            contentType,
+            contentText: null,
+            mediaUrl: 'file:///secret',
+          })}
+        />
+      );
+
+      expect(screen.getByText(`${label} unavailable`)).toBeTruthy();
+      expect(screen.queryByText(label)).toBeNull();
     }
   );
 

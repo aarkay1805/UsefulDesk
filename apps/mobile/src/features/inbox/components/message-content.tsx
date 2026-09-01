@@ -56,7 +56,9 @@ export function MessageContent({ message, trailingMeta }: MessageContentProps) {
         ) : (
           <Text className="text-foreground text-sm">Photo unavailable</Text>
         )}
-        <Text className="text-foreground text-sm">{caption ?? 'Photo'}</Text>
+        {caption ? (
+          <Text className="text-foreground text-sm">{caption}</Text>
+        ) : null}
       </View>
     );
   }
@@ -66,7 +68,9 @@ export function MessageContent({ message, trailingMeta }: MessageContentProps) {
     return (
       <View className="gap-1">
         <Text className="text-foreground text-sm">{label} unavailable</Text>
-        <Text className="text-foreground text-sm">{caption ?? label}</Text>
+        {caption ? (
+          <Text className="text-foreground text-sm">{caption}</Text>
+        ) : null}
       </View>
     );
   }
