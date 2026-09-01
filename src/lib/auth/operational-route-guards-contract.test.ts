@@ -80,7 +80,7 @@ describe('operational route authorization contract', () => {
   });
 
   it.each([
-    ['whatsapp/send', 'requireOperationalAccess', 1],
+    ['whatsapp/send', 'requireSendOperationalAccess', 1],
     ['whatsapp/react', 'requireOperationalAccess', 1],
     ['whatsapp/broadcast', 'requireOperationalAccess', 1],
     ['whatsapp/config', 'requireSettingsAccess', 3],
@@ -93,9 +93,11 @@ describe('operational route authorization contract', () => {
     ['meta/leads/connect', 'requireSettingsAccess', 2],
     ['meta/leads/health', 'requireSettingsAccess', 1],
   ])('requires the appropriate capability in %s', (path, guard, expected) => {
-    expect(count(route(path), new RegExp(`await ${guard}\\(\\)`, 'g'))).toBe(
-      expected
-    );
+    const call =
+      guard === 'requireSendOperationalAccess'
+        ? new RegExp(`await ${guard}\\(request\\)`, 'g')
+        : new RegExp(`await ${guard}\\(\\)`, 'g');
+    expect(count(route(path), call)).toBe(expected);
   });
 
   it.each([

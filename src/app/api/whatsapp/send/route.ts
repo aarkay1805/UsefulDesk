@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
+import { toErrorResponse } from '@/lib/auth/account';
+import { requireSendOperationalAccess } from '@/lib/auth/mobile-operational-access';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -24,7 +25,7 @@ import { resolveContactConversation } from '@/lib/whatsapp/resolve-contact-conve
 export async function POST(request: Request) {
   let ctx;
   try {
-    ctx = await requireOperationalAccess();
+    ctx = await requireSendOperationalAccess(request);
   } catch (err) {
     return toErrorResponse(err);
   }

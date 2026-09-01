@@ -19,6 +19,25 @@ let templateRow: Record<string, unknown> | null = null;
 // the shared send core re-loads the conversation (with its contact) from
 // just the id, so the mock must model insert-then-select-by-id.
 let createdConversation: Record<string, unknown> | null = null;
+const {
+  createMobileSupabaseClient,
+  mobileGetUser,
+  ForbiddenError,
+  UnauthorizedError,
+} = vi.hoisted(() => {
+  class UnauthorizedError extends Error {
+    status = 401 as const;
+  }
+  class ForbiddenError extends Error {
+    status = 403 as const;
+  }
+  return {
+    createMobileSupabaseClient: vi.fn(),
+    mobileGetUser: vi.fn(),
+    UnauthorizedError,
+    ForbiddenError,
+  };
+});
 
 const CONTACT = {
   id: 'contact-1',
@@ -37,6 +56,20 @@ function makeSupabaseMock() {
       switch (table) {
         case 'profiles':
           return { data: { account_id: 'acct-1' }, error: null };
+        case 'account_memberships':
+          return { data: { role: 'agent' }, error: null };
+        case 'accounts':
+          return {
+            data: {
+              id: 'acct-1',
+              name: 'Acme',
+              organization_id: 'org-1',
+              legal_entity_id: 'entity-1',
+              branch_status: 'active',
+              readiness_state: 'ready',
+            },
+            error: null,
+          };
         case 'contacts':
           return { data: contactRow, error: null };
         case 'conversations':
@@ -137,14 +170,30 @@ let supabaseMock = makeSupabaseMock();
 const { requireOperationalAccess } = vi.hoisted(() => ({
   requireOperationalAccess: vi.fn(),
 }));
+const { checkRateLimit } = vi.hoisted(() => ({
+  checkRateLimit: vi.fn(() => ({ success: true })),
+}));
 
 vi.mock('@/lib/auth/account', () => ({
   requireOperationalAccess,
+  ForbiddenError,
+  UnauthorizedError,
   toErrorResponse: (err: { status?: number; message?: string }) =>
     Response.json(
       { error: err.message ?? 'Internal server error' },
       { status: err.status ?? 500 }
     ),
+}));
+
+vi.mock('@supabase/supabase-js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@supabase/supabase-js')>()),
+  createClient: createMobileSupabaseClient,
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+  checkRateLimit,
+  rateLimitResponse: vi.fn(),
+  RATE_LIMITS: { send: { limit: 60, window: 60_000 } },
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -181,11 +230,14 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
 
 import { POST } from './route';
 
-function postContactTemplate(overrides: Record<string, unknown> = {}) {
+function postContactTemplate(
+  overrides: Record<string, unknown> = {},
+  headers: Record<string, string> = {}
+) {
   return POST(
     new Request('http://localhost/api/whatsapp/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...headers },
       body: JSON.stringify({
         contact_id: 'contact-1',
         message_type: 'template',
@@ -227,6 +279,18 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
       role: 'agent',
       account: { id: 'acct-1', name: 'Acme' },
     });
+    mobileGetUser.mockReset();
+    mobileGetUser.mockResolvedValue({
+      data: { user: { id: 'mobile-user-1' } },
+      error: null,
+    });
+    createMobileSupabaseClient.mockReset();
+    createMobileSupabaseClient.mockImplementation((_url, _key, options) =>
+      options === undefined
+        ? { auth: { getUser: mobileGetUser } }
+        : supabaseMock
+    );
+    checkRateLimit.mockClear();
     sendTemplateMessage.mockClear();
   });
 
@@ -361,5 +425,56 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     expect(sendTemplateMessage).not.toHaveBeenCalled();
     expect(conversationInserts).toHaveLength(0);
     expect(messageInserts).toHaveLength(0);
+  });
+
+  it('keeps cookie-only sends on the existing operational access resolver', async () => {
+    const res = await postContactTemplate();
+
+    expect(res.status).toBe(200);
+    expect(requireOperationalAccess).toHaveBeenCalledOnce();
+    expect(createMobileSupabaseClient).not.toHaveBeenCalled();
+  });
+
+  it('uses bearer access for a native send and preserves the send response', async () => {
+    const res = await postContactTemplate(
+      {},
+      {
+        Authorization: 'Bearer mobile-access-token',
+        'x-usefuldesk-account-id': '22222222-2222-4222-8222-222222222222',
+      }
+    );
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json).toEqual({
+      success: true,
+      message_id: 'msg-1',
+      whatsapp_message_id: 'wamid-1',
+    });
+    expect(requireOperationalAccess).not.toHaveBeenCalled();
+    expect(mobileGetUser).toHaveBeenCalledWith('mobile-access-token');
+    expect(createMobileSupabaseClient).toHaveBeenCalledTimes(2);
+    expect(checkRateLimit).toHaveBeenCalledWith(
+      'send:mobile-user-1',
+      expect.anything()
+    );
+    expect(sendTemplateMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateName: 'order_update',
+        language: 'en_US',
+      })
+    );
+  });
+
+  it('never falls back to cookie authorization for malformed bearer input', async () => {
+    const res = await postContactTemplate(
+      {},
+      { Authorization: 'not-a-bearer-token' }
+    );
+
+    expect(res.status).toBe(401);
+    expect(requireOperationalAccess).not.toHaveBeenCalled();
+    expect(mobileGetUser).not.toHaveBeenCalled();
+    expect(sendTemplateMessage).not.toHaveBeenCalled();
   });
 });
