@@ -1,0 +1,388 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import {
+  mobileConversationRepository,
+  normalizeConversationSearch,
+  type ConversationRepository,
+} from './conversation-repository';
+import type { InboxRealtimeFeed } from './inbox-realtime-provider';
+import type { InboxConnectionState } from './inbox-realtime';
+import type {
+  ConversationCursor,
+  ConversationFilter,
+  InboxConversation,
+} from './inbox-types';
+
+const LOAD_ERROR = 'Could not load conversations';
+const MORE_ERROR = 'Could not load more conversations';
+
+interface ConversationListState {
+  accountId: string | null;
+  items: InboxConversation[];
+  cursor: ConversationCursor | null;
+  status: 'loading' | 'ready' | 'error';
+  error: string | null;
+  paginationError: string | null;
+  unreadCount: number;
+  refreshing: boolean;
+}
+
+export interface UseConversationListResult {
+  items: InboxConversation[];
+  status: 'loading' | 'ready' | 'error';
+  error: string | null;
+  paginationError: string | null;
+  connection: InboxConnectionState;
+  filter: ConversationFilter;
+  search: string;
+  unreadCount: number;
+  refreshing: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  setFilter(value: ConversationFilter): void;
+  setSearch(value: string): void;
+  refresh(): void;
+  loadMore(): void;
+}
+
+export interface UseConversationListOptions {
+  accountId: string;
+  repository?: ConversationRepository;
+  realtime: InboxRealtimeFeed;
+}
+
+function sameConversation(
+  first: InboxConversation,
+  second: InboxConversation
+): boolean {
+  return (
+    first.id === second.id &&
+    first.accountId === second.accountId &&
+    first.contactId === second.contactId &&
+    first.status === second.status &&
+    first.assignedAgentId === second.assignedAgentId &&
+    first.lastMessageText === second.lastMessageText &&
+    first.lastMessageAt === second.lastMessageAt &&
+    first.unreadCount === second.unreadCount &&
+    first.createdAt === second.createdAt &&
+    first.updatedAt === second.updatedAt &&
+    first.isMember === second.isMember &&
+    first.contact.id === second.contact.id &&
+    first.contact.name === second.contact.name &&
+    first.contact.phone === second.contact.phone &&
+    first.contact.avatarUrl === second.contact.avatarUrl
+  );
+}
+
+function compareConversations(
+  first: InboxConversation,
+  second: InboxConversation
+) {
+  const firstTime = first.lastMessageAt ?? first.createdAt;
+  const secondTime = second.lastMessageAt ?? second.createdAt;
+  if (firstTime !== secondTime) return secondTime.localeCompare(firstTime);
+  return second.id.localeCompare(first.id);
+}
+
+function initialState(): ConversationListState {
+  return {
+    accountId: null,
+    items: [],
+    cursor: null,
+    status: 'loading',
+    error: null,
+    paginationError: null,
+    unreadCount: 0,
+    refreshing: true,
+  };
+}
+
+export function useConversationList({
+  accountId,
+  repository = mobileConversationRepository,
+  realtime,
+}: UseConversationListOptions): UseConversationListResult {
+  const [filter, setFilterState] = useState<ConversationFilter>('all');
+  const [search, setSearchState] = useState('');
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [state, setState] = useState<ConversationListState>(initialState);
+  const [connection, setConnection] = useState<InboxConnectionState>(
+    () => realtime.getSnapshot().connection
+  );
+  const [loadingMore, setLoadingMore] = useState(false);
+  const normalizedSearch = useMemo(
+    () => normalizeConversationSearch(search),
+    [search]
+  );
+  const activeAccountId = useRef(accountId);
+  const latestState = useRef(state);
+  const latestFilter = useRef(filter);
+  const latestSearch = useRef(normalizedSearch);
+  const listGeneration = useRef(0);
+  const requestId = useRef(0);
+  const loadingMoreRef = useRef(false);
+  const knownConversationIds = useRef(new Set<string>());
+  const hydrations = useRef(new Map<string, Promise<void>>());
+  const resyncGeneration = useRef(realtime.getSnapshot().resyncGeneration);
+  const mounted = useRef(true);
+
+  activeAccountId.current = accountId;
+  latestState.current = state;
+  latestFilter.current = filter;
+  latestSearch.current = normalizedSearch;
+
+  useEffect(() => {
+    knownConversationIds.current = new Set(state.items.map((item) => item.id));
+  }, [state.items]);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      listGeneration.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    const generation = ++listGeneration.current;
+    const currentRequestId = ++requestId.current;
+    let cancelled = false;
+
+    void (async () => {
+      setState((previous) => ({
+        ...previous,
+        cursor: null,
+        status: 'loading',
+        error: null,
+        paginationError: null,
+        refreshing: true,
+      }));
+
+      try {
+        const [page, unreadCount] = await Promise.all([
+          repository.list({
+            accountId,
+            filter,
+            search: normalizedSearch,
+            cursor: null,
+          }),
+          repository.unreadCount(accountId),
+        ]);
+        if (
+          cancelled ||
+          requestId.current !== currentRequestId ||
+          listGeneration.current !== generation
+        ) {
+          return;
+        }
+        setState({
+          accountId,
+          items: page.items,
+          cursor: page.nextCursor,
+          status: 'ready',
+          error: null,
+          paginationError: null,
+          unreadCount,
+          refreshing: false,
+        });
+      } catch {
+        if (
+          cancelled ||
+          requestId.current !== currentRequestId ||
+          listGeneration.current !== generation
+        ) {
+          return;
+        }
+        setState((previous) => ({
+          ...previous,
+          accountId,
+          cursor: null,
+          status: 'error',
+          error: LOAD_ERROR,
+          paginationError: null,
+          refreshing: false,
+        }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, filter, normalizedSearch, refreshNonce, repository]);
+
+  useEffect(() => {
+    const snapshot = realtime.getSnapshot();
+    resyncGeneration.current = snapshot.resyncGeneration;
+    setConnection(snapshot.connection);
+    const eventCleanup = realtime.listen((event) => {
+      const currentAccountId = activeAccountId.current;
+      if (event.accountId !== currentAccountId) return;
+
+      if (event.table === 'conversations' && event.eventType === 'DELETE') {
+        setState((previous) => {
+          if (previous.accountId !== currentAccountId) return previous;
+          const items = previous.items.filter(
+            (item) => item.id !== event.conversationId
+          );
+          return items.length === previous.items.length
+            ? previous
+            : { ...previous, items };
+        });
+        return;
+      }
+
+      if (hydrations.current.has(event.conversationId)) return;
+      const hydrate = (async () => {
+        try {
+          const item = await repository.get(
+            currentAccountId,
+            event.conversationId
+          );
+          if (
+            !mounted.current ||
+            activeAccountId.current !== currentAccountId ||
+            item.accountId !== currentAccountId
+          ) {
+            return;
+          }
+          setState((previous) => {
+            if (previous.accountId !== currentAccountId) return previous;
+            const index = previous.items.findIndex((row) => row.id === item.id);
+            if (index >= 0) {
+              if (sameConversation(previous.items[index], item))
+                return previous;
+              const items = [...previous.items];
+              items[index] = item;
+              return { ...previous, items: items.sort(compareConversations) };
+            }
+            return {
+              ...previous,
+              items: [...previous.items, item].sort(compareConversations),
+            };
+          });
+        } catch {
+          // A deleted or inaccessible conversation must not change local state.
+        }
+      })();
+      hydrations.current.set(event.conversationId, hydrate);
+      void hydrate.finally(() => {
+        if (hydrations.current.get(event.conversationId) === hydrate) {
+          hydrations.current.delete(event.conversationId);
+        }
+      });
+    });
+    const statusCleanup = realtime.listenStatus((snapshot) => {
+      setConnection(snapshot.connection);
+      if (snapshot.resyncGeneration > resyncGeneration.current) {
+        resyncGeneration.current = snapshot.resyncGeneration;
+        setRefreshNonce((value) => value + 1);
+      }
+    });
+
+    return () => {
+      eventCleanup();
+      statusCleanup();
+    };
+  }, [realtime, repository]);
+
+  const setFilter = useCallback((value: ConversationFilter) => {
+    listGeneration.current += 1;
+    setFilterState(value);
+    setState((previous) => ({
+      ...previous,
+      cursor: null,
+      paginationError: null,
+    }));
+  }, []);
+
+  const setSearch = useCallback((value: string) => {
+    listGeneration.current += 1;
+    setSearchState(value);
+    setState((previous) => ({
+      ...previous,
+      cursor: null,
+      paginationError: null,
+    }));
+  }, []);
+
+  const refresh = useCallback(() => {
+    listGeneration.current += 1;
+    setRefreshNonce((value) => value + 1);
+  }, []);
+
+  const loadMore = useCallback(() => {
+    const current = latestState.current;
+    const generation = listGeneration.current;
+    const currentAccountId = activeAccountId.current;
+    if (
+      loadingMoreRef.current ||
+      current.status !== 'ready' ||
+      current.accountId !== currentAccountId ||
+      !current.cursor
+    ) {
+      return;
+    }
+
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    setState((previous) => ({ ...previous, paginationError: null }));
+    void (async () => {
+      try {
+        const page = await repository.list({
+          accountId: currentAccountId,
+          filter: latestFilter.current,
+          search: latestSearch.current,
+          cursor: current.cursor,
+        });
+        if (
+          activeAccountId.current !== currentAccountId ||
+          listGeneration.current !== generation
+        ) {
+          return;
+        }
+        setState((previous) => {
+          if (previous.accountId !== currentAccountId) return previous;
+          const seen = new Set(previous.items.map((item) => item.id));
+          const items = [
+            ...previous.items,
+            ...page.items.filter((item) => !seen.has(item.id)),
+          ];
+          return { ...previous, items, cursor: page.nextCursor };
+        });
+      } catch {
+        if (
+          activeAccountId.current === currentAccountId &&
+          listGeneration.current === generation
+        ) {
+          setState((previous) => ({
+            ...previous,
+            status: 'ready',
+            paginationError: MORE_ERROR,
+          }));
+        }
+      } finally {
+        loadingMoreRef.current = false;
+        if (mounted.current) setLoadingMore(false);
+      }
+    })();
+  }, [repository]);
+
+  const items = state.accountId === accountId ? state.items : [];
+  return {
+    items,
+    status: state.status,
+    error: state.error,
+    paginationError: state.paginationError,
+    connection,
+    filter,
+    search,
+    unreadCount: state.accountId === accountId ? state.unreadCount : 0,
+    refreshing: state.refreshing,
+    loadingMore,
+    hasMore: state.accountId === accountId && state.cursor !== null,
+    setFilter,
+    setSearch,
+    refresh,
+    loadMore,
+  };
+}
