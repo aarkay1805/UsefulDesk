@@ -25,6 +25,12 @@ test('groups sender runs only inside the ten-minute window', () => {
   ).toBe(true);
 });
 
+test('starts a sender run at exactly ten minutes', () => {
+  const previous = message({ createdAt: '2026-09-01T08:00:00.000Z' });
+  const current = message({ createdAt: '2026-09-01T08:10:00.000Z' });
+  expect(startsNewRun(previous, current)).toBe(true);
+});
+
 test('allows only HTTPS media and names unsupported content honestly', () => {
   expect(safeMediaUrl('https://cdn.example.com/a.jpg')).toBe(
     'https://cdn.example.com/a.jpg'

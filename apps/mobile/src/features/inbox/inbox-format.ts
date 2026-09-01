@@ -11,7 +11,7 @@ export function startsNewRun(
   if (!previous || previous.senderType !== current.senderType) return true;
   return (
     new Date(current.createdAt).getTime() -
-      new Date(previous.createdAt).getTime() >
+      new Date(previous.createdAt).getTime() >=
     RUN_BREAK_MS
   );
 }
