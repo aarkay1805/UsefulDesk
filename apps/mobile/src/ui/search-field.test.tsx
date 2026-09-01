@@ -29,13 +29,20 @@ jest.mock('heroui-native', () => {
   MockSearchField.SearchIcon = () => null;
   MockSearchField.Input = (props: import('react-native').TextInputProps) =>
     React.createElement(TextInput, props);
-  MockSearchField.ClearButton = (
-    props: import('react-native').PressableProps
-  ) =>
+  MockSearchField.ClearButton = ({
+    isDisabled,
+    ...props
+  }: import('react-native').PressableProps & { isDisabled?: boolean }) =>
     React.createElement(Pressable, {
       ...props,
+      disabled: isDisabled,
+      accessibilityState: { disabled: isDisabled },
       accessibilityRole: 'button',
-      onPress: () => onChange?.(''),
+      onPress: () => {
+        if (!isDisabled) {
+          onChange?.('');
+        }
+      },
     });
 
   return { SearchField: MockSearchField };
@@ -52,4 +59,21 @@ it('clears a controlled search and returns the empty value', () => {
   );
   fireEvent.press(screen.getByRole('button', { name: 'Clear search' }));
   expect(onValueChange).toHaveBeenCalledWith('');
+});
+
+it('disables the clear action with the search field', () => {
+  const onValueChange = jest.fn();
+  render(
+    <SearchField
+      accessibilityLabel="Search conversations"
+      value="Asha"
+      onValueChange={onValueChange}
+      disabled
+    />
+  );
+
+  const clearButton = screen.getByRole('button', { name: 'Clear search' });
+  expect(clearButton.props.accessibilityState).toEqual({ disabled: true });
+  fireEvent.press(clearButton);
+  expect(onValueChange).not.toHaveBeenCalled();
 });

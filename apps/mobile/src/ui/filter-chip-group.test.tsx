@@ -34,3 +34,18 @@ it('announces one selected filter and its unread count', () => {
   fireEvent.press(screen.getByRole('button', { name: 'Unread, 3' }));
   expect(onValueChange).toHaveBeenCalledWith('unread');
 });
+
+it('keeps short filter labels inside a 48dp minimum-width target', () => {
+  render(
+    <FilterChipGroup
+      accessibilityLabel="Conversation filters"
+      options={[{ label: 'All', value: 'all' }]}
+      value="all"
+      onValueChange={jest.fn()}
+    />
+  );
+
+  expect(screen.getByRole('button', { name: 'All' }).props.className).toContain(
+    'min-w-12'
+  );
+});

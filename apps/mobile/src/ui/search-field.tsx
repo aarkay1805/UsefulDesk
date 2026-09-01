@@ -31,6 +31,7 @@ export function SearchField({
         />
         <HeroSearchField.ClearButton
           accessibilityLabel="Clear search"
+          isDisabled={disabled}
           className="min-h-12 min-w-12"
         />
       </HeroSearchField.Group>
