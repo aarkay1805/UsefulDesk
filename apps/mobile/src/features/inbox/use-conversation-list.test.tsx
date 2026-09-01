@@ -11,6 +11,7 @@ import {
   CONVERSATION_ID,
   MESSAGE_1_ID,
   OTHER_BRANCH_ID,
+  OTHER_CONVERSATION_ID,
   conversation,
   page,
 } from './inbox-test-fixtures';
@@ -128,6 +129,67 @@ describe('useConversationList', () => {
     expect(result.current.items).toEqual([conversationB]);
   });
 
+  it('hides previous branch rows when the new branch load fails', async () => {
+    repository.list
+      .mockResolvedValueOnce(page([conversationA]))
+      .mockRejectedValueOnce(new Error('Could not load conversations'));
+    repository.unreadCount.mockResolvedValueOnce(3).mockResolvedValueOnce(9);
+    const { result, rerender } = renderHook<
+      UseConversationListResult,
+      { accountId: string }
+    >(
+      ({ accountId }) =>
+        useConversationList({ accountId, repository, realtime }),
+      { initialProps: { accountId: BRANCH_A } }
+    );
+    await waitFor(() => expect(result.current.items).toEqual([conversationA]));
+
+    rerender({ accountId: BRANCH_B });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.items).toEqual([]);
+    expect(result.current.unreadCount).toBe(0);
+  });
+
+  it('does not invalidate an in-flight load for a normalized-equivalent search', async () => {
+    const initial = deferred<ConversationPage>();
+    repository.list.mockReturnValueOnce(initial.promise);
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+
+    act(() => result.current.setSearch('   '));
+    await act(async () => {
+      initial.resolve(page([conversationA]));
+      await initial.promise;
+      await Promise.resolve();
+    });
+
+    expect(result.current.items).toEqual([conversationA]);
+    expect(result.current.status).toBe('ready');
+  });
+
+  it('leaves completed filter, normalized-equivalent search, and cursor unchanged', async () => {
+    const cursor: ConversationCursor = {
+      phase: 'messaged',
+      lastMessageAt: conversationA.lastMessageAt!,
+      id: conversationA.id,
+    };
+    repository.list.mockResolvedValueOnce(page([conversationA], cursor));
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    act(() => {
+      result.current.setFilter('all');
+      result.current.setSearch('   ');
+    });
+
+    expect(result.current.hasMore).toBe(true);
+    expect(repository.list).toHaveBeenCalledTimes(1);
+  });
+
   it('hydrates an unknown message event only inside the active branch', async () => {
     repository.list.mockResolvedValueOnce(page([]));
     const { result } = renderHook(() =>
@@ -170,6 +232,81 @@ describe('useConversationList', () => {
       await hydrate.promise;
       await Promise.resolve();
     });
+  });
+
+  it('does not restore a conversation when its deferred hydrate loses to delete', async () => {
+    const hydrate = deferred<InboxConversation>();
+    repository.list.mockResolvedValueOnce(page([]));
+    repository.get.mockReturnValueOnce(hydrate.promise);
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    );
+    await act(async () =>
+      realtime.emit({
+        table: 'conversations',
+        eventType: 'DELETE',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: null,
+      })
+    );
+    await act(async () => {
+      hydrate.resolve(conversationA);
+      await hydrate.promise;
+      await Promise.resolve();
+    });
+
+    expect(result.current.items).toEqual([]);
+  });
+
+  it('does not commit a deferred hydrate after its feed is replaced', async () => {
+    const firstRealtime = fakeRealtimeFeed();
+    const secondRealtime = fakeRealtimeFeed();
+    const hydrate = deferred<InboxConversation>();
+    repository.list.mockResolvedValue(page([]));
+    repository.get.mockReturnValueOnce(hydrate.promise);
+    const { result, rerender } = renderHook<
+      UseConversationListResult,
+      { realtime: InboxRealtimeFeed }
+    >(
+      ({ realtime: currentRealtime }) =>
+        useConversationList({
+          accountId: BRANCH_A,
+          repository,
+          realtime: currentRealtime,
+        }),
+      { initialProps: { realtime: firstRealtime } }
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    await act(async () =>
+      firstRealtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_A,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      })
+    );
+
+    rerender({ realtime: secondRealtime });
+    await act(async () => {
+      hydrate.resolve(conversationA);
+      await hydrate.promise;
+      await Promise.resolve();
+    });
+
+    expect(result.current.items).toEqual([]);
   });
 
   it('ignores a broadcast carrying another account id', async () => {
@@ -233,5 +370,30 @@ describe('useConversationList', () => {
     expect(result.current.paginationError).toBe(
       'Could not load more conversations'
     );
+  });
+
+  it('deduplicates repeated ids within one pagination page', async () => {
+    const cursor: ConversationCursor = {
+      phase: 'messaged',
+      lastMessageAt: conversationA.lastMessageAt!,
+      id: conversationA.id,
+    };
+    const conversationC = conversation({
+      id: OTHER_CONVERSATION_ID,
+      accountId: BRANCH_A,
+    });
+    repository.list
+      .mockResolvedValueOnce(page([conversationA], cursor))
+      .mockResolvedValueOnce(
+        page([conversationA, conversationC, conversationC])
+      );
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await act(async () => result.current.loadMore());
+
+    expect(result.current.items).toEqual([conversationA, conversationC]);
   });
 });

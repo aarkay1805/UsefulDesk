@@ -123,9 +123,15 @@ export function useConversationList({
   const loadingMoreRef = useRef(false);
   const knownConversationIds = useRef(new Set<string>());
   const hydrations = useRef(new Map<string, Promise<void>>());
+  const tombstoneGenerations = useRef(new Map<string, number>());
   const resyncGeneration = useRef(realtime.getSnapshot().resyncGeneration);
+  const realtimeGeneration = useRef(0);
+  const accountGeneration = useRef(0);
   const mounted = useRef(true);
 
+  if (activeAccountId.current !== accountId) {
+    accountGeneration.current += 1;
+  }
   activeAccountId.current = accountId;
   latestState.current = state;
   latestFilter.current = filter;
@@ -194,12 +200,13 @@ export function useConversationList({
           return;
         }
         setState((previous) => ({
-          ...previous,
           accountId,
+          items: [],
           cursor: null,
           status: 'error',
           error: LOAD_ERROR,
           paginationError: null,
+          unreadCount: 0,
           refreshing: false,
         }));
       }
@@ -211,6 +218,8 @@ export function useConversationList({
   }, [accountId, filter, normalizedSearch, refreshNonce, repository]);
 
   useEffect(() => {
+    const currentRealtimeGeneration = ++realtimeGeneration.current;
+    const activeHydrations = hydrations.current;
     const snapshot = realtime.getSnapshot();
     resyncGeneration.current = snapshot.resyncGeneration;
     setConnection(snapshot.connection);
@@ -219,6 +228,11 @@ export function useConversationList({
       if (event.accountId !== currentAccountId) return;
 
       if (event.table === 'conversations' && event.eventType === 'DELETE') {
+        tombstoneGenerations.current.set(
+          event.conversationId,
+          (tombstoneGenerations.current.get(event.conversationId) ?? 0) + 1
+        );
+        activeHydrations.delete(event.conversationId);
         setState((previous) => {
           if (previous.accountId !== currentAccountId) return previous;
           const items = previous.items.filter(
@@ -231,7 +245,10 @@ export function useConversationList({
         return;
       }
 
-      if (hydrations.current.has(event.conversationId)) return;
+      if (activeHydrations.has(event.conversationId)) return;
+      const currentAccountGeneration = accountGeneration.current;
+      const tombstoneGeneration =
+        tombstoneGenerations.current.get(event.conversationId) ?? 0;
       const hydrate = (async () => {
         try {
           const item = await repository.get(
@@ -241,6 +258,10 @@ export function useConversationList({
           if (
             !mounted.current ||
             activeAccountId.current !== currentAccountId ||
+            accountGeneration.current !== currentAccountGeneration ||
+            realtimeGeneration.current !== currentRealtimeGeneration ||
+            (tombstoneGenerations.current.get(event.conversationId) ?? 0) !==
+              tombstoneGeneration ||
             item.accountId !== currentAccountId
           ) {
             return;
@@ -264,10 +285,10 @@ export function useConversationList({
           // A deleted or inaccessible conversation must not change local state.
         }
       })();
-      hydrations.current.set(event.conversationId, hydrate);
+      activeHydrations.set(event.conversationId, hydrate);
       void hydrate.finally(() => {
-        if (hydrations.current.get(event.conversationId) === hydrate) {
-          hydrations.current.delete(event.conversationId);
+        if (activeHydrations.get(event.conversationId) === hydrate) {
+          activeHydrations.delete(event.conversationId);
         }
       });
     });
@@ -280,12 +301,15 @@ export function useConversationList({
     });
 
     return () => {
+      realtimeGeneration.current += 1;
+      activeHydrations.clear();
       eventCleanup();
       statusCleanup();
     };
   }, [realtime, repository]);
 
   const setFilter = useCallback((value: ConversationFilter) => {
+    if (value === latestFilter.current) return;
     listGeneration.current += 1;
     setFilterState(value);
     setState((previous) => ({
@@ -296,6 +320,7 @@ export function useConversationList({
   }, []);
 
   const setSearch = useCallback((value: string) => {
+    if (normalizeConversationSearch(value) === latestSearch.current) return;
     listGeneration.current += 1;
     setSearchState(value);
     setState((previous) => ({
@@ -343,10 +368,12 @@ export function useConversationList({
         setState((previous) => {
           if (previous.accountId !== currentAccountId) return previous;
           const seen = new Set(previous.items.map((item) => item.id));
-          const items = [
-            ...previous.items,
-            ...page.items.filter((item) => !seen.has(item.id)),
-          ];
+          const items = [...previous.items];
+          page.items.forEach((item) => {
+            if (seen.has(item.id)) return;
+            seen.add(item.id);
+            items.push(item);
+          });
           return { ...previous, items, cursor: page.nextCursor };
         });
       } catch {
