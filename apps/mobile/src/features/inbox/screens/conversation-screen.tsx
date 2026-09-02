@@ -206,6 +206,7 @@ function ConversationThread({
   const [templatePickerFeed, setTemplatePickerFeed] = useState<
     typeof realtime | null
   >(null);
+  const [templateOutcomeUnknown, setTemplateOutcomeUnknown] = useState(false);
   const [actionClockMs, setActionClockMs] = useState(() => Date.now());
   const latestId = thread.items.at(-1)?.id ?? null;
   const itemCount = thread.items.length;
@@ -580,7 +581,10 @@ function ConversationThread({
           blocker={null}
           conversationId={conversationId}
           onClose={() => setTemplatePickerFeed(null)}
+          onOutcomeAcknowledged={() => setTemplateOutcomeUnknown(false)}
+          onOutcomeUnknown={() => setTemplateOutcomeUnknown(true)}
           onSent={thread.refresh}
+          outcomeUnknown={templateOutcomeUnknown}
           templates={thread.sendReadiness.templates}
         />
       ) : null}

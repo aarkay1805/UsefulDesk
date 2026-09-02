@@ -21,9 +21,13 @@ import {
   MESSAGE_2_ID,
   MESSAGE_3_ID,
   OTHER_BRANCH_ID,
+  OTHER_CONVERSATION_ID,
 } from '../inbox-test-fixtures';
 import type { UseMessageThreadResult } from '../use-message-thread';
-import { sendConversationMessage } from '../send-message-client';
+import {
+  MobileSendError,
+  sendConversationMessage,
+} from '../send-message-client';
 import {
   ConversationScreen,
   distanceFromBottom,
@@ -148,6 +152,7 @@ jest.mock('../inbox-realtime-provider', () => ({
 }));
 
 jest.mock('../send-message-client', () => ({
+  ...jest.requireActual('../send-message-client'),
   sendConversationMessage: jest.fn(),
 }));
 
@@ -947,6 +952,104 @@ describe('ConversationScreen', () => {
 
     expect(screen.getByText('Send approved template')).toBeTruthy();
   });
+
+  it('keeps an ambiguous template outcome locked after close and reopen until the agent confirms checking the conversation', async () => {
+    jest
+      .mocked(sendConversationMessage)
+      .mockRejectedValueOnce(
+        new MobileSendError('network', 'Could not reach the send service.')
+      );
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    render(<ConversationScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+    expect(
+      await screen.findByText(/Delivery could not be confirmed/)
+    ).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+
+    expect(
+      screen.getByText(
+        'A previous template send could not be confirmed. Check this conversation for the message before sending another.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'I checked the conversation' })
+    );
+
+    expect(screen.getByRole('button', { name: 'Send template' })).toBeTruthy();
+    expect(sendConversationMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['branch', CONVERSATION_ID, OTHER_BRANCH_ID],
+    ['conversation', OTHER_CONVERSATION_ID, BRANCH_ID],
+  ] as const)(
+    'clears an ambiguous template lock when the %s scope key changes',
+    async (_scope, nextConversationId, nextBranchId) => {
+      jest
+        .mocked(sendConversationMessage)
+        .mockRejectedValueOnce(
+          new MobileSendError('network', 'Could not reach the send service.')
+        );
+      mockUseMessageThread.mockReturnValue(
+        readyThreadResult({
+          sendReadiness: {
+            status: 'ready',
+            latestInboundAt: null,
+            templates: [staticTemplate],
+            connectionReadiness: connectedReadiness,
+            templateReadiness: {
+              status: 'ready',
+              hasLocalTemplates: true,
+              contractReady: true,
+            },
+          },
+        })
+      );
+      const view = render(<ConversationScreen />);
+
+      fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+      expect(
+        await screen.findByText(/Delivery could not be confirmed/)
+      ).toBeTruthy();
+      fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+
+      mockUseLocalSearchParams.mockReturnValue({
+        conversationId: nextConversationId,
+      });
+      mockUseReadyAuth.mockReturnValue(readyAuthValue(nextBranchId));
+      view.rerender(<ConversationScreen />);
+      fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+
+      expect(
+        screen.getByRole('button', { name: 'Send template' })
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole('button', { name: 'I checked the conversation' })
+      ).toBeNull();
+    }
+  );
 
   it('fails closed to one readiness blocker with one pending-safe setup retry', () => {
     const refresh = jest.fn();

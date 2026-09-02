@@ -43,7 +43,10 @@ export interface TemplatePickerProps {
   templates: NativeTemplate[];
   blocker: ActionBlocker | null;
   onClose(): void;
+  onOutcomeAcknowledged(): void;
+  onOutcomeUnknown(): void;
   onSent(): void;
+  outcomeUnknown: boolean;
 }
 
 function fieldKey(field: TemplateField): string {
@@ -240,7 +243,10 @@ export function TemplatePicker({
   templates,
   blocker,
   onClose,
+  onOutcomeAcknowledged,
+  onOutcomeUnknown,
   onSent,
+  outcomeUnknown,
 }: TemplatePickerProps) {
   const auth = useReadyAuth();
   const resolvedBlocker = resolveBlocker(blocker, templates);
@@ -257,7 +263,8 @@ export function TemplatePicker({
     null
   );
   const inFlightRef = useRef(false);
-  const outcomeUnknown = sendFailure?.safeToRetry === false;
+  const currentAttemptOutcomeUnknown = sendFailure?.safeToRetry === false;
+  const sendLocked = outcomeUnknown || currentAttemptOutcomeUnknown;
 
   const selectedTemplate =
     resolvedBlocker === null
@@ -271,7 +278,7 @@ export function TemplatePicker({
   );
 
   const selectTemplate = (template: NativeTemplate) => {
-    if (pending || outcomeUnknown) return;
+    if (pending || sendLocked) return;
     setSelectedTemplateId(template.id);
     setValues(valuesForTemplate(template));
     setErrors({});
@@ -295,7 +302,7 @@ export function TemplatePicker({
       inFlightRef.current ||
       !selectedTemplate ||
       resolvedBlocker ||
-      outcomeUnknown
+      sendLocked
     ) {
       return;
     }
@@ -327,7 +334,9 @@ export function TemplatePicker({
       onSent();
       onClose();
     } catch (error) {
-      setSendFailure(describeMobileSendFailure(error));
+      const failure = describeMobileSendFailure(error);
+      setSendFailure(failure);
+      if (!failure.safeToRetry) onOutcomeUnknown();
     } finally {
       inFlightRef.current = false;
       setPending(false);
@@ -401,7 +410,7 @@ export function TemplatePicker({
                           accessibilityLabel={`${template.name}, Approved${selected ? ', Selected' : ''}`}
                           accessibilityRole="button"
                           accessibilityState={{
-                            disabled: pending || outcomeUnknown,
+                            disabled: pending || sendLocked,
                             selected,
                           }}
                           onAccessibilityTap={() => selectTemplate(template)}
@@ -409,7 +418,7 @@ export function TemplatePicker({
                           <Button
                             accessible={false}
                             className="min-h-11 justify-start px-3"
-                            disabled={pending || outcomeUnknown}
+                            disabled={pending || sendLocked}
                             onPress={() => selectTemplate(template)}
                             testID={`template-option-${template.id}`}
                             variant={selected ? 'primary' : 'outline'}
@@ -461,7 +470,7 @@ export function TemplatePicker({
                             autoCapitalize="sentences"
                             className="min-h-11 text-base"
                             error={errors[key]}
-                            isDisabled={pending || outcomeUnknown}
+                            isDisabled={pending || sendLocked}
                             label={field.label}
                             onChangeText={(value) =>
                               setFieldValue(field, value)
@@ -487,7 +496,33 @@ export function TemplatePicker({
                     </View>
                   ) : null}
 
-                  {outcomeUnknown ? (
+                  {outcomeUnknown && !currentAttemptOutcomeUnknown ? (
+                    <View className="gap-3">
+                      <View
+                        accessible
+                        accessibilityLiveRegion="polite"
+                        accessibilityRole="alert"
+                        className="bg-warning-soft gap-1 rounded-xl px-3 py-3"
+                      >
+                        <Text className="text-warning-soft-foreground text-base font-semibold">
+                          Check the conversation first
+                        </Text>
+                        <Text className="text-warning-soft-foreground text-sm leading-5">
+                          A previous template send could not be confirmed. Check
+                          this conversation for the message before sending
+                          another.
+                        </Text>
+                      </View>
+                      <Button
+                        accessibilityLabel="I checked the conversation"
+                        className="min-h-11"
+                        onPress={onOutcomeAcknowledged}
+                        variant="outline"
+                      >
+                        I checked the conversation
+                      </Button>
+                    </View>
+                  ) : currentAttemptOutcomeUnknown ? (
                     <Button
                       accessibilityLabel="Close"
                       className="min-h-11"

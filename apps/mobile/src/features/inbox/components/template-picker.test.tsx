@@ -131,10 +131,15 @@ const staticTemplate: NativeTemplate = {
 function renderPicker(options?: {
   templates?: NativeTemplate[];
   blocker?: ActionBlocker | null;
+  outcomeUnknown?: boolean;
   onClose?: jest.Mock;
+  onOutcomeAcknowledged?: jest.Mock;
+  onOutcomeUnknown?: jest.Mock;
   onSent?: jest.Mock;
 }) {
   const onClose = options?.onClose ?? jest.fn();
+  const onOutcomeAcknowledged = options?.onOutcomeAcknowledged ?? jest.fn();
+  const onOutcomeUnknown = options?.onOutcomeUnknown ?? jest.fn();
   const onSent = options?.onSent ?? jest.fn();
   render(
     <TemplatePicker
@@ -142,11 +147,19 @@ function renderPicker(options?: {
       blocker={options?.blocker ?? null}
       conversationId={CONVERSATION_ID}
       onClose={onClose}
+      onOutcomeAcknowledged={onOutcomeAcknowledged}
+      onOutcomeUnknown={onOutcomeUnknown}
       onSent={onSent}
+      outcomeUnknown={options?.outcomeUnknown ?? false}
       templates={options?.templates ?? [membershipTemplate, copyCodeTemplate]}
     />
   );
-  return { onClose, onSent };
+  return {
+    onClose,
+    onOutcomeAcknowledged,
+    onOutcomeUnknown,
+    onSent,
+  };
 }
 
 function fillMembershipFields() {
@@ -468,7 +481,9 @@ describe('TemplatePicker', () => {
     'withholds template retry after an ambiguous %s outcome',
     async (category, detail) => {
       send.mockRejectedValueOnce(new MobileSendError(category, detail));
-      const { onClose } = renderPicker({ templates: [membershipTemplate] });
+      const { onClose, onOutcomeUnknown } = renderPicker({
+        templates: [membershipTemplate],
+      });
 
       fillMembershipFields();
       fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
@@ -488,9 +503,33 @@ describe('TemplatePicker', () => {
       expect(screen.getByLabelText('Renew now').props.value).toBe(
         '  member-42 '
       );
+      expect(onOutcomeUnknown).toHaveBeenCalledTimes(1);
 
       fireEvent.press(screen.getByRole('button', { name: 'Close' }));
       expect(onClose).toHaveBeenCalledTimes(1);
     }
   );
+
+  it('keeps a previous unknown outcome locked until the agent explicitly confirms checking the conversation', () => {
+    const { onOutcomeAcknowledged } = renderPicker({
+      templates: [membershipTemplate],
+      outcomeUnknown: true,
+    });
+
+    expect(
+      screen.getByText(
+        'A previous template send could not be confirmed. Check this conversation for the message before sending another.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry send' })).toBeNull();
+    expect(screen.getByLabelText('Body variable 1').props.editable).toBe(false);
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'I checked the conversation' })
+    );
+
+    expect(onOutcomeAcknowledged).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+  });
 });
