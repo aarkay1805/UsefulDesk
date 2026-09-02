@@ -76,7 +76,7 @@ export interface NativeTemplate {
   id: string;
   name: string;
   language: string;
-  category: 'Marketing' | 'Utility' | 'Authentication';
+  category: 'Marketing' | 'Utility';
   bodyText: string;
   headerType: 'text' | null;
   headerContent: string | null;

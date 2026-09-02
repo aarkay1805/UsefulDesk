@@ -126,20 +126,28 @@ function parseButtons(value: unknown): NativeTemplateButton[] {
   });
 }
 
-function parseNativeTemplate(row: unknown, accountId: string): NativeTemplate {
+function parseNativeTemplate(
+  row: unknown,
+  accountId: string
+): NativeTemplate | null {
   const template = object(row);
   if (
     !template ||
     !isUuid(template.id) ||
     template.account_id !== accountId ||
-    !isUuid(template.account_id) ||
+    !isUuid(template.account_id)
+  ) {
+    return invalidTemplate();
+  }
+
+  if (template.category === 'Authentication') return null;
+
+  if (
     typeof template.name !== 'string' ||
     !template.name.trim() ||
     typeof template.language !== 'string' ||
     !template.language.trim() ||
-    !['Marketing', 'Utility', 'Authentication'].includes(
-      template.category as string
-    ) ||
+    !['Marketing', 'Utility'].includes(template.category as string) ||
     typeof template.body_text !== 'string' ||
     !template.body_text.trim() ||
     !hasOnlyPositionalPlaceholders(template.body_text) ||
@@ -276,7 +284,10 @@ export function createTemplateRepository(
         const rows = await source.listTemplates(accountId);
         if (!Array.isArray(rows)) throw new Error(TEMPLATE_LOAD_ERROR);
         return rows
-          .map((row) => parseNativeTemplate(row, accountId))
+          .flatMap((row) => {
+            const template = parseNativeTemplate(row, accountId);
+            return template ? [template] : [];
+          })
           .sort((left, right) => left.name.localeCompare(right.name));
       } catch (error) {
         if (
@@ -317,6 +328,7 @@ export const mobileTemplateQuerySource: TemplateQuerySource = {
       .select(TEMPLATE_SELECT)
       .eq('account_id', accountId)
       .eq('status', 'APPROVED')
+      .in('category', ['Utility', 'Marketing'])
       .is('provider_missing_since', null)
       .is('provider_components_sync_required_at', null)
       .order('name', { ascending: true })

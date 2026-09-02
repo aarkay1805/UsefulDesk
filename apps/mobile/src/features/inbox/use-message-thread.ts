@@ -9,6 +9,7 @@ import {
   mobileConversationRepository,
   type ConversationRepository,
 } from './conversation-repository';
+import type { TemplateReadiness } from './conversation-actions';
 import type { InboxRealtimeFeed } from './inbox-realtime-provider';
 import type {
   InboxConnectionState,
@@ -90,10 +91,7 @@ export interface ConversationSendReadiness {
   latestInboundAt: string | null;
   templates: NativeTemplate[];
   connectionReadiness: ConnectionReadiness | null;
-  templateReadiness: {
-    hasLocalTemplates: boolean;
-    contractReady: boolean;
-  } | null;
+  templateReadiness: TemplateReadiness | null;
 }
 
 interface OwnedConversationSendReadiness extends ConversationSendReadiness {
@@ -198,36 +196,40 @@ function publicSendReadiness(
   };
 }
 
-function readinessResultIsConsistent(
+function openTextReadinessResultIsConsistent(
   latestInboundAt: string | null,
-  templates: NativeTemplate[],
   connectionReadiness: ConnectionReadiness
 ): boolean {
-  if (
-    (latestInboundAt !== null && !isStrictIsoTimestamp(latestInboundAt)) ||
-    !Array.isArray(templates)
-  ) {
+  if (latestInboundAt !== null && !isStrictIsoTimestamp(latestInboundAt)) {
     return false;
   }
-  const templatesAreSendable = templates.every(
-    (template) =>
-      template !== null &&
-      typeof template === 'object' &&
-      template.status === 'APPROVED' &&
-      template.parameterFormat === 'POSITIONAL' &&
-      template.providerMissingSince === null &&
-      template.providerComponentsSyncRequiredAt === null &&
-      template.headerMediaUrl === null
-  );
-  const connectionIsConsistent =
+  return (
     connectionReadiness !== null &&
     typeof connectionReadiness === 'object' &&
     connectionReadiness.ready ===
       (connectionReadiness.status === 'connected') &&
     (connectionReadiness.ready
       ? connectionReadiness.reason === null
-      : typeof connectionReadiness.reason === 'string');
-  return templatesAreSendable && connectionIsConsistent;
+      : typeof connectionReadiness.reason === 'string')
+  );
+}
+
+function templatesResultIsConsistent(templates: NativeTemplate[]): boolean {
+  return (
+    Array.isArray(templates) &&
+    templates.every(
+      (template) =>
+        template !== null &&
+        typeof template === 'object' &&
+        (template.category === 'Utility' ||
+          template.category === 'Marketing') &&
+        template.status === 'APPROVED' &&
+        template.parameterFormat === 'POSITIONAL' &&
+        template.providerMissingSince === null &&
+        template.providerComponentsSyncRequiredAt === null &&
+        template.headerMediaUrl === null
+    )
+  );
 }
 
 function compareMessages(first: InboxMessage, second: InboxMessage): number {
@@ -612,49 +614,89 @@ export function useMessageThread({
       activeAccountId.current === readinessAccountId &&
       activeConversationId.current === readinessConversationId;
 
+    const readinessMatchesOwner = (value: OwnedConversationSendReadiness) =>
+      value.accountId === readinessAccountId &&
+      value.conversationId === readinessConversationId &&
+      value.feedGeneration === readinessFeedGeneration;
+
     void (async () => {
       try {
-        const [latestInboundAt, sendableTemplates, connectionReadiness] =
-          await Promise.all([
-            messages.getLatestCustomerMessageAt(
-              readinessAccountId,
-              readinessConversationId
-            ),
-            templates.listSendableTemplates(readinessAccountId),
-            templates.getWhatsAppConnectionReadiness(readinessAccountId),
-          ]);
+        const [latestInboundAt, connectionReadiness] = await Promise.all([
+          messages.getLatestCustomerMessageAt(
+            readinessAccountId,
+            readinessConversationId
+          ),
+          templates.getWhatsAppConnectionReadiness(readinessAccountId),
+        ]);
         if (!isCurrentReadinessOwner()) return;
         if (
-          !readinessResultIsConsistent(
+          !openTextReadinessResultIsConsistent(
             latestInboundAt,
-            sendableTemplates,
             connectionReadiness
           )
         ) {
-          throw new Error('Send readiness is inconsistent');
+          throw new Error('Open-text readiness is inconsistent');
         }
-        setSendReadiness({
-          accountId: readinessAccountId,
-          conversationId: readinessConversationId,
-          feedGeneration: readinessFeedGeneration,
-          status: 'ready',
-          latestInboundAt,
-          templates: sendableTemplates,
-          connectionReadiness,
-          templateReadiness: {
-            hasLocalTemplates: sendableTemplates.length > 0,
-            contractReady: sendableTemplates.length > 0,
-          },
-        });
+        setSendReadiness((previous) =>
+          readinessMatchesOwner(previous)
+            ? {
+                ...previous,
+                status: 'ready',
+                latestInboundAt,
+                connectionReadiness,
+              }
+            : previous
+        );
       } catch {
         if (!isCurrentReadinessOwner()) return;
-        setSendReadiness(
-          emptySendReadiness(
-            'error',
-            readinessAccountId,
-            readinessConversationId,
-            readinessFeedGeneration
-          )
+        setSendReadiness((previous) =>
+          readinessMatchesOwner(previous)
+            ? {
+                ...previous,
+                status: 'error',
+                latestInboundAt: null,
+                connectionReadiness: null,
+              }
+            : previous
+        );
+      }
+    })();
+
+    void (async () => {
+      try {
+        const sendableTemplates =
+          await templates.listSendableTemplates(readinessAccountId);
+        if (!isCurrentReadinessOwner()) return;
+        if (!templatesResultIsConsistent(sendableTemplates)) {
+          throw new Error('Template readiness is inconsistent');
+        }
+        setSendReadiness((previous) =>
+          readinessMatchesOwner(previous)
+            ? {
+                ...previous,
+                templates: sendableTemplates,
+                templateReadiness: {
+                  status: 'ready',
+                  hasLocalTemplates: sendableTemplates.length > 0,
+                  contractReady: sendableTemplates.length > 0,
+                },
+              }
+            : previous
+        );
+      } catch {
+        if (!isCurrentReadinessOwner()) return;
+        setSendReadiness((previous) =>
+          readinessMatchesOwner(previous)
+            ? {
+                ...previous,
+                templates: [],
+                templateReadiness: {
+                  status: 'error',
+                  hasLocalTemplates: false,
+                  contractReady: false,
+                },
+              }
+            : previous
         );
       }
     })();

@@ -3,20 +3,29 @@ import {
   type AccountRole,
 } from '../../../../../src/lib/auth/roles';
 
+import type { BranchAccount } from '../auth/branch-types';
 import type { ConnectionReadiness } from './inbox-types';
 
 export const SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export interface TemplateReadiness {
-  hasLocalTemplates: boolean;
-  contractReady: boolean;
-}
+export type TemplateReadiness =
+  | {
+      status: 'ready';
+      hasLocalTemplates: boolean;
+      contractReady: boolean;
+    }
+  | {
+      status: 'error';
+      hasLocalTemplates: false;
+      contractReady: false;
+    };
 
 export interface ConversationActionInput {
   role: AccountRole;
+  branchStatus: BranchAccount['branch_status'];
   now: Date | string;
   latestInboundAt: string | null;
-  templateReadiness: TemplateReadiness;
+  templateReadiness: TemplateReadiness | null;
   connectionReadiness: ConnectionReadiness;
 }
 
@@ -32,6 +41,11 @@ export type ActionBlocker =
       reason: 'Sync an approved WhatsApp template contract before sending outside the customer-service window.';
     }
   | {
+      kind: 'template_readiness';
+      title: 'Template setup is unavailable';
+      reason: 'Could not verify sendable templates for this conversation. Pull to refresh and try again.';
+    }
+  | {
       kind: 'provider';
       title: 'WhatsApp is unavailable';
       reason: string;
@@ -39,6 +53,8 @@ export type ActionBlocker =
 
 export type ConversationActionState =
   | { kind: 'viewer' }
+  | { kind: 'inactive_branch' }
+  | { kind: 'loading' }
   | { kind: 'open_text' }
   | { kind: 'closed_template' }
   | { kind: 'blocked'; blocker: ActionBlocker };
@@ -71,10 +87,20 @@ function providerBlocker(readiness: ConnectionReadiness): ActionBlocker {
   };
 }
 
+export function canUseConversationOutbound(
+  role: AccountRole,
+  branchStatus: BranchAccount['branch_status']
+): boolean {
+  return branchStatus === 'active' && canSendMessages(role);
+}
+
 export function resolveConversationActions(
   input: ConversationActionInput
 ): ConversationActionState {
   if (!canSendMessages(input.role)) return { kind: 'viewer' };
+  if (!canUseConversationOutbound(input.role, input.branchStatus)) {
+    return { kind: 'inactive_branch' };
+  }
 
   const serviceWindowOpen = isServiceWindowOpen(
     input.now,
@@ -89,6 +115,20 @@ export function resolveConversationActions(
 
   if (serviceWindowOpen) {
     return { kind: 'open_text' };
+  }
+
+  if (input.templateReadiness === null) return { kind: 'loading' };
+
+  if (input.templateReadiness.status === 'error') {
+    return {
+      kind: 'blocked',
+      blocker: {
+        kind: 'template_readiness',
+        title: 'Template setup is unavailable',
+        reason:
+          'Could not verify sendable templates for this conversation. Pull to refresh and try again.',
+      },
+    };
   }
 
   if (!input.templateReadiness.hasLocalTemplates) {

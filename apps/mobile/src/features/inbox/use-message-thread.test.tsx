@@ -242,6 +242,7 @@ describe('useMessageThread', () => {
       templates: [sendableTemplate],
       connectionReadiness: connectedReadiness,
       templateReadiness: {
+        status: 'ready',
         hasLocalTemplates: true,
         contractReady: true,
       },
@@ -263,7 +264,7 @@ describe('useMessageThread', () => {
     ).not.toHaveBeenCalled();
   });
 
-  it('fails closed when a readiness repository errors or returns an inconsistent result', async () => {
+  it('fails closed only template readiness when template data is inconsistent', async () => {
     templateRepository.listSendableTemplates.mockResolvedValueOnce([
       {
         ...sendableTemplate,
@@ -273,21 +274,33 @@ describe('useMessageThread', () => {
     const { result } = renderHook(() => useConfiguredThread());
 
     await waitFor(() =>
-      expect(result.current.sendReadiness.status).toBe('error')
+      expect(result.current.sendReadiness.templateReadiness?.status).toBe(
+        'error'
+      )
     );
+    expect(result.current.sendReadiness.status).toBe('ready');
     expect(result.current.sendReadiness.templates).toEqual([]);
+  });
 
+  it('keeps open-text readiness available when template parsing fails', async () => {
     templateRepository.listSendableTemplates.mockRejectedValueOnce(
       new Error('Could not load sendable templates')
     );
-    act(() => result.current.refresh());
+    const { result } = renderHook(() => useConfiguredThread());
 
     await waitFor(() =>
-      expect(templateRepository.listSendableTemplates).toHaveBeenCalledTimes(2)
+      expect(result.current.sendReadiness.status).toBe('ready')
     );
-    await waitFor(() =>
-      expect(result.current.sendReadiness.status).toBe('error')
-    );
+    expect(result.current.sendReadiness).toMatchObject({
+      latestInboundAt: '2026-09-01T08:01:00.000Z',
+      connectionReadiness: connectedReadiness,
+      templates: [],
+      templateReadiness: {
+        status: 'error',
+        hasLocalTemplates: false,
+        contractReady: false,
+      },
+    });
   });
 
   it('drops stale readiness completions after a branch and conversation change', async () => {

@@ -4,18 +4,25 @@ import {
   type ConversationActionInput,
 } from './conversation-actions';
 
+type BranchStatus = 'active' | 'read_only' | 'archived';
+type BranchAwareConversationActionInput = ConversationActionInput & {
+  branchStatus: BranchStatus;
+};
+
 const NOW = '2026-09-01T12:00:00.000Z';
 
 function input(
-  overrides: Partial<ConversationActionInput> = {}
-): ConversationActionInput {
+  overrides: Partial<BranchAwareConversationActionInput> = {}
+): BranchAwareConversationActionInput {
   return {
     role: 'agent',
+    branchStatus: 'active',
     now: NOW,
     latestInboundAt: new Date(
       Date.parse(NOW) - SERVICE_WINDOW_MS + 1
     ).toISOString(),
     templateReadiness: {
+      status: 'ready',
       hasLocalTemplates: true,
       contractReady: true,
     },
@@ -37,6 +44,7 @@ describe('resolveConversationActions', () => {
           role: 'viewer',
           latestInboundAt: null,
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: false,
             contractReady: false,
           },
@@ -50,6 +58,15 @@ describe('resolveConversationActions', () => {
       )
     ).toEqual({ kind: 'viewer' });
   });
+
+  it.each(['read_only', 'archived'] as const)(
+    'omits all customer-send controls for an agent in a %s branch',
+    (branchStatus) => {
+      expect(resolveConversationActions(input({ branchStatus }))).toEqual({
+        kind: 'inactive_branch',
+      });
+    }
+  );
 
   it('uses the template-only branch when no customer message has opened a service window', () => {
     expect(
@@ -88,6 +105,7 @@ describe('resolveConversationActions', () => {
       resolveConversationActions(
         input({
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: false,
             contractReady: false,
           },
@@ -103,6 +121,7 @@ describe('resolveConversationActions', () => {
           role: 'viewer',
           latestInboundAt: null,
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: false,
             contractReady: false,
           },
@@ -121,6 +140,7 @@ describe('resolveConversationActions', () => {
         input({
           latestInboundAt: null,
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: false,
             contractReady: false,
           },
@@ -139,6 +159,7 @@ describe('resolveConversationActions', () => {
         input({
           latestInboundAt: null,
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: true,
             contractReady: false,
           },
@@ -183,5 +204,25 @@ describe('resolveConversationActions', () => {
         })
       )
     ).toMatchObject({ kind: 'blocked', blocker: { kind: 'provider' } });
+  });
+
+  it('uses template readiness only after the service window closes', () => {
+    const templateError = {
+      status: 'error' as const,
+      hasLocalTemplates: false as const,
+      contractReady: false as const,
+    };
+
+    expect(
+      resolveConversationActions(input({ templateReadiness: templateError }))
+    ).toEqual({ kind: 'open_text' });
+    expect(
+      resolveConversationActions(
+        input({ latestInboundAt: null, templateReadiness: templateError })
+      )
+    ).toMatchObject({
+      kind: 'blocked',
+      blocker: { kind: 'template_readiness' },
+    });
   });
 });

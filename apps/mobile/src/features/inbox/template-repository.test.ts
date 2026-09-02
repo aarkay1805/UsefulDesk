@@ -40,6 +40,7 @@ function queryResult(data: unknown) {
   const query = {
     select: jest.fn(),
     eq: jest.fn(),
+    in: jest.fn(),
     is: jest.fn(),
     order: jest.fn(),
     setHeader: jest.fn(),
@@ -48,6 +49,7 @@ function queryResult(data: unknown) {
   };
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
+  query.in.mockReturnValue(query);
   query.is.mockReturnValue(query);
   query.order.mockReturnValue(query);
   query.setHeader.mockReturnValue(query);
@@ -69,6 +71,30 @@ describe('TemplateRepository', () => {
       createTemplateRepository(querySource).listSendableTemplates(BRANCH_ID)
     ).resolves.toMatchObject([{ name: 'alpha' }, { name: 'zebra' }]);
     expect(querySource.listTemplates).toHaveBeenCalledWith(BRANCH_ID);
+  });
+
+  it('omits Authentication templates while retaining Utility and Marketing templates', async () => {
+    const querySource = source();
+    querySource.listTemplates = jest.fn().mockResolvedValue([
+      rawTemplate({
+        id: '0552d03c-9d8c-4cf4-b8c6-a10b9b233571',
+        name: 'login_code',
+        category: 'Authentication',
+      }),
+      rawTemplate({ name: 'appointment_reminder', category: 'Utility' }),
+      rawTemplate({
+        id: '1552d03c-9d8c-4cf4-b8c6-a10b9b233571',
+        name: 'renewal_offer',
+        category: 'Marketing',
+      }),
+    ]);
+
+    await expect(
+      createTemplateRepository(querySource).listSendableTemplates(BRANCH_ID)
+    ).resolves.toMatchObject([
+      { name: 'appointment_reminder', category: 'Utility' },
+      { name: 'renewal_offer', category: 'Marketing' },
+    ]);
   });
 
   it('rejects malformed, cross-branch, and non-positional templates', async () => {
@@ -232,6 +258,10 @@ describe('TemplateRepository', () => {
 
     expect(templates.eq).toHaveBeenCalledWith('account_id', BRANCH_ID);
     expect(templates.eq).toHaveBeenCalledWith('status', 'APPROVED');
+    expect(templates.in).toHaveBeenCalledWith('category', [
+      'Utility',
+      'Marketing',
+    ]);
     expect(templates.is).toHaveBeenCalledWith('provider_missing_since', null);
     expect(templates.is).toHaveBeenCalledWith(
       'provider_components_sync_required_at',

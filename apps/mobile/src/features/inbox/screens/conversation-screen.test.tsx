@@ -309,7 +309,8 @@ function accountSummary(id = BRANCH_ID): AccountSummary {
 
 function readyAuthValue(
   accountId = BRANCH_ID,
-  role: BranchAccount['role'] = 'admin'
+  role: BranchAccount['role'] = 'admin',
+  branchStatus: BranchAccount['branch_status'] = 'active'
 ): ReadyAuthContextValue {
   const branch: BranchAccount = {
     account_id: accountId,
@@ -319,7 +320,7 @@ function readyAuthValue(
     legal_entity_id: '895fd4ad-7219-4982-b8e4-a0c84f83e8d4',
     legal_entity_name: 'Useful Fitness Private Limited',
     role,
-    branch_status: 'active',
+    branch_status: branchStatus,
     readiness_state: 'ready',
     default_currency: 'INR',
     timezone: 'Asia/Kolkata',
@@ -360,6 +361,7 @@ interface TestSendReadiness {
   templates: NativeTemplate[];
   connectionReadiness: ConnectionReadiness | null;
   templateReadiness: {
+    status: 'ready' | 'error';
     hasLocalTemplates: boolean;
     contractReady: boolean;
   } | null;
@@ -434,6 +436,7 @@ function readyThreadResult(
       templates: [staticTemplate],
       connectionReadiness: connectedReadiness,
       templateReadiness: {
+        status: 'ready',
         hasLocalTemplates: true,
         contractReady: true,
       },
@@ -594,6 +597,60 @@ describe('ConversationScreen', () => {
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: 'viewer', outbound: undefined })
     );
+  });
+
+  it('keeps an agent in a read-only branch without outbound controls or dependencies', () => {
+    mockUseReadyAuth.mockReturnValue(
+      readyAuthValue(BRANCH_ID, 'agent', 'read_only')
+    );
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        items: [
+          message({
+            id: 'temp:read-only-failed',
+            senderType: 'agent',
+            status: 'failed',
+            providerErrorTitle: 'Could not send message',
+          }),
+        ],
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    expect(screen.queryByLabelText('Message')).toBeNull();
+    expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Retry failed message' })
+    ).toBeNull();
+    expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
+    expect(mockUseMessageThread).toHaveBeenLastCalledWith(
+      expect.objectContaining({ role: 'agent', outbound: undefined })
+    );
+  });
+
+  it('keeps the open-window composer available when only template readiness fails', () => {
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: new Date().toISOString(),
+          templates: [],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'error',
+            hasLocalTemplates: false,
+            contractReady: false,
+          },
+        },
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    expect(screen.getByLabelText('Message')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Send message' })).toBeTruthy();
+    expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
   });
 
   it('shows no send surface until readiness finishes loading', () => {
@@ -782,6 +839,7 @@ describe('ConversationScreen', () => {
           templates: [staticTemplate],
           connectionReadiness: connectedReadiness,
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: true,
             contractReady: true,
           },
@@ -814,6 +872,7 @@ describe('ConversationScreen', () => {
           templates: [staticTemplate],
           connectionReadiness: connectedReadiness,
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: true,
             contractReady: true,
           },
@@ -848,6 +907,7 @@ describe('ConversationScreen', () => {
           templates: [staticTemplate],
           connectionReadiness: connectedReadiness,
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: true,
             contractReady: true,
           },
@@ -874,6 +934,7 @@ describe('ConversationScreen', () => {
           templates: [staticTemplate],
           connectionReadiness: connectedReadiness,
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: true,
             contractReady: true,
           },
@@ -954,6 +1015,7 @@ describe('ConversationScreen', () => {
             connectedAt: null,
           },
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: false,
             contractReady: false,
           },
@@ -991,6 +1053,7 @@ describe('ConversationScreen', () => {
             connectedAt: null,
           },
           templateReadiness: {
+            status: 'ready',
             hasLocalTemplates: true,
             contractReady: true,
           },

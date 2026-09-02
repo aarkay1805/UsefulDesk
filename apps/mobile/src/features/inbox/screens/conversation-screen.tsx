@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 
-import { canSendMessages } from '../../../../../../src/lib/auth/roles';
 import { accountFormatters } from '../../../core/account-formatters';
 import {
   Button,
@@ -24,6 +23,7 @@ import { ConversationComposer } from '../components/conversation-composer';
 import { MessageBubble } from '../components/message-bubble';
 import { TemplatePicker } from '../components/template-picker';
 import {
+  canUseConversationOutbound,
   resolveConversationActions,
   SERVICE_WINDOW_MS,
   type ActionBlocker,
@@ -124,6 +124,9 @@ interface ConversationThreadProps {
   accountId: string;
   conversationId: string;
   role: ReturnType<typeof useReadyAuth>['state']['branch']['role'];
+  branchStatus: ReturnType<
+    typeof useReadyAuth
+  >['state']['branch']['branch_status'];
   account: ReturnType<typeof useReadyAuth>['state']['account'];
   outbound?: MessageThreadOutboundDependencies;
 }
@@ -178,6 +181,7 @@ function ConversationThread({
   accountId,
   conversationId,
   role,
+  branchStatus,
   account,
   outbound,
 }: ConversationThreadProps) {
@@ -217,16 +221,17 @@ function ConversationThread({
       ? thread.sendReadiness.latestInboundAt
       : null;
   const renderClockMs = new Date().getTime();
+  const outboundAllowed = canUseConversationOutbound(role, branchStatus);
   let actionState: ConversationActionState | null = null;
-  if (thread.sendReadiness.status === 'error') {
+  if (outboundAllowed && thread.sendReadiness.status === 'error') {
     actionState = { kind: 'blocked', blocker: SEND_READINESS_BLOCKER };
   } else if (
     thread.sendReadiness.status === 'ready' &&
-    thread.sendReadiness.connectionReadiness &&
-    thread.sendReadiness.templateReadiness
+    thread.sendReadiness.connectionReadiness
   ) {
     actionState = resolveConversationActions({
       role,
+      branchStatus,
       now: new Date(Math.max(actionClockMs, renderClockMs)),
       latestInboundAt: thread.sendReadiness.latestInboundAt,
       templateReadiness: thread.sendReadiness.templateReadiness,
@@ -237,7 +242,7 @@ function ConversationThread({
     actionState?.kind === 'closed_template' && templatePickerFeed === realtime;
 
   useEffect(() => {
-    if (!canSendMessages(role) || readyLatestInboundAt === null) return;
+    if (!outboundAllowed || readyLatestInboundAt === null) return;
     const latestInboundMs = Date.parse(readyLatestInboundAt);
     if (!Number.isFinite(latestInboundMs)) return;
     const boundaryMs = latestInboundMs + SERVICE_WINDOW_MS;
@@ -245,7 +250,7 @@ function ConversationThread({
     if (delayMs <= 0) return;
     const timeout = setTimeout(() => setActionClockMs(boundaryMs), delayMs);
     return () => clearTimeout(timeout);
-  }, [readyLatestInboundAt, role]);
+  }, [outboundAllowed, readyLatestInboundAt]);
 
   useEffect(() => {
     const previousItems = previousItemsRef.current;
@@ -344,7 +349,7 @@ function ConversationThread({
     }
 
     const retryableTemporaryId =
-      canSendMessages(role) &&
+      outboundAllowed &&
       item.message.status === 'failed' &&
       item.message.safeToRetry === true &&
       item.message.senderType === 'agent' &&
@@ -400,7 +405,14 @@ function ConversationThread({
   };
 
   const actionFooter = (() => {
-    if (!actionState || actionState.kind === 'viewer') return null;
+    if (
+      !actionState ||
+      actionState.kind === 'viewer' ||
+      actionState.kind === 'inactive_branch' ||
+      actionState.kind === 'loading'
+    ) {
+      return null;
+    }
     if (actionState.kind === 'open_text') {
       return (
         <ConversationComposer
@@ -588,10 +600,14 @@ export function ConversationScreen() {
     <ConversationThread
       account={state.account}
       accountId={state.branch.account_id}
+      branchStatus={state.branch.branch_status}
       conversationId={conversationId}
       key={`${state.branch.account_id}:${conversationId}`}
       outbound={
-        canSendMessages(state.branch.role)
+        canUseConversationOutbound(
+          state.branch.role,
+          state.branch.branch_status
+        )
           ? {
               senderId: state.profile.id,
               recoverUnauthorizedSession: auth.recoverUnauthorizedSession,
