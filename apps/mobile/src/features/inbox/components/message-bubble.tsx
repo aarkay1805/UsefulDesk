@@ -11,12 +11,11 @@ const DELIVERY_LABEL: Record<MessageStatus, string> = {
   failed: 'Failed',
 };
 
-const DELIVERY_TICK: Record<MessageStatus, string> = {
+const DELIVERY_TICK: Record<Exclude<MessageStatus, 'failed'>, string> = {
   sending: '◷',
   sent: '✓',
   delivered: '✓✓',
   read: '✓✓',
-  failed: '!',
 };
 
 const THREAD_HORIZONTAL_PADDING = 12;
@@ -52,7 +51,9 @@ function BubbleMeta({
   message,
 }: BubbleMetaProps) {
   const metaTone = isOutbound ? 'text-chat-meta-out' : 'text-chat-meta';
-  const deliveryLabel = isOutbound ? DELIVERY_LABEL[message.status] : null;
+  const deliveryStatus =
+    isOutbound && message.status !== 'failed' ? message.status : null;
+  const deliveryLabel = deliveryStatus ? DELIVERY_LABEL[deliveryStatus] : null;
 
   return (
     <Text
@@ -65,14 +66,14 @@ function BubbleMeta({
       testID="message-metadata"
     >
       {formattedTime}
-      {isOutbound ? (
-        message.status === 'read' ? (
+      {deliveryStatus ? (
+        deliveryStatus === 'read' ? (
           <>
             {' '}
             <Text className="text-chat-read text-xs">{DELIVERY_TICK.read}</Text>
           </>
         ) : (
-          ` ${DELIVERY_TICK[message.status]}`
+          ` ${DELIVERY_TICK[deliveryStatus]}`
         )
       ) : null}
     </Text>
@@ -93,6 +94,7 @@ export function MessageBubble({
   const { width: viewportWidth } = useWindowDimensions();
   const imageSize = messageImageSizeForViewport(viewportWidth);
   const isOutbound = message.senderType !== 'customer';
+  const isFailed = isOutbound && message.status === 'failed';
   const marker =
     message.contentType === 'template'
       ? 'Template'
@@ -137,6 +139,7 @@ export function MessageBubble({
                   formattedTime={formattedTime}
                   inline
                   isOutbound={isOutbound}
+                  key={`${message.id}:${message.status}:metadata`}
                   message={message}
                 />
               ) : undefined
@@ -146,11 +149,27 @@ export function MessageBubble({
             <BubbleMeta
               formattedTime={formattedTime}
               isOutbound={isOutbound}
+              key={`${message.id}:${message.status}:metadata`}
               message={message}
             />
           ) : null}
         </View>
       </View>
+      {isFailed ? (
+        <View
+          accessible
+          accessibilityLabel="Message failed"
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          className="mt-1 px-1"
+          key={`${message.id}:failed`}
+          testID="message-failed-status"
+        >
+          <Text className="text-danger text-xs font-medium">
+            {DELIVERY_LABEL.failed}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }

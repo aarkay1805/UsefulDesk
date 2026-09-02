@@ -46,7 +46,7 @@ describe('MessageBubble', () => {
     }
   );
 
-  it.each(['sending', 'sent', 'delivered', 'read', 'failed'] as const)(
+  it.each(['sending', 'sent', 'delivered', 'read'] as const)(
     'announces the %s delivery state independently of color',
     (status) => {
       render(
@@ -65,11 +65,13 @@ describe('MessageBubble', () => {
     }
   );
 
-  it('renders a recycled failed delivery glyph in the metadata text node', () => {
+  it('renders a recycled failed delivery as a separate visible alert', () => {
     const sentMessage = message({ senderType: 'agent', status: 'sent' });
     const { rerender } = render(
       <MessageBubble formattedTime="1:30 pm" message={sentMessage} startsRun />
     );
+
+    expect(screen.queryByRole('alert', { name: 'Message failed' })).toBeNull();
 
     rerender(
       <MessageBubble
@@ -79,10 +81,16 @@ describe('MessageBubble', () => {
       />
     );
 
-    const metadata = screen.getByTestId('message-metadata');
+    const failedStatus = screen.getByRole('alert', {
+      name: 'Message failed',
+    });
 
-    expect(metadata.props.accessibilityLabel).toBe('1:30 pm, Failed');
-    expect(metadata.props.children).toEqual(['1:30 pm', ' !']);
+    expect(failedStatus).toHaveTextContent('Failed');
+    expect(
+      screen
+        .getByTestId('message-text-content')
+        .findAllByProps({ testID: 'message-failed-status' })
+    ).toHaveLength(0);
   });
 
   it('keeps outbound time and delivery ticks inline with a short text reply', () => {
