@@ -4,11 +4,13 @@ import { Text, type TextInput as TextInputType, View } from 'react-native';
 import { Button, ComposerField, IconButton } from '../../../ui';
 import type { SendAttemptResult } from '../use-message-thread';
 
-const SEND_FAILURE_MESSAGE =
-  'Could not send message. Check your connection and try again.';
+const UNCONFIRMED_SEND_MESSAGE =
+  'The send request did not complete. Delivery could not be confirmed. Check the conversation before sending again.';
 
 interface FailedAttempt {
   temporaryId: string | null;
+  message: string;
+  safeToRetry: boolean;
 }
 
 export interface ConversationComposerProps {
@@ -47,7 +49,11 @@ export function ConversationComposer({
         setFailedAttempt(null);
         return;
       }
-      setFailedAttempt({ temporaryId: result.temporaryId });
+      setFailedAttempt({
+        temporaryId: result.temporaryId,
+        message: result.message,
+        safeToRetry: result.safeToRetry,
+      });
       requestDraftFocus();
     },
     [requestDraftFocus]
@@ -61,7 +67,11 @@ export function ConversationComposer({
     try {
       resolveAttempt(await onSend(trimmedDraft));
     } catch {
-      setFailedAttempt({ temporaryId: null });
+      setFailedAttempt({
+        temporaryId: null,
+        message: UNCONFIRMED_SEND_MESSAGE,
+        safeToRetry: false,
+      });
       requestDraftFocus();
     } finally {
       inFlightRef.current = false;
@@ -74,7 +84,7 @@ export function ConversationComposer({
       inFlightRef.current ||
       pending ||
       failedAttempt?.temporaryId === null ||
-      !failedAttempt
+      failedAttempt?.safeToRetry !== true
     ) {
       return;
     }
@@ -83,7 +93,7 @@ export function ConversationComposer({
     try {
       resolveAttempt(await onRetry(failedAttempt.temporaryId));
     } catch {
-      setFailedAttempt({ temporaryId: failedAttempt.temporaryId });
+      setFailedAttempt(failedAttempt);
       requestDraftFocus();
     } finally {
       inFlightRef.current = false;
@@ -91,7 +101,8 @@ export function ConversationComposer({
     }
   }, [failedAttempt, onRetry, pending, requestDraftFocus, resolveAttempt]);
 
-  const canRetry = failedAttempt?.temporaryId !== null && !!failedAttempt;
+  const canRetry =
+    failedAttempt?.temporaryId !== null && failedAttempt?.safeToRetry === true;
 
   return (
     <View className="border-border bg-background gap-2 border-t px-3 py-2">
@@ -103,7 +114,7 @@ export function ConversationComposer({
           className="bg-danger-soft gap-1 rounded-xl px-3 py-2"
         >
           <Text className="text-danger-soft-foreground text-sm leading-5">
-            {SEND_FAILURE_MESSAGE}
+            {failedAttempt.message}
           </Text>
           {canRetry ? (
             <Button

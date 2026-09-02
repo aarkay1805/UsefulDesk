@@ -36,13 +36,39 @@ export type MobileSendErrorCategory =
   | 'invalid_response';
 
 export class MobileSendError extends Error {
+  readonly safeToRetry: boolean;
+
   constructor(
     readonly category: MobileSendErrorCategory,
     message: string
   ) {
     super(message);
     this.name = 'MobileSendError';
+    this.safeToRetry =
+      category === 'unauthorized' ||
+      category === 'forbidden' ||
+      category === 'rate_limited';
   }
+}
+
+export interface MobileSendFailure {
+  message: string;
+  safeToRetry: boolean;
+}
+
+export function describeMobileSendFailure(error: unknown): MobileSendFailure {
+  const detail =
+    error instanceof MobileSendError
+      ? error.message
+      : 'The send request did not complete.';
+  const safeToRetry =
+    error instanceof MobileSendError && error.safeToRetry === true;
+  return {
+    safeToRetry,
+    message: safeToRetry
+      ? detail
+      : `${detail} Delivery could not be confirmed. Check the conversation before sending again.`,
+  };
 }
 
 type MobileSession = { access_token: string };

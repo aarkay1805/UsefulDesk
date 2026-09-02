@@ -623,6 +623,8 @@ describe('ConversationScreen', () => {
     const sendText = jest.fn().mockResolvedValue({
       temporaryId: 'temp:screen-failed',
       status: 'failed',
+      safeToRetry: true,
+      message: 'Too many send attempts.',
     });
     const retryText = jest.fn().mockResolvedValue({
       temporaryId: 'temp:screen-failed',
@@ -646,7 +648,7 @@ describe('ConversationScreen', () => {
     );
   });
 
-  it('renders a pending-safe row Retry for every failed optimistic message using its stable temporary ID', async () => {
+  it('renders row Retry only for failed optimistic messages proven safe to retry', async () => {
     let finishRetry!: (result: { temporaryId: string; status: 'sent' }) => void;
     const pendingRetry = new Promise<{
       temporaryId: string;
@@ -660,20 +662,26 @@ describe('ConversationScreen', () => {
         retryText,
         items: [
           ...readyThreadResult().items,
-          message({
-            id: 'temp:screen-failed-one',
-            senderType: 'agent',
-            status: 'failed',
-            providerErrorTitle: 'Could not send message',
-            contentText: 'First failed message',
-          }),
-          message({
-            id: 'temp:screen-failed-two',
-            senderType: 'agent',
-            status: 'failed',
-            providerErrorTitle: 'Could not send message',
-            contentText: 'Second failed message',
-          }),
+          {
+            ...message({
+              id: 'temp:screen-failed-one',
+              senderType: 'agent',
+              status: 'failed',
+              providerErrorTitle: 'Delivery could not be confirmed',
+              contentText: 'First failed message',
+            }),
+            safeToRetry: false,
+          },
+          {
+            ...message({
+              id: 'temp:screen-failed-two',
+              senderType: 'agent',
+              status: 'failed',
+              providerErrorTitle: 'Too many send attempts',
+              contentText: 'Second failed message',
+            }),
+            safeToRetry: true,
+          },
         ],
       })
     );
@@ -682,20 +690,19 @@ describe('ConversationScreen', () => {
     const retries = screen.getAllByRole('button', {
       name: 'Retry failed message',
     });
-    expect(retries).toHaveLength(2);
+    expect(retries).toHaveLength(1);
     expect(retries[0].props.className).toContain('min-h-11');
-    expect(retries[1].props.className).toContain('min-h-11');
 
-    fireEvent.press(retries[1]);
+    fireEvent.press(retries[0]);
 
     expect(retryText).toHaveBeenCalledTimes(1);
     expect(retryText).toHaveBeenCalledWith('temp:screen-failed-two');
     expect(
-      screen.getAllByRole('button', { name: 'Retry failed message' })[1].props
+      screen.getAllByRole('button', { name: 'Retry failed message' })[0].props
         .accessibilityState
     ).toEqual({ disabled: true, busy: true });
     fireEvent.press(
-      screen.getAllByRole('button', { name: 'Retry failed message' })[1]
+      screen.getAllByRole('button', { name: 'Retry failed message' })[0]
     );
     expect(retryText).toHaveBeenCalledTimes(1);
 

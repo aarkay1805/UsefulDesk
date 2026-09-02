@@ -106,10 +106,17 @@ const sent = (temporaryId = 'temp-1'): SendAttemptResult => ({
   status: 'sent',
 });
 
-const failed = (temporaryId = 'temp-1'): SendAttemptResult => ({
-  temporaryId,
-  status: 'failed',
-});
+const failed = (
+  temporaryId = 'temp-1',
+  safeToRetry = true,
+  message = 'Too many send attempts.'
+): SendAttemptResult =>
+  ({
+    temporaryId,
+    status: 'failed',
+    safeToRetry,
+    message,
+  }) as SendAttemptResult;
 
 describe('ConversationComposer', () => {
   it('sends trimmed nonempty text once and clears the draft only after success', async () => {
@@ -175,7 +182,7 @@ describe('ConversationComposer', () => {
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(
-          'Could not send message. Check your connection and try again.'
+          'The send request did not complete. Delivery could not be confirmed. Check the conversation before sending again.'
         );
       });
 
@@ -230,6 +237,33 @@ describe('ConversationComposer', () => {
 
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.getByLabelText('Message').props.value).toBe('');
+  });
+
+  it('withholds Retry when the send result cannot confirm provider acceptance', async () => {
+    render(
+      <ConversationComposer
+        onRetry={jest.fn()}
+        onSend={jest
+          .fn()
+          .mockResolvedValue(
+            failed(
+              'temp-ambiguous',
+              false,
+              'Could not reach the send service. Delivery could not be confirmed. Check the conversation before sending again.'
+            )
+          )}
+      />
+    );
+
+    fireEvent.changeText(screen.getByLabelText('Message'), 'May be sent');
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'Could not reach the send service. Delivery could not be confirmed. Check the conversation before sending again.'
+      );
+    });
+    expect(screen.queryByRole('button', { name: 'Retry message' })).toBeNull();
   });
 
   it('uses the local composer masters for accessible 44pt text and send controls', () => {

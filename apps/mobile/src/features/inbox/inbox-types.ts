@@ -44,6 +44,8 @@ export interface InboxMessage {
   providerMessageId: string | null;
   status: MessageStatus;
   providerErrorTitle: string | null;
+  /** Local-only proof that a failed optimistic send was rejected pre-send. */
+  safeToRetry?: boolean;
   createdAt: string;
   replyToMessageId: string | null;
   interactiveReplyId: string | null;

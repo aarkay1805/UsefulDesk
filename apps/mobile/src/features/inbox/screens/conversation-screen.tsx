@@ -346,6 +346,7 @@ function ConversationThread({
     const retryableTemporaryId =
       canSendMessages(role) &&
       item.message.status === 'failed' &&
+      item.message.safeToRetry === true &&
       item.message.senderType === 'agent' &&
       item.message.id.startsWith('temp:')
         ? item.message.id

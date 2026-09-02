@@ -140,6 +140,10 @@ function mergeMessage(
       status === 'failed'
         ? (incoming.providerErrorTitle ?? current.providerErrorTitle)
         : null,
+    safeToRetry:
+      status === 'failed'
+        ? (incoming.safeToRetry ?? current.safeToRetry ?? false)
+        : false,
   };
 }
 
@@ -190,6 +194,7 @@ export function appendOptimisticText(
     providerMessageId: null,
     status: 'sending',
     providerErrorTitle: null,
+    safeToRetry: false,
     createdAt: input.createdAt,
     replyToMessageId: null,
     interactiveReplyId: null,
@@ -202,6 +207,7 @@ export function appendOptimisticText(
       ...messages[index],
       status: 'sending',
       providerErrorTitle: null,
+      safeToRetry: false,
     };
   }
   return {
@@ -256,6 +262,7 @@ export function applySendAcknowledgement(
           acknowledgement.whatsappMessageId ?? merged.providerMessageId,
         status: higherStatus(merged.status, 'sent'),
         providerErrorTitle: null,
+        safeToRetry: false,
       }
     : null;
   return {
@@ -326,14 +333,20 @@ export function markOptimisticFailed(
   state: OutboundThreadState,
   temporaryId: string,
   errorTitle: string,
-  attemptId: string
+  attemptId: string,
+  safeToRetry = false
 ): OutboundThreadState {
   if (state.sendingAttempts[temporaryId] !== attemptId) return state;
   const canonicalId = state.aliases.temporaryId[temporaryId] ?? temporaryId;
   const messages = state.messages.map((item) =>
     canonicalForMessage(state, item) === canonicalId &&
     item.status === 'sending'
-      ? { ...item, status: 'failed' as const, providerErrorTitle: errorTitle }
+      ? {
+          ...item,
+          status: 'failed' as const,
+          providerErrorTitle: errorTitle,
+          safeToRetry,
+        }
       : item
   );
   return {

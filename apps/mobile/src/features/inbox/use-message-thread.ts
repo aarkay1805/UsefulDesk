@@ -31,6 +31,7 @@ import {
   type OutboundThreadState,
 } from './outbound-message-state';
 import {
+  describeMobileSendFailure,
   sendConversationMessage,
   type MobileSendDependencies,
   type MobileSendInput,
@@ -120,10 +121,14 @@ export interface UseMessageThreadResult {
   retryText(temporaryId: string): Promise<SendAttemptResult>;
 }
 
-export interface SendAttemptResult {
-  temporaryId: string;
-  status: 'sent' | 'failed';
-}
+export type SendAttemptResult =
+  | { temporaryId: string; status: 'sent' }
+  | {
+      temporaryId: string;
+      status: 'failed';
+      safeToRetry: boolean;
+      message: string;
+    };
 
 export interface MessageThreadOutboundDependencies {
   senderId: string;
@@ -1064,7 +1069,8 @@ export function useMessageThread({
           });
         }
         return { temporaryId, status: 'sent' };
-      } catch {
+      } catch (error) {
+        const failure = describeMobileSendFailure(error);
         if (isCurrentSend()) {
           setState((previous) => {
             if (
@@ -1078,13 +1084,14 @@ export function useMessageThread({
               thread: markOptimisticFailed(
                 previous.thread,
                 temporaryId,
-                'Could not send message',
-                attemptId
+                failure.message,
+                attemptId,
+                failure.safeToRetry
               ),
             };
           });
         }
-        return { temporaryId, status: 'failed' };
+        return { temporaryId, status: 'failed', ...failure };
       }
     },
     []
@@ -1125,8 +1132,15 @@ export function useMessageThread({
       const current = latestState.current.thread;
       const candidate = messageForTemporaryId(current, temporaryId);
       const failed = candidate?.status === 'failed' ? candidate : null;
-      if (!failed?.contentText) {
-        return Promise.resolve({ temporaryId, status: 'failed' });
+      if (!failed?.contentText || failed.safeToRetry !== true) {
+        return Promise.resolve({
+          temporaryId,
+          status: 'failed',
+          safeToRetry: false,
+          message:
+            failed?.providerErrorTitle ??
+            'Delivery could not be confirmed. Check the conversation before sending again.',
+        });
       }
       const retry = performTextSend(
         temporaryId,

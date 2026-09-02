@@ -174,6 +174,7 @@ describe('sendConversationMessage', () => {
       )
     ).rejects.toMatchObject<Partial<MobileSendError>>({
       category: 'invalid_response',
+      safeToRetry: false,
     });
   });
 
@@ -193,6 +194,7 @@ describe('sendConversationMessage', () => {
       )
     ).rejects.toMatchObject<Partial<MobileSendError>>({
       category: 'forbidden',
+      safeToRetry: true,
     });
     expect(setup.refreshSession).not.toHaveBeenCalled();
     expect(setup.recoverUnauthorizedSession).not.toHaveBeenCalled();
@@ -203,12 +205,18 @@ describe('sendConversationMessage', () => {
       {
         response: response(429, '{"error":"Slow down"}'),
         category: 'rate_limited',
+        safeToRetry: true,
       },
       {
         response: response(500, '{"error":"Meta unavailable"}'),
         category: 'provider',
+        safeToRetry: false,
       },
-      { response: new Error('offline'), category: 'network' },
+      {
+        response: new Error('offline'),
+        category: 'network',
+        safeToRetry: false,
+      },
     ] as const;
 
     for (const item of cases) {
@@ -228,6 +236,7 @@ describe('sendConversationMessage', () => {
         )
       ).rejects.toMatchObject<Partial<MobileSendError>>({
         category: item.category,
+        safeToRetry: item.safeToRetry,
       });
       expect(setup.refreshSession).not.toHaveBeenCalled();
       expect(setup.recoverUnauthorizedSession).not.toHaveBeenCalled();
@@ -297,6 +306,7 @@ describe('sendConversationMessage', () => {
       )
     ).rejects.toMatchObject<Partial<MobileSendError>>({
       category: 'unauthorized',
+      safeToRetry: true,
     });
     expect(setup.refreshSession).toHaveBeenCalledTimes(1);
     expect(setup.recoverUnauthorizedSession).toHaveBeenCalledTimes(1);

@@ -27,6 +27,7 @@ import type {
   MobileSendInput,
   MobileSendResult,
 } from './send-message-client';
+import { MobileSendError } from './send-message-client';
 import type {
   ConnectionReadiness,
   InboxConversation,
@@ -2137,13 +2138,15 @@ describe('useMessageThread', () => {
       );
     });
 
-    it('keeps the caller text visible as failed when transport rejects', async () => {
+    it('keeps an ambiguous failure visible but refuses to execute Retry', async () => {
       const sendMessage = jest
         .fn<
           Promise<MobileSendResult>,
           [MobileSendInput, MobileSendDependencies]
         >()
-        .mockRejectedValue(new Error('network details'));
+        .mockRejectedValue(
+          new MobileSendError('network', 'Could not reach the send service.')
+        );
       const { result } = renderHook(() =>
         useConfiguredThread({ outbound: outbound(sendMessage) })
       );
@@ -2154,24 +2157,38 @@ describe('useMessageThread', () => {
         attempt = await result.current.sendText('Keep this draft');
       });
 
-      expect(attempt).toEqual({ temporaryId, status: 'failed' });
+      expect(attempt).toEqual({
+        temporaryId,
+        status: 'failed',
+        safeToRetry: false,
+        message:
+          'Could not reach the send service. Delivery could not be confirmed. Check the conversation before sending again.',
+      });
       expect(result.current.items.at(-1)).toEqual(
         expect.objectContaining({
           id: temporaryId,
           contentText: 'Keep this draft',
           status: 'failed',
+          safeToRetry: false,
         })
       );
+
+      await act(async () => {
+        await result.current.retryText(temporaryId);
+      });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
     });
 
-    it('retries a failed temporary row without appending another row', async () => {
+    it('retries a definitely rejected temporary row without appending another row', async () => {
       const retry = deferred<MobileSendResult>();
       const sendMessage = jest
         .fn<
           Promise<MobileSendResult>,
           [MobileSendInput, MobileSendDependencies]
         >()
-        .mockRejectedValueOnce(new Error('offline'))
+        .mockRejectedValueOnce(
+          new MobileSendError('rate_limited', 'Too many send attempts.')
+        )
         .mockReturnValueOnce(retry.promise);
       const { result } = renderHook(() =>
         useConfiguredThread({ outbound: outbound(sendMessage) })
@@ -2385,7 +2402,9 @@ describe('useMessageThread', () => {
           Promise<MobileSendResult>,
           [MobileSendInput, MobileSendDependencies]
         >()
-        .mockRejectedValueOnce(new Error('offline'))
+        .mockRejectedValueOnce(
+          new MobileSendError('rate_limited', 'Too many send attempts.')
+        )
         .mockReturnValueOnce(retry.promise);
       const { result } = renderHook(() =>
         useConfiguredThread({ outbound: outbound(sendMessage) })
