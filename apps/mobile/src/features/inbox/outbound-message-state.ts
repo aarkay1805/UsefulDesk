@@ -116,6 +116,12 @@ function higherStatus(
   first: MessageStatus,
   second: MessageStatus
 ): MessageStatus {
+  if (first === 'failed') {
+    return second === 'delivered' || second === 'read' ? second : first;
+  }
+  if (second === 'failed') {
+    return first === 'delivered' || first === 'read' ? first : second;
+  }
   return statusRank[second] > statusRank[first] ? second : first;
 }
 

@@ -750,6 +750,68 @@ describe('useMessageThread', () => {
     ]);
   });
 
+  it('replays a status update that arrives while its insert hydration is in flight', async () => {
+    const insertHydration = deferred<InboxMessage>();
+    messages.get
+      .mockReturnValueOnce(insertHydration.promise)
+      .mockResolvedValueOnce(
+        message({
+          id: MESSAGE_0_ID,
+          senderType: 'agent',
+          providerMessageId: 'wamid.raced-provider-failure',
+          status: 'failed',
+          providerErrorTitle: 'Message not delivered',
+          createdAt: '2026-09-01T08:00:00.000Z',
+        })
+      );
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    await act(async () => {
+      await realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_0_ID,
+      });
+      await realtime.emit({
+        table: 'messages',
+        eventType: 'UPDATE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_0_ID,
+      });
+    });
+
+    expect(messages.get).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      insertHydration.resolve(
+        message({
+          id: MESSAGE_0_ID,
+          senderType: 'agent',
+          providerMessageId: 'wamid.raced-provider-failure',
+          status: 'sent',
+          createdAt: '2026-09-01T08:00:00.000Z',
+        })
+      );
+      await insertHydration.promise;
+    });
+
+    await waitFor(() => expect(messages.get).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(
+        result.current.items.find((item) => item.id === MESSAGE_0_ID)
+      ).toEqual(
+        expect.objectContaining({
+          status: 'failed',
+          providerErrorTitle: 'Message not delivered',
+        })
+      )
+    );
+  });
+
   it('replaces the authoritative header and handles conversation deletion', async () => {
     const updated = conversation({ status: 'closed', unreadCount: 0 });
     conversations.get

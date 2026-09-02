@@ -31,7 +31,7 @@ function optimistic(
   });
 }
 
-function persisted(status: 'sent' | 'delivered' | 'read' = 'sent') {
+function persisted(status: 'sent' | 'delivered' | 'read' | 'failed' = 'sent') {
   return message({
     id: MESSAGE_1_ID,
     conversationId: CONVERSATION_ID,
@@ -149,6 +149,44 @@ describe('outbound message state', () => {
 
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0].status).toBe('read');
+  });
+
+  it('applies an authoritative provider failure after the API accepted the send', () => {
+    let state = applySendAcknowledgement(optimistic(), {
+      temporaryId: TEMPORARY_ID,
+      messageId: MESSAGE_1_ID,
+      whatsappMessageId: PROVIDER_ID,
+    });
+
+    state = applyRealtimeMessage(state, {
+      ...persisted('failed'),
+      providerErrorTitle: 'Message not delivered',
+    });
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]).toEqual(
+      expect.objectContaining({
+        id: MESSAGE_1_ID,
+        status: 'failed',
+        providerErrorTitle: 'Message not delivered',
+      })
+    );
+  });
+
+  it('does not let a stale sent observation clear a provider failure', () => {
+    let state = applyRealtimeMessage(emptyOutboundThreadState(), {
+      ...persisted('failed'),
+      providerErrorTitle: 'Message not delivered',
+    });
+
+    state = applyRealtimeMessage(state, persisted('sent'));
+
+    expect(state.messages[0]).toEqual(
+      expect.objectContaining({
+        status: 'failed',
+        providerErrorTitle: 'Message not delivered',
+      })
+    );
   });
 
   it('keeps a failed optimistic row visible', () => {

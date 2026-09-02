@@ -10,7 +10,10 @@ import {
   type ConversationRepository,
 } from './conversation-repository';
 import type { InboxRealtimeFeed } from './inbox-realtime-provider';
-import type { InboxConnectionState } from './inbox-realtime';
+import type {
+  InboxConnectionState,
+  InboxRealtimeEvent,
+} from './inbox-realtime';
 import { isStrictIsoTimestamp } from './inbox-normalizers';
 import {
   mobileMessageRepository,
@@ -677,6 +680,7 @@ export function useMessageThread({
     const refreshForNewSnapshot =
       currentFeedGeneration > 0 &&
       snapshot.resyncGeneration > acknowledgedResyncGeneration.current;
+    const pendingMessageUpdates = new Map<string, InboxRealtimeEvent>();
     let disposed = false;
 
     const isCurrentListener = () =>
@@ -718,7 +722,10 @@ export function useMessageThread({
       }
     });
 
-    const eventCleanup = realtime.listen((event) => {
+    const handleRealtimeEvent = (
+      event: InboxRealtimeEvent,
+      allowMissingUpdate = false
+    ) => {
       if (!isCurrentListener()) return;
       if (
         event.accountId !== activeAccountId.current ||
@@ -738,6 +745,7 @@ export function useMessageThread({
           activePaginationOwner.current = null;
           setLoadingOlder(false);
           activeHydrations.clear();
+          pendingMessageUpdates.clear();
           activeMutations.clear();
           mutationSequence.current = 0;
           setState({
@@ -793,6 +801,7 @@ export function useMessageThread({
 
       const messageId = event.messageId;
       if (event.eventType === 'DELETE') {
+        pendingMessageUpdates.delete(messageId);
         activeMutations.set(messageId, {
           sequence: ++mutationSequence.current,
           kind: 'delete',
@@ -830,10 +839,15 @@ export function useMessageThread({
         latestState.current.thread,
         messageId
       );
+      if (activeHydrations.has(messageId)) {
+        if (event.eventType === 'UPDATE') {
+          pendingMessageUpdates.set(messageId, event);
+        }
+        return;
+      }
       if (
         (event.eventType === 'INSERT' && existing && !optimisticOutbound) ||
-        (event.eventType === 'UPDATE' && !existing) ||
-        activeHydrations.has(messageId)
+        (event.eventType === 'UPDATE' && !existing && !allowMissingUpdate)
       ) {
         return;
       }
@@ -902,7 +916,10 @@ export function useMessageThread({
               return previous;
             }
             if (event.eventType === 'UPDATE') {
-              if (!hasMessageIdentity(previous.thread, messageId)) {
+              if (
+                !allowMissingUpdate &&
+                !hasMessageIdentity(previous.thread, messageId)
+              ) {
                 return previous;
               }
               return {
@@ -931,9 +948,15 @@ export function useMessageThread({
       void hydrate.finally(() => {
         if (activeHydrations.get(messageId) === hydrate) {
           activeHydrations.delete(messageId);
+          const pendingUpdate = pendingMessageUpdates.get(messageId);
+          if (pendingUpdate) {
+            pendingMessageUpdates.delete(messageId);
+            handleRealtimeEvent(pendingUpdate, true);
+          }
         }
       });
-    });
+    };
+    const eventCleanup = realtime.listen((event) => handleRealtimeEvent(event));
 
     const statusCleanup = realtime.listenStatus((nextSnapshot) => {
       if (!isCurrentListener()) return;
@@ -953,6 +976,7 @@ export function useMessageThread({
       disposed = true;
       realtimeGeneration.current += 1;
       activeHydrations.clear();
+      pendingMessageUpdates.clear();
       activeMutations.clear();
       eventCleanup();
       statusCleanup();
