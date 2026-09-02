@@ -8,7 +8,10 @@ import {
 
 import type { ActionBlocker } from '../conversation-actions';
 import type { NativeTemplate } from '../inbox-types';
-import { sendConversationMessage } from '../send-message-client';
+import {
+  MobileSendError,
+  sendConversationMessage,
+} from '../send-message-client';
 import { keyboardAvoidingBehavior, TemplatePicker } from './template-picker';
 
 const ACCOUNT_ID = 'd3648c54-a4aa-4dd8-8566-1e3b38c1f497';
@@ -77,6 +80,7 @@ jest.mock('../../auth/auth-context', () => ({
 }));
 
 jest.mock('../send-message-client', () => ({
+  ...jest.requireActual('../send-message-client'),
   sendConversationMessage: jest.fn(),
 }));
 
@@ -433,8 +437,10 @@ describe('TemplatePicker', () => {
     });
   });
 
-  it('keeps the selected template and all values after a failed send with a single retry action', async () => {
-    send.mockRejectedValueOnce(new Error('offline'));
+  it('keeps the selected template and all values after a definite pre-send failure with one retry action', async () => {
+    send.mockRejectedValueOnce(
+      new MobileSendError('rate_limited', 'Too many send attempts.')
+    );
     renderPicker({ templates: [membershipTemplate] });
 
     fillMembershipFields();
@@ -442,14 +448,49 @@ describe('TemplatePicker', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Could not send this template. Check your connection and try again.'
+        'Too many send attempts.'
       );
     });
     expect(screen.getByRole('button', { name: 'Retry send' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
     expect(screen.getByLabelText('Body variable 1').props.value).toBe(
       '  Rajat  '
     );
     expect(screen.getByLabelText('Renew now').props.value).toBe('  member-42 ');
     expect(screen.getByText('gym_membership_renewal · Selected')).toBeTruthy();
   });
+
+  it.each([
+    ['network', 'Could not reach the send service.'],
+    ['provider', 'Message delivery is unavailable.'],
+    ['invalid_response', 'The send service returned an invalid response.'],
+  ] as const)(
+    'withholds template retry after an ambiguous %s outcome',
+    async (category, detail) => {
+      send.mockRejectedValueOnce(new MobileSendError(category, detail));
+      const { onClose } = renderPicker({ templates: [membershipTemplate] });
+
+      fillMembershipFields();
+      fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(
+          `${detail} Delivery could not be confirmed. Check the conversation before sending again.`
+        );
+      });
+      expect(screen.queryByRole('button', { name: 'Retry send' })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Send template' })
+      ).toBeNull();
+      expect(screen.getByLabelText('Body variable 1').props.value).toBe(
+        '  Rajat  '
+      );
+      expect(screen.getByLabelText('Renew now').props.value).toBe(
+        '  member-42 '
+      );
+
+      fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+      expect(onClose).toHaveBeenCalledTimes(1);
+    }
+  );
 });

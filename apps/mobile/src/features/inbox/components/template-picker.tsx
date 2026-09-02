@@ -13,11 +13,12 @@ import { Button, ScreenSafeAreaView, TextField } from '../../../ui';
 import { useReadyAuth } from '../../auth/auth-context';
 import type { ActionBlocker } from '../conversation-actions';
 import type { NativeTemplate, TemplateField } from '../inbox-types';
-import { sendConversationMessage } from '../send-message-client';
+import {
+  describeMobileSendFailure,
+  type MobileSendFailure,
+  sendConversationMessage,
+} from '../send-message-client';
 import { templateFields } from '../template-repository';
-
-const SEND_FAILURE_MESSAGE =
-  'Could not send this template. Check your connection and try again.';
 
 const NO_TEMPLATES_BLOCKER: ActionBlocker = {
   kind: 'local_templates',
@@ -252,8 +253,11 @@ export function TemplatePicker({
   );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [pending, setPending] = useState(false);
-  const [sendFailed, setSendFailed] = useState(false);
+  const [sendFailure, setSendFailure] = useState<MobileSendFailure | null>(
+    null
+  );
   const inFlightRef = useRef(false);
+  const outcomeUnknown = sendFailure?.safeToRetry === false;
 
   const selectedTemplate =
     resolvedBlocker === null
@@ -267,11 +271,11 @@ export function TemplatePicker({
   );
 
   const selectTemplate = (template: NativeTemplate) => {
-    if (pending) return;
+    if (pending || outcomeUnknown) return;
     setSelectedTemplateId(template.id);
     setValues(valuesForTemplate(template));
     setErrors({});
-    setSendFailed(false);
+    setSendFailure(null);
   };
 
   const setFieldValue = (field: TemplateField, value: string) => {
@@ -282,7 +286,7 @@ export function TemplatePicker({
       const { [key]: _removed, ...remaining } = previous;
       return remaining;
     });
-    setSendFailed(false);
+    setSendFailure(null);
   };
 
   const sendTemplate = async () => {
@@ -290,7 +294,8 @@ export function TemplatePicker({
       pending ||
       inFlightRef.current ||
       !selectedTemplate ||
-      resolvedBlocker
+      resolvedBlocker ||
+      outcomeUnknown
     ) {
       return;
     }
@@ -309,7 +314,7 @@ export function TemplatePicker({
 
     inFlightRef.current = true;
     setPending(true);
-    setSendFailed(false);
+    setSendFailure(null);
     try {
       await sendConversationMessage(
         {
@@ -321,8 +326,8 @@ export function TemplatePicker({
       );
       onSent();
       onClose();
-    } catch {
-      setSendFailed(true);
+    } catch (error) {
+      setSendFailure(describeMobileSendFailure(error));
     } finally {
       inFlightRef.current = false;
       setPending(false);
@@ -395,13 +400,16 @@ export function TemplatePicker({
                           accessible
                           accessibilityLabel={`${template.name}, Approved${selected ? ', Selected' : ''}`}
                           accessibilityRole="button"
-                          accessibilityState={{ disabled: pending, selected }}
+                          accessibilityState={{
+                            disabled: pending || outcomeUnknown,
+                            selected,
+                          }}
                           onAccessibilityTap={() => selectTemplate(template)}
                         >
                           <Button
                             accessible={false}
                             className="min-h-11 justify-start px-3"
-                            disabled={pending}
+                            disabled={pending || outcomeUnknown}
                             onPress={() => selectTemplate(template)}
                             testID={`template-option-${template.id}`}
                             variant={selected ? 'primary' : 'outline'}
@@ -453,7 +461,7 @@ export function TemplatePicker({
                             autoCapitalize="sentences"
                             className="min-h-11 text-base"
                             error={errors[key]}
-                            isDisabled={pending}
+                            isDisabled={pending || outcomeUnknown}
                             label={field.label}
                             onChangeText={(value) =>
                               setFieldValue(field, value)
@@ -466,7 +474,7 @@ export function TemplatePicker({
                     </View>
                   ) : null}
 
-                  {sendFailed ? (
+                  {sendFailure ? (
                     <View
                       accessible
                       accessibilityLiveRegion="polite"
@@ -474,26 +482,37 @@ export function TemplatePicker({
                       className="bg-danger-soft rounded-xl px-3 py-3"
                     >
                       <Text className="text-danger-soft-foreground text-sm leading-5">
-                        {SEND_FAILURE_MESSAGE}
+                        {sendFailure.message}
                       </Text>
                     </View>
                   ) : null}
 
-                  <Button
-                    accessibilityLabel={
-                      pending
-                        ? `${sendFailed ? 'Retry send' : 'Send template'}, loading`
-                        : sendFailed
-                          ? 'Retry send'
-                          : 'Send template'
-                    }
-                    className="min-h-11"
-                    disabled={pending}
-                    loading={pending}
-                    onPress={() => void sendTemplate()}
-                  >
-                    {sendFailed ? 'Retry send' : 'Send template'}
-                  </Button>
+                  {outcomeUnknown ? (
+                    <Button
+                      accessibilityLabel="Close"
+                      className="min-h-11"
+                      onPress={onClose}
+                      variant="outline"
+                    >
+                      Close
+                    </Button>
+                  ) : (
+                    <Button
+                      accessibilityLabel={
+                        pending
+                          ? `${sendFailure ? 'Retry send' : 'Send template'}, loading`
+                          : sendFailure
+                            ? 'Retry send'
+                            : 'Send template'
+                      }
+                      className="min-h-11"
+                      disabled={pending}
+                      loading={pending}
+                      onPress={() => void sendTemplate()}
+                    >
+                      {sendFailure ? 'Retry send' : 'Send template'}
+                    </Button>
+                  )}
                 </ScrollView>
               ) : null}
             </View>
