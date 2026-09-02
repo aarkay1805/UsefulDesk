@@ -44,7 +44,7 @@ export function FilterChipGroup<T extends string>({
             onPress={() => onValueChange(option.value)}
             className="min-h-12 min-w-12"
           >
-            <Chip.Label>{label}</Chip.Label>
+            <Chip.Label style={{ lineHeight: undefined }}>{label}</Chip.Label>
           </Chip>
         );
       })}

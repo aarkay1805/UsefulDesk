@@ -2,6 +2,10 @@ import { render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo, Platform } from 'react-native';
 
 import { message } from '../inbox-test-fixtures';
+import {
+  isAccessibilityTextScale,
+  shouldInlineBubbleMetadata,
+} from '../inbox-layout';
 import { messageImageSizeForViewport, MessageBubble } from './message-bubble';
 
 jest.mock('expo-image', () => {
@@ -116,6 +120,15 @@ describe('MessageBubble', () => {
     });
   });
 
+  it('switches to the reflow layout at the largest standard iOS text size', () => {
+    expect(isAccessibilityTextScale(1.29)).toBe(false);
+    expect(isAccessibilityTextScale(1.3)).toBe(true);
+    expect(isAccessibilityTextScale(2)).toBe(true);
+    expect(shouldInlineBubbleMetadata(true, 1)).toBe(true);
+    expect(shouldInlineBubbleMetadata(true, 1.3)).toBe(false);
+    expect(shouldInlineBubbleMetadata(false, 1)).toBe(false);
+  });
+
   it.each([
     ['template', 'Template'],
     ['interactive', 'Button reply'],
@@ -182,7 +195,7 @@ describe('MessageBubble', () => {
     ).toHaveLength(0);
   });
 
-  it('keeps outbound time and delivery ticks inline with a short text reply', () => {
+  it('keeps outbound time and delivery ticks in readable flow', () => {
     render(
       <MessageBubble
         formattedTime="1:30 pm"
@@ -200,8 +213,8 @@ describe('MessageBubble', () => {
     expect(
       screen
         .getByTestId('message-text-content')
-        .findByProps({ testID: 'message-metadata' })
-    ).toBeTruthy();
+        .findAllByProps({ testID: 'message-metadata' })
+    ).toHaveLength(0);
     expect(metadata.props.className).not.toContain('absolute');
     expect(screen.queryByTestId('message-metadata-reservation')).toBeNull();
     expect(screen.getByLabelText('1:30 pm, Read')).toBeTruthy();
@@ -212,7 +225,7 @@ describe('MessageBubble', () => {
     ['customer', 'interactive'],
     ['agent', 'template'],
   ] as const)(
-    'keeps %s %s metadata in the text flow',
+    'keeps %s %s metadata visible in the accessibility reflow',
     (senderType, contentType) => {
       render(
         <MessageBubble
@@ -225,8 +238,9 @@ describe('MessageBubble', () => {
       expect(
         screen
           .getByTestId('message-text-content')
-          .findByProps({ testID: 'message-metadata' })
-      ).toBeTruthy();
+          .findAllByProps({ testID: 'message-metadata' })
+      ).toHaveLength(0);
+      expect(screen.getByTestId('message-metadata')).toBeTruthy();
     }
   );
 

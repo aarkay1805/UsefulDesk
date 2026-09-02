@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Platform,
@@ -31,11 +32,17 @@ import {
 } from '../conversation-actions';
 import { buildThreadItems } from '../inbox-format';
 import { useInboxRealtimeFeed } from '../inbox-realtime-provider';
+import {
+  CONVERSATION_ID as LOCAL_LAYOUT_CONVERSATION_ID,
+  createLocalConversationLayoutFixture,
+  LOCAL_LAYOUT_FIXTURE,
+} from '../inbox-test-fixtures';
 import type { ThreadDisplayItem } from '../inbox-types';
 import { templateSendUncertaintyStore } from '../template-send-uncertainty';
 import {
   useMessageThread,
   type MessageThreadOutboundDependencies,
+  type UseMessageThreadOptions,
 } from '../use-message-thread';
 
 export const STICK_TO_BOTTOM_PX = 120;
@@ -105,7 +112,10 @@ function UnavailableConversation() {
           <Text className="text-foreground text-center text-base font-semibold">
             Conversation is unavailable
           </Text>
-          <Text className="text-muted text-center text-sm leading-5">
+          <Text
+            className="text-muted text-center text-sm"
+            style={{ lineHeight: undefined }}
+          >
             It may have been removed or may not belong to this account.
           </Text>
         </View>
@@ -132,6 +142,12 @@ interface ConversationThreadProps {
   >['state']['branch']['branch_status'];
   account: ReturnType<typeof useReadyAuth>['state']['account'];
   outbound?: MessageThreadOutboundDependencies;
+  threadDependencies?: Partial<
+    Pick<
+      UseMessageThreadOptions,
+      'conversations' | 'messages' | 'templates' | 'realtime'
+    >
+  >;
 }
 
 interface FailedMessageRetryProps {
@@ -167,7 +183,6 @@ function FailedMessageRetry({ onRetry, temporaryId }: FailedMessageRetryProps) {
     <View className="items-end px-1 pt-1">
       <Button
         accessibilityLabel="Retry failed message"
-        className="min-h-11"
         disabled={pending}
         loading={pending}
         onPress={retry}
@@ -187,18 +202,26 @@ function ConversationThread({
   branchStatus,
   account,
   outbound,
+  threadDependencies,
 }: ConversationThreadProps) {
-  const realtime = useInboxRealtimeFeed();
+  const providerRealtime = useInboxRealtimeFeed();
+  const realtime = threadDependencies?.realtime ?? providerRealtime;
   const thread = useMessageThread({
     accountId,
     conversationId,
     role,
+    conversations: threadDependencies?.conversations,
+    messages: threadDependencies?.messages,
+    templates: threadDependencies?.templates,
     realtime,
     outbound,
   });
   const fmt = accountFormatters(account);
   const listRef = useRef<FlatList<ThreadDisplayItem>>(null);
   const initialPositionedRef = useRef(false);
+  const listViewportHeightRef = useRef<number | null>(null);
+  const keyboardOffsetMountedRef = useRef(true);
+  const keyboardOffsetRequestRef = useRef(0);
   const stickToBottomRef = useRef(true);
   const topLoadTriggeredRef = useRef(false);
   const previousItemsRef = useRef({
@@ -213,6 +236,7 @@ function ConversationThread({
     useState<TemplateSendSafetyState>('loading');
   const [templateSafetyCheckNonce, setTemplateSafetyCheckNonce] = useState(0);
   const [actionClockMs, setActionClockMs] = useState(() => Date.now());
+  const [keyboardVerticalOffset, setKeyboardVerticalOffset] = useState(0);
   const latestId = thread.items.at(-1)?.id ?? null;
   const itemCount = thread.items.length;
   const firstId = thread.items.at(0)?.id ?? null;
@@ -247,6 +271,14 @@ function ConversationThread({
   const templateSafetyRequired = actionState?.kind === 'closed_template';
   const templatePickerOpen =
     templateSafetyRequired && templatePickerFeed === realtime;
+
+  useEffect(() => {
+    keyboardOffsetMountedRef.current = true;
+    return () => {
+      keyboardOffsetMountedRef.current = false;
+      keyboardOffsetRequestRef.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     if (!templateSafetyRequired) return;
@@ -351,7 +383,10 @@ function ConversationThread({
           accessibilityRole="alert"
           className="items-center gap-3 px-5 py-4"
         >
-          <Text className="text-foreground text-center text-sm leading-5">
+          <Text
+            className="text-foreground text-center text-sm"
+            style={{ lineHeight: undefined }}
+          >
             Could not load older messages
           </Text>
           <Button
@@ -374,7 +409,10 @@ function ConversationThread({
     if (item.kind === 'date') {
       return (
         <View className="items-center px-3 py-3">
-          <Text className="text-chat-meta text-xs font-medium">
+          <Text
+            className="text-chat-meta text-xs font-medium"
+            style={{ lineHeight: undefined }}
+          >
             {item.label}
           </Text>
         </View>
@@ -437,6 +475,39 @@ function ConversationThread({
     listRef.current?.scrollToEnd({ animated: false });
   };
 
+  const handleListLayout = (event: LayoutChangeEvent) => {
+    const nextHeight = event.nativeEvent.layout.height;
+    const previousHeight = listViewportHeightRef.current;
+    listViewportHeightRef.current = nextHeight;
+    if (
+      previousHeight === null ||
+      previousHeight === nextHeight ||
+      !initialPositionedRef.current ||
+      !stickToBottomRef.current
+    ) {
+      return;
+    }
+    listRef.current?.scrollToEnd({ animated: false });
+  };
+
+  const measureKeyboardContainer = (event: LayoutChangeEvent) => {
+    const target = event.currentTarget;
+    const request = ++keyboardOffsetRequestRef.current;
+    target.measureInWindow((_x, y) => {
+      if (
+        !keyboardOffsetMountedRef.current ||
+        request !== keyboardOffsetRequestRef.current ||
+        !Number.isFinite(y)
+      ) {
+        return;
+      }
+      const nextOffset = Math.max(0, y);
+      setKeyboardVerticalOffset((current) =>
+        current === nextOffset ? current : nextOffset
+      );
+    });
+  };
+
   const markTemplateAttempt = async () => {
     try {
       await templateSendUncertaintyStore.mark(accountId, conversationId);
@@ -485,7 +556,10 @@ function ConversationThread({
             testID="template-send-safety-loading"
           >
             <ActivityIndicator accessibilityLabel="Checking template send safety" />
-            <Text className="text-warning-soft-foreground flex-1 text-sm leading-5">
+            <Text
+              className="text-warning-soft-foreground flex-1 text-sm"
+              style={{ lineHeight: undefined }}
+            >
               Checking template send safety…
             </Text>
           </View>
@@ -503,17 +577,23 @@ function ConversationThread({
               accessibilityRole="alert"
               className="gap-1"
             >
-              <Text className="text-warning-soft-foreground text-base font-semibold">
+              <Text
+                className="text-warning-soft-foreground text-base font-semibold"
+                style={{ lineHeight: undefined }}
+              >
                 Template sending is locked
               </Text>
-              <Text className="text-warning-soft-foreground text-sm leading-5">
+              <Text
+                className="text-warning-soft-foreground text-sm"
+                style={{ lineHeight: undefined }}
+              >
                 Could not verify the previous template send status. Check again
                 before sending.
               </Text>
             </View>
             <Button
               accessibilityLabel="Check template send safety again"
-              className="min-h-11 self-start"
+              className="self-start"
               onPress={() => {
                 setTemplateSendSafety('loading');
                 setTemplateSafetyCheckNonce((value) => value + 1);
@@ -531,12 +611,14 @@ function ConversationThread({
           className="bg-warning-soft gap-2 px-3 py-2"
           testID="closed-window-action-bar"
         >
-          <Text className="text-warning-soft-foreground text-sm leading-5">
+          <Text
+            className="text-warning-soft-foreground text-sm"
+            style={{ lineHeight: undefined }}
+          >
             The customer-service window is closed.
           </Text>
           <Button
             accessibilityLabel="Send a template"
-            className="min-h-11"
             onPress={() => setTemplatePickerFeed(realtime)}
             size="sm"
           >
@@ -556,16 +638,22 @@ function ConversationThread({
           accessibilityRole="alert"
           className="gap-1"
         >
-          <Text className="text-warning-soft-foreground text-base font-semibold">
+          <Text
+            className="text-warning-soft-foreground text-base font-semibold"
+            style={{ lineHeight: undefined }}
+          >
             {actionState.blocker.title}
           </Text>
-          <Text className="text-warning-soft-foreground text-sm leading-5">
+          <Text
+            className="text-warning-soft-foreground text-sm"
+            style={{ lineHeight: undefined }}
+          >
             {actionState.blocker.reason}
           </Text>
         </View>
         <Button
           accessibilityLabel="Retry send setup"
-          className="min-h-11 self-start"
+          className="self-start"
           disabled={thread.refreshing}
           loading={thread.refreshing}
           onPress={thread.refresh}
@@ -582,101 +670,125 @@ function ConversationThread({
     <ScreenSafeAreaView className="bg-chat-canvas" edges={['bottom']}>
       <Stack.Screen options={{ title }} />
 
-      {thread.connection === 'disconnected' ? (
-        <View
-          accessible
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          className="bg-warning-soft mx-4 mt-3 gap-1 rounded-xl p-4"
-        >
-          <Text className="text-warning-soft-foreground text-sm font-semibold">
-            Live updates unavailable
-          </Text>
-          <Text className="text-warning-soft-foreground text-sm leading-5">
-            Pull to refresh while the connection recovers.
-          </Text>
-        </View>
-      ) : null}
-
-      {thread.unreadWarning ? (
-        <View
-          accessible
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          className="mx-4 mt-3"
-        >
-          <Text className="text-foreground text-center text-sm leading-5">
-            Could not clear unread messages
-          </Text>
-        </View>
-      ) : null}
-
-      {thread.refreshWarning ? (
-        <View
-          accessible
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          className="mx-4 mt-3"
-        >
-          <Text className="text-danger text-center text-sm leading-5">
-            {thread.refreshWarning}
-          </Text>
-        </View>
-      ) : null}
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <View
         className="flex-1"
-        testID="conversation-keyboard-avoiding-view"
+        collapsable={false}
+        onLayout={measureKeyboardContainer}
+        testID="conversation-keyboard-offset-container"
       >
-        <View className="relative flex-1">
-          <FlatList
-            className="bg-chat-canvas"
-            contentContainerClassName="grow px-3 pb-4"
-            data={displayItems}
-            keyExtractor={(item) => item.key}
-            ListEmptyComponent={
-              <View className="flex-1 items-center justify-center px-5 py-12">
-                <Text className="text-foreground text-base font-semibold">
-                  No messages yet
-                </Text>
-              </View>
-            }
-            ListHeaderComponent={listHeader}
-            maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
-            onContentSizeChange={() => {
-              if (initialPositionedRef.current) return;
-              initialPositionedRef.current = true;
-              listRef.current?.scrollToEnd({ animated: false });
-            }}
-            onRefresh={thread.refresh}
-            onScroll={onScroll}
-            ref={listRef}
-            refreshing={thread.refreshing}
-            renderItem={renderItem}
-            scrollEventThrottle={16}
-            testID="message-list"
-          />
-
-          {showJumpToLatest ? (
-            <View
-              className="absolute right-4 bottom-4"
-              pointerEvents="box-none"
+        {thread.connection === 'disconnected' ? (
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="bg-warning-soft mx-4 mt-3 gap-1 rounded-xl p-4"
+          >
+            <Text
+              className="text-warning-soft-foreground text-sm font-semibold"
+              style={{ lineHeight: undefined }}
             >
-              <Button
-                accessibilityLabel="Jump to latest"
-                className="min-h-12"
-                onPress={jumpToLatest}
-                size="sm"
-                variant="ghost"
+              Live updates unavailable
+            </Text>
+            <Text
+              className="text-warning-soft-foreground text-sm"
+              style={{ lineHeight: undefined }}
+            >
+              Pull to refresh while the connection recovers.
+            </Text>
+          </View>
+        ) : null}
+
+        {thread.unreadWarning ? (
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="mx-4 mt-3"
+          >
+            <Text
+              className="text-foreground text-center text-sm"
+              style={{ lineHeight: undefined }}
+            >
+              Could not clear unread messages
+            </Text>
+          </View>
+        ) : null}
+
+        {thread.refreshWarning ? (
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="mx-4 mt-3"
+          >
+            <Text
+              className="text-danger text-center text-sm"
+              style={{ lineHeight: undefined }}
+            >
+              {thread.refreshWarning}
+            </Text>
+          </View>
+        ) : null}
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1"
+          keyboardVerticalOffset={keyboardVerticalOffset}
+          testID="conversation-keyboard-avoiding-view"
+        >
+          <View className="relative flex-1">
+            <FlatList
+              className="bg-chat-canvas"
+              contentContainerClassName="grow px-3 pb-4"
+              data={displayItems}
+              keyExtractor={(item) => item.key}
+              ListEmptyComponent={
+                <View className="flex-1 items-center justify-center px-5 py-12">
+                  <Text
+                    className="text-foreground text-base font-semibold"
+                    style={{ lineHeight: undefined }}
+                  >
+                    No messages yet
+                  </Text>
+                </View>
+              }
+              ListHeaderComponent={listHeader}
+              maintainVisibleContentPosition={{ minIndexForVisible: 1 }}
+              onLayout={handleListLayout}
+              onContentSizeChange={() => {
+                if (initialPositionedRef.current) return;
+                initialPositionedRef.current = true;
+                listRef.current?.scrollToEnd({ animated: false });
+              }}
+              onRefresh={thread.refresh}
+              onScroll={onScroll}
+              ref={listRef}
+              refreshing={thread.refreshing}
+              renderItem={renderItem}
+              scrollEventThrottle={16}
+              testID="message-list"
+            />
+
+            {showJumpToLatest ? (
+              <View
+                className="absolute right-4 bottom-4"
+                pointerEvents="box-none"
               >
-                Jump to latest
-              </Button>
-            </View>
-          ) : null}
-        </View>
-        {actionFooter}
-      </KeyboardAvoidingView>
+                <Button
+                  accessibilityLabel="Jump to latest"
+                  className="min-h-12"
+                  onPress={jumpToLatest}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Jump to latest
+                </Button>
+              </View>
+            ) : null}
+          </View>
+          {actionFooter}
+        </KeyboardAvoidingView>
+      </View>
 
       {templatePickerOpen ? (
         <TemplatePicker
@@ -697,12 +809,34 @@ function ConversationThread({
 }
 
 export function ConversationScreen() {
-  const params = useLocalSearchParams<{ conversationId?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    conversationId?: string | string[];
+    fixture?: string | string[];
+  }>();
   const auth = useReadyAuth();
   const { state } = auth;
   const conversationId = routeConversationId(params.conversationId);
 
   if (!conversationId) return <UnavailableConversation />;
+
+  const localFixture =
+    __DEV__ &&
+    params.fixture === LOCAL_LAYOUT_FIXTURE &&
+    conversationId === LOCAL_LAYOUT_CONVERSATION_ID
+      ? createLocalConversationLayoutFixture(
+          state.branch.account_id,
+          state.profile.id
+        )
+      : null;
+  const standardOutbound = canUseConversationOutbound(
+    state.branch.role,
+    state.branch.branch_status
+  )
+    ? {
+        senderId: state.profile.id,
+        recoverUnauthorizedSession: auth.recoverUnauthorizedSession,
+      }
+    : undefined;
 
   return (
     <ConversationThread
@@ -711,18 +845,9 @@ export function ConversationScreen() {
       branchStatus={state.branch.branch_status}
       conversationId={conversationId}
       key={`${state.branch.account_id}:${conversationId}`}
-      outbound={
-        canUseConversationOutbound(
-          state.branch.role,
-          state.branch.branch_status
-        )
-          ? {
-              senderId: state.profile.id,
-              recoverUnauthorizedSession: auth.recoverUnauthorizedSession,
-            }
-          : undefined
-      }
+      outbound={localFixture?.outbound ?? standardOutbound}
       role={state.branch.role}
+      threadDependencies={localFixture?.threadDependencies}
     />
   );
 }

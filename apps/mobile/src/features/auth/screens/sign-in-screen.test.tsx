@@ -38,12 +38,23 @@ jest.mock('heroui-native', () => {
     return React.createElement(Text, null, children);
   };
 
+  function MockLabel({ children }: import('react').PropsWithChildren) {
+    return React.createElement(View, null, children);
+  }
+  MockLabel.Text = function MockLabelText({
+    children,
+    style,
+  }: import('react').PropsWithChildren<{
+    style?: import('react-native').TextStyle;
+  }>) {
+    return React.createElement(Text, { style }, children);
+  };
+
   return {
     Button: MockButton,
     TextField: ({ children }: import('react').PropsWithChildren) =>
       React.createElement(View, null, children),
-    Label: ({ children }: import('react').PropsWithChildren) =>
-      React.createElement(Text, null, children),
+    Label: MockLabel,
     Input: (props: import('react-native').TextInputProps) =>
       React.createElement(TextInput, props),
     FieldError: ({ children }: import('react').PropsWithChildren) =>
@@ -87,9 +98,15 @@ describe('SignInScreen', () => {
     );
     expect(screen.getByLabelText('Email')).toHaveProp('autoCapitalize', 'none');
     expect(screen.getByLabelText('Email')).toHaveProp('returnKeyType', 'done');
+    expect(screen.getByLabelText('Email').props.className).toContain(
+      'min-h-12'
+    );
     expect(screen.getByLabelText('Password')).toHaveProp(
       'secureTextEntry',
       true
+    );
+    expect(screen.getByLabelText('Password').props.className).toContain(
+      'min-h-12'
     );
     expect(screen.queryByText(/sign up|create account/i)).toBeNull();
   });

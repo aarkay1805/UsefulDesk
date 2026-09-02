@@ -18,10 +18,16 @@ describe('mobile npm workspace', () => {
     expect(root.scripts['mobile:test']).toBe(
       'npm run test --workspace @usefuldesk/mobile --'
     );
+    expect(root.scripts['mobile:routes']).toBe(
+      'npm run routes:generate --workspace @usefuldesk/mobile'
+    );
     expect(root.scripts.dev).toBe('next dev');
     expect(mobile.name).toBe('@usefuldesk/mobile');
     expect(mobile.main).toBe('expo-router/entry');
-    expect(mobile.dependencies.expo).toBe('~57.0.18');
+    expect(mobile.scripts.start).toBe(
+      'NODE_PATH=./node_modules expo start --dev-client'
+    );
+    expect(mobile.dependencies.expo).toBe('~57.0.19');
     expect(mobile.dependencies.react).toBe('19.2.3');
     expect(mobile.dependencies['react-native']).toBe('0.86.3');
   });

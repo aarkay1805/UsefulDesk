@@ -8,6 +8,10 @@ import {
 } from 'react-native';
 
 import type { InboxMessage, MessageStatus } from '../inbox-types';
+import {
+  isAccessibilityTextScale,
+  shouldInlineBubbleMetadata,
+} from '../inbox-layout';
 import { MessageContent } from './message-content';
 
 const DELIVERY_LABEL: Record<MessageStatus, string> = {
@@ -27,18 +31,22 @@ const DELIVERY_TICK: Record<Exclude<MessageStatus, 'failed'>, string> = {
 
 const THREAD_HORIZONTAL_PADDING = 12;
 const BUBBLE_MAX_WIDTH_RATIO = 0.65;
+const ACCESSIBILITY_BUBBLE_MAX_WIDTH_RATIO = 0.88;
 const BUBBLE_HORIZONTAL_PADDING = 10;
 const MAX_IMAGE_WIDTH = 240;
 const IMAGE_ASPECT_RATIO = 4 / 3;
 
-export function messageImageSizeForViewport(viewportWidth: number): {
+export function messageImageSizeForViewport(
+  viewportWidth: number,
+  bubbleMaxWidthRatio = BUBBLE_MAX_WIDTH_RATIO
+): {
   height: number;
   width: number;
 } {
   const rowWidth = Math.max(0, viewportWidth - THREAD_HORIZONTAL_PADDING * 2);
   const contentWidth = Math.max(
     0,
-    rowWidth * BUBBLE_MAX_WIDTH_RATIO - BUBBLE_HORIZONTAL_PADDING * 2
+    rowWidth * bubbleMaxWidthRatio - BUBBLE_HORIZONTAL_PADDING * 2
   );
   const width = Math.min(MAX_IMAGE_WIDTH, Math.floor(contentWidth));
   return { height: width / IMAGE_ASPECT_RATIO, width };
@@ -70,6 +78,7 @@ function BubbleMeta({
       className={`${metaTone} ${
         inline ? 'text-xs' : 'self-end pt-0.5 text-xs'
       }`}
+      style={{ lineHeight: undefined }}
       testID="message-metadata"
     >
       {formattedTime}
@@ -77,7 +86,12 @@ function BubbleMeta({
         deliveryStatus === 'read' ? (
           <>
             {' '}
-            <Text className="text-chat-read text-xs">{DELIVERY_TICK.read}</Text>
+            <Text
+              className="text-chat-read text-xs"
+              style={{ lineHeight: undefined }}
+            >
+              {DELIVERY_TICK.read}
+            </Text>
           </>
         ) : (
           ` ${DELIVERY_TICK[deliveryStatus]}`
@@ -98,8 +112,15 @@ export function MessageBubble({
   formattedTime,
   startsRun,
 }: MessageBubbleProps) {
-  const { width: viewportWidth } = useWindowDimensions();
-  const imageSize = messageImageSizeForViewport(viewportWidth);
+  const { fontScale, width: viewportWidth } = useWindowDimensions();
+  const accessibilityTextScale = isAccessibilityTextScale(fontScale);
+  const bubbleMaxWidthRatio = accessibilityTextScale
+    ? ACCESSIBILITY_BUBBLE_MAX_WIDTH_RATIO
+    : BUBBLE_MAX_WIDTH_RATIO;
+  const imageSize = messageImageSizeForViewport(
+    viewportWidth,
+    bubbleMaxWidthRatio
+  );
   const isOutbound = message.senderType !== 'customer';
   const isFailed = isOutbound && message.status === 'failed';
   const previousDeliveryRef = useRef({
@@ -141,15 +162,16 @@ export function MessageBubble({
     message.contentType === 'text' ||
     message.contentType === 'template' ||
     message.contentType === 'interactive';
+  const inlineMetadata = shouldInlineBubbleMetadata(hasTrailingText, fontScale);
   return (
     <View
       className={`w-full ${alignment} ${startsRun ? 'mt-3' : 'mt-0.5'}`}
       testID="message-bubble"
     >
       <View
-        className={`relative max-w-[65%] rounded-lg px-2.5 py-1.5 ${fill} ${
-          startsRun ? squaredCorner : ''
-        }`}
+        className={`relative rounded-lg px-2.5 py-1.5 ${fill} ${
+          accessibilityTextScale ? 'max-w-[88%]' : 'max-w-[65%]'
+        } ${startsRun ? squaredCorner : ''}`}
       >
         {startsRun ? (
           <View
@@ -159,13 +181,18 @@ export function MessageBubble({
         ) : null}
         <View className="gap-1">
           {marker ? (
-            <Text className={`${metaTone} text-xs`}>{marker}</Text>
+            <Text
+              className={`${metaTone} text-xs`}
+              style={{ lineHeight: undefined }}
+            >
+              {marker}
+            </Text>
           ) : null}
           <MessageContent
             imageSize={imageSize}
             message={message}
             trailingMeta={
-              hasTrailingText ? (
+              inlineMetadata ? (
                 <BubbleMeta
                   formattedTime={formattedTime}
                   inline
@@ -176,7 +203,7 @@ export function MessageBubble({
               ) : undefined
             }
           />
-          {!hasTrailingText ? (
+          {!inlineMetadata ? (
             <BubbleMeta
               formattedTime={formattedTime}
               isOutbound={isOutbound}
@@ -196,7 +223,10 @@ export function MessageBubble({
           key={`${message.id}:failed`}
           testID="message-failed-status"
         >
-          <Text className="text-danger text-xs font-medium">
+          <Text
+            className="text-danger text-xs font-medium"
+            style={{ lineHeight: undefined }}
+          >
             {DELIVERY_LABEL.failed}
           </Text>
         </View>

@@ -28,6 +28,7 @@ export function SearchField({
           accessibilityLabel={accessibilityLabel}
           placeholder={placeholder}
           returnKeyType="search"
+          style={{ lineHeight: undefined }}
         />
         <HeroSearchField.ClearButton
           accessibilityLabel="Clear search"

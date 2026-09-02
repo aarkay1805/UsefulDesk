@@ -52,8 +52,16 @@ jest.mock('heroui-native', () => {
   const MockTextField = ({ children }: import('react').PropsWithChildren) =>
     React.createElement(View, null, children);
   const MockLabel = ({ children }: import('react').PropsWithChildren) => {
+    return React.createElement(View, null, children);
+  };
+  MockLabel.Text = function MockLabelText({
+    children,
+    style,
+  }: import('react').PropsWithChildren<{
+    style?: import('react-native').TextStyle;
+  }>) {
     currentFieldLabel = String(children);
-    return React.createElement(Text, null, children);
+    return React.createElement(Text, { style }, children);
   };
   const MockInput = ({ isDisabled, ...props }: any) =>
     React.createElement(TextInput, {
@@ -339,7 +347,7 @@ describe('TemplatePicker', () => {
       'Renew now',
     ]);
     expect(screen.getByLabelText('Body variable 1').props.className).toContain(
-      'min-h-11'
+      'min-h-12'
     );
   });
 

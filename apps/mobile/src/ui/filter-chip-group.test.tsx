@@ -14,10 +14,12 @@ jest.mock('heroui-native', () => {
 
   function MockChipLabel({
     children,
+    style,
   }: {
     children?: import('react').ReactNode;
+    style?: import('react-native').TextStyle;
   }) {
-    return React.createElement(Text, null, children);
+    return React.createElement(Text, { style }, children);
   }
 
   MockChip.Label = MockChipLabel;
@@ -55,4 +57,7 @@ it('keeps short filter labels inside a 48dp minimum-width target', () => {
   expect(screen.getByRole('button', { name: 'All' }).props.className).toContain(
     'min-w-12'
   );
+  expect(screen.getByText('All').props.style).toEqual({
+    lineHeight: undefined,
+  });
 });

@@ -52,6 +52,11 @@ describe('ConversationRow', () => {
         name: 'Open chat with Asha Rao, 3 unread messages',
       })
     ).toBeTruthy();
+    expect(screen.getByText('Asha Rao').props.numberOfLines).toBeUndefined();
+    expect(
+      screen.getByText('Your membership expires tomorrow').props.numberOfLines
+    ).toBeUndefined();
+    expect(screen.getByTestId('conversation-row-metadata')).toBeTruthy();
   });
 
   it('uses the formatted phone as identity when the contact has no name', () => {

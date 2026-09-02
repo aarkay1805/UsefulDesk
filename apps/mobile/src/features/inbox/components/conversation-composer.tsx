@@ -140,13 +140,16 @@ export function ConversationComposer({
           accessibilityRole="alert"
           className="bg-danger-soft gap-1 rounded-xl px-3 py-2"
         >
-          <Text className="text-danger-soft-foreground text-sm leading-5">
+          <Text
+            className="text-danger-soft-foreground text-sm"
+            style={{ lineHeight: undefined }}
+          >
             {failedAttempt.message}
           </Text>
           {canRetry ? (
             <Button
               accessibilityLabel="Retry message"
-              className="min-h-11 self-start"
+              className="self-start"
               disabled={pending}
               loading={pending}
               onPress={retry}

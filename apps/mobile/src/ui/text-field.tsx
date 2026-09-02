@@ -11,12 +11,27 @@ type TextFieldProps = InputProps & {
   error?: string | null;
 };
 
-export function TextField({ label, error, ...inputProps }: TextFieldProps) {
+export function TextField({
+  label,
+  error,
+  className,
+  ...inputProps
+}: TextFieldProps) {
   return (
     <HeroTextField isInvalid={Boolean(error)}>
-      <Label>{label}</Label>
-      <Input {...inputProps} />
-      {error ? <FieldError>{error}</FieldError> : null}
+      <Label>
+        <Label.Text style={{ lineHeight: undefined }}>{label}</Label.Text>
+      </Label>
+      <Input
+        {...inputProps}
+        className={`min-h-12 ${className ?? ''}`.trim()}
+        style={[inputProps.style, { lineHeight: undefined }]}
+      />
+      {error ? (
+        <FieldError styles={{ text: { lineHeight: undefined } }}>
+          {error}
+        </FieldError>
+      ) : null}
     </HeroTextField>
   );
 }

@@ -54,7 +54,7 @@ jest.mock('expo-symbols', () => {
 });
 
 describe('IconButton', () => {
-  it('renders a labelled SF Symbol in a 44pt rounded-rectangle target', () => {
+  it('renders a labelled SF Symbol in a 48pt rounded-rectangle target', () => {
     render(
       <IconButton
         accessibilityLabel="Send message"
@@ -64,8 +64,8 @@ describe('IconButton', () => {
     );
 
     const button = screen.getByRole('button', { name: 'Send message' });
-    expect(button.props.className).toContain('min-h-11');
-    expect(button.props.className).toContain('min-w-11');
+    expect(button.props.className).toContain('min-h-12');
+    expect(button.props.className).toContain('min-w-12');
     expect(button.props.className).toContain('rounded-lg');
     expect(button.props.className).not.toContain('rounded-full');
     expect(screen.getByTestId('symbol').props.name).toBe('paperplane.fill');

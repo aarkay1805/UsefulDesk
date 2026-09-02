@@ -1,3 +1,11 @@
+import type { ConversationRepository } from './conversation-repository';
+import type { InboxRealtimeFeed } from './inbox-realtime-provider';
+import type { SessionWindowMessageRepository } from './message-repository';
+import type { TemplateRepository } from './template-repository';
+import type {
+  MessageThreadOutboundDependencies,
+  UseMessageThreadOptions,
+} from './use-message-thread';
 import type { InboxConversation, InboxMessage, Page } from './inbox-types';
 
 export const BRANCH_ID = 'd3648c54-a4aa-4dd8-8566-1e3b38c1f497';
@@ -11,6 +19,7 @@ export const MESSAGE_1_ID = '94c45d67-692f-4654-8806-668858e84c6b';
 export const MESSAGE_2_ID = '16b3b0cf-9ed9-41c5-860d-d11391712e92';
 export const MESSAGE_3_ID = '0e6d616f-0b0e-438b-a210-3d05b8075de4';
 export const ABSENT_MESSAGE_ID = '2ec92843-fe53-46ac-8751-df6f75e5908a';
+export const LOCAL_LAYOUT_FIXTURE = 'local-layout';
 
 export function rawConversation(overrides: Record<string, unknown> = {}) {
   return {
@@ -105,4 +114,141 @@ export function page<T, C>(
   nextCursor: C | null = null
 ): Page<T, C> {
   return { items, nextCursor };
+}
+
+interface LocalConversationLayoutFixture {
+  outbound: MessageThreadOutboundDependencies;
+  threadDependencies: Pick<
+    UseMessageThreadOptions,
+    'conversations' | 'messages' | 'templates' | 'realtime'
+  >;
+}
+
+export function createLocalConversationLayoutFixture(
+  accountId: string,
+  senderId: string
+): LocalConversationLayoutFixture {
+  const now = Date.now();
+  const firstInboundAt = new Date(now - 120_000).toISOString();
+  const outboundAt = new Date(now - 60_000).toISOString();
+  const latestInboundAt = new Date(now).toISOString();
+  const fixtureConversation = conversation({
+    accountId,
+    unreadCount: 0,
+    lastMessageAt: latestInboundAt,
+    lastMessageText:
+      'Thanks. Please share the available renewal options when you have a moment.',
+    updatedAt: latestInboundAt,
+    contact: {
+      id: CONTACT_ID,
+      name: 'Asha Rao · Local fixture',
+      phone: '9876543210',
+      avatarUrl: null,
+    },
+  });
+  const fixtureMessages = [
+    message({
+      id: MESSAGE_0_ID,
+      conversationId: CONVERSATION_ID,
+      contentText:
+        'Hi, I want to confirm the renewal details before my current plan ends tomorrow.',
+      createdAt: firstInboundAt,
+      senderType: 'customer',
+      status: 'delivered',
+    }),
+    message({
+      id: MESSAGE_1_ID,
+      conversationId: CONVERSATION_ID,
+      contentText:
+        'Absolutely — your membership can continue without a break. I can help with the next steps here.',
+      createdAt: outboundAt,
+      senderId,
+      senderType: 'agent',
+      status: 'read',
+    }),
+    message({
+      id: MESSAGE_2_ID,
+      conversationId: CONVERSATION_ID,
+      contentText:
+        'Thanks. Please share the available renewal options when you have a moment.',
+      createdAt: latestInboundAt,
+      senderType: 'customer',
+      status: 'delivered',
+    }),
+  ];
+
+  const requireScope = (requestedAccountId: string, conversationId: string) => {
+    if (
+      requestedAccountId !== accountId ||
+      conversationId !== CONVERSATION_ID
+    ) {
+      throw new Error('Conversation is unavailable');
+    }
+  };
+
+  const conversations: ConversationRepository = {
+    async list() {
+      return page([fixtureConversation]);
+    },
+    async unreadCount() {
+      return 0;
+    },
+    async get(requestedAccountId, conversationId) {
+      requireScope(requestedAccountId, conversationId);
+      return fixtureConversation;
+    },
+    async markRead(requestedAccountId, conversationId) {
+      requireScope(requestedAccountId, conversationId);
+    },
+  };
+  const messages: SessionWindowMessageRepository = {
+    async list(input) {
+      requireScope(input.accountId, input.conversationId);
+      return page(fixtureMessages);
+    },
+    async get(requestedAccountId, conversationId, messageId) {
+      requireScope(requestedAccountId, conversationId);
+      const fixtureMessage = fixtureMessages.find(
+        (candidate) => candidate.id === messageId
+      );
+      if (!fixtureMessage) throw new Error('Message is unavailable');
+      return fixtureMessage;
+    },
+    async getLatestCustomerMessageAt(requestedAccountId, conversationId) {
+      requireScope(requestedAccountId, conversationId);
+      return latestInboundAt;
+    },
+  };
+  const templates: TemplateRepository = {
+    async listSendableTemplates() {
+      return [];
+    },
+    async getWhatsAppConnectionReadiness(requestedAccountId) {
+      if (requestedAccountId !== accountId) {
+        throw new Error('Send readiness is unavailable');
+      }
+      return {
+        status: 'connected',
+        ready: true,
+        reason: null,
+        connectedAt: latestInboundAt,
+      };
+    },
+  };
+  const realtime: InboxRealtimeFeed = {
+    getSnapshot: () => ({ connection: 'connected', resyncGeneration: 0 }),
+    listen: () => () => undefined,
+    listenStatus: () => () => undefined,
+  };
+
+  return {
+    outbound: {
+      senderId,
+      recoverUnauthorizedSession: async () => undefined,
+      sendMessage: async () => {
+        throw new Error('Local layout fixture cannot send messages');
+      },
+    },
+    threadDependencies: { conversations, messages, realtime, templates },
+  };
 }

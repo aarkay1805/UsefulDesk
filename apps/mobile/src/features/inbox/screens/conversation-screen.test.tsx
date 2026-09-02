@@ -5,7 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
-import { Platform } from 'react-native';
+import { type LayoutChangeEvent, Platform } from 'react-native';
 
 import type { ReadyAuthContextValue } from '../../auth/auth-context';
 import type { AccountSummary, BranchAccount } from '../../auth/branch-types';
@@ -230,9 +230,17 @@ jest.mock('heroui-native', () => {
 
   let currentFieldLabel = '';
   function MockLabel({ children }: import('react').PropsWithChildren) {
-    currentFieldLabel = String(children);
-    return React.createElement(Text, null, children);
+    return React.createElement(View, null, children);
   }
+  MockLabel.Text = function MockLabelText({
+    children,
+    style,
+  }: import('react').PropsWithChildren<{
+    style?: import('react-native').TextStyle;
+  }>) {
+    currentFieldLabel = String(children);
+    return React.createElement(Text, { style }, children);
+  };
 
   const MockInput = React.forwardRef(function MockInput(
     { isDisabled, onChangeText, ...props }: any,
@@ -577,6 +585,32 @@ describe('ConversationScreen', () => {
     );
   });
 
+  it('uses fail-closed local dependencies for the development layout fixture', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      conversationId: CONVERSATION_ID,
+      fixture: 'local-layout',
+    });
+
+    render(<ConversationScreen />);
+
+    const options = mockUseMessageThread.mock.calls.at(-1)?.[0];
+    expect(options).toEqual(
+      expect.objectContaining({
+        conversations: expect.any(Object),
+        messages: expect.any(Object),
+        templates: expect.any(Object),
+        realtime: expect.not.objectContaining(screenRealtime),
+        outbound: expect.objectContaining({
+          sendMessage: expect.any(Function),
+        }),
+      })
+    );
+    await expect(
+      options.outbound.sendMessage({ kind: 'text' }, {})
+    ).rejects.toThrow('Local layout fixture cannot send messages');
+    expect(sendConversationMessage).not.toHaveBeenCalled();
+  });
+
   it.each(['owner', 'admin', 'agent'] as const)(
     'passes authenticated outbound dependencies and renders text for an open %s window',
     (role) => {
@@ -782,7 +816,7 @@ describe('ConversationScreen', () => {
       name: 'Retry failed message',
     });
     expect(retries).toHaveLength(1);
-    expect(retries[0].props.className).toContain('min-h-11');
+    expect(retries[0].props.className).toContain('min-h-12');
 
     fireEvent.press(retries[0]);
 
@@ -1391,16 +1425,102 @@ describe('ConversationScreen', () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the list and action footer in native keyboard avoidance inside the bottom safe area', () => {
+  it('measures the keyboard container window offset below the native header', async () => {
     render(<ConversationScreen />);
+
+    const container = screen.getByTestId(
+      'conversation-keyboard-offset-container'
+    );
+    const measureInWindow = jest.fn(
+      (
+        callback: Parameters<
+          LayoutChangeEvent['currentTarget']['measureInWindow']
+        >[0]
+      ) => callback(0, 84, 390, 700)
+    );
+    const currentTarget = {
+      measureInWindow,
+    } as unknown as LayoutChangeEvent['currentTarget'];
+    const layoutEvent = {
+      bubbles: false,
+      cancelable: false,
+      currentTarget,
+      defaultPrevented: false,
+      eventPhase: 3,
+      isDefaultPrevented: () => false,
+      isPropagationStopped: () => false,
+      isTrusted: true,
+      nativeEvent: { layout: { height: 700, width: 390, x: 0, y: 0 } },
+      persist: jest.fn(),
+      preventDefault: jest.fn(),
+      stopPropagation: jest.fn(),
+      target: currentTarget,
+      timeStamp: 0,
+      type: 'layout',
+    } satisfies LayoutChangeEvent;
+
+    act(() => container.props.onLayout(layoutEvent));
 
     const keyboard = screen.getByTestId('conversation-keyboard-avoiding-view');
     expect(keyboard.props.behavior).toBe(
       Platform.OS === 'ios' ? 'padding' : 'height'
     );
-    expect(keyboard.props.keyboardVerticalOffset).toBeUndefined();
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('conversation-keyboard-avoiding-view').props
+          .keyboardVerticalOffset
+      ).toBe(84)
+    );
+    expect(measureInWindow).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('message-list')).toBeTruthy();
     expect(screen.getByLabelText('Message')).toBeTruthy();
+  });
+
+  it('keeps runtime banners inside the stable measured keyboard container', async () => {
+    const { rerender } = render(<ConversationScreen />);
+    const container = screen.getByTestId(
+      'conversation-keyboard-offset-container'
+    );
+    const currentTarget = {
+      measureInWindow: (
+        callback: Parameters<
+          LayoutChangeEvent['currentTarget']['measureInWindow']
+        >[0]
+      ) => callback(0, 84, 390, 700),
+    } as unknown as LayoutChangeEvent['currentTarget'];
+
+    act(() =>
+      container.props.onLayout({
+        currentTarget,
+        nativeEvent: { layout: { height: 700, width: 390, x: 0, y: 0 } },
+        target: currentTarget,
+      } as LayoutChangeEvent)
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('conversation-keyboard-avoiding-view').props
+          .keyboardVerticalOffset
+      ).toBe(84)
+    );
+
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({ connection: 'disconnected' })
+    );
+    rerender(<ConversationScreen />);
+
+    const stableContainer = screen.getByTestId(
+      'conversation-keyboard-offset-container'
+    );
+    expect(
+      stableContainer.findAll(
+        (node) => node.props.children === 'Live updates unavailable'
+      )
+    ).not.toHaveLength(0);
+    expect(
+      stableContainer.findByProps({
+        testID: 'conversation-keyboard-avoiding-view',
+      }).props.keyboardVerticalOffset
+    ).toBe(84);
   });
 
   it.each([undefined, 'not-a-uuid', [CONVERSATION_ID, MESSAGE_1_ID]])(
@@ -1425,6 +1545,60 @@ describe('ConversationScreen', () => {
 
     expect(mockScrollToEnd).toHaveBeenCalledTimes(1);
     expect(mockScrollToEnd).toHaveBeenCalledWith({ animated: false });
+  });
+
+  it('re-pins a bottom-following reader once when the viewport shrinks', () => {
+    render(<ConversationScreen />);
+    const list = screen.getByTestId('message-list');
+    const fireListLayout = (height: number) => {
+      act(() =>
+        list.props.onLayout?.({
+          nativeEvent: { layout: { height, width: 390, x: 0, y: 0 } },
+        } as LayoutChangeEvent)
+      );
+    };
+
+    fireListLayout(700);
+    expect(mockScrollToEnd).not.toHaveBeenCalled();
+
+    fireEvent(list, 'contentSizeChange', 390, 1200);
+    mockScrollToEnd.mockClear();
+    fireListLayout(360);
+
+    expect(mockScrollToEnd).toHaveBeenCalledTimes(1);
+    expect(mockScrollToEnd).toHaveBeenCalledWith({ animated: false });
+
+    fireListLayout(360);
+    expect(mockScrollToEnd).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves an older reader when the viewport shrinks', () => {
+    render(<ConversationScreen />);
+    const list = screen.getByTestId('message-list');
+    const fireListLayout = (height: number) => {
+      act(() =>
+        list.props.onLayout?.({
+          nativeEvent: { layout: { height, width: 390, x: 0, y: 0 } },
+        } as LayoutChangeEvent)
+      );
+    };
+
+    fireListLayout(700);
+    fireEvent(list, 'contentSizeChange', 390, 1200);
+    fireEvent.scroll(list, {
+      nativeEvent: {
+        contentOffset: { y: 100 },
+        contentSize: { height: 1600, width: 390 },
+        layoutMeasurement: { height: 700, width: 390 },
+      },
+    });
+    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeTruthy();
+
+    mockScrollToEnd.mockClear();
+    fireListLayout(360);
+
+    expect(mockScrollToEnd).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeTruthy();
   });
 
   it('loads older history near the top and preserves the visible anchor', () => {

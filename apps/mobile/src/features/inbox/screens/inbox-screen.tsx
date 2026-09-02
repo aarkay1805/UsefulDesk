@@ -6,6 +6,7 @@ import {
   Button,
   ErrorState,
   FilterChipGroup,
+  IconButton,
   LoadingState,
   ScreenSafeAreaView,
   SearchField,
@@ -77,10 +78,16 @@ export function InboxScreen() {
 
     return (
       <View className="items-center gap-1 px-5 py-12">
-        <Text className="text-foreground text-base font-semibold">
+        <Text
+          className="text-foreground text-base font-semibold"
+          style={{ lineHeight: undefined }}
+        >
           No conversations yet
         </Text>
-        <Text className="text-muted text-center text-sm leading-5">
+        <Text
+          className="text-muted text-center text-sm"
+          style={{ lineHeight: undefined }}
+        >
           New WhatsApp conversations will appear here.
         </Text>
       </View>
@@ -102,7 +109,10 @@ export function InboxScreen() {
           accessibilityRole="alert"
           className="items-center gap-3 px-5 py-4"
         >
-          <Text className="text-danger text-center text-sm leading-5">
+          <Text
+            className="text-danger text-center text-sm"
+            style={{ lineHeight: undefined }}
+          >
             {inbox.paginationError ?? MORE_ERROR}
           </Text>
           <Button
@@ -127,16 +137,11 @@ export function InboxScreen() {
         options={{
           title: 'Inbox',
           headerRight: () => (
-            <Button
+            <IconButton
               accessibilityLabel="Account"
-              className="min-h-12"
-              labelClassName="text-zinc-950"
               onPress={() => router.push('/(app)/account')}
-              size="sm"
-              variant="ghost"
-            >
-              Account
-            </Button>
+              symbol="person.crop.circle"
+            />
           ),
         }}
       />
@@ -163,10 +168,16 @@ export function InboxScreen() {
           accessibilityRole="alert"
           className="bg-warning-soft mx-4 mb-3 gap-1 rounded-xl p-4"
         >
-          <Text className="text-warning-soft-foreground text-sm font-semibold">
+          <Text
+            className="text-warning-soft-foreground text-sm font-semibold"
+            style={{ lineHeight: undefined }}
+          >
             Live updates unavailable
           </Text>
-          <Text className="text-warning-soft-foreground text-sm leading-5">
+          <Text
+            className="text-warning-soft-foreground text-sm"
+            style={{ lineHeight: undefined }}
+          >
             Pull to refresh while the connection recovers.
           </Text>
         </View>
@@ -179,7 +190,10 @@ export function InboxScreen() {
           accessibilityRole="alert"
           className="mx-4 mb-3"
         >
-          <Text className="text-danger text-center text-sm leading-5">
+          <Text
+            className="text-danger text-center text-sm"
+            style={{ lineHeight: undefined }}
+          >
             {inbox.refreshWarning}
           </Text>
         </View>

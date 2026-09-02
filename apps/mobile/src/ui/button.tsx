@@ -17,7 +17,7 @@ type ButtonProps = DistributiveOmit<
 };
 
 const SIZE_CLASS_NAMES = {
-  sm: 'h-auto min-h-11 py-2',
+  sm: 'h-auto min-h-12 py-2',
   md: 'h-auto min-h-12 py-3',
   lg: 'h-auto min-h-14 py-3.5',
 } as const;
@@ -45,7 +45,10 @@ export function Button({
       {loading ? (
         <ActivityIndicator accessibilityLabel="Working" />
       ) : (
-        <HeroButton.Label className={labelClassName}>
+        <HeroButton.Label
+          className={labelClassName}
+          style={{ lineHeight: undefined }}
+        >
           {children}
         </HeroButton.Label>
       )}

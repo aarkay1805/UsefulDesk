@@ -15,7 +15,7 @@ const config: UsefulDeskExpoConfig = {
     package: 'com.usefulmade.usefuldesk.agent',
     predictiveBackGestureEnabled: true,
   },
-  plugins: ['expo-router', 'expo-secure-store'],
+  plugins: ['expo-router', 'expo-secure-store', 'expo-font', 'expo-image'],
   experiments: { typedRoutes: true, reactCompiler: true },
 };
 

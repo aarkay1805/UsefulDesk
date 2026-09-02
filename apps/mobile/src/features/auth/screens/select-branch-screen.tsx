@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button, ScreenSafeAreaView } from '../../../ui';
@@ -22,6 +22,14 @@ export function BranchChoices({
   const [pendingBranchId, setPendingBranchId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const selectingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const choose = async (accountId: string) => {
     if (selectingRef.current || accountId === currentAccountId) return;
@@ -31,12 +39,14 @@ export function BranchChoices({
     try {
       await onSelect(accountId);
     } catch {
-      setError(
-        'Could not open this branch. Check your connection and try again.'
-      );
+      if (mountedRef.current) {
+        setError(
+          'Could not open this branch. Check your connection and try again.'
+        );
+      }
     } finally {
       selectingRef.current = false;
-      setPendingBranchId(null);
+      if (mountedRef.current) setPendingBranchId(null);
     }
   };
 

@@ -31,7 +31,7 @@ export function IconButton({
       onPress={onPress}
       size="sm"
       testID={testID}
-      className="min-h-11 min-w-11 rounded-lg px-0"
+      className="min-w-12 rounded-lg px-0"
     >
       <SymbolView
         name={symbol}

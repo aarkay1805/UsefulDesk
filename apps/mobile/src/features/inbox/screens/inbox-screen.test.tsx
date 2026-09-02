@@ -285,12 +285,10 @@ describe('InboxScreen', () => {
     });
   });
 
-  it('renders Account in the native header and opens the Account route', () => {
+  it('renders a Dynamic Type-safe Account icon in the native header and opens the Account route', () => {
     render(<InboxScreen />);
 
-    expect(screen.getByText('Account').props.className).toContain(
-      'text-zinc-950'
-    );
+    expect(screen.queryByText('Account')).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Account' }));
     expect(mockRouter.push).toHaveBeenCalledWith('/(app)/account');
   });

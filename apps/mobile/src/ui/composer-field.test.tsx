@@ -30,8 +30,17 @@ jest.mock('heroui-native', () => {
   }
 
   function MockLabel({ children }: { children?: import('react').ReactNode }) {
-    return React.createElement(Text, null, children);
+    return React.createElement(View, null, children);
   }
+  MockLabel.Text = function MockLabelText({
+    children,
+    style,
+  }: {
+    children?: import('react').ReactNode;
+    style?: import('react-native').TextStyle;
+  }) {
+    return React.createElement(Text, { style }, children);
+  };
 
   function MockFieldError({
     children,
@@ -103,7 +112,7 @@ describe('ComposerField', () => {
     expect(() => ref.current?.focus()).not.toThrow();
     expect(input.props.allowFontScaling).toBe(true);
     expect(input.props.maxFontSizeMultiplier).toBeUndefined();
-    expect(input.props.className).toContain('min-h-11');
+    expect(input.props.className).toContain('min-h-12');
     expect(input.props.className).toContain('max-h-36');
   });
 

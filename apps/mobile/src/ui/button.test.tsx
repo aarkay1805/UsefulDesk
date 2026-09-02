@@ -16,11 +16,13 @@ jest.mock('heroui-native', () => {
   MockButton.Label = function MockButtonLabel({
     children,
     className,
+    style,
   }: {
     children?: import('react').ReactNode;
     className?: string;
+    style?: import('react-native').TextStyle;
   }) {
-    return React.createElement(Text, { className }, children);
+    return React.createElement(Text, { className, style }, children);
   };
 
   return { Button: MockButton };
@@ -60,6 +62,9 @@ describe('Button', () => {
     expect(screen.getByTestId('account-button').props.labelClassName).toBe(
       undefined
     );
+    expect(screen.getByText('Account').props.style).toEqual({
+      lineHeight: undefined,
+    });
   });
 
   it('announces loading, prevents repeat activation, and replaces its label', () => {
@@ -78,7 +83,7 @@ describe('Button', () => {
   });
 
   it.each([
-    ['sm', 'min-h-11', 'py-2'],
+    ['sm', 'min-h-12', 'py-2'],
     ['md', 'min-h-12', 'py-3'],
     ['lg', 'min-h-14', 'py-3.5'],
   ] as const)(

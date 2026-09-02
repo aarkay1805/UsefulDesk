@@ -31,7 +31,7 @@ export function ConversationRow({
     <Pressable
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      className={`min-h-18 flex-row items-center gap-3 px-4 py-3 active:opacity-70 ${
+      className={`min-h-18 flex-row items-start gap-3 px-4 py-3 active:opacity-70 ${
         unreadCount > 0 ? 'bg-accent-soft' : ''
       }`}
       onPress={onPress}
@@ -42,32 +42,42 @@ export function ConversationRow({
         source={conversation.contact.avatarUrl}
       />
 
-      <View className="min-w-0 flex-1 gap-1">
+      <View className="min-w-0 flex-1 gap-1.5">
         <Text
           className={`text-foreground text-base ${
             unreadCount > 0 ? 'font-semibold' : 'font-medium'
           }`}
-          numberOfLines={1}
+          style={{ lineHeight: undefined }}
         >
           {displayName}
         </Text>
-        <Text className="text-muted text-sm leading-5" numberOfLines={1}>
+        <Text className="text-muted text-sm" style={{ lineHeight: undefined }}>
           {conversation.lastMessageText?.trim() || 'No messages yet'}
         </Text>
-      </View>
-
-      <View className="items-end gap-2">
-        {formattedTime ? (
-          <Text className="text-muted text-xs">{formattedTime}</Text>
-        ) : null}
-        {unreadCount > 0 ? (
-          <Text
-            accessibilityLabel={unreadLabel}
-            className="bg-accent text-accent-foreground min-h-6 min-w-6 rounded-full px-2 py-1 text-center text-xs font-semibold"
-          >
-            {unreadCount}
-          </Text>
-        ) : null}
+        <View
+          className="flex-row flex-wrap items-center justify-between gap-2"
+          testID="conversation-row-metadata"
+        >
+          {formattedTime ? (
+            <Text
+              className="text-muted text-xs"
+              style={{ lineHeight: undefined }}
+            >
+              {formattedTime}
+            </Text>
+          ) : (
+            <View />
+          )}
+          {unreadCount > 0 ? (
+            <Text
+              accessibilityLabel={unreadLabel}
+              className="bg-accent text-accent-foreground min-h-6 min-w-6 rounded-full px-2 py-1 text-center text-xs font-semibold"
+              style={{ lineHeight: undefined }}
+            >
+              {unreadCount}
+            </Text>
+          ) : null}
+        </View>
       </View>
     </Pressable>
   );

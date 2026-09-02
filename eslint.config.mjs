@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Agent tooling and ignored sibling worktrees are not application source.
+    '.agents/**',
+    '.worktrees/**',
     // Vendored minified opus-recorder encoder worker (served statically).
     'public/opus/**',
     // Native workspace uses Expo-specific globals and lint configuration.

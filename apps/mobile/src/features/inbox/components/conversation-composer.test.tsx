@@ -25,8 +25,16 @@ jest.mock('heroui-native', () => {
   }
 
   function MockLabel({ children }: import('react').PropsWithChildren) {
-    return React.createElement(Text, null, children);
+    return React.createElement(View, null, children);
   }
+  MockLabel.Text = function MockLabelText({
+    children,
+    style,
+  }: import('react').PropsWithChildren<{
+    style?: import('react-native').TextStyle;
+  }>) {
+    return React.createElement(Text, { style }, children);
+  };
 
   function MockFieldError({ children }: import('react').PropsWithChildren) {
     return React.createElement(Text, { accessibilityRole: 'alert' }, children);
@@ -311,7 +319,7 @@ describe('ConversationComposer', () => {
     expect(onSend).toHaveBeenLastCalledWith('May be sent with an update');
   });
 
-  it('uses the local composer masters for accessible 44pt text and send controls', () => {
+  it('uses the local composer masters for accessible 48pt text and send controls', () => {
     render(<ConversationComposer onRetry={jest.fn()} onSend={jest.fn()} />);
 
     const input = screen.getByLabelText('Message');
@@ -319,9 +327,9 @@ describe('ConversationComposer', () => {
 
     expect(input.props.allowFontScaling).toBe(true);
     expect(input.props.maxFontSizeMultiplier).toBeUndefined();
-    expect(input.props.className).toContain('min-h-11');
-    expect(send.props.className).toContain('min-h-11');
-    expect(send.props.className).toContain('min-w-11');
+    expect(input.props.className).toContain('min-h-12');
+    expect(send.props.className).toContain('min-h-12');
+    expect(send.props.className).toContain('min-w-12');
     expect(send.props.className).toContain('rounded-lg');
   });
 });

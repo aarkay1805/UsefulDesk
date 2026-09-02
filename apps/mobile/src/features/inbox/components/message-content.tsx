@@ -40,7 +40,8 @@ export function MessageContent({
   ) {
     return (
       <Text
-        className="text-foreground text-base leading-5"
+        className="text-foreground text-base"
+        style={{ lineHeight: undefined }}
         testID="message-text-content"
       >
         {caption ?? messagePreview(message)}
@@ -62,10 +63,20 @@ export function MessageContent({
             style={imageSize}
           />
         ) : (
-          <Text className="text-foreground text-sm">Photo unavailable</Text>
+          <Text
+            className="text-foreground text-sm"
+            style={{ lineHeight: undefined }}
+          >
+            Photo unavailable
+          </Text>
         )}
         {caption ? (
-          <Text className="text-foreground text-sm">{caption}</Text>
+          <Text
+            className="text-foreground text-sm"
+            style={{ lineHeight: undefined }}
+          >
+            {caption}
+          </Text>
         ) : null}
       </View>
     );
@@ -75,9 +86,19 @@ export function MessageContent({
   if (!safeUrl) {
     return (
       <View className="gap-1">
-        <Text className="text-foreground text-sm">{label} unavailable</Text>
+        <Text
+          className="text-foreground text-sm"
+          style={{ lineHeight: undefined }}
+        >
+          {label} unavailable
+        </Text>
         {caption ? (
-          <Text className="text-foreground text-sm">{caption}</Text>
+          <Text
+            className="text-foreground text-sm"
+            style={{ lineHeight: undefined }}
+          >
+            {caption}
+          </Text>
         ) : null}
       </View>
     );
@@ -99,9 +120,19 @@ export function MessageContent({
 
   return (
     <View className="gap-2">
-      <Text className="text-foreground text-sm">{label}</Text>
+      <Text
+        className="text-foreground text-sm"
+        style={{ lineHeight: undefined }}
+      >
+        {label}
+      </Text>
       {caption ? (
-        <Text className="text-foreground text-sm">{caption}</Text>
+        <Text
+          className="text-foreground text-sm"
+          style={{ lineHeight: undefined }}
+        >
+          {caption}
+        </Text>
       ) : null}
       <Pressable
         accessibilityLabel={`Open ${label.toLowerCase()}`}
@@ -111,12 +142,19 @@ export function MessageContent({
         disabled={opening}
         onPress={() => void openMedia()}
       >
-        <Text className="text-foreground text-sm font-medium">
+        <Text
+          className="text-foreground text-sm font-medium"
+          style={{ lineHeight: undefined }}
+        >
           Open {label.toLowerCase()}
         </Text>
       </Pressable>
       {openFailed ? (
-        <Text accessibilityRole="alert" className="text-foreground text-sm">
+        <Text
+          accessibilityRole="alert"
+          className="text-foreground text-sm"
+          style={{ lineHeight: undefined }}
+        >
           Unable to open {label.toLowerCase()}
         </Text>
       ) : null}

@@ -1,4 +1,6 @@
+import * as React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -7,7 +9,12 @@ import {
 
 import type { AuthContextValue } from '../auth-context';
 import type { BranchAccount, MobileProfile } from '../branch-types';
-import { SelectBranchScreen } from './select-branch-screen';
+import { BranchChoices, SelectBranchScreen } from './select-branch-screen';
+
+jest.mock('react', () => {
+  const actual = jest.requireActual<typeof import('react')>('react');
+  return { ...actual, useState: jest.fn(actual.useState) };
+});
 
 const mockUseAuth = jest.fn<AuthContextValue, []>();
 
@@ -105,8 +112,23 @@ function authValue(
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, reject, resolve };
+}
+
 describe('SelectBranchScreen', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const actualUseState =
+      jest.requireActual<typeof import('react')>('react').useState;
+    (React.useState as jest.Mock).mockImplementation(actualUseState);
+  });
 
   it('shows branch and organization names but omits archived selections', () => {
     mockUseAuth.mockReturnValue(authValue());
@@ -155,6 +177,136 @@ describe('SelectBranchScreen', () => {
 
     fireEvent.press(choose);
     await waitFor(() => expect(selectBranch).toHaveBeenCalledTimes(2));
+  });
+
+  it('does not update BranchChoices state after a successful selection unmounts it', async () => {
+    const originalUseState =
+      jest.requireActual<typeof import('react')>('react').useState;
+    const setters: jest.Mock[] = [];
+    const useStateSpy = React.useState as jest.Mock;
+    useStateSpy.mockImplementation((initialState: unknown) => {
+      const [value, setValue] = originalUseState(initialState);
+      const setter = jest.fn(setValue);
+      setters.push(setter);
+      return [value, setter];
+    });
+    const selection = deferred<void>();
+    const onSelect = jest.fn(() => selection.promise);
+
+    try {
+      const rendered = render(
+        <BranchChoices branches={[activeBranch]} onSelect={onSelect} />
+      );
+      fireEvent.press(
+        screen.getByRole('button', {
+          name: 'Choose Indiranagar branch',
+        })
+      );
+
+      await waitFor(() => {
+        expect(
+          setters.some((setter) =>
+            setter.mock.calls.some(
+              ([value]) => value === activeBranch.account_id
+            )
+          )
+        ).toBe(true);
+      });
+      setters.forEach((setter) => setter.mockClear());
+      rendered.unmount();
+
+      await act(async () => {
+        selection.resolve();
+        await selection.promise;
+        await Promise.resolve();
+      });
+
+      setters.forEach((setter) => expect(setter).not.toHaveBeenCalled());
+    } finally {
+      useStateSpy.mockImplementation(originalUseState);
+    }
+  });
+
+  it('does not update BranchChoices state after a failed selection unmounts it', async () => {
+    const originalUseState =
+      jest.requireActual<typeof import('react')>('react').useState;
+    const setters: jest.Mock[] = [];
+    const useStateSpy = React.useState as jest.Mock;
+    useStateSpy.mockImplementation((initialState: unknown) => {
+      const [value, setValue] = originalUseState(initialState);
+      const setter = jest.fn(setValue);
+      setters.push(setter);
+      return [value, setter];
+    });
+    const selection = deferred<void>();
+    const onSelect = jest.fn(() => selection.promise);
+
+    try {
+      const rendered = render(
+        <BranchChoices branches={[activeBranch]} onSelect={onSelect} />
+      );
+      fireEvent.press(
+        screen.getByRole('button', {
+          name: 'Choose Indiranagar branch',
+        })
+      );
+
+      await waitFor(() => {
+        expect(
+          setters.some((setter) =>
+            setter.mock.calls.some(
+              ([value]) => value === activeBranch.account_id
+            )
+          )
+        ).toBe(true);
+      });
+      setters.forEach((setter) => setter.mockClear());
+      rendered.unmount();
+
+      await act(async () => {
+        selection.reject(new Error('Branch selection failed'));
+        await Promise.resolve();
+      });
+
+      setters.forEach((setter) => expect(setter).not.toHaveBeenCalled());
+    } finally {
+      useStateSpy.mockImplementation(originalUseState);
+    }
+  });
+
+  it('shows a failed selection and allows a retry after the chooser unlocks', async () => {
+    const selectBranch = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('Branch selection failed'))
+      .mockResolvedValueOnce(undefined);
+
+    render(<BranchChoices branches={[activeBranch]} onSelect={selectBranch} />);
+    const choose = screen.getByRole('button', {
+      name: 'Choose Indiranagar branch',
+    });
+
+    fireEvent.press(choose);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Could not open this branch. Check your connection and try again.'
+        )
+      ).toBeTruthy();
+      expect(choose).toBeEnabled();
+    });
+
+    fireEvent.press(choose);
+
+    await waitFor(() => {
+      expect(selectBranch).toHaveBeenCalledTimes(2);
+      expect(choose).toBeEnabled();
+      expect(
+        screen.queryByText(
+          'Could not open this branch. Check your connection and try again.'
+        )
+      ).toBeNull();
+    });
   });
 
   it('shows a blocking explanation and permits a safe branch retry', () => {
