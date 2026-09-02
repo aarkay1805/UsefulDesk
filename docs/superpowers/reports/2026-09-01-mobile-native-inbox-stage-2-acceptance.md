@@ -26,19 +26,20 @@ acceptance.
 
 | Command                                                                                                                                | Result  | Evidence                                                                                                                                                                                                                                                                                                                                                              |
 | -------------------------------------------------------------------------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run mobile:verify`                                                                                                                | Pass    | Final revision after `ee34cc7`: Expo lint and `tsc --noEmit` passed; Jest 46 suites / 482 tests, 0 snapshots; 12.833 s.                                                                                                                                                                                                                                               |
-| `npm test -- src/lib/auth/mobile-operational-access.test.ts src/app/api/whatsapp/send/route.test.ts src/proxy.test.ts`                 | Pass    | Final revision: Vitest 4.1.9; 3 files / 66 tests; 234 ms.                                                                                                                                                                                                                                                                                                             |
-| `(cd apps/mobile && npx expo-doctor)`                                                                                                  | Pass    | Earlier branch run: 21/21 checks passed. It was not rerun after the final presentation-only fixes.                                                                                                                                                                                                                                                                    |
-| `(cd apps/mobile && npx expo export --platform ios --output-dir "$stage2_ios_export")`                                                 | Pass    | Earlier branch run exported 2,483 modules, 23 assets, and one 6.2 MB iOS bundle to `/tmp/usefuldesk-stage2-ios.w5MLSu`. It was not rerun after the final presentation-only fixes.                                                                                                                                                                                     |
+| `npm run mobile:verify`                                                                                                                | Pass    | Final revision after `8e213a4`: Expo lint and `tsc --noEmit` passed; Jest 46 suites / 485 tests, 0 snapshots.                                                                                                                                                                                                                                                         |
+| `npm test -- src/lib/auth/mobile-operational-access.test.ts src/app/api/whatsapp/send/route.test.ts src/proxy.test.ts`                 | Pass    | Post-`ee34cc7` branch run: Vitest 4.1.9; 3 files / 66 tests; 234 ms. Later commit `8e213a4` touched mobile files only.                                                                                                                                                                                                                                                |
+| `(cd apps/mobile && npx expo-doctor)`                                                                                                  | Pass    | Earlier branch run: 21/21 checks passed. It was not rerun after the final UI/accessibility fixes.                                                                                                                                                                                                                                                                     |
+| `(cd apps/mobile && npx expo export --platform ios --output-dir "$stage2_ios_export")`                                                 | Pass    | Earlier branch run exported 2,483 modules, 23 assets, and one 6.2 MB iOS bundle to `/tmp/usefuldesk-stage2-ios.w5MLSu`. It was not rerun after the final UI/accessibility fixes.                                                                                                                                                                                      |
 | `npm run verify`                                                                                                                       | Blocked | The latest attempted repository gate stopped at `prettier --check .` on `apps/mobile/.expo/types/router.d.ts`, `apps/mobile/expo-env.d.ts`, and `docs/pricing-and-packaging-research.md`. The generated paths are ignored and the tracked pricing document is an unchanged baseline failure. Later lint/typecheck/test/build stages were not reached by this command. |
 | `npx prettier --check PRDs/roadmap.md docs/changelog.md docs/superpowers/reports/2026-09-01-mobile-native-inbox-stage-2-acceptance.md` | Pass    | The three Task 9 documentation files pass targeted formatting.                                                                                                                                                                                                                                                                                                        |
 | `git diff --check`                                                                                                                     | Pass    | No whitespace errors.                                                                                                                                                                                                                                                                                                                                                 |
 
 An earlier full root Vitest run passed 406 suites / 3,053 tests. A later agent
 reported 3,055 / 3,055 root tests after additional coverage. Neither full root
-run occurred after final presentation commit `ee34cc7`, so neither is claimed as
-a final-revision gate; the fresh 66-test root selection above covers the bearer,
-send-route, and proxy boundaries touched by Stage 2.
+run occurred after presentation commit `ee34cc7` or accessibility commit
+`8e213a4`, so neither is claimed as a final-revision gate; the fresh 66-test root
+selection above covers the bearer, send-route, and proxy boundaries touched by
+Stage 2.
 
 The earlier iOS export emitted six warnings that `NO_COLOR` was ignored while
 `FORCE_COLOR` was set. No credential values were printed or recorded.
@@ -86,6 +87,11 @@ delivered by this acceptance exercise.
 - `9b60bb3` reconciled provider status races and durable failed state.
 - `f599d4d` attempted the failed-state presentation correction; final commit
   `ee34cc7` placed the failure label outside the bubble so it renders reliably.
+- `8e213a4` added a transition-only iOS accessibility announcement. Its focused
+  TDD run moved from 2 announcement failures / 15 passes to 17 / 17 passes: a
+  same-message sent-to-failed transition announces once with queued speech,
+  while cold failed mounts, unrelated updates, and repeated failed renders are
+  silent.
 
 ## Remaining acceptance limits
 
@@ -94,7 +100,7 @@ accepted on the physical device in this exercise:
 
 - free-form send inside the 24-hour window;
 - local optimistic text failure, draft retention, and text Retry;
-- physical viewer read-only mode;
+- physical viewer read-only mode and VoiceOver announcement behavior;
 - large Dynamic Type and light appearance;
 - keyboard/reachability behavior and a safe induced network interruption;
 - successful provider delivery/read status patching; and

@@ -32,7 +32,7 @@ the branch-aware transport has one refresh retry; optimistic, persisted, and
 provider identities reconcile to one outbound row; agent+ users get an
 inside-window text composer and Retry while outside-window users get only
 Approved/synced POSITIONAL templates; viewers remain read-only. The latest
-post-fix mobile gate passed lint/typecheck and **46 Jest suites / 482 tests**;
+post-fix mobile gate passed lint/typecheck and **46 Jest suites / 485 tests**;
 the current bearer/send/proxy selection passed **66 root tests**, and the prior
 Expo Doctor run passed **21/21**. Physical iPhone acceptance passed two-branch
 isolation and the closed-window Approved-template picker. After explicit
@@ -43,8 +43,11 @@ not receive the message. After the provider race/status and presentation fixes,
 a no-resend retest showed the persisted row's separate red **Failed** state,
 matching the database with no stale checkmark and no unsafe text Retry. Recent
 inbound messages exposed the open-window composer, but no free-form send was
-executed. Physical viewer read-only, local optimistic text Retry, light mode,
-large Dynamic Type, Android interaction smoke, and remote EAS builds remain
+executed. A final iOS accessibility fix announces the same message's
+sent-to-failed transition once with queued VoiceOver speech while cold failed
+mounts, unrelated updates, and repeated failed renders stay silent. Physical
+viewer read-only, VoiceOver, local optimistic text Retry, light mode, large
+Dynamic Type, Android interaction smoke, and remote EAS builds remain
 unverified. The root `npm run verify` still stops at known Prettier baseline
 warnings before later gates. **Stage 3 remains deferred:** media, quoted
 replies, reactions, push notifications, and advanced message actions.**

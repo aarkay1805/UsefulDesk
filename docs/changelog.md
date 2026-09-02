@@ -27,15 +27,18 @@ Approved template was submitted to approved contact Rajat: the API returned
 healthy-ecosystem engagement, so Rajat did not receive it. The final no-resend
 device retest renders the database's failed status as a separate red **Failed**
 label with no stale checkmark and gives the persisted template no unsafe text
-Retry. Two-branch isolation and the closed-window template picker passed.
+Retry. The iOS status surface now announces the same message's sent-to-failed
+transition exactly once with queued VoiceOver speech; cold failed mounts,
+unrelated updates, and repeated failed renders remain silent. Two-branch
+isolation and the closed-window template picker passed.
 
-The post-fix mobile lint/typecheck run passes all 46 Jest suites / 482 tests;
+The post-fix mobile lint/typecheck run passes all 46 Jest suites / 485 tests;
 the relevant bearer/send/proxy root selection passes 66 tests, and the earlier
 Expo Doctor run passed 21/21. A free-form send, local optimistic text Retry,
-physical viewer mode, light mode, and large Dynamic Type were not exercised.
-The root `npm run verify` still stops on known Prettier baseline warnings before
-later gates. Quoted replies, media, reactions, push notifications, and advanced
-message actions remain Stage 3.
+physical viewer/VoiceOver behavior, light mode, and large Dynamic Type were not
+exercised. The root `npm run verify` still stops on known Prettier baseline
+warnings before later gates. Quoted replies, media, reactions, push
+notifications, and advanced message actions remain Stage 3.
 
 ---
 
