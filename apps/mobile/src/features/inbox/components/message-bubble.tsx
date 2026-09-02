@@ -1,4 +1,11 @@
-import { Text, useWindowDimensions, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import {
+  AccessibilityInfo,
+  Platform,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import type { InboxMessage, MessageStatus } from '../inbox-types';
 import { MessageContent } from './message-content';
@@ -95,6 +102,30 @@ export function MessageBubble({
   const imageSize = messageImageSizeForViewport(viewportWidth);
   const isOutbound = message.senderType !== 'customer';
   const isFailed = isOutbound && message.status === 'failed';
+  const previousDeliveryRef = useRef({
+    messageId: message.id,
+    status: message.status,
+  });
+
+  useEffect(() => {
+    const previousDelivery = previousDeliveryRef.current;
+    previousDeliveryRef.current = {
+      messageId: message.id,
+      status: message.status,
+    };
+
+    if (
+      Platform.OS === 'ios' &&
+      isOutbound &&
+      previousDelivery.messageId === message.id &&
+      previousDelivery.status !== 'failed' &&
+      message.status === 'failed'
+    ) {
+      AccessibilityInfo.announceForAccessibilityWithOptions('Message failed', {
+        queue: true,
+      });
+    }
+  }, [isOutbound, message.id, message.status]);
   const marker =
     message.contentType === 'template'
       ? 'Template'

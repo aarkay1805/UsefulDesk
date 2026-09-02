@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react-native';
+import { AccessibilityInfo, Platform } from 'react-native';
 
 import { message } from '../inbox-test-fixtures';
 import { messageImageSizeForViewport, MessageBubble } from './message-bubble';
@@ -16,6 +17,94 @@ jest.mock('expo-image', () => {
 });
 
 describe('MessageBubble', () => {
+  describe('iOS failed-delivery announcements', () => {
+    let announce: jest.SpiedFunction<
+      typeof AccessibilityInfo.announceForAccessibilityWithOptions
+    >;
+
+    beforeEach(() => {
+      jest.replaceProperty(Platform, 'OS', 'ios');
+      announce = jest
+        .spyOn(AccessibilityInfo, 'announceForAccessibilityWithOptions')
+        .mockImplementation();
+      announce.mockClear();
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('queues one announcement when an existing message transitions to failed', () => {
+      const sentMessage = message({ senderType: 'agent', status: 'sent' });
+      const { rerender } = render(
+        <MessageBubble
+          formattedTime="1:30 pm"
+          message={sentMessage}
+          startsRun
+        />
+      );
+
+      rerender(
+        <MessageBubble
+          formattedTime="1:30 pm"
+          message={{ ...sentMessage, status: 'failed' }}
+          startsRun
+        />
+      );
+
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenCalledWith('Message failed', { queue: true });
+    });
+
+    it('does not announce a failed message on initial mount', () => {
+      render(
+        <MessageBubble
+          formattedTime="1:30 pm"
+          message={message({ senderType: 'agent', status: 'failed' })}
+          startsRun
+        />
+      );
+
+      expect(announce).not.toHaveBeenCalled();
+    });
+
+    it('does not repeat an announcement for unrelated or failed rerenders', () => {
+      const sentMessage = message({ senderType: 'agent', status: 'sent' });
+      const failedMessage = { ...sentMessage, status: 'failed' as const };
+      const { rerender } = render(
+        <MessageBubble
+          formattedTime="1:30 pm"
+          message={sentMessage}
+          startsRun
+        />
+      );
+
+      rerender(
+        <MessageBubble
+          formattedTime="1:31 pm"
+          message={sentMessage}
+          startsRun={false}
+        />
+      );
+      rerender(
+        <MessageBubble
+          formattedTime="1:31 pm"
+          message={failedMessage}
+          startsRun={false}
+        />
+      );
+      rerender(
+        <MessageBubble
+          formattedTime="1:32 pm"
+          message={failedMessage}
+          startsRun
+        />
+      );
+
+      expect(announce).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('clamps 4:3 photos to the padded bubble on a 320dp portrait viewport', () => {
     expect(messageImageSizeForViewport(320)).toEqual({
       height: 129,
