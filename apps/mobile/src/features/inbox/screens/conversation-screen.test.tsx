@@ -725,6 +725,8 @@ describe('ConversationScreen', () => {
       .mockResolvedValueOnce({
         temporaryId: 'temp:persistent-row',
         status: 'failed',
+        safeToRetry: true,
+        message: 'Too many send attempts.',
       })
       .mockResolvedValueOnce({
         temporaryId: 'temp:later-success',
@@ -741,6 +743,7 @@ describe('ConversationScreen', () => {
             senderType: 'agent',
             status: 'failed',
             providerErrorTitle: 'Could not send message',
+            safeToRetry: true,
             contentText: 'Persistent failed message',
           }),
         ],
