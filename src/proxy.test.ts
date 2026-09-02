@@ -160,6 +160,35 @@ describe('proxy authentication', () => {
     ).toBeNull();
   });
 
+  it('forwards a bearer-present native WhatsApp send to route authorization', async () => {
+    const res = await proxy(
+      new NextRequest('https://app.test/api/whatsapp/send', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer mobile-access-token' },
+      })
+    );
+
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it('forwards the explicit branch context for a bearer-present native send', async () => {
+    const branch = '00000000-0000-4000-8000-000000000001';
+
+    const res = await proxy(
+      new NextRequest('https://app.test/api/whatsapp/send', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer mobile-access-token',
+          'x-usefuldesk-account-id': branch,
+        },
+      })
+    );
+
+    expect(
+      res.headers.get('x-middleware-request-x-usefuldesk-account-id')
+    ).toBe(branch);
+  });
+
   it.each(DASHBOARD_PATH_PREFIXES)(
     'redirects an anonymous request for %s to login',
     async (pathname) => {

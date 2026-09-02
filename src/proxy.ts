@@ -12,11 +12,14 @@ import {
 } from '@/lib/auth/invitation-continuation';
 
 export async function proxy(request: NextRequest) {
+  const isNativeWhatsAppSend =
+    request.nextUrl.pathname === '/api/whatsapp/send' &&
+    request.headers.get('authorization') !== null;
   const requestHeaders = new Headers(request.headers);
-  // Never trust a caller-authored tenant header. Dashboard page requests get
-  // their branch only from the URL; API requests continue resolving the
-  // tab-local branch from their same-origin Referer in the server client.
-  requestHeaders.delete(BRANCH_HEADER);
+  // Never trust a caller-authored tenant header on cookie-authenticated paths.
+  // Native sends are the exception: their route strictly validates the bearer
+  // and independently verifies membership in this explicit branch via RLS.
+  if (!isNativeWhatsAppSend) requestHeaders.delete(BRANCH_HEADER);
   if (
     isDashboardPath(request.nextUrl.pathname) &&
     request.nextUrl.searchParams.has(BRANCH_QUERY_PARAM)
@@ -143,7 +146,8 @@ export async function proxy(request: NextRequest) {
   if (
     !authenticated &&
     request.nextUrl.pathname.startsWith('/api/whatsapp/') &&
-    !request.nextUrl.pathname.includes('/webhook')
+    !request.nextUrl.pathname.includes('/webhook') &&
+    !isNativeWhatsAppSend
   ) {
     return withRefreshedCookies(
       NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
