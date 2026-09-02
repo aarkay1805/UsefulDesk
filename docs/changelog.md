@@ -6,6 +6,39 @@
 
 ---
 
+## Native mobile Inbox Stage 2
+
+`apps/mobile` now implements Stage 2 outbound Inbox actions: the web send route
+accepts a strict first-party bearer path in
+`src/lib/auth/mobile-operational-access.ts`; the native client obtains the
+current token at send time, performs one guarded refresh retry, and preserves
+the selected-branch header in `send-message-client.ts`. Optimistic text state
+in `outbound-message-state.ts` reconciles temporary, persisted, and WhatsApp
+provider identities into one row while realtime delivery/read updates patch
+that row. `conversation-screen.tsx`, `conversation-composer.tsx`, and
+`template-picker.tsx` supply the role/window-gated native text composer,
+failed-row Retry, and Approved/synced POSITIONAL template form.
+
+Physical acceptance exposed and fixed the native-proxy bearer boundary, the
+message repository's canonical column selection, provider-failure reconciliation
+races, and failed-status presentation. After explicit confirmation, one exact
+Approved template was submitted to approved contact Rajat: the API returned
+200 with a Meta provider ID, but callback code `131049` rejected delivery for
+healthy-ecosystem engagement, so Rajat did not receive it. The final no-resend
+device retest renders the database's failed status as a separate red **Failed**
+label with no stale checkmark and gives the persisted template no unsafe text
+Retry. Two-branch isolation and the closed-window template picker passed.
+
+The post-fix mobile lint/typecheck run passes all 46 Jest suites / 482 tests;
+the relevant bearer/send/proxy root selection passes 66 tests, and the earlier
+Expo Doctor run passed 21/21. A free-form send, local optimistic text Retry,
+physical viewer mode, light mode, and large Dynamic Type were not exercised.
+The root `npm run verify` still stops on known Prettier baseline warnings before
+later gates. Quoted replies, media, reactions, push notifications, and advanced
+message actions remain Stage 3.
+
+---
+
 ## Secure mobile agent foundation
 
 `apps/mobile` now ships the cross-platform Expo development-client foundation

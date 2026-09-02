@@ -26,8 +26,28 @@ proves conversation navigation/history, header and metadata rendering, and
 cross-branch isolation without a stale back stack; a live realtime incoming
 event was not exercised. Stage 1 contains no composer or message sending.
 Generated native projects stay ignored, Android interaction smoke and remote
-EAS builds remain pending, and Stage 2 text/templates plus Stage 3 rich chat are
-still deferred.**
+EAS builds remain pending. **Stage 2 native outbound Inbox implementation is
+built:** strict mobile bearer authorization keeps cookie callers compatible;
+the branch-aware transport has one refresh retry; optimistic, persisted, and
+provider identities reconcile to one outbound row; agent+ users get an
+inside-window text composer and Retry while outside-window users get only
+Approved/synced POSITIONAL templates; viewers remain read-only. The latest
+post-fix mobile gate passed lint/typecheck and **46 Jest suites / 482 tests**;
+the current bearer/send/proxy selection passed **66 root tests**, and the prior
+Expo Doctor run passed **21/21**. Physical iPhone acceptance passed two-branch
+isolation and the closed-window Approved-template picker. After explicit
+confirmation, one exact template send was attempted to approved contact Rajat:
+the API returned 200 and Meta returned a provider ID, but its asynchronous
+callback failed with code `131049` (healthy-ecosystem engagement), so Rajat did
+not receive the message. After the provider race/status and presentation fixes,
+a no-resend retest showed the persisted row's separate red **Failed** state,
+matching the database with no stale checkmark and no unsafe text Retry. Recent
+inbound messages exposed the open-window composer, but no free-form send was
+executed. Physical viewer read-only, local optimistic text Retry, light mode,
+large Dynamic Type, Android interaction smoke, and remote EAS builds remain
+unverified. The root `npm run verify` still stops at known Prettier baseline
+warnings before later gates. **Stage 3 remains deferred:** media, quoted
+replies, reactions, push notifications, and advanced message actions.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,
