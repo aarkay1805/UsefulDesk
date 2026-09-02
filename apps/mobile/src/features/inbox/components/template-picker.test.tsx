@@ -225,11 +225,72 @@ describe('TemplatePicker', () => {
     expect(keyboardAvoidingBehavior('android')).toBe('height');
   });
 
+  it('uses semantic foreground roles for the sheet title and section hierarchy', () => {
+    renderPicker();
+
+    expect(
+      screen.getByText('Send approved template').props.className
+    ).toContain('text-foreground');
+    expect(screen.getByText('Approved templates').props.className).toContain(
+      'text-foreground'
+    );
+    expect(screen.getByText('Template values').props.className).toContain(
+      'text-foreground'
+    );
+  });
+
+  it('keeps the preview and approval copy contrast-safe on a semantic surface', () => {
+    renderPicker();
+
+    expect(screen.getByTestId('template-preview').props.className).toContain(
+      'bg-surface-secondary'
+    );
+    expect(screen.getByText('Preview').props.className).toContain(
+      'text-surface-secondary-foreground'
+    );
+    expect(
+      screen.getByText('Hi {{1}}, your membership expires {{2}}.').props
+        .className
+    ).toContain('text-surface-secondary-foreground');
+    expect(screen.getByText('Approved').props.className).toContain(
+      'text-surface-secondary-foreground'
+    );
+  });
+
+  it('exposes and visibly names the selected template', () => {
+    renderPicker();
+
+    const selected = screen.getByRole('button', {
+      name: 'gym_membership_renewal, Approved, Selected',
+    });
+    const unselected = screen.getByRole('button', {
+      name: 'gym_offer, Approved',
+    });
+
+    expect(selected.props.accessibilityState).toEqual({
+      disabled: false,
+      selected: true,
+    });
+    expect(unselected.props.accessibilityState).toEqual({
+      disabled: false,
+      selected: false,
+    });
+    expect(screen.getByText('gym_membership_renewal · Selected')).toBeTruthy();
+    expect(screen.getByTestId('template-option-template-1').props.variant).toBe(
+      'primary'
+    );
+    expect(screen.getByTestId('template-option-template-2').props.variant).toBe(
+      'outline'
+    );
+  });
+
   it('lists approved templates, previews static content, and preserves template field order', () => {
     renderPicker();
 
     expect(
-      screen.getByRole('button', { name: 'gym_membership_renewal, Approved' })
+      screen.getByRole('button', {
+        name: 'gym_membership_renewal, Approved, Selected',
+      })
     ).toBeTruthy();
     expect(
       screen.getByText('Hi {{1}}, your membership expires {{2}}.')
@@ -258,8 +319,9 @@ describe('TemplatePicker', () => {
     expect(screen.getByText('Enter a value for Renew now.')).toBeTruthy();
     expect(send).not.toHaveBeenCalled();
 
-    fireEvent.press(
-      screen.getByRole('button', { name: 'gym_offer, Approved' })
+    fireEvent(
+      screen.getByRole('button', { name: 'gym_offer, Approved' }),
+      'accessibilityTap'
     );
     expect(screen.getByLabelText('Copy offer').props.value).toBe('WELCOME20');
     fireEvent.changeText(
@@ -388,6 +450,6 @@ describe('TemplatePicker', () => {
       '  Rajat  '
     );
     expect(screen.getByLabelText('Renew now').props.value).toBe('  member-42 ');
-    expect(screen.getByText('gym_membership_renewal')).toBeTruthy();
+    expect(screen.getByText('gym_membership_renewal · Selected')).toBeTruthy();
   });
 });

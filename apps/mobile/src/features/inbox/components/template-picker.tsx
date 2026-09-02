@@ -348,7 +348,7 @@ export function TemplatePicker({
               className="bg-background max-h-[90%] rounded-t-2xl px-4 pt-4"
             >
               <View className="mb-4 flex-row items-center justify-between gap-3">
-                <Text className="flex-1 text-lg font-semibold">
+                <Text className="text-foreground flex-1 text-lg font-semibold">
                   Send approved template
                 </Text>
                 <Button
@@ -384,33 +384,47 @@ export function TemplatePicker({
                   contentContainerClassName="gap-4 pb-4"
                 >
                   <View className="gap-2">
-                    <Text className="text-muted text-sm font-medium">
+                    <Text className="text-foreground text-sm font-medium">
                       Approved templates
                     </Text>
                     {templates.map((template) => {
                       const selected = template.id === selectedTemplate.id;
                       return (
-                        <Button
+                        <View
                           key={template.id}
-                          accessibilityLabel={`${template.name}, Approved`}
-                          className="min-h-11 justify-start px-3"
-                          disabled={pending}
-                          onPress={() => selectTemplate(template)}
-                          variant={selected ? 'primary' : 'outline'}
+                          accessible
+                          accessibilityLabel={`${template.name}, Approved${selected ? ', Selected' : ''}`}
+                          accessibilityRole="button"
+                          accessibilityState={{ disabled: pending, selected }}
+                          onAccessibilityTap={() => selectTemplate(template)}
                         >
-                          {template.name}
-                        </Button>
+                          <Button
+                            accessible={false}
+                            className="min-h-11 justify-start px-3"
+                            disabled={pending}
+                            onPress={() => selectTemplate(template)}
+                            testID={`template-option-${template.id}`}
+                            variant={selected ? 'primary' : 'outline'}
+                          >
+                            {selected
+                              ? `${template.name} · Selected`
+                              : template.name}
+                          </Button>
+                        </View>
                       );
                     })}
                   </View>
 
-                  <View className="bg-muted gap-2 rounded-xl px-3 py-3">
-                    <Text className="text-muted text-sm font-medium">
+                  <View
+                    className="bg-surface-secondary gap-2 rounded-xl px-3 py-3"
+                    testID="template-preview"
+                  >
+                    <Text className="text-surface-secondary-foreground text-sm font-medium">
                       Preview
                     </Text>
                     {selectedTemplate.headerType === 'text' &&
                     selectedTemplate.headerContent ? (
-                      <Text className="text-base font-semibold">
+                      <Text className="text-surface-secondary-foreground text-base font-semibold">
                         {interpolate(
                           selectedTemplate.headerContent,
                           values,
@@ -418,15 +432,17 @@ export function TemplatePicker({
                         )}
                       </Text>
                     ) : null}
-                    <Text className="text-sm leading-5">
+                    <Text className="text-surface-secondary-foreground text-sm leading-5">
                       {interpolate(selectedTemplate.bodyText, values, 'body')}
                     </Text>
-                    <Text className="text-muted text-xs">Approved</Text>
+                    <Text className="text-surface-secondary-foreground text-xs">
+                      Approved
+                    </Text>
                   </View>
 
                   {fields.length > 0 ? (
                     <View className="gap-3">
-                      <Text className="text-muted text-sm font-medium">
+                      <Text className="text-foreground text-sm font-medium">
                         Template values
                       </Text>
                       {fields.map((field) => {
