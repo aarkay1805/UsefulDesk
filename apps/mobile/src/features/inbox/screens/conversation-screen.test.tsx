@@ -41,6 +41,11 @@ const mockUseMessageThread = jest.fn();
 const mockUseReadyAuth = jest.fn<ReadyAuthContextValue, []>();
 const mockScrollToEnd = jest.fn();
 const mockFocus = jest.fn();
+const mockTemplateSendUncertaintyStore = {
+  hasMarker: jest.fn(),
+  mark: jest.fn(),
+  clear: jest.fn(),
+};
 const mockStackOptions: { current: Record<string, unknown> | undefined } = {
   current: undefined,
 };
@@ -149,6 +154,17 @@ jest.mock('../use-message-thread', () => ({
 
 jest.mock('../inbox-realtime-provider', () => ({
   useInboxRealtimeFeed: () => screenRealtime,
+}));
+
+jest.mock('../template-send-uncertainty', () => ({
+  templateSendUncertaintyStore: {
+    hasMarker: (...args: unknown[]) =>
+      mockTemplateSendUncertaintyStore.hasMarker(...args),
+    mark: (...args: unknown[]) =>
+      mockTemplateSendUncertaintyStore.mark(...args),
+    clear: (...args: unknown[]) =>
+      mockTemplateSendUncertaintyStore.clear(...args),
+  },
 }));
 
 jest.mock('../send-message-client', () => ({
@@ -450,6 +466,16 @@ function readyThreadResult(
   } as UseMessageThreadResult;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((next, fail) => {
+    resolve = next;
+    reject = fail;
+  });
+  return { promise, reject, resolve };
+}
+
 describe('conversation scroll policy', () => {
   it('measures the bottom band and follows only insert-shaped tail growth', () => {
     expect(distanceFromBottom(1000, 700, 200)).toBe(100);
@@ -488,6 +514,9 @@ describe('ConversationScreen', () => {
     });
     mockUseReadyAuth.mockReturnValue(readyAuthValue());
     mockUseMessageThread.mockReturnValue(readyThreadResult());
+    mockTemplateSendUncertaintyStore.hasMarker.mockResolvedValue(false);
+    mockTemplateSendUncertaintyStore.mark.mockResolvedValue(undefined);
+    mockTemplateSendUncertaintyStore.clear.mockResolvedValue(undefined);
   });
 
   it('renders chronological runs in the native titled route with the open-window composer', () => {
@@ -832,7 +861,7 @@ describe('ConversationScreen', () => {
     );
   });
 
-  it('closes the open service window at the exact 24-hour boundary without another render', () => {
+  it('closes the open service window at the exact 24-hour boundary without another render', async () => {
     jest.useFakeTimers();
     const latestInboundAt = '2026-09-01T08:00:00.000Z';
     jest.setSystemTime(new Date(latestInboundAt));
@@ -854,11 +883,17 @@ describe('ConversationScreen', () => {
     const view = render(<ConversationScreen />);
 
     try {
+      await act(async () => {
+        await Promise.resolve();
+      });
       expect(screen.getByLabelText('Message')).toBeTruthy();
       act(() => jest.advanceTimersByTime(24 * 60 * 60 * 1000 - 1));
       expect(screen.getByLabelText('Message')).toBeTruthy();
 
-      act(() => jest.advanceTimersByTime(1));
+      await act(async () => {
+        jest.advanceTimersByTime(1);
+        await Promise.resolve();
+      });
 
       expect(screen.queryByLabelText('Message')).toBeNull();
       expect(screen.getByTestId('closed-window-action-bar')).toBeTruthy();
@@ -868,7 +903,7 @@ describe('ConversationScreen', () => {
     }
   });
 
-  it('replaces the composer with an amber closed-window bar whose only action is Send a template', () => {
+  it('replaces the composer with an amber closed-window bar whose only action is Send a template', async () => {
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
         sendReadiness: {
@@ -887,7 +922,7 @@ describe('ConversationScreen', () => {
 
     render(<ConversationScreen />);
 
-    const bar = screen.getByTestId('closed-window-action-bar');
+    const bar = await screen.findByTestId('closed-window-action-bar');
     expect(bar.props.className).toContain('bg-warning-soft');
     expect(screen.queryByLabelText('Message')).toBeNull();
     expect(
@@ -895,6 +930,82 @@ describe('ConversationScreen', () => {
         .getAllByRole('button')
         .map((button) => button.props.accessibilityLabel)
     ).toEqual(['Send a template']);
+  });
+
+  it('does not expose template sending until the durable marker check completes', async () => {
+    const markerRead = deferred<boolean>();
+    mockTemplateSendUncertaintyStore.hasMarker.mockReturnValueOnce(
+      markerRead.promise
+    );
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    expect(screen.getByTestId('template-send-safety-loading')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Send a template' })
+    ).toBeNull();
+
+    await act(async () => {
+      markerRead.resolve(false);
+      await markerRead.promise;
+    });
+
+    expect(
+      await screen.findByRole('button', { name: 'Send a template' })
+    ).toBeTruthy();
+  });
+
+  it('fails closed when marker hydration fails and retries the durable check explicitly', async () => {
+    mockTemplateSendUncertaintyStore.hasMarker
+      .mockRejectedValueOnce(new Error('SecureStore unavailable'))
+      .mockResolvedValueOnce(false);
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+
+    render(<ConversationScreen />);
+
+    expect(await screen.findByText('Template sending is locked')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Send a template' })
+    ).toBeNull();
+
+    fireEvent.press(
+      screen.getByRole('button', {
+        name: 'Check template send safety again',
+      })
+    );
+
+    expect(
+      await screen.findByRole('button', { name: 'Send a template' })
+    ).toBeTruthy();
   });
 
   it('opens the existing template picker, sends, refreshes, and closes it', async () => {
@@ -921,16 +1032,26 @@ describe('ConversationScreen', () => {
     );
     render(<ConversationScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send a template' })
+    );
     expect(screen.getByText('Send approved template')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
     await waitFor(() => expect(sendConversationMessage).toHaveBeenCalled());
+    expect(mockTemplateSendUncertaintyStore.mark).toHaveBeenCalledWith(
+      BRANCH_ID,
+      CONVERSATION_ID
+    );
+    expect(mockTemplateSendUncertaintyStore.clear).toHaveBeenCalledWith(
+      BRANCH_ID,
+      CONVERSATION_ID
+    );
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Send approved template')).toBeNull();
   });
 
-  it('keeps the template picker open when the hook returns an equivalent readiness value on rerender', () => {
+  it('keeps the template picker open when the hook returns an equivalent readiness value on rerender', async () => {
     mockUseMessageThread.mockImplementation(() =>
       readyThreadResult({
         sendReadiness: {
@@ -948,12 +1069,14 @@ describe('ConversationScreen', () => {
     );
     render(<ConversationScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send a template' })
+    );
 
     expect(screen.getByText('Send approved template')).toBeTruthy();
   });
 
-  it('keeps an ambiguous template outcome locked after close and reopen until the agent confirms checking the conversation', async () => {
+  it('hydrates an ambiguous template outcome after remount and durably clears it only after acknowledgment', async () => {
     jest
       .mocked(sendConversationMessage)
       .mockRejectedValueOnce(
@@ -974,16 +1097,24 @@ describe('ConversationScreen', () => {
         },
       })
     );
-    render(<ConversationScreen />);
+    const view = render(<ConversationScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send a template' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
     expect(
       await screen.findByText(/Delivery could not be confirmed/)
     ).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Close' }));
-    fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+    view.unmount();
+
+    mockTemplateSendUncertaintyStore.hasMarker.mockResolvedValue(true);
+    render(<ConversationScreen />);
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send a template' })
+    );
 
     expect(
       screen.getByText(
@@ -996,8 +1127,87 @@ describe('ConversationScreen', () => {
       screen.getByRole('button', { name: 'I checked the conversation' })
     );
 
-    expect(screen.getByRole('button', { name: 'Send template' })).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: 'Send template' })
+    ).toBeTruthy();
     expect(sendConversationMessage).toHaveBeenCalledTimes(1);
+    expect(mockTemplateSendUncertaintyStore.clear).toHaveBeenCalledWith(
+      BRANCH_ID,
+      CONVERSATION_ID
+    );
+  });
+
+  it('does not call the send service when persisting the pre-send marker fails', async () => {
+    mockTemplateSendUncertaintyStore.mark.mockRejectedValueOnce(
+      new Error('SecureStore unavailable')
+    );
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    render(<ConversationScreen />);
+
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send a template' })
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+    expect(await screen.findByText(/No message was sent/)).toBeTruthy();
+    expect(sendConversationMessage).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    expect(await screen.findByText('Template sending is locked')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Send a template' })
+    ).toBeNull();
+  });
+
+  it('keeps a hydrated marker locked when acknowledgment deletion fails', async () => {
+    mockTemplateSendUncertaintyStore.hasMarker.mockResolvedValue(true);
+    mockTemplateSendUncertaintyStore.clear.mockRejectedValueOnce(
+      new Error('SecureStore unavailable')
+    );
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: null,
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    render(<ConversationScreen />);
+
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send a template' })
+    );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'I checked the conversation' })
+    );
+
+    expect(
+      await screen.findByText(
+        'Could not clear the send-safety lock. Sending remains locked until storage recovers.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
+    expect(sendConversationMessage).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -1028,7 +1238,9 @@ describe('ConversationScreen', () => {
       );
       const view = render(<ConversationScreen />);
 
-      fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+      fireEvent.press(
+        await screen.findByRole('button', { name: 'Send a template' })
+      );
       fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
       expect(
         await screen.findByText(/Delivery could not be confirmed/)
@@ -1040,7 +1252,9 @@ describe('ConversationScreen', () => {
       });
       mockUseReadyAuth.mockReturnValue(readyAuthValue(nextBranchId));
       view.rerender(<ConversationScreen />);
-      fireEvent.press(screen.getByRole('button', { name: 'Send a template' }));
+      fireEvent.press(
+        await screen.findByRole('button', { name: 'Send a template' })
+      );
 
       expect(
         screen.getByRole('button', { name: 'Send template' })

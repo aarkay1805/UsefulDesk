@@ -132,32 +132,39 @@ function renderPicker(options?: {
   templates?: NativeTemplate[];
   blocker?: ActionBlocker | null;
   outcomeUnknown?: boolean;
+  onAttemptStarted?: jest.Mock;
   onClose?: jest.Mock;
   onOutcomeAcknowledged?: jest.Mock;
-  onOutcomeUnknown?: jest.Mock;
+  onOutcomeConfirmed?: jest.Mock;
   onSent?: jest.Mock;
 }) {
+  const onAttemptStarted =
+    options?.onAttemptStarted ?? jest.fn().mockResolvedValue(undefined);
   const onClose = options?.onClose ?? jest.fn();
-  const onOutcomeAcknowledged = options?.onOutcomeAcknowledged ?? jest.fn();
-  const onOutcomeUnknown = options?.onOutcomeUnknown ?? jest.fn();
+  const onOutcomeAcknowledged =
+    options?.onOutcomeAcknowledged ?? jest.fn().mockResolvedValue(undefined);
+  const onOutcomeConfirmed =
+    options?.onOutcomeConfirmed ?? jest.fn().mockResolvedValue(undefined);
   const onSent = options?.onSent ?? jest.fn();
   render(
     <TemplatePicker
       accountId={ACCOUNT_ID}
       blocker={options?.blocker ?? null}
       conversationId={CONVERSATION_ID}
+      onAttemptStarted={onAttemptStarted}
       onClose={onClose}
       onOutcomeAcknowledged={onOutcomeAcknowledged}
-      onOutcomeUnknown={onOutcomeUnknown}
+      onOutcomeConfirmed={onOutcomeConfirmed}
       onSent={onSent}
       outcomeUnknown={options?.outcomeUnknown ?? false}
       templates={options?.templates ?? [membershipTemplate, copyCodeTemplate]}
     />
   );
   return {
+    onAttemptStarted,
     onClose,
     onOutcomeAcknowledged,
-    onOutcomeUnknown,
+    onOutcomeConfirmed,
     onSent,
   };
 }
@@ -178,6 +185,15 @@ function deferred<T>() {
     resolve = next;
   });
   return { promise, resolve };
+}
+
+async function waitForPickerIdle() {
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Cancel' }).props.accessibilityState
+        .disabled
+    ).toBe(false)
+  );
 }
 
 describe('TemplatePicker', () => {
@@ -381,6 +397,7 @@ describe('TemplatePicker', () => {
     });
     expect(onSent).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+    await waitForPickerIdle();
   });
 
   it('sends an overridden COPY_CODE at its original button index', async () => {
@@ -388,7 +405,7 @@ describe('TemplatePicker', () => {
       messageId: 'message-2',
       whatsappMessageId: null,
     });
-    renderPicker({ templates: [copyCodeTemplate] });
+    const { onClose } = renderPicker({ templates: [copyCodeTemplate] });
 
     fireEvent.changeText(
       screen.getByLabelText('Body variable 1'),
@@ -409,6 +426,8 @@ describe('TemplatePicker', () => {
         { recoverUnauthorizedSession: mockRecoverUnauthorizedSession }
       );
     });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    await waitForPickerIdle();
   });
 
   it('sends a valid static template with exact empty positional values', async () => {
@@ -416,7 +435,7 @@ describe('TemplatePicker', () => {
       messageId: 'message-3',
       whatsappMessageId: null,
     });
-    renderPicker({ templates: [staticTemplate] });
+    const { onClose } = renderPicker({ templates: [staticTemplate] });
 
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
@@ -430,6 +449,8 @@ describe('TemplatePicker', () => {
         { recoverUnauthorizedSession: mockRecoverUnauthorizedSession }
       );
     });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    await waitForPickerIdle();
   });
 
   it('prevents repeat sends while pending', async () => {
@@ -439,6 +460,7 @@ describe('TemplatePicker', () => {
 
     fillMembershipFields();
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
     fireEvent.press(
       screen.getByRole('button', { name: 'Send template, loading' })
     );
@@ -448,13 +470,78 @@ describe('TemplatePicker', () => {
       attempt.resolve({ messageId: 'message-1', whatsappMessageId: null });
       await attempt.promise;
     });
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Send template, loading' })
+      ).toBeNull()
+    );
+    await waitForPickerIdle();
+  });
+
+  it('persists the uncertainty marker before the network send and keeps Close unavailable while marking', async () => {
+    const marker = deferred<void>();
+    const onAttemptStarted = jest.fn(() => marker.promise);
+    send.mockResolvedValue({
+      messageId: 'message-1',
+      whatsappMessageId: null,
+    });
+    const { onClose } = renderPicker({
+      templates: [staticTemplate],
+      onAttemptStarted,
+    });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+    expect(onAttemptStarted).toHaveBeenCalledTimes(1);
+    expect(send).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: 'Cancel' }).props.accessibilityState
+        .disabled
+    ).toBe(true);
+
+    await act(async () => {
+      marker.resolve();
+      await marker.promise;
+    });
+
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(onAttemptStarted.mock.invocationCallOrder[0]).toBeLessThan(
+      send.mock.invocationCallOrder[0]
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Send template, loading' })
+      ).toBeNull()
+    );
+    await waitForPickerIdle();
+  });
+
+  it('does not send when the uncertainty marker cannot be persisted', async () => {
+    const onAttemptStarted = jest
+      .fn()
+      .mockRejectedValue(new Error('SecureStore unavailable'));
+    renderPicker({ templates: [staticTemplate], onAttemptStarted });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+    expect(
+      await screen.findByText(
+        'Could not save template send safety status. No message was sent. Sending remains locked until storage recovers.'
+      )
+    ).toBeTruthy();
+    expect(send).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
+    await waitForPickerIdle();
   });
 
   it('keeps the selected template and all values after a definite pre-send failure with one retry action', async () => {
     send.mockRejectedValueOnce(
       new MobileSendError('rate_limited', 'Too many send attempts.')
     );
-    renderPicker({ templates: [membershipTemplate] });
+    const { onOutcomeConfirmed } = renderPicker({
+      templates: [membershipTemplate],
+    });
 
     fillMembershipFields();
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
@@ -471,6 +558,29 @@ describe('TemplatePicker', () => {
     );
     expect(screen.getByLabelText('Renew now').props.value).toBe('  member-42 ');
     expect(screen.getByText('gym_membership_renewal · Selected')).toBeTruthy();
+    expect(onOutcomeConfirmed).toHaveBeenCalledTimes(1);
+    await waitForPickerIdle();
+  });
+
+  it('keeps sending locked when a definite outcome marker cannot be cleared', async () => {
+    send.mockRejectedValueOnce(
+      new MobileSendError('rate_limited', 'Too many send attempts.')
+    );
+    const onOutcomeConfirmed = jest
+      .fn()
+      .mockRejectedValue(new Error('SecureStore unavailable'));
+    renderPicker({ templates: [staticTemplate], onOutcomeConfirmed });
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+    expect(
+      await screen.findByText(
+        'The send was rejected, but the send-safety lock could not be cleared. Sending remains locked until storage recovers.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Retry send' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
+    await waitForPickerIdle();
   });
 
   it.each([
@@ -481,7 +591,7 @@ describe('TemplatePicker', () => {
     'withholds template retry after an ambiguous %s outcome',
     async (category, detail) => {
       send.mockRejectedValueOnce(new MobileSendError(category, detail));
-      const { onClose, onOutcomeUnknown } = renderPicker({
+      const { onAttemptStarted, onClose, onOutcomeConfirmed } = renderPicker({
         templates: [membershipTemplate],
       });
 
@@ -503,14 +613,16 @@ describe('TemplatePicker', () => {
       expect(screen.getByLabelText('Renew now').props.value).toBe(
         '  member-42 '
       );
-      expect(onOutcomeUnknown).toHaveBeenCalledTimes(1);
+      expect(onAttemptStarted).toHaveBeenCalledTimes(1);
+      expect(onOutcomeConfirmed).not.toHaveBeenCalled();
+      await waitForPickerIdle();
 
       fireEvent.press(screen.getByRole('button', { name: 'Close' }));
       expect(onClose).toHaveBeenCalledTimes(1);
     }
   );
 
-  it('keeps a previous unknown outcome locked until the agent explicitly confirms checking the conversation', () => {
+  it('keeps a previous unknown outcome locked until the agent explicitly confirms checking the conversation', async () => {
     const { onOutcomeAcknowledged } = renderPicker({
       templates: [membershipTemplate],
       outcomeUnknown: true,
@@ -531,5 +643,6 @@ describe('TemplatePicker', () => {
 
     expect(onOutcomeAcknowledged).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();
+    await waitForPickerIdle();
   });
 });

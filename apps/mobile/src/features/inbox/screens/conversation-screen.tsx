@@ -32,6 +32,7 @@ import {
 import { buildThreadItems } from '../inbox-format';
 import { useInboxRealtimeFeed } from '../inbox-realtime-provider';
 import type { ThreadDisplayItem } from '../inbox-types';
+import { templateSendUncertaintyStore } from '../template-send-uncertainty';
 import {
   useMessageThread,
   type MessageThreadOutboundDependencies,
@@ -49,6 +50,8 @@ const SEND_READINESS_BLOCKER: ActionBlocker = {
   reason:
     'Could not verify sending setup for this conversation. Pull to refresh and try again.',
 };
+
+type TemplateSendSafetyState = 'loading' | 'clear' | 'unknown' | 'error';
 
 export function distanceFromBottom(
   contentHeight: number,
@@ -206,7 +209,9 @@ function ConversationThread({
   const [templatePickerFeed, setTemplatePickerFeed] = useState<
     typeof realtime | null
   >(null);
-  const [templateOutcomeUnknown, setTemplateOutcomeUnknown] = useState(false);
+  const [templateSendSafety, setTemplateSendSafety] =
+    useState<TemplateSendSafetyState>('loading');
+  const [templateSafetyCheckNonce, setTemplateSafetyCheckNonce] = useState(0);
   const [actionClockMs, setActionClockMs] = useState(() => Date.now());
   const latestId = thread.items.at(-1)?.id ?? null;
   const itemCount = thread.items.length;
@@ -239,8 +244,35 @@ function ConversationThread({
       connectionReadiness: thread.sendReadiness.connectionReadiness,
     });
   }
+  const templateSafetyRequired = actionState?.kind === 'closed_template';
   const templatePickerOpen =
-    actionState?.kind === 'closed_template' && templatePickerFeed === realtime;
+    templateSafetyRequired && templatePickerFeed === realtime;
+
+  useEffect(() => {
+    if (!templateSafetyRequired) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const hasMarker = await templateSendUncertaintyStore.hasMarker(
+          accountId,
+          conversationId
+        );
+        if (!cancelled) {
+          setTemplateSendSafety(hasMarker ? 'unknown' : 'clear');
+        }
+      } catch {
+        if (!cancelled) setTemplateSendSafety('error');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    accountId,
+    conversationId,
+    templateSafetyCheckNonce,
+    templateSafetyRequired,
+  ]);
 
   useEffect(() => {
     if (!outboundAllowed || readyLatestInboundAt === null) return;
@@ -405,6 +437,26 @@ function ConversationThread({
     listRef.current?.scrollToEnd({ animated: false });
   };
 
+  const markTemplateAttempt = async () => {
+    try {
+      await templateSendUncertaintyStore.mark(accountId, conversationId);
+      setTemplateSendSafety('unknown');
+    } catch (error) {
+      setTemplateSendSafety('error');
+      throw error;
+    }
+  };
+
+  const clearTemplateAttempt = async () => {
+    try {
+      await templateSendUncertaintyStore.clear(accountId, conversationId);
+      setTemplateSendSafety('clear');
+    } catch (error) {
+      setTemplateSendSafety('error');
+      throw error;
+    }
+  };
+
   const actionFooter = (() => {
     if (
       !actionState ||
@@ -423,6 +475,57 @@ function ConversationThread({
       );
     }
     if (actionState.kind === 'closed_template') {
+      if (templateSendSafety === 'loading') {
+        return (
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="bg-warning-soft flex-row items-center gap-3 px-3 py-3"
+            testID="template-send-safety-loading"
+          >
+            <ActivityIndicator accessibilityLabel="Checking template send safety" />
+            <Text className="text-warning-soft-foreground flex-1 text-sm leading-5">
+              Checking template send safety…
+            </Text>
+          </View>
+        );
+      }
+      if (templateSendSafety === 'error') {
+        return (
+          <View
+            className="bg-warning-soft gap-2 px-3 py-3"
+            testID="template-send-safety-error"
+          >
+            <View
+              accessible
+              accessibilityLiveRegion="polite"
+              accessibilityRole="alert"
+              className="gap-1"
+            >
+              <Text className="text-warning-soft-foreground text-base font-semibold">
+                Template sending is locked
+              </Text>
+              <Text className="text-warning-soft-foreground text-sm leading-5">
+                Could not verify the previous template send status. Check again
+                before sending.
+              </Text>
+            </View>
+            <Button
+              accessibilityLabel="Check template send safety again"
+              className="min-h-11 self-start"
+              onPress={() => {
+                setTemplateSendSafety('loading');
+                setTemplateSafetyCheckNonce((value) => value + 1);
+              }}
+              size="sm"
+              variant="ghost"
+            >
+              Check again
+            </Button>
+          </View>
+        );
+      }
       return (
         <View
           className="bg-warning-soft gap-2 px-3 py-2"
@@ -580,11 +683,12 @@ function ConversationThread({
           accountId={accountId}
           blocker={null}
           conversationId={conversationId}
+          onAttemptStarted={markTemplateAttempt}
           onClose={() => setTemplatePickerFeed(null)}
-          onOutcomeAcknowledged={() => setTemplateOutcomeUnknown(false)}
-          onOutcomeUnknown={() => setTemplateOutcomeUnknown(true)}
+          onOutcomeAcknowledged={clearTemplateAttempt}
+          onOutcomeConfirmed={clearTemplateAttempt}
           onSent={thread.refresh}
-          outcomeUnknown={templateOutcomeUnknown}
+          outcomeUnknown={templateSendSafety !== 'clear'}
           templates={thread.sendReadiness.templates}
         />
       ) : null}

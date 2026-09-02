@@ -42,9 +42,10 @@ export interface TemplatePickerProps {
   conversationId: string;
   templates: NativeTemplate[];
   blocker: ActionBlocker | null;
+  onAttemptStarted(): Promise<void>;
   onClose(): void;
-  onOutcomeAcknowledged(): void;
-  onOutcomeUnknown(): void;
+  onOutcomeAcknowledged(): Promise<void>;
+  onOutcomeConfirmed(): Promise<void>;
   onSent(): void;
   outcomeUnknown: boolean;
 }
@@ -242,9 +243,10 @@ export function TemplatePicker({
   conversationId,
   templates,
   blocker,
+  onAttemptStarted,
   onClose,
   onOutcomeAcknowledged,
-  onOutcomeUnknown,
+  onOutcomeConfirmed,
   onSent,
   outcomeUnknown,
 }: TemplatePickerProps) {
@@ -262,9 +264,11 @@ export function TemplatePicker({
   const [sendFailure, setSendFailure] = useState<MobileSendFailure | null>(
     null
   );
+  const [safetyFailure, setSafetyFailure] = useState<string | null>(null);
   const inFlightRef = useRef(false);
   const currentAttemptOutcomeUnknown = sendFailure?.safeToRetry === false;
-  const sendLocked = outcomeUnknown || currentAttemptOutcomeUnknown;
+  const sendLocked =
+    outcomeUnknown || currentAttemptOutcomeUnknown || safetyFailure !== null;
 
   const selectedTemplate =
     resolvedBlocker === null
@@ -283,6 +287,7 @@ export function TemplatePicker({
     setValues(valuesForTemplate(template));
     setErrors({});
     setSendFailure(null);
+    setSafetyFailure(null);
   };
 
   const setFieldValue = (field: TemplateField, value: string) => {
@@ -294,6 +299,23 @@ export function TemplatePicker({
       return remaining;
     });
     setSendFailure(null);
+  };
+
+  const acknowledgeOutcome = async () => {
+    if (pending || inFlightRef.current) return;
+    inFlightRef.current = true;
+    setPending(true);
+    setSafetyFailure(null);
+    try {
+      await onOutcomeAcknowledged();
+    } catch {
+      setSafetyFailure(
+        'Could not clear the send-safety lock. Sending remains locked until storage recovers.'
+      );
+    } finally {
+      inFlightRef.current = false;
+      setPending(false);
+    }
   };
 
   const sendTemplate = async () => {
@@ -322,21 +344,53 @@ export function TemplatePicker({
     inFlightRef.current = true;
     setPending(true);
     setSendFailure(null);
+    setSafetyFailure(null);
     try {
-      await sendConversationMessage(
-        {
-          accountId,
-          conversationId,
-          ...templatePayload(selectedTemplate, fields, values),
-        },
-        { recoverUnauthorizedSession: auth.recoverUnauthorizedSession }
-      );
+      try {
+        await onAttemptStarted();
+      } catch {
+        setSafetyFailure(
+          'Could not save template send safety status. No message was sent. Sending remains locked until storage recovers.'
+        );
+        return;
+      }
+
+      try {
+        await sendConversationMessage(
+          {
+            accountId,
+            conversationId,
+            ...templatePayload(selectedTemplate, fields, values),
+          },
+          { recoverUnauthorizedSession: auth.recoverUnauthorizedSession }
+        );
+      } catch (error) {
+        const failure = describeMobileSendFailure(error);
+        if (failure.safeToRetry) {
+          try {
+            await onOutcomeConfirmed();
+          } catch {
+            setSafetyFailure(
+              'The send was rejected, but the send-safety lock could not be cleared. Sending remains locked until storage recovers.'
+            );
+            return;
+          }
+        }
+        setSendFailure(failure);
+        return;
+      }
+
+      try {
+        await onOutcomeConfirmed();
+      } catch {
+        onSent();
+        setSafetyFailure(
+          'The template was sent, but the send-safety lock could not be cleared. Check the conversation. Sending remains locked until storage recovers.'
+        );
+        return;
+      }
       onSent();
       onClose();
-    } catch (error) {
-      const failure = describeMobileSendFailure(error);
-      setSendFailure(failure);
-      if (!failure.safeToRetry) onOutcomeUnknown();
     } finally {
       inFlightRef.current = false;
       setPending(false);
@@ -496,6 +550,19 @@ export function TemplatePicker({
                     </View>
                   ) : null}
 
+                  {safetyFailure ? (
+                    <View
+                      accessible
+                      accessibilityLiveRegion="polite"
+                      accessibilityRole="alert"
+                      className="bg-danger-soft rounded-xl px-3 py-3"
+                    >
+                      <Text className="text-danger-soft-foreground text-sm leading-5">
+                        {safetyFailure}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   {outcomeUnknown && !currentAttemptOutcomeUnknown ? (
                     <View className="gap-3">
                       <View
@@ -516,13 +583,15 @@ export function TemplatePicker({
                       <Button
                         accessibilityLabel="I checked the conversation"
                         className="min-h-11"
-                        onPress={onOutcomeAcknowledged}
+                        disabled={pending}
+                        loading={pending}
+                        onPress={() => void acknowledgeOutcome()}
                         variant="outline"
                       >
                         I checked the conversation
                       </Button>
                     </View>
-                  ) : currentAttemptOutcomeUnknown ? (
+                  ) : currentAttemptOutcomeUnknown || safetyFailure ? (
                     <Button
                       accessibilityLabel="Close"
                       className="min-h-11"
