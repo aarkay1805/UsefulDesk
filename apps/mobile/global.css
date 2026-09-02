@@ -44,6 +44,12 @@
       --danger-soft-foreground: #991b1b;
       --color-danger-soft: var(--danger-soft);
       --color-danger-soft-foreground: var(--danger-soft-foreground);
+      --warning: #8a4b00;
+      --warning-foreground: #fcfcfc;
+      --warning-soft: #fff1d6;
+      --warning-soft-foreground: #7a3e00;
+      --color-warning-soft: var(--warning-soft);
+      --color-warning-soft-foreground: var(--warning-soft-foreground);
     }
 
     @variant dark {
@@ -55,6 +61,12 @@
       --danger-soft-foreground: #ffb4ab;
       --color-danger-soft: var(--danger-soft);
       --color-danger-soft-foreground: var(--danger-soft-foreground);
+      --warning: #f6c453;
+      --warning-foreground: #18181b;
+      --warning-soft: #3a2a0d;
+      --warning-soft-foreground: #ffd88a;
+      --color-warning-soft: var(--warning-soft);
+      --color-warning-soft-foreground: var(--warning-soft-foreground);
     }
   }
 }

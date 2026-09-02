@@ -65,4 +65,19 @@ describe.each(['light', 'dark'])('%s semantic theme contrast', (mode) => {
       )
     ).toBeGreaterThanOrEqual(4.5);
   });
+
+  it('keeps warning solid and warning-soft copy at WCAG AA contrast', () => {
+    expect(
+      contrastRatio(
+        variantToken(mode, 'warning'),
+        variantToken(mode, 'warning-foreground')
+      )
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(
+        variantToken(mode, 'warning-soft-foreground'),
+        variantToken(mode, 'warning-soft')
+      )
+    ).toBeGreaterThanOrEqual(4.5);
+  });
 });
