@@ -38,28 +38,6 @@ export function messageImageSizeForViewport(viewportWidth: number): {
   return { height: width / IMAGE_ASPECT_RATIO, width };
 }
 
-interface DeliveryIndicatorProps {
-  status: MessageStatus;
-}
-
-export function DeliveryIndicator({ status }: DeliveryIndicatorProps) {
-  const label = DELIVERY_LABEL[status];
-
-  return (
-    <Text
-      accessible
-      accessibilityLabel={label}
-      className={
-        status === 'read'
-          ? 'text-chat-read text-xs'
-          : 'text-chat-meta-out text-xs'
-      }
-    >
-      {DELIVERY_TICK[status]}
-    </Text>
-  );
-}
-
 interface BubbleMetaProps {
   formattedTime: string;
   inline?: boolean;
@@ -74,9 +52,13 @@ function BubbleMeta({
   message,
 }: BubbleMetaProps) {
   const metaTone = isOutbound ? 'text-chat-meta-out' : 'text-chat-meta';
+  const deliveryLabel = isOutbound ? DELIVERY_LABEL[message.status] : null;
 
   return (
     <Text
+      accessibilityLabel={
+        deliveryLabel ? `${formattedTime}, ${deliveryLabel}` : undefined
+      }
       className={`${metaTone} ${
         inline ? 'text-xs' : 'self-end pt-0.5 text-xs'
       }`}
@@ -84,10 +66,14 @@ function BubbleMeta({
     >
       {formattedTime}
       {isOutbound ? (
-        <>
-          {' '}
-          <DeliveryIndicator status={message.status} />
-        </>
+        message.status === 'read' ? (
+          <>
+            {' '}
+            <Text className="text-chat-read text-xs">{DELIVERY_TICK.read}</Text>
+          </>
+        ) : (
+          ` ${DELIVERY_TICK[message.status]}`
+        )
       ) : null}
     </Text>
   );

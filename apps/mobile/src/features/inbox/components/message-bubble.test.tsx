@@ -58,10 +58,32 @@ describe('MessageBubble', () => {
       );
 
       expect(
-        screen.getByLabelText(status.charAt(0).toUpperCase() + status.slice(1))
+        screen.getByLabelText(
+          `1:30 pm, ${status.charAt(0).toUpperCase() + status.slice(1)}`
+        )
       ).toBeTruthy();
     }
   );
+
+  it('renders a recycled failed delivery glyph in the metadata text node', () => {
+    const sentMessage = message({ senderType: 'agent', status: 'sent' });
+    const { rerender } = render(
+      <MessageBubble formattedTime="1:30 pm" message={sentMessage} startsRun />
+    );
+
+    rerender(
+      <MessageBubble
+        formattedTime="1:30 pm"
+        message={{ ...sentMessage, status: 'failed' }}
+        startsRun
+      />
+    );
+
+    const metadata = screen.getByTestId('message-metadata');
+
+    expect(metadata.props.accessibilityLabel).toBe('1:30 pm, Failed');
+    expect(metadata.props.children).toEqual(['1:30 pm', ' !']);
+  });
 
   it('keeps outbound time and delivery ticks inline with a short text reply', () => {
     render(
@@ -85,7 +107,7 @@ describe('MessageBubble', () => {
     ).toBeTruthy();
     expect(metadata.props.className).not.toContain('absolute');
     expect(screen.queryByTestId('message-metadata-reservation')).toBeNull();
-    expect(screen.getByLabelText('Read')).toBeTruthy();
+    expect(screen.getByLabelText('1:30 pm, Read')).toBeTruthy();
   });
 
   it.each([
