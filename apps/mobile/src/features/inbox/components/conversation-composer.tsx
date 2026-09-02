@@ -11,6 +11,7 @@ interface FailedAttempt {
   temporaryId: string | null;
   message: string;
   safeToRetry: boolean;
+  attemptedText: string;
 }
 
 export interface ConversationComposerProps {
@@ -31,6 +32,9 @@ export function ConversationComposer({
     null
   );
   const trimmedDraft = draft.trim();
+  const unchangedAmbiguousDraft =
+    failedAttempt?.safeToRetry === false &&
+    failedAttempt.attemptedText === trimmedDraft;
 
   const requestDraftFocus = useCallback(() => {
     focusAfterSettledFailureRef.current = true;
@@ -43,7 +47,7 @@ export function ConversationComposer({
   }, [pending]);
 
   const resolveAttempt = useCallback(
-    (result: SendAttemptResult) => {
+    (result: SendAttemptResult, attemptedText: string) => {
       if (result.status === 'sent') {
         setDraft('');
         setFailedAttempt(null);
@@ -53,6 +57,7 @@ export function ConversationComposer({
         temporaryId: result.temporaryId,
         message: result.message,
         safeToRetry: result.safeToRetry,
+        attemptedText,
       });
       requestDraftFocus();
     },
@@ -60,24 +65,39 @@ export function ConversationComposer({
   );
 
   const send = useCallback(async () => {
-    if (inFlightRef.current || pending || !trimmedDraft) return;
+    if (
+      inFlightRef.current ||
+      pending ||
+      !trimmedDraft ||
+      unchangedAmbiguousDraft
+    ) {
+      return;
+    }
     inFlightRef.current = true;
     setPending(true);
     setFailedAttempt(null);
     try {
-      resolveAttempt(await onSend(trimmedDraft));
+      resolveAttempt(await onSend(trimmedDraft), trimmedDraft);
     } catch {
       setFailedAttempt({
         temporaryId: null,
         message: UNCONFIRMED_SEND_MESSAGE,
         safeToRetry: false,
+        attemptedText: trimmedDraft,
       });
       requestDraftFocus();
     } finally {
       inFlightRef.current = false;
       setPending(false);
     }
-  }, [onSend, pending, requestDraftFocus, resolveAttempt, trimmedDraft]);
+  }, [
+    onSend,
+    pending,
+    requestDraftFocus,
+    resolveAttempt,
+    trimmedDraft,
+    unchangedAmbiguousDraft,
+  ]);
 
   const retry = useCallback(async () => {
     if (
@@ -91,9 +111,16 @@ export function ConversationComposer({
     inFlightRef.current = true;
     setPending(true);
     try {
-      resolveAttempt(await onRetry(failedAttempt.temporaryId));
+      resolveAttempt(
+        await onRetry(failedAttempt.temporaryId),
+        failedAttempt.attemptedText
+      );
     } catch {
-      setFailedAttempt(failedAttempt);
+      setFailedAttempt({
+        ...failedAttempt,
+        message: UNCONFIRMED_SEND_MESSAGE,
+        safeToRetry: false,
+      });
       requestDraftFocus();
     } finally {
       inFlightRef.current = false;
@@ -146,7 +173,7 @@ export function ConversationComposer({
         </View>
         <IconButton
           accessibilityLabel="Send message"
-          isDisabled={pending || !trimmedDraft}
+          isDisabled={pending || !trimmedDraft || unchangedAmbiguousDraft}
           isLoading={pending}
           onPress={send}
           symbol="paperplane.fill"

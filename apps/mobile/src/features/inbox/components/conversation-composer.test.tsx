@@ -239,21 +239,46 @@ describe('ConversationComposer', () => {
     expect(screen.getByLabelText('Message').props.value).toBe('');
   });
 
-  it('withholds Retry when the send result cannot confirm provider acceptance', async () => {
+  it('locks the draft when a previously safe Retry ends ambiguously', async () => {
+    const onRetry = jest.fn().mockRejectedValue(new Error('offline'));
     render(
       <ConversationComposer
-        onRetry={jest.fn()}
-        onSend={jest
-          .fn()
-          .mockResolvedValue(
-            failed(
-              'temp-ambiguous',
-              false,
-              'Could not reach the send service. Delivery could not be confirmed. Check the conversation before sending again.'
-            )
-          )}
+        onRetry={onRetry}
+        onSend={jest.fn().mockResolvedValue(failed('temp-failed'))}
       />
     );
+
+    fireEvent.changeText(screen.getByLabelText('Message'), 'Retry me');
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Retry message' })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The send request did not complete. Delivery could not be confirmed. Check the conversation before sending again.'
+      );
+    });
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: 'Retry message' })).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Send message' }).props
+        .accessibilityState
+    ).toMatchObject({ disabled: true });
+  });
+
+  it('locks the unchanged draft after an ambiguous outcome and unlocks genuinely new content', async () => {
+    const onSend = jest
+      .fn()
+      .mockResolvedValueOnce(
+        failed(
+          'temp-ambiguous',
+          false,
+          'Could not reach the send service. Delivery could not be confirmed. Check the conversation before sending again.'
+        )
+      )
+      .mockResolvedValueOnce(sent('temp-new-content'));
+    render(<ConversationComposer onRetry={jest.fn()} onSend={onSend} />);
 
     fireEvent.changeText(screen.getByLabelText('Message'), 'May be sent');
     fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
@@ -264,6 +289,26 @@ describe('ConversationComposer', () => {
       );
     });
     expect(screen.queryByRole('button', { name: 'Retry message' })).toBeNull();
+
+    const lockedSend = screen.getByRole('button', { name: 'Send message' });
+    expect(lockedSend.props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+    fireEvent.press(lockedSend);
+    expect(onSend).toHaveBeenCalledTimes(1);
+
+    fireEvent.changeText(
+      screen.getByLabelText('Message'),
+      'May be sent with an update'
+    );
+    const unlockedSend = screen.getByRole('button', { name: 'Send message' });
+    expect(unlockedSend.props.accessibilityState).toMatchObject({
+      disabled: false,
+    });
+    fireEvent.press(unlockedSend);
+
+    await waitFor(() => expect(onSend).toHaveBeenCalledTimes(2));
+    expect(onSend).toHaveBeenLastCalledWith('May be sent with an update');
   });
 
   it('uses the local composer masters for accessible 44pt text and send controls', () => {
