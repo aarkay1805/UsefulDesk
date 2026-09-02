@@ -86,6 +86,14 @@ interface MainRequestOwner {
   feedGeneration: number;
 }
 
+interface LatestInboundObservation {
+  accountId: string;
+  conversationId: string;
+  scopeGeneration: number;
+  feedGeneration: number;
+  latestInboundAt: string | null;
+}
+
 export interface ConversationSendReadiness {
   status: 'hidden' | 'loading' | 'ready' | 'error';
   latestInboundAt: string | null;
@@ -214,6 +222,30 @@ function openTextReadinessResultIsConsistent(
   );
 }
 
+function laterInboundTimestamp(
+  first: string | null,
+  second: string | null
+): string | null {
+  if (first === null) return second;
+  if (second === null) return first;
+  return Date.parse(second) > Date.parse(first) ? second : first;
+}
+
+function latestInboundObservationMatches(
+  observation: LatestInboundObservation,
+  accountId: string,
+  conversationId: string,
+  scopeGeneration: number,
+  feedGeneration: number
+): boolean {
+  return (
+    observation.accountId === accountId &&
+    observation.conversationId === conversationId &&
+    observation.scopeGeneration === scopeGeneration &&
+    observation.feedGeneration === feedGeneration
+  );
+}
+
 function templatesResultIsConsistent(templates: NativeTemplate[]): boolean {
   return (
     Array.isArray(templates) &&
@@ -292,6 +324,13 @@ export function useMessageThread({
   const requestGeneration = useRef(0);
   const activeRealtime = useRef(realtime);
   const feedGeneration = useRef(0);
+  const latestInboundObservation = useRef<LatestInboundObservation>({
+    accountId,
+    conversationId,
+    scopeGeneration: 0,
+    feedGeneration: 0,
+    latestInboundAt: null,
+  });
   const realtimeGeneration = useRef(0);
   const headerGeneration = useRef(0);
   const messageGenerations = useRef(new Map<string, number>());
@@ -347,6 +386,23 @@ export function useMessageThread({
     messageMutations.current.clear();
     mutationSequence.current = 0;
     activeRetries.current.clear();
+  }
+  if (
+    !latestInboundObservationMatches(
+      latestInboundObservation.current,
+      accountId,
+      conversationId,
+      scopeGeneration.current,
+      feedGeneration.current
+    )
+  ) {
+    latestInboundObservation.current = {
+      accountId,
+      conversationId,
+      scopeGeneration: scopeGeneration.current,
+      feedGeneration: feedGeneration.current,
+      latestInboundAt: null,
+    };
   }
   activeAccountId.current = accountId;
   activeConversationId.current = conversationId;
@@ -642,7 +698,18 @@ export function useMessageThread({
             ? {
                 ...previous,
                 status: 'ready',
-                latestInboundAt,
+                latestInboundAt: laterInboundTimestamp(
+                  latestInboundAt,
+                  latestInboundObservationMatches(
+                    latestInboundObservation.current,
+                    readinessAccountId,
+                    readinessConversationId,
+                    readinessScopeGeneration,
+                    readinessFeedGeneration
+                  )
+                    ? latestInboundObservation.current.latestInboundAt
+                    : null
+                ),
                 connectionReadiness,
               }
             : previous
@@ -935,6 +1002,27 @@ export function useMessageThread({
             item,
           });
           if (event.eventType === 'INSERT' && item.senderType === 'customer') {
+            const observed = latestInboundObservation.current;
+            if (
+              latestInboundObservationMatches(
+                observed,
+                eventAccountId,
+                eventConversationId,
+                eventScopeGeneration,
+                currentFeedGeneration
+              )
+            ) {
+              const latestInboundAt = laterInboundTimestamp(
+                observed.latestInboundAt,
+                item.createdAt
+              );
+              if (latestInboundAt !== observed.latestInboundAt) {
+                latestInboundObservation.current = {
+                  ...observed,
+                  latestInboundAt,
+                };
+              }
+            }
             setSendReadiness((previous) => {
               if (
                 previous.status !== 'ready' ||
@@ -944,13 +1032,12 @@ export function useMessageThread({
               ) {
                 return previous;
               }
-              const previousInboundMs = previous.latestInboundAt
-                ? Date.parse(previous.latestInboundAt)
-                : Number.NEGATIVE_INFINITY;
-              const insertedInboundMs = Date.parse(item.createdAt);
-              return Number.isFinite(insertedInboundMs) &&
-                insertedInboundMs > previousInboundMs
-                ? { ...previous, latestInboundAt: item.createdAt }
+              const latestInboundAt = laterInboundTimestamp(
+                previous.latestInboundAt,
+                item.createdAt
+              );
+              return latestInboundAt !== previous.latestInboundAt
+                ? { ...previous, latestInboundAt }
                 : previous;
             });
           }

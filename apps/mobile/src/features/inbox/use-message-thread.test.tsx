@@ -303,6 +303,44 @@ describe('useMessageThread', () => {
     });
   });
 
+  it('keeps a newer realtime inbound that arrives while readiness is loading', async () => {
+    const latestInbound = deferred<string | null>();
+    messages.getLatestCustomerMessageAt.mockReturnValueOnce(
+      latestInbound.promise
+    );
+    messages.get.mockResolvedValueOnce(
+      message({
+        id: MESSAGE_3_ID,
+        senderType: 'customer',
+        createdAt: '2026-09-01T10:00:00.000Z',
+      })
+    );
+    const { result } = renderHook(() => useConfiguredThread());
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    expect(result.current.sendReadiness.status).toBe('loading');
+
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_3_ID,
+      })
+    );
+    await act(async () => {
+      latestInbound.resolve('2026-09-01T08:01:00.000Z');
+      await latestInbound.promise;
+    });
+
+    await waitFor(() =>
+      expect(result.current.sendReadiness).toMatchObject({
+        status: 'ready',
+        latestInboundAt: '2026-09-01T10:00:00.000Z',
+      })
+    );
+  });
+
   it('drops stale readiness completions after a branch and conversation change', async () => {
     const oldLatest = deferred<string | null>();
     const oldTemplates = deferred<NativeTemplate[]>();
@@ -327,6 +365,13 @@ describe('useMessageThread', () => {
     messages.list
       .mockResolvedValueOnce(page([]))
       .mockResolvedValueOnce(page([]));
+    messages.get.mockResolvedValueOnce(
+      message({
+        id: MESSAGE_3_ID,
+        senderType: 'customer',
+        createdAt: '2026-09-01T10:00:00.000Z',
+      })
+    );
     const { result, rerender } = renderHook<
       UseMessageThreadResult,
       { accountId: string; conversationId: string }
@@ -339,6 +384,17 @@ describe('useMessageThread', () => {
           conversationId: CONVERSATION_ID,
         },
       }
+    );
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    await act(async () =>
+      realtime.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_3_ID,
+      })
     );
 
     rerender({
@@ -391,12 +447,30 @@ describe('useMessageThread', () => {
     templateRepository.getWhatsAppConnectionReadiness
       .mockReturnValueOnce(oldConnection.promise)
       .mockResolvedValueOnce(connectedReadiness);
+    messages.get.mockResolvedValueOnce(
+      message({
+        id: MESSAGE_3_ID,
+        senderType: 'customer',
+        createdAt: '2026-09-01T11:00:00.000Z',
+      })
+    );
     const { result, rerender } = renderHook<
       UseMessageThreadResult,
       { currentFeed: InboxRealtimeFeed }
     >(({ currentFeed }) => useConfiguredThread({ realtime: currentFeed }), {
       initialProps: { currentFeed: firstFeed },
     });
+
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    await act(async () =>
+      firstFeed.emit({
+        table: 'messages',
+        eventType: 'INSERT',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_3_ID,
+      })
+    );
 
     rerender({ currentFeed: secondFeed });
     await waitFor(() =>
