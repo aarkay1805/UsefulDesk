@@ -30,12 +30,13 @@ EAS builds remain pending. **Stage 2 native outbound Inbox implementation is
 built:** strict mobile bearer authorization keeps cookie callers compatible;
 the branch-aware transport has one refresh retry; optimistic, persisted, and
 provider identities reconcile to one outbound row; agent+ users get an
-inside-window text composer and Retry while outside-window users get only
+inside-window text composer and safe pre-send Retry while outside-window users get only
 Approved/synced POSITIONAL templates; viewers remain read-only. The latest
-post-fix mobile gate passed lint/typecheck and **46 Jest suites / 485 tests**;
+post-fix mobile gate passed lint/typecheck and **48 Jest suites / 526 tests**;
 current root lint has 0 errors / 155 existing warnings, typecheck passes, all
 **406 suites / 3,055 tests** pass, and the bearer/send/proxy selection passes
-**66 tests**. The fresh iOS export also passes. Fresh Expo Doctor is **20/21**:
+**66 tests**. The fresh Next production build and iOS/Android exports also pass.
+Fresh Expo Doctor is **20/21**:
 only recommended SDK 57 patch-version drift remains, and dependencies were not
 upgraded inside this acceptance-only Stage 2 closeout. Physical iPhone
 acceptance passed two-branch isolation and the closed-window Approved-template
@@ -52,9 +53,16 @@ with queued VoiceOver speech while cold failed mounts, unrelated updates, and
 repeated failed renders stay silent. Physical viewer read-only, VoiceOver,
 local optimistic text Retry, light mode, large Dynamic Type, Android
 interaction smoke, and remote EAS builds remain unverified. The root
-`npm run verify` still stops at known Prettier baseline warnings before later
-gates. **Stage 3 remains deferred:** media, quoted replies, reactions, push
-notifications, and advanced message actions.**
+`npm run verify` still stops at 82 Prettier warnings, mostly ignored generated
+native artifacts plus an unchanged tracked baseline file, before later gates.
+Final review additionally closed ambiguous-send duplication with locked text
+drafts and a durable account/conversation SecureStore template marker,
+separated open-text from template readiness, filtered Authentication templates,
+enforced branch lifecycle gates, preserved realtime inbound readiness across a
+stale query completion, and raised light/dark semantic contrast while uncapping
+Dynamic Type. These latest safety/accessibility changes passed source review
+and tests but were not physically retested. **Stage 3 remains deferred:** media,
+quoted replies, reactions, push notifications, and advanced message actions.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

@@ -17,7 +17,11 @@ in `outbound-message-state.ts` reconciles temporary, persisted, and WhatsApp
 provider identities into one row while realtime delivery/read updates patch
 that row. `conversation-screen.tsx`, `conversation-composer.tsx`, and
 `template-picker.tsx` supply the role/window-gated native text composer,
-failed-row Retry, and Approved/synced POSITIONAL template form.
+safe pre-send Retry, and Approved/synced POSITIONAL template form. Ambiguous
+text outcomes lock the unchanged draft; template attempts write an
+account/conversation SecureStore marker before the network request and remain
+locked across remounts until a definite outcome or explicit checked-conversation
+acknowledgment.
 
 Physical acceptance exposed and fixed the native-proxy bearer boundary, the
 message repository's canonical column selection, provider-failure reconciliation
@@ -32,17 +36,26 @@ transition exactly once with queued VoiceOver speech; cold failed mounts,
 unrelated updates, and repeated failed renders remain silent. Two-branch
 isolation and the closed-window template picker passed.
 
-The final component gates pass mobile lint/typecheck with all 46 Jest suites /
-485 tests, root lint with 0 errors / 155 existing warnings, root typecheck, all
+Final review also separated open-window text readiness from template loading,
+filtered unsupported Authentication templates, suppressed outbound controls
+for read-only/archived branches, and closed a realtime race where a stale
+latest-inbound query could overwrite a newer event. Template selection now has
+explicit selected semantics, shared buttons grow with uncapped Dynamic Type,
+and automated light/dark accent, danger, and warning checks all exceed 4.5:1.
+
+The final component gates pass mobile lint/typecheck with all 48 Jest suites /
+526 tests, root lint with 0 errors / 155 existing warnings, root typecheck, all
 406 root suites / 3,055 tests, the 66-test bearer/send/proxy selection, and a
-fresh iOS export. Expo Doctor previously passed 21/21 but the fresh run is 20/21
+fresh Next production build plus iOS and Android exports. Expo Doctor previously
+passed 21/21 but the fresh run is 20/21
 because nine Expo SDK 57 packages now have recommended patch versions; no
 dependency upgrade was folded into this acceptance-only closeout. A free-form
 send, local optimistic text Retry, physical viewer/VoiceOver behavior, light
-mode, and large Dynamic Type were not exercised. The root `npm run verify`
-still stops on known Prettier baseline warnings before later gates. Quoted
-replies, media, reactions, push notifications, and advanced message actions
-remain Stage 3.
+mode, and large Dynamic Type were not exercised after the final changes. The
+root `npm run verify` still stops at 82 Prettier warnings, mostly ignored
+generated Expo/Pods/native artifacts plus one unchanged tracked baseline file;
+the later gates pass independently. Quoted replies, media, reactions, push
+notifications, and advanced message actions remain Stage 3.
 
 ---
 
