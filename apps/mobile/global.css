@@ -34,5 +34,27 @@
 
   :root {
     --radius: 0.625rem;
+
+    @variant light {
+      --accent: #2457a6;
+      --accent-foreground: #fcfcfc;
+      --danger: #b42318;
+      --danger-foreground: #fcfcfc;
+      --danger-soft: #fde8e8;
+      --danger-soft-foreground: #991b1b;
+      --color-danger-soft: var(--danger-soft);
+      --color-danger-soft-foreground: var(--danger-soft-foreground);
+    }
+
+    @variant dark {
+      --accent: #86b4ff;
+      --accent-foreground: #18181b;
+      --danger: #ffb4ab;
+      --danger-foreground: #18181b;
+      --danger-soft: #3b171a;
+      --danger-soft-foreground: #ffb4ab;
+      --color-danger-soft: var(--danger-soft);
+      --color-danger-soft-foreground: var(--danger-soft-foreground);
+    }
   }
 }

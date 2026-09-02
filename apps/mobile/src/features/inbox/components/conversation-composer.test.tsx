@@ -318,7 +318,7 @@ describe('ConversationComposer', () => {
     const send = screen.getByRole('button', { name: 'Send message' });
 
     expect(input.props.allowFontScaling).toBe(true);
-    expect(input.props.maxFontSizeMultiplier).toBe(1.5);
+    expect(input.props.maxFontSizeMultiplier).toBeUndefined();
     expect(input.props.className).toContain('min-h-11');
     expect(send.props.className).toContain('min-h-11');
     expect(send.props.className).toContain('min-w-11');

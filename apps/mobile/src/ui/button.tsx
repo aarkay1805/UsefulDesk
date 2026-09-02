@@ -16,17 +16,27 @@ type ButtonProps = DistributiveOmit<
   loading?: boolean;
 };
 
+const SIZE_CLASS_NAMES = {
+  sm: 'h-auto min-h-11 py-2',
+  md: 'h-auto min-h-12 py-3',
+  lg: 'h-auto min-h-14 py-3.5',
+} as const;
+
 export function Button({
   children,
+  className,
   disabled = false,
   labelClassName,
   loading = false,
+  size = 'md',
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
   const heroButtonProps = {
     ...props,
+    className: `${SIZE_CLASS_NAMES[size]} ${className ?? ''}`.trim(),
     isDisabled,
+    size,
     accessibilityState: { disabled: isDisabled, busy: loading },
   } as ComponentProps<typeof HeroButton>;
 

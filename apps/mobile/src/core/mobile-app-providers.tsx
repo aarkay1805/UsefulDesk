@@ -5,8 +5,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { HeroUINativeProvider, type HeroUINativeConfig } from 'heroui-native';
 
 export const HERO_UI_CONFIG: HeroUINativeConfig = {
-  textProps: { allowFontScaling: true, maxFontSizeMultiplier: 1.5 },
-  textInputProps: { allowFontScaling: true, maxFontSizeMultiplier: 1.5 },
+  textProps: { allowFontScaling: true },
+  textInputProps: { allowFontScaling: true },
   isRTL: I18nManager.isRTL,
   toast: {
     defaultProps: { placement: 'top', variant: 'default' },

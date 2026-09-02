@@ -76,4 +76,24 @@ describe('Button', () => {
     expect(screen.queryByText('Save')).toBeNull();
     expect(screen.getByLabelText('Working')).toBeTruthy();
   });
+
+  it.each([
+    ['sm', 'min-h-11', 'py-2'],
+    ['md', 'min-h-12', 'py-3'],
+    ['lg', 'min-h-14', 'py-3.5'],
+  ] as const)(
+    'keeps the %s size content-driven while preserving its minimum geometry',
+    (size, minimumHeight, verticalPadding) => {
+      render(
+        <Button size={size} testID={`${size}-button`}>
+          A label that can grow with Dynamic Type
+        </Button>
+      );
+
+      const className = screen.getByTestId(`${size}-button`).props.className;
+      expect(className).toContain('h-auto');
+      expect(className).toContain(minimumHeight);
+      expect(className).toContain(verticalPadding);
+    }
+  );
 });

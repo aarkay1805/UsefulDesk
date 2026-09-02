@@ -102,7 +102,7 @@ describe('ComposerField', () => {
     expect(ref.current?.focus).toEqual(expect.any(Function));
     expect(() => ref.current?.focus()).not.toThrow();
     expect(input.props.allowFontScaling).toBe(true);
-    expect(input.props.maxFontSizeMultiplier).toBe(1.5);
+    expect(input.props.maxFontSizeMultiplier).toBeUndefined();
     expect(input.props.className).toContain('min-h-11');
     expect(input.props.className).toContain('max-h-36');
   });

@@ -63,7 +63,6 @@ export const ComposerField = forwardRef<TextInputType, ComposerFieldProps>(
           returnKeyType="default"
           submitBehavior="newline"
           allowFontScaling
-          maxFontSizeMultiplier={1.5}
           accessibilityLabel={label}
           accessibilityHint={error ?? accessibilityHint}
           accessibilityState={{ disabled: isDisabled }}

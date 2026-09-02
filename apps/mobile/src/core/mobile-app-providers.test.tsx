@@ -6,15 +6,19 @@ jest.mock('heroui-native', () => ({
 }));
 
 describe('HERO_UI_CONFIG', () => {
-  it('keeps text scalable within the UsefulDesk accessibility ceiling', () => {
+  it('lets text and fields follow the full system Dynamic Type setting', () => {
     expect(HERO_UI_CONFIG.textProps).toMatchObject({
       allowFontScaling: true,
-      maxFontSizeMultiplier: 1.5,
     });
     expect(HERO_UI_CONFIG.textInputProps).toMatchObject({
       allowFontScaling: true,
-      maxFontSizeMultiplier: 1.5,
     });
+    expect(HERO_UI_CONFIG.textProps).not.toHaveProperty(
+      'maxFontSizeMultiplier'
+    );
+    expect(HERO_UI_CONFIG.textInputProps).not.toHaveProperty(
+      'maxFontSizeMultiplier'
+    );
   });
 
   it('limits the visible toast queue to three messages', () => {
