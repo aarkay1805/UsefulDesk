@@ -32,13 +32,17 @@ transition exactly once with queued VoiceOver speech; cold failed mounts,
 unrelated updates, and repeated failed renders remain silent. Two-branch
 isolation and the closed-window template picker passed.
 
-The post-fix mobile lint/typecheck run passes all 46 Jest suites / 485 tests;
-the relevant bearer/send/proxy root selection passes 66 tests, and the earlier
-Expo Doctor run passed 21/21. A free-form send, local optimistic text Retry,
-physical viewer/VoiceOver behavior, light mode, and large Dynamic Type were not
-exercised. The root `npm run verify` still stops on known Prettier baseline
-warnings before later gates. Quoted replies, media, reactions, push
-notifications, and advanced message actions remain Stage 3.
+The final component gates pass mobile lint/typecheck with all 46 Jest suites /
+485 tests, root lint with 0 errors / 155 existing warnings, root typecheck, all
+406 root suites / 3,055 tests, the 66-test bearer/send/proxy selection, and a
+fresh iOS export. Expo Doctor previously passed 21/21 but the fresh run is 20/21
+because nine Expo SDK 57 packages now have recommended patch versions; no
+dependency upgrade was folded into this acceptance-only closeout. A free-form
+send, local optimistic text Retry, physical viewer/VoiceOver behavior, light
+mode, and large Dynamic Type were not exercised. The root `npm run verify`
+still stops on known Prettier baseline warnings before later gates. Quoted
+replies, media, reactions, push notifications, and advanced message actions
+remain Stage 3.
 
 ---
 
