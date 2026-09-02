@@ -8,6 +8,41 @@
 
 ## Native mobile Inbox Stage 2
 
+The Stage 2 native build closeout upgrades the Expo SDK 57 packages to their
+recommended patches, declares the font/image config plugins, regenerates typed
+routes before typecheck, and excludes ignored Expo/native output from Prettier.
+The mobile start, iOS, and Android scripts also expose the workspace-local
+module path so Expo's hoisted CLI can initialize typed routes instead of exiting
+on `expo-router/_ctx-shared` resolution.
+Shared mobile small buttons, icon buttons, composer fields, and text fields now
+use a 48pt minimum target across iOS and Android. Expo Doctor passes 21/21; a
+local iOS development client built and installed on the paired iPhone, and
+Android assembled a debug APK. After the iPhone was unlocked, the development
+client launched through Metro and passed branch isolation, foreground/session
+recovery, persisted failed-row safety, and base light/dark appearance. The
+maximum-standard Dynamic Type defect now has a passing dark-appearance physical
+retest: `inbox-layout.ts` switches message bubbles to an 88%-wide reflow,
+timestamps and delivery state leave the body line, conversation rows keep
+untruncated identity/preview copy with metadata below, and native text slots use
+content-driven line metrics. The Account header action is now a fixed SF Symbol
+in the same 48pt rounded-rectangle target. The full template body, date/status
+metadata, failed state, composer, filters, and row content are visible without
+overlap. At the same maximum Text Size in light appearance, the Inbox and
+Account surfaces also remain readable without clipping or overlap. A
+`__DEV__`-only exact deep-link fixture in `inbox-test-fixtures.ts` and
+`conversation-screen.tsx` now injects in-memory repositories, a no-op realtime
+feed, and a sender that throws before transport. It reuses the production
+conversation/message/composer rendering without creating a customer record or
+contacting anyone. The physical iPhone light-mode maximum-Text-Size retest now
+passes the header, date separator, multi-line inbound/outbound bubbles,
+timestamps/read ticks, Message field, and Send target with no clipping or
+overlap; no text was entered and Send was not pressed. VoiceOver transition
+speech, viewer mode, iOS edge-swipe navigation, live inbound realtime, and both
+remote EAS builds remain unverified. Build/acceptance commands and the no-secret
+recording boundary live in `docs/mobile/development-build.md`. Root
+ESLint now excludes tracked agent-tool packages and ignored sibling worktrees
+from the application lint boundary.
+
 `apps/mobile` now implements Stage 2 outbound Inbox actions: the web send route
 accepts a strict first-party bearer path in
 `src/lib/auth/mobile-operational-access.ts`; the native client obtains the
@@ -26,9 +61,9 @@ acknowledgment.
 Physical acceptance exposed and fixed the native-proxy bearer boundary, the
 message repository's canonical column selection, provider-failure reconciliation
 races, and failed-status presentation. After explicit confirmation, one exact
-Approved template was submitted to approved contact Rajat: the API returned
+Approved template was submitted to an approved test contact: the API returned
 200 with a Meta provider ID, but callback code `131049` rejected delivery for
-healthy-ecosystem engagement, so Rajat did not receive it. The final no-resend
+healthy-ecosystem engagement, so the test contact did not receive it. The final no-resend
 device retest renders the database's failed status as a separate red **Failed**
 label with no stale checkmark and gives the persisted template no unsafe text
 Retry. The iOS status surface now announces the same message's sent-to-failed
@@ -44,16 +79,30 @@ explicit selected semantics, shared buttons grow with uncapped Dynamic Type,
 and automated light/dark accent, danger, and warning checks all exceed 4.5:1.
 
 The final component gates pass mobile lint/typecheck with all 48 Jest suites /
-526 tests, root lint with 0 errors / 155 existing warnings, root typecheck, all
+534 tests, root lint with 0 errors / 3 existing warnings, root typecheck, all
 406 root suites / 3,055 tests, the 66-test bearer/send/proxy selection, and a
-fresh Next production build plus iOS and Android exports. Expo Doctor previously
-passed 21/21 but the fresh run is 20/21
-because nine Expo SDK 57 packages now have recommended patch versions; no
-dependency upgrade was folded into this acceptance-only closeout. A free-form
-send, local optimistic text Retry, physical viewer/VoiceOver behavior, light
-mode, and large Dynamic Type were not exercised after the final changes. The
-root `npm run verify` still stops at 82 Prettier warnings, mostly ignored
-generated Expo/Pods/native artifacts plus one unchanged tracked baseline file;
+fresh Next production build plus iOS and Android exports. Expo Doctor passes
+21/21 after the recommended SDK patch upgrade. A free-form send, local
+optimistic text Retry, physical viewer/VoiceOver transition behavior, and live
+realtime were not accepted.
+Base light mode was exercised before the reflow fix; the post-fix maximum-size
+dark pass is recorded above, and the matching light pass now covers Inbox and
+Account plus the fail-closed local conversation/composer fixture.
+
+Physical Android 11 acceptance on a OnePlus 6 now covers main-checkout
+build/install/launch, authenticated session restoration, Inbox filters/search,
+system Back, branch isolation, and foreground recovery. The branch chooser now
+guards cleanup across branch-keyed unmounts; the conversation screen keeps the
+composer above Gboard, re-pins a bottom-following conversation when its viewport
+resizes, and stabilizes that keyboard offset around runtime banners.
+The normal-font synthetic fixture passed keyboard, no-send, Back, and focused
+log checks, and device settings were restored to night `auto` / font scale
+`1.0`. A pre-repair light/1.3 run lost the newest bubble; the repair passes
+automated tests but the user deferred its post-fix physical large-font,
+light/dark visibility, accessibility, and screenshot checks. Android 12+
+theming, predictive Back, tablet/foldable layouts, provider delivery, and remote
+EAS remain unverified. The root `npm run verify` still stops at one unchanged
+tracked Prettier baseline;
 the later gates pass independently. Quoted replies, media, reactions, push
 notifications, and advanced message actions remain Stage 3.
 
@@ -381,7 +430,7 @@ shell-level change, not a follow-up-queue one.
 
 ## AutoPay cancellation and service checkout recover cleanly
 
-Rajat's pending AutoPay mandate exposed two independent failures. Immediate
+The owner's pending AutoPay mandate exposed two independent failures. Immediate
 Razorpay cancellation now follows the provider's body-less default contract,
 and missing or blocked OAuth/deployment configuration returns an actionable
 Payments error instead of a generic internal error. Provider confirmation is
@@ -1240,7 +1289,7 @@ The first naturally scheduled Production Live provider-source scan completed on 
 
 ## Historical Razorpay tenant mismatches are terminally audited
 
-Four pre-OAuth Razorpay subscription events were received under Rajat Kashyap's retired manual webhook while their immutable subscription notes named the VBF tenant. Read-only review proved all four were Test-mode events for merchant `acc_TCJwBqanN9LTrK`, predated Live application-webhook activation, referenced no surviving member/contact/mandate, and had zero matching payment, allocation, refund, exception, or delivery effect. Migration `20260826070646_reconcile_legacy_razorpay_identity_mismatches.sql`, connector-applied to Production as `20260826071158`, adds an immutable service-only audit and a Test-only terminal reconciliation RPC that rechecks every identity/object/zero-effect invariant atomically. The exact four rows now retain their receipt tenant and raw payload, carry the proven Test mode and external merchant, preserve null legacy signature-source/hash facts, and are processed with `legacy_identity_mismatch_no_local_effect`; no webhook was replayed and no ledger or membership row changed. Production now has zero failed or unprocessed Razorpay events, while the pinned Live OAuth connection and its zero failed/missing-ledger scope remain unchanged.
+Four pre-OAuth Razorpay subscription events were received under the owner's retired manual webhook while their immutable subscription notes named the VBF tenant. Read-only review proved all four were Test-mode events for merchant `acc_TCJwBqanN9LTrK`, predated Live application-webhook activation, referenced no surviving member/contact/mandate, and had zero matching payment, allocation, refund, exception, or delivery effect. Migration `20260826070646_reconcile_legacy_razorpay_identity_mismatches.sql`, connector-applied to Production as `20260826071158`, adds an immutable service-only audit and a Test-only terminal reconciliation RPC that rechecks every identity/object/zero-effect invariant atomically. The exact four rows now retain their receipt tenant and raw payload, carry the proven Test mode and external merchant, preserve null legacy signature-source/hash facts, and are processed with `legacy_identity_mismatch_no_local_effect`; no webhook was replayed and no ledger or membership row changed. Production now has zero failed or unprocessed Razorpay events, while the pinned Live OAuth connection and its zero failed/missing-ledger scope remain unchanged.
 
 ## Provider-discovered Razorpay charges now have an audited resolution path
 
@@ -1256,7 +1305,7 @@ The first audit-fix slice separates transient Razorpay subscription status from 
 
 ## Razorpay reconnect recovery now handles a blocked fresh grant
 
-Rajat Kashyap's pinned Live merchant was reconnected after its prior OAuth row had been explicitly disconnected. Razorpay's Accounts readiness endpoint rejected the imported merchant even though authenticated customer, plan, subscription, payment-link, and payment probes all succeeded; the callback therefore stored a fresh grant as `blocked`, while the Verify route could only resolve `ready` rows and returned an internal error. The recovery path in `src/lib/payments/credentials.ts` and `src/app/api/payments/razorpay/oauth/refresh/route.ts` now admits a blocked grant only for explicit read-only readiness verification, without weakening ordinary payment access; ready rows still force token refresh. `src/components/settings/razorpay-settings-card.tsx` also renders a truly disconnected OAuth row as one reconnect task instead of contradictory ready/live badges and stale Verify/Disconnect actions. Regression tests cover both boundaries. Production was restored to OAuth/Live/ready for exact merchant `acc_TCJwBqanN9LTrK` after all five capability probes returned 200, with zero failed webhooks, missing ledger rows, open payment exceptions, or stuck links. No payment, link, refund, message, or other money movement was created.
+The owner's pinned Live merchant was reconnected after its prior OAuth row had been explicitly disconnected. Razorpay's Accounts readiness endpoint rejected the imported merchant even though authenticated customer, plan, subscription, payment-link, and payment probes all succeeded; the callback therefore stored a fresh grant as `blocked`, while the Verify route could only resolve `ready` rows and returned an internal error. The recovery path in `src/lib/payments/credentials.ts` and `src/app/api/payments/razorpay/oauth/refresh/route.ts` now admits a blocked grant only for explicit read-only readiness verification, without weakening ordinary payment access; ready rows still force token refresh. `src/components/settings/razorpay-settings-card.tsx` also renders a truly disconnected OAuth row as one reconnect task instead of contradictory ready/live badges and stale Verify/Disconnect actions. Regression tests cover both boundaries. Production was restored to OAuth/Live/ready for exact merchant `acc_TCJwBqanN9LTrK` after all five capability probes returned 200, with zero failed webhooks, missing ledger rows, open payment exceptions, or stuck links. No payment, link, refund, message, or other money movement was created.
 
 ## Blocked high-value actions now explain the way forward
 
@@ -1268,10 +1317,10 @@ Persisted invoices now have backfilled account-scoped `INV-000001` numbers and c
 
 Invoice PDF party details now inherit the page's resolved 9pt line height instead of letting React PDF resolve a child-only multiplier against its 18pt default; the rendered spacing contract is locked in `src/lib/finance/invoice-pdf.test.tsx`.
 
-## Razorpay Live rollout authority now supports Rajat and VBF safely
+## Razorpay Live rollout authority now supports the owner account and VBF safely
 
 The one-account environment pins are replaced by the browser-denied
-`razorpay_live_rollout_accounts` table. Rajat stays exactly bound; VBF account
+`razorpay_live_rollout_accounts` table. The owner account stays exactly bound; VBF account
 `9c50dcd9-ed4a-427c-a2fc-07d452f0aec7` alone may claim its first returned Live
 merchant, which atomically closes enrollment and rejects a merchant already
 bound elsewhere. Connect, callback, refresh, and disconnect recovery share that
@@ -1293,7 +1342,7 @@ date/current-price order, the approved body and footer, both quick replies, and
 provider examples. The shared contract itself was already correct; this closes
 the feature-specific payload oracle without changing send behavior. Key code:
 `src/lib/whatsapp/template-contracts.test.ts`. A read-only 2026-08-27 production
-check proved the owner-approved Rajat Kashyap account now stores the exact
+check proved the owner-approved production account now stores the exact
 Marketing/en_US/POSITIONAL contract as Approved with no provider sync or
 missing marker, so membership and service reminder readiness is live. No
 WhatsApp message was sent during that check.
@@ -1317,7 +1366,7 @@ test lead remains Meta-owned test evidence; no customer lead or ad was created.
 
 The no-secret `production-health` workflow probes the live login surface, while
 the production runbook ties that signal to existing worker and backup runs,
-Vercel's one-hour Hobby runtime-log window, exact alert thresholds, Rajat's
+Vercel's one-hour Hobby runtime-log window, exact alert thresholds, the owner's
 rollback ownership, forward-only migration rules, and a daily/weekly/release
 verification cadence. After commit `05eca70` reached Production, the login
 probe and latest ops/renewal runs passed, and GitHub's notification inbox proved
@@ -2213,17 +2262,17 @@ Member profile **Add purchase** now separates invoice items from payment, shows 
 
 Invoice **Copy link** and **Send payment link** actions now keep their labels stable while showing the established spinner and `aria-busy` state during the parallel Razorpay, WhatsApp, and template readiness checks. An active link now reads **Payment link active** with its expiry on a separate supporting line, distinguishing link expiry from invoice status. The existing role, provider, phone, and template gates remain unchanged, and focused component coverage locks the busy, ready, and active-link hierarchy. Key code: `src/components/finance/payment-link-actions.tsx` and `payment-link-actions.test.tsx`.
 
-## Razorpay permanently activated for Rajat
+## Razorpay permanently activated for the owner-controlled account
 
-Under exact owner authorization, Production now keeps `RAZORPAY_OAUTH_ENABLED=true` only behind the existing Rajat Kashyap account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / Live merchant `acc_TCJwBqanN9LTrK` pins. READY deployment `dpl_9dcvUKMuTMiXzw8xsC21GQ49cfhp` from commit `26149600cdbe08c028736e8074761505199ecb72` is promoted on `desk.usefulmade.com`; first-bind enrollment and every provider/refund acceptance flag remain false, and Stage 6 manual-key/legacy-ingress retirement remains intact. Authenticated UI verification showed Connected, Live, ready, and payment-link controls enabled on an existing eligible invoice without using them. Secret-blind closeout found zero relevant queues and zero new financial, messaging, refund, link, mandate, webhook, or OAuth-state records; the prior ₹40 settlement remains exactly once. No second customer, WhatsApp send, consent, refund, money movement, secret rotation, VBF action, or broader rollout is authorized. Operational evidence: `docs/razorpay-operations.md`.
+Under exact owner authorization, Production now keeps `RAZORPAY_OAUTH_ENABLED=true` only behind the existing owner-controlled account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / Live merchant `acc_TCJwBqanN9LTrK` pins. READY deployment `dpl_9dcvUKMuTMiXzw8xsC21GQ49cfhp` from commit `26149600cdbe08c028736e8074761505199ecb72` is promoted on `desk.usefulmade.com`; first-bind enrollment and every provider/refund acceptance flag remain false, and Stage 6 manual-key/legacy-ingress retirement remains intact. Authenticated UI verification showed Connected, Live, ready, and payment-link controls enabled on an existing eligible invoice without using them. Secret-blind closeout found zero relevant queues and zero new financial, messaging, refund, link, mandate, webhook, or OAuth-state records; the prior ₹40 settlement remains exactly once. No second customer, WhatsApp send, consent, refund, money movement, secret rotation, VBF action, or broader rollout is authorized. Operational evidence: `docs/razorpay-operations.md`.
 
 ## First real-client Razorpay Payment Link settled
 
-Under exact owner authorization, the pinned Rajat Kashyap account / Live merchant opened a single OAuth settlement window for invoice `#BC2B1DDB`: secret-blind preflight matched its open INR ₹40 collectible balance, exact account/merchant, fresh OAuth readiness, connected WhatsApp, approved `gym_payment_link`, no prior link, and zero operational queues. READY deployment `dpl_C6dFzbhXXjZ3ZULLq7uCbZLJp4mW` kept enrollment and every acceptance flag false; the authenticated owner action created provider link `plink_TPxvlgki47VMgP` for exactly ₹40 with the fixed seven-day/non-partial contract and sent the approved template through the existing conversation. Meta callbacks advanced the stored message to Read. Signed application event `TPy00PfdmPIwtD` then settled the link exactly once: payment `1f8b569e-ff1a-4f39-a389-c1e6d18096b6` allocated ₹40 once and reduced both invoice balances to zero, with no pilot refund or review hold. Exact Live queues remained zero, and READY deployment `dpl_DAtth8pTbH8osaCiSVao71wpoi5x` immediately restored OAuth false while preserving the OAuth/Live/storage-v1/application-only connection. No second customer or broader rollout is authorized. Operational evidence: `docs/razorpay-operations.md`.
+Under exact owner authorization, the pinned owner-controlled account / Live merchant opened a single OAuth settlement window for invoice `#BC2B1DDB`: secret-blind preflight matched its open INR ₹40 collectible balance, exact account/merchant, fresh OAuth readiness, connected WhatsApp, approved `gym_payment_link`, no prior link, and zero operational queues. READY deployment `dpl_C6dFzbhXXjZ3ZULLq7uCbZLJp4mW` kept enrollment and every acceptance flag false; the authenticated owner action created provider link `plink_TPxvlgki47VMgP` for exactly ₹40 with the fixed seven-day/non-partial contract and sent the approved template through the existing conversation. Meta callbacks advanced the stored message to Read. Signed application event `TPy00PfdmPIwtD` then settled the link exactly once: payment `1f8b569e-ff1a-4f39-a389-c1e6d18096b6` allocated ₹40 once and reduced both invoice balances to zero, with no pilot refund or review hold. Exact Live queues remained zero, and READY deployment `dpl_DAtth8pTbH8osaCiSVao71wpoi5x` immediately restored OAuth false while preserving the OAuth/Live/storage-v1/application-only connection. No second customer or broader rollout is authorized. Operational evidence: `docs/razorpay-operations.md`.
 
 ## Razorpay real-gym readiness and Meta template approval
 
-The owner confirmed the exact-pinned Rajat Kashyap account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / Live merchant `acc_TCJwBqanN9LTrK` is their operating gym, so the completed connection revalidation now counts as the first real gym-owner OAuth readiness pilot without expanding its authorization into messaging or money movement. A fresh authenticated 2026-08-15 **Sync from Meta** updated two existing templates and shows both exact `en_US` Utility templates Approved: `gym_payment_link` (`1996323644342719`) and `gym_payment_due` (`1528972491789269`). This removes the WhatsApp template prerequisite for payment-link Send, but no message or Payment Link was created. All Razorpay rollout/acceptance flags remain false at rest, VBF/Aakash stays closed, and any recipient/invoice/amount delivery, money-path exercise, or broader rollout still needs separate exact approval. Operational evidence: `docs/razorpay-operations.md`.
+The owner confirmed the exact-pinned account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / Live merchant `acc_TCJwBqanN9LTrK` is their operating gym, so the completed connection revalidation now counts as the first real gym-owner OAuth readiness pilot without expanding its authorization into messaging or money movement. A fresh authenticated 2026-08-15 **Sync from Meta** updated two existing templates and shows both exact `en_US` Utility templates Approved: `gym_payment_link` (`1996323644342719`) and `gym_payment_due` (`1528972491789269`). This removes the WhatsApp template prerequisite for payment-link Send, but no message or Payment Link was created. All Razorpay rollout/acceptance flags remain false at rest, VBF/Aakash stays closed, and any recipient/invoice/amount delivery, money-path exercise, or broader rollout still needs separate exact approval. Operational evidence: `docs/razorpay-operations.md`.
 
 ## Login & security visual polish
 
@@ -2259,7 +2308,7 @@ Validated invitation continuations now survive signup-link failures, sign-in ret
 
 ## Razorpay pinned-readiness recovery
 
-An existing exact-pinned Live OAuth connection can now recover after its 24-hour readiness evidence expires: the owner/admin Payments card reaches the same-origin refresh route, which alone may cross the stale-readiness gate, requires the configured Live account and already-bound merchant pins, rotates the stored OAuth grant, reruns read-only provider readiness probes, and persists the result. Ordinary payment operations still fail closed on stale readiness. On 2026-08-14 the owner separately authorized this connection-only action for Rajat Kashyap account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / merchant `acc_TCJwBqanN9LTrK`; token generation advanced to 2, readiness became fresh, and the secret-blind closeout found no manual material, leases, active OAuth state, conflicting binding, new money/link/refund record, unresolved exact-Live event, or open exception. Production deployment `dpl_6BurUwHRp6AramDkS23hZAMkvAX4` is READY with OAuth, enrollment, and every acceptance flag false. At this step no separate real-gym classification or message/money authority was asserted; the later readiness entry records the owner's operating-gym clarification. VBF stayed closed, WhatsApp was not sent, and the deferred client secrets were not rotated. Key code: `src/app/api/payments/razorpay/oauth/refresh/route.ts`, `src/lib/payments/credentials.ts`, and `src/components/settings/razorpay-settings-card.tsx`.
+An existing exact-pinned Live OAuth connection can now recover after its 24-hour readiness evidence expires: the owner/admin Payments card reaches the same-origin refresh route, which alone may cross the stale-readiness gate, requires the configured Live account and already-bound merchant pins, rotates the stored OAuth grant, reruns read-only provider readiness probes, and persists the result. Ordinary payment operations still fail closed on stale readiness. On 2026-08-14 the owner separately authorized this connection-only action for the owner-controlled account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` / merchant `acc_TCJwBqanN9LTrK`; token generation advanced to 2, readiness became fresh, and the secret-blind closeout found no manual material, leases, active OAuth state, conflicting binding, new money/link/refund record, unresolved exact-Live event, or open exception. Production deployment `dpl_6BurUwHRp6AramDkS23hZAMkvAX4` is READY with OAuth, enrollment, and every acceptance flag false. At this step no separate real-gym classification or message/money authority was asserted; the later readiness entry records the owner's operating-gym clarification. VBF stayed closed, WhatsApp was not sent, and the deferred client secrets were not rotated. Key code: `src/app/api/payments/razorpay/oauth/refresh/route.ts`, `src/lib/payments/credentials.ts`, and `src/components/settings/razorpay-settings-card.tsx`.
 
 ## Renewal KPI and queue parity
 
@@ -2411,7 +2460,7 @@ The apparent 2026-08-12 Meta submissions were synthetic local rows created while
 
 ## Razorpay Stage 6 OAuth-only retirement
 
-Manual Razorpay setup is retired under the owner's explicit waiver of the remaining policy-only 14-day rollback hold. Connector-applied migration `20260811181302_retire_razorpay_manual_keys.sql` verified both databases had zero manual-mode/version-0 rows, erased Test's one dormant legacy webhook secret, and DB-locks credentials to OAuth/v1/application ingress with manual columns null; immutable cutover/delivery audits remain. The Settings key form, connection POST, Basic-auth/version-0 fallback and backfill, per-account/legacy-secret/cutover routes, rollback config, and retired selector RPCs are gone. OAuth recovery, named capability gates, strict Test/Live isolation, exact merchant binding, and application webhook processing remain fail-closed. READY deployments `dpl_9ZTDDvDN88gNm6CZ4qswhW47Ata1` (Production) and `dpl_AAJxU93wfh5dva7nhR4wRdimHymQ` (isolated Test) serve their canonical aliases with rollout/acceptance flags false and no manual rollback variable; the exact Rajat Live connection remains OAuth/ready and every operational queue remains zero. No real-money exercise, VBF action, or WhatsApp Send occurred; `gym_payment_link` was still unapproved at this closeout, its later approval is recorded above, and the unrotated OAuth client secrets remain under the recorded owner risk acceptance.
+Manual Razorpay setup is retired under the owner's explicit waiver of the remaining policy-only 14-day rollback hold. Connector-applied migration `20260811181302_retire_razorpay_manual_keys.sql` verified both databases had zero manual-mode/version-0 rows, erased Test's one dormant legacy webhook secret, and DB-locks credentials to OAuth/v1/application ingress with manual columns null; immutable cutover/delivery audits remain. The Settings key form, connection POST, Basic-auth/version-0 fallback and backfill, per-account/legacy-secret/cutover routes, rollback config, and retired selector RPCs are gone. OAuth recovery, named capability gates, strict Test/Live isolation, exact merchant binding, and application webhook processing remain fail-closed. READY deployments `dpl_9ZTDDvDN88gNm6CZ4qswhW47Ata1` (Production) and `dpl_AAJxU93wfh5dva7nhR4wRdimHymQ` (isolated Test) serve their canonical aliases with rollout/acceptance flags false and no manual rollback variable; the exact owner-controlled Live connection remains OAuth/ready and every operational queue remains zero. No real-money exercise, VBF action, or WhatsApp Send occurred; `gym_payment_link` was still unapproved at this closeout, its later approval is recorded above, and the unrotated OAuth client secrets remain under the recorded owner risk acceptance.
 
 ## Reliable tag-trigger automation dispatch
 
@@ -2461,15 +2510,15 @@ The shared invoice drill-down now keeps its intended dialog gutters under dense 
 
 ## Razorpay failed-disconnect recovery
 
-Rajat's accepted Live connection no longer remains ambiguously `disconnecting`. A service-role-only, lease/generation-guarded recovery contract first asked Razorpay to refresh the stored grant without exposing it; the provider returned `Token is already revoked`, so the row moved to `reconnect_required` rather than inventing readiness. Rajat then completed the shortest exact-account OAuth reconnect, which returned pinned merchant `acc_TCJwBqanN9LTrK`, `read_write`, and fresh readiness across the existing non-mutating provider probes. The row is now OAuth/Live/ready with current encrypted grants, application-canonical ingress, one existing activation audit, no manual material, lease, or error. Exact Live operational queues remain zero and no payment, refund, VBF action, WhatsApp Send, or Stage 6 work occurred. Key code: migration `20260811172006_reconcile_razorpay_failed_disconnect.sql`, `src/lib/payments/razorpay-disconnect-recovery.ts`, `/api/payments/razorpay/oauth/recover`, and the Settings recovery action. READY deployment `dpl_5GkfJc9Nj21pH5Liy8obPbfXpSuN` restores OAuth, first-bind enrollment, manual rollback, and every provider/refund acceptance flag false; the unrotated application secrets remain under the recorded owner risk acceptance.
+The owner's accepted Live connection no longer remains ambiguously `disconnecting`. A service-role-only, lease/generation-guarded recovery contract first asked Razorpay to refresh the stored grant without exposing it; the provider returned `Token is already revoked`, so the row moved to `reconnect_required` rather than inventing readiness. The owner then completed the shortest exact-account OAuth reconnect, which returned pinned merchant `acc_TCJwBqanN9LTrK`, `read_write`, and fresh readiness across the existing non-mutating provider probes. The row is now OAuth/Live/ready with current encrypted grants, application-canonical ingress, one existing activation audit, no manual material, lease, or error. Exact Live operational queues remain zero and no payment, refund, VBF action, WhatsApp Send, or Stage 6 work occurred. Key code: migration `20260811172006_reconcile_razorpay_failed_disconnect.sql`, `src/lib/payments/razorpay-disconnect-recovery.ts`, `/api/payments/razorpay/oauth/recover`, and the Settings recovery action. READY deployment `dpl_5GkfJc9Nj21pH5Liy8obPbfXpSuN` restores OAuth, first-bind enrollment, manual rollback, and every provider/refund acceptance flag false; the unrotated application secrets remain under the recorded owner risk acceptance.
 
 ## Razorpay co-branded first-merchant enrollment gate
 
-The existing UsefulDesk Razorpay application exposes the provider-hosted Onboarding UI Configurator and its **Create your account to get started** flow. `src/lib/payments/razorpay-config.ts`, the OAuth callback, and credential/readiness helpers retain the disabled-by-default Production first-bind gate: only an explicitly allowlisted unbound tenant may adopt its first provider-issued `acc_…` identity, mismatched grants are revoked, and imported-account capability fallback cannot manufacture activation. The VBF/Aakash continuation is closed. Four Connect attempts created short-lived state reservations, but all expired unconsumed; VBF has no active OAuth state, credential, merchant binding, selector activation, Payment Link, gateway payment, or refund. Production remains pinned to Rajat's owner-controlled accepted account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and merchant `acc_TCJwBqanN9LTrK`, now with separately recorded current readiness after the provider-grounded recovery above. Rajat's prior ₹1 Live payment/refund remains the sole Stage 5 money-path evidence, not a customer rollout. Do not resume VBF or another merchant without a new explicit decision.
+The existing UsefulDesk Razorpay application exposes the provider-hosted Onboarding UI Configurator and its **Create your account to get started** flow. `src/lib/payments/razorpay-config.ts`, the OAuth callback, and credential/readiness helpers retain the disabled-by-default Production first-bind gate: only an explicitly allowlisted unbound tenant may adopt its first provider-issued `acc_…` identity, mismatched grants are revoked, and imported-account capability fallback cannot manufacture activation. The VBF/Aakash continuation is closed. Four Connect attempts created short-lived state reservations, but all expired unconsumed; VBF has no active OAuth state, credential, merchant binding, selector activation, Payment Link, gateway payment, or refund. Production remains pinned to the owner's accepted account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and merchant `acc_TCJwBqanN9LTrK`, now with separately recorded current readiness after the provider-grounded recovery above. The owner's prior ₹1 Live payment/refund remains the sole Stage 5 money-path evidence, not a customer rollout. Do not resume VBF or another merchant without a new explicit decision.
 
 ## Razorpay Stage 5 production pilot accepted
 
-Stage 5 provider/payment acceptance is accepted only for owner-controlled production account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and exact Live merchant `acc_TCJwBqanN9LTrK`. The owner later confirmed this is their operating gym, so it is real gym-owner environment evidence; the ₹1 sale/refund remains a controlled acceptance exercise, not broader customer rollout authority. Rajat paid Mohit's isolated ₹1 sale invoice through Payment Link `plink_TO8x9EEvAaFTvD`; signed application event `TO8zmuGUYRsb5p` created one immutable UPI payment and one ₹1 line allocation. A provider-backed empty historical refund scan then enabled the authorized full `reopen_balance` refund `rfnd_TO9JVjXVBBVKQT`; signed event `TO9Lk5YahoU3O9` processed one ₹1 refund/allocation, no adjustment, and reopened the invoice to ₹1. Finance and the downloaded August CSV show ₹1 gross, ₹1 refunded, ₹0 net, no review, and the exact provider ids; Mohit's separate ₹2,700 membership due/reminder queue was unchanged, WhatsApp Send was not exercised, and the pilot catalog item is archived. Checkout migrations `20260810165912`/`20260810170205` repair a composite-row assignment bug, while `20260810172657` makes recovery require stored mode plus exact merchant identity and restores four mistakenly claimed pre-OAuth rows to unknown mode without deleting them. Both provider events had one genuine application delivery and no retry was offered; no duplicate was manufactured. Exact Live unresolved events, missing ledgers, unfinished links/refunds, and payment/refund exceptions are zero. READY deployment `dpl_KoiCtsfbL3SAefMxpUKuUYj7QUyJ` restores OAuth and every acceptance/rollback flag false; the local Vercel link is back on the isolated sandbox. Existing OAuth secrets remain unrotated under the recorded owner risk acceptance. Stage 6, manual Live keys, legacy-ingress removal, and WhatsApp Send remain out of scope.
+Stage 5 provider/payment acceptance is accepted only for owner-controlled production account `50a9e8f9-d7e5-44d2-ba04-c367509b981e` and exact Live merchant `acc_TCJwBqanN9LTrK`. The owner later confirmed this is their operating gym, so it is real gym-owner environment evidence; the ₹1 sale/refund remains a controlled acceptance exercise, not broader customer rollout authority. The owner paid an isolated ₹1 sale invoice through Payment Link `plink_TO8x9EEvAaFTvD`; signed application event `TO8zmuGUYRsb5p` created one immutable UPI payment and one ₹1 line allocation. A provider-backed empty historical refund scan then enabled the authorized full `reopen_balance` refund `rfnd_TO9JVjXVBBVKQT`; signed event `TO9Lk5YahoU3O9` processed one ₹1 refund/allocation, no adjustment, and reopened the invoice to ₹1. Finance and the downloaded August CSV show ₹1 gross, ₹1 refunded, ₹0 net, no review, and the exact provider ids; the separate ₹2,700 membership due/reminder queue was unchanged, WhatsApp Send was not exercised, and the pilot catalog item is archived. Checkout migrations `20260810165912`/`20260810170205` repair a composite-row assignment bug, while `20260810172657` makes recovery require stored mode plus exact merchant identity and restores four mistakenly claimed pre-OAuth rows to unknown mode without deleting them. Both provider events had one genuine application delivery and no retry was offered; no duplicate was manufactured. Exact Live unresolved events, missing ledgers, unfinished links/refunds, and payment/refund exceptions are zero. READY deployment `dpl_KoiCtsfbL3SAefMxpUKuUYj7QUyJ` restores OAuth and every acceptance/rollback flag false; the local Vercel link is back on the isolated sandbox. Existing OAuth secrets remain unrotated under the recorded owner risk acceptance. Stage 6, manual Live keys, legacy-ingress removal, and WhatsApp Send remain out of scope.
 
 ## Razorpay Stage 4 refunds accepted in isolated Test
 

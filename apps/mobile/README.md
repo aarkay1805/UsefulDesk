@@ -1,6 +1,6 @@
 # UsefulDesk Agent
 
-UsefulDesk Agent is the phone-first mobile workspace for gym staff. This Expo app lives in the UsefulDesk monorepo and shares the product's Supabase tenant model while keeping mobile authentication and selected-branch state local to the device.
+UsefulDesk Agent is the phone-first mobile workspace for gym staff. This Expo app lives in the UsefulDesk monorepo and shares the product's Supabase tenant model while keeping mobile authentication and selected-branch state local to the device. Its Stage 2 Inbox supports branch-scoped realtime history, viewer-safe read-only access, service-window text, and Approved positional templates.
 
 ## Develop locally
 
@@ -8,6 +8,7 @@ From the repository root:
 
 ```bash
 npm install
+npm run mobile:routes
 npm run mobile:start
 ```
 
