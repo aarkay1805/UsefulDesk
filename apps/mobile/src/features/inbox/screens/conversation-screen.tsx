@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -21,6 +21,7 @@ import {
 } from '../../../ui';
 import { useReadyAuth } from '../../auth/auth-context';
 import { ConversationComposer } from '../components/conversation-composer';
+import { MessageActionSheet } from '../components/message-action-sheet';
 import { MessageBubble } from '../components/message-bubble';
 import { TemplatePicker } from '../components/template-picker';
 import {
@@ -38,7 +39,13 @@ import {
   LOCAL_LAYOUT_FIXTURE,
 } from '../inbox-test-fixtures';
 import type { InboxMessage, ThreadDisplayItem } from '../inbox-types';
+import { setMessageReaction } from '../reaction-client';
+import {
+  mobileReactionRepository,
+  type ReactionRepository,
+} from '../reaction-repository';
 import { templateSendUncertaintyStore } from '../template-send-uncertainty';
+import { useMessageReactions } from '../use-message-reactions';
 import {
   useMessageThread,
   type MessageThreadOutboundDependencies,
@@ -136,12 +143,18 @@ function UnavailableConversation() {
 interface ConversationThreadProps {
   accountId: string;
   conversationId: string;
+  currentUserId: string;
   role: ReturnType<typeof useReadyAuth>['state']['branch']['role'];
   branchStatus: ReturnType<
     typeof useReadyAuth
   >['state']['branch']['branch_status'];
   account: ReturnType<typeof useReadyAuth>['state']['account'];
   outbound?: MessageThreadOutboundDependencies;
+  reactionDependencies?: {
+    repository: ReactionRepository;
+    mutate(messageId: string, emoji: string): Promise<void>;
+  };
+  recoverUnauthorizedSession(): Promise<void>;
   threadDependencies?: Partial<
     Pick<
       UseMessageThreadOptions,
@@ -198,14 +211,35 @@ function FailedMessageRetry({ onRetry, temporaryId }: FailedMessageRetryProps) {
 function ConversationThread({
   accountId,
   conversationId,
+  currentUserId,
   role,
   branchStatus,
   account,
   outbound,
+  reactionDependencies,
+  recoverUnauthorizedSession,
   threadDependencies,
 }: ConversationThreadProps) {
   const providerRealtime = useInboxRealtimeFeed();
   const realtime = threadDependencies?.realtime ?? providerRealtime;
+  const outboundAllowed = canUseConversationOutbound(role, branchStatus);
+  const mutateReaction = useCallback(
+    (messageId: string, emoji: string) =>
+      setMessageReaction(
+        { accountId, messageId, emoji },
+        { recoverUnauthorizedSession }
+      ),
+    [accountId, recoverUnauthorizedSession]
+  );
+  const reactions = useMessageReactions({
+    accountId,
+    conversationId,
+    currentUserId,
+    canMutate: outboundAllowed,
+    realtime,
+    repository: reactionDependencies?.repository ?? mobileReactionRepository,
+    mutate: reactionDependencies?.mutate ?? mutateReaction,
+  });
   const thread = useMessageThread({
     accountId,
     conversationId,
@@ -239,8 +273,14 @@ function ConversationThread({
   const [keyboardVerticalOffset, setKeyboardVerticalOffset] = useState(0);
   const [composerStaged, setComposerStaged] = useState(false);
   const [replySelection, setReplySelection] = useState<{
+    accountId: string;
     conversationId: string;
     message: InboxMessage;
+  } | null>(null);
+  const [actionSelection, setActionSelection] = useState<{
+    accountId: string;
+    conversationId: string;
+    messageId: string;
   } | null>(null);
   const latestId = thread.items.at(-1)?.id ?? null;
   const itemCount = thread.items.length;
@@ -252,7 +292,8 @@ function ConversationThread({
       ? fmt.phone(thread.conversation.contact.phone)
       : 'Conversation');
   const selectedReply =
-    replySelection?.conversationId === conversationId
+    replySelection?.accountId === accountId &&
+    replySelection.conversationId === conversationId
       ? replySelection.message
       : null;
   const composerReplyTarget = selectedReply
@@ -263,12 +304,17 @@ function ConversationThread({
       }
     : null;
   const messagesById = new Map(thread.items.map((item) => [item.id, item]));
+  const reactionsByMessageId = new Map<string, typeof reactions.reactions>();
+  for (const reaction of reactions.reactions) {
+    const grouped = reactionsByMessageId.get(reaction.messageId) ?? [];
+    grouped.push(reaction);
+    reactionsByMessageId.set(reaction.messageId, grouped);
+  }
   const readyLatestInboundAt =
     thread.sendReadiness.status === 'ready'
       ? thread.sendReadiness.latestInboundAt
       : null;
   const renderClockMs = new Date().getTime();
-  const outboundAllowed = canUseConversationOutbound(role, branchStatus);
   let actionState: ConversationActionState | null = null;
   if (outboundAllowed && thread.sendReadiness.status === 'error') {
     actionState = { kind: 'blocked', blocker: SEND_READINESS_BLOCKER };
@@ -288,6 +334,20 @@ function ConversationThread({
   const templateSafetyRequired = actionState?.kind === 'closed_template';
   const templatePickerOpen =
     templateSafetyRequired && templatePickerFeed === realtime;
+  const selectedActionMessage =
+    outboundAllowed &&
+    actionSelection?.accountId === accountId &&
+    actionSelection.conversationId === conversationId
+      ? (messagesById.get(actionSelection.messageId) ?? null)
+      : null;
+  const actionableMessage =
+    selectedActionMessage &&
+    !selectedActionMessage.id.startsWith('temp:') &&
+    selectedActionMessage.status !== 'sending' &&
+    selectedActionMessage.status !== 'failed' &&
+    selectedActionMessage.providerMessageId
+      ? selectedActionMessage
+      : null;
 
   useEffect(() => {
     keyboardOffsetMountedRef.current = true;
@@ -464,20 +524,47 @@ function ConversationThread({
       !item.message.id.startsWith('temp:') &&
       item.message.status !== 'sending' &&
       item.message.status !== 'failed';
+    const canReact =
+      outboundAllowed &&
+      !item.message.id.startsWith('temp:') &&
+      item.message.status !== 'sending' &&
+      item.message.status !== 'failed' &&
+      item.message.providerMessageId !== null;
     return (
       <View>
         <MessageBubble
+          currentUserId={currentUserId}
           formattedTime={fmt.time(item.message.createdAt)}
           message={item.message}
+          onOpenActions={
+            canReact
+              ? () =>
+                  setActionSelection({
+                    accountId,
+                    conversationId,
+                    messageId: item.message.id,
+                  })
+              : undefined
+          }
           onReply={
             canReply
               ? () =>
                   setReplySelection({
+                    accountId,
                     conversationId,
                     message: item.message,
                   })
               : undefined
           }
+          onToggleReaction={
+            canReact
+              ? (emoji) => {
+                  void reactions.toggleReaction(item.message.id, emoji);
+                }
+              : undefined
+          }
+          reactionPending={reactions.pendingMessageIds.has(item.message.id)}
+          reactions={reactionsByMessageId.get(item.message.id) ?? []}
           replyQuote={replyQuote}
           startsRun={item.startsRun}
         />
@@ -818,6 +905,22 @@ function ConversationThread({
           </View>
         ) : null}
 
+        {reactions.error ? (
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="mx-4 mt-3"
+          >
+            <Text
+              className="text-danger text-center text-sm"
+              style={{ lineHeight: undefined }}
+            >
+              {reactions.error}
+            </Text>
+          </View>
+        ) : null}
+
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           className="flex-1"
@@ -892,6 +995,26 @@ function ConversationThread({
           templates={thread.sendReadiness.templates}
         />
       ) : null}
+
+      {actionableMessage ? (
+        <MessageActionSheet
+          onClose={() => setActionSelection(null)}
+          onReact={(emoji) => {
+            void reactions.setReaction(actionableMessage.id, emoji);
+          }}
+          onReply={
+            actionState?.kind === 'open_text'
+              ? () =>
+                  setReplySelection({
+                    accountId,
+                    conversationId,
+                    message: actionableMessage,
+                  })
+              : undefined
+          }
+          preview={messagePreview(actionableMessage)}
+        />
+      ) : null}
     </ScreenSafeAreaView>
   );
 }
@@ -932,8 +1055,11 @@ export function ConversationScreen() {
       accountId={state.branch.account_id}
       branchStatus={state.branch.branch_status}
       conversationId={conversationId}
+      currentUserId={state.session.user.id}
       key={`${state.branch.account_id}:${conversationId}`}
       outbound={localFixture?.outbound ?? standardOutbound}
+      reactionDependencies={localFixture?.reactionDependencies}
+      recoverUnauthorizedSession={auth.recoverUnauthorizedSession}
       role={state.branch.role}
       threadDependencies={localFixture?.threadDependencies}
     />

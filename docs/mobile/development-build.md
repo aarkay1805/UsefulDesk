@@ -1,12 +1,12 @@
 # Mobile development builds
 
 This runbook verifies the UsefulDesk Agent native foundation, the shipped Stage
-2 Inbox, and the built Stage 3 media and quoted-reply surfaces. It covers the
+2 Inbox, and the built Stage 3 media, quoted-reply, and reaction surfaces. It covers the
 development client, authentication, secure session restoration, branch-scoped
 conversation lists and history, realtime recovery, role- and
 service-window-gated outbound controls, optimistic text/media state, Approved
-template sending, and non-mutating rich-chat acceptance. Reactions, push
-notifications, and advanced message actions remain outside this boundary.
+template sending, and non-mutating rich-chat acceptance. Push notifications and
+advanced message actions remain outside this boundary.
 
 ## Prerequisites
 
@@ -172,19 +172,27 @@ to complete this checklist.
 - Light and dark appearances retain readable semantic states, and large Dynamic
   Type leaves every field and action operable.
 
-### Native Inbox Stage 3 media and quoted replies
+### Native Inbox Stage 3 media, quoted replies, and reactions
 
 Keep this acceptance non-mutating unless the owner gives action-time approval
 for the exact test recipient, file, and payload. Picker launch/cancel and the
 local fixture do not authorize selecting or uploading a file or sending a
 customer/provider message.
 
-- In an open service window, long press a persisted message and invoke its
+- In an open service window, swipe a persisted message right or invoke its
   **Reply to message** accessibility action; both stage the same compact quote.
+- Long press a persisted provider message to open the quick-action sheet. It
+  offers six reactions and, while Reply is allowed, a separate **Reply** row.
+- Select, replace, and remove the current agent's reaction. Confirm the compact
+  pill straddles the bubble, groups equal emoji into one count, and marks the
+  current agent's choice without obscuring reactions from other actors.
+- Close the customer-service window and confirm reactions remain available but
+  the Reply row and swipe-to-reply do not. Viewers can read reaction pills but
+  cannot open or mutate actions.
 - Replace the target with another persisted message, then dismiss the quote;
   neither action changes the draft or sends anything.
-- Confirm temporary, sending, and failed rows do not offer reply initiation;
-  after the service window closes, confirm no message offers it.
+- Confirm temporary, sending, and failed rows offer neither reaction nor reply
+  initiation.
 - Confirm existing replies render the parent preview, or **Original message
   unavailable** when that parent is not in the loaded thread.
 - Launch and cancel the photo, video, document, and audio pickers. Confirm the
@@ -201,14 +209,21 @@ Latest acceptance record:
 - Cross-branch isolation: pass
 - Latest iOS build/install after the SDK patch upgrade: pass; the unlocked
   development client also launched through Metro
+- Latest iOS reaction-change simulator compile through the generated Xcode
+  workspace: pass for the unsigned Debug target
 - Latest Android debug build, install, launch, and normal-font physical smoke:
   pass on a OnePlus 6 running Android 11
 - Latest Android Stage 3 local-fixture reply select, replace, and dismiss: pass
   on the OnePlus 6 after a fresh local client build
+- Latest Android reaction-pill display, six-emoji long-press sheet, local-only
+  reaction selection, and swipe-right quote staging: pass on the OnePlus 6
+  after a fresh local Gradle build and install; the fixture kept the real
+  provider path unreachable
 - Latest Android photo, video, document, and audio picker launch/cancel: pass on
   the OnePlus 6; no file was selected or uploaded
-- Stage 3 media selection/upload/provider delivery and quoted-reply provider
-  delivery: not exercised; no provider/customer message was sent
+- Stage 3 media selection/upload/provider delivery, quoted-reply provider
+  delivery, and remote reaction/provider synchronization: not exercised; no
+  provider/customer message was sent
 - Latest iPhone Stage 3 physical acceptance: not exercised because the device
   was offline
 - Latest physical branch isolation, foreground/session recovery, persisted
@@ -250,6 +265,13 @@ Expo/native directories are ignored by Prettier and must not be counted as
 source-formatting failures.
 
 ## Remote EAS development builds
+
+Remote EAS builds are intentionally deferred until native feature development
+is complete. Use the local Xcode and Gradle development-build workflow above
+for current implementation and physical-device acceptance. Project linking,
+cloud environments, signing, and store distribution belong to the final
+release-hardening phase; do not treat EAS authentication as a feature-work
+prerequisite.
 
 `apps/mobile/eas.json` provides an iOS simulator profile and an internal device
 profile. Both development profiles read the EAS `development` environment. EAS

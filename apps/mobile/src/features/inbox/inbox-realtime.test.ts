@@ -199,6 +199,35 @@ describe('subscribeToInboxRealtime', () => {
     });
   });
 
+  it('accepts a reaction event only for the selected account conversation and target message', async () => {
+    const client = fakeRealtimeClient();
+    const onEvent = jest.fn();
+    await subscribeToInboxRealtime({
+      client: client as InboxRealtimeClient,
+      accountId: BRANCH_ID,
+      onEvent,
+      onConnectionChange: jest.fn(),
+    });
+
+    client.emit({
+      payload: {
+        table: 'message_reactions',
+        eventType: 'UPDATE',
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        messageId: MESSAGE_1_ID,
+      },
+    });
+
+    expect(onEvent).toHaveBeenCalledWith({
+      table: 'message_reactions',
+      eventType: 'UPDATE',
+      accountId: BRANCH_ID,
+      conversationId: CONVERSATION_ID,
+      messageId: MESSAGE_1_ID,
+    });
+  });
+
   it('maps fixed channel statuses without exposing error objects', async () => {
     const client = fakeRealtimeClient();
     const onConnectionChange = jest.fn();

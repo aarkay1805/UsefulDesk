@@ -16,6 +16,13 @@ export type InboxRealtimeEvent =
       accountId: string;
       conversationId: string;
       messageId: string;
+    }
+  | {
+      table: 'message_reactions';
+      eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+      accountId: string;
+      conversationId: string;
+      messageId: string;
     };
 
 export interface InboxRealtimeChannel {
@@ -76,7 +83,10 @@ function parseEvent(
   if (table === 'conversations' && messageId === null) {
     return { table, eventType, accountId, conversationId, messageId };
   }
-  if (table === 'messages' && isUuid(messageId)) {
+  if (
+    (table === 'messages' || table === 'message_reactions') &&
+    isUuid(messageId)
+  ) {
     return { table, eventType, accountId, conversationId, messageId };
   }
   return null;

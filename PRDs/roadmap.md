@@ -27,7 +27,9 @@ cross-branch isolation without a stale back stack; a live realtime incoming
 event was not exercised. Stage 1 contains no composer or message sending.
 Generated native projects stay ignored. Physical Android 11 runtime smoke now
 passes for the Stage 1/2 Inbox boundary; newer-system theming, predictive Back,
-alternate form factors, and remote EAS builds remain pending. **Stage 2 native
+and alternate form factors remain pending. Remote EAS builds are deliberately
+deferred until native feature development is complete; local Xcode and Gradle
+development builds remain the active acceptance path. **Stage 2 native
 outbound Inbox implementation is
 built:** strict mobile bearer authorization keeps cookie callers compatible;
 the branch-aware transport has one refresh retry; optimistic, persisted, and
@@ -86,8 +88,9 @@ restored to night mode `auto` and font scale `1.0`. The post-repair font-scale
 historical pre-repair newest-bubble failure is covered by automated repair tests
 but is not physically accepted. Predictive Back, Android 12+ theming,
 tablet/foldable layouts, provider delivery, and synthetic screenshots remain
-unverified. Remote EAS builds could not start because the CLI had no
-authenticated account and the app has no linked EAS project. The root
+unverified. Remote EAS builds, project linking, signing, and store distribution
+are release-hardening work after native feature development; they are not a
+development blocker while local Xcode and Gradle builds pass. The root
 `npm run verify` still stops at the one unchanged tracked formatting baseline
 before later gates.
 Final review additionally closed ambiguous-send duplication with locked text
@@ -109,7 +112,19 @@ and clear-on-sent replacement safety. On a freshly rebuilt OnePlus 6 / Android
 fixture passed reply select/replace/dismiss. Media file selection, upload, and
 provider delivery remain unverified; no provider/customer message was sent,
 and quoted-reply provider delivery remains unverified. **Remaining Stage 3 work
-is deferred:** reactions, push notifications, and advanced message actions.**
+is partially built:** native message reactions now use the existing WhatsApp
+reaction route through strict bearer/cookie-compatible operational auth,
+selected-branch fail-closed reads and writes, RLS-rehydrated private Realtime
+broadcasts, and race-safe optimistic swap/remove rollback. Persisted provider
+messages expose six quick reactions from a compact long-press action sheet;
+reaction pills group counts and distinguish the current agent, viewers remain
+read-only, and temporary/sending/failed rows remain ineligible. Reply moves to
+swipe-right or an accessibility action and remains service-window-gated while
+reactions do not. A freshly rebuilt OnePlus 6 / Android 11 client passed the
+local-only pill, long-press, reaction-selection, and swipe-reply interaction
+checks without reaching the provider. Remote reaction/provider synchronization
+remains unverified. Push notifications and other advanced message actions are
+deferred.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

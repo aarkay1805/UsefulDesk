@@ -52,6 +52,16 @@ export interface InboxMessage {
   replyToMessageId: string | null;
   interactiveReplyId: string | null;
 }
+export type ReactionActor = 'customer' | 'agent';
+export interface InboxMessageReaction {
+  id: string;
+  messageId: string;
+  conversationId: string;
+  actorType: ReactionActor;
+  actorId: string;
+  emoji: string;
+  createdAt: string;
+}
 export type ConversationCursor =
   | { phase: 'messaged'; lastMessageAt: string; id: string }
   | { phase: 'empty'; createdAt: string; id: string };

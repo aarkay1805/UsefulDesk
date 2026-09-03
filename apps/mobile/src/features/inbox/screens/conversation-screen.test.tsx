@@ -10,7 +10,11 @@ import { type LayoutChangeEvent, Platform } from 'react-native';
 import type { ReadyAuthContextValue } from '../../auth/auth-context';
 import type { AccountSummary, BranchAccount } from '../../auth/branch-types';
 import type { InboxRealtimeFeed } from '../inbox-realtime-provider';
-import type { ConnectionReadiness, NativeTemplate } from '../inbox-types';
+import type {
+  ConnectionReadiness,
+  InboxMessageReaction,
+  NativeTemplate,
+} from '../inbox-types';
 import {
   BRANCH_ID,
   CONVERSATION_ID,
@@ -38,6 +42,10 @@ import {
 const mockRouter = { push: jest.fn(), replace: jest.fn() };
 const mockUseLocalSearchParams = jest.fn();
 const mockUseMessageThread = jest.fn();
+const mockUseMessageReactions = jest.fn();
+const mockSetReaction = jest.fn();
+const mockToggleReaction = jest.fn();
+const mockPostReaction = jest.fn();
 const mockUseReadyAuth = jest.fn<ReadyAuthContextValue, []>();
 const mockScrollToEnd = jest.fn();
 const mockFocus = jest.fn();
@@ -155,6 +163,18 @@ jest.mock('../use-message-thread', () => ({
   useMessageThread: (...args: unknown[]) => mockUseMessageThread(...args),
 }));
 
+jest.mock('../use-message-reactions', () => ({
+  useMessageReactions: (...args: unknown[]) => mockUseMessageReactions(...args),
+}));
+
+jest.mock('../reaction-client', () => ({
+  setMessageReaction: (...args: unknown[]) => mockPostReaction(...args),
+}));
+
+jest.mock('../reaction-repository', () => ({
+  mobileReactionRepository: { list: jest.fn().mockResolvedValue([]) },
+}));
+
 jest.mock('../inbox-realtime-provider', () => ({
   useInboxRealtimeFeed: () => screenRealtime,
 }));
@@ -198,13 +218,23 @@ jest.mock('../components/message-bubble', () => {
       message: item,
       formattedTime,
       startsRun,
+      currentUserId,
+      onOpenActions,
       onReply,
+      onToggleReaction,
+      reactionPending,
+      reactions,
       replyQuote,
     }: {
       message: { id: string; contentText: string | null };
       formattedTime: string;
       startsRun: boolean;
+      currentUserId?: string;
+      onOpenActions?: () => void;
       onReply?: () => void;
+      onToggleReaction?: (emoji: string) => void;
+      reactionPending?: boolean;
+      reactions?: InboxMessageReaction[];
       replyQuote?:
         { authorLabel: string; preview: string } | { unavailable: true };
     }) =>
@@ -214,17 +244,31 @@ jest.mock('../components/message-bubble', () => {
           accessibilityLabel: `Message ${item.id}, ${
             startsRun ? 'starts run' : 'continues run'
           }`,
-          accessibilityActions: onReply
-            ? [{ name: 'reply', label: 'Reply to message' }]
-            : undefined,
-          onAccessibilityAction: onReply
-            ? (event: { nativeEvent: { actionName: string } }) => {
-                if (event.nativeEvent.actionName === 'reply') onReply();
-              }
-            : undefined,
-          onLongPress: onReply,
+          accessibilityActions:
+            onReply || onOpenActions
+              ? [
+                  ...(onReply
+                    ? [{ name: 'reply', label: 'Reply to message' }]
+                    : []),
+                  ...(onOpenActions
+                    ? [{ name: 'react', label: 'React to message' }]
+                    : []),
+                ]
+              : undefined,
+          currentUserId,
+          onAccessibilityAction: (event: {
+            nativeEvent: { actionName: string };
+          }) => {
+            if (event.nativeEvent.actionName === 'reply') onReply?.();
+            if (event.nativeEvent.actionName === 'react') onOpenActions?.();
+          },
+          onLongPress: onOpenActions,
+          onSwipeableOpen: onReply,
+          onToggleReaction,
+          reactionPending,
+          reactions,
           testID: `message-probe-${item.id}`,
-        },
+        } as never,
         replyQuote
           ? React.createElement(
               Text,
@@ -399,7 +443,9 @@ function readyAuthValue(
   return {
     state: {
       status: 'ready',
-      session: {} as ReadyAuthContextValue['state']['session'],
+      session: {
+        user: { id: '61dced19-4771-4bd4-a479-a21954bd1648' },
+      } as ReadyAuthContextValue['state']['session'],
       profile: {
         id: 'cfaef847-2572-4c92-852e-b62c09eecae4',
         full_name: 'Test Agent',
@@ -568,6 +614,16 @@ describe('ConversationScreen', () => {
     });
     mockUseReadyAuth.mockReturnValue(readyAuthValue());
     mockUseMessageThread.mockReturnValue(readyThreadResult());
+    mockUseMessageReactions.mockReturnValue({
+      reactions: [],
+      error: null,
+      pendingMessageIds: new Set<string>(),
+      setReaction: mockSetReaction,
+      toggleReaction: mockToggleReaction,
+    });
+    mockSetReaction.mockResolvedValue(undefined);
+    mockToggleReaction.mockResolvedValue(undefined);
+    mockPostReaction.mockResolvedValue(undefined);
     mockTemplateSendUncertaintyStore.hasMarker.mockResolvedValue(false);
     mockTemplateSendUncertaintyStore.mark.mockResolvedValue(undefined);
     mockTemplateSendUncertaintyStore.clear.mockResolvedValue(undefined);
@@ -588,10 +644,12 @@ describe('ConversationScreen', () => {
     mockDeleteConversationMedia.mockResolvedValue(undefined);
   });
 
-  it('stages and replaces persisted reply targets from long press and accessibility action', () => {
+  it('opens actions on long press and stages replies from the sheet or Reply accessibility action', () => {
     render(<ConversationScreen />);
 
     fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
+    expect(screen.getByText('Message actions')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Reply to message' }));
     expect(screen.getAllByText('Asha Rao')).toHaveLength(2);
     expect(screen.getByRole('button', { name: 'Dismiss reply' })).toBeTruthy();
 
@@ -614,12 +672,20 @@ describe('ConversationScreen', () => {
     mockUseMessageThread.mockReturnValue(readyThreadResult({ sendText }));
     render(<ConversationScreen />);
 
-    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
+    fireEvent(
+      screen.getByTestId(`message-probe-${MESSAGE_1_ID}`),
+      'accessibilityAction',
+      { nativeEvent: { actionName: 'reply' } }
+    );
     fireEvent.changeText(screen.getByLabelText('Message'), 'Replying now');
     fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
     expect(sendText).toHaveBeenCalledWith('Replying now', MESSAGE_1_ID);
 
-    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_2_ID}`), 'longPress');
+    fireEvent(
+      screen.getByTestId(`message-probe-${MESSAGE_2_ID}`),
+      'accessibilityAction',
+      { nativeEvent: { actionName: 'reply' } }
+    );
     await act(async () => {
       attempt.resolve({ temporaryId: 'temp:reply', status: 'sent' });
       await attempt.promise;
@@ -640,7 +706,11 @@ describe('ConversationScreen', () => {
     mockUseMessageThread.mockReturnValue(readyThreadResult({ sendText }));
     render(<ConversationScreen />);
 
-    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
+    fireEvent(
+      screen.getByTestId(`message-probe-${MESSAGE_1_ID}`),
+      'accessibilityAction',
+      { nativeEvent: { actionName: 'reply' } }
+    );
     fireEvent.changeText(screen.getByLabelText('Message'), 'Replying now');
     fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
 
@@ -658,7 +728,11 @@ describe('ConversationScreen', () => {
     mockUseMessageThread.mockReturnValue(readyThreadResult({ sendMedia }));
     render(<ConversationScreen />);
 
-    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
+    fireEvent(
+      screen.getByTestId(`message-probe-${MESSAGE_1_ID}`),
+      'accessibilityAction',
+      { nativeEvent: { actionName: 'reply' } }
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     fireEvent.press(
@@ -703,7 +777,7 @@ describe('ConversationScreen', () => {
     expect(screen.getByText('Original message unavailable')).toBeTruthy();
   });
 
-  it('does not offer reply actions for optimistic rows or after the service window closes', async () => {
+  it('blocks optimistic rows but keeps reactions available after the service window closes', async () => {
     const optimisticId = 'temp:not-a-reply-target';
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
@@ -733,13 +807,74 @@ describe('ConversationScreen', () => {
         },
       })
     );
-    await act(async () => {
-      view.rerender(<ConversationScreen />);
-      await Promise.resolve();
+    view.unmount();
+    render(<ConversationScreen />);
+    await screen.findByTestId('closed-window-action-bar');
+    const persistedBubble = screen.getByTestId(`message-probe-${MESSAGE_1_ID}`);
+    expect(persistedBubble.props.accessibilityActions).toEqual([
+      { name: 'react', label: 'React to message' },
+    ]);
+    fireEvent(persistedBubble, 'accessibilityAction', {
+      nativeEvent: { actionName: 'react' },
     });
+    expect(screen.getByRole('button', { name: 'React with 👍' })).toBeTruthy();
     expect(
-      screen.getByTestId(`message-probe-${MESSAGE_1_ID}`).props.onLongPress
-    ).toBeUndefined();
+      screen.queryByRole('button', { name: 'Reply to message' })
+    ).toBeNull();
+  });
+
+  it('scopes reaction state, renders pills, and routes quick and pill reactions', async () => {
+    const auth = readyAuthValue();
+    const existingReaction: InboxMessageReaction = {
+      id: '2d4bab9f-4e17-4718-9207-88e0edc9e9bf',
+      messageId: MESSAGE_1_ID,
+      conversationId: CONVERSATION_ID,
+      actorType: 'customer',
+      actorId: '0de3175d-a263-43d4-81b4-9c4e183f6295',
+      emoji: '👍',
+      createdAt: '2026-09-01T08:01:30.000Z',
+    };
+    mockUseReadyAuth.mockReturnValue(auth);
+    mockUseMessageReactions.mockReturnValue({
+      reactions: [existingReaction],
+      error: null,
+      pendingMessageIds: new Set([MESSAGE_1_ID]),
+      setReaction: mockSetReaction,
+      toggleReaction: mockToggleReaction,
+    });
+
+    render(<ConversationScreen />);
+
+    const bubble = screen.getByTestId(`message-probe-${MESSAGE_1_ID}`);
+    expect(bubble.props.currentUserId).toBe(auth.state.session.user.id);
+    expect(bubble.props.reactions).toEqual([existingReaction]);
+    expect(bubble.props.reactionPending).toBe(true);
+    fireEvent(bubble, 'toggleReaction', '👍');
+    expect(mockToggleReaction).toHaveBeenCalledWith(MESSAGE_1_ID, '👍');
+
+    fireEvent(bubble, 'longPress');
+    fireEvent.press(screen.getByRole('button', { name: 'React with ❤️' }));
+    expect(mockSetReaction).toHaveBeenCalledWith(MESSAGE_1_ID, '❤️');
+
+    const reactionOptions = mockUseMessageReactions.mock.calls.at(-1)?.[0];
+    expect(reactionOptions).toEqual(
+      expect.objectContaining({
+        accountId: BRANCH_ID,
+        conversationId: CONVERSATION_ID,
+        currentUserId: auth.state.session.user.id,
+        canMutate: true,
+        realtime: screenRealtime,
+      })
+    );
+    await reactionOptions.mutate(MESSAGE_1_ID, '❤️');
+    expect(mockPostReaction).toHaveBeenCalledWith(
+      {
+        accountId: BRANCH_ID,
+        messageId: MESSAGE_1_ID,
+        emoji: '❤️',
+      },
+      { recoverUnauthorizedSession: auth.recoverUnauthorizedSession }
+    );
   });
 
   it('does not offer reply actions for persisted sending or failed rows', () => {
@@ -1093,6 +1228,16 @@ describe('ConversationScreen', () => {
     await expect(
       options.outbound.sendMessage({ kind: 'text' }, {})
     ).rejects.toThrow('Local layout fixture cannot send messages');
+    const reactionOptions = mockUseMessageReactions.mock.calls.at(-1)?.[0];
+    await expect(
+      reactionOptions.repository.list(BRANCH_ID, CONVERSATION_ID)
+    ).resolves.toEqual([
+      expect.objectContaining({ messageId: MESSAGE_0_ID, emoji: '👍' }),
+    ]);
+    await expect(
+      reactionOptions.mutate(MESSAGE_1_ID, '👍')
+    ).resolves.toBeUndefined();
+    expect(mockPostReaction).not.toHaveBeenCalled();
     expect(sendConversationMessage).not.toHaveBeenCalled();
   });
 
@@ -1150,6 +1295,13 @@ describe('ConversationScreen', () => {
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: 'viewer', outbound: undefined })
     );
+    expect(mockUseMessageReactions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ canMutate: false })
+    );
+    expect(
+      screen.getByTestId('message-probe-temp:viewer-failed').props
+        .onToggleReaction
+    ).toBeUndefined();
   });
 
   it('keeps an agent in a read-only branch without outbound controls or dependencies', () => {
@@ -1179,6 +1331,9 @@ describe('ConversationScreen', () => {
     expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: 'agent', outbound: undefined })
+    );
+    expect(mockUseMessageReactions).toHaveBeenLastCalledWith(
+      expect.objectContaining({ canMutate: false })
     );
   });
 
@@ -2317,6 +2472,9 @@ describe('ConversationScreen', () => {
     rerender(<ConversationScreen />);
 
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
+      expect.objectContaining({ accountId: OTHER_BRANCH_ID })
+    );
+    expect(mockUseMessageReactions).toHaveBeenLastCalledWith(
       expect.objectContaining({ accountId: OTHER_BRANCH_ID })
     );
   });

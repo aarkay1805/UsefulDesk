@@ -6,6 +6,36 @@
 
 ---
 
+## Native mobile Inbox Stage 3 reactions
+
+The native Inbox in `apps/mobile/src/features/inbox` now renders grouped
+message-reaction pills, opens a compact six-emoji action sheet on long press,
+and optimistically swaps or removes the current agent's one reaction while
+preserving reactions from other actors on rollback. Viewers remain read-only;
+temporary, sending, and failed rows expose no reaction action. Reactions stay
+available outside the customer-service window, while Reply is offered through
+swipe-right, an accessibility action, or the action sheet only when the existing
+reply gate allows it. The local fixture exercises the complete interaction
+without calling the provider.
+
+`POST /api/whatsapp/react` now shares the strict cookie/bearer operational-auth
+boundary used by native sending. Mobile reads and writes fail closed on the
+selected branch, retry one refreshed session after a 401, and guard optimistic
+completion against branch, conversation, and request races. Migration
+`20260903075557_mobile_inbox_reaction_broadcast.sql` adds identifier-only
+private Realtime broadcasts for `message_reactions`; clients always rehydrate
+through account/conversation predicates and existing RLS instead of trusting
+payload rows. It was applied to the production project as remote migration
+`20260903081828 mobile_inbox_reaction_broadcast` without changing the existing
+reaction policies.
+
+On a freshly rebuilt and installed OnePlus 6 / Android 11 client, the local
+fixture passed reaction-pill display, long-press sheet, local-only selection,
+and swipe-right quote staging. The unsigned Debug target also compiled for the
+generic iOS Simulator through the generated Xcode workspace. No
+provider/customer message was sent. Remote reaction synchronization and
+provider delivery remain unverified.
+
 ## Native mobile Inbox Stage 3 quoted replies
 
 The native Inbox in `apps/mobile/src/features/inbox` now supports quoted replies

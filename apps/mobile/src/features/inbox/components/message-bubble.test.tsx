@@ -8,6 +8,37 @@ import {
 } from '../inbox-layout';
 import { messageImageSizeForViewport, MessageBubble } from './message-bubble';
 
+jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
+  const React = jest.requireActual('react') as typeof import('react');
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  return {
+    __esModule: true,
+    default: ({
+      children,
+      onSwipeableOpen,
+      renderLeftActions,
+      testID,
+    }: {
+      children: import('react').ReactNode;
+      onSwipeableOpen?(): void;
+      renderLeftActions?(
+        progress: { value: number },
+        translation: { value: number },
+        methods: { close(): void }
+      ): import('react').ReactNode;
+      testID?: string;
+    }) =>
+      React.createElement(
+        View,
+        { onSwipeableOpen, testID } as never,
+        renderLeftActions?.({ value: 0 }, { value: 0 }, { close: jest.fn() }),
+        children
+      ),
+  };
+});
+
 jest.mock('../../../ui/icon-button', () => ({ IconButton: () => null }));
 
 jest.mock('expo-image', () => {
@@ -23,12 +54,14 @@ jest.mock('expo-image', () => {
 });
 
 describe('MessageBubble', () => {
-  it('stages reply from long press and the equivalent accessibility action', () => {
+  it('opens actions on long press and exposes separate Reply and React accessibility actions', () => {
     const onReply = jest.fn();
+    const onOpenActions = jest.fn();
     render(
       <MessageBubble
         formattedTime="1:30 pm"
         message={message()}
+        onOpenActions={onOpenActions}
         onReply={onReply}
         startsRun
       />
@@ -37,12 +70,43 @@ describe('MessageBubble', () => {
     const bubble = screen.getByTestId('message-bubble');
     expect(bubble.props.accessibilityActions).toEqual([
       { name: 'reply', label: 'Reply to message' },
+      { name: 'react', label: 'React to message' },
     ]);
     fireEvent(bubble, 'longPress');
     fireEvent(bubble, 'accessibilityAction', {
       nativeEvent: { actionName: 'reply' },
     });
+    fireEvent(bubble, 'accessibilityAction', {
+      nativeEvent: { actionName: 'react' },
+    });
+    fireEvent(screen.getByTestId('message-reply-swipeable'), 'swipeableOpen');
+
+    expect(onOpenActions).toHaveBeenCalledTimes(2);
     expect(onReply).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByTestId('message-swipe-reply-affordance', {
+        includeHiddenElements: true,
+      })
+    ).toBeTruthy();
+  });
+
+  it('keeps long-press reactions available when Reply is unavailable', () => {
+    const onOpenActions = jest.fn();
+    render(
+      <MessageBubble
+        formattedTime="1:30 pm"
+        message={message()}
+        onOpenActions={onOpenActions}
+        startsRun
+      />
+    );
+
+    const bubble = screen.getByTestId('message-bubble');
+    expect(bubble.props.accessibilityActions).toEqual([
+      { name: 'react', label: 'React to message' },
+    ]);
+    fireEvent(bubble, 'longPress');
+    expect(onOpenActions).toHaveBeenCalledTimes(1);
   });
 
   it('renders loaded and unavailable parent quotes inside reply bubbles', () => {

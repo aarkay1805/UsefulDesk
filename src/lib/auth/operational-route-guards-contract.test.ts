@@ -81,7 +81,7 @@ describe('operational route authorization contract', () => {
 
   it.each([
     ['whatsapp/send', 'requireSendOperationalAccess', 1],
-    ['whatsapp/react', 'requireOperationalAccess', 1],
+    ['whatsapp/react', 'requireSendOperationalAccess', 1],
     ['whatsapp/broadcast', 'requireOperationalAccess', 1],
     ['whatsapp/config', 'requireSettingsAccess', 3],
     ['whatsapp/config/register', 'requireSettingsAccess', 1],

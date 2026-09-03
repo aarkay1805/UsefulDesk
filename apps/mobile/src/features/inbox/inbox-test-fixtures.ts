@@ -1,6 +1,7 @@
 import type { ConversationRepository } from './conversation-repository';
 import type { InboxRealtimeFeed } from './inbox-realtime-provider';
 import type { SessionWindowMessageRepository } from './message-repository';
+import type { ReactionRepository } from './reaction-repository';
 import type { TemplateRepository } from './template-repository';
 import type {
   MessageThreadOutboundDependencies,
@@ -118,6 +119,10 @@ export function page<T, C>(
 
 interface LocalConversationLayoutFixture {
   outbound: MessageThreadOutboundDependencies;
+  reactionDependencies: {
+    repository: ReactionRepository;
+    mutate(messageId: string, emoji: string): Promise<void>;
+  };
   threadDependencies: Pick<
     UseMessageThreadOptions,
     'conversations' | 'messages' | 'templates' | 'realtime'
@@ -240,6 +245,29 @@ export function createLocalConversationLayoutFixture(
     listen: () => () => undefined,
     listenStatus: () => () => undefined,
   };
+  const reactionDependencies = {
+    repository: {
+      async list(requestedAccountId: string, conversationId: string) {
+        requireScope(requestedAccountId, conversationId);
+        return [
+          {
+            id: 'a35c23ac-66f4-4476-9adb-173a12b2fd31',
+            messageId: MESSAGE_0_ID,
+            conversationId,
+            actorType: 'customer' as const,
+            actorId: CONTACT_ID,
+            emoji: '👍',
+            createdAt: firstInboundAt,
+          },
+        ];
+      },
+    },
+    async mutate(messageId: string, _emoji: string) {
+      if (!fixtureMessages.some((candidate) => candidate.id === messageId)) {
+        throw new Error('Message is unavailable');
+      }
+    },
+  };
 
   return {
     outbound: {
@@ -249,6 +277,7 @@ export function createLocalConversationLayoutFixture(
         throw new Error('Local layout fixture cannot send messages');
       },
     },
+    reactionDependencies,
     threadDependencies: { conversations, messages, realtime, templates },
   };
 }

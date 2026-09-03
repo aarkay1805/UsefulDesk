@@ -1,19 +1,29 @@
 import { useEffect, useRef } from 'react';
+import { SymbolView } from 'expo-symbols';
 import {
   AccessibilityInfo,
   Platform,
+  PlatformColor,
   Pressable,
   Text,
   useWindowDimensions,
   View,
 } from 'react-native';
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable';
 
-import type { InboxMessage, MessageStatus } from '../inbox-types';
+import type {
+  InboxMessage,
+  InboxMessageReaction,
+  MessageStatus,
+} from '../inbox-types';
 import {
   isAccessibilityTextScale,
   shouldInlineBubbleMetadata,
 } from '../inbox-layout';
 import { MessageContent } from './message-content';
+import { MessageReactions } from './message-reactions';
 import { ReplyQuote, type ReplyQuoteContent } from './reply-quote';
 
 const DELIVERY_LABEL: Record<MessageStatus, string> = {
@@ -107,7 +117,12 @@ interface MessageBubbleProps {
   message: InboxMessage;
   formattedTime: string;
   startsRun: boolean;
+  currentUserId?: string;
+  onOpenActions?(): void;
   onReply?(): void;
+  onToggleReaction?(emoji: string): void;
+  reactionPending?: boolean;
+  reactions?: InboxMessageReaction[];
   replyQuote?: ReplyQuoteContent;
 }
 
@@ -115,7 +130,12 @@ export function MessageBubble({
   message,
   formattedTime,
   startsRun,
+  currentUserId,
+  onOpenActions,
   onReply,
+  onToggleReaction,
+  reactionPending,
+  reactions = [],
   replyQuote,
 }: MessageBubbleProps) {
   const { fontScale, width: viewportWidth } = useWindowDimensions();
@@ -133,6 +153,7 @@ export function MessageBubble({
     messageId: message.id,
     status: message.status,
   });
+  const swipeableRef = useRef<SwipeableMethods>(null);
 
   useEffect(() => {
     const previousDelivery = previousDeliveryRef.current;
@@ -169,88 +190,134 @@ export function MessageBubble({
     message.contentType === 'template' ||
     message.contentType === 'interactive';
   const inlineMetadata = shouldInlineBubbleMetadata(hasTrailingText, fontScale);
+  const accessibilityActions = [
+    ...(onReply ? [{ name: 'reply', label: 'Reply to message' }] : []),
+    ...(onOpenActions ? [{ name: 'react', label: 'React to message' }] : []),
+  ];
   return (
-    <Pressable
-      accessibilityActions={
-        onReply ? [{ name: 'reply', label: 'Reply to message' }] : undefined
-      }
-      className={`w-full ${alignment} ${startsRun ? 'mt-3' : 'mt-0.5'}`}
-      onAccessibilityAction={
+    <ReanimatedSwipeable
+      dragOffsetFromLeftEdge={12}
+      enabled={Boolean(onReply)}
+      leftThreshold={44}
+      onSwipeableOpen={() => {
+        onReply?.();
+        swipeableRef.current?.close();
+      }}
+      overshootLeft={false}
+      ref={swipeableRef}
+      renderLeftActions={
         onReply
-          ? (event) => {
-              if (event.nativeEvent.actionName === 'reply') onReply();
-            }
+          ? () => (
+              <View
+                accessibilityElementsHidden
+                className="w-16 items-center justify-center"
+                importantForAccessibility="no-hide-descendants"
+                testID="message-swipe-reply-affordance"
+              >
+                <SymbolView
+                  name={{
+                    ios: 'arrowshape.turn.up.left.fill',
+                    android: 'reply',
+                  }}
+                  size={22}
+                  tintColor={PlatformColor('label')}
+                  weight="semibold"
+                />
+              </View>
+            )
           : undefined
       }
-      onLongPress={onReply}
-      testID="message-bubble"
+      testID="message-reply-swipeable"
     >
-      <View
-        className={`relative rounded-lg px-2.5 py-1.5 ${fill} ${
-          accessibilityTextScale ? 'max-w-[88%]' : 'max-w-[65%]'
-        } ${startsRun ? squaredCorner : ''}`}
-      >
-        {startsRun ? (
+      <View className={`w-full ${alignment}`}>
+        <Pressable
+          accessibilityActions={
+            accessibilityActions.length > 0 ? accessibilityActions : undefined
+          }
+          className={`w-full ${alignment} ${startsRun ? 'mt-3' : 'mt-0.5'}`}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'reply') onReply?.();
+            if (event.nativeEvent.actionName === 'react') onOpenActions?.();
+          }}
+          onLongPress={onOpenActions}
+          testID="message-bubble"
+        >
           <View
-            className={`absolute top-0 size-2 rotate-45 ${tailPosition} ${fill}`}
-            testID="message-bubble-tail"
-          />
-        ) : null}
-        <View className="gap-1">
-          {replyQuote ? (
-            <ReplyQuote isOutbound={isOutbound} {...replyQuote} />
-          ) : null}
-          {marker ? (
-            <Text
-              className={`${metaTone} text-xs`}
-              style={{ lineHeight: undefined }}
-            >
-              {marker}
-            </Text>
-          ) : null}
-          <MessageContent
-            imageSize={imageSize}
-            message={message}
-            trailingMeta={
-              inlineMetadata ? (
+            className={`relative rounded-lg px-2.5 py-1.5 ${fill} ${
+              accessibilityTextScale ? 'max-w-[88%]' : 'max-w-[65%]'
+            } ${startsRun ? squaredCorner : ''}`}
+          >
+            {startsRun ? (
+              <View
+                className={`absolute top-0 size-2 rotate-45 ${tailPosition} ${fill}`}
+                testID="message-bubble-tail"
+              />
+            ) : null}
+            <View className="gap-1">
+              {replyQuote ? (
+                <ReplyQuote isOutbound={isOutbound} {...replyQuote} />
+              ) : null}
+              {marker ? (
+                <Text
+                  className={`${metaTone} text-xs`}
+                  style={{ lineHeight: undefined }}
+                >
+                  {marker}
+                </Text>
+              ) : null}
+              <MessageContent
+                imageSize={imageSize}
+                message={message}
+                trailingMeta={
+                  inlineMetadata ? (
+                    <BubbleMeta
+                      formattedTime={formattedTime}
+                      inline
+                      isOutbound={isOutbound}
+                      key={`${message.id}:${message.status}:metadata`}
+                      message={message}
+                    />
+                  ) : undefined
+                }
+              />
+              {!inlineMetadata ? (
                 <BubbleMeta
                   formattedTime={formattedTime}
-                  inline
                   isOutbound={isOutbound}
                   key={`${message.id}:${message.status}:metadata`}
                   message={message}
                 />
-              ) : undefined
-            }
+              ) : null}
+            </View>
+          </View>
+        </Pressable>
+        {currentUserId ? (
+          <MessageReactions
+            currentUserId={currentUserId}
+            onToggle={onToggleReaction}
+            pending={reactionPending}
+            reactions={reactions}
           />
-          {!inlineMetadata ? (
-            <BubbleMeta
-              formattedTime={formattedTime}
-              isOutbound={isOutbound}
-              key={`${message.id}:${message.status}:metadata`}
-              message={message}
-            />
-          ) : null}
-        </View>
-      </View>
-      {isFailed ? (
-        <View
-          accessible
-          accessibilityLabel="Message failed"
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          className="mt-1 px-1"
-          key={`${message.id}:failed`}
-          testID="message-failed-status"
-        >
-          <Text
-            className="text-danger text-xs font-medium"
-            style={{ lineHeight: undefined }}
+        ) : null}
+        {isFailed ? (
+          <View
+            accessible
+            accessibilityLabel="Message failed"
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="mt-1 px-1"
+            key={`${message.id}:failed`}
+            testID="message-failed-status"
           >
-            {DELIVERY_LABEL.failed}
-          </Text>
-        </View>
-      ) : null}
-    </Pressable>
+            <Text
+              className="text-danger text-xs font-medium"
+              style={{ lineHeight: undefined }}
+            >
+              {DELIVERY_LABEL.failed}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    </ReanimatedSwipeable>
   );
 }

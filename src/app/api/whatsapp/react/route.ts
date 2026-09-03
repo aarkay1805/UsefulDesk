@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
+import { toErrorResponse } from '@/lib/auth/account';
+import { requireSendOperationalAccess } from '@/lib/auth/mobile-operational-access';
 import { sendReactionMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import { sanitizePhoneForMeta } from '@/lib/whatsapp/phone-utils';
@@ -21,7 +22,7 @@ import {
 export async function POST(request: Request) {
   let ctx;
   try {
-    ctx = await requireOperationalAccess();
+    ctx = await requireSendOperationalAccess(request);
   } catch (err) {
     return toErrorResponse(err);
   }
