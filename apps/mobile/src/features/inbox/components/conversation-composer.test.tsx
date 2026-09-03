@@ -112,6 +112,17 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function pressHandlerFor(label: string): () => void {
+  let current: ReturnType<typeof screen.getByText> | null =
+    screen.getByText(label);
+  while (current) {
+    if (typeof current.props.onPress === 'function')
+      return current.props.onPress;
+    current = current.parent;
+  }
+  throw new Error(`No press handler found for ${label}`);
+}
+
 const sent = (temporaryId = 'temp-1'): SendAttemptResult => ({
   temporaryId,
   status: 'sent',
@@ -237,6 +248,26 @@ describe('ConversationComposer', () => {
     );
   });
 
+  it('preserves safe validation copy when the real uploaded bytes exceed the limit', async () => {
+    const props = mediaProps({
+      uploadMedia: jest.fn(() => ({
+        promise: Promise.reject(
+          new MediaValidationError(
+            'This image is too large. Choose one up to 5 MB.'
+          )
+        ),
+        abort: jest.fn(),
+      })),
+    });
+    render(<ConversationComposer {...props} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'This image is too large. Choose one up to 5 MB.'
+    );
+  });
+
   it('previews a local image, announces real upload progress, and aborts in flight', async () => {
     const attempt = deferred<typeof uploaded>();
     const abort = jest.fn();
@@ -324,6 +355,61 @@ describe('ConversationComposer', () => {
     expect(screen.getByLabelText('Message').props.value).toBe('Regular reply');
   });
 
+  it('retains the uploaded object while the initial media send is unresolved', async () => {
+    const attempt = deferred<SendAttemptResult>();
+    const props = mediaProps({
+      onSendMedia: jest.fn(() => attempt.promise),
+    });
+    const view = render(<ConversationComposer {...props} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    await screen.findByRole('button', {
+      name: 'Discard attachment',
+    });
+    const pressStaleDiscard = pressHandlerFor('Discard attachment');
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send attachment' })
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Discard attachment' })
+    ).toBeNull();
+    act(() => pressStaleDiscard());
+    expect(screen.getByLabelText('Photo attachment preview')).toBeTruthy();
+    expect(props.deleteMedia).not.toHaveBeenCalled();
+    view.unmount();
+    expect(props.deleteMedia).not.toHaveBeenCalled();
+  });
+
+  it('retains the uploaded object while a safe media retry is unresolved', async () => {
+    const retryAttempt = deferred<SendAttemptResult>();
+    const props = mediaProps({
+      onSendMedia: jest.fn().mockResolvedValue(failed('temp:media', true)),
+      onRetryMedia: jest.fn(() => retryAttempt.promise),
+    });
+    render(<ConversationComposer {...props} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send attachment' })
+    );
+    const retry = await screen.findByRole('button', {
+      name: 'Retry attachment',
+    });
+    screen.getByRole('button', {
+      name: 'Discard attachment',
+    });
+    const pressStaleDiscard = pressHandlerFor('Discard attachment');
+    fireEvent.press(retry);
+
+    expect(
+      screen.queryByRole('button', { name: 'Discard attachment' })
+    ).toBeNull();
+    act(() => pressStaleDiscard());
+    expect(screen.getByLabelText('Photo attachment preview')).toBeTruthy();
+    expect(props.deleteMedia).not.toHaveBeenCalled();
+  });
+
   it('omits caption for audio and best-effort deletes an uploaded draft on discard', async () => {
     const audio = {
       ...photo,
@@ -385,6 +471,31 @@ describe('ConversationComposer', () => {
     expect(props.onOpenTemplates).toHaveBeenCalledTimes(1);
     expect(props.onSendMedia).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Photo attachment preview')).toBeTruthy();
+  });
+
+  it('restores async lifecycle handling after an effect cleanup and setup replay', async () => {
+    const picker = deferred<PickedMediaAsset | null>();
+    const initialProps = mediaProps({
+      pickMedia: jest.fn(() => picker.promise),
+    });
+    const view = render(<ConversationComposer {...initialProps} />);
+
+    view.rerender(
+      <ConversationComposer
+        {...initialProps}
+        deleteMedia={jest.fn().mockResolvedValue(undefined)}
+      />
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    await act(async () => {
+      picker.resolve(photo);
+      await picker.promise;
+    });
+
+    expect(
+      await screen.findByLabelText('Photo attachment preview')
+    ).toBeTruthy();
   });
 
   it('sends trimmed nonempty text once and clears the draft only after success', async () => {

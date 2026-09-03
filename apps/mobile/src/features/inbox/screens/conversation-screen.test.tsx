@@ -605,6 +605,204 @@ describe('ConversationScreen', () => {
     expect(await screen.findByText('Send approved template')).toBeTruthy();
   });
 
+  it('keeps a pending native picker mounted across window closure and releases it after cancellation', async () => {
+    const picker = deferred<null>();
+    mockPickConversationMedia.mockReturnValueOnce(picker.promise);
+    const view = render(<ConversationScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: '2026-01-01T00:00:00.000Z',
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    await act(async () => {
+      view.rerender(<ConversationScreen />);
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.getByRole('button', { name: 'Attach media, loading' })
+    ).toBeTruthy();
+    expect(screen.queryByTestId('closed-window-action-bar')).toBeNull();
+
+    await act(async () => {
+      picker.resolve(null);
+      await picker.promise;
+    });
+
+    expect(await screen.findByTestId('closed-window-action-bar')).toBeTruthy();
+    expect(screen.queryByLabelText('Message')).toBeNull();
+  });
+
+  it('releases a retained picker shell after a native picker error', async () => {
+    const picker = deferred<null>();
+    mockPickConversationMedia.mockReturnValueOnce(picker.promise);
+    const view = render(<ConversationScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: '2026-01-01T00:00:00.000Z',
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    await act(async () => {
+      view.rerender(<ConversationScreen />);
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('closed-window-action-bar')).toBeNull();
+
+    await act(async () => {
+      picker.reject(new Error('Native picker unavailable'));
+      try {
+        await picker.promise;
+      } catch {
+        // The composer maps the rejected native operation before releasing.
+      }
+    });
+
+    expect(await screen.findByTestId('closed-window-action-bar')).toBeTruthy();
+    expect(screen.queryByLabelText('Message')).toBeNull();
+  });
+
+  it('keeps composer ownership of its failed media retry while preserving an unowned row retry', async () => {
+    const retryMedia = jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-media',
+      status: 'sent',
+    });
+    const sendMedia = jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-media',
+      status: 'failed',
+      safeToRetry: true,
+      message: 'Too many send attempts.',
+    });
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        retryMedia,
+        sendMedia,
+        items: [
+          ...readyThreadResult().items,
+          message({
+            id: 'temp:screen-media',
+            senderType: 'agent',
+            status: 'failed',
+            safeToRetry: true,
+            contentType: 'image',
+            mediaUrl: 'https://cdn.example.test/member.jpg',
+          }),
+        ],
+      })
+    );
+    render(<ConversationScreen />);
+
+    expect(
+      screen.getByRole('button', { name: 'Retry failed message' })
+    ).toBeTruthy();
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Retry failed message' })
+    );
+    await waitFor(() =>
+      expect(retryMedia).toHaveBeenCalledWith('temp:screen-media')
+    );
+    retryMedia.mockClear();
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send attachment' })
+    );
+
+    expect(
+      await screen.findByRole('button', { name: 'Retry attachment' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Retry failed message' })
+    ).toBeNull();
+    expect(retryMedia).not.toHaveBeenCalled();
+  });
+
+  it('keeps a failed text-row retry available while a media retry is composer-owned', async () => {
+    const retryText = jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-text',
+      status: 'sent',
+    });
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        retryText,
+        sendMedia: jest.fn().mockResolvedValue({
+          temporaryId: 'temp:screen-media',
+          status: 'failed',
+          safeToRetry: true,
+          message: 'Too many send attempts.',
+        }),
+        items: [
+          ...readyThreadResult().items,
+          message({
+            id: 'temp:screen-text',
+            senderType: 'agent',
+            status: 'failed',
+            safeToRetry: true,
+            contentType: 'text',
+            contentText: 'Please renew',
+          }),
+        ],
+      })
+    );
+    render(<ConversationScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send attachment' })
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Retry attachment' })
+    ).toBeTruthy();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Retry failed message' })
+    );
+    await waitFor(() =>
+      expect(retryText).toHaveBeenCalledWith('temp:screen-text')
+    );
+  });
+
+  it('passes full unauthorized-session recovery into the production media upload', async () => {
+    const auth = readyAuthValue();
+    mockUseReadyAuth.mockReturnValue(auth);
+    render(<ConversationScreen />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    await waitFor(() => expect(mockUploadConversationMedia).toHaveBeenCalled());
+
+    expect(mockUploadConversationMedia).toHaveBeenCalledWith(
+      expect.objectContaining({ accountId: BRANCH_ID }),
+      { recoverUnauthorizedSession: auth.recoverUnauthorizedSession }
+    );
+  });
+
   it('renders chronological runs in the native titled route with the open-window composer', () => {
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({

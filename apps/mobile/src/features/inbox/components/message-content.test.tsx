@@ -98,6 +98,25 @@ describe('MessageContent', () => {
     }
   );
 
+  it('renders the local filename for an optimistic document without changing its open action', () => {
+    render(
+      <MessageContent
+        message={message({
+          id: 'temp:optimistic-document',
+          senderType: 'agent',
+          status: 'sending',
+          contentType: 'document',
+          contentText: null,
+          mediaFilename: 'renewal.pdf',
+          mediaUrl: 'https://cdn.example.com/renewal.pdf',
+        })}
+      />
+    );
+
+    expect(screen.getByText('renewal.pdf')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open document' })).toBeTruthy();
+  });
+
   it.each([
     ['image', 'Photo'],
     ['video', 'Video'],

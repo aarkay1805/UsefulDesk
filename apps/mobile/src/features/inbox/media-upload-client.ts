@@ -51,7 +51,7 @@ interface ResolvedDependencies {
   anonKey: string;
   auth: MediaUploadAuth;
   selectedBranch: { get(): string | null };
-  recoverUnauthorizedSession(): Promise<void>;
+  recoverUnauthorizedSession?: () => Promise<void>;
   readBlob(uri: string, signal: AbortSignal): Promise<Blob>;
   createRequest(): MediaUploadRequest;
   now(): number;
@@ -96,9 +96,6 @@ const defaultDependencies: ResolvedDependencies = {
   anonKey: mobileEnvironment.supabaseAnonKey,
   auth: mobileSupabase.auth,
   selectedBranch: selectedBranchRef,
-  recoverUnauthorizedSession: async () => {
-    await mobileSupabase.auth.signOut({ scope: 'local' });
-  },
   readBlob: defaultReadBlob,
   createRequest: () => new XMLHttpRequest() as unknown as MediaUploadRequest,
   now: Date.now,
@@ -214,6 +211,7 @@ export function uploadConversationMedia(
     if (aborted) {
       throw new MediaUploadError('aborted', 'Attachment upload cancelled.');
     }
+    validateMediaAsset({ ...input.asset, size: blob.size });
 
     const path = buildMediaPath(
       input.accountId,
@@ -264,7 +262,7 @@ export function uploadConversationMedia(
       }
       if (status === 401) {
         try {
-          await dependencies.recoverUnauthorizedSession();
+          await dependencies.recoverUnauthorizedSession?.();
         } catch {
           // Recovery owner decides how the auth surface resolves.
         }

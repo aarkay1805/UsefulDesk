@@ -50,8 +50,9 @@ export interface ConversationComposerProps {
   accountId?: string;
   onSendMedia?(draft: MediaSendDraft): Promise<SendAttemptResult>;
   onRetryMedia?(temporaryId: string): Promise<SendAttemptResult>;
+  recoverUnauthorizedSession?(): Promise<void>;
   onOpenTemplates?(): void;
-  onStagedChange?(staged: boolean): void;
+  onStagedChange?(retained: boolean): void;
   sessionExpired?: boolean;
   pickMedia?(kind: MediaKind): Promise<PickedMediaAsset | null>;
   uploadMedia?(input: UploadConversationMediaInput): UploadOperation;
@@ -71,11 +72,12 @@ export function ConversationComposer({
   accountId = '',
   onSendMedia,
   onRetryMedia,
+  recoverUnauthorizedSession,
   onOpenTemplates,
   onStagedChange,
   sessionExpired = false,
   pickMedia = pickConversationMedia,
-  uploadMedia = uploadConversationMedia,
+  uploadMedia,
   deleteMedia = deleteConversationMedia,
 }: ConversationComposerProps) {
   const inputRef = useRef<TextInputType>(null);
@@ -103,24 +105,29 @@ export function ConversationComposer({
     failedAttempt?.safeToRetry === false &&
     failedAttempt.attemptedText === trimmedDraft;
 
-  useEffect(() => onStagedChange?.(staged !== null), [onStagedChange, staged]);
-
   useEffect(
-    () => () => {
+    () => onStagedChange?.(pickerPending || staged !== null),
+    [onStagedChange, pickerPending, staged]
+  );
+
+  useEffect(() => {
+    mountedRef.current = true;
+    const ownedPaths = ownedPathsRef.current;
+    return () => {
       mountedRef.current = false;
       uploadGenerationRef.current += 1;
       uploadRef.current?.abort();
       const current = stagedRef.current;
       if (
         current?.uploaded &&
-        !ownedPathsRef.current.has(current.uploaded.path) &&
+        !ownedPaths.has(current.uploaded.path) &&
+        current.status !== 'sending' &&
         !(current.status === 'send_failed' && current.safeToRetry === false)
       ) {
         void deleteMedia({ accountId, path: current.uploaded.path });
       }
-    },
-    [accountId, deleteMedia]
-  );
+    };
+  }, [accountId, deleteMedia]);
 
   const requestDraftFocus = useCallback(() => {
     focusAfterSettledFailureRef.current = true;
@@ -220,10 +227,10 @@ export function ConversationComposer({
         temporaryId: null,
         safeToRetry: false,
       }));
-      const operation = uploadMedia({
+      const input = {
         accountId,
         asset,
-        onProgress: (value) => {
+        onProgress: (value: number) => {
           if (!mountedRef.current || uploadGenerationRef.current !== generation)
             return;
           setStaged((current) =>
@@ -232,7 +239,10 @@ export function ConversationComposer({
               : current
           );
         },
-      });
+      };
+      const operation = uploadMedia
+        ? uploadMedia(input)
+        : uploadConversationMedia(input, { recoverUnauthorizedSession });
       uploadRef.current = operation;
       void operation.promise.then(
         (uploaded) => {
@@ -261,7 +271,8 @@ export function ConversationComposer({
                   ...current,
                   status: 'upload_failed',
                   error:
-                    error instanceof MediaUploadError
+                    error instanceof MediaUploadError ||
+                    error instanceof MediaValidationError
                       ? error.message
                       : 'Could not upload this attachment.',
                 }
@@ -270,7 +281,7 @@ export function ConversationComposer({
         }
       );
     },
-    [accountId, uploadMedia]
+    [accountId, recoverUnauthorizedSession, uploadMedia]
   );
 
   const chooseAttachment = useCallback(
@@ -301,6 +312,7 @@ export function ConversationComposer({
 
   const clearAttachment = useCallback(() => {
     const current = stagedRef.current;
+    if (current?.status === 'sending') return;
     uploadGenerationRef.current += 1;
     uploadRef.current?.abort();
     uploadRef.current = null;
@@ -503,7 +515,9 @@ export function ConversationComposer({
               Send attachment
             </Button>
           ) : null}
-          {!ambiguous && staged.status !== 'uploading' ? (
+          {!ambiguous &&
+          staged.status !== 'uploading' &&
+          staged.status !== 'sending' ? (
             <Button onPress={clearAttachment} size="sm" variant="ghost">
               {staged.uploaded ? 'Discard attachment' : 'Cancel attachment'}
             </Button>

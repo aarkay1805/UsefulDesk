@@ -428,6 +428,10 @@ function ConversationThread({
       item.message.id.startsWith('temp:')
         ? item.message.id
         : null;
+    const mediaMessage = ['image', 'video', 'document', 'audio'].includes(
+      item.message.contentType
+    );
+    const composerOwnsRetry = mediaMessage && composerStaged;
     return (
       <View>
         <MessageBubble
@@ -435,15 +439,9 @@ function ConversationThread({
           message={item.message}
           startsRun={item.startsRun}
         />
-        {retryableTemporaryId ? (
+        {retryableTemporaryId && !composerOwnsRetry ? (
           <FailedMessageRetry
-            onRetry={
-              ['image', 'video', 'document', 'audio'].includes(
-                item.message.contentType
-              )
-                ? thread.retryMedia
-                : thread.retryText
-            }
+            onRetry={mediaMessage ? thread.retryMedia : thread.retryText}
             temporaryId={retryableTemporaryId}
           />
         ) : null}
@@ -548,6 +546,7 @@ function ConversationThread({
       return (
         <ConversationComposer
           accountId={accountId}
+          recoverUnauthorizedSession={outbound?.recoverUnauthorizedSession}
           onOpenTemplates={() => setTemplatePickerFeed(realtime)}
           onRetry={thread.retryText}
           onRetryMedia={thread.retryMedia}
@@ -562,6 +561,7 @@ function ConversationThread({
         return (
           <ConversationComposer
             accountId={accountId}
+            recoverUnauthorizedSession={outbound?.recoverUnauthorizedSession}
             onOpenTemplates={() => setTemplatePickerFeed(realtime)}
             onRetry={thread.retryText}
             onRetryMedia={thread.retryMedia}

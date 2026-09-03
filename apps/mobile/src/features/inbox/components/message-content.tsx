@@ -32,6 +32,10 @@ export function MessageContent({
   const [opening, setOpening] = useState(false);
   const safeUrl = safeMediaUrl(message.mediaUrl);
   const caption = message.contentText?.trim() || null;
+  const localDocumentFilename =
+    message.contentType === 'document' && message.id.startsWith('temp:')
+      ? message.mediaFilename?.trim() || null
+      : null;
 
   if (
     message.contentType === 'text' ||
@@ -124,7 +128,7 @@ export function MessageContent({
         className="text-foreground text-sm"
         style={{ lineHeight: undefined }}
       >
-        {label}
+        {localDocumentFilename ?? label}
       </Text>
       {caption ? (
         <Text

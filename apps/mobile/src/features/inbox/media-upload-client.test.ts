@@ -1,5 +1,9 @@
 import type { PickedMediaAsset } from './media-picker';
 import {
+  MEDIA_MAX_BYTES_BY_KIND,
+  MediaValidationError,
+} from '../../../../../src/lib/storage/media-contract';
+import {
   MediaUploadError,
   deleteConversationMedia,
   uploadConversationMedia,
@@ -58,9 +62,14 @@ class FakeRequest implements MediaUploadRequest {
   }
 }
 
-function dependencies(options: { branchId?: string | null } = {}) {
+function dependencies(
+  options: { blobSize?: number; branchId?: string | null } = {}
+) {
   const requests: FakeRequest[] = [];
-  const blob = { size: ASSET.size, type: ASSET.mimeType } as Blob;
+  const blob = {
+    size: options.blobSize ?? ASSET.size,
+    type: ASSET.mimeType,
+  } as Blob;
   const readBlob = jest.fn().mockResolvedValue(blob);
   const getSession = jest.fn().mockResolvedValue({
     data: { session: { access_token: 'current-token' } },
@@ -109,6 +118,30 @@ async function nextRequest(setup: ReturnType<typeof dependencies>, index = 0) {
 }
 
 describe('uploadConversationMedia', () => {
+  it('rejects an oversized real Blob before creating a storage request', async () => {
+    const setup = dependencies({
+      blobSize: MEDIA_MAX_BYTES_BY_KIND.image + 1,
+    });
+    let requestCreations = 0;
+    const operation = uploadConversationMedia(
+      { accountId: ACCOUNT_ID, asset: ASSET },
+      {
+        ...setup.result,
+        createRequest: () => {
+          requestCreations += 1;
+          throw new Error('Storage request created');
+        },
+      }
+    );
+
+    await expect(operation.promise).rejects.toEqual(
+      new MediaValidationError(
+        'This image is too large. Choose one up to 5 MB.'
+      )
+    );
+    expect(requestCreations).toBe(0);
+  });
+
   it('uploads one blob to the canonical account path with auth and branch headers', async () => {
     const setup = dependencies();
     const progress = jest.fn();
