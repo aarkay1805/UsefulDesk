@@ -1,4 +1,7 @@
-import type { NativeNotifications } from '../../native/notifications';
+import type {
+  NativeDevicePushToken,
+  NativeNotifications,
+} from '../../native/notifications';
 import type { InstallationStorage } from './installation-storage';
 import type {
   InstallationRegistration,
@@ -112,11 +115,11 @@ export function createNotificationCoordinator({
   const register = async (
     auth: NotificationAuth,
     expected: number,
-    suppliedToken?: string
+    suppliedDeviceToken?: NativeDevicePushToken
   ) => {
     try {
       const payload = await registration(
-        suppliedToken ?? (await native.getExpoPushToken())
+        await native.getExpoPushToken(suppliedDeviceToken)
       );
       if (expected !== generation) return;
       try {
@@ -182,10 +185,10 @@ export function createNotificationCoordinator({
     const expected = ++generation;
     native.configureForegroundPresentation();
     tokenSubscription?.remove();
-    tokenSubscription = native.addPushTokenListener(() => {
+    tokenSubscription = native.addPushTokenListener((devicePushToken) => {
       const active = currentAuth;
       if (!active) return;
-      void enqueue(() => register(active, generation));
+      void enqueue(() => register(active, generation, devicePushToken));
     });
     return enqueue(() => reconcile(auth, expected, false));
   };

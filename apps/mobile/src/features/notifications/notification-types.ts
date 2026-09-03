@@ -25,7 +25,7 @@ export interface InstallationRegistration {
   installationId: string;
   expoPushToken: string;
   platform: 'ios' | 'android';
-  appEnvironment: PushEnvironment;
+  environment: PushEnvironment;
   appVersion: string | null;
   deviceModel: string | null;
   osVersion: string | null;

@@ -3,7 +3,8 @@ import { createNotificationCoordinator } from './notification-coordinator';
 const auth = { accessToken: 'access-1', userId: 'user-1' };
 
 function setup() {
-  let tokenListener: (() => void) | null = null;
+  let tokenListener:
+    ((token: { type: 'android'; data: string }) => void) | null = null;
   const removeTokenListener = jest.fn();
   const native = {
     isAvailable: () => true,
@@ -15,11 +16,16 @@ function setup() {
     requestPermission: jest
       .fn()
       .mockResolvedValue({ granted: true, canAskAgain: true }),
-    getExpoPushToken: jest.fn().mockResolvedValue('ExponentPushToken[first]'),
-    addPushTokenListener: jest.fn((listener: () => void) => {
-      tokenListener = listener;
-      return { remove: removeTokenListener };
-    }),
+    getExpoPushToken: jest.fn(
+      async (token?: { type: 'android'; data: string }) =>
+        token ? 'ExponentPushToken[next]' : 'ExponentPushToken[first]'
+    ),
+    addPushTokenListener: jest.fn(
+      (listener: (token: { type: 'android'; data: string }) => void) => {
+        tokenListener = listener;
+        return { remove: removeTokenListener };
+      }
+    ),
     addNotificationResponseListener: jest.fn(() => ({ remove: jest.fn() })),
     getLastNotificationResponse: jest.fn().mockResolvedValue(null),
     openSettings: jest.fn().mockResolvedValue(undefined),
@@ -41,7 +47,7 @@ function setup() {
     push,
     installation: {
       platform: 'ios',
-      appEnvironment: 'preview',
+      environment: 'preview',
       appVersion: '1.2.3',
       deviceModel: 'iPhone',
       osVersion: '18.0',
@@ -54,8 +60,7 @@ function setup() {
     storage,
     push,
     emitToken: (token: string) => {
-      native.getExpoPushToken.mockResolvedValueOnce(token);
-      tokenListener?.();
+      tokenListener?.({ type: 'android', data: token });
     },
     removeTokenListener,
   };
@@ -89,7 +94,7 @@ describe('notification coordinator', () => {
       expect.objectContaining({
         installationId: '11111111-1111-4111-8111-111111111111',
         expoPushToken: 'ExponentPushToken[first]',
-        appEnvironment: 'preview',
+        environment: 'preview',
       })
     );
     expect(coordinator.getSnapshot().status).toBe('enabled');
@@ -145,10 +150,14 @@ describe('notification coordinator', () => {
     });
     await coordinator.start(auth);
 
-    emitToken('ExponentPushToken[next]');
+    emitToken('fcm-next');
     await coordinator.whenIdle();
     await coordinator.revoke('access-1');
 
+    expect(native.getExpoPushToken).toHaveBeenLastCalledWith({
+      type: 'android',
+      data: 'fcm-next',
+    });
     expect(push.register).toHaveBeenLastCalledWith(
       'access-1',
       expect.objectContaining({ expoPushToken: 'ExponentPushToken[next]' })

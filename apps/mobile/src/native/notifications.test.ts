@@ -47,7 +47,6 @@ describe('native notifications adapter', () => {
       expect.objectContaining({
         name: 'Messages',
         importance: expect.any(Number),
-        sound: 'default',
         vibrationPattern: [0, 250, 250, 250],
       })
     );
@@ -116,5 +115,35 @@ describe('native notifications adapter', () => {
       projectId: 'eas-project',
     });
     await expect(simulator.getExpoPushToken()).rejects.toThrow('unavailable');
+  });
+
+  it('converts a supplied native token without fetching it again', async () => {
+    const notifications = {
+      setNotificationChannelAsync: jest.fn(),
+      requestPermissionsAsync: jest.fn(),
+      setNotificationHandler: jest.fn(),
+      getPermissionsAsync: jest.fn(),
+      getExpoPushTokenAsync: jest
+        .fn()
+        .mockResolvedValue({ data: 'ExponentPushToken[renewed]' }),
+      addPushTokenListener: jest.fn(),
+      addNotificationResponseReceivedListener: jest.fn(),
+      getLastNotificationResponseAsync: jest.fn(),
+    };
+    const native = createNativeNotifications({
+      notifications,
+      platform: 'android',
+      isDevice: true,
+      projectId: 'eas-project',
+      openSettings: jest.fn(),
+    });
+    const devicePushToken = { type: 'android', data: 'fcm-renewed' };
+
+    await Reflect.apply(native.getExpoPushToken, native, [devicePushToken]);
+
+    expect(notifications.getExpoPushTokenAsync).toHaveBeenCalledWith({
+      projectId: 'eas-project',
+      devicePushToken,
+    });
   });
 });

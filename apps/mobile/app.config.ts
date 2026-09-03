@@ -4,6 +4,7 @@ type UsefulDeskExpoConfig = ExpoConfig & { newArchEnabled: boolean };
 
 const config: UsefulDeskExpoConfig = {
   name: 'UsefulDesk Agent',
+  owner: 'aarkay180591',
   slug: 'usefuldesk-agent',
   scheme: 'usefuldesk-agent',
   version: '0.1.0',
@@ -13,6 +14,7 @@ const config: UsefulDeskExpoConfig = {
   ios: { bundleIdentifier: 'com.usefulmade.usefuldesk.agent' },
   android: {
     package: 'com.usefulmade.usefuldesk.agent',
+    googleServicesFile: './google-services.json',
     predictiveBackGestureEnabled: true,
   },
   plugins: [
@@ -32,6 +34,11 @@ const config: UsefulDeskExpoConfig = {
     ],
     'expo-document-picker',
   ],
+  extra: {
+    eas: {
+      projectId: '705a328d-019b-41b5-9887-a637931a4bd5',
+    },
+  },
   experiments: { typedRoutes: true, reactCompiler: true },
 };
 

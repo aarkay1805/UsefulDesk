@@ -8,6 +8,11 @@ import type {
   RemovableSubscription,
 } from '../features/notifications/notification-types';
 
+export interface NativeDevicePushToken {
+  type: string;
+  data: string;
+}
+
 interface ExpoNotificationsAdapter {
   setNotificationChannelAsync(
     channelId: string,
@@ -20,6 +25,7 @@ interface ExpoNotificationsAdapter {
   }>;
   getExpoPushTokenAsync(options: {
     projectId: string;
+    devicePushToken?: NativeDevicePushToken;
   }): Promise<{ data: string }>;
   setNotificationHandler(handler: {
     handleNotification(): Promise<{
@@ -29,7 +35,9 @@ interface ExpoNotificationsAdapter {
       shouldSetBadge: boolean;
     }>;
   }): void;
-  addPushTokenListener(listener: () => void): RemovableSubscription;
+  addPushTokenListener(
+    listener: (token: NativeDevicePushToken) => void
+  ): RemovableSubscription;
   addNotificationResponseReceivedListener(
     listener: (response: unknown) => void
   ): RemovableSubscription;
@@ -51,8 +59,10 @@ export interface NativeNotifications {
   ensureMessagesChannel(): Promise<void>;
   getPermission(): Promise<PermissionSnapshot>;
   requestPermission(): Promise<PermissionSnapshot>;
-  getExpoPushToken(): Promise<string>;
-  addPushTokenListener(listener: () => void): RemovableSubscription;
+  getExpoPushToken(devicePushToken?: NativeDevicePushToken): Promise<string>;
+  addPushTokenListener(
+    listener: (token: NativeDevicePushToken) => void
+  ): RemovableSubscription;
   addNotificationResponseListener(
     listener: (response: unknown) => void
   ): RemovableSubscription;
@@ -73,7 +83,6 @@ export function createNativeNotifications({
     await notifications.setNotificationChannelAsync('messages', {
       name: 'Messages',
       importance: highImportance,
-      sound: 'default',
       vibrationPattern: [0, 250, 250, 250],
     });
   };
@@ -105,11 +114,14 @@ export function createNativeNotifications({
       await ensureMessagesChannel();
       return permission(await notifications.requestPermissionsAsync());
     },
-    getExpoPushToken: async () => {
+    getExpoPushToken: async (devicePushToken) => {
       if (!isDevice || !projectId) {
         throw new Error('Push notifications unavailable');
       }
-      const token = await notifications.getExpoPushTokenAsync({ projectId });
+      const token = await notifications.getExpoPushTokenAsync({
+        projectId,
+        ...(devicePushToken ? { devicePushToken } : {}),
+      });
       return token.data;
     },
     addPushTokenListener: (listener) =>

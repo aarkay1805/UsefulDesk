@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "495513517218",
+    "project_id": "usefuldesk-agent",
+    "storage_bucket": "usefuldesk-agent.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:495513517218:android:24a843f697455352676bfb",
+        "android_client_info": {
+          "package_name": "com.usefulmade.usefuldesk.agent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvzf9m43D9bFQZD88jric2yJytrvhfKnk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

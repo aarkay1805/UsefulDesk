@@ -1,3 +1,4 @@
+import { randomUUID } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 
 export const INSTALLATION_ID_KEY = 'usefuldesk.mobile.push-installation-id';
@@ -20,7 +21,7 @@ export interface InstallationStorage {
 
 export function createInstallationStorage(
   storage: StorageAdapter,
-  createUuid: () => string = () => globalThis.crypto.randomUUID()
+  createUuid: () => string = randomUUID
 ): InstallationStorage {
   let operationTail = Promise.resolve();
   const enqueue = <T>(operation: () => Promise<T>) => {

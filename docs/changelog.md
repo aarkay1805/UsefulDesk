@@ -19,10 +19,15 @@ tap routing, and Account recovery actions; browser chat sounds now hydrate and
 subscribe only within the active branch and cannot produce a late pulse.
 
 Local mobile lint, typecheck, tests, Expo Doctor, and iOS/Android static exports
-pass. Remote physical-device delivery is still a release gate: this checkout
-has no EAS project ID or verified APNs/FCM credentials, and foreground,
-background, terminated, system-sound, tap, sign-out, and token-refresh behavior
-has not been accepted on physical iOS and Android builds.
+pass. The EAS project and Android Firebase app are now linked, FCM V1 credentials
+are stored with EAS, and a locally built development client registered a OnePlus
+6 / Android 11 installation against production. Foreground and background remote
+delivery both returned successful Expo receipts and posted on the device. Migration
+`20260903145000_repair_push_installation_conflict.sql` qualifies the registration
+upsert after physical acceptance exposed PostgreSQL output-column ambiguity. Token
+rollover now converts the native token supplied by Expo instead of fetching it again
+inside its own listener, which Expo documents as an infinite-loop trigger. iOS,
+terminated-state, tap-routing, sign-out, and token-refresh acceptance remain open.
 
 ## Native mobile Inbox Stage 3 reactions
 

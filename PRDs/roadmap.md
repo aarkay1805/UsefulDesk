@@ -128,8 +128,10 @@ service-only production migration is applied:** authenticated installation
 registration, durable Expo ticket/receipt recovery, bounded inbound dispatch,
 permission and token lifecycle coordination, branch-safe tap routing, Account
 recovery, and active-branch web chat sounds are in place. Local mobile gates and
-iOS/Android static exports pass; remote physical delivery remains pending an EAS
-project ID, verified APNs/FCM credentials, and iOS/Android device acceptance.
+iOS/Android static exports pass; the EAS project, Android Firebase app, and EAS
+FCM V1 credential are configured, and foreground/background remote delivery is
+accepted on OnePlus 6 / Android 11. iOS plus terminated-state, tap-routing,
+sign-out, and token-refresh device acceptance remain pending.
 Other advanced message actions remain deferred.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the

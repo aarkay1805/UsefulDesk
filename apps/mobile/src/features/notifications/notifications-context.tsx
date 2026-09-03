@@ -56,7 +56,7 @@ const coordinator = createNotificationCoordinator({
   push: pushClient,
   installation: {
     platform: Platform.OS === 'android' ? 'android' : 'ios',
-    appEnvironment: pushEnvironment(mobileEnvironment.appEnvironment),
+    environment: pushEnvironment(mobileEnvironment.appEnvironment),
     appVersion: Application.nativeApplicationVersion,
     deviceModel: Device.modelName,
     osVersion: Device.osVersion,

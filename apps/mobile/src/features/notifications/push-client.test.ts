@@ -4,7 +4,7 @@ const registration = {
   installationId: '11111111-1111-4111-8111-111111111111',
   expoPushToken: 'ExponentPushToken[test]',
   platform: 'ios' as const,
-  appEnvironment: 'preview' as const,
+  environment: 'preview' as const,
   appVersion: '1.2.3',
   deviceModel: 'iPhone',
   osVersion: '18.0',

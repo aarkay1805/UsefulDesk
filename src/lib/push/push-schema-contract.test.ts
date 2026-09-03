@@ -46,6 +46,18 @@ describe('mobile push schema contract', () => {
     );
   });
 
+  it('qualifies installation conflicts inside the registration function', () => {
+    const sql = migration();
+
+    expect(sql).toMatch(
+      /UPDATE public\.push_installations AS installation[\s\S]*?installation\.installation_id <> p_installation_id/
+    );
+    expect(sql).toContain(
+      'ON CONFLICT ON CONSTRAINT push_installations_pkey DO UPDATE'
+    );
+    expect(sql).not.toContain('ON CONFLICT (installation_id) DO UPDATE');
+  });
+
   it('denies browser table access and exposes only service functions', () => {
     const sql = migration();
 

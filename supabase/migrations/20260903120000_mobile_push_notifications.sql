@@ -230,12 +230,12 @@ BEGIN
     hashtextextended(p_environment || ':' || p_expo_push_token, 0)
   );
 
-  UPDATE public.push_installations
+  UPDATE public.push_installations AS installation
   SET revoked_at = COALESCE(revoked_at, clock_timestamp())
-  WHERE environment = p_environment
-    AND expo_push_token = p_expo_push_token
-    AND installation_id <> p_installation_id
-    AND revoked_at IS NULL;
+  WHERE installation.environment = p_environment
+    AND installation.expo_push_token = p_expo_push_token
+    AND installation.installation_id <> p_installation_id
+    AND installation.revoked_at IS NULL;
 
   INSERT INTO public.push_installations (
     installation_id,
@@ -260,7 +260,7 @@ BEGIN
     clock_timestamp(),
     NULL
   )
-  ON CONFLICT (installation_id) DO UPDATE
+  ON CONFLICT ON CONSTRAINT push_installations_pkey DO UPDATE
   SET user_id = EXCLUDED.user_id,
       platform = EXCLUDED.platform,
       environment = EXCLUDED.environment,
