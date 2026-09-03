@@ -72,6 +72,13 @@ function safeCode(value: unknown): string | null {
   return normalized;
 }
 
+function safeTicketId(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/.test(normalized)) return null;
+  return normalized;
+}
+
 export function classifyExpoError(value: unknown): ClassifiedError {
   const record =
     value && typeof value === 'object'
@@ -198,7 +205,7 @@ export function createExpoPushTransport(
             ticket && typeof ticket === 'object'
               ? (ticket as Record<string, unknown>)
               : null;
-          const ticketId = safeCode(ticketRecord?.id);
+          const ticketId = safeTicketId(ticketRecord?.id);
           if (ticketRecord?.status === 'ok' && ticketId) {
             outcomes.push({
               deliveryId: batch[index].deliveryId,

@@ -56,6 +56,16 @@ describe('push lease and settlement contract', () => {
     expect(receipts).toMatch(/lease_owner = p_worker_id/);
   });
 
+  it('orders unioned claim results by ordinal to avoid PL/pgSQL output-name ambiguity', () => {
+    for (const name of ['claim_push_deliveries', 'claim_push_receipts']) {
+      const claim = fn(name);
+
+      expect(claim).toBeDefined();
+      expect(claim).toMatch(/UNION ALL[\s\S]*?ORDER BY 1 NULLS LAST/);
+      expect(claim).not.toMatch(/ORDER BY delivery_id NULLS LAST/);
+    }
+  });
+
   it('settles only the current lease owner and retires permanent tokens', () => {
     const settle = fn('settle_push_delivery');
 

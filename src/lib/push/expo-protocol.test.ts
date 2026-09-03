@@ -87,6 +87,28 @@ describe('Expo push protocol', () => {
     });
   });
 
+  it('accepts opaque Expo receipt IDs that begin with a digit', async () => {
+    const fetch = vi.fn(async () =>
+      Response.json({
+        data: [
+          {
+            status: 'ok',
+            id: '1a234567-89ab-4cde-8f01-23456789abcd',
+          },
+        ],
+      })
+    );
+    const transport = createExpoPushTransport({ fetch });
+
+    await expect(transport.send([delivery(1)])).resolves.toEqual([
+      {
+        deliveryId: 'delivery-1',
+        kind: 'ticketed',
+        ticketId: '1a234567-89ab-4cde-8f01-23456789abcd',
+      },
+    ]);
+  });
+
   it('isolates partial ticket errors and retries whole-request failures', async () => {
     const partialFetch = vi.fn(async () =>
       Response.json({

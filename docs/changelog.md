@@ -29,6 +29,12 @@ rollover now converts the native token supplied by Expo instead of fetching it a
 inside its own listener, which Expo documents as an infinite-loop trigger. iOS,
 terminated-state, tap-routing, sign-out, and token-refresh acceptance remain open.
 
+Production inbound acceptance exposed two last-mile contract defects. Remote migration
+`20260903152818 repair_push_claim_union_order` replaces ambiguous union-result ordering
+in both claim RPCs, and `expo-protocol.ts` now accepts opaque Expo receipt IDs that begin
+with a digit instead of misclassifying successful tickets as provider errors. The live
+webhook preserved affected deliveries durably while both repairs were made.
+
 ## Native mobile Inbox Stage 3 reactions
 
 The native Inbox in `apps/mobile/src/features/inbox` now renders grouped

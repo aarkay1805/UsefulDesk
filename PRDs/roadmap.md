@@ -130,8 +130,10 @@ permission and token lifecycle coordination, branch-safe tap routing, Account
 recovery, and active-branch web chat sounds are in place. Local mobile gates and
 iOS/Android static exports pass; the EAS project, Android Firebase app, and EAS
 FCM V1 credential are configured, and foreground/background remote delivery is
-accepted on OnePlus 6 / Android 11. iOS plus terminated-state, tap-routing,
-sign-out, and token-refresh device acceptance remain pending.
+accepted on OnePlus 6 / Android 11. Production inbound acceptance also repaired
+ambiguous union ordering in both push claim RPCs and numeric-leading opaque Expo
+receipt IDs without dropping queued deliveries. iOS plus terminated-state,
+tap-routing, sign-out, and token-refresh device acceptance remain pending.
 Other advanced message actions remain deferred.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the

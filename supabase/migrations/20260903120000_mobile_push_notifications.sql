@@ -536,7 +536,7 @@ BEGIN
     (SELECT count(*)::INTEGER FROM cancelled)
   WHERE NOT EXISTS (SELECT 1 FROM claimed)
     AND EXISTS (SELECT 1 FROM cancelled)
-  ORDER BY delivery_id NULLS LAST;
+  ORDER BY 1 NULLS LAST;
 END;
 $function$;
 
@@ -633,7 +633,7 @@ BEGIN
     (SELECT count(*)::INTEGER FROM ineligible)
   WHERE NOT EXISTS (SELECT 1 FROM claimed)
     AND EXISTS (SELECT 1 FROM ineligible)
-  ORDER BY delivery_id NULLS LAST;
+  ORDER BY 1 NULLS LAST;
 END;
 $function$;
 
