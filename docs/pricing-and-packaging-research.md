@@ -9,12 +9,12 @@
 
 UsefulDesk should launch with three paid tiers and one sales-led enterprise tier:
 
-| Tier | Monthly price | Annual price | Primary customer |
-| --- | ---: | ---: | --- |
-| **Core** | **₹999/month** | **₹9,990/year** | A single-location gym replacing registers, Excel, and manual renewal tracking |
-| **Growth** | **₹1,999/month** | **₹19,990/year** | A gym actively using WhatsApp, lead follow-ups, PT/services, automations, and financial reporting |
-| **Scale** | **₹4,999/month** | **₹49,990/year** | A group with up to three branches that needs consolidated control and permissions |
-| **Enterprise** | Custom, starting around **₹10,000/month** | Contracted | Five or more branches, a custom rollout, SLA, migration, or integrations |
+| Tier           |                             Monthly price |     Annual price | Primary customer                                                                                  |
+| -------------- | ----------------------------------------: | ---------------: | ------------------------------------------------------------------------------------------------- |
+| **Core**       |                            **₹999/month** |  **₹9,990/year** | A single-location gym replacing registers, Excel, and manual renewal tracking                     |
+| **Growth**     |                          **₹1,999/month** | **₹19,990/year** | A gym actively using WhatsApp, lead follow-ups, PT/services, automations, and financial reporting |
+| **Scale**      |                          **₹4,999/month** | **₹49,990/year** | A group with up to three branches that needs consolidated control and permissions                 |
+| **Enterprise** | Custom, starting around **₹10,000/month** |       Contracted | Five or more branches, a custom rollout, SLA, migration, or integrations                          |
 
 Prices should be published exclusive of GST. UsefulDesk should not charge a percentage of the gym's collections.
 
@@ -122,25 +122,25 @@ This is why ₹1,999 is a credible centre of gravity: high enough to signal an o
 
 The following prices were publicly visible during the research period.
 
-| Product | Published price | Commercial signal |
-| --- | ---: | --- |
-| [GymAdminX](https://www.gymadminx.com/pricing) | ₹399 / ₹499 / ₹599 monthly | An extreme budget floor advertising very broad functionality and unlimited members |
-| [Fitexo](https://fitexo.in/) | Standard ₹799 / ₹999 / ₹1,199; promotional ₹399 / ₹699 / ₹899 | Price-led, single-branch packaging with biometrics and broader gym operations prominent |
-| [GymForce](https://gymforce.in/pricing/) | ₹9,999 and ₹14,999 annually, about ₹833 and ₹1,250 monthly | Unlimited-member pricing, annual commitment, and a quote-led enterprise tier |
-| [GymOwl](https://gymowl.in/pricing) | ₹17,999 and ₹22,999 annually, about ₹1,500 and ₹1,917 monthly | An established Indian mid-market price band |
-| [GrwFit](https://www.grwfit.com/) | ₹999 / ₹1,999 / ₹3,999 monthly | The closest published three-tier price staircase to this recommendation |
-| [UrbanGym](https://www.urbangym.in/pricing) | Free / ₹1,499 / ₹3,999 monthly | Upgrades driven by members, staff, communication quotas, and locations |
-| [Helmr](https://helmr.in/) | ₹2,499 base; a fuller single-location configuration can approach ₹5,095 | Premium India-first positioning with separately priced operational modules |
-| [FitnessForce](https://www.fitnessforce.com/us/home/pricing) | $67 / $89 / $179 monthly when billed annually | A mature India/global platform priced well above most rupee-native products |
+| Product                                                      |                                                         Published price | Commercial signal                                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------: | --------------------------------------------------------------------------------------- |
+| [GymAdminX](https://www.gymadminx.com/pricing)               |                                              ₹399 / ₹499 / ₹599 monthly | An extreme budget floor advertising very broad functionality and unlimited members      |
+| [Fitexo](https://fitexo.in/)                                 |           Standard ₹799 / ₹999 / ₹1,199; promotional ₹399 / ₹699 / ₹899 | Price-led, single-branch packaging with biometrics and broader gym operations prominent |
+| [GymForce](https://gymforce.in/pricing/)                     |              ₹9,999 and ₹14,999 annually, about ₹833 and ₹1,250 monthly | Unlimited-member pricing, annual commitment, and a quote-led enterprise tier            |
+| [GymOwl](https://gymowl.in/pricing)                          |           ₹17,999 and ₹22,999 annually, about ₹1,500 and ₹1,917 monthly | An established Indian mid-market price band                                             |
+| [GrwFit](https://www.grwfit.com/)                            |                                          ₹999 / ₹1,999 / ₹3,999 monthly | The closest published three-tier price staircase to this recommendation                 |
+| [UrbanGym](https://www.urbangym.in/pricing)                  |                                          Free / ₹1,499 / ₹3,999 monthly | Upgrades driven by members, staff, communication quotas, and locations                  |
+| [Helmr](https://helmr.in/)                                   | ₹2,499 base; a fuller single-location configuration can approach ₹5,095 | Premium India-first positioning with separately priced operational modules              |
+| [FitnessForce](https://www.fitnessforce.com/us/home/pricing) |                           $67 / $89 / $179 monthly when billed annually | A mature India/global platform priced well above most rupee-native products             |
 
 The published Indian market divides roughly into:
 
-| Segment | Typical public price | Common positioning |
-| --- | ---: | --- |
-| Budget | ₹399–₹999/month | Member records, attendance, payments, and headline automation |
-| Mainstream single-location | ₹1,000–₹2,000/month | CRM, renewals, reporting, staff access, and integrations |
-| Premium India-first | ₹2,499–₹5,000/month | Deeper automation, billing, migration, support, and operational modules |
-| Chains | ₹4,000+ or custom | Locations, permissions, consolidated reporting, onboarding, and integrations |
+| Segment                    | Typical public price | Common positioning                                                           |
+| -------------------------- | -------------------: | ---------------------------------------------------------------------------- |
+| Budget                     |      ₹399–₹999/month | Member records, attendance, payments, and headline automation                |
+| Mainstream single-location |  ₹1,000–₹2,000/month | CRM, renewals, reporting, staff access, and integrations                     |
+| Premium India-first        |  ₹2,499–₹5,000/month | Deeper automation, billing, migration, support, and operational modules      |
+| Chains                     |    ₹4,000+ or custom | Locations, permissions, consolidated reporting, onboarding, and integrations |
 
 Core and Growth place UsefulDesk inside the mainstream Indian buying band. Scale sits at the lower end of premium chain software.
 
@@ -162,15 +162,15 @@ UsefulDesk should compete on recovered revenue, clarity, reliability, and depth�
 
 The following approximate INR conversions use about ₹95.77 per US dollar, the observed market rate on 24 August 2026. The exchange rate is only for comparison; global products may apply regional prices, taxes, transaction fees, add-ons, and contracts.
 
-| Product | Published price | Approximate INR equivalent |
-| --- | ---: | ---: |
-| [Mindbody](https://www.mindbodyonline.com/business/education/blog/new-mindbody-pricing-united-states) | From $79 per location/month | ₹7,566 |
-| [Gymdesk](https://gymdesk.com/pricing) | $75–$200/month by active members | ₹7,183–₹19,154 |
-| [GymMaster](https://www.gymmaster.com/gymmaster-pricing-page/) | $89 / $129 / $209 monthly | ₹8,524 / ₹12,354 / ₹20,016 |
-| [Wodify](https://www.wodify.com/pricing) | From $99 per location/month | ₹9,481 |
-| [Glofox](https://www.glofox.com/plans/) | From $99/month | ₹9,481 |
-| [Zen Planner](https://zenplanner.com/pricing-tiers/) | $99–$289 by active members | ₹9,481–₹27,678 |
-| [PushPress](https://www.pushpress.com/pricing) | $159 / $229 core; full stack around $559 | ₹15,227 / ₹21,931; full stack around ₹53,535 |
+| Product                                                                                               |                          Published price |                   Approximate INR equivalent |
+| ----------------------------------------------------------------------------------------------------- | ---------------------------------------: | -------------------------------------------: |
+| [Mindbody](https://www.mindbodyonline.com/business/education/blog/new-mindbody-pricing-united-states) |              From $79 per location/month |                                       ₹7,566 |
+| [Gymdesk](https://gymdesk.com/pricing)                                                                |         $75–$200/month by active members |                               ₹7,183–₹19,154 |
+| [GymMaster](https://www.gymmaster.com/gymmaster-pricing-page/)                                        |                $89 / $129 / $209 monthly |                   ₹8,524 / ₹12,354 / ₹20,016 |
+| [Wodify](https://www.wodify.com/pricing)                                                              |              From $99 per location/month |                                       ₹9,481 |
+| [Glofox](https://www.glofox.com/plans/)                                                               |                           From $99/month |                                       ₹9,481 |
+| [Zen Planner](https://zenplanner.com/pricing-tiers/)                                                  |               $99–$289 by active members |                               ₹9,481–₹27,678 |
+| [PushPress](https://www.pushpress.com/pricing)                                                        | $159 / $229 core; full stack around $559 | ₹15,227 / ₹21,931; full stack around ₹53,535 |
 
 Global pricing demonstrates the category's long-term ceiling. It does not justify charging an ordinary Indian gym ₹8,000–₹15,000 per month today.
 
@@ -192,52 +192,52 @@ The competitive opportunity is therefore not merely to be cheaper. UsefulDesk sh
 
 **Legend:** ✓ Included · — Not included in this tier · **Conditional** Available only after the named account or provider-readiness requirement is satisfied.
 
-| Capability | **Core**<br>₹999/month | **Growth**<br>₹1,999/month | **Scale**<br>₹4,999/month |
-| --- | --- | --- | --- |
-| Best for | Running one gym without registers or spreadsheets | Recovering revenue and automating follow-up | Controlling a small multi-branch group |
-| Included branches | 1 | 1 | Up to 3 |
-| Included staff users | 3 | 10 | 25 |
-| Unlimited members and leads | ✓ | ✓ | ✓ |
-| Plans, memberships, session packs, renewals, freezes, cancellations, and plan changes | ✓ | ✓ | ✓ |
-| Renewal, due, expired, dormant, and attendance action lists | ✓ | ✓ | ✓ |
-| Attendance and visit limits | ✓ | ✓ | ✓ |
-| Manual payments, balances, credits, installments, and payment history | ✓ | ✓ | ✓ |
-| Immutable human-numbered non-tax invoice PDF download | ✓ | ✓ | ✓ |
-| Basic dashboard and financial summaries | ✓ | ✓ | ✓ |
-| Full invoices, payments, expenses, performance analysis, and exports | — | ✓ | ✓ |
-| Self-serve CSV/XLSX member import | ✓ | ✓ | ✓ |
-| Assisted standard migration | — | Annual plan | ✓ |
-| Concierge migration and implementation | — | Paid add-on | ✓ |
-| One connected WhatsApp number and shared inbox | ✓ | ✓ | One per branch |
-| One-tap, staff-reviewed WhatsApp template sends | ✓, subject to an Approved contract | ✓, subject to an Approved contract | ✓, subject to an Approved contract |
-| Automated membership, service, installment, and payment reminders | — | ✓, subject to provider readiness | ✓, subject to provider readiness |
-| Full lead pipeline, public capture forms, follow-up operations, and attribution | — | ✓ | ✓ |
-| Broadcasts, flows, and automations | — | ✓ | ✓ |
-| Products, services, trainers, trainer-specific pricing, and service renewals | — | ✓ | ✓ |
-| Razorpay payment links, AutoPay, reconciliation, and refunds | — | **Conditional:** eligible and onboarded account | **Conditional:** eligible and onboarded account |
-| Meta Lead Ads ingestion | — | **Conditional:** production rollout approval | **Conditional:** production rollout approval |
-| Organization and branch role controls | — | — | ✓ |
-| Consolidated branch reporting and comparison | — | — | ✓ |
-| Cross-branch membership portability, automatic transfers, and unified live inbox | — | — | — Not yet available |
-| API and supported integrations | — | Limited | ✓ |
-| Support | Standard email and WhatsApp | Priority WhatsApp | Named onboarding contact and priority escalation |
+| Capability                                                                            | **Core**<br>₹999/month                            | **Growth**<br>₹1,999/month                      | **Scale**<br>₹4,999/month                        |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------ |
+| Best for                                                                              | Running one gym without registers or spreadsheets | Recovering revenue and automating follow-up     | Controlling a small multi-branch group           |
+| Included branches                                                                     | 1                                                 | 1                                               | Up to 3                                          |
+| Included staff users                                                                  | 3                                                 | 10                                              | 25                                               |
+| Unlimited members and leads                                                           | ✓                                                 | ✓                                               | ✓                                                |
+| Plans, memberships, session packs, renewals, freezes, cancellations, and plan changes | ✓                                                 | ✓                                               | ✓                                                |
+| Renewal, due, expired, dormant, and attendance action lists                           | ✓                                                 | ✓                                               | ✓                                                |
+| Attendance and visit limits                                                           | ✓                                                 | ✓                                               | ✓                                                |
+| Manual payments, balances, credits, installments, and payment history                 | ✓                                                 | ✓                                               | ✓                                                |
+| Immutable human-numbered non-tax invoice PDF download                                 | ✓                                                 | ✓                                               | ✓                                                |
+| Basic dashboard and financial summaries                                               | ✓                                                 | ✓                                               | ✓                                                |
+| Full invoices, payments, expenses, performance analysis, and exports                  | —                                                 | ✓                                               | ✓                                                |
+| Self-serve CSV/XLSX member import                                                     | ✓                                                 | ✓                                               | ✓                                                |
+| Assisted standard migration                                                           | —                                                 | Annual plan                                     | ✓                                                |
+| Concierge migration and implementation                                                | —                                                 | Paid add-on                                     | ✓                                                |
+| One connected WhatsApp number and shared inbox                                        | ✓                                                 | ✓                                               | One per branch                                   |
+| One-tap, staff-reviewed WhatsApp template sends                                       | ✓, subject to an Approved contract                | ✓, subject to an Approved contract              | ✓, subject to an Approved contract               |
+| Automated membership, service, installment, and payment reminders                     | —                                                 | ✓, subject to provider readiness                | ✓, subject to provider readiness                 |
+| Full lead pipeline, public capture forms, follow-up operations, and attribution       | —                                                 | ✓                                               | ✓                                                |
+| Broadcasts, flows, and automations                                                    | —                                                 | ✓                                               | ✓                                                |
+| Products, services, trainers, trainer-specific pricing, and service renewals          | —                                                 | ✓                                               | ✓                                                |
+| Razorpay payment links, AutoPay, reconciliation, and refunds                          | —                                                 | **Conditional:** eligible and onboarded account | **Conditional:** eligible and onboarded account  |
+| Meta Lead Ads ingestion                                                               | —                                                 | **Conditional:** production rollout approval    | **Conditional:** production rollout approval     |
+| Organization and branch role controls                                                 | —                                                 | —                                               | ✓                                                |
+| Consolidated branch reporting and comparison                                          | —                                                 | —                                               | ✓                                                |
+| Cross-branch membership portability, automatic transfers, and unified live inbox      | —                                                 | —                                               | — Not yet available                              |
+| API and supported integrations                                                        | —                                                 | Limited                                         | ✓                                                |
+| Support                                                                               | Standard email and WhatsApp                       | Priority WhatsApp                               | Named onboarding contact and priority escalation |
 
 ### Not available in any tier yet
 
 The following capabilities must not appear as included on a pricing page or sales proposal until they ship:
 
-| Capability | Current position |
-| --- | --- |
-| Booking and class scheduling | Not shipped |
-| GST-ready or statutory invoices | Deferred pending compliance validation; current PDFs are explicitly non-tax invoices |
-| Provider-delivered WhatsApp invoice documents | Application-side sharing is shipped, but provider delivery awaits an Approved and synced `gym_invoice_document` template |
-| Branded member app | Deliberately deferred |
-| Biometric or door access control | Deliberately deferred |
-| Payroll and trainer class-delivery accountability | Not shipped |
-| Workout and nutrition tracking | Deliberately deferred |
-| Loyalty programme | Deliberately deferred |
-| Family and household plans | Separate future work |
-| Cross-branch check-in and membership portability | Deliberately deferred from the current multi-branch foundation |
+| Capability                                        | Current position                                                                                                         |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Booking and class scheduling                      | Not shipped                                                                                                              |
+| GST-ready or statutory invoices                   | Deferred pending compliance validation; current PDFs are explicitly non-tax invoices                                     |
+| Provider-delivered WhatsApp invoice documents     | Application-side sharing is shipped, but provider delivery awaits an Approved and synced `gym_invoice_document` template |
+| Branded member app                                | Deliberately deferred                                                                                                    |
+| Biometric or door access control                  | Deliberately deferred                                                                                                    |
+| Payroll and trainer class-delivery accountability | Not shipped                                                                                                              |
+| Workout and nutrition tracking                    | Deliberately deferred                                                                                                    |
+| Loyalty programme                                 | Deliberately deferred                                                                                                    |
+| Family and household plans                        | Separate future work                                                                                                     |
+| Cross-branch check-in and membership portability  | Deliberately deferred from the current multi-branch foundation                                                           |
 
 The matrix describes the recommended commercial packaging. It does not override account-level provider readiness: a plan can include a workflow while the connected Meta or Razorpay account still requires approval, onboarding, or an exact contract before that workflow can execute.
 
@@ -410,11 +410,11 @@ The purpose of the offer is to collect evidence about activation, renewal recove
 
 Once the following capabilities are generally available and reliable, new-customer list prices can move to:
 
-| Tier | Current recommended price | Later target price |
-| --- | ---: | ---: |
-| Core | ₹999 | ₹1,299 |
-| Growth | ₹1,999 | ₹2,499 |
-| Scale | ₹4,999 | ₹5,999 |
+| Tier   | Current recommended price | Later target price |
+| ------ | ------------------------: | -----------------: |
+| Core   |                      ₹999 |             ₹1,299 |
+| Growth |                    ₹1,999 |             ₹2,499 |
+| Scale  |                    ₹4,999 |             ₹5,999 |
 
 The primary gates are:
 
@@ -488,15 +488,15 @@ This packaging aligns pricing with the outcomes UsefulDesk is designed to delive
 
 ## Risks and countermeasures
 
-| Risk | Consequence | Countermeasure |
-| --- | --- | --- |
-| Budget competitors anchor buyers below ₹1,000 | Growth appears expensive before value is understood | Sell on two-renewal payback, real workflows, data migration, and operational proof |
-| Missing booking, apps, or biometric access | Class-led and access-led gyms reject the product | Qualify early; do not pretend those categories are supported |
-| Provider rollout gates are mistaken for generally available features | Broken trust during onboarding | Maintain an explicit account-readiness checklist and honest sales copy |
-| WhatsApp charges surprise customers | Subscription feels misleading | Separate Meta charges clearly and avoid “unlimited” language |
-| Too many plan restrictions | Product becomes difficult to explain | Keep members unlimited and differentiate mainly by automation, team, and branches |
-| High-touch imports erase margin | Cheap plans become service-heavy | Standardize self-serve imports and charge for complex concierge migration |
-| Scale is compared with ₹3,999 five-location products | Price pressure on chain deals | Demonstrate branch isolation, permissions, finance depth, support, and WhatsApp-per-branch value |
+| Risk                                                                 | Consequence                                         | Countermeasure                                                                                   |
+| -------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Budget competitors anchor buyers below ₹1,000                        | Growth appears expensive before value is understood | Sell on two-renewal payback, real workflows, data migration, and operational proof               |
+| Missing booking, apps, or biometric access                           | Class-led and access-led gyms reject the product    | Qualify early; do not pretend those categories are supported                                     |
+| Provider rollout gates are mistaken for generally available features | Broken trust during onboarding                      | Maintain an explicit account-readiness checklist and honest sales copy                           |
+| WhatsApp charges surprise customers                                  | Subscription feels misleading                       | Separate Meta charges clearly and avoid “unlimited” language                                     |
+| Too many plan restrictions                                           | Product becomes difficult to explain                | Keep members unlimited and differentiate mainly by automation, team, and branches                |
+| High-touch imports erase margin                                      | Cheap plans become service-heavy                    | Standardize self-serve imports and charge for complex concierge migration                        |
+| Scale is compared with ₹3,999 five-location products                 | Price pressure on chain deals                       | Demonstrate branch isolation, permissions, finance depth, support, and WhatsApp-per-branch value |
 
 ## Final recommendation
 
