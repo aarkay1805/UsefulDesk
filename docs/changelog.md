@@ -6,6 +6,89 @@
 
 ---
 
+## Follow-ups queue: the row template the dashboard column can actually hold
+
+The dashboard's merged Follow-ups queue was built as a six-track record grid
+behind `@2xl/follow-ups` (672px). **That threshold is wider than the column the
+dashboard hands it.** Half-width at 1440px is a 568px section, so the grid needed
+a ~1650px window before one track appeared; every ordinary laptop rendered the
+phone fallback — 97px a row, ragged down the right edge, four of eight rows
+inside the card's 480px cap. Three changes make the intended row real:
+
+- **The threshold is `@md` (448px)**, measured from the rendered container
+  rather than picked as a safe-looking desktop step. Rows are 53px and all
+  eight fit; the columns line up from a 1024px window upward.
+- **The note went back under the name.** Its own track cost more than it
+  returned at this width — beside four meta cells the note held ~90px at
+  1280px. `FollowUpTaskLabel` and `FollowUpTaskNote`'s two-role `variant`
+  existed only for the column shape and are deleted.
+- **The row leads with the person, not the task.** It is one of four queues on
+  the page and the only one that led with a task-type icon instead of an
+  avatar, which made it the row that did not look like its neighbours. It uses
+  `MemberIdentity` now — avatar, name — with the new `FollowUpTaskLine` as its
+  `meta`: the task icon plus the note, falling back to the task label ("Call",
+  "Email", "To-do") when a follow-up has no note. That fallback is why every
+  row is now exactly 53px instead of 53 or 45.
+- **One neutral badge a row: the member's Reason.** A member row carried its
+  Reason _and_ a `Member` tag; `reason` is non-nullable and member-only, so the
+  tag repeated it. The `Lead` tag went with it — naming the side of the
+  business earns nothing on a row that already opens the right detail sheet and
+  is already filterable by chip. Lead rows render an empty cell in that column,
+  and the column drops entirely under the Leads chip.
+
+Also fixed: an unassigned row omitted its avatar cell, and `subgrid` does not
+leave a hole — every cell after it shifted a track left, so the completion
+control moved on exactly the rows that had no owner. It renders a placeholder
+that is `hidden` below the threshold, and the Reason column does the same on a
+lead row.
+
+Deliberately **not** added: a `QueueCount` beside the heading. The chips already
+carry each scope's live total, and `docs/ui-patterns.md` already rules that a
+section whose chips carry counts does not repeat them.
+
+## Dashboard work sections in two paired rows
+
+The four work sections now read as two rows of two: **Follow-ups** beside
+**Expiring memberships**, then **Not contacted yet** beside **Recent work**.
+Each carries `DASHBOARD_PAIRED_SECTION` from `dashboard-section.tsx` — `flex
+flex-col` + `max-h-[480px]` — and each card hands its overflow to a `ScrollArea`
+(`DASHBOARD_QUEUE_SCROLLER`, `min-h-0 flex-1`) so a long queue scrolls inside
+its own card instead of pushing the row below it down. Follow-ups keeps its chip
+header fixed above that scroller.
+
+Two consequences a future session must not undo:
+
+- **The follow-up row template is a container query now** (`@2xl/follow-ups`,
+  672px), not the `sm:` viewport breakpoint. Half-width at 1440px is a ~560px
+  column; a viewport breakpoint would lay six tracks into it and take the width
+  out of the note, which is the one field carrying content. Below the threshold
+  the row keeps the wrapping flex line it always used on a phone. The measure of
+  "narrow" changed; the rule at `docs/ui-patterns.md` did not.
+- **Recent work lost its "Show N more".** That card has now carried three
+  answers to "how many rows": four page-size buttons, then one expand control,
+  now none. The 480px cap plus its own scroller already bounds the feed, so
+  collapsing to six rows on top of it only left the card short beside a full
+  sibling and put a click between the reader and rows already loaded. Bound the
+  payload at the query (`DASHBOARD_ACTIVITY_PREVIEW_LIMIT`), never with a page
+  size or a toggle in the card.
+- **Recent work left the deferred insights.** It sits in the action half of the
+  page now, so it can't wait on the IntersectionObserver that gates the charts.
+  `loadActivity` came out of `loadDashboardInsightsSnapshot`; the insights API
+  gained a range-free `view=activity`, and `deferred-activity-feed.tsx` fetches
+  it on mount. `ActivityFeed` gained a `failed` state, because a feed with its
+  own request can fail on its own. Do not re-add activity to the initial
+  snapshot — both would pay for the same read.
+
+`/preview/dashboard-queues` is the dev-only harness for these rows (same
+convention as `/preview/lead-funnel`): fixed data, enough rows to overflow the
+cap, and no auth. Its fixtures use a fixed anchor instant, never `Date.now()`,
+or the module evaluates twice and hydration fails on the harness itself.
+
+`dashboard-actions.test.tsx` stubs `Element.prototype.getAnimations` for jsdom,
+which the `ScrollArea` viewport calls on a timer. Keep that stub file-local:
+setting it globally changes which branch Base UI's popover/dialog exit logic
+takes and breaks the blocker tests.
+
 ## Native mobile Inbox Stage 2
 
 The Stage 2 native build closeout upgrades the Expo SDK 57 packages to their

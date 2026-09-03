@@ -9,13 +9,18 @@ import { MemberIdentity } from '@/components/members/member-identity';
 import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   QUEUE_LIST,
   QueueCount,
   QueueEmpty,
   QueueSkeleton,
 } from './action-queue';
-import { DashboardSection } from './dashboard-section';
+import {
+  DASHBOARD_PAIRED_SECTION,
+  DASHBOARD_QUEUE_SCROLLER,
+  DashboardSection,
+} from './dashboard-section';
 import { EmptyState } from './empty-state';
 import { useDashboardActions } from './dashboard-actions';
 
@@ -42,7 +47,7 @@ export function ExpiringMemberships() {
     <DashboardSection
       id="expiring-memberships"
       title="Expiring memberships"
-      className="flex flex-col"
+      className={DASHBOARD_PAIRED_SECTION}
       action={
         <div className="flex items-center gap-2">
           <QueueCount shown={shown} total={total} />
@@ -56,56 +61,58 @@ export function ExpiringMemberships() {
         </div>
       }
     >
-      <Card className="flex-1">
-        <CardContent>
-          {sectionFailed ? (
-            <EmptyState
-              icon={AlertCircle}
-              title="Could not load expiring memberships"
-              hint="Reload the page to try again."
-              className="min-h-32"
-            />
-          ) : expiring === null ? (
-            <QueueSkeleton rowClassName="h-11" />
-          ) : expiring.length === 0 ? (
-            <QueueEmpty
-              icon={CalendarClock}
-              text={`No memberships expiring in the next ${DASHBOARD_RENEWAL_WINDOW_DAYS} days.`}
-            />
-          ) : (
-            <ul className={`${QUEUE_LIST} -my-2`}>
-              {expiring.map((membership) => {
-                const days = daysBetween(
-                  snapshot?.today ?? '',
-                  membership.end_date
-                );
-                return (
-                  <li
-                    key={membership.id}
-                    className="hover:bg-muted/50 transition-colors"
-                  >
-                    <Link
-                      href={`/members?view=renewals&member=${encodeURIComponent(membership.id)}`}
-                      className="flex items-center gap-3 px-2 py-2"
+      <Card className="min-h-0 flex-1">
+        <ScrollArea className={DASHBOARD_QUEUE_SCROLLER}>
+          <CardContent>
+            {sectionFailed ? (
+              <EmptyState
+                icon={AlertCircle}
+                title="Could not load expiring memberships"
+                hint="Reload the page to try again."
+                className="min-h-32"
+              />
+            ) : expiring === null ? (
+              <QueueSkeleton rowClassName="h-11" />
+            ) : expiring.length === 0 ? (
+              <QueueEmpty
+                icon={CalendarClock}
+                text={`No memberships expiring in the next ${DASHBOARD_RENEWAL_WINDOW_DAYS} days.`}
+              />
+            ) : (
+              <ul className={`${QUEUE_LIST} -my-2`}>
+                {expiring.map((membership) => {
+                  const days = daysBetween(
+                    snapshot?.today ?? '',
+                    membership.end_date
+                  );
+                  return (
+                    <li
+                      key={membership.id}
+                      className="hover:bg-muted/50 transition-colors"
                     >
-                      <div className="min-w-0 flex-1">
-                        <MemberIdentity
-                          name={membership.contact?.name}
-                          secondary={membership.contact?.phone}
-                          src={membership.contact?.avatar_url}
-                          meta={membership.plan?.name ?? undefined}
-                        />
-                      </div>
-                      <Badge variant="warning">
-                        {days === 0 ? 'Expires today' : `Expires in ${days}d`}
-                      </Badge>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
+                      <Link
+                        href={`/members?view=renewals&member=${encodeURIComponent(membership.id)}`}
+                        className="flex items-center gap-3 px-2 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <MemberIdentity
+                            name={membership.contact?.name}
+                            secondary={membership.contact?.phone}
+                            src={membership.contact?.avatar_url}
+                            meta={membership.plan?.name ?? undefined}
+                          />
+                        </div>
+                        <Badge variant="warning">
+                          {days === 0 ? 'Expires today' : `Expires in ${days}d`}
+                        </Badge>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </ScrollArea>
       </Card>
     </DashboardSection>
   );

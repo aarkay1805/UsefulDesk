@@ -1,4 +1,5 @@
 import type { InboxMessage, MessageStatus } from './inbox-types';
+import type { MediaKind } from '../../../../../src/lib/storage/media-contract';
 
 export interface OutboundMessageAliases {
   temporaryId: Readonly<Record<string, string>>;
@@ -18,6 +19,18 @@ export interface OptimisticTextInput {
   conversationId: string;
   senderId: string | null;
   text: string;
+  createdAt: string;
+}
+
+export interface OptimisticMediaInput {
+  temporaryId: string;
+  attemptId: string;
+  conversationId: string;
+  senderId: string | null;
+  mediaKind: MediaKind;
+  mediaUrl: string;
+  caption: string | null;
+  filename?: string;
   createdAt: string;
 }
 
@@ -208,6 +221,60 @@ export function appendOptimisticText(
       status: 'sending',
       providerErrorTitle: null,
       safeToRetry: false,
+    };
+  }
+  return {
+    messages: messages.sort(compareMessages),
+    aliases: {
+      ...state.aliases,
+      temporaryId: {
+        ...state.aliases.temporaryId,
+        [input.temporaryId]: canonicalId,
+      },
+    },
+    sendingAttempts: {
+      ...state.sendingAttempts,
+      [input.temporaryId]: input.attemptId,
+    },
+  };
+}
+
+export function appendOptimisticMedia(
+  state: OutboundThreadState,
+  input: OptimisticMediaInput
+): OutboundThreadState {
+  const canonicalId =
+    state.aliases.temporaryId[input.temporaryId] ?? input.temporaryId;
+  const index = state.messages.findIndex(
+    (item) => canonicalForMessage(state, item) === canonicalId
+  );
+  const optimistic: InboxMessage = {
+    id: input.temporaryId,
+    conversationId: input.conversationId,
+    senderType: 'agent',
+    senderId: input.senderId,
+    contentType: input.mediaKind,
+    contentText: input.mediaKind === 'audio' ? null : input.caption,
+    mediaUrl: input.mediaUrl,
+    mediaFilename:
+      input.mediaKind === 'document' ? input.filename ?? null : null,
+    templateName: null,
+    providerMessageId: null,
+    status: 'sending',
+    providerErrorTitle: null,
+    safeToRetry: false,
+    createdAt: input.createdAt,
+    replyToMessageId: null,
+    interactiveReplyId: null,
+  };
+  const messages = [...state.messages];
+  if (index < 0) {
+    messages.push(optimistic);
+  } else {
+    messages[index] = {
+      ...messages[index],
+      ...optimistic,
+      id: messages[index].id,
     };
   }
   return {

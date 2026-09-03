@@ -2,7 +2,6 @@ import { CircleDot, ClipboardList, Mail, Phone } from 'lucide-react';
 
 import { FOLLOW_UP_TASK_TYPES } from '@/lib/leads/follow-up-dates';
 import { REASON_LABEL } from '@/lib/memberships/follow-ups';
-import { cn } from '@/lib/utils';
 import type { FollowUp, FollowUpReason } from '@/types';
 import { Badge } from '@/components/ui/badge';
 
@@ -56,60 +55,49 @@ function TaskLabelLine({
 }
 
 /**
- * The identity half of a follow-up on its own: task-type icon, heading, and
- * the member reason tag — no note. For row layouts that give the note a
- * column of its own instead of stacking it as a subtitle; the stacked shape
- * stays `FollowUpTaskSummary`. Both read the same icon map and tokens, so a
- * change to the task vocabulary reaches every surface at once.
+ * A follow-up's note: 12px muted supporting text beneath the 14px task
+ * heading, where size and tone together carry the demotion. It is only ever
+ * the stacked cell's second line — a note set beside its heading cannot be
+ * demoted by size, and the one queue that tried it (the dashboard) now uses
+ * this same stacked shape, so the two-role `variant` and the label-only
+ * `FollowUpTaskLabel` it needed both went away with it.
+ *
+ * `max-w-56` bounds the truncation so one long note cannot stretch the cell
+ * it sits in; the full text stays on the title tooltip.
  */
-export function FollowUpTaskLabel({
-  taskType,
-  label,
-  reason,
-}: Omit<FollowUpTaskSummaryProps, 'note'>) {
-  const { TaskIcon, taskLabel } = resolveTask(taskType, label);
+function FollowUpTaskNote({ note }: { note: string }) {
   return (
-    <div className="flex min-w-0 items-center gap-2">
-      <TaskIcon className="text-muted-foreground size-4 shrink-0" />
-      <TaskLabelLine taskLabel={taskLabel} reason={reason} />
-    </div>
+    <p className="text-muted-foreground max-w-56 truncate text-xs" title={note}>
+      {note}
+    </p>
   );
 }
 
 /**
- * A follow-up's note, in one of its two typographic roles.
+ * The task on one muted line, for rows whose identity slot already belongs to
+ * the person — a dashboard queue that leads with the contact's avatar and name
+ * the way every queue beside it does. The note carries the line when there is
+ * one; the task type names it when there is not, so the row never loses the
+ * second line and the queue keeps one rhythm down the card.
  *
- * `subtitle` is the stacked cell: 12px beneath a 14px heading inside a bounded
- * table column, where size and tone together carry the demotion. `column` is
- * the row layout, where the note is a **peer** of the name rather than beneath
- * it — size cannot demote something sitting beside its heading without just
- * looking smaller, so the column note matches the name at 14px and lets the
- * muted tone do the work alone, the way a mail list sets subject and preview.
- *
- * The `max-w-56` cap likewise belongs to the stacked cell, not to a note that
- * owns a column; callers opt into a cap through `className`, which controls
- * external layout only — never the type role, which is what `variant` names.
+ * The icon stays because it is the only thing on a person-first row that says
+ * *how* the follow-up happens. It reads from the same `TASK_ICON` map as the
+ * stacked cell, so the vocabulary changes in one place.
  */
-export function FollowUpTaskNote({
+export function FollowUpTaskLine({
+  taskType,
   note,
-  variant = 'subtitle',
-  className,
-}: {
-  note: string;
-  variant?: 'subtitle' | 'column';
-  className?: string;
-}) {
+}: Pick<FollowUpTaskSummaryProps, 'taskType' | 'note'>) {
+  const { TaskIcon, taskLabel } = resolveTask(taskType, undefined);
+  const text = note?.trim() || taskLabel;
   return (
-    <p
-      className={cn(
-        'text-muted-foreground truncate',
-        variant === 'column' ? 'text-sm' : 'text-xs',
-        className
-      )}
-      title={note}
+    <div
+      className="text-muted-foreground flex min-w-0 items-center gap-1.5 text-xs"
+      title={note?.trim() || undefined}
     >
-      {note}
-    </p>
+      <TaskIcon className="size-3.5 shrink-0" />
+      <span className="truncate">{text}</span>
+    </div>
   );
 }
 
@@ -130,7 +118,7 @@ export function FollowUpTaskSummary({
       <TaskIcon className="text-muted-foreground size-4 shrink-0" />
       <div className="min-w-0">
         <TaskLabelLine taskLabel={taskLabel} reason={reason} />
-        {note && <FollowUpTaskNote note={note} className="max-w-56" />}
+        {note && <FollowUpTaskNote note={note} />}
       </div>
     </div>
   );

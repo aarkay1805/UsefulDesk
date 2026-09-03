@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   loadSnapshot: vi.fn(),
   loadConversationsSeries: vi.fn(),
   loadLeadSourceRatings: vi.fn(),
+  loadActivity: vi.fn(),
 }));
 
 vi.mock('@/lib/auth/account', () => ({
@@ -17,6 +18,7 @@ vi.mock('@/lib/auth/account', () => ({
     ),
 }));
 vi.mock('@/lib/dashboard/insights-snapshot', () => ({
+  loadDashboardActivity: h.loadActivity,
   loadDashboardInsightsDateContext: h.loadDateContext,
   loadDashboardInsightsSnapshot: h.loadSnapshot,
 }));
@@ -49,11 +51,11 @@ describe('GET /api/dashboard/insights', () => {
       series: [],
       rating: null,
       leadFunnel: { stages: [] },
-      activity: [],
       errors: ['leadRating'],
     });
     h.loadConversationsSeries.mockResolvedValue([{ day: '2026-08-27' }]);
     h.loadLeadSourceRatings.mockResolvedValue({ rangeDays: 7 });
+    h.loadActivity.mockResolvedValue([{ id: 'activity-1' }]);
   });
 
   it('returns one no-store initial snapshot after branch authorization', async () => {
@@ -69,7 +71,6 @@ describe('GET /api/dashboard/insights', () => {
       series: [],
       rating: null,
       leadFunnel: { stages: [] },
-      activity: [],
       errors: ['leadRating'],
     });
     expect(h.getCurrentAccount).toHaveBeenCalledOnce();
@@ -108,6 +109,19 @@ describe('GET /api/dashboard/insights', () => {
       'Asia/Kolkata',
       '2026-08-27'
     );
+  });
+
+  it('serves recent work on its own range-free view', async () => {
+    const response = await GET(
+      new Request(
+        'https://usefuldesk.test/api/dashboard/insights?view=activity'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ activity: [{ id: 'activity-1' }] });
+    expect(h.loadActivity).toHaveBeenCalledWith(db, dateContext);
+    expect(h.loadSnapshot).not.toHaveBeenCalled();
   });
 
   it('rejects an unauthorized caller before any dashboard data read', async () => {

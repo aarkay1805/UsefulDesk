@@ -22,6 +22,7 @@ import {
 } from './message-repository';
 import {
   appendOptimisticText,
+  appendOptimisticMedia,
   applyRealtimeMessage,
   applySendAcknowledgement,
   emptyOutboundThreadState,
@@ -45,6 +46,7 @@ import type {
   MessageCursor,
   NativeTemplate,
 } from './inbox-types';
+import type { MediaKind } from '../../../../../src/lib/storage/media-contract';
 import {
   mobileTemplateRepository,
   type TemplateRepository,
@@ -125,6 +127,15 @@ export interface UseMessageThreadResult {
   loadOlder(): void;
   sendText(draft: string): Promise<SendAttemptResult>;
   retryText(temporaryId: string): Promise<SendAttemptResult>;
+  sendMedia(draft: MediaSendDraft): Promise<SendAttemptResult>;
+  retryMedia(temporaryId: string): Promise<SendAttemptResult>;
+}
+
+export interface MediaSendDraft {
+  mediaKind: MediaKind;
+  mediaUrl: string;
+  caption?: string;
+  filename?: string;
 }
 
 export type SendAttemptResult =
@@ -1248,6 +1259,178 @@ export function useMessageThread({
     [performTextSend]
   );
 
+  const performMediaSend = useCallback(
+    async (
+      temporaryId: string,
+      attemptId: string,
+      draft: MediaSendDraft,
+      createdAt: string,
+      dependencies: MessageThreadOutboundDependencies
+    ): Promise<SendAttemptResult> => {
+      const sendAccountId = activeAccountId.current;
+      const sendConversationId = activeConversationId.current;
+      const sendScopeGeneration = scopeGeneration.current;
+      const sendFeedGeneration = feedGeneration.current;
+      setState((previous) => {
+        if (
+          previous.accountId !== sendAccountId ||
+          previous.conversationId !== sendConversationId ||
+          previous.status !== 'ready'
+        ) {
+          return previous;
+        }
+        return {
+          ...previous,
+          thread: appendOptimisticMedia(previous.thread, {
+            temporaryId,
+            attemptId,
+            conversationId: sendConversationId,
+            senderId: dependencies.senderId,
+            mediaKind: draft.mediaKind,
+            mediaUrl: draft.mediaUrl,
+            caption:
+              draft.mediaKind === 'audio' ? null : draft.caption?.trim() || null,
+            filename:
+              draft.mediaKind === 'document' ? draft.filename : undefined,
+            createdAt,
+          }),
+        };
+      });
+      const isCurrentSend = () =>
+        mounted.current &&
+        scopeGeneration.current === sendScopeGeneration &&
+        feedGeneration.current === sendFeedGeneration &&
+        activeAccountId.current === sendAccountId &&
+        activeConversationId.current === sendConversationId;
+      try {
+        const acknowledgement = await (
+          dependencies.sendMessage ?? sendConversationMessage
+        )(
+          {
+            kind: 'media',
+            accountId: sendAccountId,
+            conversationId: sendConversationId,
+            ...draft,
+          },
+          {
+            recoverUnauthorizedSession: dependencies.recoverUnauthorizedSession,
+          }
+        );
+        if (isCurrentSend()) {
+          setState((previous) =>
+            previous.accountId === sendAccountId &&
+            previous.conversationId === sendConversationId
+              ? {
+                  ...previous,
+                  thread: applySendAcknowledgement(previous.thread, {
+                    temporaryId,
+                    messageId: acknowledgement.messageId,
+                    whatsappMessageId: acknowledgement.whatsappMessageId,
+                  }),
+                }
+              : previous
+          );
+        }
+        return { temporaryId, status: 'sent' };
+      } catch (error) {
+        const failure = describeMobileSendFailure(error);
+        if (isCurrentSend()) {
+          setState((previous) =>
+            previous.accountId === sendAccountId &&
+            previous.conversationId === sendConversationId
+              ? {
+                  ...previous,
+                  thread: markOptimisticFailed(
+                    previous.thread,
+                    temporaryId,
+                    failure.message,
+                    attemptId,
+                    failure.safeToRetry
+                  ),
+                }
+              : previous
+          );
+        }
+        return { temporaryId, status: 'failed', ...failure };
+      }
+    },
+    []
+  );
+
+  const sendMedia = useCallback(
+    (draft: MediaSendDraft): Promise<SendAttemptResult> => {
+      const dependencies = activeOutbound.current;
+      if (!dependencies) {
+        return Promise.reject(
+          new Error('Outbound message dependencies are unavailable')
+        );
+      }
+      const temporaryId =
+        dependencies.createTemporaryId?.() ??
+        `temp:${globalThis.crypto.randomUUID()}`;
+      return performMediaSend(
+        temporaryId,
+        `attempt:${++nextSendAttempt.current}`,
+        draft,
+        dependencies.now?.() ?? new Date().toISOString(),
+        dependencies
+      );
+    },
+    [performMediaSend]
+  );
+
+  const retryMedia = useCallback(
+    (temporaryId: string): Promise<SendAttemptResult> => {
+      const dependencies = activeOutbound.current;
+      if (!dependencies) {
+        return Promise.reject(
+          new Error('Outbound message dependencies are unavailable')
+        );
+      }
+      const activeRetry = activeRetries.current.get(temporaryId);
+      if (activeRetry) return activeRetry;
+      const candidate = messageForTemporaryId(
+        latestState.current.thread,
+        temporaryId
+      );
+      const failed = candidate?.status === 'failed' ? candidate : null;
+      if (
+        !failed?.mediaUrl ||
+        !['image', 'video', 'document', 'audio'].includes(failed.contentType) ||
+        failed.safeToRetry !== true
+      ) {
+        return Promise.resolve({
+          temporaryId,
+          status: 'failed',
+          safeToRetry: false,
+          message:
+            failed?.providerErrorTitle ??
+            'Delivery could not be confirmed. Check the conversation before sending again.',
+        });
+      }
+      const retry = performMediaSend(
+        temporaryId,
+        `attempt:${++nextSendAttempt.current}`,
+        {
+          mediaKind: failed.contentType as MediaKind,
+          mediaUrl: failed.mediaUrl,
+          caption: failed.contentText ?? undefined,
+          filename: failed.mediaFilename ?? undefined,
+        },
+        failed.createdAt,
+        dependencies
+      );
+      activeRetries.current.set(temporaryId, retry);
+      void retry.finally(() => {
+        if (activeRetries.current.get(temporaryId) === retry) {
+          activeRetries.current.delete(temporaryId);
+        }
+      });
+      return retry;
+    },
+    [performMediaSend]
+  );
+
   const retryText = useCallback(
     (temporaryId: string): Promise<SendAttemptResult> => {
       const dependencies = activeOutbound.current;
@@ -1411,5 +1594,7 @@ export function useMessageThread({
     loadOlder,
     sendText,
     retryText,
+    sendMedia,
+    retryMedia,
   };
 }

@@ -15,7 +15,22 @@ const config: UsefulDeskExpoConfig = {
     package: 'com.usefulmade.usefuldesk.agent',
     predictiveBackGestureEnabled: true,
   },
-  plugins: ['expo-router', 'expo-secure-store', 'expo-font', 'expo-image'],
+  plugins: [
+    'expo-router',
+    'expo-secure-store',
+    'expo-font',
+    'expo-image',
+    [
+      'expo-image-picker',
+      {
+        photosPermission:
+          'Allow UsefulDesk Agent to choose photos and videos to send in Inbox conversations.',
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
+    'expo-document-picker',
+  ],
   experiments: { typedRoutes: true, reactCompiler: true },
 };
 

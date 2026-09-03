@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 
 import { getCurrentAccount, toErrorResponse } from '@/lib/auth/account';
 import {
+  loadDashboardActivity,
   loadDashboardInsightsDateContext,
   loadDashboardInsightsSnapshot,
 } from '@/lib/dashboard/insights-snapshot';
@@ -15,11 +16,17 @@ const NO_STORE_HEADERS = {
   'Cache-Control': 'private, no-store, max-age=0',
 };
 
-type InsightsView = 'initial' | 'conversations' | 'lead-rating';
+type InsightsView = 'initial' | 'conversations' | 'lead-rating' | 'activity';
+
+/** Views whose result does not vary with the 7/30/90 range control. */
+const RANGE_FREE_VIEWS: InsightsView[] = ['initial', 'activity'];
 
 function isInsightsView(value: string): value is InsightsView {
   return (
-    value === 'initial' || value === 'conversations' || value === 'lead-rating'
+    value === 'initial' ||
+    value === 'conversations' ||
+    value === 'lead-rating' ||
+    value === 'activity'
   );
 }
 
@@ -39,10 +46,9 @@ export async function GET(request: Request) {
     if (!isInsightsView(requestedView)) {
       return json({ error: 'Invalid dashboard insights view' }, 400);
     }
-    const requestedRange =
-      requestedView === 'initial'
-        ? 30
-        : rangeDays(url.searchParams.get('range'));
+    const requestedRange = RANGE_FREE_VIEWS.includes(requestedView)
+      ? 30
+      : rangeDays(url.searchParams.get('range'));
     if (requestedRange == null) {
       return json(
         { error: 'Dashboard insights range must be 7, 30, or 90' },
@@ -67,6 +73,10 @@ export async function GET(request: Request) {
         dateContext
       );
       return json(snapshot);
+    }
+    if (requestedView === 'activity') {
+      const activity = await loadDashboardActivity(ctx.supabase, dateContext);
+      return json({ activity });
     }
     if (requestedView === 'conversations') {
       const series = await loadConversationsSeries(

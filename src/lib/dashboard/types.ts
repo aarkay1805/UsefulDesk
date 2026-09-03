@@ -5,7 +5,7 @@
 export type DashboardInsightsRangeDays = 7 | 30 | 90;
 
 export type DashboardInsightsSection =
-  'conversations' | 'leadRating' | 'leadFunnel' | 'activity';
+  'conversations' | 'leadRating' | 'leadFunnel';
 
 export interface ConversationsSeriesPoint {
   day: string; // YYYY-MM-DD local
@@ -130,6 +130,15 @@ export interface DashboardInsightsSnapshot {
   series: ConversationsSeriesPoint[] | null;
   rating: LeadSourceRatingData | null;
   leadFunnel: LeadFunnelData | null;
-  activity: ActivityItem[] | null;
   errors: DashboardInsightsSection[];
+}
+
+/**
+ * Recent work reads on its own request. It no longer rides the insights
+ * snapshot because it no longer sits with the insights: the feed moved up
+ * beside the uncontacted-lead queue, so it must load when that row loads
+ * rather than when the reader scrolls the charts into view.
+ */
+export interface DashboardActivityResponse {
+  activity: ActivityItem[];
 }

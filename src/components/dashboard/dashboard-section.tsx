@@ -1,6 +1,27 @@
 import type { ReactNode } from 'react';
 
 /**
+ * The layout every section that SHARES A ROW passes as `className`.
+ *
+ * `flex flex-col` + `flex-1` on the card is the long-standing way two peer
+ * sections sit side by side at equal height. `max-h-[480px]` is the cap that
+ * makes the pairing hold: a queue is bounded at 8 rows but a follow-up row
+ * with a long note is twice the height of a lead row, so an uncapped pair
+ * leaves one card short of its neighbour and pushes the next row of work off
+ * the fold. The cap bounds the row; the overflow goes to a scroller INSIDE
+ * the card, never to the page.
+ */
+export const DASHBOARD_PAIRED_SECTION = 'flex max-h-[480px] flex-col';
+
+/**
+ * The `ScrollArea` that takes that overflow. `min-h-0` is load-bearing — a
+ * flex child defaults to `min-height:auto`, so without it the scroller grows
+ * to fit every row and the card is clipped with no scrollbar at all (the same
+ * trap documented on the inbox conversation list).
+ */
+export const DASHBOARD_QUEUE_SCROLLER = 'min-h-0 flex-1';
+
+/**
  * The dashboard's one section heading. Every block on the page renders this,
  * so the page has exactly two heading levels: this one, and the queue
  * sub-labels inside a card. There is no grouping level above it — a wrapper
@@ -25,7 +46,7 @@ export function DashboardSection({
   meta?: ReactNode;
   /** Optional trailing link, aligned to the section's right edge. */
   action?: ReactNode;
-  /** External layout only — e.g. `flex flex-col` so a card can fill a grid row. */
+  /** External layout only — pass `DASHBOARD_PAIRED_SECTION` to share a row. */
   className?: string;
   children: ReactNode;
 }) {

@@ -1,5 +1,6 @@
 import { mobileEnvironment } from '../../core/env';
 import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
+import type { MediaKind } from '../../../../../src/lib/storage/media-contract';
 
 export type MobileSendInput =
   | {
@@ -20,6 +21,15 @@ export type MobileSendInput =
         headerText?: string;
         buttonParams?: Record<number, string>;
       };
+    }
+  | {
+      kind: 'media';
+      accountId: string;
+      conversationId: string;
+      mediaKind: MediaKind;
+      mediaUrl: string;
+      caption?: string;
+      filename?: string;
     };
 
 export type MobileSendResult = {
@@ -145,6 +155,33 @@ function requestBody(input: MobileSendInput): string {
       conversation_id: input.conversationId,
       message_type: 'text',
       content_text: text,
+    });
+  }
+
+  if (input.kind === 'media') {
+    const mediaUrl = input.mediaUrl.trim();
+    const caption = input.caption?.trim() || undefined;
+    if (!mediaUrl) {
+      throw new MobileSendError(
+        'invalid_response',
+        'An attachment URL is required.'
+      );
+    }
+    if (caption && caption.length > 1024) {
+      throw new MobileSendError(
+        'invalid_response',
+        'Captions can be up to 1,024 characters.'
+      );
+    }
+    return JSON.stringify({
+      conversation_id: input.conversationId,
+      message_type: input.mediaKind,
+      media_url: mediaUrl,
+      content_text: input.mediaKind === 'audio' ? undefined : caption,
+      filename:
+        input.mediaKind === 'document'
+          ? input.filename?.trim() || undefined
+          : undefined,
     });
   }
 

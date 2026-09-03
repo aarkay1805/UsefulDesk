@@ -44,8 +44,20 @@ export async function loadDashboardInsightsDateContext(
   };
 }
 
+/** Recent work loads on its own request — see `loadDashboardActivity`. */
+export async function loadDashboardActivity(
+  db: SupabaseClient,
+  context: DashboardInsightsDateContext
+) {
+  return loadActivity(
+    db,
+    DASHBOARD_ACTIVITY_PREVIEW_LIMIT,
+    context.phoneCountryCode
+  );
+}
+
 /**
- * Run the four independent initial insights behind one browser-visible API
+ * Run the three independent initial insights behind one browser-visible API
  * request. Rejections stay section-local so one unavailable aggregate does not
  * erase successful cards.
  */
@@ -58,17 +70,11 @@ export async function loadDashboardInsightsSnapshot(
     loadConversationsSeries(db, rangeDays, context.timeZone, context.today),
     loadLeadSourceRatings(db, rangeDays, context.timeZone, context.today),
     loadLeadFunnel(db, context.timeZone, context.today),
-    loadActivity(
-      db,
-      DASHBOARD_ACTIVITY_PREVIEW_LIMIT,
-      context.phoneCountryCode
-    ),
   ] as const);
   const sections: DashboardInsightsSection[] = [
     'conversations',
     'leadRating',
     'leadFunnel',
-    'activity',
   ];
   const errors = results.flatMap((result, index) => {
     if (result.status === 'fulfilled') return [];
@@ -83,7 +89,6 @@ export async function loadDashboardInsightsSnapshot(
     series: results[0].status === 'fulfilled' ? results[0].value : null,
     rating: results[1].status === 'fulfilled' ? results[1].value : null,
     leadFunnel: results[2].status === 'fulfilled' ? results[2].value : null,
-    activity: results[3].status === 'fulfilled' ? results[3].value : null,
     errors,
   };
 }

@@ -3,14 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type {
-  ActivityItem,
   ConversationsSeriesPoint,
   DashboardInsightsRangeDays,
   DashboardInsightsSnapshot,
   LeadFunnelData,
   LeadSourceRatingData,
 } from '@/lib/dashboard/types';
-import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { ConversationsChart } from '@/components/dashboard/conversations-chart';
 import { LeadConversionRating } from '@/components/dashboard/lead-conversion-rating';
 import { LeadFunnel } from '@/components/dashboard/lead-funnel';
@@ -28,9 +26,11 @@ async function loadInsightsResponse<T>(url: string): Promise<T> {
 
 /**
  * Historical reading, not today's work — the action queues all live above
- * these cards. The lead-status ring was removed: "Leads by stage" already
- * groups the same lead_status buckets and adds how long leads sit in each,
- * so the ring only restated counts the bars already carried.
+ * these cards, and so does Recent work, which now shares a row with the
+ * uncontacted-lead queue and fetches on its own. The lead-status ring was
+ * removed: "Leads by stage" already groups the same lead_status buckets and
+ * adds how long leads sit in each, so the ring only restated counts the bars
+ * already carried.
  */
 export function DashboardInsights() {
   const [conversationRange, setConversationRange] = useState<RangeDays>(30);
@@ -52,7 +52,6 @@ export function DashboardInsights() {
   });
   const [ratingLoading, setRatingLoading] = useState(true);
   const [leadFunnel, setLeadFunnel] = useState<LeadFunnelData | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,7 +68,6 @@ export function DashboardInsights() {
           setRatings((current) => ({ ...current, 30: snapshot.rating }));
         }
         if (snapshot.leadFunnel) setLeadFunnel(snapshot.leadFunnel);
-        if (snapshot.activity) setActivity(snapshot.activity);
         for (const section of snapshot.errors) {
           console.error(`[dashboard] ${section} insights failed`);
         }
@@ -153,7 +151,6 @@ export function DashboardInsights() {
         />
       </div>
       <LeadFunnel data={leadFunnel} loading={!leadFunnel} />
-      <ActivityFeed items={activity} loading={!activity} />
     </>
   );
 }

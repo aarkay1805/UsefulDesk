@@ -1,6 +1,12 @@
 import { createClient } from '@/lib/supabase/client';
 import { browserBranchId } from '@/lib/auth/branch-context';
 
+export {
+  buildMediaPath,
+  MEDIA_MAX_BYTES_BY_KIND,
+} from './media-contract';
+import { buildMediaPath } from './media-contract';
+
 /**
  * Shared media-upload helper for Supabase Storage buckets that use the
  * account-scoped path convention introduced in migration 020
@@ -27,41 +33,6 @@ export const MEDIA_MAX_BYTES = 16 * 1024 * 1024;
  * (Meta allows 100 MB, but the bucket — and shared-hosting upload UX —
  * caps lower).
  */
-export const MEDIA_MAX_BYTES_BY_KIND = {
-  image: 5 * 1024 * 1024,
-  video: 16 * 1024 * 1024,
-  audio: 16 * 1024 * 1024,
-  document: 16 * 1024 * 1024,
-} as const;
-
-/**
- * Build the account-scoped object path for an upload. Pure + exported so
- * it can be unit-tested without a Supabase client.
- *
- * - `basename` is stripped of its extension, lower-cased non-safe chars
- *   are collapsed to `_`, and it's capped at 40 chars (falls back to
- *   "file" when empty).
- * - The timestamp + the original name keep collisions between two
- *   concurrent uploads astronomically unlikely.
- */
-export function buildMediaPath(
-  accountId: string,
-  fileName: string,
-  now: number = Date.now()
-): string {
-  // Only treat the trailing segment as an extension when there's a real
-  // one — a bare name like "README" has no extension and falls back to
-  // "bin" rather than becoming "readme".
-  const hasExt = /\.[^.]+$/.test(fileName);
-  const ext = hasExt ? fileName.split('.').pop()!.toLowerCase() : 'bin';
-  const safeBase =
-    fileName
-      .replace(/\.[^.]+$/, '')
-      .replace(/[^a-zA-Z0-9_-]+/g, '_')
-      .slice(0, 40) || 'file';
-  return `account-${accountId}/${now}-${safeBase}.${ext}`;
-}
-
 export interface UploadAccountMediaResult {
   /** Public URL Meta can fetch at send time. */
   publicUrl: string;

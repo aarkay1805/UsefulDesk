@@ -1,4 +1,5 @@
 import {
+  appendOptimisticMedia,
   appendOptimisticText,
   applyRealtimeMessage,
   applySendAcknowledgement,
@@ -46,6 +47,87 @@ function persisted(status: 'sent' | 'delivered' | 'read' | 'failed' = 'sent') {
 }
 
 describe('outbound message state', () => {
+  it('appends media metadata and reconciles API-first then realtime into one row', () => {
+    let state = appendOptimisticMedia(emptyOutboundThreadState(), {
+      temporaryId: TEMPORARY_ID,
+      attemptId: 'attempt:media',
+      conversationId: CONVERSATION_ID,
+      senderId: '30250c1e-ee34-4af5-8752-2ad170d65713',
+      mediaKind: 'document',
+      mediaUrl: 'https://cdn.example.test/renewal.pdf',
+      caption: 'Renewal form',
+      filename: 'renewal.pdf',
+      createdAt: CREATED_AT,
+    });
+    expect(state.messages).toEqual([
+      expect.objectContaining({
+        id: TEMPORARY_ID,
+        contentType: 'document',
+        contentText: 'Renewal form',
+        mediaUrl: 'https://cdn.example.test/renewal.pdf',
+        mediaFilename: 'renewal.pdf',
+        status: 'sending',
+      }),
+    ]);
+
+    state = applySendAcknowledgement(state, {
+      temporaryId: TEMPORARY_ID,
+      messageId: MESSAGE_1_ID,
+      whatsappMessageId: PROVIDER_ID,
+    });
+    state = applyRealtimeMessage(
+      state,
+      message({
+        id: MESSAGE_1_ID,
+        conversationId: CONVERSATION_ID,
+        senderType: 'agent',
+        contentType: 'document',
+        contentText: 'Renewal form',
+        mediaUrl: 'https://cdn.example.test/renewal.pdf',
+        providerMessageId: PROVIDER_ID,
+        status: 'delivered',
+        createdAt: CREATED_AT,
+      })
+    );
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]).toEqual(
+      expect.objectContaining({ id: MESSAGE_1_ID, status: 'delivered' })
+    );
+  });
+
+  it('reconciles a media realtime insert before its API acknowledgement', () => {
+    let state = appendOptimisticMedia(emptyOutboundThreadState(), {
+      temporaryId: TEMPORARY_ID,
+      attemptId: 'attempt:media',
+      conversationId: CONVERSATION_ID,
+      senderId: null,
+      mediaKind: 'image',
+      mediaUrl: 'https://cdn.example.test/photo.jpg',
+      caption: null,
+      createdAt: CREATED_AT,
+    });
+    state = applyRealtimeMessage(
+      state,
+      message({
+        id: MESSAGE_1_ID,
+        conversationId: CONVERSATION_ID,
+        senderType: 'agent',
+        contentType: 'image',
+        contentText: null,
+        mediaUrl: 'https://cdn.example.test/photo.jpg',
+        providerMessageId: PROVIDER_ID,
+        createdAt: CREATED_AT,
+      })
+    );
+    state = applySendAcknowledgement(state, {
+      temporaryId: TEMPORARY_ID,
+      messageId: MESSAGE_1_ID,
+      whatsappMessageId: PROVIDER_ID,
+    });
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0].id).toBe(MESSAGE_1_ID);
+  });
+
   it('appends an optimistic outbound text immediately as sending', () => {
     const state = optimistic();
 

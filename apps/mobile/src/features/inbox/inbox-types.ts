@@ -40,6 +40,8 @@ export interface InboxMessage {
   contentType: ContentType;
   contentText: string | null;
   mediaUrl: string | null;
+  /** Local-only display name while an optimistic document send is pending. */
+  mediaFilename?: string | null;
   templateName: string | null;
   providerMessageId: string | null;
   status: MessageStatus;

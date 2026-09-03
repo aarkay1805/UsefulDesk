@@ -53,11 +53,6 @@ vi.mock('@/components/dashboard/lead-funnel', () => ({
     <output data-testid="funnel-data">{data?.totalLeads ?? 'empty'}</output>
   ),
 }));
-vi.mock('@/components/dashboard/activity-feed', () => ({
-  ActivityFeed: ({ items }: { items: Array<{ id: string }> | null }) => (
-    <output data-testid="activity-data">{items?.[0]?.id ?? 'empty'}</output>
-  ),
-}));
 
 import { DashboardInsights } from './dashboard-insights';
 
@@ -65,7 +60,6 @@ const initialPayload = {
   series: [{ day: '2026-08-27', incoming: 2, outgoing: 3 }],
   rating: { rangeDays: 30 },
   leadFunnel: { totalLeads: 4 },
-  activity: [{ id: 'activity-1' }],
   errors: [],
 };
 
@@ -108,7 +102,6 @@ describe('DashboardInsights consolidated request path', () => {
     });
     expect(screen.getByTestId('rating-data').textContent).toBe('30');
     expect(screen.getByTestId('funnel-data').textContent).toBe('4');
-    expect(screen.getByTestId('activity-data').textContent).toBe('activity-1');
     expect(fetch).toHaveBeenCalledOnce();
     expect(fetch).toHaveBeenCalledWith('/api/dashboard/insights?view=initial', {
       cache: 'no-store',

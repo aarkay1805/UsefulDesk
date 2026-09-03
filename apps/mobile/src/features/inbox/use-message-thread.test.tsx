@@ -2172,6 +2172,69 @@ describe('useMessageThread', () => {
       };
     }
 
+    it('sends and safely retries media through the same optimistic row', async () => {
+      messages.list.mockResolvedValueOnce(page([]));
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockRejectedValueOnce(
+          new MobileSendError('rate_limited', 'Too many send attempts.')
+        )
+        .mockResolvedValueOnce(acknowledgement);
+      const dependencies = outbound(sendMessage);
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: dependencies })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+
+      await act(async () => {
+        await result.current.sendMedia({
+          mediaKind: 'document',
+          mediaUrl: 'https://cdn.example.test/renewal.pdf',
+          caption: 'Renewal form',
+          filename: 'renewal.pdf',
+        });
+      });
+      expect(result.current.items).toEqual([
+        expect.objectContaining({
+          id: temporaryId,
+          contentType: 'document',
+          mediaUrl: 'https://cdn.example.test/renewal.pdf',
+          mediaFilename: 'renewal.pdf',
+          status: 'failed',
+          safeToRetry: true,
+        }),
+      ]);
+
+      let first!: Promise<unknown>;
+      let second!: Promise<unknown>;
+      act(() => {
+        first = result.current.retryMedia(temporaryId);
+        second = result.current.retryMedia(temporaryId);
+      });
+      expect(second).toBe(first);
+      await act(async () => Promise.all([first, second]));
+      expect(sendMessage).toHaveBeenCalledTimes(2);
+      expect(sendMessage).toHaveBeenLastCalledWith(
+        {
+          kind: 'media',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          mediaKind: 'document',
+          mediaUrl: 'https://cdn.example.test/renewal.pdf',
+          caption: 'Renewal form',
+          filename: 'renewal.pdf',
+        },
+        { recoverUnauthorizedSession: dependencies.recoverUnauthorizedSession }
+      );
+      expect(result.current.items).toHaveLength(1);
+      expect(result.current.items[0]).toEqual(
+        expect.objectContaining({ id: MESSAGE_3_ID, status: 'sent' })
+      );
+    });
+
     it('appends immediately, sends once, and reconciles the acknowledgement', async () => {
       const pending = deferred<MobileSendResult>();
       const sendMessage = jest.fn<

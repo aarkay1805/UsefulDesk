@@ -19,6 +19,7 @@ vi.mock('./lead-conversion-rating', () => ({
 
 import {
   DASHBOARD_ACTIVITY_PREVIEW_LIMIT,
+  loadDashboardActivity,
   loadDashboardInsightsDateContext,
   loadDashboardInsightsSnapshot,
 } from './insights-snapshot';
@@ -79,7 +80,6 @@ describe('dashboard insights snapshot', () => {
     expect(snapshot.series).toEqual([{ day: '2026-08-27' }]);
     expect(snapshot.rating).toBeNull();
     expect(snapshot.leadFunnel).toEqual({ stages: [] });
-    expect(snapshot.activity).toEqual([{ id: 'activity-1' }]);
     expect(snapshot.errors).toEqual(['leadRating']);
     expect(h.loadConversationsSeries).toHaveBeenCalledWith(
       db,
@@ -98,11 +98,26 @@ describe('dashboard insights snapshot', () => {
       'Asia/Kolkata',
       '2026-08-27'
     );
+    // Recent work moved up beside the uncontacted-lead queue and reads on its
+    // own request, so the charts must not pay for it any more.
+    expect(h.loadActivity).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledOnce();
+  });
+
+  it('loads recent work on its own with the branch phone country code', async () => {
+    const db = { branch: 'account-1' } as unknown as SupabaseClient;
+
+    const activity = await loadDashboardActivity(db, {
+      timeZone: 'Asia/Kolkata',
+      today: '2026-08-27',
+      phoneCountryCode: '+91',
+    });
+
+    expect(activity).toEqual([{ id: 'activity-1' }]);
     expect(h.loadActivity).toHaveBeenCalledWith(
       db,
       DASHBOARD_ACTIVITY_PREVIEW_LIMIT,
       '+91'
     );
-    expect(errorSpy).toHaveBeenCalledOnce();
   });
 });

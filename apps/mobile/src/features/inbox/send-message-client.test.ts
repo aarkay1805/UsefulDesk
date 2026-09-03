@@ -66,6 +66,104 @@ function dependencies(options?: {
 }
 
 describe('sendConversationMessage', () => {
+  it.each([
+    [
+      'image',
+      {
+        conversation_id: CONVERSATION_ID,
+        message_type: 'image',
+        media_url: 'https://cdn.example.test/photo.jpg',
+        content_text: 'New equipment',
+      },
+    ],
+    [
+      'video',
+      {
+        conversation_id: CONVERSATION_ID,
+        message_type: 'video',
+        media_url: 'https://cdn.example.test/tour.mp4',
+        content_text: 'Gym tour',
+      },
+    ],
+    [
+      'document',
+      {
+        conversation_id: CONVERSATION_ID,
+        message_type: 'document',
+        media_url: 'https://cdn.example.test/renewal.pdf',
+        content_text: 'Renewal form',
+        filename: 'renewal.pdf',
+      },
+    ],
+    [
+      'audio',
+      {
+        conversation_id: CONVERSATION_ID,
+        message_type: 'audio',
+        media_url: 'https://cdn.example.test/note.ogg',
+      },
+    ],
+  ] as const)('posts the exact %s media route payload', async (
+    mediaKind,
+    expectedBody
+  ) => {
+    const setup = dependencies();
+    setup.fetch.mockResolvedValue(
+      response(200, '{"message_id":"message-media","whatsapp_message_id":"wamid.media"}')
+    );
+    await sendConversationMessage(
+      {
+        kind: 'media',
+        accountId: ACCOUNT_ID,
+        conversationId: CONVERSATION_ID,
+        mediaKind,
+        mediaUrl: expectedBody.media_url,
+        caption: 'content_text' in expectedBody ? expectedBody.content_text : 'ignored',
+        filename: 'filename' in expectedBody ? expectedBody.filename : 'ignored.bin',
+      },
+      setup.result
+    );
+    expect(setup.fetch).toHaveBeenCalledWith(
+      `${API_BASE}/api/whatsapp/send`,
+      expect.objectContaining({ body: JSON.stringify(expectedBody) })
+    );
+  });
+
+  it('accepts a 1,024-character caption and rejects the next character before fetch', async () => {
+    const setup = dependencies();
+    setup.fetch.mockResolvedValue(
+      response(200, '{"message_id":"message-media","whatsapp_message_id":null}')
+    );
+    await expect(
+      sendConversationMessage(
+        {
+          kind: 'media',
+          accountId: ACCOUNT_ID,
+          conversationId: CONVERSATION_ID,
+          mediaKind: 'image',
+          mediaUrl: 'https://cdn.example.test/photo.jpg',
+          caption: 'a'.repeat(1024),
+        },
+        setup.result
+      )
+    ).resolves.toMatchObject({ messageId: 'message-media' });
+    setup.fetch.mockClear();
+    await expect(
+      sendConversationMessage(
+        {
+          kind: 'media',
+          accountId: ACCOUNT_ID,
+          conversationId: CONVERSATION_ID,
+          mediaKind: 'image',
+          mediaUrl: 'https://cdn.example.test/photo.jpg',
+          caption: 'a'.repeat(1025),
+        },
+        setup.result
+      )
+    ).rejects.toMatchObject({ category: 'invalid_response' });
+    expect(setup.fetch).not.toHaveBeenCalled();
+  });
+
   it('gets the current token at send time and posts a trimmed text payload', async () => {
     const setup = dependencies();
     setup.fetch.mockResolvedValueOnce(

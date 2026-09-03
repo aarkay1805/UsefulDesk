@@ -12,6 +12,16 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Every queue below mounts a `ScrollArea`, whose Base UI viewport calls
+// `getAnimations()` on a timer after render. jsdom has no Web Animations API,
+// so that throws outside any test's stack and Vitest reports an unhandled
+// error even while the assertions pass. The stub is deliberately scoped to
+// this file: setting it globally changes which branch Base UI's popover and
+// dialog exit logic takes, and breaks the blocker tests that rely on it.
+if (!Element.prototype.getAnimations) {
+  Element.prototype.getAnimations = () => [];
+}
+
 const h = vi.hoisted(() => ({
   createClient: vi.fn(),
   useReminderReadiness: vi.fn(() => ({ ready: true })),
@@ -51,8 +61,7 @@ vi.mock('@/components/members/use-account-staff', () => ({
   useAccountStaff: () => ({ nameById: new Map(), avatarById: new Map() }),
 }));
 vi.mock('@/components/follow-ups/follow-up-task-summary', () => ({
-  FollowUpTaskLabel: ({ label }: { label: string }) => <span>{label}</span>,
-  FollowUpTaskNote: ({ note }: { note: string }) => <span>{note}</span>,
+  FollowUpTaskLine: ({ note }: { note?: string | null }) => <span>{note}</span>,
 }));
 vi.mock('@/components/follow-ups/follow-up-completion-control', () => ({
   FollowUpCompletionControl: ({

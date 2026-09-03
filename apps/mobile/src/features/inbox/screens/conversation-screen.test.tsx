@@ -41,6 +41,9 @@ const mockUseMessageThread = jest.fn();
 const mockUseReadyAuth = jest.fn<ReadyAuthContextValue, []>();
 const mockScrollToEnd = jest.fn();
 const mockFocus = jest.fn();
+const mockPickConversationMedia = jest.fn();
+const mockUploadConversationMedia = jest.fn();
+const mockDeleteConversationMedia = jest.fn();
 const mockTemplateSendUncertaintyStore = {
   hasMarker: jest.fn(),
   mark: jest.fn(),
@@ -165,6 +168,18 @@ jest.mock('../template-send-uncertainty', () => ({
     clear: (...args: unknown[]) =>
       mockTemplateSendUncertaintyStore.clear(...args),
   },
+}));
+
+jest.mock('../media-picker', () => ({
+  pickConversationMedia: (...args: unknown[]) =>
+    mockPickConversationMedia(...args),
+}));
+
+jest.mock('../media-upload-client', () => ({
+  uploadConversationMedia: (...args: unknown[]) =>
+    mockUploadConversationMedia(...args),
+  deleteConversationMedia: (...args: unknown[]) =>
+    mockDeleteConversationMedia(...args),
 }));
 
 jest.mock('../send-message-client', () => ({
@@ -525,6 +540,54 @@ describe('ConversationScreen', () => {
     mockTemplateSendUncertaintyStore.hasMarker.mockResolvedValue(false);
     mockTemplateSendUncertaintyStore.mark.mockResolvedValue(undefined);
     mockTemplateSendUncertaintyStore.clear.mockResolvedValue(undefined);
+    mockPickConversationMedia.mockResolvedValue({
+      kind: 'image',
+      uri: 'file:///cache/member.jpg',
+      name: 'member.jpg',
+      mimeType: 'image/jpeg',
+      size: 1024,
+    });
+    mockUploadConversationMedia.mockReturnValue({
+      promise: Promise.resolve({
+        path: `account-${BRANCH_ID}/1700000000000-member.jpg`,
+        publicUrl: 'https://cdn.example.test/member.jpg',
+      }),
+      abort: jest.fn(),
+    });
+    mockDeleteConversationMedia.mockResolvedValue(undefined);
+  });
+
+  it('keeps staged media mounted when the service window closes and routes Send to templates', async () => {
+    const openThread = readyThreadResult();
+    mockUseMessageThread.mockReturnValue(openThread);
+    const view = render(<ConversationScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    expect(await screen.findByLabelText('Photo attachment preview')).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Send attachment' })).toBeTruthy();
+
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: '2026-01-01T00:00:00.000Z',
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    view.rerender(<ConversationScreen />);
+
+    expect(screen.getByLabelText('Photo attachment preview')).toBeTruthy();
+    expect(screen.queryByTestId('closed-window-action-bar')).toBeNull();
+    fireEvent.press(screen.getByRole('button', { name: 'Send attachment' }));
+    expect(openThread.sendMedia).not.toHaveBeenCalled();
+    expect(await screen.findByText('Choose a template')).toBeTruthy();
   });
 
   it('renders chronological runs in the native titled route with the open-window composer', () => {

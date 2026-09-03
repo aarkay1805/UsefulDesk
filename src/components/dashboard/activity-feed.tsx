@@ -1,25 +1,38 @@
 'use client';
 
 import { BranchLink as Link } from '@/components/layout/branch-link';
-import { useState } from 'react';
-import { MessageSquare, UserPlus, Radio, Zap, Inbox } from 'lucide-react';
+import {
+  AlertCircle,
+  MessageSquare,
+  UserPlus,
+  Radio,
+  Zap,
+  Inbox,
+} from 'lucide-react';
 import type { ComponentType } from 'react';
 import type { ActivityItem, ActivityKind } from '@/lib/dashboard/types';
 import { useLocale } from '@/hooks/use-locale';
-import { Button, buttonVariants } from '@/components/ui/button';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { buttonVariants } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { DashboardSection } from './dashboard-section';
+import {
+  DASHBOARD_PAIRED_SECTION,
+  DASHBOARD_QUEUE_SCROLLER,
+  DashboardSection,
+} from './dashboard-section';
 import { EmptyState } from './empty-state';
 import { Skeleton } from './skeleton';
 
 interface ActivityFeedProps {
   items: ActivityItem[] | null;
   loading: boolean;
+  /** The feed's own request failed; say so instead of pulsing forever. */
+  failed?: boolean;
 }
 
-/** Rows shown before the reader asks for the rest. */
-const COLLAPSED_ROWS = 6;
+/** Placeholder rows while the feed loads — roughly what the card holds. */
+const SKELETON_ROWS = 6;
 
 interface KindTheme {
   icon: ComponentType<{ className?: string }>;
@@ -38,24 +51,28 @@ const KIND_THEME: Record<ActivityKind, KindTheme> = {
 };
 
 /**
- * A glance at what just happened. The old footer offered four page sizes
- * (5/10/20/50) with a disabled-state rule for each — four decisions for a
- * feed nobody navigates. One expand control replaces them and reveals more
- * rows than the old maximum in a single click.
+ * A glance at what just happened. This card has carried three answers to "how
+ * many rows" — four page-size buttons (5/10/20/50), then one expand control,
+ * now none. The card is capped at 480px with its own scroller since it started
+ * sharing a row with the uncontacted-lead queue, and that cap already bounds
+ * the feed: collapsing to six rows on top of it only left the card visibly
+ * short beside a full sibling and put a click between the reader and rows
+ * that were already loaded. The scroller is the control now. Do not
+ * reintroduce a page size or an expand toggle here — bound the payload at the
+ * query (`DASHBOARD_ACTIVITY_PREVIEW_LIMIT`) instead.
  */
-export function ActivityFeed({ items, loading }: ActivityFeedProps) {
+export function ActivityFeed({
+  items,
+  loading,
+  failed = false,
+}: ActivityFeedProps) {
   const { fmt } = useLocale();
-  const [expanded, setExpanded] = useState(false);
-
-  const totalLoaded = items?.length ?? 0;
-  const visible = expanded
-    ? (items ?? [])
-    : (items?.slice(0, COLLAPSED_ROWS) ?? []);
 
   return (
     <DashboardSection
       id="recent-work"
       title="Recent work"
+      className={DASHBOARD_PAIRED_SECTION}
       action={
         <Link
           data-slot="button"
@@ -67,10 +84,19 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
       }
     >
       {/* No CardHeader: this card has no controls of its own. */}
-      <Card>
-        {loading || !items ? (
+      <Card className="min-h-0 flex-1">
+        {failed ? (
+          <CardContent>
+            <EmptyState
+              icon={AlertCircle}
+              title="Could not load recent work"
+              hint="Reload the page to try again."
+              className="min-h-32"
+            />
+          </CardContent>
+        ) : loading || !items ? (
           <CardContent className="space-y-2">
-            {Array.from({ length: COLLAPSED_ROWS }).map((_, i) => (
+            {Array.from({ length: SKELETON_ROWS }).map((_, i) => (
               <Skeleton key={i} className="h-10 w-full" />
             ))}
           </CardContent>
@@ -83,11 +109,11 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
             />
           </CardContent>
         ) : (
-          <>
-            {/* Dividers alone separate the rows: the old alternating stripe
-              rode on top of them, so every row carried two separators. */}
+          /* Dividers alone separate the rows: the old alternating stripe
+             rode on top of them, so every row carried two separators. */
+          <ScrollArea className={DASHBOARD_QUEUE_SCROLLER}>
             <ul className="divide-border divide-y">
-              {visible.map((it) => {
+              {items.map((it) => {
                 const theme = KIND_THEME[it.kind];
                 const Icon = theme.icon;
                 const row = (
@@ -124,20 +150,7 @@ export function ActivityFeed({ items, loading }: ActivityFeedProps) {
                 );
               })}
             </ul>
-            {totalLoaded > COLLAPSED_ROWS && (
-              <CardFooter className="justify-center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setExpanded((open) => !open)}
-                >
-                  {expanded
-                    ? 'Show less'
-                    : `Show ${totalLoaded - COLLAPSED_ROWS} more`}
-                </Button>
-              </CardFooter>
-            )}
-          </>
+          </ScrollArea>
         )}
       </Card>
     </DashboardSection>
