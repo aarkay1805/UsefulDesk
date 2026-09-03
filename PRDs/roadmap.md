@@ -135,8 +135,13 @@ ambiguous union ordering in both push claim RPCs and numeric-leading opaque Expo
 receipt IDs without dropping queued deliveries. A physical iPhone has now
 accepted foreground/background and terminated-state
 notification banners, opened a notification into the native conversation, and
-passed remote sign-out without the former false timeout warning; token-refresh
-device acceptance remains pending. The production Supabase redirect allowlist
+passed remote sign-out without the former false timeout warning. Token-refresh
+device acceptance now also passes: a cold launch re-registered the current APNs
+token into the same production installation, advanced its heartbeat, kept it active,
+and left exactly one iOS/development row; controlled refresh-check notifications
+then received successful Expo tickets and receipts. Personal Focus suppressed a new
+banner during that final receipt check, while the separate foreground/background/
+terminated display matrix remains accepted. The production Supabase redirect allowlist
 also includes the exact native callback, and physical Google OAuth now returns
 through authorize, callback, and code exchange into the authenticated native
 Inbox instead of the web Site URL. Other advanced message actions remain

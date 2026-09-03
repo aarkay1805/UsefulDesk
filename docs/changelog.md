@@ -46,7 +46,14 @@ upsert after physical acceptance exposed PostgreSQL output-column ambiguity. Tok
 rollover now converts the native token supplied by Expo instead of fetching it again
 inside its own listener, which Expo documents as an infinite-loop trigger. Physical
 iPhone notification delivery, terminated-state display, tap routing, and sign-out
-acceptance now pass; token-refresh acceptance remains open.
+acceptance now pass. Token-refresh acceptance now also passes: a cold launch asked
+APNs for the current token and advanced the same production installation's heartbeat
+while keeping `revoked_at` null and exactly one active iOS/development row. The token
+fingerprint remained current rather than forking a duplicate, and controlled
+refresh-check notifications received successful Expo tickets and receipts. Personal
+Focus suppressed a new visible banner during this final receipt check; the separate
+foreground, background, and terminated-state display matrix remains the physical UI
+evidence. No WhatsApp or customer message was sent.
 
 Production inbound acceptance exposed two last-mile contract defects. Remote migration
 `20260903152818 repair_push_claim_union_order` replaces ambiguous union-result ordering
