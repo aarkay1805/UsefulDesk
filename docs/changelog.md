@@ -35,6 +35,30 @@ in both claim RPCs, and `expo-protocol.ts` now accepts opaque Expo receipt IDs t
 with a digit instead of misclassifying successful tickets as provider errors. The live
 webhook preserved affected deliveries durably while both repairs were made.
 
+## Native mobile Inbox Google Messages visual refresh
+
+The native Inbox and conversation path in `apps/mobile/src/features/inbox`
+now borrows Google Messages' Android visual hierarchy: pale app chrome opens
+into a rounded conversation plane, quiet edge-free rows carry large contact
+identity with blue unread emphasis, and threads use soft high-radius bubbles
+without WhatsApp tails. The custom Inbox and conversation headers preserve the
+real Account and back actions; the placeholder-led filled composer retains its
+Dynamic Type, permission, session-window, media, retry, and keyboard rules.
+Standard bubbles use a wider mobile measure so body copy and trailing delivery
+metadata wrap naturally, while the attachment choices expand into a contained
+tray above the composer. The filter master also keeps short labels visibly
+pill-shaped instead of collapsing a 48pt target into a circle.
+
+A layout-bounds pass against Google Messages on the connected Android device
+then aligned the chrome to a 56dp app bar, 48dp list avatars, 28dp content-plane
+corners, 24dp bubble corners, a full-pill composer, and a 48dp circular Send
+action. Inbox fallback avatars now use the contrast-safe accent treatment, and
+all icon glyphs resolve the semantic foreground in both light and dark themes;
+the Send glyph resolves the accent foreground against its filled circle.
+
+The product stack remains intentionally unchanged: Account stays in the Inbox
+header and no dead Messages-style calling or Gemini actions were introduced.
+
 ## Native mobile Inbox Stage 3 reactions
 
 The native Inbox in `apps/mobile/src/features/inbox` now renders grouped

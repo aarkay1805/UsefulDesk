@@ -3,6 +3,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from '@testing-library/react-native';
 import { type LayoutChangeEvent, Platform } from 'react-native';
@@ -39,7 +40,7 @@ import {
   shouldLoadOlder,
 } from './conversation-screen';
 
-const mockRouter = { push: jest.fn(), replace: jest.fn() };
+const mockRouter = { back: jest.fn(), push: jest.fn(), replace: jest.fn() };
 const mockUseLocalSearchParams = jest.fn();
 const mockUseMessageThread = jest.fn();
 const mockUseMessageReactions = jest.fn();
@@ -146,6 +147,9 @@ jest.mock('expo-router', () => ({
         'react-native'
       ) as typeof import('react-native');
       mockStackOptions.current = options;
+      if (typeof options?.headerTitle === 'function') {
+        return (options.headerTitle as () => import('react').ReactNode)();
+      }
       return typeof options?.title === 'string'
         ? React.createElement(Text, null, options.title)
         : null;
@@ -177,6 +181,27 @@ jest.mock('../reaction-repository', () => ({
 
 jest.mock('../inbox-realtime-provider', () => ({
   useInboxRealtimeFeed: () => screenRealtime,
+}));
+
+jest.mock('../components/conversation-header-identity', () => ({
+  ConversationHeaderIdentity: ({
+    name,
+    subtitle,
+  }: {
+    name: string;
+    subtitle: string;
+  }) => {
+    const React = jest.requireActual('react') as typeof import('react');
+    const { Text, View } = jest.requireActual(
+      'react-native'
+    ) as typeof import('react-native');
+    return React.createElement(
+      View,
+      { testID: 'conversation-header-identity' },
+      React.createElement(Text, null, name),
+      React.createElement(Text, null, subtitle)
+    );
+  },
 }));
 
 jest.mock('../template-send-uncertainty', () => ({
@@ -650,7 +675,7 @@ describe('ConversationScreen', () => {
     fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
     expect(screen.getByText('Message actions')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Reply to message' }));
-    expect(screen.getAllByText('Asha Rao')).toHaveLength(2);
+    expect(screen.getAllByText('Asha Rao')).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Dismiss reply' })).toBeTruthy();
 
     fireEvent(
@@ -660,7 +685,7 @@ describe('ConversationScreen', () => {
     );
     expect(screen.getByText('You')).toBeTruthy();
     expect(screen.getAllByText('How can I help?')).toHaveLength(2);
-    expect(screen.getAllByText('Asha Rao')).toHaveLength(1);
+    expect(screen.getAllByText('Asha Rao')).toHaveLength(2);
   });
 
   it('keeps a replacement target when an older text reply settles and dismisses only the quote', async () => {
@@ -715,7 +740,7 @@ describe('ConversationScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
 
     await waitFor(() =>
-      expect(screen.getAllByText('Asha Rao')).toHaveLength(2)
+      expect(screen.getAllByText('Asha Rao')).toHaveLength(3)
     );
     expect(screen.getByText('Too many send attempts.')).toBeTruthy();
   });
@@ -1174,8 +1199,11 @@ describe('ConversationScreen', () => {
     );
     render(<ConversationScreen />);
 
-    expect(screen.getByText('Asha Rao')).toBeTruthy();
+    expect(screen.getByTestId('conversation-header-identity')).toBeTruthy();
+    expect(screen.getAllByText('Asha Rao')).not.toHaveLength(0);
+    expect(screen.getByText('+919876543210')).toBeTruthy();
     expect(screen.getByText('1 Sept 2026')).toBeTruthy();
+    expect(screen.getByTestId('conversation-date-separator')).toBeTruthy();
     expect(
       screen.getAllByTestId(/^message-probe-/).map((node) => node.props.testID)
     ).toEqual([
@@ -1194,7 +1222,14 @@ describe('ConversationScreen', () => {
     ).toBeTruthy();
     expect(screen.getByPlaceholderText(/message/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Send message' })).toBeTruthy();
-    expect(mockStackOptions.current).toEqual({ title: 'Asha Rao' });
+    expect(mockStackOptions.current).toEqual(
+      expect.objectContaining({
+        title: 'Asha Rao',
+        headerShown: false,
+      })
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Back to Inbox' }));
+    expect(mockRouter.back).toHaveBeenCalledTimes(1);
     expect(mockUseMessageThread).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: BRANCH_ID,
@@ -1600,7 +1635,7 @@ describe('ConversationScreen', () => {
     expect(bar.props.className).toContain('bg-warning-soft');
     expect(screen.queryByLabelText('Message')).toBeNull();
     expect(
-      screen
+      within(bar)
         .getAllByRole('button')
         .map((button) => button.props.accessibilityLabel)
     ).toEqual(['Send a template']);
@@ -1962,7 +1997,7 @@ describe('ConversationScreen', () => {
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(screen.queryByLabelText('Message')).toBeNull();
     expect(
-      screen
+      within(screen.getByTestId('conversation-action-blocker'))
         .getAllByRole('button')
         .map((button) => button.props.accessibilityLabel)
     ).toEqual(['Retry send setup']);
@@ -2020,7 +2055,7 @@ describe('ConversationScreen', () => {
     expect(screen.getByText('No sendable templates')).toBeTruthy();
     expect(screen.queryByText('WhatsApp is unavailable')).toBeNull();
     expect(
-      screen
+      within(screen.getByTestId('conversation-action-blocker'))
         .getAllByRole('button')
         .map((button) => button.props.accessibilityLabel)
     ).toEqual(['Retry send setup']);
@@ -2057,7 +2092,7 @@ describe('ConversationScreen', () => {
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByText('WhatsApp is unavailable')).toBeTruthy();
     expect(
-      screen
+      within(screen.getByTestId('conversation-action-blocker'))
         .getAllByRole('button')
         .map((button) => button.props.accessibilityLabel)
     ).toEqual(['Retry send setup']);

@@ -227,8 +227,8 @@ describe('MessageBubble', () => {
 
   it('clamps 4:3 photos to the padded bubble on a 320dp portrait viewport', () => {
     expect(messageImageSizeForViewport(320)).toEqual({
-      height: 129,
-      width: 172,
+      height: 153,
+      width: 204,
     });
     expect(messageImageSizeForViewport(768)).toEqual({
       height: 180,
@@ -400,7 +400,7 @@ describe('MessageBubble', () => {
     expect(screen.getByTestId('message-bubble').props.className).toContain(
       'mt-3'
     );
-    expect(screen.getByTestId('message-bubble-tail')).toBeTruthy();
+    expect(screen.queryByTestId('message-bubble-tail')).toBeNull();
 
     rerender(
       <MessageBubble
@@ -417,5 +417,14 @@ describe('MessageBubble', () => {
       'mt-0.5'
     );
     expect(screen.queryByTestId('message-bubble-tail')).toBeNull();
+    const bubbleSurface = screen
+      .getByTestId('message-bubble')
+      .findAll(
+        (node) =>
+          typeof node.props.className === 'string' &&
+          node.props.className.includes('rounded-3xl')
+      );
+    expect(bubbleSurface).not.toHaveLength(0);
+    expect(bubbleSurface[0]?.props.className).not.toContain('rounded-tr-sm');
   });
 });

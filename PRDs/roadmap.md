@@ -136,6 +136,19 @@ receipt IDs without dropping queued deliveries. iOS plus terminated-state,
 tap-routing, sign-out, and token-refresh device acceptance remain pending.
 Other advanced message actions remain deferred.**
 
+The shipped native Inbox now also carries a Google Messages-inspired Android
+visual hierarchy: pale app chrome, a rounded white conversation plane, quiet
+edge-free identity rows with restrained unread signals, contact identity in the
+thread header, soft high-radius bubbles without tails, and a filled
+placeholder-led pill composer with a circular Send action and a contained
+attachment tray. A physical-device layout-bounds and accessibility pass fixed
+the reference geometry at a 56dp app bar, 48dp fallback avatars, 28dp sheet
+corners, and 24dp bubble corners while keeping accent foreground contrast
+semantic in light and dark modes. Shared icon actions also resolve the live
+foreground instead of Android's non-adaptive label color. This preserves the
+single-workflow stack and all existing outbound, accessibility, realtime, and
+branch-safety behavior; no inactive calling or Gemini controls were added.
+
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,
 ownership, dependency review, package identity, and invite fallbacks now route

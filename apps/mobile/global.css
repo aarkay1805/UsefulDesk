@@ -4,26 +4,28 @@
 
 @layer theme {
   @theme inline {
+    --color-inbox-chrome: var(--inbox-chrome);
+    --color-inbox-panel: var(--inbox-panel);
     --color-chat-canvas: color-mix(
       in oklab,
-      var(--background) 96%,
-      var(--foreground) 4%
+      var(--inbox-panel) 100%,
+      var(--foreground) 0%
     );
-    --color-chat-bubble-in: var(--surface);
+    --color-chat-bubble-in: var(--surface-secondary);
     --color-chat-bubble-out: color-mix(
       in oklab,
-      var(--accent) 12%,
-      var(--surface) 88%
+      var(--accent) 20%,
+      var(--inbox-panel) 80%
     );
     --color-chat-meta: color-mix(
       in oklab,
-      var(--color-chat-bubble-in) 45%,
-      var(--foreground) 55%
+      var(--color-chat-bubble-in) 35%,
+      var(--foreground) 65%
     );
     --color-chat-meta-out: color-mix(
       in oklab,
-      var(--color-chat-bubble-out) 45%,
-      var(--foreground) 55%
+      var(--color-chat-bubble-out) 35%,
+      var(--foreground) 65%
     );
     --color-chat-read: color-mix(
       in oklab,
@@ -36,6 +38,8 @@
     --radius: 0.625rem;
 
     @variant light {
+      --inbox-chrome: oklch(0.965 0.015 250);
+      --inbox-panel: var(--white);
       --accent: #2457a6;
       --accent-foreground: #fcfcfc;
       --danger: #b42318;
@@ -53,6 +57,8 @@
     }
 
     @variant dark {
+      --inbox-chrome: oklch(0.17 0.014 260);
+      --inbox-panel: var(--surface);
       --accent: #86b4ff;
       --accent-foreground: #18181b;
       --danger: #ffb4ab;

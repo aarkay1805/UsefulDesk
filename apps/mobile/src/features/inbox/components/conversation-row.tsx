@@ -31,43 +31,49 @@ export function ConversationRow({
     <Pressable
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      className={`min-h-18 flex-row items-start gap-3 px-4 py-3 active:opacity-70 ${
-        unreadCount > 0 ? 'bg-accent-soft' : ''
-      }`}
+      className="active:bg-surface-secondary min-h-18 flex-row items-center gap-3 px-4 py-2"
       onPress={onPress}
     >
       <UserAvatar
+        fallbackTone="strong"
         name={displayName}
-        size="lg"
+        size="md"
         source={conversation.contact.avatarUrl}
       />
 
-      <View className="min-w-0 flex-1 gap-1.5">
-        <Text
-          className={`text-foreground text-base ${
-            unreadCount > 0 ? 'font-semibold' : 'font-medium'
-          }`}
-          style={{ lineHeight: undefined }}
-        >
-          {displayName}
-        </Text>
-        <Text className="text-muted text-sm" style={{ lineHeight: undefined }}>
-          {conversation.lastMessageText?.trim() || 'No messages yet'}
-        </Text>
-        <View
-          className="flex-row flex-wrap items-center justify-between gap-2"
-          testID="conversation-row-metadata"
-        >
+      <View className="min-w-0 flex-1 gap-1 py-2">
+        <View className="flex-row flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <Text
+            className={`text-foreground min-w-0 flex-1 text-base ${
+              unreadCount > 0 ? 'font-semibold' : 'font-medium'
+            }`}
+            style={{ lineHeight: undefined }}
+          >
+            {displayName}
+          </Text>
           {formattedTime ? (
             <Text
-              className="text-muted text-xs"
+              className={`text-xs tabular-nums ${
+                unreadCount > 0 ? 'text-accent font-semibold' : 'text-muted'
+              }`}
               style={{ lineHeight: undefined }}
             >
               {formattedTime}
             </Text>
-          ) : (
-            <View />
-          )}
+          ) : null}
+        </View>
+        <View
+          className="flex-row flex-wrap items-start gap-x-2 gap-y-1"
+          testID="conversation-row-metadata"
+        >
+          <Text
+            className={`min-w-0 flex-1 text-sm ${
+              unreadCount > 0 ? 'text-foreground' : 'text-muted'
+            }`}
+            style={{ lineHeight: undefined }}
+          >
+            {conversation.lastMessageText?.trim() || 'No messages yet'}
+          </Text>
           {unreadCount > 0 ? (
             <Text
               accessibilityLabel={unreadLabel}

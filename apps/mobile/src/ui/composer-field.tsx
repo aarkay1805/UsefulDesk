@@ -30,6 +30,8 @@ export type ComposerFieldProps = Omit<
   error?: string | null;
   isDisabled?: boolean;
   accessibilityHint?: string;
+  hideLabel?: boolean;
+  appearance?: 'default' | 'chat';
 };
 
 export const ComposerField = forwardRef<TextInputType, ComposerFieldProps>(
@@ -42,6 +44,8 @@ export const ComposerField = forwardRef<TextInputType, ComposerFieldProps>(
       isDisabled = false,
       accessibilityHint,
       className,
+      hideLabel = false,
+      appearance = 'default',
       ...inputProps
     },
     ref
@@ -50,9 +54,11 @@ export const ComposerField = forwardRef<TextInputType, ComposerFieldProps>(
 
     return (
       <HeroTextField isDisabled={isDisabled} isInvalid={isInvalid}>
-        <Label>
-          <Label.Text style={{ lineHeight: undefined }}>{label}</Label.Text>
-        </Label>
+        {hideLabel ? null : (
+          <Label>
+            <Label.Text style={{ lineHeight: undefined }}>{label}</Label.Text>
+          </Label>
+        )}
         <Input
           {...inputProps}
           ref={ref}
@@ -68,7 +74,10 @@ export const ComposerField = forwardRef<TextInputType, ComposerFieldProps>(
           accessibilityLabel={label}
           accessibilityHint={error ?? accessibilityHint}
           accessibilityState={{ disabled: isDisabled }}
-          className={`max-h-36 min-h-12 py-2 text-base ${className ?? ''}`.trim()}
+          variant={appearance === 'chat' ? 'secondary' : inputProps.variant}
+          className={`max-h-36 min-h-12 text-base ${
+            appearance === 'chat' ? 'rounded-full px-4 py-3' : 'py-2'
+          } ${className ?? ''}`.trim()}
           style={[inputProps.style, { lineHeight: undefined }]}
         />
         {error ? (

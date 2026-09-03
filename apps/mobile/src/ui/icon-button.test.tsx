@@ -72,9 +72,11 @@ describe('IconButton', () => {
       ios: 'paperplane.fill',
       android: 'send',
     });
+    expect(screen.getByTestId('symbol').props.tintColor).toBe('#18181b');
   });
 
   it.each([
+    ['chevron.left', 'arrow_back'],
     ['person.crop.circle', 'account_circle'],
     ['paperclip', 'attach_file'],
     ['paperplane.fill', 'send'],
@@ -83,6 +85,22 @@ describe('IconButton', () => {
     render(<IconButton accessibilityLabel={ios} symbol={ios} />);
 
     expect(screen.getByTestId('symbol').props.name).toEqual({ ios, android });
+  });
+
+  it('supports a circular, contrast-safe accent action without changing the default shape', () => {
+    render(
+      <IconButton
+        accessibilityLabel="Send message"
+        shape="circle"
+        symbol="paperplane.fill"
+        tone="on-accent"
+      />
+    );
+
+    const button = screen.getByRole('button', { name: 'Send message' });
+    expect(button.props.className).toContain('rounded-full');
+    expect(button.props.className).not.toContain('rounded-lg');
+    expect(screen.getByTestId('symbol').props.tintColor).toBe('#fcfcfc');
   });
 
   it('announces loading and prevents repeat presses while pending', () => {

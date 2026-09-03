@@ -6,12 +6,12 @@ import {
   Button,
   ErrorState,
   FilterChipGroup,
-  IconButton,
   LoadingState,
   ScreenSafeAreaView,
   SearchField,
 } from '../../../ui';
 import { useReadyAuth } from '../../auth/auth-context';
+import { InboxHeader } from '../components/inbox-header';
 import { ConversationRow } from '../components/conversation-row';
 import { useInboxRealtimeFeed } from '../inbox-realtime-provider';
 import type { ConversationFilter, InboxConversation } from '../inbox-types';
@@ -132,90 +132,84 @@ export function InboxScreen() {
   };
 
   return (
-    <ScreenSafeAreaView className="bg-background" edges={['bottom']}>
-      <Stack.Screen
-        options={{
-          title: 'Inbox',
-          headerRight: () => (
-            <IconButton
-              accessibilityLabel="Account"
-              onPress={() => router.push('/(app)/account')}
-              symbol="person.crop.circle"
-            />
-          ),
-        }}
-      />
+    <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top', 'bottom']}>
+      <Stack.Screen options={{ headerShown: false, title: 'Inbox' }} />
+      <InboxHeader onOpenAccount={() => router.push('/(app)/account')} />
 
-      <View className="gap-3 px-4 pt-4 pb-3">
-        <SearchField
-          accessibilityLabel="Search conversations"
-          onValueChange={inbox.setSearch}
-          placeholder="Search conversations"
-          value={inbox.search}
-        />
-        <FilterChipGroup
-          accessibilityLabel="Conversation filters"
-          onValueChange={inbox.setFilter}
-          options={filters}
-          value={inbox.filter}
+      <View className="bg-inbox-panel flex-1 overflow-hidden rounded-t-[28px]">
+        <View className="gap-2 px-4 pt-4 pb-2">
+          <SearchField
+            accessibilityLabel="Search conversations"
+            onValueChange={inbox.setSearch}
+            placeholder="Search conversations"
+            value={inbox.search}
+          />
+          <FilterChipGroup
+            accessibilityLabel="Conversation filters"
+            onValueChange={inbox.setFilter}
+            options={filters}
+            value={inbox.filter}
+          />
+        </View>
+
+        {inbox.connection === 'disconnected' ? (
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="bg-warning-soft mx-4 mb-3 gap-1 rounded-xl p-4"
+          >
+            <Text
+              className="text-warning-soft-foreground text-sm font-semibold"
+              style={{ lineHeight: undefined }}
+            >
+              Live updates unavailable
+            </Text>
+            <Text
+              className="text-warning-soft-foreground text-sm"
+              style={{ lineHeight: undefined }}
+            >
+              Pull to refresh while the connection recovers.
+            </Text>
+          </View>
+        ) : null}
+
+        {inbox.refreshWarning ? (
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="mx-4 mb-3"
+          >
+            <Text
+              className="text-danger text-center text-sm"
+              style={{ lineHeight: undefined }}
+            >
+              {inbox.refreshWarning}
+            </Text>
+          </View>
+        ) : null}
+
+        <FlatList
+          contentContainerClassName={
+            inbox.items.length === 0 ? 'flex-grow' : 'pb-4'
+          }
+          data={inbox.items}
+          keyExtractor={(item) => item.id}
+          ListEmptyComponent={emptyState}
+          ListFooterComponent={listFooter}
+          onEndReached={() => {
+            if (inbox.hasMore && !inbox.loadingMore && !inbox.paginationError) {
+              inbox.loadMore();
+            }
+          }}
+          onEndReachedThreshold={0.4}
+          onRefresh={inbox.refresh}
+          refreshing={inbox.refreshing}
+          renderItem={renderConversation}
+          testID="conversation-list"
         />
       </View>
-
-      {inbox.connection === 'disconnected' ? (
-        <View
-          accessible
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          className="bg-warning-soft mx-4 mb-3 gap-1 rounded-xl p-4"
-        >
-          <Text
-            className="text-warning-soft-foreground text-sm font-semibold"
-            style={{ lineHeight: undefined }}
-          >
-            Live updates unavailable
-          </Text>
-          <Text
-            className="text-warning-soft-foreground text-sm"
-            style={{ lineHeight: undefined }}
-          >
-            Pull to refresh while the connection recovers.
-          </Text>
-        </View>
-      ) : null}
-
-      {inbox.refreshWarning ? (
-        <View
-          accessible
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          className="mx-4 mb-3"
-        >
-          <Text
-            className="text-danger text-center text-sm"
-            style={{ lineHeight: undefined }}
-          >
-            {inbox.refreshWarning}
-          </Text>
-        </View>
-      ) : null}
-
-      <FlatList
-        contentContainerClassName={inbox.items.length === 0 ? 'flex-grow' : ''}
-        data={inbox.items}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={emptyState}
-        ListFooterComponent={listFooter}
-        onEndReached={() => {
-          if (inbox.hasMore && !inbox.loadingMore && !inbox.paginationError) {
-            inbox.loadMore();
-          }
-        }}
-        onEndReachedThreshold={0.4}
-        onRefresh={inbox.refresh}
-        refreshing={inbox.refreshing}
-        renderItem={renderConversation}
-        testID="conversation-list"
-      />
     </ScreenSafeAreaView>
   );
 }

@@ -55,7 +55,10 @@ it('keeps short filter labels inside a 48dp minimum-width target', () => {
   );
 
   expect(screen.getByRole('button', { name: 'All' }).props.className).toContain(
-    'min-w-12'
+    'min-w-20'
+  );
+  expect(screen.getByRole('button', { name: 'All' }).props.className).toContain(
+    'px-5'
   );
   expect(screen.getByText('All').props.style).toEqual({
     lineHeight: undefined,

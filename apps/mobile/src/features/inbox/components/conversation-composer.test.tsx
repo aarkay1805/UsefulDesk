@@ -773,6 +773,6 @@ describe('ConversationComposer', () => {
     expect(input.props.className).toContain('min-h-12');
     expect(send.props.className).toContain('min-h-12');
     expect(send.props.className).toContain('min-w-12');
-    expect(send.props.className).toContain('rounded-lg');
+    expect(send.props.className).toContain('rounded-full');
   });
 });

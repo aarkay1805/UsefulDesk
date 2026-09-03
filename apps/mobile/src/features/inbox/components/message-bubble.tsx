@@ -6,12 +6,14 @@ import {
   PlatformColor,
   Pressable,
   Text,
+  type ColorValue,
   useWindowDimensions,
   View,
 } from 'react-native';
 import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import { useCSSVariable } from 'uniwind';
 
 import type {
   InboxMessage,
@@ -42,9 +44,9 @@ const DELIVERY_TICK: Record<Exclude<MessageStatus, 'failed'>, string> = {
 };
 
 const THREAD_HORIZONTAL_PADDING = 12;
-const BUBBLE_MAX_WIDTH_RATIO = 0.65;
+const BUBBLE_MAX_WIDTH_RATIO = 0.8;
 const ACCESSIBILITY_BUBBLE_MAX_WIDTH_RATIO = 0.88;
-const BUBBLE_HORIZONTAL_PADDING = 10;
+const BUBBLE_HORIZONTAL_PADDING = 16;
 const MAX_IMAGE_WIDTH = 240;
 const IMAGE_ASPECT_RATIO = 4 / 3;
 
@@ -139,6 +141,7 @@ export function MessageBubble({
   replyQuote,
 }: MessageBubbleProps) {
   const { fontScale, width: viewportWidth } = useWindowDimensions();
+  const foreground = useCSSVariable('--color-foreground');
   const accessibilityTextScale = isAccessibilityTextScale(fontScale);
   const bubbleMaxWidthRatio = accessibilityTextScale
     ? ACCESSIBILITY_BUBBLE_MAX_WIDTH_RATIO
@@ -182,8 +185,6 @@ export function MessageBubble({
         : null;
   const alignment = isOutbound ? 'items-end' : 'items-start';
   const fill = isOutbound ? 'bg-chat-bubble-out' : 'bg-chat-bubble-in';
-  const tailPosition = isOutbound ? '-right-1' : '-left-1';
-  const squaredCorner = isOutbound ? 'rounded-tr-none' : 'rounded-tl-none';
   const metaTone = isOutbound ? 'text-chat-meta-out' : 'text-chat-meta';
   const hasTrailingText =
     message.contentType === 'text' ||
@@ -220,7 +221,11 @@ export function MessageBubble({
                     android: 'reply',
                   }}
                   size={22}
-                  tintColor={PlatformColor('label')}
+                  tintColor={
+                    foreground !== undefined
+                      ? (foreground as ColorValue)
+                      : PlatformColor('label')
+                  }
                   weight="semibold"
                 />
               </View>
@@ -243,16 +248,10 @@ export function MessageBubble({
           testID="message-bubble"
         >
           <View
-            className={`relative rounded-lg px-2.5 py-1.5 ${fill} ${
-              accessibilityTextScale ? 'max-w-[88%]' : 'max-w-[65%]'
-            } ${startsRun ? squaredCorner : ''}`}
+            className={`relative rounded-3xl px-4 py-2.5 ${fill} ${
+              accessibilityTextScale ? 'max-w-[88%]' : 'max-w-[80%]'
+            }`}
           >
-            {startsRun ? (
-              <View
-                className={`absolute top-0 size-2 rotate-45 ${tailPosition} ${fill}`}
-                testID="message-bubble-tail"
-              />
-            ) : null}
             <View className="gap-1">
               {replyQuote ? (
                 <ReplyQuote isOutbound={isOutbound} {...replyQuote} />

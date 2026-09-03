@@ -116,6 +116,36 @@ describe('ComposerField', () => {
     expect(input.props.className).toContain('max-h-36');
   });
 
+  it('can hide the visual label while keeping the input accessibility name', () => {
+    render(
+      <ComposerField
+        hideLabel
+        label="Message"
+        value=""
+        onChangeText={jest.fn()}
+      />
+    );
+
+    expect(screen.queryByText('Message')).toBeNull();
+    expect(screen.getByLabelText('Message')).toBeTruthy();
+  });
+
+  it('owns the filled rounded treatment used by the chat composer', () => {
+    render(
+      <ComposerField
+        appearance="chat"
+        label="Message"
+        value=""
+        onChangeText={jest.fn()}
+      />
+    );
+
+    const input = screen.getByLabelText('Message');
+    expect(input.props.variant).toBe('secondary');
+    expect(input.props.className).toContain('rounded-full');
+    expect(input.props.className).toContain('px-4');
+  });
+
   it('makes an error readable from the field and suppresses disabled editing', () => {
     const onChangeText = jest.fn();
     render(

@@ -1,5 +1,11 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -21,6 +27,7 @@ import {
 } from '../../../ui';
 import { useReadyAuth } from '../../auth/auth-context';
 import { ConversationComposer } from '../components/conversation-composer';
+import { ConversationHeader } from '../components/conversation-header';
 import { MessageActionSheet } from '../components/message-action-sheet';
 import { MessageBubble } from '../components/message-bubble';
 import { TemplatePicker } from '../components/template-picker';
@@ -108,12 +115,42 @@ function routeConversationId(value: string | string[] | undefined) {
   return typeof value === 'string' && UUID_PATTERN.test(value) ? value : null;
 }
 
+interface ConversationScaffoldProps {
+  avatarUrl?: string | null;
+  children: ReactNode;
+  name: string;
+  subtitle?: string;
+}
+
+function ConversationScaffold({
+  avatarUrl = null,
+  children,
+  name,
+  subtitle = 'WhatsApp conversation',
+}: ConversationScaffoldProps) {
+  const router = useRouter();
+
+  return (
+    <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top', 'bottom']}>
+      <Stack.Screen options={{ headerShown: false, title: name }} />
+      <ConversationHeader
+        avatarUrl={avatarUrl}
+        name={name}
+        onBack={() => router.back()}
+        subtitle={subtitle}
+      />
+      <View className="bg-chat-canvas flex-1 overflow-hidden rounded-t-[28px]">
+        {children}
+      </View>
+    </ScreenSafeAreaView>
+  );
+}
+
 function UnavailableConversation() {
   const router = useRouter();
 
   return (
-    <ScreenSafeAreaView className="bg-background" edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Conversation' }} />
+    <ConversationScaffold name="Conversation">
       <View className="flex-1 items-center justify-center gap-4 px-5 py-12">
         <View accessibilityRole="alert" className="items-center gap-1">
           <Text className="text-foreground text-center text-base font-semibold">
@@ -136,7 +173,7 @@ function UnavailableConversation() {
           Return to Inbox
         </Button>
       </View>
-    </ScreenSafeAreaView>
+    </ConversationScaffold>
   );
 }
 
@@ -291,6 +328,9 @@ function ConversationThread({
     (thread.conversation
       ? fmt.phone(thread.conversation.contact.phone)
       : 'Conversation');
+  const headerSubtitle = thread.conversation?.contact.name?.trim()
+    ? fmt.phone(thread.conversation.contact.phone)
+    : 'WhatsApp conversation';
   const selectedReply =
     replySelection?.accountId === accountId &&
     replySelection.conversationId === conversationId
@@ -417,19 +457,17 @@ function ConversationThread({
 
   if (thread.status === 'loading') {
     return (
-      <ScreenSafeAreaView className="bg-chat-canvas" edges={['bottom']}>
-        <Stack.Screen options={{ title }} />
+      <ConversationScaffold name={title}>
         <View className="flex-1 items-center justify-center px-5 py-12">
           <LoadingState label="Loading messages" />
         </View>
-      </ScreenSafeAreaView>
+      </ConversationScaffold>
     );
   }
 
   if (thread.status === 'error') {
     return (
-      <ScreenSafeAreaView className="bg-chat-canvas" edges={['bottom']}>
-        <Stack.Screen options={{ title }} />
+      <ConversationScaffold name={title}>
         <View className="flex-1 justify-center px-5 py-12">
           <ErrorState
             title={thread.error ?? 'Could not load messages'}
@@ -437,13 +475,14 @@ function ConversationThread({
             onRetry={thread.refresh}
           />
         </View>
-      </ScreenSafeAreaView>
+      </ConversationScaffold>
     );
   }
 
   if (thread.status === 'unavailable' || !thread.conversation) {
     return <UnavailableConversation />;
   }
+  const readyConversation = thread.conversation;
 
   const listHeader = () => {
     if (thread.loadingOlder) {
@@ -489,6 +528,7 @@ function ConversationThread({
           <Text
             className="text-chat-meta text-xs font-medium"
             style={{ lineHeight: undefined }}
+            testID="conversation-date-separator"
           >
             {item.label}
           </Text>
@@ -842,9 +882,11 @@ function ConversationThread({
   })();
 
   return (
-    <ScreenSafeAreaView className="bg-chat-canvas" edges={['bottom']}>
-      <Stack.Screen options={{ title }} />
-
+    <ConversationScaffold
+      avatarUrl={readyConversation.contact.avatarUrl}
+      name={title}
+      subtitle={headerSubtitle}
+    >
       <View
         className="flex-1"
         collapsable={false}
@@ -930,7 +972,7 @@ function ConversationThread({
           <View className="relative flex-1">
             <FlatList
               className="bg-chat-canvas"
-              contentContainerClassName="grow px-3 pb-4"
+              contentContainerClassName="grow px-3 pt-1 pb-3"
               data={displayItems}
               keyExtractor={(item) => item.key}
               ListEmptyComponent={
@@ -1015,7 +1057,7 @@ function ConversationThread({
           preview={messagePreview(actionableMessage)}
         />
       ) : null}
-    </ScreenSafeAreaView>
+    </ConversationScaffold>
   );
 }
 

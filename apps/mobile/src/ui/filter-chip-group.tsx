@@ -42,7 +42,7 @@ export function FilterChipGroup<T extends string>({
             accessibilityState={{ selected }}
             variant={selected ? 'primary' : 'tertiary'}
             onPress={() => onValueChange(option.value)}
-            className="min-h-12 min-w-12"
+            className="min-h-12 min-w-20 px-5"
           >
             <Chip.Label style={{ lineHeight: undefined }}>{label}</Chip.Label>
           </Chip>

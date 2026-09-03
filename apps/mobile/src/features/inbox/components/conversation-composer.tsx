@@ -584,7 +584,7 @@ export function ConversationComposer({
   }
 
   return (
-    <View className="border-border bg-background gap-2 border-t px-3 py-2">
+    <View className="bg-inbox-panel gap-2 px-3 py-2">
       {replyTarget ? (
         <ReplyQuote
           authorLabel={replyTarget.authorLabel}
@@ -621,26 +621,29 @@ export function ConversationComposer({
         </View>
       ) : null}
       {pickerOpen ? (
-        <View className="flex-row flex-wrap gap-2">
-          {(
-            [
-              ['image', 'Choose photo'],
-              ['video', 'Choose video'],
-              ['document', 'Choose document'],
-              ['audio', 'Choose audio'],
-            ] as const
-          ).map(([kind, label]) => (
-            <Button
-              accessibilityLabel={label}
-              disabled={pickerPending}
-              key={kind}
-              onPress={() => void chooseAttachment(kind)}
-              size="sm"
-              variant="ghost"
-            >
-              {label.replace('Choose ', '')}
-            </Button>
-          ))}
+        <View className="bg-inbox-chrome rounded-2xl px-3 py-3">
+          <View className="flex-row flex-wrap gap-2">
+            {(
+              [
+                ['image', 'Choose photo'],
+                ['video', 'Choose video'],
+                ['document', 'Choose document'],
+                ['audio', 'Choose audio'],
+              ] as const
+            ).map(([kind, label]) => (
+              <Button
+                accessibilityLabel={label}
+                className="min-w-[46%] flex-1"
+                disabled={pickerPending}
+                key={kind}
+                onPress={() => void chooseAttachment(kind)}
+                size="sm"
+                variant="ghost"
+              >
+                {label.replace('Choose ', '')}
+              </Button>
+            ))}
+          </View>
         </View>
       ) : null}
       <View className="flex-row items-end gap-2">
@@ -651,11 +654,14 @@ export function ConversationComposer({
           onPress={() => setPickerOpen((value) => !value)}
           symbol="paperclip"
           testID="conversation-attach"
+          variant="ghost"
         />
         <View className="min-w-0 flex-1">
           <ComposerField
             ref={inputRef}
             accessibilityHint="Write a message. Return adds a new line."
+            appearance="chat"
+            hideLabel
             isDisabled={pending}
             label="Message"
             onChangeText={setDraft}
@@ -668,8 +674,10 @@ export function ConversationComposer({
           isDisabled={pending || !trimmedDraft || unchangedAmbiguousDraft}
           isLoading={pending}
           onPress={send}
+          shape="circle"
           symbol="paperplane.fill"
           testID="conversation-send"
+          tone="on-accent"
         />
       </View>
     </View>

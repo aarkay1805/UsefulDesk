@@ -57,6 +57,14 @@ describe('ConversationRow', () => {
       screen.getByText('Your membership expires tomorrow').props.numberOfLines
     ).toBeUndefined();
     expect(screen.getByTestId('conversation-row-metadata')).toBeTruthy();
+    expect(screen.getByText('1:30 pm').props.className).toContain(
+      'text-accent'
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Open chat with Asha Rao, 3 unread messages',
+      }).props.className
+    ).not.toContain('bg-accent-soft');
   });
 
   it('uses the formatted phone as identity when the contact has no name', () => {

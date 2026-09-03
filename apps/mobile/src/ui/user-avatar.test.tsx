@@ -18,10 +18,12 @@ jest.mock('heroui-native', () => {
 
   function MockAvatarFallback({
     children,
+    ...props
   }: {
     children?: import('react').ReactNode;
+    classNames?: { text?: string };
   }) {
-    return React.createElement(Text, null, children);
+    return React.createElement(Text, props as never, children);
   }
 
   MockAvatar.Image = MockAvatarImage;
@@ -34,4 +36,15 @@ it('uses a first-initial fallback with an honest avatar label', () => {
   render(<UserAvatar name="Asha Rao" source={null} size="lg" />);
   expect(screen.getByLabelText('Asha Rao')).toBeTruthy();
   expect(screen.getByText('A')).toBeTruthy();
+});
+
+it('supports the contrast-safe accent fallback used by messaging surfaces', () => {
+  render(
+    <UserAvatar fallbackTone="strong" name="Asha Rao" source={null} size="md" />
+  );
+
+  expect(screen.getByLabelText('Asha Rao').props.className).toBe('bg-accent');
+  expect(screen.getByText('A').props.classNames).toEqual({
+    text: 'text-accent-foreground',
+  });
 });
