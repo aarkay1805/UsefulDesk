@@ -132,9 +132,15 @@ iOS/Android static exports pass; the EAS project, Android Firebase app, and EAS
 FCM V1 credential are configured, and foreground/background remote delivery is
 accepted on OnePlus 6 / Android 11. Production inbound acceptance also repaired
 ambiguous union ordering in both push claim RPCs and numeric-leading opaque Expo
-receipt IDs without dropping queued deliveries. iOS plus terminated-state,
-tap-routing, sign-out, and token-refresh device acceptance remain pending.
-Other advanced message actions remain deferred.**
+receipt IDs without dropping queued deliveries. A physical iPhone has now
+accepted foreground/background and terminated-state
+notification banners, opened a notification into the native conversation, and
+passed remote sign-out without the former false timeout warning; token-refresh
+device acceptance remains pending. The production Supabase redirect allowlist
+also includes the exact native callback, and physical Google OAuth now returns
+through authorize, callback, and code exchange into the authenticated native
+Inbox instead of the web Site URL. Other advanced message actions remain
+deferred.**
 
 The shipped native Inbox now also carries a Google Messages-inspired Android
 visual hierarchy: pale app chrome, a rounded white conversation plane, quiet

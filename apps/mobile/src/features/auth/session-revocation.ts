@@ -18,7 +18,7 @@ interface RemoteSessionRevokerOptions {
   timeoutMs?: number;
 }
 
-const DEFAULT_REVOCATION_TIMEOUT_MS = 8_000;
+const DEFAULT_REVOCATION_TIMEOUT_MS = 30_000;
 
 export function createRemoteSessionRevoker(
   baseFetch: typeof fetch,

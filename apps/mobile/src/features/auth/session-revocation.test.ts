@@ -90,6 +90,29 @@ describe('createRemoteSessionRevoker', () => {
     });
   });
 
+  it('allows a slow successful Supabase revocation to finish', async () => {
+    jest.useFakeTimers();
+    try {
+      const revoker = createRemoteSessionRevoker(
+        async () => {
+          await new Promise((resolve) => setTimeout(resolve, 21_000));
+          return new Response(null, { status: 204 });
+        },
+        {
+          supabaseUrl: 'https://example.supabase.co',
+          supabaseAnonKey: 'sb_publishable_synthetic-public-key',
+        }
+      );
+
+      const pending = revoker.revoke('synthetic-access-token');
+      await jest.advanceTimersByTimeAsync(21_000);
+
+      await expect(pending).resolves.toEqual({ status: 'success' });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it('aborts and settles a hanging revocation at its configured deadline', async () => {
     jest.useFakeTimers();
     try {

@@ -6,6 +6,24 @@
 
 ---
 
+## Mobile iOS authentication reliability
+
+The native Google flow now has its exact `usefuldesk-agent://auth/callback`
+redirect allowlisted in the production Supabase project, so a successful Google
+authorization returns to UsefulDesk Agent instead of falling back to the web
+site. Remote sign-out in `apps/mobile/src/features/auth/session-revocation.ts`
+now allows 30 seconds for Supabase to revoke the session after the physical
+iPhone had reported a false timeout even though Supabase recorded a successful
+global logout. A slow-success regression test covers the expanded boundary.
+Physical-iPhone acceptance passed remote sign-out without the false warning and
+a complete Google authorize/callback/code-exchange return into the
+authenticated native Inbox.
+
+The first post-allowlist Google exchange hit a transient device fetch failure;
+the immediate retry completed, and Supabase recorded 302 authorize/callback
+responses followed by a 200 token exchange. No credential was exposed to the
+development tooling.
+
 ## Mobile push notifications and chat sound
 
 Durable Expo push now spans service-only tables and RPCs in
@@ -26,8 +44,9 @@ delivery both returned successful Expo receipts and posted on the device. Migrat
 `20260903145000_repair_push_installation_conflict.sql` qualifies the registration
 upsert after physical acceptance exposed PostgreSQL output-column ambiguity. Token
 rollover now converts the native token supplied by Expo instead of fetching it again
-inside its own listener, which Expo documents as an infinite-loop trigger. iOS,
-terminated-state, tap-routing, sign-out, and token-refresh acceptance remain open.
+inside its own listener, which Expo documents as an infinite-loop trigger. Physical
+iPhone notification delivery, terminated-state display, tap routing, and sign-out
+acceptance now pass; token-refresh acceptance remains open.
 
 Production inbound acceptance exposed two last-mile contract defects. Remote migration
 `20260903152818 repair_push_claim_union_order` replaces ambiguous union-result ordering
