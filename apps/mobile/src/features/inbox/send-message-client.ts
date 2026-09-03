@@ -8,6 +8,7 @@ export type MobileSendInput =
       accountId: string;
       conversationId: string;
       text: string;
+      replyToMessageId?: string;
     }
   | {
       kind: 'template';
@@ -30,6 +31,7 @@ export type MobileSendInput =
       mediaUrl: string;
       caption?: string;
       filename?: string;
+      replyToMessageId?: string;
     };
 
 export type MobileSendResult = {
@@ -155,6 +157,7 @@ function requestBody(input: MobileSendInput): string {
       conversation_id: input.conversationId,
       message_type: 'text',
       content_text: text,
+      reply_to_message_id: input.replyToMessageId,
     });
   }
 
@@ -182,6 +185,7 @@ function requestBody(input: MobileSendInput): string {
         input.mediaKind === 'document'
           ? input.filename?.trim() || undefined
           : undefined,
+      reply_to_message_id: input.replyToMessageId,
     });
   }
 

@@ -47,6 +47,34 @@ function persisted(status: 'sent' | 'delivered' | 'read' | 'failed' = 'sent') {
 }
 
 describe('outbound message state', () => {
+  it.each(['text', 'media'] as const)(
+    'retains reply context on an optimistic %s row',
+    (kind) => {
+      const common = {
+        temporaryId: TEMPORARY_ID,
+        attemptId: 'attempt:reply',
+        conversationId: CONVERSATION_ID,
+        senderId: null,
+        createdAt: CREATED_AT,
+        replyToMessageId: MESSAGE_2_ID,
+      };
+      const state =
+        kind === 'text'
+          ? appendOptimisticText(emptyOutboundThreadState(), {
+              ...common,
+              text: 'Replying now',
+            })
+          : appendOptimisticMedia(emptyOutboundThreadState(), {
+              ...common,
+              mediaKind: 'image',
+              mediaUrl: 'https://cdn.example.test/reply.jpg',
+              caption: null,
+            });
+
+      expect(state.messages[0]?.replyToMessageId).toBe(MESSAGE_2_ID);
+    }
+  );
+
   it('appends media metadata and reconciles API-first then realtime into one row', () => {
     let state = appendOptimisticMedia(emptyOutboundThreadState(), {
       temporaryId: TEMPORARY_ID,

@@ -4,13 +4,23 @@ import { SymbolView } from 'expo-symbols';
 
 import { Button } from './button';
 
+const ANDROID_SYMBOL = {
+  'person.crop.circle': 'account_circle',
+  paperclip: 'attach_file',
+  'paperplane.fill': 'send',
+  xmark: 'close',
+} as const;
+
+export type IconButtonSymbol = keyof typeof ANDROID_SYMBOL;
+
 export interface IconButtonProps {
   accessibilityLabel: string;
-  symbol: ComponentProps<typeof SymbolView>['name'];
+  symbol: IconButtonSymbol;
   isDisabled?: boolean;
   isLoading?: boolean;
   onPress?: PressableProps['onPress'];
   testID?: string;
+  variant?: ComponentProps<typeof Button>['variant'];
 }
 
 export function IconButton({
@@ -20,6 +30,7 @@ export function IconButton({
   isLoading = false,
   onPress,
   testID,
+  variant,
 }: IconButtonProps) {
   return (
     <Button
@@ -31,10 +42,11 @@ export function IconButton({
       onPress={onPress}
       size="sm"
       testID={testID}
+      variant={variant}
       className="min-w-12 rounded-lg px-0"
     >
       <SymbolView
-        name={symbol}
+        name={{ ios: symbol, android: ANDROID_SYMBOL[symbol] }}
         size={20}
         weight="semibold"
         tintColor={PlatformColor('label')}

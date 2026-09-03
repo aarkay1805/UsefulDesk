@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { AccessibilityInfo, Platform } from 'react-native';
 
 import { message } from '../inbox-test-fixtures';
@@ -7,6 +7,8 @@ import {
   shouldInlineBubbleMetadata,
 } from '../inbox-layout';
 import { messageImageSizeForViewport, MessageBubble } from './message-bubble';
+
+jest.mock('../../../ui/icon-button', () => ({ IconButton: () => null }));
 
 jest.mock('expo-image', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -21,6 +23,56 @@ jest.mock('expo-image', () => {
 });
 
 describe('MessageBubble', () => {
+  it('stages reply from long press and the equivalent accessibility action', () => {
+    const onReply = jest.fn();
+    render(
+      <MessageBubble
+        formattedTime="1:30 pm"
+        message={message()}
+        onReply={onReply}
+        startsRun
+      />
+    );
+
+    const bubble = screen.getByTestId('message-bubble');
+    expect(bubble.props.accessibilityActions).toEqual([
+      { name: 'reply', label: 'Reply to message' },
+    ]);
+    fireEvent(bubble, 'longPress');
+    fireEvent(bubble, 'accessibilityAction', {
+      nativeEvent: { actionName: 'reply' },
+    });
+    expect(onReply).toHaveBeenCalledTimes(2);
+  });
+
+  it('renders loaded and unavailable parent quotes inside reply bubbles', () => {
+    const reply = message({ replyToMessageId: 'parent-message' });
+    const view = render(
+      <MessageBubble
+        formattedTime="1:30 pm"
+        message={reply}
+        replyQuote={{ authorLabel: 'You', preview: 'Earlier message' }}
+        startsRun
+      />
+    );
+
+    expect(screen.getByText('You')).toBeTruthy();
+    expect(screen.getByText('Earlier message')).toBeTruthy();
+    expect(screen.getByTestId('message-bubble')).toContainElement(
+      screen.getByText('Earlier message')
+    );
+
+    view.rerender(
+      <MessageBubble
+        formattedTime="1:30 pm"
+        message={reply}
+        replyQuote={{ unavailable: true }}
+        startsRun
+      />
+    );
+    expect(screen.getByText('Original message unavailable')).toBeTruthy();
+  });
+
   describe('iOS failed-delivery announcements', () => {
     let announce: jest.SpiedFunction<
       typeof AccessibilityInfo.announceForAccessibilityWithOptions

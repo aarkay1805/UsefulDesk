@@ -125,7 +125,10 @@ export interface UseMessageThreadResult {
   sendReadiness: ConversationSendReadiness;
   refresh(): void;
   loadOlder(): void;
-  sendText(draft: string): Promise<SendAttemptResult>;
+  sendText(
+    draft: string,
+    replyToMessageId?: string
+  ): Promise<SendAttemptResult>;
   retryText(temporaryId: string): Promise<SendAttemptResult>;
   sendMedia(draft: MediaSendDraft): Promise<SendAttemptResult>;
   retryMedia(temporaryId: string): Promise<SendAttemptResult>;
@@ -136,6 +139,7 @@ export interface MediaSendDraft {
   mediaUrl: string;
   caption?: string;
   filename?: string;
+  replyToMessageId?: string;
 }
 
 export type SendAttemptResult =
@@ -1140,6 +1144,7 @@ export function useMessageThread({
       temporaryId: string,
       attemptId: string,
       text: string,
+      replyToMessageId: string | undefined,
       createdAt: string,
       dependencies: MessageThreadOutboundDependencies
     ): Promise<SendAttemptResult> => {
@@ -1165,6 +1170,7 @@ export function useMessageThread({
             senderId: dependencies.senderId,
             text,
             createdAt,
+            replyToMessageId,
           }),
         };
       });
@@ -1185,6 +1191,7 @@ export function useMessageThread({
             accountId: sendAccountId,
             conversationId: sendConversationId,
             text,
+            replyToMessageId,
           },
           {
             recoverUnauthorizedSession: dependencies.recoverUnauthorizedSession,
@@ -1238,7 +1245,7 @@ export function useMessageThread({
   );
 
   const sendText = useCallback(
-    (draft: string): Promise<SendAttemptResult> => {
+    (draft: string, replyToMessageId?: string): Promise<SendAttemptResult> => {
       const dependencies = activeOutbound.current;
       if (!dependencies) {
         return Promise.reject(
@@ -1252,6 +1259,7 @@ export function useMessageThread({
         temporaryId,
         `attempt:${++nextSendAttempt.current}`,
         draft.trim(),
+        replyToMessageId,
         dependencies.now?.() ?? new Date().toISOString(),
         dependencies
       );
@@ -1295,6 +1303,7 @@ export function useMessageThread({
             filename:
               draft.mediaKind === 'document' ? draft.filename : undefined,
             createdAt,
+            replyToMessageId: draft.replyToMessageId,
           }),
         };
       });
@@ -1418,6 +1427,7 @@ export function useMessageThread({
           mediaUrl: failed.mediaUrl,
           caption: failed.contentText ?? undefined,
           filename: failed.mediaFilename ?? undefined,
+          replyToMessageId: failed.replyToMessageId ?? undefined,
         },
         failed.createdAt,
         dependencies
@@ -1460,6 +1470,7 @@ export function useMessageThread({
         temporaryId,
         `attempt:${++nextSendAttempt.current}`,
         failed.contentText,
+        failed.replyToMessageId ?? undefined,
         failed.createdAt,
         dependencies
       );

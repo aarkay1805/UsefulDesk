@@ -6,6 +6,27 @@
 
 ---
 
+## Native mobile Inbox Stage 3 quoted replies
+
+The native Inbox in `apps/mobile/src/features/inbox` now supports quoted replies
+to persisted messages inside an open service window through long press and the
+equivalent **Reply to message** accessibility action; temporary, sending, and
+failed rows do not offer reply initiation, nor does the closed-window surface.
+A compact quote appears above the text composer or staged-media shell and
+inside reply bubbles, with safe target replacement/dismissal and **Original
+message unavailable** when the parent is absent from the loaded thread. Text
+and media sends carry `reply_to_message_id` through optimistic state and safe
+retries, and the composer clears only the target used by a confirmed sent
+result. The shared `apps/mobile/src/ui/icon-button.tsx` now supplies literal
+`{ ios, android }` symbol names for its four supported actions; only the quote
+dismiss uses the ghost variant while retaining the 48pt target.
+
+On a freshly rebuilt OnePlus 6 / Android 11 client, the local fixture passed
+reply select, replace, and dismiss, and all four photo, video, document, and
+audio pickers passed launch and cancel. No file was selected or uploaded and no
+provider/customer message was sent; the paired iPhone was offline, so quoted
+reply provider delivery and iOS physical acceptance remain unverified.
+
 ## Native mobile Inbox Stage 3 media
 
 `src/lib/storage/media-contract.ts` and the native Inbox media picker, upload

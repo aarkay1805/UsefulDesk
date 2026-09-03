@@ -1,10 +1,12 @@
 # Mobile development builds
 
-This runbook verifies the UsefulDesk Agent native foundation and the shipped
-Stage 2 Inbox. It covers the development client, authentication, secure session
-restoration, branch-scoped conversation lists and history, realtime recovery,
-role- and service-window-gated outbound controls, optimistic text state, and
-Approved template sending. Stage 3 rich chat remains outside this boundary.
+This runbook verifies the UsefulDesk Agent native foundation, the shipped Stage
+2 Inbox, and the built Stage 3 media and quoted-reply surfaces. It covers the
+development client, authentication, secure session restoration, branch-scoped
+conversation lists and history, realtime recovery, role- and
+service-window-gated outbound controls, optimistic text/media state, Approved
+template sending, and non-mutating rich-chat acceptance. Reactions, push
+notifications, and advanced message actions remain outside this boundary.
 
 ## Prerequisites
 
@@ -170,6 +172,26 @@ to complete this checklist.
 - Light and dark appearances retain readable semantic states, and large Dynamic
   Type leaves every field and action operable.
 
+### Native Inbox Stage 3 media and quoted replies
+
+Keep this acceptance non-mutating unless the owner gives action-time approval
+for the exact test recipient, file, and payload. Picker launch/cancel and the
+local fixture do not authorize selecting or uploading a file or sending a
+customer/provider message.
+
+- In an open service window, long press a persisted message and invoke its
+  **Reply to message** accessibility action; both stage the same compact quote.
+- Replace the target with another persisted message, then dismiss the quote;
+  neither action changes the draft or sends anything.
+- Confirm temporary, sending, and failed rows do not offer reply initiation;
+  after the service window closes, confirm no message offers it.
+- Confirm existing replies render the parent preview, or **Original message
+  unavailable** when that parent is not in the loaded thread.
+- Launch and cancel the photo, video, document, and audio pickers. Confirm the
+  composer returns without selecting or uploading a file.
+- Treat file selection/upload, text or media provider delivery, and retry
+  delivery as unverified until separately authorized and exercised.
+
 Latest acceptance record:
 
 - Device: physical iPhone Air (iPhone18,4) / iOS 26.6
@@ -181,6 +203,14 @@ Latest acceptance record:
   development client also launched through Metro
 - Latest Android debug build, install, launch, and normal-font physical smoke:
   pass on a OnePlus 6 running Android 11
+- Latest Android Stage 3 local-fixture reply select, replace, and dismiss: pass
+  on the OnePlus 6 after a fresh local client build
+- Latest Android photo, video, document, and audio picker launch/cancel: pass on
+  the OnePlus 6; no file was selected or uploaded
+- Stage 3 media selection/upload/provider delivery and quoted-reply provider
+  delivery: not exercised; no provider/customer message was sent
+- Latest iPhone Stage 3 physical acceptance: not exercised because the device
+  was offline
 - Latest physical branch isolation, foreground/session recovery, persisted
   failed-row safety, and base light/dark appearance: pass
 - Maximum standard Dynamic Type: fail; Inbox and conversation content clips or

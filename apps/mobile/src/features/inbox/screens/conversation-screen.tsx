@@ -30,14 +30,14 @@ import {
   type ActionBlocker,
   type ConversationActionState,
 } from '../conversation-actions';
-import { buildThreadItems } from '../inbox-format';
+import { buildThreadItems, messagePreview } from '../inbox-format';
 import { useInboxRealtimeFeed } from '../inbox-realtime-provider';
 import {
   CONVERSATION_ID as LOCAL_LAYOUT_CONVERSATION_ID,
   createLocalConversationLayoutFixture,
   LOCAL_LAYOUT_FIXTURE,
 } from '../inbox-test-fixtures';
-import type { ThreadDisplayItem } from '../inbox-types';
+import type { InboxMessage, ThreadDisplayItem } from '../inbox-types';
 import { templateSendUncertaintyStore } from '../template-send-uncertainty';
 import {
   useMessageThread,
@@ -238,6 +238,10 @@ function ConversationThread({
   const [actionClockMs, setActionClockMs] = useState(() => Date.now());
   const [keyboardVerticalOffset, setKeyboardVerticalOffset] = useState(0);
   const [composerStaged, setComposerStaged] = useState(false);
+  const [replySelection, setReplySelection] = useState<{
+    conversationId: string;
+    message: InboxMessage;
+  } | null>(null);
   const latestId = thread.items.at(-1)?.id ?? null;
   const itemCount = thread.items.length;
   const firstId = thread.items.at(0)?.id ?? null;
@@ -247,6 +251,18 @@ function ConversationThread({
     (thread.conversation
       ? fmt.phone(thread.conversation.contact.phone)
       : 'Conversation');
+  const selectedReply =
+    replySelection?.conversationId === conversationId
+      ? replySelection.message
+      : null;
+  const composerReplyTarget = selectedReply
+    ? {
+        messageId: selectedReply.id,
+        authorLabel: selectedReply.senderType === 'customer' ? title : 'You',
+        preview: messagePreview(selectedReply),
+      }
+    : null;
+  const messagesById = new Map(thread.items.map((item) => [item.id, item]));
   const readyLatestInboundAt =
     thread.sendReadiness.status === 'ready'
       ? thread.sendReadiness.latestInboundAt
@@ -432,11 +448,37 @@ function ConversationThread({
       item.message.contentType
     );
     const composerOwnsRetry = mediaMessage && composerStaged;
+    const parent = item.message.replyToMessageId
+      ? messagesById.get(item.message.replyToMessageId)
+      : null;
+    const replyQuote = item.message.replyToMessageId
+      ? parent
+        ? {
+            authorLabel: parent.senderType === 'customer' ? title : 'You',
+            preview: messagePreview(parent),
+          }
+        : { unavailable: true as const }
+      : undefined;
+    const canReply =
+      actionState?.kind === 'open_text' &&
+      !item.message.id.startsWith('temp:') &&
+      item.message.status !== 'sending' &&
+      item.message.status !== 'failed';
     return (
       <View>
         <MessageBubble
           formattedTime={fmt.time(item.message.createdAt)}
           message={item.message}
+          onReply={
+            canReply
+              ? () =>
+                  setReplySelection({
+                    conversationId,
+                    message: item.message,
+                  })
+              : undefined
+          }
+          replyQuote={replyQuote}
           startsRun={item.startsRun}
         />
         {retryableTemporaryId && !composerOwnsRetry ? (
@@ -550,9 +592,19 @@ function ConversationThread({
           onOpenTemplates={() => setTemplatePickerFeed(realtime)}
           onRetry={thread.retryText}
           onRetryMedia={thread.retryMedia}
+          onDismissReply={() => setReplySelection(null)}
+          onReplySent={(replyToMessageId) =>
+            setReplySelection((current) =>
+              current?.conversationId === conversationId &&
+              current.message.id === replyToMessageId
+                ? null
+                : current
+            )
+          }
           onSend={thread.sendText}
           onSendMedia={thread.sendMedia}
           onStagedChange={setComposerStaged}
+          replyTarget={composerReplyTarget}
         />
       );
     }
@@ -565,9 +617,19 @@ function ConversationThread({
             onOpenTemplates={() => setTemplatePickerFeed(realtime)}
             onRetry={thread.retryText}
             onRetryMedia={thread.retryMedia}
+            onDismissReply={() => setReplySelection(null)}
+            onReplySent={(replyToMessageId) =>
+              setReplySelection((current) =>
+                current?.conversationId === conversationId &&
+                current.message.id === replyToMessageId
+                  ? null
+                  : current
+              )
+            }
             onSend={thread.sendText}
             onSendMedia={thread.sendMedia}
             onStagedChange={setComposerStaged}
+            replyTarget={composerReplyTarget}
             sessionExpired
           />
         );

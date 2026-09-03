@@ -17,6 +17,7 @@ import {
   type UploadConversationMediaInput,
 } from '../media-upload-client';
 import type { MediaSendDraft, SendAttemptResult } from '../use-message-thread';
+import { ReplyQuote } from './reply-quote';
 
 const UNCONFIRMED_SEND_MESSAGE =
   'The send request did not complete. Delivery could not be confirmed. Check the conversation before sending again.';
@@ -26,6 +27,7 @@ interface FailedAttempt {
   message: string;
   safeToRetry: boolean;
   attemptedText: string;
+  replyToMessageId: string | null;
 }
 
 type AttachmentStatus =
@@ -40,12 +42,13 @@ interface StagedAttachment {
   error: string | null;
   temporaryId: string | null;
   safeToRetry: boolean;
+  replyToMessageId: string | null;
 }
 
 type UploadOperation = ReturnType<typeof uploadConversationMedia>;
 
 export interface ConversationComposerProps {
-  onSend(text: string): Promise<SendAttemptResult>;
+  onSend(text: string, replyToMessageId?: string): Promise<SendAttemptResult>;
   onRetry(temporaryId: string): Promise<SendAttemptResult>;
   accountId?: string;
   onSendMedia?(draft: MediaSendDraft): Promise<SendAttemptResult>;
@@ -57,6 +60,13 @@ export interface ConversationComposerProps {
   pickMedia?(kind: MediaKind): Promise<PickedMediaAsset | null>;
   uploadMedia?(input: UploadConversationMediaInput): UploadOperation;
   deleteMedia?(input: DeleteConversationMediaInput): Promise<void>;
+  replyTarget?: {
+    messageId: string;
+    authorLabel: string;
+    preview: string;
+  } | null;
+  onDismissReply?(): void;
+  onReplySent?(replyToMessageId: string): void;
 }
 
 const attachmentLabel: Record<MediaKind, string> = {
@@ -79,6 +89,9 @@ export function ConversationComposer({
   pickMedia = pickConversationMedia,
   uploadMedia,
   deleteMedia = deleteConversationMedia,
+  replyTarget,
+  onDismissReply,
+  onReplySent,
 }: ConversationComposerProps) {
   const inputRef = useRef<TextInputType>(null);
   const inFlightRef = useRef(false);
@@ -140,16 +153,21 @@ export function ConversationComposer({
   }, [pending]);
 
   const resolveAttempt = useCallback(
-    (result: SendAttemptResult, attemptedText: string) => {
+    (
+      result: SendAttemptResult,
+      attemptedText: string,
+      replyToMessageId: string | null
+    ) => {
       if (result.status === 'sent') {
         setDraft('');
         setFailedAttempt(null);
+        if (replyToMessageId) onReplySent?.(replyToMessageId);
       } else {
-        setFailedAttempt({ ...result, attemptedText });
+        setFailedAttempt({ ...result, attemptedText, replyToMessageId });
         requestDraftFocus();
       }
     },
-    [requestDraftFocus]
+    [onReplySent, requestDraftFocus]
   );
 
   const send = useCallback(async () => {
@@ -163,14 +181,19 @@ export function ConversationComposer({
     inFlightRef.current = true;
     setPending(true);
     setFailedAttempt(null);
+    const replyToMessageId = replyTarget?.messageId ?? null;
     try {
-      resolveAttempt(await onSend(trimmedDraft), trimmedDraft);
+      const result = replyToMessageId
+        ? await onSend(trimmedDraft, replyToMessageId)
+        : await onSend(trimmedDraft);
+      resolveAttempt(result, trimmedDraft, replyToMessageId);
     } catch {
       setFailedAttempt({
         temporaryId: null,
         message: UNCONFIRMED_SEND_MESSAGE,
         safeToRetry: false,
         attemptedText: trimmedDraft,
+        replyToMessageId,
       });
       requestDraftFocus();
     } finally {
@@ -181,6 +204,7 @@ export function ConversationComposer({
     onSend,
     pending,
     requestDraftFocus,
+    replyTarget?.messageId,
     resolveAttempt,
     trimmedDraft,
     unchangedAmbiguousDraft,
@@ -199,7 +223,8 @@ export function ConversationComposer({
     try {
       resolveAttempt(
         await onRetry(failedAttempt.temporaryId),
-        failedAttempt.attemptedText
+        failedAttempt.attemptedText,
+        failedAttempt.replyToMessageId
       );
     } catch {
       setFailedAttempt({
@@ -226,6 +251,7 @@ export function ConversationComposer({
         error: null,
         temporaryId: null,
         safeToRetry: false,
+        replyToMessageId: null,
       }));
       const input = {
         accountId,
@@ -326,7 +352,10 @@ export function ConversationComposer({
     setStaged(null);
   }, [accountId, deleteMedia]);
 
-  const payloadFor = (current: StagedAttachment): MediaSendDraft | null =>
+  const payloadFor = (
+    current: StagedAttachment,
+    replyToMessageId: string | null
+  ): MediaSendDraft | null =>
     current.uploaded
       ? {
           mediaKind: current.asset.kind,
@@ -337,14 +366,20 @@ export function ConversationComposer({
               : current.caption.trim() || undefined,
           filename:
             current.asset.kind === 'document' ? current.asset.name : undefined,
+          ...(replyToMessageId ? { replyToMessageId } : {}),
         }
       : null;
 
   const settleMediaAttempt = useCallback(
-    (result: SendAttemptResult, current: StagedAttachment) => {
+    (
+      result: SendAttemptResult,
+      current: StagedAttachment,
+      replyToMessageId: string | null
+    ) => {
       if (result.status === 'sent') {
         if (current.uploaded) ownedPathsRef.current.add(current.uploaded.path);
         setStaged(null);
+        if (replyToMessageId) onReplySent?.(replyToMessageId);
         return;
       }
       setStaged((value) =>
@@ -355,11 +390,12 @@ export function ConversationComposer({
               error: result.message,
               temporaryId: result.temporaryId,
               safeToRetry: result.safeToRetry,
+              replyToMessageId,
             }
           : value
       );
     },
-    []
+    [onReplySent]
   );
 
   const sendAttachment = useCallback(async () => {
@@ -369,12 +405,13 @@ export function ConversationComposer({
       onOpenTemplates?.();
       return;
     }
-    const payload = payloadFor(current);
+    const replyToMessageId = replyTarget?.messageId ?? null;
+    const payload = payloadFor(current, replyToMessageId);
     if (!payload || !onSendMedia) return;
     mediaInFlightRef.current = true;
     setStaged((value) => (value ? { ...value, status: 'sending' } : value));
     try {
-      settleMediaAttempt(await onSendMedia(payload), current);
+      settleMediaAttempt(await onSendMedia(payload), current, replyToMessageId);
     } catch {
       settleMediaAttempt(
         {
@@ -383,12 +420,19 @@ export function ConversationComposer({
           safeToRetry: false,
           message: UNCONFIRMED_SEND_MESSAGE,
         },
-        current
+        current,
+        replyToMessageId
       );
     } finally {
       mediaInFlightRef.current = false;
     }
-  }, [onOpenTemplates, onSendMedia, sessionExpired, settleMediaAttempt]);
+  }, [
+    onOpenTemplates,
+    onSendMedia,
+    replyTarget?.messageId,
+    sessionExpired,
+    settleMediaAttempt,
+  ]);
 
   const retryAttachment = useCallback(async () => {
     const current = stagedRef.current;
@@ -402,7 +446,11 @@ export function ConversationComposer({
     mediaInFlightRef.current = true;
     setStaged((value) => (value ? { ...value, status: 'sending' } : value));
     try {
-      settleMediaAttempt(await onRetryMedia(current.temporaryId), current);
+      settleMediaAttempt(
+        await onRetryMedia(current.temporaryId),
+        current,
+        current.replyToMessageId
+      );
     } catch {
       settleMediaAttempt(
         {
@@ -411,7 +459,8 @@ export function ConversationComposer({
           safeToRetry: false,
           message: UNCONFIRMED_SEND_MESSAGE,
         },
-        current
+        current,
+        current.replyToMessageId
       );
     } finally {
       mediaInFlightRef.current = false;
@@ -427,6 +476,13 @@ export function ConversationComposer({
       staged.status === 'send_failed' && staged.safeToRetry === false;
     return (
       <View className="border-border bg-background gap-3 border-t px-3 py-3">
+        {replyTarget ? (
+          <ReplyQuote
+            authorLabel={replyTarget.authorLabel}
+            onDismiss={onDismissReply}
+            preview={replyTarget.preview}
+          />
+        ) : null}
         {staged.asset.kind === 'image' ? (
           <Image
             accessible
@@ -529,6 +585,13 @@ export function ConversationComposer({
 
   return (
     <View className="border-border bg-background gap-2 border-t px-3 py-2">
+      {replyTarget ? (
+        <ReplyQuote
+          authorLabel={replyTarget.authorLabel}
+          onDismiss={onDismissReply}
+          preview={replyTarget.preview}
+        />
+      ) : null}
       {pickerError || failedAttempt ? (
         <View
           accessible

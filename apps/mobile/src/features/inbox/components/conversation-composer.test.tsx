@@ -141,6 +141,11 @@ const failed = (
   }) as SendAttemptResult;
 
 describe('ConversationComposer', () => {
+  const replyTarget = {
+    messageId: 'message-parent',
+    authorLabel: 'Asha',
+    preview: 'Please send the renewal form',
+  };
   const photo: PickedMediaAsset = {
     kind: 'image',
     uri: 'file:///cache/member.jpg',
@@ -355,6 +360,26 @@ describe('ConversationComposer', () => {
     expect(screen.getByLabelText('Message').props.value).toBe('Regular reply');
   });
 
+  it('shows the reply quote over a staged media shell and includes it in the send', async () => {
+    const onReplySent = jest.fn();
+    const props = mediaProps({ onReplySent, replyTarget });
+    render(<ConversationComposer {...props} />);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    await screen.findByRole('button', { name: 'Send attachment' });
+    expect(screen.getByText('Asha')).toBeTruthy();
+    expect(screen.getByText('Please send the renewal form')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Send attachment' }));
+
+    await waitFor(() =>
+      expect(props.onSendMedia).toHaveBeenCalledWith(
+        expect.objectContaining({ replyToMessageId: 'message-parent' })
+      )
+    );
+    expect(onReplySent).toHaveBeenCalledWith('message-parent');
+  });
+
   it('retains the uploaded object while the initial media send is unresolved', async () => {
     const attempt = deferred<SendAttemptResult>();
     const props = mediaProps({
@@ -522,6 +547,53 @@ describe('ConversationComposer', () => {
     });
 
     expect(screen.getByLabelText('Message').props.value).toBe('');
+  });
+
+  it('retains reply context after failure and reuses it for a safe text retry', async () => {
+    const onReplySent = jest.fn();
+    const onRetry = jest.fn().mockResolvedValue(sent('temp:reply'));
+    render(
+      <ConversationComposer
+        onReplySent={onReplySent}
+        onRetry={onRetry}
+        onSend={jest.fn().mockResolvedValue(failed('temp:reply'))}
+        replyTarget={replyTarget}
+      />
+    );
+
+    fireEvent.changeText(screen.getByLabelText('Message'), 'Replying now');
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+    expect(await screen.findByText('Asha')).toBeTruthy();
+    expect(onReplySent).not.toHaveBeenCalled();
+    fireEvent.press(screen.getByRole('button', { name: 'Retry message' }));
+
+    await waitFor(() => expect(onRetry).toHaveBeenCalledWith('temp:reply'));
+    expect(onReplySent).toHaveBeenCalledWith('message-parent');
+  });
+
+  it('dismisses only the quote and sends text with the staged reply id', async () => {
+    const onDismissReply = jest.fn();
+    const onSend = jest.fn().mockResolvedValue(sent());
+    render(
+      <ConversationComposer
+        onDismissReply={onDismissReply}
+        onRetry={jest.fn()}
+        onSend={onSend}
+        replyTarget={replyTarget}
+      />
+    );
+
+    fireEvent.changeText(screen.getByLabelText('Message'), 'Keep this draft');
+    fireEvent.press(screen.getByRole('button', { name: 'Dismiss reply' }));
+    expect(onDismissReply).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Message').props.value).toBe(
+      'Keep this draft'
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() =>
+      expect(onSend).toHaveBeenCalledWith('Keep this draft', 'message-parent')
+    );
   });
 
   it('keeps multiline Return behavior and leaves whitespace-only drafts unsent', () => {

@@ -214,6 +214,43 @@ describe('sendConversationMessage', () => {
     );
   });
 
+  it.each(['text', 'media'] as const)(
+    'serializes reply context for %s sends',
+    async (kind) => {
+      const setup = dependencies();
+      setup.fetch.mockResolvedValueOnce(
+        response(
+          200,
+          '{"message_id":"message-reply","whatsapp_message_id":null}'
+        )
+      );
+
+      await sendConversationMessage(
+        kind === 'text'
+          ? {
+              kind,
+              accountId: ACCOUNT_ID,
+              conversationId: CONVERSATION_ID,
+              text: 'Replying now',
+              replyToMessageId: 'message-parent',
+            }
+          : {
+              kind,
+              accountId: ACCOUNT_ID,
+              conversationId: CONVERSATION_ID,
+              mediaKind: 'image',
+              mediaUrl: 'https://cdn.example.test/reply.jpg',
+              replyToMessageId: 'message-parent',
+            },
+        setup.result
+      );
+
+      expect(JSON.parse(String(setup.fetch.mock.calls[0]?.[1]?.body))).toEqual(
+        expect.objectContaining({ reply_to_message_id: 'message-parent' })
+      );
+    }
+  );
+
   it('posts the complete template route payload', async () => {
     const setup = dependencies();
     setup.fetch.mockResolvedValueOnce(
@@ -254,6 +291,9 @@ describe('sendConversationMessage', () => {
         }),
       })
     );
+    expect(
+      JSON.parse(String(setup.fetch.mock.calls[0]?.[1]?.body))
+    ).not.toHaveProperty('reply_to_message_id');
   });
 
   it.each([

@@ -189,7 +189,7 @@ jest.mock('../send-message-client', () => ({
 
 jest.mock('../components/message-bubble', () => {
   const React = jest.requireActual('react') as typeof import('react');
-  const { Text, View } = jest.requireActual(
+  const { Pressable, Text } = jest.requireActual(
     'react-native'
   ) as typeof import('react-native');
 
@@ -198,19 +198,42 @@ jest.mock('../components/message-bubble', () => {
       message: item,
       formattedTime,
       startsRun,
+      onReply,
+      replyQuote,
     }: {
       message: { id: string; contentText: string | null };
       formattedTime: string;
       startsRun: boolean;
+      onReply?: () => void;
+      replyQuote?:
+        { authorLabel: string; preview: string } | { unavailable: true };
     }) =>
       React.createElement(
-        View,
+        Pressable,
         {
           accessibilityLabel: `Message ${item.id}, ${
             startsRun ? 'starts run' : 'continues run'
           }`,
+          accessibilityActions: onReply
+            ? [{ name: 'reply', label: 'Reply to message' }]
+            : undefined,
+          onAccessibilityAction: onReply
+            ? (event: { nativeEvent: { actionName: string } }) => {
+                if (event.nativeEvent.actionName === 'reply') onReply();
+              }
+            : undefined,
+          onLongPress: onReply,
           testID: `message-probe-${item.id}`,
         },
+        replyQuote
+          ? React.createElement(
+              Text,
+              { testID: `reply-quote-probe-${item.id}` },
+              'unavailable' in replyQuote
+                ? 'Original message unavailable'
+                : `${replyQuote.authorLabel}: ${replyQuote.preview}`
+            )
+          : null,
         React.createElement(Text, null, item.contentText),
         React.createElement(Text, null, formattedTime)
       ),
@@ -563,6 +586,192 @@ describe('ConversationScreen', () => {
       abort: jest.fn(),
     });
     mockDeleteConversationMedia.mockResolvedValue(undefined);
+  });
+
+  it('stages and replaces persisted reply targets from long press and accessibility action', () => {
+    render(<ConversationScreen />);
+
+    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
+    expect(screen.getAllByText('Asha Rao')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Dismiss reply' })).toBeTruthy();
+
+    fireEvent(
+      screen.getByTestId(`message-probe-${MESSAGE_2_ID}`),
+      'accessibilityAction',
+      { nativeEvent: { actionName: 'reply' } }
+    );
+    expect(screen.getByText('You')).toBeTruthy();
+    expect(screen.getAllByText('How can I help?')).toHaveLength(2);
+    expect(screen.getAllByText('Asha Rao')).toHaveLength(1);
+  });
+
+  it('keeps a replacement target when an older text reply settles and dismisses only the quote', async () => {
+    const attempt = deferred<{
+      temporaryId: string;
+      status: 'sent';
+    }>();
+    const sendText = jest.fn().mockReturnValue(attempt.promise);
+    mockUseMessageThread.mockReturnValue(readyThreadResult({ sendText }));
+    render(<ConversationScreen />);
+
+    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
+    fireEvent.changeText(screen.getByLabelText('Message'), 'Replying now');
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+    expect(sendText).toHaveBeenCalledWith('Replying now', MESSAGE_1_ID);
+
+    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_2_ID}`), 'longPress');
+    await act(async () => {
+      attempt.resolve({ temporaryId: 'temp:reply', status: 'sent' });
+      await attempt.promise;
+    });
+    expect(screen.getByText('You')).toBeTruthy();
+    fireEvent.press(screen.getByRole('button', { name: 'Dismiss reply' }));
+    expect(screen.queryByText('You')).toBeNull();
+    expect(screen.getByLabelText('Message')).toBeTruthy();
+  });
+
+  it('retains the reply target after a failed text send', async () => {
+    const sendText = jest.fn().mockResolvedValue({
+      temporaryId: 'temp:reply-failed',
+      status: 'failed',
+      safeToRetry: true,
+      message: 'Too many send attempts.',
+    });
+    mockUseMessageThread.mockReturnValue(readyThreadResult({ sendText }));
+    render(<ConversationScreen />);
+
+    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
+    fireEvent.changeText(screen.getByLabelText('Message'), 'Replying now');
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+
+    await waitFor(() =>
+      expect(screen.getAllByText('Asha Rao')).toHaveLength(2)
+    );
+    expect(screen.getByText('Too many send attempts.')).toBeTruthy();
+  });
+
+  it('passes the staged target into a media reply', async () => {
+    const sendMedia = jest.fn().mockResolvedValue({
+      temporaryId: 'temp:media-reply',
+      status: 'sent',
+    });
+    mockUseMessageThread.mockReturnValue(readyThreadResult({ sendMedia }));
+    render(<ConversationScreen />);
+
+    fireEvent(screen.getByTestId(`message-probe-${MESSAGE_1_ID}`), 'longPress');
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    fireEvent.press(
+      await screen.findByRole('button', { name: 'Send attachment' })
+    );
+
+    await waitFor(() =>
+      expect(sendMedia).toHaveBeenCalledWith(
+        expect.objectContaining({ replyToMessageId: MESSAGE_1_ID })
+      )
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Dismiss reply' })).toBeNull()
+    );
+  });
+
+  it('renders parent previews for replies and the unavailable fallback when absent', () => {
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        items: [
+          ...readyThreadResult().items,
+          message({
+            id: MESSAGE_3_ID,
+            senderType: 'agent',
+            contentText: 'Loaded reply',
+            replyToMessageId: MESSAGE_1_ID,
+          }),
+          message({
+            id: 'b064a9e3-4a49-4bd0-bb68-84bedaf1987a',
+            senderType: 'customer',
+            contentText: 'Orphan reply',
+            replyToMessageId: '1796cc96-2e52-40c8-9baa-da010a1fbd41',
+          }),
+        ],
+      })
+    );
+    render(<ConversationScreen />);
+
+    expect(
+      screen.getByTestId(`reply-quote-probe-${MESSAGE_3_ID}`)
+    ).toHaveTextContent('Asha Rao: Hello');
+    expect(screen.getByText('Original message unavailable')).toBeTruthy();
+  });
+
+  it('does not offer reply actions for optimistic rows or after the service window closes', async () => {
+    const optimisticId = 'temp:not-a-reply-target';
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        items: [
+          ...readyThreadResult().items,
+          message({ id: optimisticId, senderType: 'agent', status: 'sending' }),
+        ],
+      })
+    );
+    const view = render(<ConversationScreen />);
+    expect(
+      screen.getByTestId(`message-probe-${optimisticId}`).props.onLongPress
+    ).toBeUndefined();
+
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        sendReadiness: {
+          status: 'ready',
+          latestInboundAt: '2026-01-01T00:00:00.000Z',
+          templates: [staticTemplate],
+          connectionReadiness: connectedReadiness,
+          templateReadiness: {
+            status: 'ready',
+            hasLocalTemplates: true,
+            contractReady: true,
+          },
+        },
+      })
+    );
+    await act(async () => {
+      view.rerender(<ConversationScreen />);
+      await Promise.resolve();
+    });
+    expect(
+      screen.getByTestId(`message-probe-${MESSAGE_1_ID}`).props.onLongPress
+    ).toBeUndefined();
+  });
+
+  it('does not offer reply actions for persisted sending or failed rows', () => {
+    const persistedSendingId = 'b93e8d70-1c67-4e1e-8e4e-1d7f2cc66353';
+    const persistedFailedId = '7faf4724-c3da-4ad4-b820-550d888eb32e';
+    mockUseMessageThread.mockReturnValue(
+      readyThreadResult({
+        items: [
+          ...readyThreadResult().items,
+          message({
+            id: persistedSendingId,
+            senderType: 'agent',
+            status: 'sending',
+            contentText: 'Persisted sending delivery',
+          }),
+          message({
+            id: persistedFailedId,
+            senderType: 'agent',
+            status: 'failed',
+            contentText: 'Persisted failed delivery',
+          }),
+        ],
+      })
+    );
+    render(<ConversationScreen />);
+
+    for (const messageId of [persistedSendingId, persistedFailedId]) {
+      const bubble = screen.getByTestId(`message-probe-${messageId}`);
+      expect(bubble.props.accessibilityActions).toBeUndefined();
+      expect(bubble.props.onLongPress).toBeUndefined();
+    }
+    expect(screen.queryByRole('button', { name: 'Dismiss reply' })).toBeNull();
   });
 
   it('keeps staged media mounted when the service window closes and routes Send to templates', async () => {

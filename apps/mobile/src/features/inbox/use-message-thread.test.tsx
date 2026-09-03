@@ -2195,6 +2195,7 @@ describe('useMessageThread', () => {
           mediaUrl: 'https://cdn.example.test/renewal.pdf',
           caption: 'Renewal form',
           filename: 'renewal.pdf',
+          replyToMessageId: MESSAGE_2_ID,
         });
       });
       expect(result.current.items).toEqual([
@@ -2205,6 +2206,7 @@ describe('useMessageThread', () => {
           mediaFilename: 'renewal.pdf',
           status: 'failed',
           safeToRetry: true,
+          replyToMessageId: MESSAGE_2_ID,
         }),
       ]);
 
@@ -2226,6 +2228,7 @@ describe('useMessageThread', () => {
           mediaUrl: 'https://cdn.example.test/renewal.pdf',
           caption: 'Renewal form',
           filename: 'renewal.pdf',
+          replyToMessageId: MESSAGE_2_ID,
         },
         { recoverUnauthorizedSession: dependencies.recoverUnauthorizedSession }
       );
@@ -2249,7 +2252,7 @@ describe('useMessageThread', () => {
 
       let attempt!: Promise<{ temporaryId: string; status: 'sent' | 'failed' }>;
       act(() => {
-        attempt = result.current.sendText('  See you tomorrow  ');
+        attempt = result.current.sendText('  See you tomorrow  ', MESSAGE_2_ID);
       });
 
       expect(result.current.items.at(-1)).toEqual(
@@ -2257,6 +2260,7 @@ describe('useMessageThread', () => {
           id: temporaryId,
           contentText: 'See you tomorrow',
           status: 'sending',
+          replyToMessageId: MESSAGE_2_ID,
         })
       );
       expect(sendMessage).toHaveBeenCalledWith(
@@ -2265,6 +2269,7 @@ describe('useMessageThread', () => {
           accountId: BRANCH_ID,
           conversationId: CONVERSATION_ID,
           text: 'See you tomorrow',
+          replyToMessageId: MESSAGE_2_ID,
         },
         {
           recoverUnauthorizedSession: dependencies.recoverUnauthorizedSession,
@@ -2345,7 +2350,7 @@ describe('useMessageThread', () => {
       );
       await waitFor(() => expect(result.current.status).toBe('ready'));
       await act(async () => {
-        await result.current.sendText('Retry me');
+        await result.current.sendText('Retry me', MESSAGE_2_ID);
       });
 
       let retryAttempt!: Promise<{
@@ -2369,6 +2374,13 @@ describe('useMessageThread', () => {
         result.current.items.filter((item) => item.contentText === 'Retry me')
       ).toHaveLength(1);
       expect(sendMessage).toHaveBeenCalledTimes(2);
+      expect(sendMessage).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          kind: 'text',
+          replyToMessageId: MESSAGE_2_ID,
+        }),
+        expect.any(Object)
+      );
     });
 
     it('reconciles realtime before API acknowledgement and patches the same row', async () => {

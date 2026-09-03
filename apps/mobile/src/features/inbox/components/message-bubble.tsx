@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import {
   AccessibilityInfo,
   Platform,
+  Pressable,
   Text,
   useWindowDimensions,
   View,
@@ -13,6 +14,7 @@ import {
   shouldInlineBubbleMetadata,
 } from '../inbox-layout';
 import { MessageContent } from './message-content';
+import { ReplyQuote, type ReplyQuoteContent } from './reply-quote';
 
 const DELIVERY_LABEL: Record<MessageStatus, string> = {
   sending: 'Sending',
@@ -105,12 +107,16 @@ interface MessageBubbleProps {
   message: InboxMessage;
   formattedTime: string;
   startsRun: boolean;
+  onReply?(): void;
+  replyQuote?: ReplyQuoteContent;
 }
 
 export function MessageBubble({
   message,
   formattedTime,
   startsRun,
+  onReply,
+  replyQuote,
 }: MessageBubbleProps) {
   const { fontScale, width: viewportWidth } = useWindowDimensions();
   const accessibilityTextScale = isAccessibilityTextScale(fontScale);
@@ -164,8 +170,19 @@ export function MessageBubble({
     message.contentType === 'interactive';
   const inlineMetadata = shouldInlineBubbleMetadata(hasTrailingText, fontScale);
   return (
-    <View
+    <Pressable
+      accessibilityActions={
+        onReply ? [{ name: 'reply', label: 'Reply to message' }] : undefined
+      }
       className={`w-full ${alignment} ${startsRun ? 'mt-3' : 'mt-0.5'}`}
+      onAccessibilityAction={
+        onReply
+          ? (event) => {
+              if (event.nativeEvent.actionName === 'reply') onReply();
+            }
+          : undefined
+      }
+      onLongPress={onReply}
       testID="message-bubble"
     >
       <View
@@ -180,6 +197,9 @@ export function MessageBubble({
           />
         ) : null}
         <View className="gap-1">
+          {replyQuote ? (
+            <ReplyQuote isOutbound={isOutbound} {...replyQuote} />
+          ) : null}
           {marker ? (
             <Text
               className={`${metaTone} text-xs`}
@@ -231,6 +251,6 @@ export function MessageBubble({
           </Text>
         </View>
       ) : null}
-    </View>
+    </Pressable>
   );
 }

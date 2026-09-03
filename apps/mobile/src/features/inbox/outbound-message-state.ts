@@ -20,6 +20,7 @@ export interface OptimisticTextInput {
   senderId: string | null;
   text: string;
   createdAt: string;
+  replyToMessageId?: string;
 }
 
 export interface OptimisticMediaInput {
@@ -32,6 +33,7 @@ export interface OptimisticMediaInput {
   caption: string | null;
   filename?: string;
   createdAt: string;
+  replyToMessageId?: string;
 }
 
 export interface SendAcknowledgement {
@@ -209,7 +211,7 @@ export function appendOptimisticText(
     providerErrorTitle: null,
     safeToRetry: false,
     createdAt: input.createdAt,
-    replyToMessageId: null,
+    replyToMessageId: input.replyToMessageId ?? null,
     interactiveReplyId: null,
   };
   const messages = [...state.messages];
@@ -264,7 +266,7 @@ export function appendOptimisticMedia(
     providerErrorTitle: null,
     safeToRetry: false,
     createdAt: input.createdAt,
-    replyToMessageId: null,
+    replyToMessageId: input.replyToMessageId ?? null,
     interactiveReplyId: null,
   };
   const messages = [...state.messages];

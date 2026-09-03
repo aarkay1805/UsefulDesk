@@ -46,7 +46,7 @@ jest.mock('expo-symbols', () => {
     'react-native'
   ) as typeof import('react-native');
 
-  function MockSymbolView(props: { name: string; size?: number }) {
+  function MockSymbolView(props: { name: unknown; size?: number }) {
     return React.createElement(View, { ...props, testID: 'symbol' });
   }
 
@@ -68,7 +68,21 @@ describe('IconButton', () => {
     expect(button.props.className).toContain('min-w-12');
     expect(button.props.className).toContain('rounded-lg');
     expect(button.props.className).not.toContain('rounded-full');
-    expect(screen.getByTestId('symbol').props.name).toBe('paperplane.fill');
+    expect(screen.getByTestId('symbol').props.name).toEqual({
+      ios: 'paperplane.fill',
+      android: 'send',
+    });
+  });
+
+  it.each([
+    ['person.crop.circle', 'account_circle'],
+    ['paperclip', 'attach_file'],
+    ['paperplane.fill', 'send'],
+    ['xmark', 'close'],
+  ] as const)('maps %s to its Android Material Symbol', (ios, android) => {
+    render(<IconButton accessibilityLabel={ios} symbol={ios} />);
+
+    expect(screen.getByTestId('symbol').props.name).toEqual({ ios, android });
   });
 
   it('announces loading and prevents repeat presses while pending', () => {
