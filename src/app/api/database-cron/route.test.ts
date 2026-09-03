@@ -56,8 +56,12 @@ describe('GET /api/database-cron', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({ group: 'ops', dispatched: 7, failed: 0 });
-    expect(fetch).toHaveBeenCalledTimes(7);
+    expect(body).toMatchObject({ group: 'ops', dispatched: 8, failed: 0 });
+    expect(fetch).toHaveBeenCalledTimes(8);
+    expect(fetch).toHaveBeenCalledWith(
+      new URL('https://desk.example/api/push/cron'),
+      expect.objectContaining({ method: 'GET' })
+    );
     for (const [, options] of vi.mocked(fetch).mock.calls) {
       expect(options?.headers).toEqual({
         'x-cron-secret': 'internal-cron-secret',

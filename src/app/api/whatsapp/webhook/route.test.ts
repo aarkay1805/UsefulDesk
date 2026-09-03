@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   dispatchInboundToAiReply: vi.fn(),
   dispatchWebhookEvent: vi.fn(),
   reopenClosedConversation: vi.fn(),
+  drainPushDeliveries: vi.fn(),
   state: {
     messageUpsertResult: [{ id: 'message-1' }] as { id: string }[],
     priorCustomerMsgCount: 0,
@@ -31,6 +32,8 @@ const h = vi.hoisted(() => ({
       conversation_id: string;
     }[],
     recordReceiptError: null as { message: string } | null,
+    enqueuePushError: null as { message: string } | null,
+    completeReceiptError: null as { message: string } | null,
     receiptPayload: null as Record<string, unknown> | null,
     afterCallbacks: [] as (() => Promise<void> | void)[],
     automationStarted: 0,
@@ -177,11 +180,20 @@ vi.mock('@supabase/supabase-js', () => ({
           error: null,
         });
       }
-      if (
-        name === 'complete_whatsapp_webhook_receipt' ||
-        name === 'fail_whatsapp_webhook_receipt'
-      ) {
+      if (name === 'complete_whatsapp_webhook_receipt') {
+        return Promise.resolve({
+          data: h.state.completeReceiptError ? null : true,
+          error: h.state.completeReceiptError,
+        });
+      }
+      if (name === 'fail_whatsapp_webhook_receipt') {
         return Promise.resolve({ data: true, error: null });
+      }
+      if (name === 'enqueue_inbound_push_deliveries') {
+        return Promise.resolve({
+          data: h.state.enqueuePushError ? null : 1,
+          error: h.state.enqueuePushError,
+        });
       }
       return Promise.resolve({
         data:
@@ -242,6 +254,9 @@ vi.mock('@/lib/conversations/reopen', () => ({
 vi.mock('@/lib/cron/auth', () => ({
   cronSecretConfigured: () => true,
   isAuthorizedCronRequest: () => true,
+}));
+vi.mock('@/lib/push/dispatcher', () => ({
+  drainPushDeliveries: h.drainPushDeliveries,
 }));
 
 import { GET, POST } from './route';
@@ -306,6 +321,8 @@ beforeEach(() => {
   h.state.rpcCalls = [];
   h.state.statusRpcResult = [];
   h.state.recordReceiptError = null;
+  h.state.enqueuePushError = null;
+  h.state.completeReceiptError = null;
   h.state.receiptPayload = null;
   h.state.afterCallbacks = [];
   h.state.automationStarted = 0;
@@ -314,6 +331,15 @@ beforeEach(() => {
   h.dispatchInboundToAiReply.mockResolvedValue(undefined);
   h.dispatchWebhookEvent.mockResolvedValue(undefined);
   h.reopenClosedConversation.mockResolvedValue(false);
+  h.drainPushDeliveries.mockResolvedValue({
+    claimed: 0,
+    ticketed: 0,
+    delivered: 0,
+    retried: 0,
+    failed: 0,
+    cancelled: 0,
+    installationsRetired: 0,
+  });
   h.runAutomationsForTrigger.mockImplementation(() => {
     h.state.automationStarted++;
     return new Promise<void>((resolve) => {
@@ -415,6 +441,50 @@ describe('durable webhook receipt', () => {
       name: 'complete_whatsapp_webhook_receipt',
       args: { p_body_sha256: 'receipt-1' },
     });
+    expect(h.drainPushDeliveries).toHaveBeenCalledWith({ claimLimit: 20 });
+    const completedAt = h.state.rpcCalls.findIndex(
+      ({ name }) => name === 'complete_whatsapp_webhook_receipt'
+    );
+    expect(completedAt).toBeGreaterThan(
+      h.state.rpcCalls.findIndex(
+        ({ name }) => name === 'enqueue_inbound_push_deliveries'
+      )
+    );
+  });
+
+  it('does not drain push until the durable receipt is complete', async () => {
+    await inboundRequest().text();
+    h.state.completeReceiptError = { message: 'lease lost' };
+
+    await GET({
+      headers: new Headers({ 'x-cron-secret': 'test-secret' }),
+    } as Request);
+
+    expect(h.drainPushDeliveries).not.toHaveBeenCalled();
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'fail_whatsapp_webhook_receipt',
+      args: expect.objectContaining({ p_body_sha256: 'receipt-1' }),
+    });
+  });
+
+  it('keeps provider failure outside the receipt outcome and logs no message data', async () => {
+    h.drainPushDeliveries.mockRejectedValueOnce(
+      new Error('token ExponentPushToken[secret] for Ada: hello')
+    );
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    await runWebhook();
+
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'complete_whatsapp_webhook_receipt',
+      args: { p_body_sha256: 'receipt-1' },
+    });
+    expect(h.state.rpcCalls).not.toContainEqual(
+      expect.objectContaining({ name: 'fail_whatsapp_webhook_receipt' })
+    );
+    expect(JSON.stringify(error.mock.calls)).not.toMatch(
+      /ExponentPushToken|secret|Ada|hello/
+    );
   });
 
   it('releases a failed claim for a later recovery attempt', async () => {
@@ -576,6 +646,57 @@ describe('inbound message integrity', () => {
         p_last_message_text: 'hello',
       },
     });
+  });
+
+  it('enqueues the inserted message exactly once after the conversation bump', async () => {
+    await runWebhook();
+
+    const bumpAt = h.state.rpcCalls.findIndex(
+      ({ name }) => name === 'bump_conversation_on_inbound'
+    );
+    const enqueueAt = h.state.rpcCalls.findIndex(
+      ({ name }) => name === 'enqueue_inbound_push_deliveries'
+    );
+    expect(enqueueAt).toBeGreaterThan(bumpAt);
+    expect(
+      h.state.rpcCalls.filter(
+        ({ name }) => name === 'enqueue_inbound_push_deliveries'
+      )
+    ).toEqual([
+      {
+        name: 'enqueue_inbound_push_deliveries',
+        args: { p_message_id: 'message-1' },
+      },
+    ]);
+  });
+
+  it('does not enqueue duplicate messages', async () => {
+    h.state.messageUpsertResult = [];
+
+    await runWebhook();
+
+    expect(
+      h.state.rpcCalls.some(
+        ({ name }) => name === 'enqueue_inbound_push_deliveries'
+      )
+    ).toBe(false);
+  });
+
+  it('keeps enqueue failure best-effort and logs no message data', async () => {
+    h.state.enqueuePushError = {
+      message: 'token ExponentPushToken[secret] for Ada: hello',
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await runWebhook();
+
+    expect(h.state.rpcCalls).toContainEqual({
+      name: 'complete_whatsapp_webhook_receipt',
+      args: { p_body_sha256: 'receipt-1' },
+    });
+    expect(JSON.stringify(warn.mock.calls)).not.toMatch(
+      /ExponentPushToken|secret|Ada|hello/
+    );
   });
 
   it('awaits every automation before the after callback completes', async () => {

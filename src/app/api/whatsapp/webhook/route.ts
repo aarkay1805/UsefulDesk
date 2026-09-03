@@ -22,6 +22,7 @@ import {
   parseWhatsAppReferral,
   type WhatsAppReferral,
 } from '@/lib/whatsapp/referral';
+import { drainPushDeliveries } from '@/lib/push/dispatcher';
 
 // The `after()` callback in POST runs within this route's max duration.
 // Inbound processing can fan out to per-media Meta verification calls, so
@@ -358,6 +359,15 @@ async function drainWebhookReceipts(input: {
         );
       }
       result.processed += 1;
+
+      // The WhatsApp receipt is already durable and marked processed before
+      // any provider I/O begins. Expo latency or failure therefore cannot
+      // retain this lease or replay message persistence.
+      try {
+        await drainPushDeliveries({ claimLimit: 20 });
+      } catch {
+        console.error('[push] immediate drain failed', 'provider_unavailable');
+      }
     } catch (error) {
       result.failed += 1;
       const errorText = (
@@ -893,6 +903,21 @@ async function processMessage(
 
   if (convError) {
     console.error('Error updating conversation:', convError);
+  }
+
+  // Push fan-out is a durable, idempotent derivative of the stored message.
+  // Keep it best-effort so notification infrastructure can never reject an
+  // otherwise valid WhatsApp receipt.
+  try {
+    const { error: enqueueError } = await supabaseAdmin().rpc(
+      'enqueue_inbound_push_deliveries',
+      { p_message_id: insertedRows[0].id }
+    );
+    if (enqueueError) {
+      console.warn('[push] inbound enqueue failed', 'enqueue_failed');
+    }
+  } catch {
+    console.warn('[push] inbound enqueue failed', 'enqueue_failed');
   }
 
   await reopenClosedConversation(supabaseAdmin(), conversation);

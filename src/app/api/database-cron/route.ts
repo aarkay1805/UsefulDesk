@@ -15,6 +15,7 @@ const OPS_PATHS = [
   '/api/v1/broadcasts/cron',
   '/api/payments/razorpay/recovery/cron',
   '/api/meta/leads/recovery/cron',
+  '/api/push/cron',
 ] as const;
 
 const RENEWAL_PATHS = [

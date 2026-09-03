@@ -10,6 +10,7 @@ import {
   type ExpoPushOutcome,
   type ExpoPushTransport,
 } from './expo-protocol';
+import { pushAdmin } from './admin-client';
 
 const LEASE_SECONDS = 120;
 const DEFAULT_CLAIM_LIMIT = 20;
@@ -28,7 +29,7 @@ export interface PushDrainCounts {
 }
 
 interface DrainDependencies {
-  admin: Pick<SupabaseClient, 'rpc'>;
+  admin?: Pick<SupabaseClient, 'rpc'>;
   transport?: ExpoPushTransport;
   workerId?: string;
   claimLimit?: number;
@@ -124,7 +125,7 @@ function outcomeById(
 }
 
 export async function drainPushDeliveries({
-  admin,
+  admin = pushAdmin(),
   transport = createExpoPushTransport(),
   workerId = randomUUID(),
   claimLimit = DEFAULT_CLAIM_LIMIT,

@@ -6,7 +6,7 @@ import { timingSafeEqual } from 'node:crypto';
  * `/api/automations/cron`, `/api/flows/cron`,
  * `/api/whatsapp/webhook` (GET with cron auth),
  * `/api/v1/broadcasts/cron`,
- * `/api/payments/razorpay/recovery/cron`).
+ * `/api/payments/razorpay/recovery/cron`, `/api/push/cron`).
  *
  * Two delivery mechanisms are accepted, so any scheduler works:
  *

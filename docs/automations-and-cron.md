@@ -1,6 +1,6 @@
 # Cron endpoints — operator runbook
 
-Ten scheduled jobs keep the time-based features alive. None of them
+Eleven scheduled jobs keep the time-based features alive. None of them
 run by themselves: each is a plain GET route that something external
 must ping on a schedule. This page is the map.
 
@@ -15,9 +15,10 @@ must ping on a schedule. This page is the map.
 | `/api/payment-installments/cron`       | Sends exact Utility `gym_installment_reminder` while the second 40% remains due                                                                                                                  | Joining payment installments      | hourly at :41 database / :47 GitHub (7, 3, 1, and 0 days before due) |
 | `/api/payments/razorpay/recovery/cron` | Recovers owner-leased events, links, refunds, and ordered recurring-charge exceptions; scans up to 20 due subscriptions against provider invoices; performs the daily OAuth token/readiness scan | Razorpay payment/OAuth durability | every 15 min                                                         |
 | `/api/meta/leads/recovery/cron`        | Recovers up to 25 owned Meta lead events, then checks up to 10 due Pages and restores a missing `leadgen` subscription after lead access is verified; provider concurrency is capped at three    | Meta Lead Ads durability          | every 15 min                                                         |
+| `/api/push/cron`                       | Claims queued mobile push deliveries, submits Expo tickets, reconciles due receipts, retries transient failures, and retires invalid installations                                               | Mobile inbox notifications        | every 15 min                                                         |
 | `/api/members/import-draft/cleanup`    | Claims expired author-private import drafts, deletes their private source objects, and removes their metadata idempotently                                                                       | Cross-device member import drafts | daily at 02:17 UTC                                                   |
 
-All ten use claim or compare-and-set gates so overlapping schedulers do not
+All eleven use claim or compare-and-set gates so overlapping schedulers do not
 overwrite newer state. Delayed automations and public broadcasts remain
 at-least-once across the narrow crash window after an external step succeeds
 but before its completion is recorded. Deep dives:
@@ -64,7 +65,7 @@ Supabase Cron is the database-owned execution path. Migrations
 `20260827070201_activate_database_owned_cron_scheduler.sql` create, harden,
 and activate two jobs:
 
-- `usefuldesk-ops-cron` calls the seven high-frequency routes through
+- `usefuldesk-ops-cron` calls the eight high-frequency routes through
   `/api/database-cron?group=ops` at :08, :23, :38, and :53 each hour.
 - `usefuldesk-renewals-cron` calls renewal and installment reminders through
   `/api/database-cron?group=renewals` hourly at :41.
@@ -80,8 +81,8 @@ kept as a redundant execution path and the existing alert surface:
 
 - [`.github/workflows/ops-crons.yml`](../.github/workflows/ops-crons.yml)
   — follow-ups + automations + flows + WhatsApp receipt recovery + public
-  broadcast recovery + Razorpay recovery + Meta Lead Ads recovery at :11, :26,
-  :41, and :56.
+  broadcast recovery + Razorpay recovery + Meta Lead Ads recovery + mobile push
+  delivery at :11, :26, :41, and :56.
 - [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml)
   — renewal and payment-installment reminders, hourly at :47. Accounts
   live in different timezones (migration 055); each route sends only
@@ -170,6 +171,9 @@ curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/meta/leads
 # → { "events": { "claimed": n, "processed": n, "failed": n, "busy": n },
 #     "pages": { "claimed": n, "healthy": n, "repaired": n, "attention": n, "failed": n },
 #     "notes": [{ "phase": "pages", "code": "..." }] }
+curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/push/cron
+# → { "claimed": n, "ticketed": n, "delivered": n, "retried": n,
+#     "failed": n, "cancelled": n, "installationsRetired": n }
 curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/members/import-draft/cleanup
 ```
 
@@ -210,6 +214,7 @@ authenticate automatically — and create `vercel.json`:
       "schedule": "*/15 * * * *"
     },
     { "path": "/api/meta/leads/recovery/cron", "schedule": "*/15 * * * *" },
+    { "path": "/api/push/cron", "schedule": "*/15 * * * *" },
     { "path": "/api/renewals/cron", "schedule": "30 * * * *" },
     { "path": "/api/payment-installments/cron", "schedule": "30 * * * *" }
   ]
