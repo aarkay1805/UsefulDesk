@@ -25,6 +25,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     user,
     loading,
     accountStatus,
+    accountId,
     branchAccessError,
     branches,
     switchBranch,
@@ -58,7 +59,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   // Browser audio is armed only after interaction. The reminder listener is
   // dashboard-wide so it survives navigation and stops on realtime read_at.
   useNotificationAudio(Boolean(user));
-  useFollowUpReminderRingtone(Boolean(user));
+  useFollowUpReminderRingtone(accountId, Boolean(user));
 
   useEffect(() => {
     if (!loading && !user) {

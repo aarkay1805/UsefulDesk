@@ -58,11 +58,22 @@ export function useTotalUnread({
       .channel(`total-unread-realtime:${accountId}`)
       .on(
         'postgres_changes',
+        // messages has no account_id column, so a server-side tenant filter is
+        // impossible here. Resolve tenancy through the active account's
+        // hydrated conversation ids (and honor account_id defensively if a
+        // future projection adds it) before playing any cue.
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
-          const message = payload.new as Message;
-          if (sound && message.sender_type === 'customer') {
-            playInboxMessageTone();
+          const message = payload.new as Message & { account_id?: string };
+          const belongsToAccount = message.account_id
+            ? message.account_id === accountId
+            : countsRef.current.has(message.conversation_id);
+          if (sound && belongsToAccount && message.sender_type === 'customer') {
+            try {
+              playInboxMessageTone();
+            } catch {
+              // Audio is an optional cue and cannot interrupt realtime work.
+            }
           }
         }
       )

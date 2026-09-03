@@ -15,7 +15,7 @@ import {
 
 type ReminderNotification = Pick<
   Notification,
-  'id' | 'type' | 'read_at' | 'created_at'
+  'id' | 'account_id' | 'type' | 'read_at' | 'created_at'
 >;
 
 interface QueuedNotificationEvent {
@@ -28,9 +28,12 @@ interface QueuedNotificationEvent {
  * Rings for unread follow-up reminder notifications: one minute on, five
  * minutes off, repeating for at most one hour after notification delivery.
  */
-export function useFollowUpReminderRingtone(enabled = true) {
+export function useFollowUpReminderRingtone(
+  accountId: string | null,
+  enabled = true
+) {
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !accountId) return;
 
     const supabase = createClient();
     const reminders = new Map<string, ReminderNotification>();
@@ -95,6 +98,7 @@ export function useFollowUpReminderRingtone(enabled = true) {
 
       const row = event.newRow;
       if (!row) return;
+      if (row.account_id !== accountId) return;
       if (row.type === 'follow_up_reminder' && !row.read_at) {
         reminders.set(row.id, row);
       } else {
@@ -106,7 +110,8 @@ export function useFollowUpReminderRingtone(enabled = true) {
       const cutoff = new Date(Date.now() - REMINDER_MAX_AGE_MS).toISOString();
       const { data } = await supabase
         .from('notifications')
-        .select('id, type, read_at, created_at')
+        .select('id, account_id, type, read_at, created_at')
+        .eq('account_id', accountId)
         .eq('type', 'follow_up_reminder')
         .is('read_at', null)
         .gte('created_at', cutoff);
@@ -122,10 +127,15 @@ export function useFollowUpReminderRingtone(enabled = true) {
     };
 
     const channel = supabase
-      .channel('follow-up-reminder-ringtone')
+      .channel(`follow-up-reminder-ringtone:${accountId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'notifications' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `account_id=eq.${accountId}`,
+        },
         (payload) => {
           const event: QueuedNotificationEvent = {
             eventType:
@@ -157,8 +167,9 @@ export function useFollowUpReminderRingtone(enabled = true) {
     return () => {
       cancelled = true;
       clearTimer();
+      reminders.clear();
       stopFollowUpReminderTone();
       supabase.removeChannel(channel);
     };
-  }, [enabled]);
+  }, [accountId, enabled]);
 }

@@ -9,6 +9,7 @@ const authState = vi.hoisted(() => ({
   loading: false,
   accountStatus: 'error' as 'loading' | 'ready' | 'unlinked' | 'error',
   accountStatusDetail: 'account unavailable' as string | null,
+  accountId: 'account-1' as string | null,
   branchAccessError: null as string | null,
   branches: [] as Array<{
     account_id: string;
@@ -53,8 +54,9 @@ vi.mock('@/hooks/use-notification-audio', () => ({
   useNotificationAudio: () => undefined,
 }));
 
+const reminderRingtone = vi.hoisted(() => vi.fn());
 vi.mock('@/hooks/use-follow-up-reminder-ringtone', () => ({
-  useFollowUpReminderRingtone: () => undefined,
+  useFollowUpReminderRingtone: reminderRingtone,
 }));
 
 const { DashboardShell } = await import('./dashboard-shell');
@@ -76,6 +78,7 @@ describe('DashboardShell account boundary', () => {
     authState.loading = false;
     authState.accountStatus = 'error';
     authState.accountStatusDetail = 'account unavailable';
+    authState.accountId = 'account-1';
     authState.branchAccessError = null;
     authState.branches = [];
   });
@@ -118,6 +121,7 @@ describe('DashboardShell account boundary', () => {
     expect(markup).toContain('Business content');
     expect(markup).toContain('Sidebar');
     expect(markup).not.toContain('Could not load your account access');
+    expect(reminderRingtone).toHaveBeenCalledWith('account-1', true);
   });
 
   it('provides an immediate loading boundary for authenticated navigation', () => {
