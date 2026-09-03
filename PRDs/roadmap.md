@@ -123,8 +123,14 @@ swipe-right or an accessibility action and remains service-window-gated while
 reactions do not. A freshly rebuilt OnePlus 6 / Android 11 client passed the
 local-only pill, long-press, reaction-selection, and swipe-reply interaction
 checks without reaching the provider. Remote reaction/provider synchronization
-remains unverified. Push notifications and other advanced message actions are
-deferred.**
+remains unverified. **Push notifications are now built locally and their
+service-only production migration is applied:** authenticated installation
+registration, durable Expo ticket/receipt recovery, bounded inbound dispatch,
+permission and token lifecycle coordination, branch-safe tap routing, Account
+recovery, and active-branch web chat sounds are in place. Local mobile gates and
+iOS/Android static exports pass; remote physical delivery remains pending an EAS
+project ID, verified APNs/FCM credentials, and iOS/Android device acceptance.
+Other advanced message actions remain deferred.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

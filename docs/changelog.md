@@ -6,6 +6,24 @@
 
 ---
 
+## Mobile push notifications and chat sound
+
+Durable Expo push now spans service-only tables and RPCs in
+`20260903120000_mobile_push_notifications.sql`, authenticated installation
+registration at `/api/mobile/push/installation`, the shared dispatcher and
+`/api/push/cron`, and a bounded best-effort drain after inbound WhatsApp
+persistence. The migration is applied to production as remote migration
+`20260903121736 mobile_push_notifications`. Native coordination handles
+permission recovery, token rollover, sign-out revocation, branch-safe opaque
+tap routing, and Account recovery actions; browser chat sounds now hydrate and
+subscribe only within the active branch and cannot produce a late pulse.
+
+Local mobile lint, typecheck, tests, Expo Doctor, and iOS/Android static exports
+pass. Remote physical-device delivery is still a release gate: this checkout
+has no EAS project ID or verified APNs/FCM credentials, and foreground,
+background, terminated, system-sound, tap, sign-out, and token-refresh behavior
+has not been accepted on physical iOS and Android builds.
+
 ## Native mobile Inbox Stage 3 reactions
 
 The native Inbox in `apps/mobile/src/features/inbox` now renders grouped
