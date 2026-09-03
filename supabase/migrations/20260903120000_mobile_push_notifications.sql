@@ -401,7 +401,8 @@ RETURNS TABLE(
   title TEXT,
   body TEXT,
   payload JSONB,
-  attempt_count INTEGER
+  attempt_count INTEGER,
+  cancelled_count INTEGER
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -512,11 +513,23 @@ BEGIN
     claimed.title,
     claimed.body,
     claimed.payload,
-    claimed.attempt_count
+    claimed.attempt_count,
+    (SELECT count(*)::INTEGER FROM cancelled)
   FROM claimed
   JOIN public.push_installations AS installation
     ON installation.installation_id = claimed.installation_id
-  ORDER BY claimed.created_at, claimed.id;
+  UNION ALL
+  SELECT
+    NULL::UUID,
+    NULL::TEXT,
+    NULL::TEXT,
+    NULL::TEXT,
+    NULL::JSONB,
+    NULL::INTEGER,
+    (SELECT count(*)::INTEGER FROM cancelled)
+  WHERE NOT EXISTS (SELECT 1 FROM claimed)
+    AND EXISTS (SELECT 1 FROM cancelled)
+  ORDER BY delivery_id NULLS LAST;
 END;
 $function$;
 
@@ -528,7 +541,8 @@ CREATE OR REPLACE FUNCTION public.claim_push_receipts(
 RETURNS TABLE(
   delivery_id UUID,
   expo_ticket_id TEXT,
-  attempt_count INTEGER
+  attempt_count INTEGER,
+  cancelled_count INTEGER
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -598,9 +612,21 @@ BEGIN
     WHERE delivery.id = candidates.id
     RETURNING delivery.*
   )
-  SELECT claimed.id, claimed.expo_ticket_id, claimed.attempt_count
+  SELECT
+    claimed.id,
+    claimed.expo_ticket_id,
+    claimed.attempt_count,
+    (SELECT count(*)::INTEGER FROM ineligible)
   FROM claimed
-  ORDER BY claimed.ticketed_at, claimed.id;
+  UNION ALL
+  SELECT
+    NULL::UUID,
+    NULL::TEXT,
+    NULL::INTEGER,
+    (SELECT count(*)::INTEGER FROM ineligible)
+  WHERE NOT EXISTS (SELECT 1 FROM claimed)
+    AND EXISTS (SELECT 1 FROM ineligible)
+  ORDER BY delivery_id NULLS LAST;
 END;
 $function$;
 
@@ -645,7 +671,7 @@ BEGIN
       next_attempt_at = CASE
         WHEN p_outcome = 'ticketed' THEN COALESCE(
           p_next_attempt_at,
-          clock_timestamp() + interval '15 seconds'
+          clock_timestamp() + interval '15 minutes'
         )
         WHEN p_outcome = 'retry' THEN COALESCE(
           p_next_attempt_at,
