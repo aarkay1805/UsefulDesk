@@ -40,7 +40,6 @@ CREATE TABLE IF NOT EXISTS public.push_deliveries (
   body TEXT NOT NULL CHECK (length(body) BETWEEN 1 AND 4096),
   payload JSONB NOT NULL CHECK (
     jsonb_typeof(payload) = 'object'
-    AND jsonb_object_length(payload) = 5
     AND payload ?& ARRAY[
       'version',
       'accountId',
@@ -48,6 +47,14 @@ CREATE TABLE IF NOT EXISTS public.push_deliveries (
       'messageId',
       'deliveryId'
     ]
+    AND (
+      payload
+        - 'version'
+        - 'accountId'
+        - 'conversationId'
+        - 'messageId'
+        - 'deliveryId'
+    ) = '{}'::jsonb
     AND payload->>'version' = '1'
     AND (payload->>'accountId')::uuid = account_id
     AND (payload->>'conversationId')::uuid = conversation_id

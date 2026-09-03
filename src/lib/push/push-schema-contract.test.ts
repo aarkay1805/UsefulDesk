@@ -95,7 +95,10 @@ describe('mobile push schema contract', () => {
     expect(sql).toMatch(
       /CREATE TRIGGER set_push_deliveries_updated_at[\s\S]*?public\.update_updated_at_column\(\)/
     );
-    expect(sql).toMatch(/jsonb_object_length\(payload\) = 5/);
+    expect(sql).not.toContain('jsonb_object_length');
+    expect(sql).toMatch(
+      /payload\s*-\s*'version'\s*-\s*'accountId'\s*-\s*'conversationId'\s*-\s*'messageId'\s*-\s*'deliveryId'\s*\)\s*=\s*'\{\}'::jsonb/
+    );
     expect(sql).toMatch(/payload->>'version' = '1'/);
     expect(sql).toMatch(/payload \?& ARRAY\[/);
     expect(sql).toMatch(
