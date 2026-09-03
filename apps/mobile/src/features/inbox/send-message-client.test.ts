@@ -103,31 +103,38 @@ describe('sendConversationMessage', () => {
         media_url: 'https://cdn.example.test/note.ogg',
       },
     ],
-  ] as const)('posts the exact %s media route payload', async (
-    mediaKind,
-    expectedBody
-  ) => {
-    const setup = dependencies();
-    setup.fetch.mockResolvedValue(
-      response(200, '{"message_id":"message-media","whatsapp_message_id":"wamid.media"}')
-    );
-    await sendConversationMessage(
-      {
-        kind: 'media',
-        accountId: ACCOUNT_ID,
-        conversationId: CONVERSATION_ID,
-        mediaKind,
-        mediaUrl: expectedBody.media_url,
-        caption: 'content_text' in expectedBody ? expectedBody.content_text : 'ignored',
-        filename: 'filename' in expectedBody ? expectedBody.filename : 'ignored.bin',
-      },
-      setup.result
-    );
-    expect(setup.fetch).toHaveBeenCalledWith(
-      `${API_BASE}/api/whatsapp/send`,
-      expect.objectContaining({ body: JSON.stringify(expectedBody) })
-    );
-  });
+  ] as const)(
+    'posts the exact %s media route payload',
+    async (mediaKind, expectedBody) => {
+      const setup = dependencies();
+      setup.fetch.mockResolvedValue(
+        response(
+          200,
+          '{"message_id":"message-media","whatsapp_message_id":"wamid.media"}'
+        )
+      );
+      await sendConversationMessage(
+        {
+          kind: 'media',
+          accountId: ACCOUNT_ID,
+          conversationId: CONVERSATION_ID,
+          mediaKind,
+          mediaUrl: expectedBody.media_url,
+          caption:
+            'content_text' in expectedBody
+              ? expectedBody.content_text
+              : 'ignored',
+          filename:
+            'filename' in expectedBody ? expectedBody.filename : 'ignored.bin',
+        },
+        setup.result
+      );
+      expect(setup.fetch).toHaveBeenCalledWith(
+        `${API_BASE}/api/whatsapp/send`,
+        expect.objectContaining({ body: JSON.stringify(expectedBody) })
+      );
+    }
+  );
 
   it('accepts a 1,024-character caption and rejects the next character before fetch', async () => {
     const setup = dependencies();

@@ -2,11 +2,15 @@ import { Image } from 'expo-image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Text, type TextInput as TextInputType, View } from 'react-native';
 
-import type { MediaKind } from '../../../../../../src/lib/storage/media-contract';
+import {
+  MediaValidationError,
+  type MediaKind,
+} from '../../../../../../src/lib/storage/media-contract';
 import { Button, ComposerField, IconButton } from '../../../ui';
 import { pickConversationMedia, type PickedMediaAsset } from '../media-picker';
 import {
   deleteConversationMedia,
+  MediaUploadError,
   uploadConversationMedia,
   type DeleteConversationMediaInput,
   type UploadedMedia,
@@ -25,11 +29,7 @@ interface FailedAttempt {
 }
 
 type AttachmentStatus =
-  | 'uploading'
-  | 'upload_failed'
-  | 'uploaded'
-  | 'sending'
-  | 'send_failed';
+  'uploading' | 'upload_failed' | 'uploaded' | 'sending' | 'send_failed';
 
 interface StagedAttachment {
   asset: PickedMediaAsset;
@@ -94,7 +94,9 @@ export function ConversationComposer({
   const [pickerPending, setPickerPending] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
   const [staged, setStaged] = useState<StagedAttachment | null>(null);
-  const [failedAttempt, setFailedAttempt] = useState<FailedAttempt | null>(null);
+  const [failedAttempt, setFailedAttempt] = useState<FailedAttempt | null>(
+    null
+  );
   stagedRef.current = staged;
   const trimmedDraft = draft.trim();
   const unchangedAmbiguousDraft =
@@ -144,7 +146,13 @@ export function ConversationComposer({
   );
 
   const send = useCallback(async () => {
-    if (inFlightRef.current || pending || !trimmedDraft || unchangedAmbiguousDraft) return;
+    if (
+      inFlightRef.current ||
+      pending ||
+      !trimmedDraft ||
+      unchangedAmbiguousDraft
+    )
+      return;
     inFlightRef.current = true;
     setPending(true);
     setFailedAttempt(null);
@@ -162,7 +170,14 @@ export function ConversationComposer({
       inFlightRef.current = false;
       setPending(false);
     }
-  }, [onSend, pending, requestDraftFocus, resolveAttempt, trimmedDraft, unchangedAmbiguousDraft]);
+  }, [
+    onSend,
+    pending,
+    requestDraftFocus,
+    resolveAttempt,
+    trimmedDraft,
+    unchangedAmbiguousDraft,
+  ]);
 
   const retry = useCallback(async () => {
     if (
@@ -170,13 +185,21 @@ export function ConversationComposer({
       pending ||
       failedAttempt?.temporaryId === null ||
       failedAttempt?.safeToRetry !== true
-    ) return;
+    )
+      return;
     inFlightRef.current = true;
     setPending(true);
     try {
-      resolveAttempt(await onRetry(failedAttempt.temporaryId), failedAttempt.attemptedText);
+      resolveAttempt(
+        await onRetry(failedAttempt.temporaryId),
+        failedAttempt.attemptedText
+      );
     } catch {
-      setFailedAttempt({ ...failedAttempt, message: UNCONFIRMED_SEND_MESSAGE, safeToRetry: false });
+      setFailedAttempt({
+        ...failedAttempt,
+        message: UNCONFIRMED_SEND_MESSAGE,
+        safeToRetry: false,
+      });
       requestDraftFocus();
     } finally {
       inFlightRef.current = false;
@@ -201,7 +224,8 @@ export function ConversationComposer({
         accountId,
         asset,
         onProgress: (value) => {
-          if (!mountedRef.current || uploadGenerationRef.current !== generation) return;
+          if (!mountedRef.current || uploadGenerationRef.current !== generation)
+            return;
           setStaged((current) =>
             current?.asset.uri === asset.uri
               ? { ...current, progress: Math.max(0, Math.min(1, value)) }
@@ -212,23 +236,34 @@ export function ConversationComposer({
       uploadRef.current = operation;
       void operation.promise.then(
         (uploaded) => {
-          if (!mountedRef.current || uploadGenerationRef.current !== generation) return;
+          if (!mountedRef.current || uploadGenerationRef.current !== generation)
+            return;
           uploadRef.current = null;
           setStaged((current) =>
             current?.asset.uri === asset.uri
-              ? { ...current, status: 'uploaded', progress: 1, uploaded, error: null }
+              ? {
+                  ...current,
+                  status: 'uploaded',
+                  progress: 1,
+                  uploaded,
+                  error: null,
+                }
               : current
           );
         },
         (error: unknown) => {
-          if (!mountedRef.current || uploadGenerationRef.current !== generation) return;
+          if (!mountedRef.current || uploadGenerationRef.current !== generation)
+            return;
           uploadRef.current = null;
           setStaged((current) =>
             current?.asset.uri === asset.uri
               ? {
                   ...current,
                   status: 'upload_failed',
-                  error: error instanceof Error ? error.message : 'Could not upload this attachment.',
+                  error:
+                    error instanceof MediaUploadError
+                      ? error.message
+                      : 'Could not upload this attachment.',
                 }
               : current
           );
@@ -250,7 +285,11 @@ export function ConversationComposer({
         if (asset && mountedRef.current) beginUpload(asset);
       } catch (error) {
         if (mountedRef.current) {
-          setPickerError(error instanceof Error ? error.message : 'Could not open the attachment picker.');
+          setPickerError(
+            error instanceof MediaValidationError
+              ? error.message
+              : 'Could not open the attachment picker.'
+          );
         }
       } finally {
         pickerInFlightRef.current = false;
@@ -281,29 +320,35 @@ export function ConversationComposer({
           mediaKind: current.asset.kind,
           mediaUrl: current.uploaded.publicUrl,
           caption:
-            current.asset.kind === 'audio' ? undefined : current.caption.trim() || undefined,
-          filename: current.asset.kind === 'document' ? current.asset.name : undefined,
+            current.asset.kind === 'audio'
+              ? undefined
+              : current.caption.trim() || undefined,
+          filename:
+            current.asset.kind === 'document' ? current.asset.name : undefined,
         }
       : null;
 
-  const settleMediaAttempt = useCallback((result: SendAttemptResult, current: StagedAttachment) => {
-    if (result.status === 'sent') {
-      if (current.uploaded) ownedPathsRef.current.add(current.uploaded.path);
-      setStaged(null);
-      return;
-    }
-    setStaged((value) =>
-      value
-        ? {
-            ...value,
-            status: 'send_failed',
-            error: result.message,
-            temporaryId: result.temporaryId,
-            safeToRetry: result.safeToRetry,
-          }
-        : value
-    );
-  }, []);
+  const settleMediaAttempt = useCallback(
+    (result: SendAttemptResult, current: StagedAttachment) => {
+      if (result.status === 'sent') {
+        if (current.uploaded) ownedPathsRef.current.add(current.uploaded.path);
+        setStaged(null);
+        return;
+      }
+      setStaged((value) =>
+        value
+          ? {
+              ...value,
+              status: 'send_failed',
+              error: result.message,
+              temporaryId: result.temporaryId,
+              safeToRetry: result.safeToRetry,
+            }
+          : value
+      );
+    },
+    []
+  );
 
   const sendAttachment = useCallback(async () => {
     const current = stagedRef.current;
@@ -320,7 +365,12 @@ export function ConversationComposer({
       settleMediaAttempt(await onSendMedia(payload), current);
     } catch {
       settleMediaAttempt(
-        { temporaryId: '', status: 'failed', safeToRetry: false, message: UNCONFIRMED_SEND_MESSAGE },
+        {
+          temporaryId: '',
+          status: 'failed',
+          safeToRetry: false,
+          message: UNCONFIRMED_SEND_MESSAGE,
+        },
         current
       );
     } finally {
@@ -330,14 +380,25 @@ export function ConversationComposer({
 
   const retryAttachment = useCallback(async () => {
     const current = stagedRef.current;
-    if (!current?.temporaryId || !current.safeToRetry || !onRetryMedia || mediaInFlightRef.current) return;
+    if (
+      !current?.temporaryId ||
+      !current.safeToRetry ||
+      !onRetryMedia ||
+      mediaInFlightRef.current
+    )
+      return;
     mediaInFlightRef.current = true;
     setStaged((value) => (value ? { ...value, status: 'sending' } : value));
     try {
       settleMediaAttempt(await onRetryMedia(current.temporaryId), current);
     } catch {
       settleMediaAttempt(
-        { temporaryId: current.temporaryId, status: 'failed', safeToRetry: false, message: UNCONFIRMED_SEND_MESSAGE },
+        {
+          temporaryId: current.temporaryId,
+          status: 'failed',
+          safeToRetry: false,
+          message: UNCONFIRMED_SEND_MESSAGE,
+        },
         current
       );
     } finally {
@@ -345,11 +406,13 @@ export function ConversationComposer({
     }
   }, [onRetryMedia, settleMediaAttempt]);
 
-  const canRetry = failedAttempt?.temporaryId !== null && failedAttempt?.safeToRetry === true;
+  const canRetry =
+    failedAttempt?.temporaryId !== null && failedAttempt?.safeToRetry === true;
 
   if (staged) {
     const percentage = Math.round(staged.progress * 100);
-    const ambiguous = staged.status === 'send_failed' && staged.safeToRetry === false;
+    const ambiguous =
+      staged.status === 'send_failed' && staged.safeToRetry === false;
     return (
       <View className="border-border bg-background gap-3 border-t px-3 py-3">
         {staged.asset.kind === 'image' ? (
@@ -362,10 +425,16 @@ export function ConversationComposer({
           />
         ) : (
           <View className="bg-muted gap-1 rounded-xl px-3 py-3">
-            <Text className="text-foreground text-base font-semibold" style={{ lineHeight: undefined }}>
+            <Text
+              className="text-foreground text-base font-semibold"
+              style={{ lineHeight: undefined }}
+            >
               {attachmentLabel[staged.asset.kind]}
             </Text>
-            <Text className="text-muted text-sm" style={{ lineHeight: undefined }}>
+            <Text
+              className="text-muted text-sm"
+              style={{ lineHeight: undefined }}
+            >
               {staged.asset.name}
             </Text>
           </View>
@@ -375,7 +444,11 @@ export function ConversationComposer({
             isDisabled={staged.status === 'sending'}
             label="Caption"
             maxLength={1024}
-            onChangeText={(caption) => setStaged((current) => (current ? { ...current, caption } : current))}
+            onChangeText={(caption) =>
+              setStaged((current) =>
+                current ? { ...current, caption } : current
+              )
+            }
             placeholder="Add a caption"
             value={staged.caption}
           />
@@ -388,26 +461,47 @@ export function ConversationComposer({
             accessibilityValue={{ min: 0, max: 100, now: percentage }}
             className="gap-2"
           >
-            <Text className="text-foreground text-sm" style={{ lineHeight: undefined }}>
+            <Text
+              className="text-foreground text-sm"
+              style={{ lineHeight: undefined }}
+            >
               Uploading {percentage}%
             </Text>
-            <Button onPress={clearAttachment} size="sm" variant="ghost">Cancel attachment</Button>
+            <Button onPress={clearAttachment} size="sm" variant="ghost">
+              Cancel attachment
+            </Button>
           </View>
         ) : null}
         {staged.error ? (
-          <View accessible accessibilityLiveRegion="polite" accessibilityRole="alert" className="bg-danger-soft gap-2 rounded-xl px-3 py-2">
-            <Text className="text-danger-soft-foreground text-sm" style={{ lineHeight: undefined }}>{staged.error}</Text>
+          <View
+            accessible
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            className="bg-danger-soft gap-2 rounded-xl px-3 py-2"
+          >
+            <Text
+              className="text-danger-soft-foreground text-sm"
+              style={{ lineHeight: undefined }}
+            >
+              {staged.error}
+            </Text>
           </View>
         ) : null}
         <View className="flex-row flex-wrap gap-2">
           {staged.status === 'upload_failed' ? (
-            <Button onPress={() => beginUpload(staged.asset)} size="sm">Retry upload</Button>
+            <Button onPress={() => beginUpload(staged.asset)} size="sm">
+              Retry upload
+            </Button>
           ) : null}
           {staged.status === 'send_failed' && staged.safeToRetry ? (
-            <Button onPress={retryAttachment} size="sm">Retry attachment</Button>
+            <Button onPress={retryAttachment} size="sm">
+              Retry attachment
+            </Button>
           ) : null}
           {staged.status === 'uploaded' ? (
-            <Button onPress={sendAttachment} size="sm">Send attachment</Button>
+            <Button onPress={sendAttachment} size="sm">
+              Send attachment
+            </Button>
           ) : null}
           {!ambiguous && staged.status !== 'uploading' ? (
             <Button onPress={clearAttachment} size="sm" variant="ghost">
@@ -422,35 +516,84 @@ export function ConversationComposer({
   return (
     <View className="border-border bg-background gap-2 border-t px-3 py-2">
       {pickerError || failedAttempt ? (
-        <View accessible accessibilityLiveRegion="polite" accessibilityRole="alert" className="bg-danger-soft gap-1 rounded-xl px-3 py-2">
-          <Text className="text-danger-soft-foreground text-sm" style={{ lineHeight: undefined }}>
+        <View
+          accessible
+          accessibilityLiveRegion="polite"
+          accessibilityRole="alert"
+          className="bg-danger-soft gap-1 rounded-xl px-3 py-2"
+        >
+          <Text
+            className="text-danger-soft-foreground text-sm"
+            style={{ lineHeight: undefined }}
+          >
             {pickerError ?? failedAttempt?.message}
           </Text>
           {canRetry ? (
-            <Button accessibilityLabel="Retry message" className="self-start" disabled={pending} loading={pending} onPress={retry} size="sm" variant="ghost">Retry</Button>
+            <Button
+              accessibilityLabel="Retry message"
+              className="self-start"
+              disabled={pending}
+              loading={pending}
+              onPress={retry}
+              size="sm"
+              variant="ghost"
+            >
+              Retry
+            </Button>
           ) : null}
         </View>
       ) : null}
       {pickerOpen ? (
         <View className="flex-row flex-wrap gap-2">
-          {([
-            ['image', 'Choose photo'],
-            ['video', 'Choose video'],
-            ['document', 'Choose document'],
-            ['audio', 'Choose audio'],
-          ] as const).map(([kind, label]) => (
-            <Button accessibilityLabel={label} disabled={pickerPending} key={kind} onPress={() => void chooseAttachment(kind)} size="sm" variant="ghost">
+          {(
+            [
+              ['image', 'Choose photo'],
+              ['video', 'Choose video'],
+              ['document', 'Choose document'],
+              ['audio', 'Choose audio'],
+            ] as const
+          ).map(([kind, label]) => (
+            <Button
+              accessibilityLabel={label}
+              disabled={pickerPending}
+              key={kind}
+              onPress={() => void chooseAttachment(kind)}
+              size="sm"
+              variant="ghost"
+            >
               {label.replace('Choose ', '')}
             </Button>
           ))}
         </View>
       ) : null}
       <View className="flex-row items-end gap-2">
-        <IconButton accessibilityLabel="Attach media" isDisabled={pending || pickerPending} isLoading={pickerPending} onPress={() => setPickerOpen((value) => !value)} symbol="paperclip" testID="conversation-attach" />
+        <IconButton
+          accessibilityLabel="Attach media"
+          isDisabled={pending || pickerPending}
+          isLoading={pickerPending}
+          onPress={() => setPickerOpen((value) => !value)}
+          symbol="paperclip"
+          testID="conversation-attach"
+        />
         <View className="min-w-0 flex-1">
-          <ComposerField ref={inputRef} accessibilityHint="Write a message. Return adds a new line." isDisabled={pending} label="Message" onChangeText={setDraft} placeholder="Write a message" value={draft} />
+          <ComposerField
+            ref={inputRef}
+            accessibilityHint="Write a message. Return adds a new line."
+            isDisabled={pending}
+            label="Message"
+            onChangeText={setDraft}
+            placeholder="Write a message"
+            value={draft}
+          />
         </View>
-        <IconButton accessibilityLabel="Send message" isDisabled={pending || !trimmedDraft || unchangedAmbiguousDraft} isLoading={pending} onPress={send} symbol="paperplane.fill" testID="conversation-send" />
+        <IconButton
+          accessibilityLabel="Send message"
+          isDisabled={pending || !trimmedDraft || unchangedAmbiguousDraft}
+          isLoading={pending}
+          onPress={send}
+          symbol="paperplane.fill"
+          testID="conversation-send"
+        />
       </View>
     </View>
   );

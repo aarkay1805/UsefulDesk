@@ -14,13 +14,7 @@ export const MEDIA_MIME_TYPES_BY_KIND = {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'text/plain',
   ],
-  audio: [
-    'audio/ogg',
-    'audio/mpeg',
-    'audio/aac',
-    'audio/mp4',
-    'audio/amr',
-  ],
+  audio: ['audio/ogg', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/amr'],
 } as const satisfies Record<MediaKind, readonly string[]>;
 
 /** Per-kind ceilings shared by browser and native Inbox uploads. */

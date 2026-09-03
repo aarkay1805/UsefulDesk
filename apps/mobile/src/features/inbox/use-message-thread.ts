@@ -1289,7 +1289,9 @@ export function useMessageThread({
             mediaKind: draft.mediaKind,
             mediaUrl: draft.mediaUrl,
             caption:
-              draft.mediaKind === 'audio' ? null : draft.caption?.trim() || null,
+              draft.mediaKind === 'audio'
+                ? null
+                : draft.caption?.trim() || null,
             filename:
               draft.mediaKind === 'document' ? draft.filename : undefined,
             createdAt,

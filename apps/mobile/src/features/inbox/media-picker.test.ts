@@ -37,32 +37,31 @@ describe('pickConversationMedia', () => {
         type: 'video',
       },
     ],
-  ] as const)('normalizes a selected %s with library-only options', async (
-    kind,
-    mediaTypes,
-    asset
-  ) => {
-    const setup = dependencies();
-    setup.launchImageLibraryAsync.mockResolvedValue({
-      canceled: false,
-      assets: [asset],
-    });
+  ] as const)(
+    'normalizes a selected %s with library-only options',
+    async (kind, mediaTypes, asset) => {
+      const setup = dependencies();
+      setup.launchImageLibraryAsync.mockResolvedValue({
+        canceled: false,
+        assets: [asset],
+      });
 
-    await expect(pickConversationMedia(kind, setup.result)).resolves.toEqual({
-      kind,
-      uri: asset.uri,
-      name: asset.fileName,
-      mimeType: asset.mimeType,
-      size: asset.fileSize,
-    });
-    expect(setup.launchImageLibraryAsync).toHaveBeenCalledWith({
-      mediaTypes,
-      allowsEditing: false,
-      allowsMultipleSelection: false,
-      quality: 1,
-    });
-    expect(setup.getDocumentAsync).not.toHaveBeenCalled();
-  });
+      await expect(pickConversationMedia(kind, setup.result)).resolves.toEqual({
+        kind,
+        uri: asset.uri,
+        name: asset.fileName,
+        mimeType: asset.mimeType,
+        size: asset.fileSize,
+      });
+      expect(setup.launchImageLibraryAsync).toHaveBeenCalledWith({
+        mediaTypes,
+        allowsEditing: false,
+        allowsMultipleSelection: false,
+        quality: 1,
+      });
+      expect(setup.getDocumentAsync).not.toHaveBeenCalled();
+    }
+  );
 
   it.each([
     [
@@ -94,31 +93,30 @@ describe('pickConversationMedia', () => {
         mimeType: 'audio/ogg',
       },
     ],
-  ] as const)('normalizes a selected %s with its MIME filters', async (
-    kind,
-    type,
-    asset
-  ) => {
-    const setup = dependencies();
-    setup.getDocumentAsync.mockResolvedValue({
-      canceled: false,
-      assets: [asset],
-    });
+  ] as const)(
+    'normalizes a selected %s with its MIME filters',
+    async (kind, type, asset) => {
+      const setup = dependencies();
+      setup.getDocumentAsync.mockResolvedValue({
+        canceled: false,
+        assets: [asset],
+      });
 
-    await expect(pickConversationMedia(kind, setup.result)).resolves.toEqual({
-      kind,
-      uri: asset.uri,
-      name: asset.name,
-      mimeType: asset.mimeType,
-      size: asset.size,
-    });
-    expect(setup.getDocumentAsync).toHaveBeenCalledWith({
-      type,
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
-    expect(setup.launchImageLibraryAsync).not.toHaveBeenCalled();
-  });
+      await expect(pickConversationMedia(kind, setup.result)).resolves.toEqual({
+        kind,
+        uri: asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType,
+        size: asset.size,
+      });
+      expect(setup.getDocumentAsync).toHaveBeenCalledWith({
+        type,
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      expect(setup.launchImageLibraryAsync).not.toHaveBeenCalled();
+    }
+  );
 
   it.each(['image', 'document'] as const)(
     'returns null silently when the %s picker is cancelled',

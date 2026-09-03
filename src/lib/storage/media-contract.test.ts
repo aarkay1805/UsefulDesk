@@ -24,13 +24,7 @@ const ACCEPTED: Record<MediaKind, readonly string[]> = {
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'text/plain',
   ],
-  audio: [
-    'audio/ogg',
-    'audio/mpeg',
-    'audio/aac',
-    'audio/mp4',
-    'audio/amr',
-  ],
+  audio: ['audio/ogg', 'audio/mpeg', 'audio/aac', 'audio/mp4', 'audio/amr'],
 };
 
 describe('media contract', () => {
@@ -105,9 +99,7 @@ describe('media contract', () => {
   it('builds a canonical account path with a safe basename and extension', () => {
     expect(
       buildMediaPath(ACCOUNT, '../Member / invoice FINAL.PDF', 1700000000000)
-    ).toBe(
-      `account-${ACCOUNT}/1700000000000-_Member_invoice_FINAL.pdf`
-    );
+    ).toBe(`account-${ACCOUNT}/1700000000000-_Member_invoice_FINAL.pdf`);
     expect(buildMediaPath(ACCOUNT, 'README', 1700000000000)).toBe(
       `account-${ACCOUNT}/1700000000000-README.bin`
     );

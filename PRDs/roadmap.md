@@ -97,9 +97,13 @@ enforced branch lifecycle gates, preserved realtime inbound readiness across a
 stale query completion, and raised light/dark semantic contrast while uncapping
 Dynamic Type. The safety changes passed source review and tests; the original
 physical maximum-size run found the clipping defect above, and the subsequent
-dark-mode retest verifies its reflow fix. **Stage 3 remains
-deferred:** media,
-quoted replies, reactions, push notifications, and advanced message actions.**
+dark-mode retest verifies its reflow fix. **Stage 3 media is built:** image,
+video, document, and existing-audio-file selection now has strict MIME/size
+validation, account-scoped authenticated upload progress/cancel/retry,
+caption/preview/discard behavior, and optimistic send reconciliation without an
+offline queue. Physical-device selection and provider delivery remain
+unverified. **Remaining Stage 3 work is deferred:** quoted replies, reactions,
+push notifications, and advanced message actions.**
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

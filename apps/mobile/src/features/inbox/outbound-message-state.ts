@@ -257,7 +257,7 @@ export function appendOptimisticMedia(
     contentText: input.mediaKind === 'audio' ? null : input.caption,
     mediaUrl: input.mediaUrl,
     mediaFilename:
-      input.mediaKind === 'document' ? input.filename ?? null : null,
+      input.mediaKind === 'document' ? (input.filename ?? null) : null,
     templateName: null,
     providerMessageId: null,
     status: 'sending',

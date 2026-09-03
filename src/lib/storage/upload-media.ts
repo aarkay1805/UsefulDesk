@@ -1,10 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { browserBranchId } from '@/lib/auth/branch-context';
 
-export {
-  buildMediaPath,
-  MEDIA_MAX_BYTES_BY_KIND,
-} from './media-contract';
+export { buildMediaPath, MEDIA_MAX_BYTES_BY_KIND } from './media-contract';
 import { buildMediaPath } from './media-contract';
 
 /**

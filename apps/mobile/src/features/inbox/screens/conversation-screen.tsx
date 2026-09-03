@@ -237,6 +237,7 @@ function ConversationThread({
   const [templateSafetyCheckNonce, setTemplateSafetyCheckNonce] = useState(0);
   const [actionClockMs, setActionClockMs] = useState(() => Date.now());
   const [keyboardVerticalOffset, setKeyboardVerticalOffset] = useState(0);
+  const [composerStaged, setComposerStaged] = useState(false);
   const latestId = thread.items.at(-1)?.id ?? null;
   const itemCount = thread.items.length;
   const firstId = thread.items.at(0)?.id ?? null;
@@ -436,7 +437,13 @@ function ConversationThread({
         />
         {retryableTemporaryId ? (
           <FailedMessageRetry
-            onRetry={thread.retryText}
+            onRetry={
+              ['image', 'video', 'document', 'audio'].includes(
+                item.message.contentType
+              )
+                ? thread.retryMedia
+                : thread.retryText
+            }
             temporaryId={retryableTemporaryId}
           />
         ) : null}
@@ -540,12 +547,31 @@ function ConversationThread({
     if (actionState.kind === 'open_text') {
       return (
         <ConversationComposer
+          accountId={accountId}
+          onOpenTemplates={() => setTemplatePickerFeed(realtime)}
           onRetry={thread.retryText}
+          onRetryMedia={thread.retryMedia}
           onSend={thread.sendText}
+          onSendMedia={thread.sendMedia}
+          onStagedChange={setComposerStaged}
         />
       );
     }
     if (actionState.kind === 'closed_template') {
+      if (composerStaged) {
+        return (
+          <ConversationComposer
+            accountId={accountId}
+            onOpenTemplates={() => setTemplatePickerFeed(realtime)}
+            onRetry={thread.retryText}
+            onRetryMedia={thread.retryMedia}
+            onSend={thread.sendText}
+            onSendMedia={thread.sendMedia}
+            onStagedChange={setComposerStaged}
+            sessionExpired
+          />
+        );
+      }
       if (templateSendSafety === 'loading') {
         return (
           <View

@@ -23,13 +23,13 @@ interface ImagePickerBoundary {
     quality: 1;
   }): Promise<{
     canceled: boolean;
-    assets?: Array<{
+    assets?: {
       uri: string;
       fileName?: string | null;
       fileSize?: number;
       mimeType?: string;
       type?: 'image' | 'video' | 'livePhoto' | 'pairedVideo' | null;
-    }>;
+    }[];
   }>;
 }
 
@@ -40,12 +40,12 @@ interface DocumentPickerBoundary {
     multiple: false;
   }): Promise<{
     canceled: boolean;
-    assets?: Array<{
+    assets?: {
       uri: string;
       name: string;
       size?: number;
       mimeType?: string;
-    }>;
+    }[];
   }>;
 }
 

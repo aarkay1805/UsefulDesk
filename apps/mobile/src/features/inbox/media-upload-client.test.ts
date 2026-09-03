@@ -25,7 +25,9 @@ class FakeRequest implements MediaUploadRequest {
   sent: unknown = null;
   status = 0;
   aborted = false;
-  upload: { onprogress: ((event: { loaded: number; total: number }) => void) | null } = {
+  upload: {
+    onprogress: ((event: { loaded: number; total: number }) => void) | null;
+  } = {
     onprogress: null,
   };
   onload: (() => void) | null = null;
@@ -130,7 +132,10 @@ describe('uploadConversationMedia', () => {
     });
     expect(request.sent).toBe(setup.blob);
     expect(setup.readBlob).toHaveBeenCalledTimes(1);
-    expect(setup.readBlob).toHaveBeenCalledWith(ASSET.uri, expect.any(AbortSignal));
+    expect(setup.readBlob).toHaveBeenCalledWith(
+      ASSET.uri,
+      expect.any(AbortSignal)
+    );
 
     request.upload.onprogress?.({ loaded: 400, total: 1000 });
     request.upload.onprogress?.({ loaded: 1200, total: 1000 });
@@ -235,7 +240,9 @@ describe('uploadConversationMedia', () => {
       forbidden.result
     );
     (await nextRequest(forbidden)).respond(403);
-    await expect(denied.promise).rejects.toMatchObject({ category: 'forbidden' });
+    await expect(denied.promise).rejects.toMatchObject({
+      category: 'forbidden',
+    });
     expect(forbidden.refreshSession).not.toHaveBeenCalled();
     expect(forbidden.requests).toHaveLength(1);
   });
@@ -262,7 +269,9 @@ describe('uploadConversationMedia', () => {
     const request = await nextRequest(setup);
     operation.abort();
     expect(request.aborted).toBe(true);
-    await expect(operation.promise).rejects.toMatchObject({ category: 'aborted' });
+    await expect(operation.promise).rejects.toMatchObject({
+      category: 'aborted',
+    });
   });
 });
 

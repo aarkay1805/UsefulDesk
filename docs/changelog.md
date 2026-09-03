@@ -6,6 +6,18 @@
 
 ---
 
+## Native mobile Inbox Stage 3 media
+
+`src/lib/storage/media-contract.ts` and the native Inbox media picker, upload
+client, outbound state/thread commands, composer, and conversation screen now
+support image, video, document, and existing-audio-file sends. Uploads retain a
+single account-scoped path across the one allowed 401 refresh, carry the
+selected-branch header, expose byte progress and abort, and best-effort delete
+only confirmed-unsent objects. A delivery-unconfirmed send keeps its object and
+locks duplicate Retry; a service-window transition keeps the staged shell and
+routes Send to the existing template resolution. This is automated/local-build
+coverage only—physical-device selection and provider delivery were not claimed.
+
 ## Follow-ups queue: the row template the dashboard column can actually hold
 
 The dashboard's merged Follow-ups queue was built as a six-track record grid

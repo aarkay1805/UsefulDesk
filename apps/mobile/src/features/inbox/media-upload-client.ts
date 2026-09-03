@@ -58,11 +58,7 @@ interface ResolvedDependencies {
 }
 
 export type MediaUploadErrorCategory =
-  | 'aborted'
-  | 'unauthorized'
-  | 'forbidden'
-  | 'network'
-  | 'storage';
+  'aborted' | 'unauthorized' | 'forbidden' | 'network' | 'storage';
 
 export class MediaUploadError extends Error {
   constructor(
@@ -205,7 +201,10 @@ export function uploadConversationMedia(
     validateMediaAsset(input.asset);
     let blob: Blob;
     try {
-      blob = await dependencies.readBlob(input.asset.uri, abortController.signal);
+      blob = await dependencies.readBlob(
+        input.asset.uri,
+        abortController.signal
+      );
     } catch {
       if (aborted || abortController.signal.aborted) {
         throw new MediaUploadError('aborted', 'Attachment upload cancelled.');
@@ -238,7 +237,12 @@ export function uploadConversationMedia(
         request,
         'POST',
         objectUrl,
-        uploadHeaders(token, input.accountId, input.asset.mimeType, dependencies.anonKey),
+        uploadHeaders(
+          token,
+          input.accountId,
+          input.asset.mimeType,
+          dependencies.anonKey
+        ),
         blob,
         input.onProgress
       );
@@ -264,10 +268,7 @@ export function uploadConversationMedia(
         } catch {
           // Recovery owner decides how the auth surface resolves.
         }
-        throw new MediaUploadError(
-          'unauthorized',
-          'Your session has expired.'
-        );
+        throw new MediaUploadError('unauthorized', 'Your session has expired.');
       }
       if (status === 403) {
         throw new MediaUploadError(

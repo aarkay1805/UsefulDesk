@@ -474,6 +474,14 @@ function readyThreadResult(
       temporaryId: 'temp:screen-test',
       status: 'sent',
     }),
+    sendMedia: jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-media',
+      status: 'sent',
+    }),
+    retryMedia: jest.fn().mockResolvedValue({
+      temporaryId: 'temp:screen-media',
+      status: 'sent',
+    }),
     sendReadiness: {
       status: 'ready',
       latestInboundAt: new Date().toISOString(),
@@ -563,8 +571,12 @@ describe('ConversationScreen', () => {
     const view = render(<ConversationScreen />);
     fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
-    expect(await screen.findByLabelText('Photo attachment preview')).toBeTruthy();
-    expect(await screen.findByRole('button', { name: 'Send attachment' })).toBeTruthy();
+    expect(
+      await screen.findByLabelText('Photo attachment preview')
+    ).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: 'Send attachment' })
+    ).toBeTruthy();
 
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
@@ -581,13 +593,16 @@ describe('ConversationScreen', () => {
         },
       })
     );
-    view.rerender(<ConversationScreen />);
+    await act(async () => {
+      view.rerender(<ConversationScreen />);
+      await Promise.resolve();
+    });
 
     expect(screen.getByLabelText('Photo attachment preview')).toBeTruthy();
     expect(screen.queryByTestId('closed-window-action-bar')).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Send attachment' }));
     expect(openThread.sendMedia).not.toHaveBeenCalled();
-    expect(await screen.findByText('Choose a template')).toBeTruthy();
+    expect(await screen.findByText('Send approved template')).toBeTruthy();
   });
 
   it('renders chronological runs in the native titled route with the open-window composer', () => {
