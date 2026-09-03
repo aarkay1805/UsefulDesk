@@ -1,4 +1,5 @@
-export type AppEnvironment = 'development' | 'test' | 'production';
+export type AppEnvironment = 'development' | 'preview' | 'test' | 'production';
+export type PushEnvironment = 'development' | 'preview' | 'production';
 
 export interface MobileEnvironment {
   supabaseUrl: string;
@@ -134,7 +135,9 @@ export function readMobileEnvironment(
     source,
     'EXPO_PUBLIC_APP_ENV'
   ) as AppEnvironment;
-  if (!['development', 'test', 'production'].includes(appEnvironment)) {
+  if (
+    !['development', 'preview', 'test', 'production'].includes(appEnvironment)
+  ) {
     throw new Error('Invalid EXPO_PUBLIC_APP_ENV');
   }
 
@@ -155,6 +158,10 @@ export function readMobileEnvironment(
     apiBaseUrl,
     appEnvironment,
   };
+}
+
+export function pushEnvironment(environment: AppEnvironment): PushEnvironment {
+  return environment === 'test' ? 'development' : environment;
 }
 
 const runtimeEnvironmentSource: EnvironmentSource = {

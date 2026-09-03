@@ -17,6 +17,7 @@ const config: UsefulDeskExpoConfig = {
   },
   plugins: [
     'expo-router',
+    'expo-notifications',
     'expo-secure-store',
     'expo-font',
     'expo-image',

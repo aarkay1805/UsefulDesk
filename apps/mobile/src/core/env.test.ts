@@ -1,4 +1,8 @@
-import { mobileEnvironment, readMobileEnvironment } from './env';
+import {
+  mobileEnvironment,
+  pushEnvironment,
+  readMobileEnvironment,
+} from './env';
 
 const valid = {
   EXPO_PUBLIC_SUPABASE_URL: 'https://example.supabase.co',
@@ -31,6 +35,19 @@ describe('readMobileEnvironment', () => {
       apiBaseUrl: valid.EXPO_PUBLIC_API_BASE_URL,
       appEnvironment: 'test',
     });
+  });
+
+  it('accepts preview and maps only deployable environments to push', () => {
+    expect(
+      readMobileEnvironment({
+        ...valid,
+        EXPO_PUBLIC_APP_ENV: 'preview',
+      }).appEnvironment
+    ).toBe('preview');
+    expect(pushEnvironment('development')).toBe('development');
+    expect(pushEnvironment('preview')).toBe('preview');
+    expect(pushEnvironment('production')).toBe('production');
+    expect(pushEnvironment('test')).toBe('development');
   });
 
   it.each([
