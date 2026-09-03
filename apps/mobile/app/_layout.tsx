@@ -7,6 +7,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { MobileAppProviders } from '../src/core/mobile-app-providers';
 import { preventSplashAutoHide } from '../src/core/splash-control';
 import { AuthProvider, useAuth } from '../src/features/auth/auth-context';
+import { NotificationRouter } from '../src/features/notifications/notification-router';
+import { NotificationsProvider } from '../src/features/notifications/notifications-context';
 
 WebBrowser.maybeCompleteAuthSession();
 void preventSplashAutoHide(SplashScreen);
@@ -15,7 +17,10 @@ export default function RootLayout() {
   return (
     <MobileAppProviders>
       <AuthProvider>
-        <RootNavigator />
+        <NotificationsProvider>
+          <NotificationRouter />
+          <RootNavigator />
+        </NotificationsProvider>
       </AuthProvider>
     </MobileAppProviders>
   );

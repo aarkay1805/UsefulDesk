@@ -5,10 +5,12 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button, ScreenSafeAreaView } from '../../ui';
 import { useReadyAuth } from '../auth/auth-context';
 import { BranchChoices } from '../auth/screens/select-branch-screen';
+import { useNotifications } from '../notifications/notifications-context';
 
 export function AccountScreen() {
   const router = useRouter();
   const auth = useReadyAuth();
+  const notifications = useNotifications();
   const [signingOut, setSigningOut] = useState(false);
   const signingOutRef = useRef(false);
 
@@ -54,6 +56,45 @@ export function AccountScreen() {
             key={state.branch.account_id}
             onSelect={handleSelectBranch}
           />
+        </View>
+
+        <View className="gap-3">
+          <View className="gap-1">
+            <Text
+              accessibilityRole="header"
+              className="text-foreground text-lg font-semibold"
+            >
+              Notifications
+            </Text>
+            <Text className="text-muted text-sm leading-5">
+              {notifications.message}
+            </Text>
+          </View>
+          {notifications.recoveryAction === 'request' ||
+          notifications.recoveryAction === 'retry' ? (
+            <Button
+              accessibilityLabel={
+                notifications.status === 'retry_needed'
+                  ? 'Try notification setup again'
+                  : 'Enable notifications'
+              }
+              onPress={() => void notifications.requestPermission()}
+              variant="secondary"
+            >
+              {notifications.status === 'retry_needed'
+                ? 'Try notification setup again'
+                : 'Enable notifications'}
+            </Button>
+          ) : null}
+          {notifications.recoveryAction === 'settings' ? (
+            <Button
+              accessibilityLabel="Open settings"
+              onPress={() => void notifications.openSettings()}
+              variant="secondary"
+            >
+              Open settings
+            </Button>
+          ) : null}
         </View>
 
         <Button

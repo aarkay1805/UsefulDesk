@@ -12,10 +12,14 @@ import { AccountScreen } from './account-screen';
 
 const mockUseRouter = jest.fn();
 const mockUseReadyAuth = jest.fn();
+const mockUseNotifications = jest.fn();
 
 jest.mock('expo-router', () => ({ useRouter: () => mockUseRouter() }));
 jest.mock('../auth/auth-context', () => ({
   useReadyAuth: () => mockUseReadyAuth(),
+}));
+jest.mock('../notifications/notifications-context', () => ({
+  useNotifications: () => mockUseNotifications(),
 }));
 
 jest.mock('heroui-native', () => {
@@ -125,7 +129,19 @@ function readyAuthValue(options: {
 }
 
 describe('AccountScreen branch navigation', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseNotifications.mockReturnValue({
+      status: 'enabled',
+      message: 'New customer messages can notify this device.',
+      canRequest: false,
+      shouldExplain: false,
+      recoveryAction: null,
+      requestPermission: jest.fn(),
+      openSettings: jest.fn(),
+      revoke: jest.fn(),
+    });
+  });
 
   it('returns to a clean Inbox after a successful branch switch', async () => {
     const accountRouter = {
@@ -181,5 +197,52 @@ describe('AccountScreen branch navigation', () => {
     expect(accountRouter.dismissTo).not.toHaveBeenCalled();
     expect(accountRouter.push).not.toHaveBeenCalled();
     expect(accountRouter.replace).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['requestable', 'Enable notifications', 'requestPermission'],
+    ['denied', 'Open settings', 'openSettings'],
+    ['retry_needed', 'Try notification setup again', 'requestPermission'],
+  ] as const)(
+    'shows the one relevant %s recovery action',
+    (status, label, action) => {
+      const notifications = {
+        ...mockUseNotifications(),
+        status,
+        recoveryAction:
+          status === 'denied'
+            ? 'settings'
+            : status === 'retry_needed'
+              ? 'retry'
+              : 'request',
+        requestPermission: jest.fn(),
+        openSettings: jest.fn(),
+      };
+      mockUseNotifications.mockReturnValue(notifications);
+      mockUseRouter.mockReturnValue({ dismissAll: jest.fn() });
+      mockUseReadyAuth.mockReturnValue(
+        readyAuthValue({ selectBranch: jest.fn(), branches: twoBranches })
+      );
+
+      render(<AccountScreen />);
+      fireEvent.press(screen.getByRole('button', { name: label }));
+
+      expect(notifications[action]).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('shows enabled status without a notification action', () => {
+    mockUseRouter.mockReturnValue({ dismissAll: jest.fn() });
+    mockUseReadyAuth.mockReturnValue(
+      readyAuthValue({ selectBranch: jest.fn(), branches: twoBranches })
+    );
+
+    render(<AccountScreen />);
+
+    expect(screen.getByText('Notifications')).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Enable notifications' })
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Open settings' })).toBeNull();
   });
 });

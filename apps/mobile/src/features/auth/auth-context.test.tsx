@@ -160,6 +160,7 @@ function createDependencies(options?: {
         selectedBranchId = accountId;
       }),
     },
+    beforeCredentialTeardown: jest.fn().mockResolvedValue(undefined),
     actions: {
       signInWithPassword: jest.fn(),
       signInWithGoogle: jest.fn(),
@@ -730,8 +731,32 @@ describe('AuthProvider', () => {
       expect(latest?.state).toEqual({ status: 'signed_out' });
     });
     expect(setup.raw.actions.signOut).toHaveBeenCalledWith('initial-token');
+    expect(
+      setup.raw.beforeCredentialTeardown.mock.invocationCallOrder[0]
+    ).toBeLessThan(setup.raw.actions.signOut.mock.invocationCallOrder[0]);
     expect(setup.raw.selectedBranch.set).toHaveBeenCalledTimes(1);
     expect(setup.raw.preference.clear).toHaveBeenCalledTimes(1);
+  });
+
+  it('continues secure sign-out when notification revocation fails', async () => {
+    const setup = createDependencies();
+    setup.raw.beforeCredentialTeardown.mockRejectedValueOnce(
+      new Error('push token secret')
+    );
+    render(
+      <TestProvider dependencies={setup.dependencies}>
+        <Probe />
+      </TestProvider>
+    );
+    await waitFor(() => expect(latest?.state.status).toBe('ready'));
+
+    await act(async () => latest!.signOut());
+
+    expect(setup.raw.beforeCredentialTeardown).toHaveBeenCalledWith(
+      'initial-token'
+    );
+    expect(setup.raw.actions.signOut).toHaveBeenCalledWith('initial-token');
+    expect(latest?.state.status).toBe('signed_out');
   });
 
   it('recovers an unauthorized session through one guarded secure sign-out without republishing ready state', async () => {

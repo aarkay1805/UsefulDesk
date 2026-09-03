@@ -1,3 +1,5 @@
+import { createNativeNotifications } from './notifications';
+
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { HIGH: 4 },
   setNotificationChannelAsync: jest.fn(),
@@ -9,8 +11,6 @@ jest.mock('expo-notifications', () => ({
   addNotificationResponseReceivedListener: jest.fn(),
   getLastNotificationResponseAsync: jest.fn(),
 }));
-
-import { createNativeNotifications } from './notifications';
 
 describe('native notifications adapter', () => {
   it('creates the Android channel before requesting permission', async () => {

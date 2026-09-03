@@ -2,11 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 
-import {
-  useAuth,
-  type AuthState,
-  type AuthContextValue,
-} from '../auth/auth-context';
+import { useAuth, type AuthState } from '../auth/auth-context';
 import { mobileConversationRepository } from '../inbox/conversation-repository';
 import { nativeNotifications } from '../../native/notifications';
 import {
@@ -126,14 +122,14 @@ export function createNotificationResponseRouter({
 
 export function NotificationRouter() {
   const auth = useAuth();
+  const { selectBranch } = auth;
   const router = useRouter();
-  const authRef = useRef<AuthContextValue>(auth);
-  authRef.current = auth;
+  const authStateRef = useRef<AuthState>(auth.state);
   const responseRouterRef = useRef<NotificationResponseRouter | null>(null);
 
-  if (!responseRouterRef.current) {
-    responseRouterRef.current = createNotificationResponseRouter({
-      selectBranch: (accountId) => authRef.current.selectBranch(accountId),
+  useEffect(() => {
+    const responseRouter = createNotificationResponseRouter({
+      selectBranch: (accountId) => selectBranch(accountId),
       getConversation: (accountId, conversationId) =>
         mobileConversationRepository.get(accountId, conversationId),
       replaceInbox: () => router.replace('/(app)'),
@@ -145,15 +141,12 @@ export function NotificationRouter() {
       showUnavailable: (message) =>
         Alert.alert('Conversation unavailable', message),
     });
-  }
-
-  useEffect(() => {
-    const responseRouter = responseRouterRef.current!;
+    responseRouterRef.current = responseRouter;
     let cancelled = false;
     const subscription = nativeNotifications.addNotificationResponseListener(
       (response) => {
         if (responseRouter.enqueue(response)) {
-          void responseRouter.reconcile(authRef.current.state);
+          void responseRouter.reconcile(authStateRef.current);
         }
       }
     );
@@ -161,17 +154,21 @@ export function NotificationRouter() {
       const response = await nativeNotifications.getLastNotificationResponse();
       if (cancelled || !response) return;
       if (responseRouter.enqueue(response)) {
-        await responseRouter.reconcile(authRef.current.state);
+        await responseRouter.reconcile(authStateRef.current);
       }
     })();
     return () => {
       cancelled = true;
       subscription.remove();
       responseRouter.stop();
+      if (responseRouterRef.current === responseRouter) {
+        responseRouterRef.current = null;
+      }
     };
-  }, []);
+  }, [router, selectBranch]);
 
   useEffect(() => {
+    authStateRef.current = auth.state;
     void responseRouterRef.current?.reconcile(auth.state);
   }, [auth.state]);
 

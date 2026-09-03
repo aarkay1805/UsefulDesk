@@ -223,7 +223,6 @@ export function createNotificationCoordinator({
       currentAuth = null;
       tokenSubscription?.remove();
       tokenSubscription = null;
-      listeners.clear();
     },
   };
 }

@@ -35,6 +35,7 @@ import type {
   MobileBootstrap,
   MobileProfile,
 } from './branch-types';
+import { revokeNotificationsBeforeCredentialTeardown } from '../notifications/notification-signout';
 
 export type AuthState =
   | { status: 'booting' }
@@ -102,6 +103,7 @@ export interface AuthProviderDependencies {
   ): Promise<MobileBootstrap>;
   preference: BranchPreference;
   selectedBranch: SelectedBranchAdapter;
+  beforeCredentialTeardown?(accessToken: string): Promise<void>;
   actions: AuthActions;
 }
 
@@ -128,6 +130,7 @@ const defaultDependencies: AuthProviderDependencies = {
   loadBootstrap: loadMobileBootstrap,
   preference: branchPreference,
   selectedBranch: selectedBranchRef,
+  beforeCredentialTeardown: revokeNotificationsBeforeCredentialTeardown,
   actions: {
     signInWithPassword,
     signInWithGoogle,
@@ -784,6 +787,13 @@ export function AuthProvider({
 
     let result: SignOutResult;
     try {
+      if (accessToken && dependencies.beforeCredentialTeardown) {
+        try {
+          await dependencies.beforeCredentialTeardown(accessToken);
+        } catch {
+          // Push revocation is best-effort. Credential teardown must continue.
+        }
+      }
       result = await dependencies.actions.signOut(accessToken);
     } catch {
       let local: LocalSessionPurgeResult;
@@ -824,7 +834,7 @@ export function AuthProvider({
       result.status === 'error' ? result.message : undefined
     );
   }, [
-    dependencies.actions,
+    dependencies,
     isCurrent,
     nextGeneration,
     publishSignedOut,
