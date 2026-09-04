@@ -1,6 +1,7 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { IconButton } from '../../../ui';
+import { Text } from '../../../ui/text';
 
 interface InboxHeaderProps {
   onOpenAccount(): void;
@@ -16,7 +17,6 @@ export function InboxHeader({ onOpenAccount }: InboxHeaderProps) {
         accessibilityRole="header"
         className="text-foreground min-w-0 flex-1 text-2xl font-medium"
         numberOfLines={1}
-        style={{ lineHeight: undefined }}
       >
         UsefulDesk
       </Text>

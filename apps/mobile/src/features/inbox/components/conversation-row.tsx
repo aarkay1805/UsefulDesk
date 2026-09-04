@@ -1,6 +1,7 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { UserAvatar } from '../../../ui';
+import { Text } from '../../../ui/text';
 import type { InboxConversation } from '../inbox-types';
 
 interface ConversationRowProps {
@@ -47,7 +48,6 @@ export function ConversationRow({
             className={`text-foreground min-w-0 flex-1 text-base ${
               unreadCount > 0 ? 'font-semibold' : 'font-medium'
             }`}
-            style={{ lineHeight: undefined }}
           >
             {displayName}
           </Text>
@@ -56,7 +56,6 @@ export function ConversationRow({
               className={`text-xs tabular-nums ${
                 unreadCount > 0 ? 'text-accent font-semibold' : 'text-muted'
               }`}
-              style={{ lineHeight: undefined }}
             >
               {formattedTime}
             </Text>
@@ -70,7 +69,6 @@ export function ConversationRow({
             className={`min-w-0 flex-1 text-sm ${
               unreadCount > 0 ? 'text-foreground' : 'text-muted'
             }`}
-            style={{ lineHeight: undefined }}
           >
             {conversation.lastMessageText?.trim() || 'No messages yet'}
           </Text>
@@ -78,7 +76,6 @@ export function ConversationRow({
             <Text
               accessibilityLabel={unreadLabel}
               className="bg-accent text-accent-foreground min-h-6 min-w-6 rounded-full px-2 py-1 text-center text-xs font-semibold"
-              style={{ lineHeight: undefined }}
             >
               {unreadCount}
             </Text>

@@ -57,29 +57,33 @@ describe('IconButton', () => {
   it('renders a labelled SF Symbol in a 48pt rounded-rectangle target', () => {
     render(
       <IconButton
-        accessibilityLabel="Send message"
-        symbol="paperplane.fill"
+        accessibilityLabel="Attach media"
+        symbol="paperclip"
         onPress={jest.fn()}
       />
     );
 
-    const button = screen.getByRole('button', { name: 'Send message' });
+    const button = screen.getByRole('button', { name: 'Attach media' });
     expect(button.props.className).toContain('min-h-12');
     expect(button.props.className).toContain('min-w-12');
     expect(button.props.className).toContain('rounded-lg');
     expect(button.props.className).not.toContain('rounded-full');
     expect(screen.getByTestId('symbol').props.name).toEqual({
-      ios: 'paperplane.fill',
-      android: 'send',
+      ios: 'paperclip',
+      android: 'attach_file',
     });
     expect(screen.getByTestId('symbol').props.tintColor).toBe('#18181b');
   });
 
   it.each([
+    ['chevron.down', 'expand_more'],
     ['chevron.left', 'arrow_back'],
+    ['doc', 'description'],
     ['person.crop.circle', 'account_circle'],
     ['paperclip', 'attach_file'],
-    ['paperplane.fill', 'send'],
+    ['photo', 'image'],
+    ['video', 'videocam'],
+    ['waveform', 'graphic_eq'],
     ['xmark', 'close'],
   ] as const)('maps %s to its Android Material Symbol', (ios, android) => {
     render(<IconButton accessibilityLabel={ios} symbol={ios} />);
@@ -92,7 +96,7 @@ describe('IconButton', () => {
       <IconButton
         accessibilityLabel="Send message"
         shape="circle"
-        symbol="paperplane.fill"
+        symbol="send"
         tone="on-accent"
       />
     );
@@ -100,7 +104,9 @@ describe('IconButton', () => {
     const button = screen.getByRole('button', { name: 'Send message' });
     expect(button.props.className).toContain('rounded-full');
     expect(button.props.className).not.toContain('rounded-lg');
-    expect(screen.getByTestId('symbol').props.tintColor).toBe('#fcfcfc');
+    // Send is Lucide's plane, drawn rather than an SF Symbol.
+    expect(screen.queryByTestId('symbol')).toBeNull();
+    expect(screen.getByTestId('glyph-send')).toBeTruthy();
   });
 
   it('announces loading and prevents repeat presses while pending', () => {
@@ -108,7 +114,7 @@ describe('IconButton', () => {
     render(
       <IconButton
         accessibilityLabel="Send message"
-        symbol="paperplane.fill"
+        symbol="send"
         onPress={onPress}
         isLoading
       />
@@ -122,7 +128,7 @@ describe('IconButton', () => {
       busy: true,
     });
     expect(screen.getByLabelText('Working')).toBeTruthy();
-    expect(screen.queryByTestId('symbol')).toBeNull();
+    expect(screen.queryByTestId('glyph-send')).toBeNull();
 
     fireEvent.press(button);
     expect(onPress).not.toHaveBeenCalled();

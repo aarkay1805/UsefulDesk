@@ -171,3 +171,16 @@ describe('phone', () => {
     expect(IN.phone(null)).toBe('');
   });
 });
+
+describe('weekday', () => {
+  it('names the day in the account zone, not the runner zone', () => {
+    // 19:30 UTC on Wednesday 2 Sept is already 01:00 IST on Thursday.
+    expect(IN.weekday('2026-09-02T19:30:00.000Z')).toBe('Thursday');
+    expect(IN.weekday('2026-09-02T06:00:00.000Z')).toBe('Wednesday');
+  });
+
+  it('reads a plain date off its own parts without rolling the day', () => {
+    expect(US.weekday('2026-09-01')).toBe('Tuesday');
+    expect(IN.weekday('2026-09-01')).toBe('Tuesday');
+  });
+});

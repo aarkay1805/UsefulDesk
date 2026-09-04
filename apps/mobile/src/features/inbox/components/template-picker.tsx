@@ -4,13 +4,17 @@ import {
   Modal,
   Platform,
   ScrollView,
-  Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import type { KeyboardAvoidingViewProps } from 'react-native';
 
-import { Button, ScreenSafeAreaView, TextField } from '../../../ui';
+import {
+  Button,
+  ScreenSafeAreaView,
+  TextField,
+  useTextScale,
+} from '../../../ui';
+import { Text } from '../../../ui/text';
 import { useReadyAuth } from '../../auth/auth-context';
 import type { ActionBlocker } from '../conversation-actions';
 import { isAccessibilityTextScale } from '../inbox-layout';
@@ -253,7 +257,7 @@ export function TemplatePicker({
   outcomeUnknown,
 }: TemplatePickerProps) {
   const auth = useReadyAuth();
-  const { fontScale } = useWindowDimensions();
+  const fontScale = useTextScale();
   const accessibilityTextScale = isAccessibilityTextScale(fontScale);
   const resolvedBlocker = resolveBlocker(blocker, templates);
   const firstTemplate = resolvedBlocker ? null : (templates[0] ?? null);
@@ -430,7 +434,6 @@ export function TemplatePicker({
                   className={`text-foreground text-lg font-semibold ${
                     accessibilityTextScale ? '' : 'flex-1'
                   }`}
-                  style={{ lineHeight: undefined }}
                 >
                   Send approved template
                 </Text>
@@ -453,16 +456,10 @@ export function TemplatePicker({
                   accessibilityRole="alert"
                   className="bg-warning-soft gap-1 rounded-xl px-3 py-3"
                 >
-                  <Text
-                    className="text-warning-soft-foreground text-base font-semibold"
-                    style={{ lineHeight: undefined }}
-                  >
+                  <Text className="text-warning-soft-foreground text-base font-semibold">
                     {resolvedBlocker.title}
                   </Text>
-                  <Text
-                    className="text-warning-soft-foreground text-sm"
-                    style={{ lineHeight: undefined }}
-                  >
+                  <Text className="text-warning-soft-foreground text-sm">
                     {resolvedBlocker.reason}
                   </Text>
                 </View>
@@ -473,10 +470,7 @@ export function TemplatePicker({
                   contentContainerClassName="gap-4 pb-4"
                 >
                   <View className="gap-2">
-                    <Text
-                      className="text-foreground text-sm font-medium"
-                      style={{ lineHeight: undefined }}
-                    >
+                    <Text className="text-foreground text-sm font-medium">
                       Approved templates
                     </Text>
                     {templates.map((template) => {
@@ -514,18 +508,12 @@ export function TemplatePicker({
                     className="bg-surface-secondary gap-2 rounded-xl px-3 py-3"
                     testID="template-preview"
                   >
-                    <Text
-                      className="text-surface-secondary-foreground text-sm font-medium"
-                      style={{ lineHeight: undefined }}
-                    >
+                    <Text className="text-surface-secondary-foreground text-sm font-medium">
                       Preview
                     </Text>
                     {selectedTemplate.headerType === 'text' &&
                     selectedTemplate.headerContent ? (
-                      <Text
-                        className="text-surface-secondary-foreground text-base font-semibold"
-                        style={{ lineHeight: undefined }}
-                      >
+                      <Text className="text-surface-secondary-foreground text-base font-semibold">
                         {interpolate(
                           selectedTemplate.headerContent,
                           values,
@@ -533,26 +521,17 @@ export function TemplatePicker({
                         )}
                       </Text>
                     ) : null}
-                    <Text
-                      className="text-surface-secondary-foreground text-sm"
-                      style={{ lineHeight: undefined }}
-                    >
+                    <Text className="text-surface-secondary-foreground text-sm">
                       {interpolate(selectedTemplate.bodyText, values, 'body')}
                     </Text>
-                    <Text
-                      className="text-surface-secondary-foreground text-xs"
-                      style={{ lineHeight: undefined }}
-                    >
+                    <Text className="text-surface-secondary-foreground text-xs">
                       Approved
                     </Text>
                   </View>
 
                   {fields.length > 0 ? (
                     <View className="gap-3">
-                      <Text
-                        className="text-foreground text-sm font-medium"
-                        style={{ lineHeight: undefined }}
-                      >
+                      <Text className="text-foreground text-sm font-medium">
                         Template values
                       </Text>
                       {fields.map((field) => {
@@ -583,10 +562,7 @@ export function TemplatePicker({
                       accessibilityRole="alert"
                       className="bg-danger-soft rounded-xl px-3 py-3"
                     >
-                      <Text
-                        className="text-danger-soft-foreground text-sm"
-                        style={{ lineHeight: undefined }}
-                      >
+                      <Text className="text-danger-soft-foreground text-sm">
                         {sendFailure.message}
                       </Text>
                     </View>
@@ -599,10 +575,7 @@ export function TemplatePicker({
                       accessibilityRole="alert"
                       className="bg-danger-soft rounded-xl px-3 py-3"
                     >
-                      <Text
-                        className="text-danger-soft-foreground text-sm"
-                        style={{ lineHeight: undefined }}
-                      >
+                      <Text className="text-danger-soft-foreground text-sm">
                         {safetyFailure}
                       </Text>
                     </View>
@@ -616,16 +589,10 @@ export function TemplatePicker({
                         accessibilityRole="alert"
                         className="bg-warning-soft gap-1 rounded-xl px-3 py-3"
                       >
-                        <Text
-                          className="text-warning-soft-foreground text-base font-semibold"
-                          style={{ lineHeight: undefined }}
-                        >
+                        <Text className="text-warning-soft-foreground text-base font-semibold">
                           Check the conversation first
                         </Text>
-                        <Text
-                          className="text-warning-soft-foreground text-sm"
-                          style={{ lineHeight: undefined }}
-                        >
+                        <Text className="text-warning-soft-foreground text-sm">
                           A previous template send could not be confirmed. Check
                           this conversation for the message before sending
                           another.

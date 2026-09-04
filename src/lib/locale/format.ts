@@ -232,6 +232,12 @@ export interface LocaleFormatters {
   dateShort(value: DateValue): string;
   /** Time of day per `timeFormat`, in the account zone — "9:30 pm" / "21:30". */
   time(value: DateValue): string;
+  /**
+   * Weekday name in the account zone — "Tuesday". Chat surfaces use it for
+   * the days between yesterday and a week ago, where a bare clock time is
+   * ambiguous and a full date is heavier than the reader needs.
+   */
+  weekday(value: DateValue): string;
   /** Date + time (timestamps); falls back to `date()` for plain dates. */
   dateTime(value: DateValue): string;
   /** Grouped number — 'en-IN' → 1,00,000; 'en-US' → 100,000. */
@@ -334,6 +340,23 @@ export function buildFormatters(
       return dtf(cfg.locale, { ...timeOpts, timeZone: cfg.timeZone }).format(
         ts
       );
+    },
+
+    weekday(value) {
+      const plain = plainParts(value);
+      if (plain) {
+        // Same UTC-noon anchor `date()` uses: a plain 'YYYY-MM-DD' carries no
+        // instant, so formatting it in the account zone could roll the day.
+        return dtf(cfg.locale, { weekday: 'long', timeZone: 'UTC' }).format(
+          new Date(Date.UTC(plain.y, plain.m - 1, plain.d, 12))
+        );
+      }
+      const ts = asDate(value);
+      if (!ts) return String(value);
+      return dtf(cfg.locale, {
+        weekday: 'long',
+        timeZone: cfg.timeZone,
+      }).format(ts);
     },
 
     dateTime(value) {

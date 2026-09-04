@@ -4,11 +4,15 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
-import { Button, ScreenSafeAreaView, TextField } from '../../../ui';
+import {
+  Button,
+  ScreenSafeAreaView,
+  Text,
+  TextField,
+} from '../../../ui';
 import { useAuth } from '../auth-context';
 
 type PendingAction = 'password' | 'google' | 'cleanup' | null;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, ScreenSafeAreaView } from '../../../ui';
+import { Button, ScreenSafeAreaView, Text } from '../../../ui';
 import { useAuth } from '../auth-context';
 import { branchBlockMessage, type BranchAccount } from '../branch-types';
 

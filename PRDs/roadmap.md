@@ -11,9 +11,9 @@ Membership plans, including responsive label-free billing-option comparison card
 Engineering maintenance: **the secure UsefulDesk Agent mobile foundation and
 Stage 1 read-only native Inbox are built in `apps/mobile`: public-only Expo
 configuration, SecureStore auth, startup membership revalidation, and
-fail-closed branch selection lead to a selected-branch Inbox with All/Unread,
-search, refresh, exact pagination and counts, role-safe unread clearing, and
-chronological localized history whose older-message loading preserves the
+fail-closed branch selection lead to a selected-branch Inbox with an All/Unread
+scope dropdown in the search field, search, refresh, exact pagination and
+counts, role-safe unread clearing, and chronological localized history whose older-message loading preserves the
 reader. Reconnect, foreground, duplicate/out-of-order event, sign-out, and
 branch teardown behavior have deterministic coverage. Because selected-branch
 custom headers cannot travel over Realtime WebSockets, private account-topic
@@ -159,6 +159,46 @@ semantic in light and dark modes. Shared icon actions also resolve the live
 foreground instead of Android's non-adaptive label color. This preserves the
 single-workflow stack and all existing outbound, accessibility, realtime, and
 branch-safety behavior; no inactive calling or Gemini controls were added.
+
+Engineering maintenance: **mobile text no longer clips when the reader changes
+iOS Dynamic Type while the app is running.** The cause was not the app-wide
+`lineHeight: undefined` idiom or the row `min-h-18` floor — both were measured
+correct — but React Native memoising a paragraph's measured content on the
+shadow node and returning it without consulting the layout context that carries
+the new `fontSizeMultiplier`, so glyphs repainted at the new size inside
+launch-time frames. With React Compiler on, re-rendering an ancestor does not
+dirty the node either. `src/ui/text.tsx` is now the text master feature code
+must use instead of `Text` from `react-native`: it keys each text leaf on the
+scale from `useTextScale`, remounting only that leaf, and absorbs the idiom
+(66 hand-written copies removed). The heroui-backed masters key only
+non-interactive labels; editable inputs pass the effective scale through a
+changing native measurement prop, preserving focus and selection. One shared
+`Dimensions` listener fans scale changes out to every consumer. Verified on
+the simulator from extra-small through
+accessibility-extra-extra-extra-large in light and dark, on a fresh launch and
+across a runtime change.
+
+Engineering maintenance: **the native Inbox scope moved from a chip strip into
+the search field.** `All | Unread` no longer occupies a row of its own beneath
+the search field; it is a dropdown pinned inside that field's trailing edge,
+defaulting to All, with the unread count as its own text on the menu row rather
+than folded into the label. `ui/filter-chip-group.tsx` gave way to
+`ui/filter-menu.tsx` and `ui/search-field.tsx` gained a `trailingAccessory`
+slot. Both then moved out of the rounded conversation sheet into the chrome,
+because heroui's field fill equals `--inbox-panel` in light _and_ dark, so
+inside the sheet the pill had no colour of its own in either theme. The web Inbox keeps its queue chips deliberately — that surface has the
+width for them and a phone does not.
+
+Engineering maintenance: **the native Inbox now reads calendar-relative
+timestamps and draws its delivery state.** Conversation rows walked from a bare
+clock time — which made a three-week-old chat look ten minutes old — to
+time/`Yesterday`/weekday/date, thread separators name Today and Yesterday
+outright, and the `✓ ✓✓ ◷` Unicode metadata became drawn SVG ticks at one
+stroke weight with `read` held on the fixed chat-read token. Both ladders
+resolve the account's calendar day rather than the device's and refresh at that
+day's midnight plus app resume. `weekday()` joins the shared locale formatters
+and a dev-only `app/inbox-preview.tsx` harness renders the states without auth;
+production deep links to the preview redirect to the app root.
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

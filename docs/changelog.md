@@ -6,6 +6,183 @@
 
 ---
 
+## The native Inbox filter becomes a dropdown inside the search field
+
+The mobile Inbox scoped itself with an `All | Unread` chip strip on its own row
+under the search field. That row is gone: the scope is now a dropdown pinned
+inside the search field's trailing edge, defaulting to **All**.
+`ui/filter-chip-group.tsx` was deleted and replaced by `ui/filter-menu.tsx`
+(heroui `Menu`, single-selection group, `disallowEmptySelection` so pressing
+the active option closes without clearing the scope), and `ui/search-field.tsx`
+grew a `trailingAccessory` slot. The Inbox screen is the only call site.
+
+**The accessory has to be absolutely positioned, not in flow.** heroui paints
+the field's pill — background, border, focus ring — on the _input_, not on
+`SearchField.Group`, which is a transparent row. An in-flow sibling therefore
+renders visibly _outside_ the pill, beside it. The accessory is absolutely
+anchored to the input's trailing edge, exactly as `SearchField.ClearButton`
+already is, and the two are kept apart by measuring the accessory with
+`onLayout` and pushing the clear button in by that width (plus the
+stylesheet's own 12pt inset) while the input reserves `width + 48pt` of
+trailing padding. Measured rather than hardcoded because the trigger carries
+the active option's word, so it is as wide as its label and grows with
+Dynamic Type. Shifting the clear button rather than dropping it into the flow
+keeps its 48pt lane reserved while the field is empty and the button is
+unmounted, so the query does not jump sideways on the first keystroke.
+
+The count moved with it. The chip rendered its own screen-reader string as
+visible text — the chip literally read `Unread, 3` — while the conversation row
+eight lines away rendered the same number as a badge with a separate
+`3 unread messages` label. The menu row now shows the count as its own trailing
+text and keeps `Unread, 3` for the accessible name only. `FilterMenuOption.count`
+is a **string**, already formatted by the caller through `fmt.number`, so the
+locale layer stays at the call site and `src/ui` never reaches for account
+formatters.
+
+`chevron.down` → Material `expand_more` joined the `ANDROID_SYMBOL` vocabulary
+in `ui/glyph.tsx`.
+
+**Search and the filter live in the chrome, not in the sheet — do not move them
+back.** heroui gives a form field `--field-background: var(--white)` and
+`--field-border: transparent` in light, and `--field-background:
+oklch(0.2103 0.0059 285.89)` in dark. `--inbox-panel` is `var(--white)` in
+light and `var(--surface)` — the identical `0.2103` value — in dark. Inside the
+sheet the pill was therefore its own background colour in **both** themes, with
+no border, drawn only by `--field-shadow` (three shadows at 4–6% black alpha)
+which does nothing at all on a dark ground. `--inbox-chrome` differs from the
+field in both directions (lighter field on `oklch(0.17 0.014 260)` dark,
+white field on `oklch(0.965 0.015 250)` light), so the placement is what makes
+the control visible; no new token was needed. The sheet keeps `pt-2` on the
+list's content container so rows clear its rounded lip, and the connection and
+refresh banners took `my-3` now that they are its first children.
+
+**This is not a divergence to "fix".** The web Inbox went the opposite way
+deliberately — dropdown to queue chips, for WhatsApp Desktop parity on a wide
+surface. A phone has one row of horizontal space and pays for a second one out
+of the conversation list; the two surfaces are meant to differ here.
+
+Verified on the iPhone 17 Pro simulator through `app/inbox-preview.tsx`, which
+gained a Search-and-filter section: trigger inside the pill, popover with the
+active option checked, selection re-measuring the trigger, the clear button and
+dropdown coexisting with a long query, and light plus dark appearance.
+
+## Native mobile text survives a Dynamic Type change
+
+Text across the mobile app was sliced off at the top and bottom after the
+reader changed iOS Dynamic Type while the app was running. Reproduce the old
+behaviour with `xcrun simctl ui booted content_size accessibility-extra-large`
+against a running build; the dev harness at `apps/mobile/app/inbox-preview.tsx`
+shows it without auth.
+
+**It was never a line-height bug.** The app-wide `style={{ lineHeight:
+undefined }}` idiom worked exactly as intended, and both it and uniwind's
+resolved line height scale correctly with `fontScale` — measured on the
+simulator at scale 2.643, `text-base` gives 63.4pt with the class line height
+and 50.5pt (the font's own metrics) with the idiom. Row heights were never the
+problem either: `min-h-18` is a floor, and rows already grew to 219–270pt. Do
+not go looking there again.
+
+The cause is upstream, in React Native's paragraph measurement.
+`ParagraphShadowNode::getContent` builds a paragraph's `AttributedString` once
+and memoises it in `content_`, then returns that cache **without consulting the
+`LayoutContext` it is handed** — and `layoutContext.fontSizeMultiplier` is the
+only path the new Dynamic Type scale has into Yoga. iOS repaints the glyphs at
+the new size immediately, so a text node that is not re-measured keeps its
+launch-time frame and clips itself. Only new props on the shadow node rebuild
+that cache (`shouldNewRevisionDirtyMeasurement` fires on `fragment.props`).
+That is why message bubbles were always fine and everything around them was
+not: `MessageBubble` reads `fontScale`, so it re-rendered; plain rows, date
+separators, and headings did not.
+
+Re-rendering an ancestor does **not** fix it here. React Compiler is on, so the
+memoised JSX hands each child the identical props and no shadow node is
+dirtied — verified on the simulator: the screen re-rendered with the new scale
+and the text stayed clipped.
+
+So `src/ui/text.tsx` is now the text master, and feature code must use it
+instead of `Text` from `react-native`. It subscribes to the scale and keys the
+underlying node on it, which remounts just that leaf — a text node holds no
+state, so scroll position and every ancestor's state survive, unlike keying a
+screen. It also absorbs the `lineHeight: undefined` idiom, which is why 66
+hand-written copies are gone from feature code. The masters that render text
+through heroui rather than RN `Text` — `Button`, `FilterChipGroup`,
+`TextField`, `ComposerField`, `SearchField`, `UserAvatar` — key only their
+non-interactive text leaves and keep their own copy of the idiom, because the
+style has to reach heroui's internal `Text`. Editable inputs stay mounted so a
+runtime scale change preserves focus and selection; a changing
+`maxFontSizeMultiplier` equal to the effective system scale dirties their
+native measurement without changing the rendered scale.
+
+`useTextScale` in `src/ui/use-text-scale.ts` is the single way to read the
+scale. It backs every caller with one shared `Dimensions` listener, because
+`Text` calls it per node and `useWindowDimensions` would open a subscription
+each time. `isAccessibilityTextScale` in `features/inbox/inbox-layout.ts`
+remains the only threshold for "is this an accessibility scale" —
+`MessageBubble` and `TemplatePicker` read the scale through `useTextScale` and
+then ask that predicate; `DeliveryTick` reads the same scale but clamps it
+rather than thresholding.
+
+Gotcha for a future session: import `Text` from `../../../ui/text`, not the
+`src/ui` barrel, inside `features/inbox/components`. The barrel pulls in
+`async-state.tsx` → `heroui-native` → reanimated, which the leaf component
+tests do not mock, and the suite fails to even load.
+
+---
+
+## Native mobile Inbox calendar timestamps and drawn delivery ticks
+
+Three craft defects in `apps/mobile/src/features/inbox`, found by comparing the
+shipped screens against LINE, Grab, TextNow, Fiverr, iMessage, and Google
+Messages on Mobbin.
+
+**Conversation rows printed a bare clock time for every row.** `fmt.time` ran
+unconditionally, so a chat from three weeks ago read "9:42 pm" — identical to
+one from ten minutes ago, in a list whose entire ordering is recency. Rows now
+walk the same ladder every reference client uses: the time today, `Yesterday`,
+the weekday name up to six days back, then a numeric date. Six days is the
+ceiling because at seven a weekday name stops being unique.
+
+**Thread date separators never said Today or Yesterday.** `buildThreadItems`
+was handed `fmt.date`, so today's messages sat under "4 Sept 2026". The
+separator now names the two recent days outright and falls back to the weekday
+and then the medium date. `buildThreadItems` still groups on the label, which
+stays correct only because the ladder is day-unique — `inbox-format.test.ts`
+pins that invariant.
+
+**Delivery state was Unicode text**: `✓`, `✓✓`, `◷`. Two check _characters_ set
+side by side are not WhatsApp's overlapped double tick, and `◷` is a
+geometric-shapes glyph many Android system fonts lack, so "sending" could
+arrive as a tofu box. `components/delivery-tick.tsx` draws all four states as
+SVG at one stroke weight. `read` resolves `--color-chat-read` and must not
+follow the account accent, or "read" and "brand" become the same colour. The
+mark is hidden from the accessibility tree because the meta `Text` already
+carries the spoken label.
+
+The drawn mark scales with `fontScale` (capped at 2x). This is not optional
+polish: the glyph it replaced was text and grew with Dynamic Type, so a
+fixed-size SVG shrinks to a speck beside a timestamp at Accessibility XL. Only
+the rendered box scales - the `viewBox` keeps the drawing's own coordinates, so
+stroke weight grows with the mark instead of thinning out.
+
+Both label ladders read the **account's** calendar day via `todayInTz`, not the
+device's. 19:30 UTC is already tomorrow in Asia/Kolkata, and elapsed-hours
+arithmetic gets that wrong — this is why `calendarProximity` compares plain
+`YYYY-MM-DD` days rather than subtracting timestamps.
+
+Supporting changes: `weekday()` joins the shared `LocaleFormatters` in
+`src/lib/locale/format.ts` (never hand-roll `Intl` at a call site), and
+`apps/mobile/app/inbox-preview.tsx` is a dev-only visual harness — the same
+convention as `src/app/preview/*` on the web — that renders rows and a thread
+spanning today through 200 days back without auth. Production deep links to
+that registered route redirect to the app root instead of rendering a blank
+screen. `use-account-calendar-clock.ts` refreshes both chat screens at the
+account's midnight and on app resume, so relative labels cannot go stale.
+
+Gotcha for a future session: any test asserting a separator or row timestamp
+must pin the clock. `conversation-screen.test.tsx` now sets a fake system time
+for exactly this reason; without it the assertion changes meaning as the
+fixtures age.
+
 ## Mobile iOS authentication reliability
 
 The native Google flow now has its exact `usefuldesk-agent://auth/callback`

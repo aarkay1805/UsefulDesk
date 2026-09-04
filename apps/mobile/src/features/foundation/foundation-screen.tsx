@@ -1,8 +1,8 @@
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { mobileEnvironment } from '../../core/env';
-import { Button, ScreenSafeAreaView } from '../../ui';
+import { Button, ScreenSafeAreaView, Text } from '../../ui';
 import { useReadyAuth } from '../auth/auth-context';
 
 const titleCase = (value: string) =>

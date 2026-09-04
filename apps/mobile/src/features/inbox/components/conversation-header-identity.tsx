@@ -1,6 +1,7 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { UserAvatar } from '../../../ui';
+import { Text } from '../../../ui/text';
 
 interface ConversationHeaderIdentityProps {
   avatarUrl: string | null;
@@ -30,15 +31,10 @@ export function ConversationHeaderIdentity({
         <Text
           className="text-foreground text-base font-semibold"
           numberOfLines={1}
-          style={{ lineHeight: undefined }}
         >
           {name}
         </Text>
-        <Text
-          className="text-muted text-xs"
-          numberOfLines={1}
-          style={{ lineHeight: undefined }}
-        >
+        <Text className="text-muted text-xs" numberOfLines={1}>
           {subtitle}
         </Text>
       </View>

@@ -1,6 +1,11 @@
 import { createRef, useState } from 'react';
-import type { TextInput as TextInputType } from 'react-native';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Dimensions, type TextInput as TextInputType } from 'react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+} from '@testing-library/react-native';
 
 import { ComposerField } from './composer-field';
 
@@ -111,9 +116,44 @@ describe('ComposerField', () => {
     expect(ref.current?.focus).toEqual(expect.any(Function));
     expect(() => ref.current?.focus()).not.toThrow();
     expect(input.props.allowFontScaling).toBe(true);
-    expect(input.props.maxFontSizeMultiplier).toBeUndefined();
+    expect(input.props.maxFontSizeMultiplier).toBe(
+      Dimensions.get('window').fontScale
+    );
     expect(input.props.className).toContain('min-h-12');
     expect(input.props.className).toContain('max-h-36');
+  });
+
+  it('remeasures for Dynamic Type without remounting the native input', () => {
+    const initialWindow = Dimensions.get('window');
+    const initialScreen = Dimensions.get('screen');
+    render(
+      <ComposerField
+        label="Message"
+        value="Keep my cursor"
+        onChangeText={jest.fn()}
+      />
+    );
+    const before = screen.getByLabelText('Message');
+    const labelBefore = screen.getByText('Message');
+
+    try {
+      act(() => {
+        Dimensions.set({
+          window: { ...initialWindow, fontScale: 2.643 },
+          screen: { ...initialScreen, fontScale: 2.643 },
+        });
+      });
+
+      const after = screen.getByLabelText('Message');
+      const labelAfter = screen.getByText('Message');
+      expect(after).toBe(before);
+      expect(labelAfter).not.toBe(labelBefore);
+      expect(after.props.maxFontSizeMultiplier).toBe(2.643);
+    } finally {
+      act(() => {
+        Dimensions.set({ window: initialWindow, screen: initialScreen });
+      });
+    }
   });
 
   it('can hide the visual label while keeping the input accessibility name', () => {

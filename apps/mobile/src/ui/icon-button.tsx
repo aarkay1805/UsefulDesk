@@ -1,23 +1,10 @@
 import type { ComponentProps } from 'react';
-import {
-  PlatformColor,
-  type ColorValue,
-  type PressableProps,
-} from 'react-native';
-import { SymbolView } from 'expo-symbols';
-import { useCSSVariable } from 'uniwind';
+import type { PressableProps } from 'react-native';
 
 import { Button } from './button';
+import type { GlyphName } from './glyph';
 
-const ANDROID_SYMBOL = {
-  'chevron.left': 'arrow_back',
-  'person.crop.circle': 'account_circle',
-  paperclip: 'attach_file',
-  'paperplane.fill': 'send',
-  xmark: 'close',
-} as const;
-
-export type IconButtonSymbol = keyof typeof ANDROID_SYMBOL;
+export type IconButtonSymbol = GlyphName;
 
 export interface IconButtonProps {
   accessibilityLabel: string;
@@ -42,18 +29,6 @@ export function IconButton({
   tone = 'default',
   variant,
 }: IconButtonProps) {
-  const [foreground, accentForeground] = useCSSVariable([
-    '--color-foreground',
-    '--color-accent-foreground',
-  ]);
-  const platformFallback = PlatformColor('label');
-  const tintColor: ColorValue =
-    tone === 'on-accent' && accentForeground !== undefined
-      ? (accentForeground as ColorValue)
-      : foreground !== undefined
-        ? (foreground as ColorValue)
-        : platformFallback;
-
   return (
     <Button
       accessibilityLabel={
@@ -63,18 +38,13 @@ export function IconButton({
       loading={isLoading}
       onPress={onPress}
       size="sm"
+      symbol={symbol}
+      symbolTone={tone}
       testID={testID}
       variant={variant}
       className={`min-w-12 px-0 ${
         shape === 'circle' ? 'rounded-full' : 'rounded-lg'
       }`}
-    >
-      <SymbolView
-        name={{ ios: symbol, android: ANDROID_SYMBOL[symbol] }}
-        size={20}
-        weight="semibold"
-        tintColor={tintColor}
-      />
-    </Button>
+    />
   );
 }

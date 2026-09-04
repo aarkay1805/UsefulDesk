@@ -1,6 +1,7 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import type { InboxMessageReaction } from '../inbox-types';
+import { Text } from '../../../ui/text';
 
 interface MessageReactionsProps {
   reactions: InboxMessageReaction[];
@@ -57,14 +58,9 @@ export function MessageReactions({
           'border-chat-canvas bg-chat-bubble-in h-[22px] flex-row items-center gap-1 rounded-full border-2 px-1.5';
         const content = (
           <>
-            <Text className="text-sm" style={{ lineHeight: undefined }}>
-              {group.emoji}
-            </Text>
+            <Text className="text-sm">{group.emoji}</Text>
             {group.count > 1 ? (
-              <Text
-                className="text-chat-meta text-xs tabular-nums"
-                style={{ lineHeight: undefined }}
-              >
+              <Text className="text-chat-meta text-xs tabular-nums">
                 {group.count}
               </Text>
             ) : null}

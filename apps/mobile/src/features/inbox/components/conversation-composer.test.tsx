@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import type { SendAttemptResult } from '../use-message-thread';
 import type { PickedMediaAsset } from '../media-picker';
@@ -199,6 +200,36 @@ describe('ConversationComposer', () => {
     await waitFor(() => expect(props.pickMedia).toHaveBeenCalledWith('image'));
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByLabelText('Photo attachment preview')).toBeNull();
+  });
+
+  it('pairs every attachment choice with its own glyph', () => {
+    render(<ConversationComposer {...mediaProps()} />);
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+
+    const glyphs = screen
+      .getAllByTestId('composer-symbol')
+      .map((node) => (node.props.name as { ios: string }).ios);
+
+    expect(glyphs).toEqual(
+      expect.arrayContaining(['photo', 'video', 'doc', 'waveform'])
+    );
+  });
+
+  it('reveals the send control only once the draft carries content', () => {
+    render(<ConversationComposer onRetry={jest.fn()} onSend={jest.fn()} />);
+    const input = screen.getByLabelText('Message');
+
+    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
+
+    fireEvent.changeText(input, 'Renewing today');
+
+    const send = screen.getByRole('button', { name: 'Send message' });
+    expect(send.props.accessibilityState).toMatchObject({ disabled: false });
+    // Lucide's plane is drawn, so it is a path rather than an SF Symbol.
+    expect(screen.getByTestId('glyph-send')).toBeTruthy();
+
+    fireEvent.changeText(input, '');
+    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
   });
 
   it('shows picker validation errors without losing the regular draft', async () => {
@@ -611,7 +642,7 @@ describe('ConversationComposer', () => {
     expect(onSend).not.toHaveBeenCalled();
 
     fireEvent.changeText(input, '   ');
-    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+    expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
     expect(onSend).not.toHaveBeenCalled();
   });
 
@@ -766,10 +797,13 @@ describe('ConversationComposer', () => {
     render(<ConversationComposer onRetry={jest.fn()} onSend={jest.fn()} />);
 
     const input = screen.getByLabelText('Message');
+    fireEvent.changeText(input, 'Ready to send');
     const send = screen.getByRole('button', { name: 'Send message' });
 
     expect(input.props.allowFontScaling).toBe(true);
-    expect(input.props.maxFontSizeMultiplier).toBeUndefined();
+    expect(input.props.maxFontSizeMultiplier).toBe(
+      Dimensions.get('window').fontScale
+    );
     expect(input.props.className).toContain('min-h-12');
     expect(send.props.className).toContain('min-h-12');
     expect(send.props.className).toContain('min-w-12');

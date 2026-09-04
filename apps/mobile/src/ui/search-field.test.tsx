@@ -1,3 +1,4 @@
+import { Text, View } from 'react-native';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import { SearchField } from './search-field';
@@ -90,4 +91,56 @@ it('disables the clear action with the search field', () => {
   expect(clearButton.props.accessibilityState).toEqual({ disabled: true });
   fireEvent.press(clearButton);
   expect(onValueChange).not.toHaveBeenCalled();
+});
+
+it('keeps a trailing accessory clear of the clear button and the query text', () => {
+  render(
+    <SearchField
+      accessibilityLabel="Search conversations"
+      value="Asha"
+      onValueChange={jest.fn()}
+      trailingAccessory={
+        <View>
+          <Text>All</Text>
+        </View>
+      }
+    />
+  );
+
+  expect(screen.getByText('All')).toBeTruthy();
+
+  // Nothing is measured before layout, so neither control is displaced yet.
+  expect(
+    screen.getByRole('button', { name: 'Clear search' }).props.style
+  ).toBeUndefined();
+
+  fireEvent(screen.getByTestId('search-field-trailing-accessory'), 'layout', {
+    nativeEvent: { layout: { width: 96, height: 48, x: 0, y: 0 } },
+  });
+
+  // The clear button clears the accessory and keeps its own 12pt inset, and
+  // the query stops short of both lanes rather than sliding under them.
+  expect(
+    screen.getByRole('button', { name: 'Clear search' }).props.style
+  ).toEqual({ insetInlineEnd: 108 });
+  expect(screen.getByLabelText('Search conversations').props.style).toEqual({
+    lineHeight: undefined,
+    paddingInlineEnd: 144,
+  });
+});
+
+it('reserves no accessory lane when the field carries no accessory', () => {
+  render(
+    <SearchField
+      accessibilityLabel="Search conversations"
+      value="Asha"
+      onValueChange={jest.fn()}
+    />
+  );
+
+  expect(screen.queryByTestId('search-field-trailing-accessory')).toBeNull();
+  expect(screen.getByLabelText('Search conversations').props.style).toEqual({
+    lineHeight: undefined,
+    paddingInlineEnd: undefined,
+  });
 });

@@ -1173,6 +1173,12 @@ describe('ConversationScreen', () => {
   });
 
   it('renders chronological runs in the native titled route with the open-window composer', () => {
+    // The separator label is calendar-relative now (Today / Yesterday / the
+    // weekday / a date), so the clock has to be pinned or this assertion
+    // changes meaning as the fixtures age. Far enough past the fixture day
+    // that it lands on the absolute date this test was written to check.
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-30T10:00:00.000Z'));
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
         items: [
@@ -1221,6 +1227,7 @@ describe('ConversationScreen', () => {
       screen.getByLabelText(`Message ${MESSAGE_3_ID}, starts run`)
     ).toBeTruthy();
     expect(screen.getByPlaceholderText(/message/i)).toBeTruthy();
+    fireEvent.changeText(screen.getByLabelText('Message'), 'Ready');
     expect(screen.getByRole('button', { name: 'Send message' })).toBeTruthy();
     expect(mockStackOptions.current).toEqual(
       expect.objectContaining({
@@ -1238,6 +1245,7 @@ describe('ConversationScreen', () => {
         role: 'admin',
       })
     );
+    jest.useRealTimers();
   });
 
   it('uses fail-closed local dependencies for the development layout fixture', async () => {
@@ -1392,6 +1400,7 @@ describe('ConversationScreen', () => {
     render(<ConversationScreen />);
 
     expect(screen.getByLabelText('Message')).toBeTruthy();
+    fireEvent.changeText(screen.getByLabelText('Message'), 'Ready');
     expect(screen.getByRole('button', { name: 'Send message' })).toBeTruthy();
     expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
   });

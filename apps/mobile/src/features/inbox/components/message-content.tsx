@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
 import { Image } from 'expo-image';
-import { Linking, Pressable, Text, View } from 'react-native';
+import { Linking, Pressable, View } from 'react-native';
 import { useState } from 'react';
 
 import { messagePreview, safeMediaUrl } from '../inbox-format';
 import type { ContentType, InboxMessage } from '../inbox-types';
+import { Text } from '../../../ui/text';
 
 const MEDIA_LABEL: Record<
   Extract<ContentType, 'video' | 'audio' | 'document' | 'location'>,
@@ -43,11 +44,7 @@ export function MessageContent({
     message.contentType === 'interactive'
   ) {
     return (
-      <Text
-        className="text-foreground text-base"
-        style={{ lineHeight: undefined }}
-        testID="message-text-content"
-      >
+      <Text className="text-foreground text-base" testID="message-text-content">
         {caption ?? messagePreview(message)}
         {trailingMeta ? <> {trailingMeta}</> : null}
       </Text>
@@ -67,20 +64,10 @@ export function MessageContent({
             style={imageSize}
           />
         ) : (
-          <Text
-            className="text-foreground text-sm"
-            style={{ lineHeight: undefined }}
-          >
-            Photo unavailable
-          </Text>
+          <Text className="text-foreground text-sm">Photo unavailable</Text>
         )}
         {caption ? (
-          <Text
-            className="text-foreground text-sm"
-            style={{ lineHeight: undefined }}
-          >
-            {caption}
-          </Text>
+          <Text className="text-foreground text-sm">{caption}</Text>
         ) : null}
       </View>
     );
@@ -90,19 +77,9 @@ export function MessageContent({
   if (!safeUrl) {
     return (
       <View className="gap-1">
-        <Text
-          className="text-foreground text-sm"
-          style={{ lineHeight: undefined }}
-        >
-          {label} unavailable
-        </Text>
+        <Text className="text-foreground text-sm">{label} unavailable</Text>
         {caption ? (
-          <Text
-            className="text-foreground text-sm"
-            style={{ lineHeight: undefined }}
-          >
-            {caption}
-          </Text>
+          <Text className="text-foreground text-sm">{caption}</Text>
         ) : null}
       </View>
     );
@@ -124,19 +101,11 @@ export function MessageContent({
 
   return (
     <View className="gap-2">
-      <Text
-        className="text-foreground text-sm"
-        style={{ lineHeight: undefined }}
-      >
+      <Text className="text-foreground text-sm">
         {localDocumentFilename ?? label}
       </Text>
       {caption ? (
-        <Text
-          className="text-foreground text-sm"
-          style={{ lineHeight: undefined }}
-        >
-          {caption}
-        </Text>
+        <Text className="text-foreground text-sm">{caption}</Text>
       ) : null}
       <Pressable
         accessibilityLabel={`Open ${label.toLowerCase()}`}
@@ -146,19 +115,12 @@ export function MessageContent({
         disabled={opening}
         onPress={() => void openMedia()}
       >
-        <Text
-          className="text-foreground text-sm font-medium"
-          style={{ lineHeight: undefined }}
-        >
+        <Text className="text-foreground text-sm font-medium">
           Open {label.toLowerCase()}
         </Text>
       </Pressable>
       {openFailed ? (
-        <Text
-          accessibilityRole="alert"
-          className="text-foreground text-sm"
-          style={{ lineHeight: undefined }}
-        >
+        <Text accessibilityRole="alert" className="text-foreground text-sm">
           Unable to open {label.toLowerCase()}
         </Text>
       ) : null}

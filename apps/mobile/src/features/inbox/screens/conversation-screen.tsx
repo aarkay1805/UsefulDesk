@@ -14,7 +14,6 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Platform,
-  Text,
   View,
 } from 'react-native';
 
@@ -24,6 +23,7 @@ import {
   ErrorState,
   LoadingState,
   ScreenSafeAreaView,
+  Text,
 } from '../../../ui';
 import { useReadyAuth } from '../../auth/auth-context';
 import { ConversationComposer } from '../components/conversation-composer';
@@ -38,8 +38,13 @@ import {
   type ActionBlocker,
   type ConversationActionState,
 } from '../conversation-actions';
-import { buildThreadItems, messagePreview } from '../inbox-format';
+import {
+  buildThreadItems,
+  messagePreview,
+  threadDateLabel,
+} from '../inbox-format';
 import { useInboxRealtimeFeed } from '../inbox-realtime-provider';
+import { useAccountCalendarClock } from '../use-account-calendar-clock';
 import {
   CONVERSATION_ID as LOCAL_LAYOUT_CONVERSATION_ID,
   createLocalConversationLayoutFixture,
@@ -156,10 +161,7 @@ function UnavailableConversation() {
           <Text className="text-foreground text-center text-base font-semibold">
             Conversation is unavailable
           </Text>
-          <Text
-            className="text-muted text-center text-sm"
-            style={{ lineHeight: undefined }}
-          >
+          <Text className="text-muted text-center text-sm">
             It may have been removed or may not belong to this account.
           </Text>
         </View>
@@ -307,6 +309,7 @@ function ConversationThread({
     useState<TemplateSendSafetyState>('loading');
   const [templateSafetyCheckNonce, setTemplateSafetyCheckNonce] = useState(0);
   const [actionClockMs, setActionClockMs] = useState(() => Date.now());
+  const calendarClock = useAccountCalendarClock(fmt.config.timeZone);
   const [keyboardVerticalOffset, setKeyboardVerticalOffset] = useState(0);
   const [composerStaged, setComposerStaged] = useState(false);
   const [replySelection, setReplySelection] = useState<{
@@ -322,7 +325,9 @@ function ConversationThread({
   const latestId = thread.items.at(-1)?.id ?? null;
   const itemCount = thread.items.length;
   const firstId = thread.items.at(0)?.id ?? null;
-  const displayItems = buildThreadItems(thread.items, fmt.date);
+  const displayItems = buildThreadItems(thread.items, (value) =>
+    threadDateLabel(value, fmt, calendarClock)
+  );
   const title =
     thread.conversation?.contact.name?.trim() ||
     (thread.conversation
@@ -499,10 +504,7 @@ function ConversationThread({
           accessibilityRole="alert"
           className="items-center gap-3 px-5 py-4"
         >
-          <Text
-            className="text-foreground text-center text-sm"
-            style={{ lineHeight: undefined }}
-          >
+          <Text className="text-foreground text-center text-sm">
             Could not load older messages
           </Text>
           <Button
@@ -527,7 +529,6 @@ function ConversationThread({
         <View className="items-center px-3 py-3">
           <Text
             className="text-chat-meta text-xs font-medium"
-            style={{ lineHeight: undefined }}
             testID="conversation-date-separator"
           >
             {item.label}
@@ -771,10 +772,7 @@ function ConversationThread({
             testID="template-send-safety-loading"
           >
             <ActivityIndicator accessibilityLabel="Checking template send safety" />
-            <Text
-              className="text-warning-soft-foreground flex-1 text-sm"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-warning-soft-foreground flex-1 text-sm">
               Checking template send safety…
             </Text>
           </View>
@@ -792,16 +790,10 @@ function ConversationThread({
               accessibilityRole="alert"
               className="gap-1"
             >
-              <Text
-                className="text-warning-soft-foreground text-base font-semibold"
-                style={{ lineHeight: undefined }}
-              >
+              <Text className="text-warning-soft-foreground text-base font-semibold">
                 Template sending is locked
               </Text>
-              <Text
-                className="text-warning-soft-foreground text-sm"
-                style={{ lineHeight: undefined }}
-              >
+              <Text className="text-warning-soft-foreground text-sm">
                 Could not verify the previous template send status. Check again
                 before sending.
               </Text>
@@ -826,10 +818,7 @@ function ConversationThread({
           className="bg-warning-soft gap-2 px-3 py-2"
           testID="closed-window-action-bar"
         >
-          <Text
-            className="text-warning-soft-foreground text-sm"
-            style={{ lineHeight: undefined }}
-          >
+          <Text className="text-warning-soft-foreground text-sm">
             The customer-service window is closed.
           </Text>
           <Button
@@ -853,16 +842,10 @@ function ConversationThread({
           accessibilityRole="alert"
           className="gap-1"
         >
-          <Text
-            className="text-warning-soft-foreground text-base font-semibold"
-            style={{ lineHeight: undefined }}
-          >
+          <Text className="text-warning-soft-foreground text-base font-semibold">
             {actionState.blocker.title}
           </Text>
-          <Text
-            className="text-warning-soft-foreground text-sm"
-            style={{ lineHeight: undefined }}
-          >
+          <Text className="text-warning-soft-foreground text-sm">
             {actionState.blocker.reason}
           </Text>
         </View>
@@ -900,16 +883,10 @@ function ConversationThread({
             accessibilityRole="alert"
             className="bg-warning-soft mx-4 mt-3 gap-1 rounded-xl p-4"
           >
-            <Text
-              className="text-warning-soft-foreground text-sm font-semibold"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-warning-soft-foreground text-sm font-semibold">
               Live updates unavailable
             </Text>
-            <Text
-              className="text-warning-soft-foreground text-sm"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-warning-soft-foreground text-sm">
               Pull to refresh while the connection recovers.
             </Text>
           </View>
@@ -922,10 +899,7 @@ function ConversationThread({
             accessibilityRole="alert"
             className="mx-4 mt-3"
           >
-            <Text
-              className="text-foreground text-center text-sm"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-foreground text-center text-sm">
               Could not clear unread messages
             </Text>
           </View>
@@ -938,10 +912,7 @@ function ConversationThread({
             accessibilityRole="alert"
             className="mx-4 mt-3"
           >
-            <Text
-              className="text-danger text-center text-sm"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-danger text-center text-sm">
               {thread.refreshWarning}
             </Text>
           </View>
@@ -954,10 +925,7 @@ function ConversationThread({
             accessibilityRole="alert"
             className="mx-4 mt-3"
           >
-            <Text
-              className="text-danger text-center text-sm"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-danger text-center text-sm">
               {reactions.error}
             </Text>
           </View>
@@ -977,10 +945,7 @@ function ConversationThread({
               keyExtractor={(item) => item.key}
               ListEmptyComponent={
                 <View className="flex-1 items-center justify-center px-5 py-12">
-                  <Text
-                    className="text-foreground text-base font-semibold"
-                    style={{ lineHeight: undefined }}
-                  >
+                  <Text className="text-foreground text-base font-semibold">
                     No messages yet
                   </Text>
                 </View>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { ReadyAuthContextValue } from '../../auth/auth-context';
 import type { AccountSummary, BranchAccount } from '../../auth/branch-types';
@@ -62,15 +62,6 @@ jest.mock('heroui-native', () => {
     return React.createElement(Text, { className }, children);
   };
 
-  function MockChip(props: import('react-native').PressableProps) {
-    return React.createElement(Pressable, props);
-  }
-  MockChip.Label = function MockChipLabel({
-    children,
-  }: import('react').PropsWithChildren) {
-    return React.createElement(Text, null, children);
-  };
-
   let searchOnChange: ((value: string) => void) | undefined;
   function MockSearchField({
     children,
@@ -107,6 +98,78 @@ jest.mock('heroui-native', () => {
       disabled: isDisabled,
       onPress: () => searchOnChange?.(''),
     });
+  };
+
+  const MenuOpenContext = React.createContext({
+    isOpen: false,
+    setOpen: (_next: boolean): void => undefined,
+  });
+  let menuSelectionHandler: ((keys: Set<string>) => void) | undefined;
+
+  function MockMenu({ children }: import('react').PropsWithChildren) {
+    const [isOpen, setOpen] = React.useState(false);
+    return React.createElement(
+      MenuOpenContext.Provider,
+      { value: { isOpen, setOpen } },
+      children
+    );
+  }
+  MockMenu.Trigger = function MockMenuTrigger({
+    isDisabled,
+    ...props
+  }: import('react-native').PressableProps & { isDisabled?: boolean }) {
+    const { isOpen, setOpen } = React.useContext(MenuOpenContext);
+    return React.createElement(Pressable, {
+      ...props,
+      accessibilityRole: 'button',
+      disabled: isDisabled,
+      onPress: () => setOpen(!isOpen),
+    });
+  };
+  MockMenu.Portal = function MockMenuPortal({
+    children,
+  }: import('react').PropsWithChildren) {
+    const { isOpen } = React.useContext(MenuOpenContext);
+    return isOpen ? React.createElement(View, null, children) : null;
+  };
+  MockMenu.Overlay = function MockMenuOverlay() {
+    return null;
+  };
+  MockMenu.Content = function MockMenuContent({
+    children,
+  }: import('react').PropsWithChildren) {
+    return React.createElement(View, null, children);
+  };
+  MockMenu.Group = function MockMenuGroup({
+    children,
+    onSelectionChange,
+  }: import('react').PropsWithChildren<{
+    onSelectionChange?: (keys: Set<string>) => void;
+  }>) {
+    menuSelectionHandler = onSelectionChange;
+    return React.createElement(View, null, children);
+  };
+  MockMenu.Item = function MockMenuItem({
+    id,
+    ...props
+  }: import('react-native').PressableProps & { id?: string }) {
+    const { setOpen } = React.useContext(MenuOpenContext);
+    return React.createElement(Pressable, {
+      ...props,
+      accessibilityRole: 'button',
+      onPress: () => {
+        if (id !== undefined) menuSelectionHandler?.(new Set([id]));
+        setOpen(false);
+      },
+    });
+  };
+  MockMenu.ItemIndicator = function MockMenuItemIndicator() {
+    return null;
+  };
+  MockMenu.ItemTitle = function MockMenuItemTitle({
+    children,
+  }: import('react').PropsWithChildren) {
+    return React.createElement(Text, null, children);
   };
 
   function MockAvatar(props: import('react-native').ViewProps) {
@@ -157,7 +220,7 @@ jest.mock('heroui-native', () => {
     Alert: MockAlert,
     Avatar: MockAvatar,
     Button: MockButton,
-    Chip: MockChip,
+    Menu: MockMenu,
     SearchField: MockSearchField,
     Spinner: MockSpinner,
   };
@@ -302,6 +365,9 @@ describe('InboxScreen', () => {
       screen.getByLabelText('Search conversations'),
       'renewal'
     );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Conversation filter, All' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Unread, 3' }));
 
     expect(result.setSearch).toHaveBeenCalledWith('renewal');
@@ -361,5 +427,34 @@ describe('InboxScreen', () => {
 
     expect(result.refresh).toHaveBeenCalledTimes(1);
     expect(result.loadMore).toHaveBeenCalledTimes(1);
+  });
+
+  it('advances relative conversation timestamps at the account midnight', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-04T18:29:30.000Z'));
+    mockUseConversationList.mockReturnValue(
+      listResult({
+        items: [
+          conversation({
+            unreadCount: 0,
+            lastMessageAt: '2026-09-04T18:20:00.000Z',
+          }),
+        ],
+      })
+    );
+    const view = render(<InboxScreen />);
+
+    try {
+      expect(screen.queryByText('Yesterday')).toBeNull();
+
+      act(() => {
+        jest.advanceTimersByTime(31_000);
+      });
+
+      expect(screen.getByText('Yesterday')).toBeTruthy();
+    } finally {
+      view.unmount();
+      jest.useRealTimers();
+    }
   });
 });

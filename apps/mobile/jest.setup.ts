@@ -5,6 +5,9 @@ jest.mock('uniwind', () => {
   const colors: Record<string, string> = {
     '--color-foreground': '#18181b',
     '--color-accent-foreground': '#fcfcfc',
+    '--color-chat-meta': '#5b5b66',
+    '--color-chat-meta-out': '#41506b',
+    '--color-chat-read': '#2f7fd1',
   };
 
   return {

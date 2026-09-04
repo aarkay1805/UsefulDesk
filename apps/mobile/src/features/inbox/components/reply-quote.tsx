@@ -1,6 +1,7 @@
-import { Text, View } from 'react-native';
+import { View } from 'react-native';
 
 import { IconButton } from '../../../ui/icon-button';
+import { Text } from '../../../ui/text';
 
 export type ReplyQuoteContent =
   | { authorLabel: string; preview: string; unavailable?: never }
@@ -30,10 +31,7 @@ export function ReplyQuote({
     >
       <View className="min-w-0 flex-1 gap-0.5">
         {unavailable ? (
-          <Text
-            className={`${metaTone} text-sm`}
-            style={{ lineHeight: undefined }}
-          >
+          <Text className={`${metaTone} text-sm`}>
             Original message unavailable
           </Text>
         ) : (
@@ -41,15 +39,10 @@ export function ReplyQuote({
             <Text
               className={`${metaTone} text-xs font-semibold`}
               numberOfLines={1}
-              style={{ lineHeight: undefined }}
             >
               {authorLabel}
             </Text>
-            <Text
-              className="text-foreground text-sm"
-              numberOfLines={2}
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-foreground text-sm" numberOfLines={2}>
               {preview}
             </Text>
           </>

@@ -1,7 +1,8 @@
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
 
 import { Button } from '../../../ui/button';
 import { ScreenSafeAreaView } from '../../../ui/screen-safe-area-view';
+import { Text } from '../../../ui/text';
 
 export const QUICK_REACTION_EMOJIS = [
   '👍',
@@ -57,17 +58,10 @@ export function MessageActionSheet({
         >
           <View accessibilityViewIsModal className="gap-4 pb-4">
             <View className="gap-1">
-              <Text
-                className="text-foreground text-base font-semibold"
-                style={{ lineHeight: undefined }}
-              >
+              <Text className="text-foreground text-base font-semibold">
                 Message actions
               </Text>
-              <Text
-                className="text-muted text-sm"
-                numberOfLines={2}
-                style={{ lineHeight: undefined }}
-              >
+              <Text className="text-muted text-sm" numberOfLines={2}>
                 {preview}
               </Text>
             </View>
@@ -81,9 +75,7 @@ export function MessageActionSheet({
                   key={emoji}
                   onPress={() => react(emoji)}
                 >
-                  <Text className="text-2xl" style={{ lineHeight: undefined }}>
-                    {emoji}
-                  </Text>
+                  <Text className="text-2xl">{emoji}</Text>
                 </Pressable>
               ))}
             </View>

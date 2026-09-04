@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, ScreenSafeAreaView } from '../../ui';
+import { Button, ScreenSafeAreaView, Text } from '../../ui';
 import { useReadyAuth } from '../auth/auth-context';
 import { BranchChoices } from '../auth/screens/select-branch-screen';
 import { useNotifications } from '../notifications/notifications-context';

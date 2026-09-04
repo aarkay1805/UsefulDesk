@@ -1,5 +1,7 @@
 import { Avatar } from 'heroui-native';
 
+import { useTextScale } from './use-text-scale';
+
 export interface UserAvatarProps {
   name: string;
   source: string | null;
@@ -30,6 +32,7 @@ export function UserAvatar({
   fallbackTone = 'default',
 }: UserAvatarProps) {
   const strongFallback = fallbackTone === 'strong';
+  const textScale = useTextScale();
 
   return (
     <Avatar
@@ -45,6 +48,7 @@ export function UserAvatar({
         classNames={
           strongFallback ? { text: 'text-accent-foreground' } : undefined
         }
+        key={textScale}
       >
         {firstInitial(name)}
       </Avatar.Fallback>

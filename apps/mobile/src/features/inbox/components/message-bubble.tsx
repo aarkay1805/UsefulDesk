@@ -5,7 +5,6 @@ import {
   Platform,
   PlatformColor,
   Pressable,
-  Text,
   type ColorValue,
   useWindowDimensions,
   View,
@@ -14,6 +13,8 @@ import ReanimatedSwipeable, {
   type SwipeableMethods,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { useCSSVariable } from 'uniwind';
+
+import { useTextScale } from '../../../ui/use-text-scale';
 
 import type {
   InboxMessage,
@@ -24,9 +25,11 @@ import {
   isAccessibilityTextScale,
   shouldInlineBubbleMetadata,
 } from '../inbox-layout';
+import { DeliveryTick } from './delivery-tick';
 import { MessageContent } from './message-content';
 import { MessageReactions } from './message-reactions';
 import { ReplyQuote, type ReplyQuoteContent } from './reply-quote';
+import { Text } from '../../../ui/text';
 
 const DELIVERY_LABEL: Record<MessageStatus, string> = {
   sending: 'Sending',
@@ -34,13 +37,6 @@ const DELIVERY_LABEL: Record<MessageStatus, string> = {
   delivered: 'Delivered',
   read: 'Read',
   failed: 'Failed',
-};
-
-const DELIVERY_TICK: Record<Exclude<MessageStatus, 'failed'>, string> = {
-  sending: '◷',
-  sent: '✓',
-  delivered: '✓✓',
-  read: '✓✓',
 };
 
 const THREAD_HORIZONTAL_PADDING = 12;
@@ -92,24 +88,14 @@ function BubbleMeta({
       className={`${metaTone} ${
         inline ? 'text-xs' : 'self-end pt-0.5 text-xs'
       }`}
-      style={{ lineHeight: undefined }}
       testID="message-metadata"
     >
       {formattedTime}
       {deliveryStatus ? (
-        deliveryStatus === 'read' ? (
-          <>
-            {' '}
-            <Text
-              className="text-chat-read text-xs"
-              style={{ lineHeight: undefined }}
-            >
-              {DELIVERY_TICK.read}
-            </Text>
-          </>
-        ) : (
-          ` ${DELIVERY_TICK[deliveryStatus]}`
-        )
+        <>
+          {' '}
+          <DeliveryTick isOutbound={isOutbound} status={deliveryStatus} />
+        </>
       ) : null}
     </Text>
   );
@@ -140,7 +126,8 @@ export function MessageBubble({
   reactions = [],
   replyQuote,
 }: MessageBubbleProps) {
-  const { fontScale, width: viewportWidth } = useWindowDimensions();
+  const { width: viewportWidth } = useWindowDimensions();
+  const fontScale = useTextScale();
   const foreground = useCSSVariable('--color-foreground');
   const accessibilityTextScale = isAccessibilityTextScale(fontScale);
   const bubbleMaxWidthRatio = accessibilityTextScale
@@ -257,12 +244,7 @@ export function MessageBubble({
                 <ReplyQuote isOutbound={isOutbound} {...replyQuote} />
               ) : null}
               {marker ? (
-                <Text
-                  className={`${metaTone} text-xs`}
-                  style={{ lineHeight: undefined }}
-                >
-                  {marker}
-                </Text>
+                <Text className={`${metaTone} text-xs`}>{marker}</Text>
               ) : null}
               <MessageContent
                 imageSize={imageSize}
@@ -308,10 +290,7 @@ export function MessageBubble({
             key={`${message.id}:failed`}
             testID="message-failed-status"
           >
-            <Text
-              className="text-danger text-xs font-medium"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-danger text-xs font-medium">
               {DELIVERY_LABEL.failed}
             </Text>
           </View>

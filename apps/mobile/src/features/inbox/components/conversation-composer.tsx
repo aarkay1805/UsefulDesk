@@ -1,12 +1,14 @@
 import { Image } from 'expo-image';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Text, type TextInput as TextInputType, View } from 'react-native';
+import { type TextInput as TextInputType, View } from 'react-native';
 
 import {
   MediaValidationError,
   type MediaKind,
 } from '../../../../../../src/lib/storage/media-contract';
 import { Button, ComposerField, IconButton } from '../../../ui';
+import type { GlyphName } from '../../../ui/glyph';
+import { Text } from '../../../ui/text';
 import { pickConversationMedia, type PickedMediaAsset } from '../media-picker';
 import {
   deleteConversationMedia,
@@ -76,6 +78,44 @@ const attachmentLabel: Record<MediaKind, string> = {
   audio: 'Audio',
 };
 
+/**
+ * The attach menu, as rows rather than a grid of tiles: a leading glyph then
+ * its name, which is what iOS chat apps do and what survives an accessibility
+ * text scale, where an icon stacked over a label turns each tile into a column.
+ * `label` stays the spoken name so the row still reads as an action.
+ */
+const ATTACHMENT_OPTIONS: readonly {
+  kind: MediaKind;
+  label: string;
+  name: string;
+  symbol: GlyphName;
+}[] = [
+  {
+    kind: 'image',
+    label: 'Choose photo',
+    name: attachmentLabel.image,
+    symbol: 'photo',
+  },
+  {
+    kind: 'video',
+    label: 'Choose video',
+    name: attachmentLabel.video,
+    symbol: 'video',
+  },
+  {
+    kind: 'document',
+    label: 'Choose document',
+    name: attachmentLabel.document,
+    symbol: 'doc',
+  },
+  {
+    kind: 'audio',
+    label: 'Choose audio',
+    name: attachmentLabel.audio,
+    symbol: 'waveform',
+  },
+];
+
 export function ConversationComposer({
   onSend,
   onRetry,
@@ -117,6 +157,14 @@ export function ConversationComposer({
   const unchangedAmbiguousDraft =
     failedAttempt?.safeToRetry === false &&
     failedAttempt.attemptedText === trimmedDraft;
+  /**
+   * Send appears once there is something to send, the way every current chat
+   * app does it, rather than sitting there greyed out over an empty field. It
+   * stays through `pending` so the control the reader pressed keeps its
+   * spinner, and stays for an ambiguous draft — that text is real, it is the
+   * resend that is locked, so the control is disabled rather than absent.
+   */
+  const showSend = Boolean(trimmedDraft) || pending;
 
   useEffect(
     () => onStagedChange?.(pickerPending || staged !== null),
@@ -493,18 +541,10 @@ export function ConversationComposer({
           />
         ) : (
           <View className="bg-muted gap-1 rounded-xl px-3 py-3">
-            <Text
-              className="text-foreground text-base font-semibold"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-foreground text-base font-semibold">
               {attachmentLabel[staged.asset.kind]}
             </Text>
-            <Text
-              className="text-muted text-sm"
-              style={{ lineHeight: undefined }}
-            >
-              {staged.asset.name}
-            </Text>
+            <Text className="text-muted text-sm">{staged.asset.name}</Text>
           </View>
         )}
         {staged.asset.kind !== 'audio' ? (
@@ -529,10 +569,7 @@ export function ConversationComposer({
             accessibilityValue={{ min: 0, max: 100, now: percentage }}
             className="gap-2"
           >
-            <Text
-              className="text-foreground text-sm"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-foreground text-sm">
               Uploading {percentage}%
             </Text>
             <Button onPress={clearAttachment} size="sm" variant="ghost">
@@ -547,10 +584,7 @@ export function ConversationComposer({
             accessibilityRole="alert"
             className="bg-danger-soft gap-2 rounded-xl px-3 py-2"
           >
-            <Text
-              className="text-danger-soft-foreground text-sm"
-              style={{ lineHeight: undefined }}
-            >
+            <Text className="text-danger-soft-foreground text-sm">
               {staged.error}
             </Text>
           </View>
@@ -599,10 +633,7 @@ export function ConversationComposer({
           accessibilityRole="alert"
           className="bg-danger-soft gap-1 rounded-xl px-3 py-2"
         >
-          <Text
-            className="text-danger-soft-foreground text-sm"
-            style={{ lineHeight: undefined }}
-          >
+          <Text className="text-danger-soft-foreground text-sm">
             {pickerError ?? failedAttempt?.message}
           </Text>
           {canRetry ? (
@@ -621,29 +652,21 @@ export function ConversationComposer({
         </View>
       ) : null}
       {pickerOpen ? (
-        <View className="bg-inbox-chrome rounded-2xl px-3 py-3">
-          <View className="flex-row flex-wrap gap-2">
-            {(
-              [
-                ['image', 'Choose photo'],
-                ['video', 'Choose video'],
-                ['document', 'Choose document'],
-                ['audio', 'Choose audio'],
-              ] as const
-            ).map(([kind, label]) => (
-              <Button
-                accessibilityLabel={label}
-                className="min-w-[46%] flex-1"
-                disabled={pickerPending}
-                key={kind}
-                onPress={() => void chooseAttachment(kind)}
-                size="sm"
-                variant="ghost"
-              >
-                {label.replace('Choose ', '')}
-              </Button>
-            ))}
-          </View>
+        <View className="bg-inbox-chrome overflow-hidden rounded-2xl py-1">
+          {ATTACHMENT_OPTIONS.map(({ kind, label, name, symbol }) => (
+            <Button
+              accessibilityLabel={label}
+              className="justify-start gap-3 rounded-none px-4"
+              disabled={pickerPending}
+              key={kind}
+              onPress={() => void chooseAttachment(kind)}
+              size="sm"
+              symbol={symbol}
+              variant="ghost"
+            >
+              {name}
+            </Button>
+          ))}
         </View>
       ) : null}
       <View className="flex-row items-end gap-2">
@@ -669,16 +692,18 @@ export function ConversationComposer({
             value={draft}
           />
         </View>
-        <IconButton
-          accessibilityLabel="Send message"
-          isDisabled={pending || !trimmedDraft || unchangedAmbiguousDraft}
-          isLoading={pending}
-          onPress={send}
-          shape="circle"
-          symbol="paperplane.fill"
-          testID="conversation-send"
-          tone="on-accent"
-        />
+        {showSend ? (
+          <IconButton
+            accessibilityLabel="Send message"
+            isDisabled={pending || unchangedAmbiguousDraft}
+            isLoading={pending}
+            onPress={send}
+            shape="circle"
+            symbol="send"
+            testID="conversation-send"
+            tone="on-accent"
+          />
+        ) : null}
       </View>
     </View>
   );
