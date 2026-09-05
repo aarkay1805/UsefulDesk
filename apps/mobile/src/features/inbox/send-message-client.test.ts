@@ -33,6 +33,14 @@ function response(status: number, body: string): Response {
   } as unknown as Response;
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+
 function dependencies(options?: {
   sessionToken?: string | null;
   branchId?: string | null;
@@ -66,6 +74,95 @@ function dependencies(options?: {
 }
 
 describe('sendConversationMessage', () => {
+  const branchRaceInputs: MobileSendInput[] = [
+    textInput,
+    {
+      kind: 'template',
+      accountId: ACCOUNT_ID,
+      conversationId: CONVERSATION_ID,
+      templateName: 'gym_membership_renewal',
+      templateLanguage: 'en',
+      templateParams: ['Asha'],
+      templateMessageParams: { body: ['Asha'] },
+    },
+    {
+      kind: 'media',
+      accountId: ACCOUNT_ID,
+      conversationId: CONVERSATION_ID,
+      mediaKind: 'image',
+      mediaUrl: 'https://cdn.example.test/photo.jpg',
+    },
+  ];
+
+  describe.each(branchRaceInputs)(
+    '$kind sends during branch transitions',
+    (input) => {
+      it.each([
+        {
+          stage: 'getSession',
+          nextBranch: 'ab92ad08-3808-4a3e-8d50-7a5fa2a6a770',
+        },
+        { stage: 'getSession', nextBranch: null },
+        {
+          stage: 'refreshSession',
+          nextBranch: 'ab92ad08-3808-4a3e-8d50-7a5fa2a6a770',
+        },
+        { stage: 'refreshSession', nextBranch: null },
+      ] as const)(
+        'rejects before the next POST when $stage resolves with branch $nextBranch',
+        async ({ stage, nextBranch }) => {
+          const setup = dependencies();
+          let selectedBranch: string | null = ACCOUNT_ID;
+          setup.result.selectedBranch = { get: () => selectedBranch };
+          const token = deferred<{
+            data: { session: { access_token: string } };
+            error: null;
+          }>();
+          const tokenReadStarted = deferred<void>();
+          setup[stage].mockImplementationOnce(() => {
+            tokenReadStarted.resolve();
+            return token.promise;
+          });
+          if (stage === 'refreshSession') {
+            setup.fetch.mockResolvedValueOnce(
+              response(401, '{"error":"Expired"}')
+            );
+          }
+          setup.fetch.mockResolvedValue(
+            response(
+              200,
+              '{"message_id":"message-race","whatsapp_message_id":null}'
+            )
+          );
+
+          const sending = sendConversationMessage(input, setup.result);
+          const rejection = expect(sending).rejects.toMatchObject<
+            Partial<MobileSendError>
+          >({
+            category: 'forbidden',
+            safeToRetry: true,
+            message: 'This branch is no longer selected.',
+          });
+          await tokenReadStarted.promise;
+          selectedBranch = nextBranch;
+          token.resolve({
+            data: { session: { access_token: 'resolved-token' } },
+            error: null,
+          });
+
+          await rejection;
+          expect(setup.fetch).toHaveBeenCalledTimes(
+            stage === 'getSession' ? 0 : 1
+          );
+          expect(setup.refreshSession).toHaveBeenCalledTimes(
+            stage === 'getSession' ? 0 : 1
+          );
+          expect(setup.recoverUnauthorizedSession).not.toHaveBeenCalled();
+        }
+      );
+    }
+  );
+
   it.each([
     [
       'image',

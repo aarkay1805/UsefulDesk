@@ -6,6 +6,73 @@
 
 ---
 
+## Formatting is advisory instead of blocking deployment
+
+The shared `npm run verify` in `package.json` keeps lint, typecheck, tests, and
+build mandatory for CI and the Husky pre-push hook. `.github/workflows/ci.yml`
+runs Prettier separately with step-level `continue-on-error` and a warning when
+it fails. The existing CI check name and Vercel deployment status stay stable;
+only formatting is advisory. Local formatting commands and staged-file
+auto-formatting remain available. Gotcha: keep `Verify` blocking, and do not put
+`format:check` back into the shared required sequence.
+
+## Native inbox refreshes retain the loaded conversation range
+
+`apps/mobile/src/features/inbox/use-conversation-list.ts` refreshes the current
+scope's loaded depth in bounded keyset pages, committing rows and the final
+continuation cursor together. Live events, foreground/reconnect, and manual
+refresh keep later pages; failed scans retain the prior range. Snapshots replace
+stale/filter-excluded rows, deletion tombstones and snapshot ownership stop late
+responses restoring them, and ordering keeps messaged conversations before empty
+ones. Regression coverage includes event bursts, query/feed/branch changes,
+partial final pages, unread counts, and continuation into empty conversations.
+
+## Native inbox search preserves typed spaces
+
+`apps/mobile/src/features/inbox/use-conversation-list.ts` always updates the
+displayed search text before comparing normalized queries. Multi-word typing and
+whitespace deletion now work; equivalent normalized edits keep loaded rows,
+cursors, and pending requests without refetching. Hook regressions cover typing,
+clearing, and pagination ownership.
+
+## Native message refreshes preserve owned outbound state
+
+`apps/mobile/src/features/inbox/use-message-thread.ts` now reconciles successful
+snapshots through `outbound-message-state.ts`, retaining unresolved text/media
+sends, their payloads, identity aliases, and attempt ownership. Acknowledgements
+received during a refresh survive its older snapshot; previously acknowledged
+rows absent from a later authoritative snapshot are removed. Realtime deletion
+clears canonical aliases and wins even when the send response arrives later.
+Ambiguous failures remain non-retryable, and refresh never sends automatically.
+Hook/model regressions cover refresh races, retries, delivery status, deletion,
+and unavailable conversations.
+
+## Native sends recheck the selected branch before each request
+
+`apps/mobile/src/features/inbox/send-message-client.ts` checks branch ownership
+immediately before each POST, including the retry after token refresh. Switching
+or clearing the branch during either auth await now returns a typed forbidden
+error without sending another request or triggering session recovery. Regression
+tests cover text, template, and media sends across both auth waits.
+
+## Native composer state survives readiness revalidation
+
+`apps/mobile/src/features/inbox/screens/conversation-screen.tsx` keeps the
+same authorized conversation's composer mounted through readiness loading and
+errors. Drafts, uncertainty locks, native picker returns, and upload ownership
+survive; hidden composer controls and failed-row retries cannot send until
+readiness permits. Viewer/inactive access and branch/conversation teardown still
+dispose the composer and clean up unsent media. Screen and composer regressions
+cover these transitions; no provider send was used for verification.
+
+## Native text and media sends use native UUID generation
+
+`apps/mobile/src/features/inbox/use-message-thread.ts` now creates temporary
+message IDs through the existing `expo-crypto` dependency instead of assuming
+browser-global crypto exists. Text and media regression tests remove that global,
+exercise the default ID path, and verify optimistic-to-persisted reconciliation.
+Injected IDs remain supported; no provider send was used for verification.
+
 ## The orphaned foundation screen becomes the build's own diagnostics page
 
 `features/foundation/foundation-screen.tsx` was the native app's first home

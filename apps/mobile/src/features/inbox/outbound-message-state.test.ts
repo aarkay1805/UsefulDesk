@@ -5,6 +5,9 @@ import {
   applySendAcknowledgement,
   emptyOutboundThreadState,
   markOptimisticFailed,
+  reconcileOutboundSnapshot,
+  removeOutboundMessage,
+  messageForTemporaryId,
 } from './outbound-message-state';
 import {
   CONVERSATION_ID,
@@ -391,5 +394,73 @@ describe('outbound message state', () => {
       TEMPORARY_ID,
       MESSAGE_2_ID,
     ]);
+  });
+});
+
+describe('authoritative outbound refresh', () => {
+  function acknowledged() {
+    return applySendAcknowledgement(optimistic(), {
+      temporaryId: TEMPORARY_ID,
+      messageId: MESSAGE_1_ID,
+      whatsappMessageId: PROVIDER_ID,
+    });
+  }
+
+  it('retains the active attempt so its later failure still owns the optimistic row', () => {
+    const state = optimistic();
+    const refreshed = reconcileOutboundSnapshot(state, [], new Set());
+    expect(refreshed).toEqual(state);
+    expect(
+      markOptimisticFailed(
+        refreshed,
+        TEMPORARY_ID,
+        'Try again',
+        'attempt:one',
+        true
+      ).messages[0]
+    ).toMatchObject({ status: 'failed', safeToRetry: true });
+  });
+
+  it('keeps delivery progress and canonical aliases when a snapshot uses another persisted identity', () => {
+    const state = applyRealtimeMessage(acknowledged(), persisted('read'));
+    const refreshed = reconcileOutboundSnapshot(
+      state,
+      [{ ...persisted('sent'), id: MESSAGE_2_ID }],
+      new Set([MESSAGE_1_ID])
+    );
+    expect(refreshed.messages).toHaveLength(1);
+    expect(refreshed.messages[0]).toMatchObject({
+      id: MESSAGE_1_ID,
+      status: 'read',
+      safeToRetry: false,
+    });
+    expect(refreshed.aliases).toEqual({
+      temporaryId: { [TEMPORARY_ID]: MESSAGE_1_ID },
+      messageId: { [MESSAGE_1_ID]: MESSAGE_1_ID, [MESSAGE_2_ID]: MESSAGE_1_ID },
+      whatsappMessageId: { [PROVIDER_ID]: MESSAGE_1_ID },
+    });
+    expect(messageForTemporaryId(refreshed, TEMPORARY_ID)).toBe(
+      refreshed.messages[0]
+    );
+    expect(refreshed.sendingAttempts).toEqual({});
+    // Deleting a noncanonical persisted alias removes the logical row and all retry metadata.
+    expect(removeOutboundMessage(refreshed, MESSAGE_2_ID)).toEqual(
+      emptyOutboundThreadState()
+    );
+  });
+
+  it('keeps a new acknowledgement only until a snapshot requested after it becomes authoritative', () => {
+    const state = acknowledged();
+    expect(reconcileOutboundSnapshot(state, [], new Set())).toEqual(state);
+    expect(
+      reconcileOutboundSnapshot(state, [], new Set([MESSAGE_1_ID]))
+    ).toEqual(emptyOutboundThreadState());
+  });
+
+  it('does not carry ordinary history or orphaned identities into a replacement snapshot', () => {
+    const state = applyRealtimeMessage(emptyOutboundThreadState(), persisted());
+    expect(reconcileOutboundSnapshot(state, [], new Set())).toEqual(
+      emptyOutboundThreadState()
+    );
   });
 });

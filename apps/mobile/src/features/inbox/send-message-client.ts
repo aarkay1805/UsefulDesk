@@ -236,6 +236,13 @@ async function sendWithToken(
   body: string,
   dependencies: ResolvedMobileSendDependencies
 ): Promise<Response> {
+  if (dependencies.selectedBranch.get() !== input.accountId) {
+    throw new MobileSendError(
+      'forbidden',
+      'This branch is no longer selected.'
+    );
+  }
+
   try {
     return await dependencies.fetch(
       `${dependencies.apiBaseUrl}/api/whatsapp/send`,

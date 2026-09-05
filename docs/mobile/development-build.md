@@ -259,10 +259,10 @@ package can incorrectly look for a package-local Expo installation. Mobile
 typecheck first regenerates Expo Router declarations, so a missing ignored
 `.expo/types/router.d.ts` cannot make a clean checkout fail.
 
-The aggregate `npm run verify` can still stop at the unrelated, unchanged
-tracked Prettier baseline `docs/pricing-and-packaging-research.md`. Generated
-Expo/native directories are ignored by Prettier and must not be counted as
-source-formatting failures.
+The aggregate `npm run verify` requires lint, typecheck, tests, and the production
+build. Formatting is a separate advisory CI check; use `npm run format:check`
+to inspect it locally. Generated Expo/native directories remain ignored by
+Prettier.
 
 ## Remote EAS development builds
 

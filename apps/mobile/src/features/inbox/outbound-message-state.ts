@@ -398,6 +398,85 @@ export function applyRealtimeMessage(
   };
 }
 
+function retainCanonicalMessages(
+  state: OutboundThreadState,
+  canonicalIds: ReadonlySet<string>
+): OutboundThreadState {
+  const retainAliases = (aliases: Readonly<Record<string, string>>) =>
+    Object.fromEntries(
+      Object.entries(aliases).filter(([, canonicalId]) =>
+        canonicalIds.has(canonicalId)
+      )
+    );
+  const temporaryId = retainAliases(state.aliases.temporaryId);
+  return {
+    messages: state.messages.filter((item) =>
+      canonicalIds.has(canonicalForMessage(state, item))
+    ),
+    aliases: {
+      temporaryId,
+      messageId: retainAliases(state.aliases.messageId),
+      whatsappMessageId: retainAliases(state.aliases.whatsappMessageId),
+    },
+    sendingAttempts: Object.fromEntries(
+      Object.entries(state.sendingAttempts).filter(
+        ([id]) => temporaryId[id] !== undefined
+      )
+    ),
+  };
+}
+
+export function removeOutboundMessage(
+  state: OutboundThreadState,
+  identity: string
+): OutboundThreadState {
+  const removedCanonical = canonicalForIdentity(state, identity);
+  return retainCanonicalMessages(
+    state,
+    new Set(
+      state.messages
+        .map((item) => canonicalForMessage(state, item))
+        .filter((id) => id !== removedCanonical)
+    )
+  );
+}
+
+/** Refresh persisted history without discarding this conversation's local sends. */
+export function reconcileOutboundSnapshot(
+  state: OutboundThreadState,
+  snapshot: InboxMessage[],
+  acknowledgedBeforeSnapshot: ReadonlySet<string>
+): OutboundThreadState {
+  const owned = new Set(Object.values(state.aliases.temporaryId));
+  const retained = new Set(
+    snapshot
+      .map((item) => canonicalForMessage(state, item))
+      .filter((id) => owned.has(id))
+  );
+  for (const [temporaryId, canonicalId] of Object.entries(
+    state.aliases.temporaryId
+  )) {
+    // Unresolved sends are local-only. Acknowledgements received during the
+    // request may be newer than its snapshot; older persisted rows must be
+    // present in the authoritative page to survive a refresh.
+    if (
+      temporaryId === canonicalId ||
+      !acknowledgedBeforeSnapshot.has(canonicalId)
+    ) {
+      retained.add(canonicalId);
+    }
+  }
+  let reconciled = retainCanonicalMessages(state, retained);
+  for (const item of snapshot) {
+    // Persisted history stays authoritative. Only owned outbound identities
+    // need the optimistic status/alias merge.
+    reconciled = owned.has(canonicalForMessage(state, item))
+      ? applyRealtimeMessage(reconciled, item)
+      : { ...reconciled, messages: [...reconciled.messages, item] };
+  }
+  return { ...reconciled, messages: reconciled.messages.sort(compareMessages) };
+}
+
 export function markOptimisticFailed(
   state: OutboundThreadState,
   temporaryId: string,

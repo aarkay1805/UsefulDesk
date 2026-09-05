@@ -1405,6 +1405,198 @@ describe('ConversationScreen', () => {
     expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
   });
 
+  it('preserves the draft and gates failed-row retry while readiness refreshes', () => {
+    const ready = readyThreadResult({
+      items: [
+        message({
+          id: 'temp:waiting-for-readiness',
+          senderType: 'agent',
+          status: 'failed',
+          safeToRetry: true,
+          contentText: 'Previous attempt',
+        }),
+      ],
+    });
+    mockUseMessageThread.mockReturnValue(ready);
+    const view = render(<ConversationScreen />);
+    fireEvent.changeText(
+      screen.getByLabelText('Message'),
+      'Please renew tomorrow'
+    );
+
+    for (const status of ['loading', 'error'] as const) {
+      mockUseMessageThread.mockReturnValue({
+        ...ready,
+        sendReadiness: { ...ready.sendReadiness, status },
+      });
+      view.rerender(<ConversationScreen />);
+      expect(screen.queryByLabelText('Message')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
+      expect(
+        screen.queryByRole('button', { name: 'Retry failed message' })
+      ).toBeNull();
+      expect(ready.sendText).not.toHaveBeenCalled();
+      expect(ready.retryText).not.toHaveBeenCalled();
+    }
+
+    mockUseMessageThread.mockReturnValue(ready);
+    view.rerender(<ConversationScreen />);
+    expect(screen.getByLabelText('Message').props.value).toBe(
+      'Please renew tomorrow'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Retry failed message' })
+    ).toBeTruthy();
+  });
+
+  it('retains the uncertain-send lock through a readiness check', async () => {
+    const ready = readyThreadResult({
+      sendText: jest.fn().mockResolvedValue({
+        temporaryId: 'temp:uncertain',
+        status: 'failed',
+        safeToRetry: false,
+        message: 'Delivery could not be confirmed.',
+      }),
+    });
+    mockUseMessageThread.mockReturnValue(ready);
+    const view = render(<ConversationScreen />);
+    fireEvent.changeText(
+      screen.getByLabelText('Message'),
+      'May already be sent'
+    );
+    fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
+    await screen.findByText('Delivery could not be confirmed.');
+
+    mockUseMessageThread.mockReturnValue({
+      ...ready,
+      sendReadiness: { ...ready.sendReadiness, status: 'loading' },
+    });
+    view.rerender(<ConversationScreen />);
+    mockUseMessageThread.mockReturnValue(ready);
+    view.rerender(<ConversationScreen />);
+
+    expect(screen.getByLabelText('Message').props.value).toBe(
+      'May already be sent'
+    );
+    expect(screen.getByText('Delivery could not be confirmed.')).toBeTruthy();
+    const send = screen.getByRole('button', { name: 'Send message' });
+    expect(send.props.accessibilityState).toMatchObject({ disabled: true });
+    fireEvent.press(send);
+    expect(ready.sendText).toHaveBeenCalledTimes(1);
+    expect(ready.retryText).not.toHaveBeenCalled();
+  });
+
+  it('retains a native picker and upload through readiness checks without sending', async () => {
+    const asset = {
+      kind: 'image' as const,
+      uri: 'file:///cache/member.jpg',
+      name: 'member.jpg',
+      mimeType: 'image/jpeg',
+      size: 1024,
+    };
+    const picker = deferred<typeof asset>();
+    const upload = deferred<{ path: string; publicUrl: string }>();
+    const abort = jest.fn();
+    mockPickConversationMedia.mockReturnValueOnce(picker.promise);
+    mockUploadConversationMedia.mockReturnValueOnce({
+      promise: upload.promise,
+      abort,
+    });
+    const ready = readyThreadResult();
+    mockUseMessageThread.mockReturnValue(ready);
+    const view = render(<ConversationScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+    mockUseMessageThread.mockReturnValue({
+      ...ready,
+      sendReadiness: { ...ready.sendReadiness, status: 'loading' },
+    });
+    view.rerender(<ConversationScreen />);
+    await act(async () => picker.resolve(asset));
+    expect(mockUploadConversationMedia).toHaveBeenCalledTimes(1);
+    expect(abort).not.toHaveBeenCalled();
+    await act(async () =>
+      upload.resolve({
+        path: `account-${BRANCH_ID}/1700000000000-member.jpg`,
+        publicUrl: 'https://cdn.example.test/member.jpg',
+      })
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Send attachment' })
+    ).toBeNull();
+    expect(ready.sendMedia).not.toHaveBeenCalled();
+    expect(mockDeleteConversationMedia).not.toHaveBeenCalled();
+
+    mockUseMessageThread.mockReturnValue(ready);
+    view.rerender(<ConversationScreen />);
+    fireEvent.changeText(screen.getByLabelText('Caption'), 'Renewal receipt');
+    mockUseMessageThread.mockReturnValue({
+      ...ready,
+      sendReadiness: { ...ready.sendReadiness, status: 'error' },
+    });
+    view.rerender(<ConversationScreen />);
+    expect(mockDeleteConversationMedia).not.toHaveBeenCalled();
+    mockUseMessageThread.mockReturnValue(ready);
+    view.rerender(<ConversationScreen />);
+    expect(screen.getByLabelText('Photo attachment preview')).toBeTruthy();
+    expect(screen.getByLabelText('Caption').props.value).toBe(
+      'Renewal receipt'
+    );
+    expect(ready.sendMedia).not.toHaveBeenCalled();
+    expect(abort).not.toHaveBeenCalled();
+  });
+
+  it.each(['viewer', 'read_only', 'branch', 'conversation'] as const)(
+    'disposes retained composer state when the %s authority or scope changes',
+    async (change) => {
+      const ready = readyThreadResult();
+      mockUseMessageThread.mockReturnValue(ready);
+      const view = render(<ConversationScreen />);
+      fireEvent.changeText(
+        screen.getByLabelText('Message'),
+        'Private branch draft'
+      );
+      fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+      await screen.findByRole('button', { name: 'Send attachment' });
+      mockUseMessageThread.mockReturnValue({
+        ...ready,
+        sendReadiness: { ...ready.sendReadiness, status: 'loading' },
+      });
+      view.rerender(<ConversationScreen />);
+      expect(mockDeleteConversationMedia).not.toHaveBeenCalled();
+
+      if (change === 'conversation') {
+        mockUseLocalSearchParams.mockReturnValue({
+          conversationId: OTHER_CONVERSATION_ID,
+        });
+      } else {
+        mockUseReadyAuth.mockReturnValue(
+          change === 'viewer'
+            ? readyAuthValue(BRANCH_ID, 'viewer')
+            : change === 'read_only'
+              ? readyAuthValue(BRANCH_ID, 'agent', 'read_only')
+              : readyAuthValue(OTHER_BRANCH_ID)
+        );
+      }
+      view.rerender(<ConversationScreen />);
+      expect(mockDeleteConversationMedia).toHaveBeenCalledWith({
+        accountId: BRANCH_ID,
+        path: `account-${BRANCH_ID}/1700000000000-member.jpg`,
+      });
+      mockUseReadyAuth.mockReturnValue(readyAuthValue());
+      mockUseLocalSearchParams.mockReturnValue({
+        conversationId: CONVERSATION_ID,
+      });
+      mockUseMessageThread.mockReturnValue(ready);
+      view.rerender(<ConversationScreen />);
+      expect(screen.getByLabelText('Message').props.value).toBe('');
+      expect(screen.queryByLabelText('Photo attachment preview')).toBeNull();
+      expect(ready.sendText).not.toHaveBeenCalled();
+      expect(ready.sendMedia).not.toHaveBeenCalled();
+    }
+  );
+
   it('shows no send surface until readiness finishes loading', () => {
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({

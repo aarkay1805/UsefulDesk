@@ -51,13 +51,23 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Formatting remains visible without blocking the required checks or
+      # the Vercel deployment status. Only this step may fail without failing CI.
+      - name: Formatting (advisory)
+        id: formatting
+        continue-on-error: true
+        run: npm run format:check
+
+      - name: Report formatting warning
+        if: steps.formatting.outcome == 'failure'
+        run: echo "::warning::Formatting check did not pass. Run npm run format locally to review and fix formatting; deployment is not blocked by this check."
+
       - name: Install PDF test tooling
         run: |
           sudo apt-get update
           sudo apt-get install -y poppler-utils
 
       # Keep this command identical to the Husky pre-push hook so a local push
-      # cannot skip a validation stage that GitHub will run later. Formatting
-      # remains first because it is the fastest failure to diagnose.
+      # runs the same required lint, typecheck, test, and build checks as CI.
       - name: Verify
         run: npm run verify

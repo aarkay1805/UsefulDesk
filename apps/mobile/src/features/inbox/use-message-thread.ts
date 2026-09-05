@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { randomUUID } from 'expo-crypto';
 
 import {
   canClearConversationUnread,
@@ -30,6 +31,8 @@ import {
   hasTemporaryAliasForMessage,
   markOptimisticFailed,
   messageForTemporaryId,
+  reconcileOutboundSnapshot,
+  removeOutboundMessage,
   type OutboundThreadState,
 } from './outbound-message-state';
 import {
@@ -286,6 +289,22 @@ function compareMessages(first: InboxMessage, second: InboxMessage): number {
   return first.id.localeCompare(second.id);
 }
 
+function acknowledgeOutboundMessage(
+  thread: OutboundThreadState,
+  temporaryId: string,
+  acknowledgement: MobileSendResult,
+  mutations: ReadonlyMap<string, RealtimeMessageMutation>
+): OutboundThreadState {
+  // A delete can arrive before the API reveals the temporary row's persisted ID.
+  if (mutations.get(acknowledgement.messageId)?.kind === 'delete') {
+    return removeOutboundMessage(
+      removeOutboundMessage(thread, temporaryId),
+      acknowledgement.messageId
+    );
+  }
+  return applySendAcknowledgement(thread, { temporaryId, ...acknowledgement });
+}
+
 function reconcileMessageSnapshot(
   snapshotItems: InboxMessage[],
   currentItems: InboxMessage[],
@@ -503,6 +522,11 @@ export function useMessageThread({
     const currentRequestGeneration = ++requestGeneration.current;
     const currentFeedGeneration = feedGeneration.current;
     const snapshotMutationSequence = mutationSequence.current;
+    const acknowledgedBeforeSnapshot = new Set(
+      Object.entries(latestState.current.thread.aliases.temporaryId)
+        .filter(([temporaryId, canonicalId]) => temporaryId !== canonicalId)
+        .map(([, canonicalId]) => canonicalId)
+    );
     const requestOwner: MainRequestOwner = {
       scopeGeneration: currentScopeGeneration,
       requestGeneration: currentRequestGeneration,
@@ -559,25 +583,37 @@ export function useMessageThread({
         ) {
           throw new Error(UNAVAILABLE_ERROR);
         }
-        setState({
-          accountId,
-          conversationId,
-          conversation: verifiedConversation,
-          thread: emptyOutboundThreadState(
+        setState((previous) => {
+          const sameScope =
+            previous.accountId === accountId &&
+            previous.conversationId === conversationId;
+          let thread = reconcileOutboundSnapshot(
+            sameScope ? previous.thread : emptyOutboundThreadState(),
             reconcileMessageSnapshot(
               page.items,
               [],
               messageMutations.current,
               snapshotMutationSequence
-            )
-          ),
-          cursor: page.nextCursor,
-          status: 'ready',
-          error: null,
-          refreshWarning: null,
-          unreadWarning: null,
-          paginationError: null,
-          refreshing: false,
+            ),
+            acknowledgedBeforeSnapshot
+          );
+          for (const [messageId, mutation] of messageMutations.current) {
+            if (mutation.kind === 'delete')
+              thread = removeOutboundMessage(thread, messageId);
+          }
+          return {
+            accountId,
+            conversationId,
+            conversation: verifiedConversation,
+            thread,
+            cursor: page.nextCursor,
+            status: 'ready',
+            error: null,
+            refreshWarning: null,
+            unreadWarning: null,
+            paginationError: null,
+            refreshing: false,
+          };
         });
         clearUnread(
           accountId,
@@ -947,15 +983,10 @@ export function useMessageThread({
           ) {
             return previous;
           }
-          const messages = previous.thread.messages.filter(
-            (item) => item.id !== messageId
-          );
-          return messages.length === previous.thread.messages.length
-            ? previous
-            : {
-                ...previous,
-                thread: { ...previous.thread, messages },
-              };
+          return {
+            ...previous,
+            thread: removeOutboundMessage(previous.thread, messageId),
+          };
         });
         return;
       }
@@ -1207,11 +1238,12 @@ export function useMessageThread({
             }
             return {
               ...previous,
-              thread: applySendAcknowledgement(previous.thread, {
+              thread: acknowledgeOutboundMessage(
+                previous.thread,
                 temporaryId,
-                messageId: acknowledgement.messageId,
-                whatsappMessageId: acknowledgement.whatsappMessageId,
-              }),
+                acknowledgement,
+                messageMutations.current
+              ),
             };
           });
         }
@@ -1253,8 +1285,7 @@ export function useMessageThread({
         );
       }
       const temporaryId =
-        dependencies.createTemporaryId?.() ??
-        `temp:${globalThis.crypto.randomUUID()}`;
+        dependencies.createTemporaryId?.() ?? `temp:${randomUUID()}`;
       return performTextSend(
         temporaryId,
         `attempt:${++nextSendAttempt.current}`,
@@ -1333,11 +1364,12 @@ export function useMessageThread({
             previous.conversationId === sendConversationId
               ? {
                   ...previous,
-                  thread: applySendAcknowledgement(previous.thread, {
+                  thread: acknowledgeOutboundMessage(
+                    previous.thread,
                     temporaryId,
-                    messageId: acknowledgement.messageId,
-                    whatsappMessageId: acknowledgement.whatsappMessageId,
-                  }),
+                    acknowledgement,
+                    messageMutations.current
+                  ),
                 }
               : previous
           );
@@ -1377,8 +1409,7 @@ export function useMessageThread({
         );
       }
       const temporaryId =
-        dependencies.createTemporaryId?.() ??
-        `temp:${globalThis.crypto.randomUUID()}`;
+        dependencies.createTemporaryId?.() ?? `temp:${randomUUID()}`;
       return performMediaSend(
         temporaryId,
         `attempt:${++nextSendAttempt.current}`,

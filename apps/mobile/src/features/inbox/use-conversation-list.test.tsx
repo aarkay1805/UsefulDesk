@@ -267,6 +267,7 @@ describe('useConversationList', () => {
     );
 
     act(() => result.current.setSearch('   '));
+    expect(result.current.search).toBe('   ');
     await act(async () => {
       initial.resolve(page([conversationA]));
       await initial.promise;
@@ -275,6 +276,99 @@ describe('useConversationList', () => {
 
     expect(result.current.items).toEqual([conversationA]);
     expect(result.current.status).toBe('ready');
+    expect(repository.list).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves spaces while typing a multi-word search one character at a time', async () => {
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+
+    let typed = '';
+    for (const character of 'Rajat Kashyap') {
+      typed += character;
+      await act(async () =>
+        result.current.setSearch(result.current.search + character)
+      );
+      expect(result.current.search).toBe(typed);
+    }
+
+    expect(repository.list).toHaveBeenLastCalledWith({
+      accountId: BRANCH_A,
+      filter: 'all',
+      search: 'Rajat Kashyap',
+      cursor: null,
+    });
+  });
+
+  it('preserves raw deletions and clears the normalized query', async () => {
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    await act(async () => result.current.setSearch(' Rajat K'));
+
+    for (const value of [' Rajat ', ' Rajat', ' Raj', ' ', '']) {
+      await act(async () => result.current.setSearch(value));
+      expect(result.current.search).toBe(value);
+    }
+
+    expect(repository.list.mock.calls.map(([input]) => input.search)).toEqual([
+      '',
+      'Rajat K',
+      'Rajat',
+      'Raj',
+      '',
+    ]);
+    expect(result.current.status).toBe('ready');
+  });
+
+  it('keeps loaded rows and pending pagination through equivalent search edits', async () => {
+    const cursor: ConversationCursor = {
+      phase: 'messaged',
+      lastMessageAt: conversationA.lastMessageAt!,
+      id: conversationA.id,
+    };
+    const older = conversation({ id: OTHER_CONVERSATION_ID });
+    const nextPage = deferred<ConversationPage>();
+    repository.list
+      .mockResolvedValueOnce(page([]))
+      .mockResolvedValueOnce(page([conversationA], cursor))
+      .mockReturnValueOnce(nextPage.promise);
+    const { result } = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime })
+    );
+    await waitFor(() => expect(result.current.status).toBe('ready'));
+    await act(async () => result.current.setSearch('Rajat K'));
+
+    for (const value of [' Rajat K ', 'Rajat  K', 'Rajat_K']) {
+      act(() => result.current.setSearch(value));
+      expect(result.current.search).toBe(value);
+      expect(result.current.items).toEqual([conversationA]);
+      expect(result.current.hasMore).toBe(true);
+      expect(result.current.refreshing).toBe(false);
+      expect(repository.list).toHaveBeenCalledTimes(2);
+      expect(repository.unreadCount).toHaveBeenCalledTimes(2);
+    }
+
+    act(() => result.current.loadMore());
+    act(() => result.current.setSearch('Rajat K  '));
+    expect(result.current.search).toBe('Rajat K  ');
+    expect(result.current.loadingMore).toBe(true);
+    expect(repository.list).toHaveBeenLastCalledWith({
+      accountId: BRANCH_A,
+      filter: 'all',
+      search: 'Rajat K',
+      cursor,
+    });
+    await act(async () => nextPage.resolve(page([older])));
+
+    expect(result.current.items).toEqual([conversationA, older]);
+    expect(result.current.loadingMore).toBe(false);
+    expect(result.current.hasMore).toBe(false);
+    expect(repository.list).toHaveBeenCalledTimes(3);
+    expect(repository.unreadCount).toHaveBeenCalledTimes(2);
   });
 
   it('leaves completed filter, normalized-equivalent search, and cursor unchanged', async () => {
@@ -702,5 +796,294 @@ describe('useConversationList', () => {
     await act(async () => result.current.loadMore());
 
     expect(result.current.items).toEqual([conversationA, conversationC]);
+  });
+});
+
+describe('loaded conversation range refresh', () => {
+  let rows: InboxConversation[];
+  let feed: ReturnType<typeof fakeRealtimeFeed>;
+  const cursorFor = (item: InboxConversation): ConversationCursor =>
+    item.lastMessageAt
+      ? { phase: 'messaged', lastMessageAt: item.lastMessageAt, id: item.id }
+      : { phase: 'empty', createdAt: item.createdAt, id: item.id };
+  const event = (
+    item: InboxConversation
+  ): Extract<InboxRealtimeEvent, { table: 'messages' }> => ({
+    table: 'messages',
+    eventType: 'UPDATE',
+    accountId: BRANCH_A,
+    conversationId: item.id,
+    messageId: MESSAGE_1_ID,
+  });
+
+  beforeEach(() => {
+    feed = fakeRealtimeFeed();
+    rows = Array.from({ length: 80 }, (_, index) =>
+      conversation({
+        id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+        lastMessageAt:
+          index < 45
+            ? new Date(Date.UTC(2026, 8, 1, 12, 0, -index)).toISOString()
+            : null,
+        createdAt: new Date(Date.UTC(2026, 8, 2, 12, 0, -index)).toISOString(),
+        lastMessageText: 'renewal',
+        unreadCount: 1,
+      })
+    );
+    repository.list.mockImplementation(async (input) => {
+      const matching = rows.filter(
+        (item) =>
+          item.accountId === input.accountId &&
+          (input.filter !== 'unread' || item.unreadCount > 0) &&
+          (!input.search || item.lastMessageText?.includes(input.search))
+      );
+      const start = input.cursor
+        ? matching.findIndex((item) => item.id === input.cursor!.id) + 1
+        : 0;
+      const items = matching.slice(start, start + (input.limit ?? 30));
+      return page(
+        items,
+        start + items.length < matching.length
+          ? cursorFor(items[items.length - 1])
+          : null
+      );
+    });
+    repository.unreadCount.mockImplementation(
+      async () => rows.filter((item) => item.unreadCount > 0).length
+    );
+    repository.get.mockImplementation(async (_, id) => {
+      const item = rows.find((row) => row.id === id);
+      if (!item) throw new Error('Unavailable');
+      return item;
+    });
+  });
+
+  async function loaded() {
+    const rendered = renderHook(() =>
+      useConversationList({ accountId: BRANCH_A, repository, realtime: feed })
+    );
+    await waitFor(() => expect(rendered.result.current.items).toHaveLength(30));
+    await act(async () => rendered.result.current.loadMore());
+    expect(rendered.result.current.items).toHaveLength(60);
+    return rendered;
+  }
+
+  it.each(['message', 'delivery', 'reaction'] as const)(
+    'retains two pages after a %s event and continues from the refreshed empty-phase cursor',
+    async (kind) => {
+      const { result } = await loaded();
+      const changed = rows[40];
+      await act(async () =>
+        feed.emit({
+          ...event(changed),
+          table: kind === 'reaction' ? 'message_reactions' : 'messages',
+          eventType: kind === 'delivery' ? 'UPDATE' : 'INSERT',
+        })
+      );
+      await waitFor(() => expect(result.current.refreshing).toBe(false));
+      expect(result.current.items).toEqual(rows.slice(0, 60));
+      expect(
+        repository.list.mock.calls.slice(2).map(([input]) => input.limit ?? 30)
+      ).toEqual([30, 30]);
+      await act(async () => result.current.loadMore());
+      expect(repository.list).toHaveBeenLastCalledWith(
+        expect.objectContaining({ cursor: cursorFor(rows[59]) })
+      );
+      expect(result.current.items).toEqual(rows);
+      expect(result.current.hasMore).toBe(false);
+    }
+  );
+
+  it.each(['manual', 'foreground', 'reconnect'] as const)(
+    'keeps the loaded range during a %s refresh',
+    async (kind) => {
+      const { result } = await loaded();
+      if (kind === 'manual') await act(async () => result.current.refresh());
+      else
+        await act(async () =>
+          feed.emitStatus('connected', kind === 'foreground' ? 1 : 2)
+        );
+      await waitFor(() => expect(result.current.refreshing).toBe(false));
+      expect(result.current.items).toEqual(rows.slice(0, 60));
+    }
+  );
+
+  it('replaces changed ordering and query membership authoritatively, with exact unread count', async () => {
+    const { result } = await loaded();
+    await act(async () => result.current.setFilter('unread'));
+    await act(async () => result.current.setSearch('renewal'));
+    await act(async () => result.current.loadMore());
+    expect(result.current.items).toHaveLength(60);
+    const removed = rows[35];
+    rows[35] = { ...removed, unreadCount: 0 };
+    rows[36] = { ...rows[36], lastMessageText: 'different' };
+    const promoted = { ...rows[40], lastMessageAt: '2026-09-03T12:00:00.000Z' };
+    rows = [promoted, ...rows.filter((row) => row.id !== promoted.id)];
+    await act(async () => feed.emit(event(promoted)));
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    const matching = rows.filter(
+      (row) => row.unreadCount > 0 && row.lastMessageText === 'renewal'
+    );
+    expect(result.current.items).toEqual(matching.slice(0, 60));
+    expect(result.current.unreadCount).toBe(79);
+    await act(async () => result.current.loadMore());
+    expect(result.current.items).toEqual(matching);
+  });
+
+  it('retains every loaded row and its continuation when a later refresh page fails', async () => {
+    const { result } = await loaded();
+    const snapshot = [...result.current.items];
+    repository.list
+      .mockResolvedValueOnce(page(rows.slice(0, 30), cursorFor(rows[29])))
+      .mockRejectedValueOnce(new Error('offline'));
+    await act(async () => feed.emit(event(rows[0])));
+    await waitFor(() =>
+      expect(result.current.refreshWarning).toBe(
+        'Could not refresh conversations'
+      )
+    );
+    expect(result.current.items).toEqual(snapshot);
+    expect(result.current.hasMore).toBe(true);
+    await act(async () => result.current.loadMore());
+    expect(result.current.items).toEqual(rows);
+  });
+
+  it('bounds partial last-page requests to the loaded depth', async () => {
+    const { result } = await loaded();
+    await act(async () => result.current.loadMore());
+    expect(result.current.items).toHaveLength(80);
+    repository.list.mockClear();
+    await act(async () => feed.emit(event(rows[0])));
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(
+      repository.list.mock.calls.map(([input]) => input.limit ?? 30)
+    ).toEqual([30, 30, 20]);
+    expect(result.current.items).toEqual(rows);
+    expect(result.current.hasMore).toBe(false);
+  });
+
+  it('coalesces an event burst and never restores a deleted row from a stale later page', async () => {
+    const { result } = await loaded();
+    const removed = rows[40];
+    const staleTail = deferred<ConversationPage>();
+    const stalePage = page(rows.slice(30, 60), cursorFor(rows[59]));
+    repository.list
+      .mockClear()
+      .mockResolvedValueOnce(page(rows.slice(0, 30), cursorFor(rows[29])))
+      .mockReturnValueOnce(staleTail.promise);
+    await act(async () => feed.emit(event(rows[0])));
+    await waitFor(() => expect(repository.list).toHaveBeenCalledTimes(2));
+    rows = rows.filter((row) => row.id !== removed.id);
+    await act(async () => {
+      await feed.emit({
+        table: 'conversations',
+        eventType: 'DELETE',
+        accountId: BRANCH_A,
+        conversationId: removed.id,
+        messageId: null,
+      });
+      for (let index = 0; index < 8; index += 1)
+        await feed.emit(event(rows[0]));
+    });
+    expect(result.current.items.some((row) => row.id === removed.id)).toBe(
+      false
+    );
+    await act(async () => staleTail.resolve(stalePage));
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(repository.list).toHaveBeenCalledTimes(4);
+    expect(result.current.items.some((row) => row.id === removed.id)).toBe(
+      false
+    );
+    expect(result.current.unreadCount).toBe(79);
+    expect(result.current.items.length).toBeGreaterThanOrEqual(59);
+  });
+
+  it('does not let a late hydrate resurrect a row excluded by the completed snapshot', async () => {
+    const { result } = await loaded();
+    const removed = rows[40];
+    const hydrate = deferred<InboxConversation>();
+    repository.get.mockReturnValueOnce(hydrate.promise);
+    rows = rows.filter((row) => row.id !== removed.id);
+    await act(async () => feed.emit(event(removed)));
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(result.current.items.some((row) => row.id === removed.id)).toBe(
+      false
+    );
+    await act(async () => hydrate.resolve(removed));
+    expect(result.current.items).toEqual(rows.slice(0, 60));
+  });
+
+  it.each(['branch', 'search', 'filter', 'feed'] as const)(
+    'stops an obsolete range scan when the %s changes',
+    async (kind) => {
+      const { result, rerender } = renderHook<
+        UseConversationListResult,
+        { accountId: string; realtime: InboxRealtimeFeed }
+      >(
+        ({ accountId, realtime: currentFeed }) =>
+          useConversationList({ accountId, repository, realtime: currentFeed }),
+        {
+          initialProps: {
+            accountId: BRANCH_A,
+            realtime: feed as InboxRealtimeFeed,
+          },
+        }
+      );
+      await waitFor(() => expect(result.current.items).toHaveLength(30));
+      await act(async () => result.current.loadMore());
+      const stale = deferred<ConversationPage>();
+      repository.list.mockReturnValueOnce(stale.promise);
+      await act(async () => feed.emit(event(rows[0])));
+      if (kind === 'branch') rerender({ accountId: BRANCH_B, realtime: feed });
+      if (kind === 'search')
+        await act(async () => result.current.setSearch('absent'));
+      if (kind === 'filter')
+        await act(async () => result.current.setFilter('unread'));
+      if (kind === 'feed')
+        rerender({ accountId: BRANCH_A, realtime: fakeRealtimeFeed() });
+      await waitFor(() => expect(result.current.refreshing).toBe(false));
+      const expected =
+        kind === 'feed'
+          ? rows.slice(0, 60)
+          : kind === 'filter'
+            ? rows.slice(0, 30)
+            : [];
+      expect(result.current.items).toEqual(expected);
+      const calls = repository.list.mock.calls.length;
+      await act(async () =>
+        stale.resolve(page(rows.slice(0, 30), cursorFor(rows[29])))
+      );
+      expect(repository.list).toHaveBeenCalledTimes(calls);
+      expect(result.current.items).toEqual(expected);
+    }
+  );
+
+  it('deduplicates refresh pages and refuses nonadvancing cursors', async () => {
+    const { result } = await loaded();
+    const snapshot = [...result.current.items];
+    repository.list
+      .mockResolvedValueOnce(page(rows.slice(0, 30), cursorFor(rows[29])))
+      .mockResolvedValueOnce(
+        page([rows[29], ...rows.slice(31, 60)], cursorFor(rows[59]))
+      );
+    await act(async () => feed.emit(event(rows[0])));
+    await waitFor(() => expect(result.current.refreshing).toBe(false));
+    expect(new Set(result.current.items.map((row) => row.id)).size).toBe(
+      result.current.items.length
+    );
+    expect(result.current.items).toEqual(
+      snapshot.filter((row) => row.id !== rows[30].id)
+    );
+    const beforeFailure = [...result.current.items];
+    repository.list
+      .mockResolvedValueOnce(page(rows.slice(0, 30), cursorFor(rows[29])))
+      .mockResolvedValueOnce(page(rows.slice(0, 30), cursorFor(rows[29])));
+    await act(async () => feed.emit(event(rows[0])));
+    await waitFor(() =>
+      expect(result.current.refreshWarning).toBe(
+        'Could not refresh conversations'
+      )
+    );
+    expect(result.current.items).toEqual(beforeFailure);
   });
 });

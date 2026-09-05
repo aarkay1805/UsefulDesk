@@ -8,6 +8,37 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Engineering maintenance: **native Inbox refreshes retain the loaded conversation
+range across live events, manual refresh, foreground, and reconnect.** Bounded
+keyset scans preserve continuation, authoritative membership, and exact unread
+counts; failed scans retain visible rows, and stale/deleted data cannot return
+through late responses. Query and branch changes still reset the range.
+
+Engineering maintenance: **native Inbox search preserves spaces as users type
+and delete text.** Only normalized query changes invalidate results; equivalent
+edits retain loaded rows, pagination, and in-flight requests without refetching.
+
+Engineering maintenance: **native message refreshes preserve failed and pending
+text/media sends, retry safety, payloads, and identity reconciliation.** Manual,
+foreground, and reconnect snapshots retain local attempts; acknowledgement races
+and realtime delivery updates deduplicate correctly. Deleted or inaccessible
+history clears authoritatively, and no refresh automatically resends a message.
+
+Engineering maintenance: **native message sends recheck the selected branch
+immediately before the initial request and authentication retry.** Switching or
+clearing the branch during token loading blocks the next POST; text, template,
+and media paths have regression coverage.
+
+Engineering maintenance: **native conversation readiness refreshes preserve
+composer drafts, uncertain-send locks, picker state, and uploaded attachments.**
+Sending and retries stay gated during verification; access loss and conversation
+or branch changes still clear local composer state and clean up unsent media.
+
+Engineering maintenance: **native text and media sends now generate temporary
+message IDs with `expo-crypto`, removing the browser-global crypto crash.** Both
+default send paths have regression coverage without that global, including
+optimistic-message acknowledgement and reconciliation.
+
 Engineering maintenance: **the secure UsefulDesk Agent mobile foundation and
 Stage 1 read-only native Inbox are built in `apps/mobile`: public-only Expo
 configuration, SecureStore auth, startup membership revalidation, and
@@ -44,8 +75,8 @@ The Expo SDK 57 packages are upgraded to their recommended patches, typed-route
 generation is part of mobile typecheck, the development scripts expose the
 workspace-local module path required by the hoisted Expo CLI, and Expo Doctor
 passes **21/21**.
-Generated Expo/native trees are excluded from Prettier, leaving one unchanged
-tracked formatting baseline. Shared small native buttons, icon buttons,
+Generated Expo/native trees are excluded from advisory Prettier checks.
+Shared small native buttons, icon buttons,
 composer fields, and text fields now have a 48pt minimum target for Android and
 iOS parity. Physical iPhone
 acceptance passed two-branch isolation and the closed-window Approved-template
@@ -91,8 +122,8 @@ tablet/foldable layouts, provider delivery, and synthetic screenshots remain
 unverified. Remote EAS builds, project linking, signing, and store distribution
 are release-hardening work after native feature development; they are not a
 development blocker while local Xcode and Gradle builds pass. The root
-`npm run verify` still stops at the one unchanged tracked formatting baseline
-before later gates.
+`npm run verify` requires lint, typecheck, tests, and build; formatting is
+advisory and no longer stops these gates.
 Final review additionally closed ambiguous-send duplication with locked text
 drafts and a durable account/conversation SecureStore template marker,
 separated open-text from template readiness, filtered Authentication templates,
@@ -303,9 +334,12 @@ that uses the encrypted saved token server-side, clears the provider error on
 success, and never stores the PIN or requires Manual setup.**
 
 Engineering maintenance: **Husky and GitHub CI now execute one shared
-`npm run verify` contract covering formatting, lint, typecheck, the full test
-suite, and the production build. Pushes stop locally when any CI stage would
-fail. The Members Realtime dependency matrix is directly testable, so its
+`npm run verify` contract requiring lint, typecheck, the full test suite, and
+the production build. Prettier runs as a separate advisory CI step, so
+formatting differences cannot block pushes or Vercel deployment. Staged-file
+auto-formatting and local formatting commands remain available; the existing
+CI check name and Vercel status are unchanged. The Members Realtime dependency
+matrix is directly testable, so its
 attendance and follow-up coverage survives subscription implementation
 refactors without weakening the behavior contract.**
 
@@ -613,11 +647,6 @@ message was sent.**
 Engineering maintenance: **the Inbox conversation view no longer traps the contact panel or hijacks the reader — the panel carries a Close button of its own, the thread-header identity block and the active row's avatar toggle it open and closed with matching `aria-expanded` labels, the thread pins to the newest message only while the reader is already at the bottom and offers a Jump to latest control otherwise, delivery receipts from other conversations no longer re-render or re-scroll the open thread, opening the panel keeps a bottom-parked reader parked, and hitting Reply focuses the composer**.
 
 Engineering maintenance: **the Inbox now follows WhatsApp Desktop's layout and interaction model — 72px conversation rows on 48px avatars with a fill-tinted active state, an on-surface queue chip strip with a live unread count in place of the old filter dropdown, a 64px thread header carrying Status and Assign inline with the session window, contact panel, and refresh behind a ⋮ menu, tail-bearing message runs on a recessed chat canvas with metadata tucked into each bubble's last line, and a floating composer pill. The account accent still owns outbound bubbles, unread counts, and selection so all five themes survive; only the read tick uses a fixed blue. Five derived chat tokens keep every mode × accent combination above WCAG AA, and DESIGN.md gained an 11px Meta type step for bubble metadata**.
-
-Engineering maintenance: **npm installs now configure a Husky pre-push hook
-that runs the exact repository-wide Prettier check used by CI, blocking
-formatting defects before they reach GitHub while CI remains the final
-backstop**.
 
 Engineering maintenance: **Add member and Convert to member no longer collect WhatsApp consent or evidence as part of checkout, and lead profiles no longer carry the remnant consent action in Leads or Inbox; scoped consent remains recordable from the member profile's Settings card for audit history, but consent and organization-wide opt-out records no longer block manual, API, broadcast, flow, automation, reminder, installment, or payment-link sends**.
 

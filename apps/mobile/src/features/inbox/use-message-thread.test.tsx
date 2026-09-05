@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import { randomUUID } from 'expo-crypto';
 import { Suspense, type ReactNode, useEffect, useState } from 'react';
 
 import type { ConversationRepository } from './conversation-repository';
@@ -44,6 +45,8 @@ import {
 } from './use-message-thread';
 
 type MessagePage = Page<InboxMessage, MessageCursor>;
+
+jest.mock('expo-crypto', () => ({ randomUUID: jest.fn() }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -2171,6 +2174,420 @@ describe('useMessageThread', () => {
         now: () => createdAt,
       };
     }
+
+    it.each([
+      ['text', true],
+      ['media', true],
+      ['text', false],
+      ['media', false],
+    ] as const)(
+      'preserves failed %s retry safety (%s) across a successful refresh',
+      async (kind, safeToRetry) => {
+        messages.list.mockResolvedValue(page([]));
+        const sendMessage = jest
+          .fn<
+            Promise<MobileSendResult>,
+            [MobileSendInput, MobileSendDependencies]
+          >()
+          .mockRejectedValueOnce(
+            safeToRetry
+              ? new MobileSendError('rate_limited', 'Too many send attempts.')
+              : new Error('Connection lost')
+          )
+          .mockResolvedValueOnce(acknowledgement);
+        const { result } = renderHook(() =>
+          useConfiguredThread({ outbound: outbound(sendMessage) })
+        );
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        await act(async () => {
+          if (kind === 'text') {
+            await result.current.sendText('Renewal form', MESSAGE_2_ID);
+          } else {
+            await result.current.sendMedia({
+              mediaKind: 'document',
+              mediaUrl: 'https://cdn.example.test/renewal.pdf',
+              caption: 'Renewal form',
+              filename: 'renewal.pdf',
+              replyToMessageId: MESSAGE_2_ID,
+            });
+          }
+        });
+        const failedRow = result.current.items[0];
+        expect(failedRow).toMatchObject({ status: 'failed', safeToRetry });
+        await act(async () => result.current.refresh());
+        await waitFor(() => expect(result.current.refreshing).toBe(false));
+        expect(result.current.items).toEqual([failedRow]);
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+        await act(async () => {
+          const retry =
+            kind === 'text'
+              ? result.current.retryText
+              : result.current.retryMedia;
+          await retry(temporaryId);
+        });
+        expect(sendMessage).toHaveBeenCalledTimes(safeToRetry ? 2 : 1);
+        if (safeToRetry) {
+          expect(sendMessage.mock.calls[1][0]).toEqual(
+            sendMessage.mock.calls[0][0]
+          );
+          expect(result.current.items).toEqual([
+            expect.objectContaining({ id: MESSAGE_3_ID, status: 'sent' }),
+          ]);
+        } else {
+          expect(result.current.items).toEqual([failedRow]);
+        }
+      }
+    );
+
+    it.each([
+      ['text', 'acknowledgement first'],
+      ['media', 'acknowledgement first'],
+      ['text', 'snapshot first'],
+      ['media', 'snapshot first'],
+      ['text', 'failure after snapshot'],
+      ['media', 'failure after snapshot'],
+    ] as const)(
+      'reconciles an in-flight %s send with a stale refresh: %s',
+      async (kind, order) => {
+        messages.list.mockResolvedValue(page([]));
+        const pending = deferred<MobileSendResult>();
+        const snapshot = deferred<MessagePage>();
+        const sendMessage = jest.fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >(() => pending.promise);
+        const { result } = renderHook(() =>
+          useConfiguredThread({ outbound: outbound(sendMessage) })
+        );
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        let attempt!: Promise<unknown>;
+        act(() => {
+          attempt =
+            kind === 'text'
+              ? result.current.sendText('Still sending')
+              : result.current.sendMedia({
+                  mediaKind: 'image',
+                  mediaUrl: 'https://cdn.example.test/photo.jpg',
+                });
+        });
+        messages.list.mockReturnValueOnce(snapshot.promise);
+        act(() => result.current.refresh());
+        await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+        if (order === 'acknowledgement first') {
+          await act(async () => {
+            pending.resolve(acknowledgement);
+            await attempt;
+          });
+        }
+        await act(async () => {
+          snapshot.resolve(page([]));
+          await snapshot.promise;
+        });
+        await waitFor(() => expect(result.current.refreshing).toBe(false));
+        if (order !== 'acknowledgement first') {
+          expect(result.current.items).toEqual([
+            expect.objectContaining({ id: temporaryId, status: 'sending' }),
+          ]);
+          await act(async () => {
+            if (order === 'failure after snapshot') {
+              pending.reject(
+                new MobileSendError('rate_limited', 'Please wait')
+              );
+            } else {
+              pending.resolve(acknowledgement);
+            }
+            await attempt;
+          });
+        }
+        expect(result.current.items).toEqual([
+          expect.objectContaining(
+            order === 'failure after snapshot'
+              ? { id: temporaryId, status: 'failed', safeToRetry: true }
+              : { id: MESSAGE_3_ID, status: 'sent', safeToRetry: false }
+          ),
+        ]);
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+      }
+    );
+
+    it('preserves failed local messages through foreground and reconnect snapshots', async () => {
+      messages.list.mockResolvedValue(page([]));
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockRejectedValue(new MobileSendError('rate_limited', 'Please wait'));
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await act(async () => {
+        await result.current.sendText('Keep this');
+      });
+      const failedRow = result.current.items[0];
+      await act(async () => realtime.emitStatus('connected', 1));
+      await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(result.current.refreshing).toBe(false));
+      expect(result.current.items).toEqual([failedRow]);
+      await act(async () => realtime.emitStatus('disconnected', 1));
+      await act(async () => realtime.emitStatus('connected', 2));
+      await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(3));
+      await waitFor(() => expect(result.current.refreshing).toBe(false));
+      expect(result.current.items).toEqual([failedRow]);
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it('retains a delivery update and outbound aliases through a stale snapshot', async () => {
+      messages.list.mockResolvedValue(page([]));
+      const snapshot = deferred<MessagePage>();
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockResolvedValue(acknowledgement);
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await act(async () => {
+        await result.current.sendText('Delivery race');
+      });
+      const sent = result.current.items[0];
+      messages.list.mockReturnValueOnce(snapshot.promise);
+      act(() => result.current.refresh());
+      await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+      messages.get.mockResolvedValueOnce({ ...sent, status: 'delivered' });
+      await act(async () =>
+        realtime.emit({
+          table: 'messages',
+          eventType: 'UPDATE',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          messageId: MESSAGE_3_ID,
+        })
+      );
+      await waitFor(() =>
+        expect(result.current.items[0].status).toBe('delivered')
+      );
+      await act(async () => {
+        snapshot.resolve(page([sent]));
+        await snapshot.promise;
+      });
+      await waitFor(() => expect(result.current.refreshing).toBe(false));
+      expect(result.current.items).toEqual([{ ...sent, status: 'delivered' }]);
+      await act(async () => {
+        await result.current.retryText(temporaryId);
+      });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+      messages.get.mockResolvedValueOnce({ ...sent, status: 'read' });
+      await act(async () =>
+        realtime.emit({
+          table: 'messages',
+          eventType: 'UPDATE',
+          accountId: BRANCH_ID,
+          conversationId: CONVERSATION_ID,
+          messageId: MESSAGE_3_ID,
+        })
+      );
+      await waitFor(() => expect(result.current.items[0].status).toBe('read'));
+      expect(result.current.items).toHaveLength(1);
+    });
+
+    it.each(['before acknowledgement', 'after acknowledgement'] as const)(
+      'does not resurrect a deleted local send during refresh: %s',
+      async (order) => {
+        messages.list.mockResolvedValue(page([]));
+        const pending = deferred<MobileSendResult>();
+        const snapshot = deferred<MessagePage>();
+        const sendMessage = jest.fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >(() => pending.promise);
+        const { result } = renderHook(() =>
+          useConfiguredThread({ outbound: outbound(sendMessage) })
+        );
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+        let attempt!: Promise<unknown>;
+        act(() => {
+          attempt = result.current.sendText('Deleted send');
+        });
+        messages.list.mockReturnValueOnce(snapshot.promise);
+        act(() => result.current.refresh());
+        await waitFor(() => expect(messages.list).toHaveBeenCalledTimes(2));
+        if (order === 'after acknowledgement') {
+          await act(async () => {
+            pending.resolve(acknowledgement);
+            await attempt;
+          });
+        }
+        await act(async () =>
+          realtime.emit({
+            table: 'messages',
+            eventType: 'DELETE',
+            accountId: BRANCH_ID,
+            conversationId: CONVERSATION_ID,
+            messageId: MESSAGE_3_ID,
+          })
+        );
+        if (order === 'before acknowledgement') {
+          await act(async () => {
+            pending.resolve(acknowledgement);
+            await attempt;
+          });
+        }
+        await act(async () => {
+          snapshot.resolve(
+            page([
+              message({
+                id: MESSAGE_3_ID,
+                providerMessageId: acknowledgement.whatsappMessageId,
+              }),
+            ])
+          );
+          await snapshot.promise;
+        });
+        await waitFor(() => expect(result.current.refreshing).toBe(false));
+        expect(result.current.items).toEqual([]);
+        await act(async () => {
+          await result.current.retryText(temporaryId);
+        });
+        expect(sendMessage).toHaveBeenCalledTimes(1);
+      }
+    );
+
+    it('removes an earlier acknowledged row absent from an authoritative refresh', async () => {
+      messages.list.mockResolvedValue(page([]));
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockResolvedValue(acknowledgement);
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await act(async () => {
+        await result.current.sendText('Now absent');
+      });
+      expect(result.current.items).toHaveLength(1);
+      await act(async () => result.current.refresh());
+      await waitFor(() => expect(result.current.refreshing).toBe(false));
+      expect(result.current.items).toEqual([]);
+      await act(async () => {
+        await result.current.retryText(temporaryId);
+      });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it('clears failed local sends when refresh revokes conversation access', async () => {
+      messages.list.mockResolvedValue(page([]));
+      const sendMessage = jest
+        .fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >()
+        .mockRejectedValue(new MobileSendError('rate_limited', 'Please wait'));
+      const { result } = renderHook(() =>
+        useConfiguredThread({ outbound: outbound(sendMessage) })
+      );
+      await waitFor(() => expect(result.current.status).toBe('ready'));
+      await act(async () => {
+        await result.current.sendText('Local draft');
+      });
+      expect(result.current.items).toHaveLength(1);
+      conversations.get.mockRejectedValueOnce(
+        new Error('Conversation is unavailable')
+      );
+      await act(async () => result.current.refresh());
+      await waitFor(() => expect(result.current.status).toBe('unavailable'));
+      expect(result.current.items).toEqual([]);
+      await act(async () => {
+        await result.current.retryText(temporaryId);
+      });
+      expect(sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['text', 'media'] as const)(
+      'creates a native %s send identity without browser crypto',
+      async (kind) => {
+        const nativeUuid = '38872dc0-b48e-4283-bb4e-c9b737f5d636';
+        jest.mocked(randomUUID).mockReset().mockReturnValue(nativeUuid);
+        const pending = deferred<MobileSendResult>();
+        const sendMessage = jest.fn<
+          Promise<MobileSendResult>,
+          [MobileSendInput, MobileSendDependencies]
+        >(() => pending.promise);
+        const { result } = renderHook(() =>
+          useConfiguredThread({
+            outbound: {
+              senderId,
+              recoverUnauthorizedSession: jest
+                .fn()
+                .mockResolvedValue(undefined),
+              sendMessage,
+              now: () => createdAt,
+            },
+          })
+        );
+        await waitFor(() => expect(result.current.status).toBe('ready'));
+
+        const cryptoDescriptor = Object.getOwnPropertyDescriptor(
+          globalThis,
+          'crypto'
+        );
+        Object.defineProperty(globalThis, 'crypto', {
+          configurable: true,
+          value: undefined,
+        });
+        try {
+          let attempt!: Promise<unknown>;
+          act(() => {
+            attempt =
+              kind === 'text'
+                ? result.current.sendText('Native test message')
+                : result.current.sendMedia({
+                    mediaKind: 'image',
+                    mediaUrl: 'https://cdn.example.test/photo.jpg',
+                  });
+          });
+          expect(randomUUID).toHaveBeenCalledTimes(1);
+          expect(sendMessage).toHaveBeenCalledTimes(1);
+          expect(result.current.items.at(-1)).toEqual(
+            expect.objectContaining({
+              id: `temp:${nativeUuid}`,
+              status: 'sending',
+              contentType: kind === 'text' ? 'text' : 'image',
+            })
+          );
+
+          await act(async () => {
+            pending.resolve(acknowledgement);
+            await attempt;
+          });
+          expect(await attempt).toEqual({
+            temporaryId: `temp:${nativeUuid}`,
+            status: 'sent',
+          });
+          expect(result.current.items.at(-1)).toEqual(
+            expect.objectContaining({ id: MESSAGE_3_ID, status: 'sent' })
+          );
+          expect(
+            result.current.items.some(
+              (item) => item.id === `temp:${nativeUuid}`
+            )
+          ).toBe(false);
+        } finally {
+          if (cryptoDescriptor) {
+            Object.defineProperty(globalThis, 'crypto', cryptoDescriptor);
+          } else {
+            Reflect.deleteProperty(globalThis, 'crypto');
+          }
+        }
+      }
+    );
 
     it('sends and safely retries media through the same optimistic row', async () => {
       messages.list.mockResolvedValueOnce(page([]));

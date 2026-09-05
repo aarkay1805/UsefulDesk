@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
+  CONVERSATION_PAGE_SIZE,
   mobileConversationRepository,
   normalizeConversationSearch,
   type ConversationRepository,
+  type ListConversationsInput,
 } from './conversation-repository';
 import type { InboxRealtimeFeed } from './inbox-realtime-provider';
 import type { InboxConnectionState } from './inbox-realtime';
@@ -82,6 +84,8 @@ function compareConversations(
   first: InboxConversation,
   second: InboxConversation
 ) {
+  if (first.lastMessageAt === null && second.lastMessageAt !== null) return 1;
+  if (first.lastMessageAt !== null && second.lastMessageAt === null) return -1;
   const firstTime = first.lastMessageAt ?? first.createdAt;
   const secondTime = second.lastMessageAt ?? second.createdAt;
   if (firstTime !== secondTime) return secondTime.localeCompare(firstTime);
@@ -100,6 +104,45 @@ function initialState(): ConversationListState {
     paginationError: null,
     unreadCount: 0,
     refreshing: true,
+  };
+}
+
+/** Re-read only the loaded depth, in normal-sized keyset pages. Commit atomically. */
+async function refreshLoadedRange(
+  repository: ConversationRepository,
+  input: Omit<ListConversationsInput, 'cursor' | 'limit'>,
+  loadedCount: number,
+  isCurrent: () => boolean
+) {
+  const target = Math.max(CONVERSATION_PAGE_SIZE, loadedCount);
+  const items = new Map<string, InboxConversation>();
+  let cursor: ConversationCursor | null = null;
+  let remaining = target;
+  // A changing dataset must never turn a refresh into an unbounded history scan.
+  const maxPages = Math.ceil(target / CONVERSATION_PAGE_SIZE);
+  for (let index = 0; index < maxPages; index += 1) {
+    if (!isCurrent()) return null;
+    const limit = Math.min(CONVERSATION_PAGE_SIZE, remaining);
+    const page = await repository.list({
+      ...input,
+      cursor,
+      ...(limit < CONVERSATION_PAGE_SIZE ? { limit } : {}),
+    });
+    if (!isCurrent()) return null;
+    for (const item of page.items) items.set(item.id, item);
+    if (
+      page.nextCursor &&
+      (page.items.length === 0 ||
+        JSON.stringify(page.nextCursor) === JSON.stringify(cursor))
+    )
+      throw new Error(REFRESH_ERROR);
+    cursor = page.nextCursor;
+    remaining -= page.items.length;
+    if (!cursor || remaining <= 0) break;
+  }
+  return {
+    items: [...items.values()].sort(compareConversations),
+    nextCursor: cursor,
   };
 }
 
@@ -131,6 +174,8 @@ export function useConversationList({
   const activePaginationOwner = useRef<number | null>(null);
   const knownConversationIds = useRef(new Set<string>());
   const hydrations = useRef(new Map<string, Promise<void>>());
+  const snapshotVersion = useRef(0);
+  const deletedConversationIds = useRef(new Set<string>());
   const tombstoneGenerations = useRef(new Map<string, number>());
   const resyncGeneration = useRef(realtime.getSnapshot().resyncGeneration);
   const realtimeGeneration = useRef(0);
@@ -161,8 +206,18 @@ export function useConversationList({
     const generation = ++listGeneration.current;
     const currentRequestId = ++requestId.current;
     let cancelled = false;
+    const currentState = latestState.current;
+    const loadedCount =
+      currentState.scopeKey === scopeKey ? currentState.items.length : 0;
+    const isCurrent = () =>
+      !cancelled &&
+      mounted.current &&
+      requestId.current === currentRequestId &&
+      listGeneration.current === generation;
+    activePaginationOwner.current = null;
 
     void (async () => {
+      setLoadingMore(false);
       setState((previous) => ({
         accountId,
         scopeKey,
@@ -181,25 +236,29 @@ export function useConversationList({
 
       try {
         const [page, unreadCount] = await Promise.all([
-          repository.list({
-            accountId,
-            filter,
-            search: normalizedSearch,
-            cursor: null,
-          }),
+          refreshLoadedRange(
+            repository,
+            { accountId, filter, search: normalizedSearch },
+            loadedCount,
+            isCurrent
+          ),
           repository.unreadCount(accountId),
         ]);
         if (
+          !page ||
           cancelled ||
           requestId.current !== currentRequestId ||
           listGeneration.current !== generation
         ) {
           return;
         }
+        snapshotVersion.current += 1;
         setState({
           accountId,
           scopeKey,
-          items: page.items,
+          items: page.items.filter(
+            (item) => !deletedConversationIds.current.has(item.id)
+          ),
           cursor: page.nextCursor,
           status: 'ready',
           error: null,
@@ -244,7 +303,15 @@ export function useConversationList({
     return () => {
       cancelled = true;
     };
-  }, [accountId, filter, normalizedSearch, refreshNonce, repository, scopeKey]);
+  }, [
+    accountId,
+    filter,
+    normalizedSearch,
+    refreshNonce,
+    repository,
+    scopeKey,
+    realtime,
+  ]);
 
   useEffect(() => {
     const currentRealtimeGeneration = ++realtimeGeneration.current;
@@ -266,6 +333,19 @@ export function useConversationList({
       const currentSearch = latestSearch.current;
       const currentScopeKey = `${currentAccountId}:${currentFilter}:${currentSearch}`;
       const currentRequestId = ++requestId.current;
+      const currentState = latestState.current;
+      const loadedCount =
+        currentState.scopeKey === currentScopeKey
+          ? currentState.items.length
+          : 0;
+      const isCurrent = () =>
+        !disposed &&
+        mounted.current &&
+        activeAccountId.current === currentAccountId &&
+        accountGeneration.current === currentAccountGeneration &&
+        realtimeGeneration.current === currentRealtimeGeneration &&
+        listGeneration.current === currentListGeneration &&
+        requestId.current === currentRequestId;
       activePaginationOwner.current = null;
       if (mounted.current) setLoadingMore(false);
       if (mounted.current) {
@@ -285,15 +365,20 @@ export function useConversationList({
       void (async () => {
         try {
           const [page, unreadCount] = await Promise.all([
-            repository.list({
-              accountId: currentAccountId,
-              filter: currentFilter,
-              search: currentSearch,
-              cursor: null,
-            }),
+            refreshLoadedRange(
+              repository,
+              {
+                accountId: currentAccountId,
+                filter: currentFilter,
+                search: currentSearch,
+              },
+              loadedCount,
+              isCurrent
+            ),
             repository.unreadCount(currentAccountId),
           ]);
           if (
+            !page ||
             disposed ||
             !mounted.current ||
             activeAccountId.current !== currentAccountId ||
@@ -304,10 +389,13 @@ export function useConversationList({
           ) {
             return;
           }
+          snapshotVersion.current += 1;
           setState({
             accountId: currentAccountId,
             scopeKey: currentScopeKey,
-            items: page.items,
+            items: page.items.filter(
+              (item) => !deletedConversationIds.current.has(item.id)
+            ),
             cursor: page.nextCursor,
             status: 'ready',
             error: null,
@@ -369,6 +457,12 @@ export function useConversationList({
       const currentAccountId = activeAccountId.current;
       if (event.accountId !== currentAccountId) return;
 
+      if (event.table === 'conversations') {
+        if (event.eventType === 'DELETE')
+          deletedConversationIds.current.add(event.conversationId);
+        if (event.eventType === 'INSERT')
+          deletedConversationIds.current.delete(event.conversationId);
+      }
       refreshActiveQuery();
 
       if (event.table === 'conversations' && event.eventType === 'DELETE') {
@@ -394,6 +488,7 @@ export function useConversationList({
       const currentListGeneration = listGeneration.current;
       const currentFilter = latestFilter.current;
       const currentSearch = latestSearch.current;
+      const currentSnapshotVersion = snapshotVersion.current;
       const tombstoneGeneration =
         tombstoneGenerations.current.get(event.conversationId) ?? 0;
       const hydrate = (async () => {
@@ -408,6 +503,8 @@ export function useConversationList({
             accountGeneration.current !== currentAccountGeneration ||
             realtimeGeneration.current !== currentRealtimeGeneration ||
             listGeneration.current !== currentListGeneration ||
+            snapshotVersion.current !== currentSnapshotVersion ||
+            deletedConversationIds.current.has(event.conversationId) ||
             (tombstoneGenerations.current.get(event.conversationId) ?? 0) !==
               tombstoneGeneration ||
             item.accountId !== currentAccountId
@@ -471,9 +568,10 @@ export function useConversationList({
   }, []);
 
   const setSearch = useCallback((value: string) => {
+    // Keep the typed value even when only its spacing changes the display.
+    setSearchState(value);
     if (normalizeConversationSearch(value) === latestSearch.current) return;
     listGeneration.current += 1;
-    setSearchState(value);
     setState((previous) => ({
       ...previous,
       cursor: null,
@@ -523,7 +621,11 @@ export function useConversationList({
           const seen = new Set(previous.items.map((item) => item.id));
           const items = [...previous.items];
           page.items.forEach((item) => {
-            if (seen.has(item.id)) return;
+            if (
+              seen.has(item.id) ||
+              deletedConversationIds.current.has(item.id)
+            )
+              return;
             seen.add(item.id);
             items.push(item);
           });

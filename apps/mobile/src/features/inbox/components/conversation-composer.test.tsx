@@ -184,6 +184,53 @@ describe('ConversationComposer', () => {
     };
   }
 
+  it.each(['text', 'media'] as const)(
+    'gates both %s send and retry controls until readiness is verified',
+    async (kind) => {
+      const attempt = jest
+        .fn()
+        .mockResolvedValue(failed('temp:gated', true, 'Try again.'));
+      const retry = jest.fn().mockResolvedValue(sent('temp:gated'));
+      const props = mediaProps({
+        onSend: attempt,
+        onSendMedia: attempt,
+        onRetry: retry,
+        onRetryMedia: retry,
+      });
+      const view = render(
+        <ConversationComposer {...props} sendEnabled={false} />
+      );
+      if (kind === 'text') {
+        fireEvent.changeText(
+          screen.getByLabelText('Message'),
+          'Renewal details'
+        );
+      } else {
+        fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+        fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
+        await screen.findByRole('button', { name: 'Send attachment' });
+      }
+      const sendName = kind === 'text' ? 'Send message' : 'Send attachment';
+      const retryName = kind === 'text' ? 'Retry message' : 'Retry attachment';
+      const send = screen.getByRole('button', { name: sendName });
+      expect(send).toBeDisabled();
+      fireEvent.press(send);
+      expect(attempt).not.toHaveBeenCalled();
+      view.rerender(<ConversationComposer {...props} sendEnabled />);
+      fireEvent.press(screen.getByRole('button', { name: sendName }));
+      await screen.findByRole('button', { name: retryName });
+      view.rerender(<ConversationComposer {...props} sendEnabled={false} />);
+      const retryButton = screen.getByRole('button', { name: retryName });
+      expect(retryButton).toBeDisabled();
+      fireEvent.press(retryButton);
+      expect(retry).not.toHaveBeenCalled();
+      view.rerender(<ConversationComposer {...props} sendEnabled />);
+      fireEvent.press(screen.getByRole('button', { name: retryName }));
+      await waitFor(() => expect(retry).toHaveBeenCalledWith('temp:gated'));
+      expect(attempt).toHaveBeenCalledTimes(1);
+    }
+  );
+
   it('offers four accessible attachment choices and treats picker cancellation silently', async () => {
     const props = mediaProps({ pickMedia: jest.fn().mockResolvedValue(null) });
     render(<ConversationComposer {...props} />);

@@ -59,6 +59,7 @@ export interface ConversationComposerProps {
   onOpenTemplates?(): void;
   onStagedChange?(retained: boolean): void;
   sessionExpired?: boolean;
+  sendEnabled?: boolean;
   pickMedia?(kind: MediaKind): Promise<PickedMediaAsset | null>;
   uploadMedia?(input: UploadConversationMediaInput): UploadOperation;
   deleteMedia?(input: DeleteConversationMediaInput): Promise<void>;
@@ -126,6 +127,7 @@ export function ConversationComposer({
   onOpenTemplates,
   onStagedChange,
   sessionExpired = false,
+  sendEnabled = true,
   pickMedia = pickConversationMedia,
   uploadMedia,
   deleteMedia = deleteConversationMedia,
@@ -220,6 +222,8 @@ export function ConversationComposer({
 
   const send = useCallback(async () => {
     if (
+      !sendEnabled ||
+      sessionExpired ||
       inFlightRef.current ||
       pending ||
       !trimmedDraft ||
@@ -250,6 +254,8 @@ export function ConversationComposer({
     }
   }, [
     onSend,
+    sendEnabled,
+    sessionExpired,
     pending,
     requestDraftFocus,
     replyTarget?.messageId,
@@ -260,6 +266,8 @@ export function ConversationComposer({
 
   const retry = useCallback(async () => {
     if (
+      !sendEnabled ||
+      sessionExpired ||
       inFlightRef.current ||
       pending ||
       failedAttempt?.temporaryId === null ||
@@ -285,7 +293,15 @@ export function ConversationComposer({
       inFlightRef.current = false;
       setPending(false);
     }
-  }, [failedAttempt, onRetry, pending, requestDraftFocus, resolveAttempt]);
+  }, [
+    failedAttempt,
+    onRetry,
+    pending,
+    requestDraftFocus,
+    resolveAttempt,
+    sendEnabled,
+    sessionExpired,
+  ]);
 
   const beginUpload = useCallback(
     (asset: PickedMediaAsset) => {
@@ -453,6 +469,7 @@ export function ConversationComposer({
       onOpenTemplates?.();
       return;
     }
+    if (!sendEnabled) return;
     const replyToMessageId = replyTarget?.messageId ?? null;
     const payload = payloadFor(current, replyToMessageId);
     if (!payload || !onSendMedia) return;
@@ -479,6 +496,7 @@ export function ConversationComposer({
     onSendMedia,
     replyTarget?.messageId,
     sessionExpired,
+    sendEnabled,
     settleMediaAttempt,
   ]);
 
@@ -491,6 +509,11 @@ export function ConversationComposer({
       mediaInFlightRef.current
     )
       return;
+    if (sessionExpired) {
+      onOpenTemplates?.();
+      return;
+    }
+    if (!sendEnabled) return;
     mediaInFlightRef.current = true;
     setStaged((value) => (value ? { ...value, status: 'sending' } : value));
     try {
@@ -513,7 +536,13 @@ export function ConversationComposer({
     } finally {
       mediaInFlightRef.current = false;
     }
-  }, [onRetryMedia, settleMediaAttempt]);
+  }, [
+    onRetryMedia,
+    settleMediaAttempt,
+    sessionExpired,
+    sendEnabled,
+    onOpenTemplates,
+  ]);
 
   const canRetry =
     failedAttempt?.temporaryId !== null && failedAttempt?.safeToRetry === true;
@@ -589,12 +618,20 @@ export function ConversationComposer({
             </Button>
           ) : null}
           {staged.status === 'send_failed' && staged.safeToRetry ? (
-            <Button onPress={retryAttachment} size="sm">
+            <Button
+              disabled={!sendEnabled && !sessionExpired}
+              onPress={retryAttachment}
+              size="sm"
+            >
               Retry attachment
             </Button>
           ) : null}
           {staged.status === 'uploaded' ? (
-            <Button onPress={sendAttachment} size="sm">
+            <Button
+              disabled={!sendEnabled && !sessionExpired}
+              onPress={sendAttachment}
+              size="sm"
+            >
               Send attachment
             </Button>
           ) : null}
@@ -626,7 +663,7 @@ export function ConversationComposer({
               <Button
                 accessibilityLabel="Retry message"
                 className="self-start"
-                disabled={pending}
+                disabled={pending || !sendEnabled || sessionExpired}
                 loading={pending}
                 onPress={retry}
                 size="sm"
@@ -686,7 +723,12 @@ export function ConversationComposer({
         {showSend ? (
           <IconButton
             accessibilityLabel="Send message"
-            isDisabled={pending || unchangedAmbiguousDraft}
+            isDisabled={
+              pending ||
+              !sendEnabled ||
+              sessionExpired ||
+              unchangedAmbiguousDraft
+            }
             isLoading={pending}
             onPress={send}
             shape="circle"

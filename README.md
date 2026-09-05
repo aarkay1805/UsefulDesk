@@ -64,8 +64,12 @@ npm run typecheck
 npm run build
 ```
 
-`npm run verify` runs formatting, lint, typecheck, tests, and the production
-build in the same order as CI.
+`npm run verify` runs the required lint, typecheck, tests, and production build
+checks in the same order as CI and the pre-push hook.
+
+Formatting is advisory in CI and does not block deployment. The pre-commit hook
+still auto-formats staged files; `npm run format` and `npm run format:check`
+remain available for local formatting and inspection.
 
 ## Architecture
 

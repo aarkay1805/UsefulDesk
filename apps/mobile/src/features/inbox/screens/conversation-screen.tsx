@@ -543,6 +543,7 @@ function ConversationThread({
     }
 
     const retryableTemporaryId =
+      actionState?.kind === 'open_text' &&
       outboundAllowed &&
       item.message.status === 'failed' &&
       item.message.safeToRetry === true &&
@@ -717,56 +718,9 @@ function ConversationThread({
     ) {
       return null;
     }
-    if (actionState.kind === 'open_text') {
-      return (
-        <ConversationComposer
-          accountId={accountId}
-          recoverUnauthorizedSession={outbound?.recoverUnauthorizedSession}
-          onOpenTemplates={() => setTemplatePickerFeed(realtime)}
-          onRetry={thread.retryText}
-          onRetryMedia={thread.retryMedia}
-          onDismissReply={() => setReplySelection(null)}
-          onReplySent={(replyToMessageId) =>
-            setReplySelection((current) =>
-              current?.conversationId === conversationId &&
-              current.message.id === replyToMessageId
-                ? null
-                : current
-            )
-          }
-          onSend={thread.sendText}
-          onSendMedia={thread.sendMedia}
-          onStagedChange={setComposerStaged}
-          replyTarget={composerReplyTarget}
-        />
-      );
-    }
+    if (actionState.kind === 'open_text') return null;
     if (actionState.kind === 'closed_template') {
-      if (composerStaged) {
-        return (
-          <ConversationComposer
-            accountId={accountId}
-            recoverUnauthorizedSession={outbound?.recoverUnauthorizedSession}
-            onOpenTemplates={() => setTemplatePickerFeed(realtime)}
-            onRetry={thread.retryText}
-            onRetryMedia={thread.retryMedia}
-            onDismissReply={() => setReplySelection(null)}
-            onReplySent={(replyToMessageId) =>
-              setReplySelection((current) =>
-                current?.conversationId === conversationId &&
-                current.message.id === replyToMessageId
-                  ? null
-                  : current
-              )
-            }
-            onSend={thread.sendText}
-            onSendMedia={thread.sendMedia}
-            onStagedChange={setComposerStaged}
-            replyTarget={composerReplyTarget}
-            sessionExpired
-          />
-        );
-      }
+      if (composerStaged) return null;
       if (templateSendSafety === 'loading') {
         return (
           <View
@@ -871,10 +825,7 @@ function ConversationThread({
          * failure was styled quieter than the connection notice above it.
          */}
         {thread.unreadWarning ? (
-          <Notice
-            className="mx-4 mt-3"
-            symbol="exclamationmark.triangle"
-          >
+          <Notice className="mx-4 mt-3" symbol="exclamationmark.triangle">
             Could not clear unread messages
           </Notice>
         ) : null}
@@ -952,7 +903,48 @@ function ConversationThread({
               </View>
             ) : null}
           </View>
-          {actionFooter}
+          <View>
+            {outboundAllowed ? (
+              <View
+                // Readiness refreshes must not dispose drafts, picker/upload
+                // ownership, or uncertainty locks. Only the authorized scope
+                // owns this mounted composer; hidden controls cannot send.
+                style={{
+                  display:
+                    actionState?.kind === 'open_text' ||
+                    (actionState?.kind === 'closed_template' && composerStaged)
+                      ? 'flex'
+                      : 'none',
+                }}
+              >
+                <ConversationComposer
+                  accountId={accountId}
+                  recoverUnauthorizedSession={
+                    outbound?.recoverUnauthorizedSession
+                  }
+                  sendEnabled={actionState?.kind === 'open_text'}
+                  sessionExpired={actionState?.kind === 'closed_template'}
+                  onOpenTemplates={() => setTemplatePickerFeed(realtime)}
+                  onRetry={thread.retryText}
+                  onRetryMedia={thread.retryMedia}
+                  onDismissReply={() => setReplySelection(null)}
+                  onReplySent={(replyToMessageId) =>
+                    setReplySelection((current) =>
+                      current?.conversationId === conversationId &&
+                      current.message.id === replyToMessageId
+                        ? null
+                        : current
+                    )
+                  }
+                  onSend={thread.sendText}
+                  onSendMedia={thread.sendMedia}
+                  onStagedChange={setComposerStaged}
+                  replyTarget={composerReplyTarget}
+                />
+              </View>
+            ) : null}
+            {actionFooter}
+          </View>
         </KeyboardAvoidingView>
       </View>
 
