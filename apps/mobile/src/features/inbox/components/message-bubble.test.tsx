@@ -7,6 +7,31 @@ import {
   shouldInlineBubbleMetadata,
 } from '../inbox-layout';
 import { messageImageSizeForViewport, MessageBubble } from './message-bubble';
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
+jest.mock('../../../ui/button', () => {
+  const React = jest.requireActual('react');
+  const { Pressable, Text } = jest.requireActual('react-native');
+  return {
+    Button: ({ children, loading, disabled, ...props }: any) =>
+      React.createElement(
+        Pressable,
+        {
+          ...props,
+          accessibilityRole: 'button',
+          disabled: disabled || loading,
+          accessibilityState: {
+            busy: Boolean(loading),
+            disabled: Boolean(disabled || loading),
+          },
+        },
+        React.createElement(Text, null, children)
+      ),
+  };
+});
+jest.mock('./media-playback', () => ({
+  AudioAttachment: () => null,
+  VideoAttachment: () => null,
+}));
 
 jest.mock('react-native-gesture-handler/ReanimatedSwipeable', () => {
   const React = jest.requireActual('react') as typeof import('react');

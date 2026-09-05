@@ -1,6 +1,12 @@
 import type { ReactNode } from 'react';
 import { Image } from 'expo-image';
-import { Linking, Pressable, View } from 'react-native';
+import { Linking, View } from 'react-native';
+import { router } from 'expo-router';
+import { Button } from '../../../ui/button';
+import { IconButton } from '../../../ui/icon-button';
+import { Notice } from '../../../ui/notice';
+import { AudioAttachment, VideoAttachment } from './media-playback';
+import { documentType } from '../media-display';
 import { useState } from 'react';
 
 import { messagePreview, safeMediaUrl } from '../inbox-format';
@@ -55,14 +61,29 @@ export function MessageContent({
     return (
       <View className="gap-2">
         {safeUrl && !imageUnavailable ? (
-          <Image
-            accessible
-            accessibilityLabel="Photo attachment"
-            contentFit="cover"
-            onError={() => setImageUnavailable(true)}
-            source={{ uri: safeUrl }}
-            style={imageSize}
-          />
+          <View style={imageSize}>
+            <Image
+              accessible
+              accessibilityLabel="Photo attachment"
+              contentFit="cover"
+              onError={() => setImageUnavailable(true)}
+              source={{ uri: safeUrl }}
+              style={{ ...imageSize, borderRadius: 14 }}
+            />
+            <View className="absolute right-2 bottom-2">
+              <IconButton
+                accessibilityLabel="View photo"
+                onPress={() =>
+                  router.push({
+                    pathname: '/(app)/photo',
+                    params: { url: safeUrl },
+                  })
+                }
+                symbol="arrow.up.left.and.arrow.down.right"
+                variant="secondary"
+              />
+            </View>
+          </View>
         ) : (
           <Text className="text-foreground text-sm">Photo unavailable</Text>
         )}
@@ -85,6 +106,21 @@ export function MessageContent({
     );
   }
 
+  if (message.contentType === 'video' || message.contentType === 'audio') {
+    return (
+      <View className="gap-2" style={{ width: imageSize.width }}>
+        {message.contentType === 'video' ? (
+          <VideoAttachment key={safeUrl} uri={safeUrl} {...imageSize} />
+        ) : (
+          <AudioAttachment key={safeUrl} uri={safeUrl} />
+        )}
+        {caption ? (
+          <Text className="text-foreground px-2 text-base">{caption}</Text>
+        ) : null}
+      </View>
+    );
+  }
+
   const openMedia = async () => {
     if (opening) return;
 
@@ -101,28 +137,28 @@ export function MessageContent({
 
   return (
     <View className="gap-2">
-      <Text className="text-foreground text-sm">
-        {localDocumentFilename ?? label}
+      <Text
+        className="text-foreground px-2 pt-2 text-base font-medium"
+        numberOfLines={2}
+      >
+        {localDocumentFilename ??
+          (message.contentType === 'document' ? documentType(safeUrl) : label)}
       </Text>
       {caption ? (
         <Text className="text-foreground text-sm">{caption}</Text>
       ) : null}
-      <Pressable
+      <Button
         accessibilityLabel={`Open ${label.toLowerCase()}`}
-        accessibilityRole="button"
-        accessibilityState={{ busy: opening, disabled: opening }}
-        className="min-h-12 justify-center self-start active:opacity-70"
-        disabled={opening}
+        loading={opening}
         onPress={() => void openMedia()}
+        size="sm"
+        symbol={message.contentType === 'document' ? 'doc' : undefined}
+        variant="ghost"
       >
-        <Text className="text-foreground text-sm font-medium">
-          Open {label.toLowerCase()}
-        </Text>
-      </Pressable>
+        Open {label.toLowerCase()}
+      </Button>
       {openFailed ? (
-        <Text accessibilityRole="alert" className="text-foreground text-sm">
-          Unable to open {label.toLowerCase()}
-        </Text>
+        <Notice tone="danger">Unable to open {label.toLowerCase()}</Notice>
       ) : null}
     </View>
   );

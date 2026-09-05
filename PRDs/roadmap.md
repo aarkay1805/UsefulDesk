@@ -8,6 +8,29 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
+Built locally: **mobile attachment composer refinement** — readable filename,
+type and size; compact caption/send layout; accessible discard; uncropped photo
+preview; and visible pending send state. Native visual acceptance and a new
+tester build remain pending; the existing v0.1.0/build 1 binaries are unchanged.
+
+Mobile release readiness: **internal tester distribution is now the first
+release target.** `apps/mobile/eas.json` has a standalone `preview` profile
+(Android APK and iOS internal distribution), and the existing EAS project has
+the four public Preview environment settings. SDK 57 patch dependencies are
+aligned and clean-install Expo Doctor passes 21/21; mobile lint/typecheck and
+69 suites / 785 tests pass. Both native bundles export. Both cloud builds
+finished successfully; the signed iOS tester app is installed on the registered
+iPhone Air and the connected Android phone. Owner-approved iOS distribution
+signing and ad hoc provisioning are configured. Follow `docs/mobile/internal-testing.md` for current build evidence
+and the remaining tester-binary/device acceptance gates. Historical development
+push acceptance does not prove Preview signing or device delivery. Tester text
+delivery passed on both platforms; iOS quoted replies and incoming realtime
+passed. Reaction testing found a proxy bearer/branch forwarding gap: the local
+fix passes 66 focused tests, lint, and typecheck, but deployment and live retest
+remain pending. Android document/image/video/audio delivery passed on build 1;
+iOS media, attachment opening/playback, Preview push, and remaining device gates
+still block release sign-off.
+
 Engineering maintenance: **native Inbox refreshes retain the loaded conversation
 range across live events, manual refresh, foreground, and reconnect.** Bounded
 keyset scans preserve continuation, authoritative membership, and exact unread

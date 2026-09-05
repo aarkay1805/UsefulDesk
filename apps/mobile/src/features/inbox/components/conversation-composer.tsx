@@ -7,7 +7,7 @@ import {
   type MediaKind,
 } from '../../../../../../src/lib/storage/media-contract';
 import { Button, ComposerField, IconButton, Notice } from '../../../ui';
-import type { GlyphName } from '../../../ui/glyph';
+import { Glyph, type GlyphName } from '../../../ui/glyph';
 import { Text } from '../../../ui/text';
 import { pickConversationMedia, type PickedMediaAsset } from '../media-picker';
 import {
@@ -19,6 +19,8 @@ import {
   type UploadConversationMediaInput,
 } from '../media-upload-client';
 import type { MediaSendDraft, SendAttemptResult } from '../use-message-thread';
+import { AudioAttachment, VideoAttachment } from './media-playback';
+import { attachmentSize } from '../media-display';
 import { ReplyQuote } from './reply-quote';
 
 const UNCONFIRMED_SEND_MESSAGE =
@@ -552,7 +554,7 @@ export function ConversationComposer({
     const ambiguous =
       staged.status === 'send_failed' && staged.safeToRetry === false;
     return (
-      <View className="border-border bg-background gap-3 border-t px-3 py-3">
+      <View className="border-border bg-inbox-panel gap-3 border-t px-3 py-3">
         {replyTarget ? (
           <ReplyQuote
             authorLabel={replyTarget.authorLabel}
@@ -560,39 +562,92 @@ export function ConversationComposer({
             preview={replyTarget.preview}
           />
         ) : null}
+        <View className="flex-row items-center gap-3">
+          <Glyph
+            name={
+              ATTACHMENT_OPTIONS.find(({ kind }) => kind === staged.asset.kind)!
+                .symbol
+            }
+          />
+          <View className="min-w-0 flex-1 gap-1">
+            <Text
+              accessibilityLabel={staged.asset.name}
+              className="text-foreground text-base font-semibold"
+              numberOfLines={2}
+            >
+              {staged.asset.name}
+            </Text>
+            <Text className="text-muted text-sm">
+              {attachmentLabel[staged.asset.kind]} ·{' '}
+              {attachmentSize(staged.asset.size)}
+            </Text>
+          </View>
+          {!ambiguous && staged.status !== 'sending' ? (
+            <IconButton
+              accessibilityLabel={
+                staged.uploaded ? 'Discard attachment' : 'Cancel attachment'
+              }
+              onPress={clearAttachment}
+              symbol="xmark"
+              variant="ghost"
+            />
+          ) : null}
+        </View>
         {staged.asset.kind === 'image' ? (
           <Image
             accessible
             accessibilityLabel="Photo attachment preview"
-            contentFit="cover"
+            contentFit="contain"
             source={{ uri: staged.asset.uri }}
             style={{ width: '100%', height: 180, borderRadius: 14 }}
           />
-        ) : (
-          <View className="bg-muted gap-1 rounded-xl px-3 py-3">
-            <Text className="text-foreground text-base font-semibold">
-              {attachmentLabel[staged.asset.kind]}
-            </Text>
-            <Text className="text-muted text-sm">{staged.asset.name}</Text>
-          </View>
-        )}
-        {staged.asset.kind !== 'audio' ? (
-          <ComposerField
-            isDisabled={staged.status === 'sending'}
-            label="Caption"
-            maxLength={1024}
-            onChangeText={(caption) =>
-              setStaged((current) =>
-                current ? { ...current, caption } : current
-              )
-            }
-            placeholder="Add a caption"
-            value={staged.caption}
+        ) : null}
+        {staged.asset.kind === 'video' ? (
+          <VideoAttachment
+            key={staged.asset.uri}
+            uri={staged.asset.uri}
+            width="100%"
           />
         ) : null}
+        {staged.asset.kind === 'audio' ? (
+          <AudioAttachment key={staged.asset.uri} uri={staged.asset.uri} />
+        ) : null}
+        <View className="flex-row items-end justify-end gap-2">
+          {staged.asset.kind !== 'audio' ? (
+            <View className="min-w-0 flex-1">
+              <ComposerField
+                appearance="chat"
+                hideLabel
+                accessibilityHint="Optional caption. Return adds a new line."
+                isDisabled={staged.status === 'sending'}
+                label="Caption"
+                maxLength={1024}
+                onChangeText={(caption) =>
+                  setStaged((current) =>
+                    current ? { ...current, caption } : current
+                  )
+                }
+                placeholder="Add a caption"
+                value={staged.caption}
+              />
+            </View>
+          ) : null}
+          {staged.status === 'uploaded' || staged.status === 'sending' ? (
+            <IconButton
+              accessibilityLabel="Send attachment"
+              isDisabled={!sendEnabled && !sessionExpired}
+              isLoading={staged.status === 'sending'}
+              onPress={sendAttachment}
+              shape="circle"
+              symbol="send"
+              tone="on-accent"
+            />
+          ) : null}
+        </View>
         {staged.status === 'uploading' ? (
           <View
             accessible
+            accessibilityLabel="Uploading attachment"
             accessibilityLiveRegion="polite"
             accessibilityRole="progressbar"
             accessibilityValue={{ min: 0, max: 100, now: percentage }}
@@ -601,9 +656,6 @@ export function ConversationComposer({
             <Text className="text-foreground text-sm">
               Uploading {percentage}%
             </Text>
-            <Button onPress={clearAttachment} size="sm" variant="ghost">
-              Cancel attachment
-            </Button>
           </View>
         ) : null}
         {staged.error ? (
@@ -611,38 +663,25 @@ export function ConversationComposer({
             {staged.error}
           </Notice>
         ) : null}
-        <View className="flex-row flex-wrap gap-2">
-          {staged.status === 'upload_failed' ? (
-            <Button onPress={() => beginUpload(staged.asset)} size="sm">
-              Retry upload
-            </Button>
-          ) : null}
-          {staged.status === 'send_failed' && staged.safeToRetry ? (
-            <Button
-              disabled={!sendEnabled && !sessionExpired}
-              onPress={retryAttachment}
-              size="sm"
-            >
-              Retry attachment
-            </Button>
-          ) : null}
-          {staged.status === 'uploaded' ? (
-            <Button
-              disabled={!sendEnabled && !sessionExpired}
-              onPress={sendAttachment}
-              size="sm"
-            >
-              Send attachment
-            </Button>
-          ) : null}
-          {!ambiguous &&
-          staged.status !== 'uploading' &&
-          staged.status !== 'sending' ? (
-            <Button onPress={clearAttachment} size="sm" variant="ghost">
-              {staged.uploaded ? 'Discard attachment' : 'Cancel attachment'}
-            </Button>
-          ) : null}
-        </View>
+        {staged.status === 'upload_failed' ||
+        (staged.status === 'send_failed' && staged.safeToRetry) ? (
+          <View className="flex-row flex-wrap gap-2">
+            {staged.status === 'upload_failed' ? (
+              <Button onPress={() => beginUpload(staged.asset)} size="sm">
+                Retry upload
+              </Button>
+            ) : null}
+            {staged.status === 'send_failed' && staged.safeToRetry ? (
+              <Button
+                disabled={!sendEnabled && !sessionExpired}
+                onPress={retryAttachment}
+                size="sm"
+              >
+                Retry attachment
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
       </View>
     );
   }

@@ -8,6 +8,43 @@ import { Linking } from 'react-native';
 
 import { message } from '../inbox-test-fixtures';
 import { MessageContent } from './message-content';
+jest.mock('../../../ui/button', () => {
+  const React = jest.requireActual('react');
+  const { Pressable, Text } = jest.requireActual('react-native');
+  return {
+    Button: ({ children, loading, disabled, ...props }: any) =>
+      React.createElement(
+        Pressable,
+        {
+          ...props,
+          accessibilityRole: 'button',
+          disabled: disabled || loading,
+          accessibilityState: {
+            busy: Boolean(loading),
+            disabled: Boolean(disabled || loading),
+          },
+        },
+        React.createElement(Text, null, children)
+      ),
+  };
+});
+jest.mock('./media-playback', () => {
+  const React = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  return {
+    AudioAttachment: ({ uri }: { uri: string }) =>
+      React.createElement(View, {
+        accessibilityLabel: 'Audio player',
+        testID: uri,
+      }),
+    VideoAttachment: ({ uri }: { uri: string }) =>
+      React.createElement(View, {
+        accessibilityLabel: 'Video player',
+        testID: uri,
+      }),
+  };
+});
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 jest.mock('expo-image', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -76,10 +113,11 @@ describe('MessageContent', () => {
     expect(screen.getByLabelText('Photo attachment').props.style).toEqual({
       height: 129,
       width: 172,
+      borderRadius: 14,
     });
   });
 
-  it.each(['video', 'audio', 'document', 'location'] as const)(
+  it.each(['document', 'location'] as const)(
     'renders safe %s media with its open action',
     (contentType) => {
       render(
@@ -166,6 +204,29 @@ describe('MessageContent', () => {
     }
   );
 
+  it.each(['audio', 'video'] as const)(
+    'uses inline playback for %s',
+    (contentType) => {
+      render(
+        <MessageContent
+          message={message({
+            contentType,
+            mediaUrl: `https://cdn.example.com/${contentType}`,
+            contentText: null,
+          })}
+        />
+      );
+      expect(
+        screen.getByLabelText(
+          contentType === 'audio' ? 'Audio player' : 'Video player'
+        )
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole('button', { name: `Open ${contentType}` })
+      ).toBeNull();
+    }
+  );
+
   it('keeps location text visible without a URL', () => {
     render(
       <MessageContent
@@ -208,13 +269,13 @@ describe('MessageContent', () => {
     render(
       <MessageContent
         message={message({
-          contentType: 'audio',
-          mediaUrl: 'https://cdn.example.com/voice.ogg',
+          contentType: 'document',
+          mediaUrl: 'https://cdn.example.com/receipt.pdf',
         })}
       />
     );
 
-    const openButton = screen.getByRole('button', { name: 'Open audio' });
+    const openButton = screen.getByRole('button', { name: 'Open document' });
     fireEvent.press(openButton);
 
     expect(openButton.props.accessibilityState).toEqual({
@@ -227,7 +288,7 @@ describe('MessageContent', () => {
     rejectOpen(new Error('Unavailable'));
 
     await waitFor(() => {
-      expect(screen.getByText('Unable to open audio')).toBeTruthy();
+      expect(screen.getByText('Unable to open document')).toBeTruthy();
     });
   });
 });

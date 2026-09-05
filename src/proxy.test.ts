@@ -160,33 +160,78 @@ describe('proxy authentication', () => {
     ).toBeNull();
   });
 
-  it('forwards a bearer-present native WhatsApp send to route authorization', async () => {
+  it.each(['/api/whatsapp/send', '/api/whatsapp/react'])(
+    'forwards bearer-present %s to route authorization',
+    async (pathname) => {
+      const res = await proxy(
+        new NextRequest(`https://app.test${pathname}`, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer mobile-access-token' },
+        })
+      );
+
+      expect(res.headers.get('x-middleware-next')).toBe('1');
+    }
+  );
+
+  it.each(['/api/whatsapp/send', '/api/whatsapp/react'])(
+    'forwards explicit branch context for bearer-present %s',
+    async (pathname) => {
+      const branch = '00000000-0000-4000-8000-000000000001';
+
+      const res = await proxy(
+        new NextRequest(`https://app.test${pathname}`, {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer mobile-access-token',
+            'x-usefuldesk-account-id': branch,
+          },
+        })
+      );
+
+      expect(
+        res.headers.get('x-middleware-request-x-usefuldesk-account-id')
+      ).toBe(branch);
+    }
+  );
+
+  it.each(['/api/whatsapp/send', '/api/whatsapp/react'])(
+    'still rejects anonymous cookie requests to %s',
+    async (pathname) => {
+      const res = await proxy(
+        new NextRequest(`https://app.test${pathname}`, {
+          method: 'POST',
+          headers: { 'x-usefuldesk-account-id': 'forged' },
+        })
+      );
+      expect(res.status).toBe(401);
+    }
+  );
+
+  it.each(['/api/whatsapp/send', '/api/whatsapp/react'])(
+    'strips caller branch headers from cookie-authenticated %s',
+    async (pathname) => {
+      mockUser = { id: 'user-1' };
+      const res = await proxy(
+        new NextRequest(`https://app.test${pathname}`, {
+          method: 'POST',
+          headers: { 'x-usefuldesk-account-id': 'forged' },
+        })
+      );
+      expect(res.headers.get('x-middleware-next')).toBe('1');
+      expect(
+        res.headers.get('x-middleware-request-x-usefuldesk-account-id')
+      ).toBeNull();
+    }
+  );
+
+  it('does not extend bearer passthrough to other WhatsApp routes', async () => {
     const res = await proxy(
-      new NextRequest('https://app.test/api/whatsapp/send', {
-        method: 'POST',
+      new NextRequest('https://app.test/api/whatsapp/templates', {
         headers: { Authorization: 'Bearer mobile-access-token' },
       })
     );
-
-    expect(res.headers.get('x-middleware-next')).toBe('1');
-  });
-
-  it('forwards the explicit branch context for a bearer-present native send', async () => {
-    const branch = '00000000-0000-4000-8000-000000000001';
-
-    const res = await proxy(
-      new NextRequest('https://app.test/api/whatsapp/send', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer mobile-access-token',
-          'x-usefuldesk-account-id': branch,
-        },
-      })
-    );
-
-    expect(
-      res.headers.get('x-middleware-request-x-usefuldesk-account-id')
-    ).toBe(branch);
+    expect(res.status).toBe(401);
   });
 
   it.each(DASHBOARD_PATH_PREFIXES)(

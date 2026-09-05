@@ -5,8 +5,10 @@ This runbook verifies the UsefulDesk Agent native foundation, the shipped Stage
 development client, authentication, secure session restoration, branch-scoped
 conversation lists and history, realtime recovery, role- and
 service-window-gated outbound controls, optimistic text/media state, Approved
-template sending, and non-mutating rich-chat acceptance. Push notifications and
-advanced message actions remain outside this boundary.
+template sending, and non-mutating rich-chat acceptance. For standalone tester
+builds and the release acceptance gates, including push notifications, see
+[Internal tester release](internal-testing.md). Advanced message actions remain
+outside this boundary.
 
 ## Prerequisites
 
@@ -228,8 +230,10 @@ Latest acceptance record:
   was offline
 - Latest physical branch isolation, foreground/session recovery, persisted
   failed-row safety, and base light/dark appearance: pass
-- Maximum standard Dynamic Type: fail; Inbox and conversation content clips or
-  truncates
+- Maximum standard Dynamic Type: the initial failure was repaired and the
+  recorded physical iPhone light/dark retests passed. The later runtime scale
+  change repair passed the simulator size matrix; see the roadmap and Stage 2
+  acceptance report for the exact boundaries.
 - Latest physical viewer, transition-only VoiceOver announcement,
   software-keyboard avoidance, edge-swipe navigation, optimistic
   Retry/ambiguous lock, and live realtime checks: not accepted
@@ -266,12 +270,10 @@ Prettier.
 
 ## Remote EAS development builds
 
-Remote EAS builds are intentionally deferred until native feature development
-is complete. Use the local Xcode and Gradle development-build workflow above
-for current implementation and physical-device acceptance. Project linking,
-cloud environments, signing, and store distribution belong to the final
-release-hardening phase; do not treat EAS authentication as a feature-work
-prerequisite.
+Internal tester release preparation has begun. Use the local Xcode and Gradle
+development-build workflow above for feature work, and the standalone `preview`
+profile described in [Internal tester release](internal-testing.md) for tester
+acceptance. Do not treat EAS authentication as a feature-work prerequisite.
 
 `apps/mobile/eas.json` provides an iOS simulator profile and an internal device
 profile. Both development profiles read the EAS `development` environment. EAS

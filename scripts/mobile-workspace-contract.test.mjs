@@ -27,7 +27,7 @@ describe('mobile npm workspace', () => {
     expect(mobile.scripts.start).toBe(
       'NODE_PATH=./node_modules expo start --dev-client'
     );
-    expect(mobile.dependencies.expo).toBe('~57.0.19');
+    expect(mobile.dependencies.expo).toBe('~57.0.20');
     expect(mobile.dependencies.react).toBe('19.2.3');
     expect(mobile.dependencies['react-native']).toBe('0.86.3');
   });

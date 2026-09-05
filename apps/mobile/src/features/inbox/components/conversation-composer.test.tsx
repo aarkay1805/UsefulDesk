@@ -12,6 +12,10 @@ import type { PickedMediaAsset } from '../media-picker';
 import { MediaValidationError } from '../../../../../../src/lib/storage/media-contract';
 import { MediaUploadError } from '../media-upload-client';
 import { ConversationComposer } from './conversation-composer';
+jest.mock('./media-playback', () => ({
+  AudioAttachment: () => null,
+  VideoAttachment: () => null,
+}));
 
 const mockFocusWhenEditable = jest.fn();
 
@@ -114,8 +118,10 @@ function deferred<T>() {
 }
 
 function pressHandlerFor(label: string): () => void {
-  let current: ReturnType<typeof screen.getByText> | null =
-    screen.getByText(label);
+  let current: ReturnType<typeof screen.getByText> | null = screen.getByRole(
+    'button',
+    { name: label }
+  );
   while (current) {
     if (typeof current.props.onPress === 'function')
       return current.props.onPress;
@@ -421,6 +427,9 @@ describe('ConversationComposer', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
     fireEvent.press(screen.getByRole('button', { name: 'Choose document' }));
     const caption = await screen.findByLabelText('Caption');
+    expect(screen.getByLabelText('renewal.pdf')).toBeTruthy();
+    expect(screen.getByText('Document · 2 KB')).toBeTruthy();
+    expect(caption.props.allowFontScaling).toBe(true);
     expect(caption.props.maxLength).toBe(1024);
     fireEvent.changeText(caption, '  Renewal form  ');
     fireEvent.press(
@@ -477,6 +486,10 @@ describe('ConversationComposer', () => {
     expect(
       screen.queryByRole('button', { name: 'Discard attachment' })
     ).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Send attachment, loading' }).props
+        .accessibilityState
+    ).toEqual({ busy: true, disabled: true });
     act(() => pressStaleDiscard());
     expect(screen.getByLabelText('Photo attachment preview')).toBeTruthy();
     expect(props.deleteMedia).not.toHaveBeenCalled();

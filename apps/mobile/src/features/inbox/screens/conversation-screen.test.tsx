@@ -39,6 +39,10 @@ import {
   shouldFollowLatest,
   shouldLoadOlder,
 } from './conversation-screen';
+jest.mock('../components/media-playback', () => ({
+  AudioAttachment: () => null,
+  VideoAttachment: () => null,
+}));
 
 const mockRouter = { back: jest.fn(), push: jest.fn(), replace: jest.fn() };
 const mockUseLocalSearchParams = jest.fn();

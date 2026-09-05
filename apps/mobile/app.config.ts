@@ -11,7 +11,10 @@ const config: UsefulDeskExpoConfig = {
   orientation: 'portrait',
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
-  ios: { bundleIdentifier: 'com.usefulmade.usefuldesk.agent' },
+  ios: {
+    bundleIdentifier: 'com.usefulmade.usefuldesk.agent',
+    infoPlist: { ITSAppUsesNonExemptEncryption: false },
+  },
   android: {
     package: 'com.usefulmade.usefuldesk.agent',
     googleServicesFile: './google-services.json',
@@ -23,6 +26,15 @@ const config: UsefulDeskExpoConfig = {
     'expo-secure-store',
     'expo-font',
     'expo-image',
+    'expo-video',
+    [
+      'expo-audio',
+      {
+        microphonePermission: false,
+        recordAudioAndroid: false,
+        enableBackgroundPlayback: false,
+      },
+    ],
     [
       'expo-image-picker',
       {

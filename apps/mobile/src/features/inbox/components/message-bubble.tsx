@@ -177,6 +177,9 @@ export function MessageBubble({
     message.contentType === 'text' ||
     message.contentType === 'template' ||
     message.contentType === 'interactive';
+  const isMedia = ['image', 'video', 'audio', 'document'].includes(
+    message.contentType
+  );
   const inlineMetadata = shouldInlineBubbleMetadata(hasTrailingText, fontScale);
   const accessibilityActions = [
     ...(onReply ? [{ name: 'reply', label: 'Reply to message' }] : []),
@@ -235,7 +238,7 @@ export function MessageBubble({
           testID="message-bubble"
         >
           <View
-            className={`relative rounded-3xl px-4 py-2.5 ${fill} ${
+            className={`relative ${isMedia ? 'rounded-2xl p-1' : 'rounded-3xl px-4 py-2.5'} ${fill} ${
               accessibilityTextScale ? 'max-w-[88%]' : 'max-w-[80%]'
             }`}
           >
@@ -262,12 +265,14 @@ export function MessageBubble({
                 }
               />
               {!inlineMetadata ? (
-                <BubbleMeta
-                  formattedTime={formattedTime}
-                  isOutbound={isOutbound}
-                  key={`${message.id}:${message.status}:metadata`}
-                  message={message}
-                />
+                <View className={isMedia ? 'px-2 pb-1' : undefined}>
+                  <BubbleMeta
+                    formattedTime={formattedTime}
+                    isOutbound={isOutbound}
+                    key={`${message.id}:${message.status}:metadata`}
+                    message={message}
+                  />
+                </View>
               ) : null}
             </View>
           </View>

@@ -25,3 +25,5 @@ npm run mobile:verify
 ```
 
 For native setup, development-build creation, and simulator commands, see [the mobile development-build guide](../../docs/mobile/development-build.md).
+
+For standalone internal tester builds and release acceptance, see [the internal testing runbook](../../docs/mobile/internal-testing.md).

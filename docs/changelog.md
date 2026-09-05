@@ -6,6 +6,42 @@
 
 ---
 
+## Internal mobile tester build preparation
+
+Attachment composer refinement is implemented locally in
+`apps/mobile/src/features/inbox/components/conversation-composer.tsx`: readable
+filename/type/size, a separate accessible discard control, uncropped photo
+previews, and the shared caption/send row with a pending spinner. Upload,
+retry, cleanup, and ambiguous-delivery guards remain intact. Updated native
+visual checks and a subsequent tester build are still required; build 1 does
+not contain this UI.
+
+`apps/mobile/eas.json` adds a standalone Preview profile with an installable
+Android APK; the existing EAS project's Preview environment has the four public
+app settings. Expo SDK 57 patches and the shared lockfile are aligned, retaining
+the existing Supabase versions. Clean install, Expo Doctor (21/21), mobile gates
+(69 suites / 785 tests), and native bundle exports pass. The workspace contract
+test now expects the patched Expo version. `docs/mobile/internal-testing.md`
+tracks signing/build and device acceptance separately; the development guide's
+stale Dynamic Type failure is corrected. Both cloud builds finished successfully; the
+signed iOS tester app is installed on the registered iPhone Air and the Android
+APK is installed after owner-approved replacement of the development app. Owner-approved iOS distribution signing and ad hoc provisioning
+are configured. Preview still targets the live backend,
+so its environment label is not a data-isolation boundary.
+
+## Native reaction acceptance exposes a proxy authorization gap
+
+Tester text delivery passed on iOS and Android; iOS quoted replies and incoming
+realtime passed. Reaction add exposed a cookie-only proxy rejection before the
+route's bearer/RLS authorization. `src/proxy.ts` now forwards bearer-present
+requests on the exact reaction path, retaining branch context; cookie and other
+WhatsApp paths retain their protections. Regression coverage in
+`src/proxy.test.ts` and existing route/auth suites passes 66 tests, plus lint and
+typecheck. The fix remains local, pending deployment and live reaction retest.
+`docs/mobile/internal-testing.md` records partial device acceptance and remaining
+gates. Android build 1 document/image/video/audio delivery is provider-confirmed;
+iOS media, attachment opening/playback, and Preview push acceptance remain pending.
+
 ## Formatting is advisory instead of blocking deployment
 
 The shared `npm run verify` in `package.json` keeps lint, typecheck, tests, and
