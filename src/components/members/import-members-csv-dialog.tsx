@@ -1323,9 +1323,7 @@ export function ImportMembersCsvDialog({
   };
   const currentDescription =
     step === 3
-      ? candidateSummary.needsResolution > 0
-        ? `${candidateSummary.needsResolution} member${candidateSummary.needsResolution === 1 ? '' : 's'} need attention before you can continue.`
-        : 'All included members are ready to review.'
+      ? `${file?.name ?? draftManager.draft?.sourceFilename ?? 'Import worksheet'} · ${fmt.number(candidateSummary.source)} source rows`
       : descriptions[step];
   /* The two-pane resolve workspace, as opposed to a single scrolling step.
      The result panel replaces the step content, so it is not one. */
@@ -1346,7 +1344,13 @@ export function ImportMembersCsvDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="border-border/80 bg-popover text-popover-foreground flex max-h-[min(92vh,760px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1200px,calc(100%-2rem))]">
+        <DialogContent
+          className={cn(
+            'flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1200px,calc(100%-2rem))]',
+            resolveWorkspace &&
+              'h-[min(92dvh,880px)] sm:max-w-[min(1320px,calc(100%-2rem))]'
+          )}
+        >
           <div className="border-border/80 shrink-0 space-y-4 border-b px-6 pt-6 pb-5">
             <DialogHeader className="gap-1.5">
               <DialogTitle size="lg">Import Members</DialogTitle>
@@ -1446,6 +1450,7 @@ export function ImportMembersCsvDialog({
                   {step === 3 && (
                     <ImportMembersPreview
                       candidates={candidates}
+                      context={candidateContext}
                       plans={plans}
                       catalogItems={catalogItems}
                       trainers={trainers}
@@ -1700,7 +1705,12 @@ export function ImportMembersCsvDialog({
                       {raw?.rows.length === 1 ? '' : 's'}
                     </Button>
                   )}
-                  {step === 3 && (
+                  {step === 3 && candidateSummary.needsResolution > 0 && (
+                    <p className="text-muted-foreground text-xs">
+                      {candidateSummary.needsResolution} rows still need review
+                    </p>
+                  )}
+                  {step === 3 && candidateSummary.needsResolution === 0 && (
                     <Button
                       type="button"
                       disabled={

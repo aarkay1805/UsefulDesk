@@ -22,21 +22,29 @@ function claimPlayback(pause: () => void) {
 }
 
 function usePlaybackLifetime(pause: () => void) {
+  const stopForLifecycle = useCallback(() => {
+    try {
+      pause();
+    } catch {
+      // Expo's player hook can release its native object before our cleanup.
+      // Disposal already stops playback; navigation must still finish.
+    }
+  }, [pause]);
   useFocusEffect(
     useCallback(
       () => () => {
-        pause();
+        stopForLifecycle();
         if (activePlayback === pause) activePlayback = null;
       },
-      [pause]
+      [pause, stopForLifecycle]
     )
   );
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') pause();
+      if (state !== 'active') stopForLifecycle();
     });
     return () => subscription.remove();
-  }, [pause]);
+  }, [stopForLifecycle]);
 }
 
 function playbackTime(seconds: number) {
@@ -93,9 +101,11 @@ export function AudioAttachment({ uri }: { uri: string }) {
       } else {
         if (status.didJustFinish || status.currentTime >= status.duration)
           await player.seekTo(0);
+        if (generation.current !== attempt) return;
         player.play();
       }
     } catch {
+      if (generation.current !== attempt) return;
       wantsPlayback.current = false;
       setFailed(true);
     }

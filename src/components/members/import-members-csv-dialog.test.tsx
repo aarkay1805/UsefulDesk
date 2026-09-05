@@ -126,6 +126,7 @@ vi.mock('sonner', () => ({
 const { ImportMembersCsvDialog } = await import('./import-members-csv-dialog');
 
 beforeAll(() => {
+  Element.prototype.getAnimations = () => [];
   vi.stubGlobal(
     'ResizeObserver',
     class ResizeObserver {
@@ -322,7 +323,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     ).toBeTruthy();
   });
 
-  it('gives the queue rail and the focused issue their own scrollports', async () => {
+  it('keeps the worksheet table and row inspector inside the bounded step frame', async () => {
     const user = userEvent.setup();
     render(
       <ImportMembersCsvDialog open onOpenChange={vi.fn()} onSaved={vi.fn()} />
@@ -346,16 +347,12 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     );
     await user.click(screen.getByRole('button', { name: 'Preview 1 row' }));
 
-    // The queue rail only exists once the step-3 panel has swapped in.
-    const queue = await screen.findByRole('navigation', {
-      name: 'Issue queue',
-    });
-    expect(queue.className.split(/\s+/)).toContain('overflow-y-auto');
-
-    const focused = screen.getByRole('region', { name: 'Focused issue' });
-    expect(focused.parentElement?.className.split(/\s+/)).toContain(
-      'overflow-y-auto'
-    );
+    const table = await screen.findByRole('table', { name: 'Import rows' });
+    expect(table.parentElement?.className).toContain('overflow-auto');
+    const inspector = screen.getByRole('region', { name: 'Row inspector' });
+    expect(
+      inspector.querySelector('[data-slot="scroll-area-viewport"]')
+    ).toBeTruthy();
 
     // Step 3 is a two-pane workspace: the step frame itself must not scroll,
     // or the tab strip and both panes ride one shared column scroll.
@@ -395,6 +392,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     });
     planSelect.focus();
     await user.keyboard('{ArrowDown}{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Save mapping' }));
     await waitFor(() =>
       expect(
         (

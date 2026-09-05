@@ -161,4 +161,46 @@ describe('attachment playback', () => {
     view.unmount();
     expect(mockVideo.pause).toHaveBeenCalled();
   });
+  it('tolerates native players already released before screen cleanup', () => {
+    const audio = render(<AudioAttachment uri="https://example.com/audio.mp3" />);
+    const video = render(<VideoAttachment uri="https://example.com/video.mp4" />);
+    const released = () => { throw new Error('Cannot use shared object that was already released'); };
+    mockAudio.pause.mockImplementationOnce(released);
+    mockVideo.pause.mockImplementationOnce(released);
+    expect(() => audio.unmount()).not.toThrow();
+    expect(() => video.unmount()).not.toThrow();
+  });
+  it('does not restart completed audio if the app backgrounds while seeking', async () => {
+    let changed: any;
+    jest.spyOn(AppState, 'addEventListener').mockImplementation((_event, fn) => {
+      changed = fn;
+      return { remove: jest.fn() };
+    });
+    const view = render(<AudioAttachment uri="https://example.com/audio.mp3" />);
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Play audio'));
+    });
+    mockStatus = {
+      ...mockStatus,
+      isLoaded: true,
+      duration: 25,
+      currentTime: 25,
+      didJustFinish: true,
+    };
+    view.rerender(<AudioAttachment uri="https://example.com/audio.mp3" />);
+    mockAudio.play.mockClear();
+    let finishSeek!: () => void;
+    mockAudio.seekTo.mockImplementationOnce(
+      () => new Promise<void>((resolve) => { finishSeek = resolve; })
+    );
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Play audio'));
+    });
+    expect(mockAudio.seekTo).toHaveBeenCalledWith(0);
+    await act(async () => {
+      changed('background');
+      finishSeek();
+    });
+    expect(mockAudio.play).not.toHaveBeenCalled();
+  });
 });

@@ -144,3 +144,20 @@ used the phone. Preview push delivery/tap routing, branch isolation/viewer flows
 iOS media, attachment opening/playback, reaction synchronization, and the remaining accessibility/recovery matrix
 remain unverified on these binaries. Do not promote this partial acceptance to
 release sign-off.
+
+## Subsequent media development check — 2026-09-05
+
+After owner-approved replacement of the Android tester app, the connected
+OnePlus 6 now runs a local development client with `expo-video` and `expo-audio`,
+connected to Metro. The media UI pass verified existing synthetic photo opening,
+inline audio completion, inline/fullscreen video rendering and playback, and
+light/dark appearance with enlarged Android text. No additional messages were
+sent during this check. Lint, typecheck, and 70 suites / 791 tests pass.
+An appearance-restoration crash from pausing an already released Expo player
+was reproduced and fixed; the final lint/typecheck and 151 focused media and
+conversation tests pass.
+
+This is development evidence, not acceptance of the standalone build 1 APK or
+IPA. The new media modules require an iOS rebuild, and the remaining tester
+release gates above still apply. See [media-ui-benchmark.md](media-ui-benchmark.md)
+for the WhatsApp comparison, file metadata limitation, and exact scope.

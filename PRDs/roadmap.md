@@ -8,10 +8,25 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
-Built locally: **mobile attachment composer refinement** — readable filename,
-type and size; compact caption/send layout; accessible discard; uncropped photo
-preview; and visible pending send state. Native visual acceptance and a new
-tester build remain pending; the existing v0.1.0/build 1 binaries are unchanged.
+Built locally: **member import migration worksheet** — searchable source rows,
+Needs review / Ready / Excluded filters, issue-type grouping with unique row
+counts and a mobile group picker, a selected-row inspector, staged payment
+reconciliation and grouped mapping, readable notices, editable pricing facts,
+excluded-row CSV recovery, and responsive list/detail navigation. The existing
+wizard and resumable draft remain in use; no live import or deployment was run
+for this change. See `design-qa.md` for visual and interaction evidence.
+
+Built locally: **mobile chat media polish** — readable staged filename/type/size,
+compact caption/send layout, accessible discard and photo expansion, inline
+video/audio previews and playback, audio speed controls, and tighter media
+bubbles. The rebuilt Android development client passed photo opening, audio,
+inline/fullscreen video, and light/dark large-text inspection; mobile lint,
+typecheck, and 70 suites / 791 tests pass. The WhatsApp comparison and remaining
+filename persistence, waveform/scrubbing, and Android photo zoom gaps are in
+`docs/mobile/media-ui-benchmark.md`. iOS native rebuild/acceptance and a new
+standalone tester build remain pending; v0.1.0/build 1 lacks this UI.
+The subsequent native-player teardown correction passes lint/typecheck and
+151 focused media/conversation tests, including the reproduced disposal race.
 
 Mobile release readiness: **internal tester distribution is now the first
 release target.** `apps/mobile/eas.json` has a standalone `preview` profile
@@ -923,6 +938,13 @@ Branded member app · class marketplace · payroll · workout/nutrition tracking
 
 ## Optional / open
 
+- Member import migration reliability: unify inferred paid/due and membership/service
+  pricing with SQL guards; re-match contacts after identity edits; scope retry keys
+  to durable import jobs; preserve partial-failure recovery; select current versus
+  past/future terms explicitly; honor ignored columns; add source adapters for
+  multi-sheet/report variations; reconcile draft limits and complete contact lookup.
+  The migration worksheet improves review but does not establish general ERP
+  compatibility. Debt-changing notices still need an explicit decision contract.
 - Richer Razorpay `payment.failed` handling — an immediate "auto-pay failed, pay manually" nudge instead of waiting for `subscription.halted` → manual.
 - One-click "Connect Razorpay" via OAuth: **Technology Partner onboarding, isolated Stages 1–4, owner-controlled Stage 5 Live acceptance, the real gym-owner connection-readiness pilot and ₹40 delivery/settlement, pinned-readiness recovery, Stage 6 OAuth-only retirement, and the database-owned multi-account rollout gate are complete and live in Production.** The owner-controlled account remains permanently enabled and exactly bound; VBF is the sole unbound G12 first-bind canary, with no credential or active OAuth state. VBF's Razorpay owner may now complete Live consent; then the established no-money readiness, isolation, and zero-queue checks close G12. The VBF authorization does not include a Payment Link, message, transaction, refund, or money movement. Manual keys, legacy per-account ingress, environment account/merchant pins, and in-place client-secret rotation are not rollout options. Exact evidence lives in `docs/razorpay-operations.md`.
 - Auto-generating / charging _future_ invoices (a billing cron — overlaps AutoPay) · persisting the Upcoming projection.

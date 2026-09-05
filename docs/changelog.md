@@ -6,15 +6,50 @@
 
 ---
 
+## Member import uses a migration worksheet
+
+Issue-type navigation now leads the Needs review worksheet: Billing, Missing
+phones, Invalid phones, Duplicate phones, Plan matching, and the remaining
+problem types each show their affected rows and matching resolver. Counts are
+unique within a group; a row with multiple issues appears in each relevant
+group. Grouped mappings retain their original source-key scope. A compact
+picker exposes the same groups on phones. Switching groups clears stale search,
+pagination and edits; resolved groups leave the queue without hiding other
+unresolved issues on the same customer.
+
+Built locally in `src/components/members/import-members-preview.tsx` and
+`import-members-csv-dialog.tsx`: searchable source rows with counted review
+filters, a persistent selected-member inspector, readable notices, and phone
+navigation between list and details. Payment choices show their resulting fee,
+paid amount, and opening dues before Save; the preview uses the same candidate
+context as the wizard and reads mapped Amount due through `effectiveBalance`.
+Grouped mappings name their affected rows and require Save. Excluded rows can
+be reviewed and downloaded with original values and formula-safe text. Pricing
+corrections expose list price and discounts. Existing candidate/commit rules
+remain the authority; this UI work does not resolve the wider ERP migration
+correctness and recovery gaps tracked in the roadmap. No live import was run.
+The focused UI/candidate/service/commit suites pass 84 tests, with targeted
+lint, typecheck and desktop/400px component browser checks passing. The grouped
+follow-up used a temporary local fixture because private draft saving failed
+in the live browser session; `design-qa.md` records that acceptance limit.
+
 ## Internal mobile tester build preparation
 
-Attachment composer refinement is implemented locally in
-`apps/mobile/src/features/inbox/components/conversation-composer.tsx`: readable
-filename/type/size, a separate accessible discard control, uncropped photo
-previews, and the shared caption/send row with a pending spinner. Upload,
-retry, cleanup, and ambiguous-delivery guards remain intact. Updated native
-visual checks and a subsequent tester build are still required; build 1 does
-not contain this UI.
+Mobile chat media polish is implemented in the Inbox composer, message content,
+and bubble components, with native players in `media-playback.tsx` and a
+protected `app/(app)/photo.tsx` route: readable staged filename/type/size,
+accessible discard/expand actions, uncropped staged photos, inline video/audio,
+playback speed, and a compact caption/send row. Upload/retry/cleanup guards
+remain intact. The rebuilt Android development client passed photo opening,
+audio, inline/fullscreen video, and light/dark large-text inspection; lint,
+typecheck, and 70 suites / 791 tests pass. Native video uses the default surface
+because `textureView` rendered black in Android fullscreen. New playback modules
+need an iOS rebuild; standalone build 1 does not contain this UI. Persisted
+document filename/size and further media features remain gaps documented in
+`docs/mobile/media-ui-benchmark.md`.
+Appearance restoration exposed Expo releasing players before focus cleanup;
+lifecycle pause now tolerates disposal, with a reproduced regression and final
+lint/typecheck plus 151 focused media/conversation tests passing.
 
 `apps/mobile/eas.json` adds a standalone Preview profile with an installable
 Android APK; the existing EAS project's Preview environment has the four public

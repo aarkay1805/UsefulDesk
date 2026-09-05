@@ -1,8 +1,10 @@
 'use client';
 
-import { useId, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
+  ArrowRight,
+  Download,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
@@ -10,7 +12,6 @@ import {
   XCircle,
 } from 'lucide-react';
 
-import { EditableCell } from '@/components/leads/editable-cell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
@@ -25,8 +26,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
+  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -35,6 +39,9 @@ import {
 } from '@/components/ui/table';
 import { useLocale } from '@/hooks/use-locale';
 import {
+  effectiveBalance,
+  resolvePaymentConflict,
+  type MemberImportCandidateContext,
   filterMemberImportCandidates,
   searchMemberImportCandidates,
   summarizeMemberImportCandidates,
@@ -49,6 +56,7 @@ import {
   type MemberImportPaymentResolution,
 } from '@/lib/memberships/member-import-candidates';
 import { parseMoney } from '@/lib/memberships/import-commit';
+import { downloadCsv, toCsv } from '@/lib/csv/export';
 import { durationLabel } from '@/lib/memberships/pricing';
 import { cn } from '@/lib/utils';
 import type { CatalogItem, MembershipPlan, Trainer } from '@/types';
@@ -57,12 +65,6 @@ import { MemberIdentity } from './member-identity';
 const PAGE_SIZE = 50;
 
 type CandidatePatch = Partial<MemberImportDraftValues>;
-type EditingCell = {
-  sourceKey: string;
-  key: string;
-  surface: 'desktop' | 'mobile';
-} | null;
-type PreviewView = 'issues' | 'rows';
 type IssueCode = MemberImportCandidate['issues'][number]['code'];
 
 /**
@@ -77,6 +79,7 @@ const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
   'shared-phone': 'Phone number used by multiple members',
   'plan-needs-resolution': 'Match plan and billing option',
   'pricing-option-needs-resolution': 'Match plan and billing option',
+  'pricing-mismatch': 'Correct membership pricing',
   'offering-needs-classification': 'Choose plan or service',
   'service-needs-resolution': 'Match service, option, and trainer',
   'service-values-invalid': 'Correct service dates or price',
@@ -95,6 +98,7 @@ const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
 
 interface ImportMembersPreviewProps {
   candidates: MemberImportCandidate[];
+  context?: MemberImportCandidateContext;
   plans: MembershipPlan[];
   catalogItems: CatalogItem[];
   trainers: Trainer[];
@@ -139,25 +143,67 @@ interface IssueGroup {
   candidates: MemberImportCandidate[];
 }
 
-interface IssueQueueSection {
+interface IssueSection {
+  key: string;
   title: string;
   groups: IssueGroup[];
+  sourceKeys: Set<string>;
 }
 
-/**
- * The queue names each kind of problem once and lists its instances beneath.
- * Without this, three separate missing-phone groups render three identical
- * titles, and the row label alone (a member name, a raw phone, a plan string)
- * never says what is wrong with it.
- */
-function queueSections(groups: IssueGroup[]): IssueQueueSection[] {
-  const sections = new Map<string, IssueQueueSection>();
+const ISSUE_SECTION_LABELS: Partial<Record<IssueCode, string>> = {
+  'missing-phone': 'Missing phones',
+  'invalid-phone': 'Invalid phones',
+  'shared-phone': 'Duplicate phones',
+  'offering-needs-classification': 'Plan or service',
+  'service-needs-resolution': 'Service matching',
+  'service-values-invalid': 'Service details',
+  'duplicate-service': 'Duplicate services',
+  'existing-contact': 'Contact details',
+  'invalid-membership-values': 'Member details',
+  'expiry-not-after-start': 'Membership dates',
+};
+
+/** Group navigation by problem, without expanding the scope of a bulk fix. */
+function issueSections(groups: IssueGroup[]): IssueSection[] {
+  const sections = new Map<string, IssueSection>();
   for (const group of groups) {
-    const existing = sections.get(group.title);
-    if (existing) existing.groups.push(group);
-    else sections.set(group.title, { title: group.title, groups: [group] });
+    const billing = [
+      'payment-conflict',
+      'pricing-mismatch',
+      'purchase-total-mismatch',
+    ].includes(group.code);
+    const plan = [
+      'plan-needs-resolution',
+      'pricing-option-needs-resolution',
+    ].includes(group.code);
+    const key = billing ? 'billing' : plan ? 'plans' : group.code;
+    const title = billing
+      ? 'Billing issues'
+      : plan
+        ? 'Plan matching'
+        : (ISSUE_SECTION_LABELS[group.code] ?? group.title);
+    let section = sections.get(key);
+    if (!section) {
+      section = { key, title, groups: [], sourceKeys: new Set() };
+      sections.set(key, section);
+    }
+    section.groups.push(group);
+    for (const candidate of group.candidates) {
+      section.sourceKeys.add(candidate.sourceKey);
+    }
   }
-  return [...sections.values()];
+  const order = [
+    'billing',
+    'missing-phone',
+    'invalid-phone',
+    'shared-phone',
+    'plans',
+  ];
+  const rank = (key: string) => {
+    const index = order.indexOf(key);
+    return index < 0 ? order.length : index;
+  };
+  return [...sections.values()].sort((a, b) => rank(a.key) - rank(b.key));
 }
 
 function unresolvedGroups(candidates: MemberImportCandidate[]): IssueGroup[] {
@@ -183,658 +229,670 @@ function unresolvedGroups(candidates: MemberImportCandidate[]): IssueGroup[] {
   return [...groups.values()];
 }
 
-export function ImportMembersPreview({
-  candidates,
-  plans,
-  catalogItems,
-  trainers,
-  onPatch,
-  onResolveGroupedPlan,
-  onResolveGroupedOffering,
-  onResolveGroupedService,
-  onResolvePayment,
-  onResolveExistingContact,
-  onSetDisposition,
-}: ImportMembersPreviewProps) {
+/** Issue groups lead to a worksheet whose table and resolver share a selection. */
+export function ImportMembersPreview(props: ImportMembersPreviewProps) {
+  const { candidates, plans, catalogItems, trainers } = props;
   const { fmt } = useLocale();
-  const sectionId = useId();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<MemberImportCandidateFilter>('all');
-  const [page, setPage] = useState(0);
-  const [editing, setEditing] = useState<EditingCell>(null);
-  const [view, setView] = useState<PreviewView>(() =>
-    unresolvedGroups(candidates).length > 0 ? 'issues' : 'rows'
+  const [filter, setFilter] = useState<MemberImportCandidateFilter>(() =>
+    candidates.some((row) => row.disposition === 'included' && !row.isReady)
+      ? 'needs-resolution'
+      : 'all'
   );
-  const [selectedGroupKey, setSelectedGroupKey] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [selectedIssueKey, setSelectedIssueKey] = useState<string | null>(null);
+  const [selectedSectionKey, setSelectedSectionKey] = useState<string | null>(
+    null
+  );
+  const [showRules, setShowRules] = useState(false);
+  const [detailEditor, setDetailEditor] = useState<'phone' | 'plan' | null>(
+    null
+  );
   const summary = useMemo(
     () => summarizeMemberImportCandidates(candidates),
     [candidates]
   );
   const groups = useMemo(() => unresolvedGroups(candidates), [candidates]);
-  const sections = useMemo(() => queueSections(groups), [groups]);
-  const activeGroupIndex = Math.max(
-    0,
-    groups.findIndex((group) => group.key === selectedGroupKey)
-  );
-  const activeGroup = groups[activeGroupIndex] ?? null;
-  const activeView: PreviewView = groups.length === 0 ? 'rows' : view;
+  const sections = useMemo(() => issueSections(groups), [groups]);
+  const activeSection =
+    filter === 'needs-resolution'
+      ? (sections.find((section) => section.key === selectedSectionKey) ??
+        sections[0])
+      : undefined;
   const visible = useMemo(() => {
-    const searched = searchMemberImportCandidates(candidates, search);
-    return filterMemberImportCandidates(searched, filter);
-  }, [candidates, filter, search]);
+    const filtered = filterMemberImportCandidates(
+      searchMemberImportCandidates(candidates, search),
+      filter
+    );
+    return activeSection
+      ? filtered.filter((row) => activeSection.sourceKeys.has(row.sourceKey))
+      : filtered;
+  }, [candidates, search, filter, activeSection]);
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
-  const safePage = Math.min(page, pageCount - 1);
+  const selectedIndex = visible.findIndex(
+    (row) => row.sourceKey === selectedKey
+  );
+  const safePage =
+    selectedIndex >= 0
+      ? Math.floor(selectedIndex / PAGE_SIZE)
+      : Math.min(page, pageCount - 1);
   const paged = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+  const selected =
+    paged.find((row) => row.sourceKey === selectedKey) ?? paged[0] ?? null;
+  const rowGroups = selected
+    ? (activeSection?.groups ?? groups).filter((group) =>
+        group.candidates.some((row) => row.sourceKey === selected.sourceKey)
+      )
+    : [];
+  const unresolvedGroup =
+    rowGroups.find((group) => group.key === selectedIssueKey) ?? rowGroups[0];
+  const activeGroup: IssueGroup | undefined =
+    selected && detailEditor
+      ? {
+          key: `edit:${detailEditor}:${selected.sourceKey}`,
+          code:
+            detailEditor === 'phone'
+              ? 'invalid-phone'
+              : 'plan-needs-resolution',
+          title:
+            detailEditor === 'phone'
+              ? 'Edit phone'
+              : 'Change plan and billing option',
+          explanation:
+            detailEditor === 'phone'
+              ? 'Use this member’s own phone number.'
+              : 'Choose the plan and billing option for this row.',
+          nextAction: '',
+          candidates: [selected],
+        }
+      : unresolvedGroup;
   const counts: Record<MemberImportCandidateFilter, number> = {
     all: summary.source,
     'needs-resolution': summary.needsResolution,
     ready: summary.ready,
     excluded: summary.exclusions,
   };
+  const context = props.context ?? {
+    plans,
+    catalogItems,
+    trainers,
+    dateOrder: 'DMY',
+    today: fmt.today(),
+  };
 
-  function startEditing(
-    sourceKey: string,
-    key: string,
-    surface: 'desktop' | 'mobile'
-  ) {
-    setEditing({ sourceKey, key, surface });
+  function changeFilter(value: MemberImportCandidateFilter) {
+    setDetailEditor(null);
+    setFilter(value);
+    setPage(0);
+    setSelectedKey(null);
+    setSelectedIssueKey(null);
+    setInspectorOpen(false);
   }
-
-  function isEditing(
-    sourceKey: string,
-    key: string,
-    surface: 'desktop' | 'mobile'
-  ) {
-    return (
-      editing?.sourceKey === sourceKey &&
-      editing.key === key &&
-      editing.surface === surface
+  function changeSection(key: string) {
+    setSelectedSectionKey(key);
+    setDetailEditor(null);
+    setSelectedIssueKey(null);
+    setSelectedKey(null);
+    setPage(0);
+    setSearch('');
+    setInspectorOpen(false);
+  }
+  function selectRow(row: MemberImportCandidate) {
+    setDetailEditor(null);
+    setSelectedKey(row.sourceKey);
+    setSelectedIssueKey(null);
+    setInspectorOpen(true);
+  }
+  function nextRow() {
+    setDetailEditor(null);
+    const index = visible.findIndex(
+      (row) => row.sourceKey === selected?.sourceKey
+    );
+    const next = visible[index + 1] ?? visible[index - 1];
+    if (next) {
+      setSelectedKey(next.sourceKey);
+      setPage(Math.floor(visible.indexOf(next) / PAGE_SIZE));
+    } else setInspectorOpen(false);
+    setSelectedIssueKey(null);
+  }
+  function exportExcluded() {
+    // Preserve source text for recovery, with spreadsheet formula cells escaped.
+    const safe = (value: string | null | undefined) =>
+      value && /^[\s]*[=+@-]/.test(value) ? `'${value}` : value;
+    downloadCsv(
+      'member-import-excluded.csv',
+      toCsv(
+        [
+          'Source row',
+          'Member ID',
+          'Name',
+          'Phone',
+          'Plan',
+          'Service',
+          'Fee',
+          'Paid',
+          'Balance',
+          'Reason',
+        ],
+        candidates
+          .filter((row) => row.disposition === 'excluded')
+          .map((row) => [
+            row.sourceRow,
+            safe(row.legacyMemberId),
+            safe(row.originalValues.name),
+            safe(row.originalValues.phone),
+            safe(row.originalValues.planName),
+            safe(row.originalValues.serviceName),
+            safe(row.originalValues.fee),
+            safe(row.originalValues.amountPaid),
+            safe(effectiveBalance(row.originalValues)),
+            row.issues.map((issue) => issue.explanation).join(' ') ||
+              'Excluded by you',
+          ])
+      )
     );
   }
 
   return (
-    <Tabs
-      value={activeView}
-      onValueChange={(value) => value && setView(value as PreviewView)}
-      /* `flex-1` is what actually gives this a height: the dialog body is a
-         flex column whose own height comes from a max-height clamp, so a
-         percentage height would resolve against an indefinite parent.
-         `h-full` stays as the fallback for any non-flex host. */
-      className="h-full min-h-0 flex-1 gap-0"
+    <div
+      className="flex h-full min-h-0 flex-1 flex-col"
+      aria-label="Import worksheet"
     >
-      {/* The strip carries the dialog's gutter now that the body no longer
-          pads this step, so the tab labels line up with the title above and
-          the footer buttons below. Geometry matches the app's other line
-          tabs (members, leads, finance): flat list, roomy gap, underline
-          pinned to the divider it sits on. */}
-      <div className="border-border flex shrink-0 items-end gap-4 border-b px-6 pt-3">
-        <TabsList variant="line" className="h-auto gap-5 p-0">
-          {/* Counts the queue this tab opens. The affected-member count is
-              already stated in the dialog description, and each issue states
-              its own row count, so the badge adds a number instead of
-              repeating one. */}
-          <TabsTrigger
-            value="issues"
-            disabled={groups.length === 0}
-            aria-label={`Issues, ${groups.length} to resolve`}
-            className="flex-none px-0.5 pb-2 group-data-horizontal/tabs:after:bottom-0"
-          >
-            Issues
-            <Badge variant="warning" size="count">
-              {groups.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger
-            value="rows"
-            aria-label={`Review rows, ${summary.source} in total`}
-            className="flex-none px-0.5 pb-2 group-data-horizontal/tabs:after:bottom-0"
-          >
-            Review rows
-            <Badge variant="neutral" size="count">
-              {summary.source}
-            </Badge>
-          </TabsTrigger>
-        </TabsList>
-        {/* Below sm the tab labels and their counts already fill the strip;
-            the same two totals stay reachable on the Review rows filters. */}
-        <p className="text-muted-foreground ml-auto hidden pb-2 text-xs whitespace-nowrap tabular-nums sm:block">
-          {fmt.number(summary.ready)} ready · {fmt.number(summary.exclusions)}{' '}
-          excluded
-        </p>
-      </div>
-
-      {activeView === 'issues' && activeGroup ? (
-        <TabsContent
-          value="issues"
-          className="flex min-h-0 flex-col overflow-hidden"
+      <div className="flex min-h-0 flex-1 flex-col xl:grid xl:grid-cols-[minmax(0,1fr)_auto_24rem]">
+        <div
+          className={cn(
+            'min-h-0 min-w-0 flex-1 flex-col',
+            inspectorOpen ? 'hidden xl:flex' : 'flex'
+          )}
         >
-          <div className="grid min-h-0 flex-1 md:grid-cols-[16rem_minmax(0,1fr)] lg:grid-cols-[18rem_minmax(0,1fr)]">
-            <aside className="border-border hidden min-h-0 border-r md:flex md:flex-col">
-              <nav
-                aria-label="Issue queue"
-                className="divide-border min-h-0 flex-1 divide-y overflow-y-auto px-4 pb-3"
-              >
-                {sections.map((section, index) => (
-                  <div
-                    key={section.title}
-                    role="group"
-                    aria-labelledby={`${sectionId}-${index}`}
-                    /* No padding above the heading: a sticky element cannot
-                       rise above its parent's content box, so top padding here
-                       would park the pinned heading below the scrollport edge
-                       and let rows slide visibly through the gap. The heading
-                       owns its own top space instead. */
-                    className="pb-2"
+          <div className="flex shrink-0 flex-wrap items-center gap-3 px-6 py-4">
+            <SearchInput
+              value={search}
+              onValueChange={(value) => {
+                setSearch(value);
+                setPage(0);
+                setSelectedKey(null);
+                setSelectedIssueKey(null);
+                setDetailEditor(null);
+              }}
+              placeholder="Search name or ID"
+              aria-label="Search import rows"
+            />
+            <ChipGroup<MemberImportCandidateFilter>
+              className="basis-full sm:basis-0"
+              selectionMode="single"
+              value={[filter]}
+              onValueChange={(values) => values[0] && changeFilter(values[0])}
+              aria-label="Import row filters"
+            >
+              {(
+                [
+                  ['needs-resolution', 'Needs review'],
+                  ['ready', 'Ready'],
+                  ['excluded', 'Excluded'],
+                  ['all', 'All'],
+                ] as const
+              ).map(([value, label]) => (
+                <Chip key={value} value={value}>
+                  {label} <ChipCount count={counts[value]} />
+                </Chip>
+              ))}
+            </ChipGroup>
+          </div>
+          <Separator />
+          {activeSection && (
+            <>
+              <div className="shrink-0 space-y-2 px-6 py-3">
+                <ChipGroup<string>
+                  className="hidden sm:block"
+                  selectionMode="single"
+                  value={[activeSection.key]}
+                  onValueChange={(values) =>
+                    values[0] && changeSection(values[0])
+                  }
+                  aria-label="Issue groups"
+                >
+                  {sections.map((section) => (
+                    <Chip key={section.key} value={section.key}>
+                      {section.title}{' '}
+                      <ChipCount count={section.sourceKeys.size} />
+                    </Chip>
+                  ))}
+                </ChipGroup>
+                <div className="sm:hidden">
+                  <Select<string>
+                    value={activeSection.key}
+                    onValueChange={(value) => value && changeSection(value)}
                   >
-                    {/* The kind of problem is named once per cluster, so a row
-                        only has to carry the value that identifies it. The
-                        heading and the rows it names both sit in the quiet
-                        text role, so the heading earns its own register —
-                        smaller, heavier, wider-tracked, held above a rule, and
-                        set closer to its own rows than to the cluster above.
-                        Without that it reads as a fourth, unclickable row. */}
-                    <p
-                      id={`${sectionId}-${index}`}
-                      className="bg-popover text-muted-foreground sticky top-0 z-10 flex items-start gap-1.5 px-2.5 pt-3 pb-2 text-xs font-semibold tracking-wide"
-                    >
-                      {/* Every section in this rail blocks the import, so the
-                          marker is the same amber `AlertTriangle` a row's own
-                          status carries. Its left edge lands on the row labels
-                          beneath it, so the rail keeps one left edge and the
-                          heading sits off it instead of alongside it.
-                          Decorative: the heading already names the problem. */}
-                      <AlertTriangle
-                        className="text-amber-foreground mt-px size-3.5 shrink-0"
-                        aria-hidden
-                      />
-                      <span className="min-w-0">{section.title}</span>
-                    </p>
-                    <div className="space-y-0.5">
-                      {section.groups.map((group) => (
-                        <Button
-                          key={group.key}
-                          type="button"
-                          variant={
-                            group.key === activeGroup.key
-                              ? 'secondary'
-                              : 'ghost'
-                          }
-                          /* A queue row carries a value the operator matches
-                             against their file — a plan name, a phone number —
-                             so it reads in the ink role like the same list
-                             does in the mobile Select. Ghost's muted default
-                             put it in the very role the section heading uses,
-                             which is what made the two indistinguishable. */
-                          className={cn(
-                            'w-full justify-start',
-                            group.key !== activeGroup.key && 'text-foreground'
-                          )}
-                          aria-pressed={group.key === activeGroup.key}
-                          onClick={() => setSelectedGroupKey(group.key)}
-                        >
-                          <span className="min-w-0 flex-1 truncate text-left">
-                            {groupQueueLabel(group, fmt.phone)}
-                          </span>
-                          {group.candidates.length > 1 ? (
-                            <Badge variant="neutral" size="count">
-                              {group.candidates.length}
-                            </Badge>
-                          ) : null}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </nav>
-            </aside>
-
-            <div className="flex min-h-0 min-w-0 flex-col">
-              {/* Without the queue rail, the picker and the pager are the same
-                  navigation and belong on one row above the work. */}
-              <div className="border-border flex shrink-0 items-center gap-2 border-b px-6 py-3 md:hidden">
-                <div className="min-w-0 flex-1">
-                  <Select
-                    value={activeGroup.key}
-                    onValueChange={(value) =>
-                      value && setSelectedGroupKey(value)
-                    }
-                  >
-                    <SelectTrigger className="w-full" aria-label="Choose issue">
+                    <SelectTrigger className="w-full" aria-label="Issue group">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {groups.map((group) => (
-                        <SelectItem key={group.key} value={group.key}>
-                          {`${groupQueueLabel(group, fmt.phone)} · ${group.title}`}
+                      {sections.map((section) => (
+                        <SelectItem key={section.key} value={section.key}>
+                          {section.title} ·{' '}
+                          {fmt.number(section.sourceKeys.size)}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Previous issue"
-                  disabled={activeGroupIndex === 0}
-                  onClick={() =>
-                    setSelectedGroupKey(groups[activeGroupIndex - 1].key)
-                  }
-                >
-                  <ChevronLeft />
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon-sm"
-                  aria-label="Next issue"
-                  disabled={activeGroupIndex === groups.length - 1}
-                  onClick={() =>
-                    setSelectedGroupKey(groups[activeGroupIndex + 1].key)
-                  }
-                >
-                  <ChevronRight />
-                </Button>
+                <p className="text-muted-foreground text-xs">
+                  Rows with more than one issue appear in each relevant group.
+                </p>
               </div>
-
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                <section
-                  aria-label="Focused issue"
-                  className="@container max-w-3xl px-6 pt-5 pb-6"
-                >
-                  <h3 className="text-base font-semibold">
-                    {activeGroup.title}
-                  </h3>
-                  <p className="text-muted-foreground mt-1.5 max-w-[70ch] text-sm">
-                    {activeGroup.explanation} {activeGroup.nextAction}
-                  </p>
-                  <div className="mt-5">
-                    <GroupResolver
-                      key={activeGroup.key}
-                      group={activeGroup}
-                      plans={plans}
-                      catalogItems={catalogItems}
-                      trainers={trainers}
-                      onResolveGroupedPlan={onResolveGroupedPlan}
-                      onResolveGroupedOffering={onResolveGroupedOffering}
-                      onResolveGroupedService={onResolveGroupedService}
-                      onResolvePayment={onResolvePayment}
-                      onResolveExistingContact={onResolveExistingContact}
-                      onPatch={onPatch}
-                      onSetDisposition={onSetDisposition}
-                    />
-                  </div>
-                </section>
-              </div>
-            </div>
+              <Separator />
+            </>
+          )}
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-6 py-2">
+            <p
+              className="text-muted-foreground text-xs tabular-nums"
+              role="status"
+            >
+              {fmt.number(visible.length)} row{visible.length === 1 ? '' : 's'}{' '}
+              {activeSection
+                ? `in ${activeSection.title.toLowerCase()}`
+                : 'in this view'}
+            </p>
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => setShowRules(!showRules)}
+              aria-expanded={showRules}
+            >
+              {showRules ? 'Hide import rules' : 'View import rules'}
+            </Button>
           </div>
-        </TabsContent>
-      ) : null}
-
-      {activeView === 'rows' ? (
-        <TabsContent
-          value="rows"
-          className="flex min-h-0 flex-col overflow-hidden"
-        >
-          <div className="flex min-h-0 flex-1 flex-col gap-3 px-6 pt-4 pb-4">
-            <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-center">
-              <SearchInput
-                value={search}
-                onValueChange={(value) => {
-                  setSearch(value);
-                  setPage(0);
-                }}
-                placeholder="Search customers or Member ID"
-                aria-label="Search import rows"
-                containerClassName="w-full lg:w-[240px]"
-              />
-              <ChipGroup<MemberImportCandidateFilter>
-                selectionMode="single"
-                value={[filter]}
-                onValueChange={(values) => {
-                  if (!values[0]) return;
-                  setFilter(values[0]);
-                  setPage(0);
-                }}
-                aria-label="Import row filters"
-              >
-                {(
-                  [
-                    ['all', 'All'],
-                    ['needs-resolution', 'Needs resolution'],
-                    ['ready', 'Ready'],
-                    ['excluded', 'Excluded'],
-                  ] as const
-                ).map(([value, label]) => (
-                  <Chip key={value} value={value}>
-                    {label} <ChipCount count={counts[value]} />
-                  </Chip>
-                ))}
-              </ChipGroup>
+          {showRules && (
+            <div className="shrink-0 px-6 pb-3">
+              <Alert>
+                <Info />
+                <AlertDescription>
+                  Resolve every included row before confirming. Matched plan and
+                  service choices apply to the matching rows named in the
+                  inspector. Older membership rows, summary rows, and existing
+                  memberships are excluded automatically. Review each exclusion
+                  before importing.
+                </AlertDescription>
+              </Alert>
             </div>
-
-            {visible.length === 0 ? (
+          )}
+          {visible.length === 0 ? (
+            <div className="flex min-h-0 flex-1 px-6 pb-4">
               <EmptyRows
                 filtered={search.trim().length > 0 || filter !== 'all'}
                 onReset={() => {
                   setSearch('');
-                  setFilter('all');
-                  setPage(0);
+                  changeFilter('all');
                 }}
               />
-            ) : (
-              <>
-                <div
-                  data-testid="member-import-desktop"
-                  className="border-border hidden min-h-0 flex-1 flex-col overflow-hidden rounded-xl border md:flex"
-                >
-                  {/* One scroll box owns both axes. `Table` wraps its own
-                      `overflow-x-auto` container, and nesting that inside a
-                      vertical scroller detaches `sticky` from the box that
-                      actually scrolls — the header slides away and the
-                      horizontal scrollbar parks below the last row. */}
-                  <div className="min-h-0 flex-1 overflow-auto">
-                    {/* Declared widths sum to the min-width, so `table-fixed`
-                        hands every column exactly what it was given instead
-                        of scaling them down into each other. */}
-                    <table className="w-full min-w-[1152px] table-fixed caption-bottom text-sm">
-                      <TableHeader className="bg-popover sticky top-0 z-10">
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-52">Name</TableHead>
-                          <TableHead className="w-24">Member ID</TableHead>
-                          <TableHead className="w-40">Phone</TableHead>
-                          <TableHead className="w-56">Offering</TableHead>
-                          <TableHead className="w-24 text-right">Fee</TableHead>
-                          <TableHead className="w-28">Expiry</TableHead>
-                          <TableHead className="w-40">Status</TableHead>
-                          <TableHead className="w-24 text-right">
-                            Actions
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {paged.map((candidate) => (
-                          <TableRow key={candidate.sourceKey}>
-                            <TableCell>
-                              <MemberIdentity
-                                name={
-                                  candidate.draftValues.name || 'Unnamed member'
-                                }
-                                secondary={`Source row ${candidate.sourceRow}`}
-                              />
-                            </TableCell>
-                            <TableCell
-                              className="text-muted-foreground truncate text-xs"
-                              title={candidate.legacyMemberId || undefined}
-                            >
-                              {candidate.legacyMemberId || '—'}
-                            </TableCell>
-                            <TableCell className="p-0">
-                              <EditableCell
-                                editing={isEditing(
-                                  candidate.sourceKey,
-                                  'phone',
-                                  'desktop'
-                                )}
-                                saving={false}
-                                kind="phone"
-                                value={candidate.draftValues.phone}
-                                display={
-                                  <span className="text-foreground truncate text-sm">
-                                    {candidate.draftValues.phone
-                                      ? fmt.phone(candidate.draftValues.phone)
-                                      : 'Add phone'}
-                                  </span>
-                                }
-                                onStart={() =>
-                                  startEditing(
-                                    candidate.sourceKey,
-                                    'phone',
-                                    'desktop'
-                                  )
-                                }
-                                onCancel={() => setEditing(null)}
-                                onCommit={(phone) => {
-                                  onPatch(candidate.sourceKey, { phone });
-                                  setEditing(null);
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell className="p-0">
-                              {candidate.outcomeKind === 'membership' ? (
-                                <EditableCell
-                                  editing={isEditing(
-                                    candidate.sourceKey,
-                                    'plan',
-                                    'desktop'
-                                  )}
-                                  saving={false}
-                                  kind="select"
-                                  value={
-                                    candidate.built.membership?.plan_id ?? ''
-                                  }
-                                  options={plans.map((plan) => ({
-                                    value: plan.id,
-                                    label: plan.name,
-                                  }))}
-                                  display={
-                                    <CandidateOffering candidate={candidate} />
-                                  }
-                                  onStart={() =>
-                                    startEditing(
-                                      candidate.sourceKey,
-                                      'plan',
-                                      'desktop'
-                                    )
-                                  }
-                                  onCancel={() => setEditing(null)}
-                                  onCommit={(planId) => {
-                                    const plan = plans.find(
-                                      (item) => item.id === planId
-                                    );
-                                    const option = plan?.pricing_options?.find(
-                                      (item) => item.is_active
-                                    );
-                                    if (plan && option) {
-                                      onResolveGroupedPlan(
-                                        [candidate.sourceKey],
-                                        {
-                                          planId: plan.id,
-                                          pricingOptionId: option.id,
-                                        }
-                                      );
-                                    }
-                                    setEditing(null);
-                                  }}
-                                />
-                              ) : (
-                                // Matches EditableCell's own 36px slot and px-2
-                                // inset, so a row that cannot be edited still
-                                // starts its offering on the same vertical line.
-                                <div className="flex h-9 items-center px-4.5">
-                                  <CandidateOffering candidate={candidate} />
-                                </div>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <CandidateFee candidate={candidate} />
-                            </TableCell>
-                            <TableCell className="text-muted-foreground text-xs">
-                              <CandidateDates candidate={candidate} />
-                            </TableCell>
-                            <TableCell>
-                              <CandidateStatus candidate={candidate} />
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <DispositionAction
-                                candidate={candidate}
-                                onSetDisposition={onSetDisposition}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </table>
-                  </div>
-                  {/* Outside the scroll box: the pager belongs to the frame, not
-                  to the rows it pages through. */}
-                  <Pagination
-                    page={safePage}
-                    pageCount={pageCount}
-                    total={visible.length}
-                    onPageChange={setPage}
-                  />
-                </div>
-
-                <div
-                  className="flex min-h-0 flex-1 flex-col md:hidden"
-                  data-testid="member-import-mobile"
-                >
-                  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pb-3">
-                    {paged.map((candidate) => (
-                      <article
-                        key={candidate.sourceKey}
-                        className="border-border bg-muted/30 space-y-3 rounded-xl border p-4"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <MemberIdentity
-                            name={
-                              candidate.draftValues.name || 'Unnamed member'
-                            }
-                            secondary={
-                              candidate.draftValues.phone
-                                ? fmt.phone(candidate.draftValues.phone)
-                                : 'No phone'
-                            }
-                            meta={
-                              <div className="text-muted-foreground truncate text-xs">
-                                {`Source row ${candidate.sourceRow} · ${candidate.legacyMemberId || 'No Member ID'}`}
-                              </div>
-                            }
-                          />
-                          <CandidateStatus candidate={candidate} />
-                        </div>
-                        {/* Stacked rather than a label column: the offering is the
-                      longest value on the card and needs the full width to
-                      wrap instead of forcing the list to scroll sideways. */}
-                        <dl className="space-y-2 text-sm">
-                          <div className="min-w-0">
-                            <dt className="text-muted-foreground text-xs">
-                              Offering
-                            </dt>
-                            <dd className="text-foreground mt-0.5 min-w-0">
-                              <CandidateOffering candidate={candidate} wrap />
-                            </dd>
-                          </div>
-                          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-                            <div className="min-w-0">
-                              <dt className="text-muted-foreground text-xs">
-                                Fee
-                              </dt>
-                              <dd className="text-foreground mt-0.5">
-                                <CandidateFee candidate={candidate} />
-                              </dd>
-                            </div>
-                            <div className="min-w-0">
-                              <dt className="text-muted-foreground text-xs">
-                                Expiry
-                              </dt>
-                              <dd className="text-foreground mt-0.5 text-xs">
-                                <CandidateDates candidate={candidate} />
-                              </dd>
-                            </div>
-                          </div>
-                        </dl>
-                        <div className="flex flex-wrap items-center justify-between gap-2">
+            </div>
+          ) : (
+            <>
+              <Table
+                containerClassName="hidden min-h-0 flex-1 overflow-auto md:block"
+                className="min-w-[780px] table-fixed"
+                aria-label="Import rows"
+                data-testid="member-import-desktop"
+              >
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-48 pl-6">Name</TableHead>
+                    <TableHead className="w-40">Plan</TableHead>
+                    <TableHead className="w-22 text-right">Fee</TableHead>
+                    <TableHead className="w-22 text-right">Paid</TableHead>
+                    <TableHead className="w-22 text-right">Balance</TableHead>
+                    <TableHead className="w-44 pr-6">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paged.map((row) => (
+                    <TableRow
+                      key={row.sourceKey}
+                      data-state={
+                        selected?.sourceKey === row.sourceKey
+                          ? 'selected'
+                          : undefined
+                      }
+                      className="cursor-pointer"
+                      onClick={() => selectRow(row)}
+                    >
+                      <TableCell className="py-3 pl-6">
+                        <MemberIdentity
+                          name={candidateName(row)}
+                          secondary={`Source row ${row.sourceRow}`}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <CandidateOffering candidate={row} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <SourceMoney value={row.draftValues.fee} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <SourceMoney value={row.draftValues.amountPaid} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <SourceMoney
+                          value={effectiveBalance(row.draftValues)}
+                        />
+                      </TableCell>
+                      <TableCell className="pr-6">
+                        <div className="flex items-center justify-between gap-2">
+                          <CandidateStatus candidate={row} />
                           <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              startEditing(
-                                candidate.sourceKey,
-                                'phone',
-                                'mobile'
-                              )
-                            }
-                          >
-                            {candidate.draftValues.phone
-                              ? 'Edit phone'
-                              : 'Add phone'}
-                          </Button>
-                          <DispositionAction
-                            candidate={candidate}
-                            onSetDisposition={onSetDisposition}
-                          />
-                        </div>
-                        {isEditing(candidate.sourceKey, 'phone', 'mobile') && (
-                          <EditableCell
-                            editing
-                            saving={false}
-                            kind="phone"
-                            value={candidate.draftValues.phone}
-                            display={null}
-                            onStart={() => undefined}
-                            onCancel={() => setEditing(null)}
-                            onCommit={(phone) => {
-                              onPatch(candidate.sourceKey, { phone });
-                              setEditing(null);
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Review ${candidateName(row)}, source row ${row.sourceRow}`}
+                            aria-pressed={selected?.sourceKey === row.sourceKey}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              selectRow(row);
                             }}
-                          />
-                        )}
-                      </article>
-                    ))}
-                  </div>
-                  <Pagination
-                    page={safePage}
-                    pageCount={pageCount}
-                    total={visible.length}
-                    onPageChange={setPage}
-                  />
+                          >
+                            <ChevronRight />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <ScrollArea
+                className="min-h-0 flex-1 md:hidden"
+                data-testid="member-import-mobile"
+              >
+                <div className="space-y-3 px-6 pb-4">
+                  {paged.map((row) => (
+                    <article key={row.sourceKey} className="space-y-3 py-3">
+                      <MemberIdentity
+                        name={candidateName(row)}
+                        secondary={
+                          row.draftValues.phone
+                            ? fmt.phone(row.draftValues.phone)
+                            : 'No phone'
+                        }
+                        meta={`Source row ${row.sourceRow} · ${row.legacyMemberId || 'No Member ID'}`}
+                      />
+                      <CandidateOffering candidate={row} wrap />
+                      <div className="flex items-center justify-between gap-2">
+                        <CandidateStatus candidate={row} />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => selectRow(row)}
+                          aria-label={`Review ${candidateName(row)}, source row ${row.sourceRow}`}
+                        >
+                          Review row
+                        </Button>
+                      </div>
+                      <Separator />
+                    </article>
+                  ))}
                 </div>
-              </>
-            )}
-          </div>
-        </TabsContent>
-      ) : null}
-    </Tabs>
+              </ScrollArea>
+              <Pagination
+                page={safePage}
+                pageCount={pageCount}
+                total={visible.length}
+                onPageChange={(value) => {
+                  setPage(value);
+                  setSelectedKey(null);
+                }}
+              />
+            </>
+          )}
+          {summary.exclusions > 0 && (
+            <>
+              <Separator />
+              <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-6 py-3">
+                <Info className="text-muted-foreground size-4" aria-hidden />
+                <p className="text-muted-foreground text-xs">
+                  {fmt.number(summary.exclusions)} rows will not be imported.
+                </p>
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => {
+                    setSearch('');
+                    changeFilter('excluded');
+                  }}
+                >
+                  Review excluded rows
+                </Button>
+                <Button variant="link" size="sm" onClick={exportExcluded}>
+                  <Download />
+                  Download excluded rows
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+        <Separator orientation="vertical" className="hidden xl:block" />
+        <div
+          role={selected ? 'region' : undefined}
+          aria-label={selected ? 'Row inspector' : undefined}
+          className={cn(
+            'min-h-0 min-w-0 flex-1 flex-col',
+            inspectorOpen ? 'flex' : 'hidden xl:flex'
+          )}
+        >
+          {selected ? (
+            <>
+              <div className="flex shrink-0 items-center justify-between gap-2 px-6 pt-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="xl:hidden"
+                  onClick={() => setInspectorOpen(false)}
+                >
+                  <ChevronLeft />
+                  Back to rows
+                </Button>
+                <p className="text-muted-foreground text-xs">
+                  Row {selected.sourceRow} details
+                </p>
+                <div className="flex gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label="Previous row"
+                    disabled={visible[0]?.sourceKey === selected.sourceKey}
+                    onClick={() => {
+                      const index = visible.indexOf(selected) - 1;
+                      selectRow(visible[index]);
+                      setPage(Math.floor(index / PAGE_SIZE));
+                    }}
+                  >
+                    <ChevronLeft />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon-sm"
+                    aria-label="Next row"
+                    disabled={visible.at(-1)?.sourceKey === selected.sourceKey}
+                    onClick={() => {
+                      const index = visible.indexOf(selected) + 1;
+                      selectRow(visible[index]);
+                      setPage(Math.floor(index / PAGE_SIZE));
+                    }}
+                  >
+                    <ChevronRight />
+                  </Button>
+                </div>
+              </div>
+              <div className="shrink-0 px-6 pt-4 pb-3">
+                <MemberIdentity
+                  name={candidateName(selected)}
+                  secondary={
+                    selected.draftValues.phone
+                      ? fmt.phone(selected.draftValues.phone)
+                      : 'No phone'
+                  }
+                  meta={
+                    <p className="text-muted-foreground text-xs">
+                      Member ID {selected.legacyMemberId || 'not set'}
+                    </p>
+                  }
+                />
+              </div>
+              <Separator />
+              <ScrollArea key={selected.sourceKey} className="min-h-0 flex-1">
+                <div className="@container space-y-4 px-6 py-4">
+                  {rowGroups.length > 1 && (
+                    <Select
+                      value={activeGroup?.key}
+                      onValueChange={(value) =>
+                        value &&
+                        (setDetailEditor(null), setSelectedIssueKey(value))
+                      }
+                    >
+                      <SelectTrigger
+                        className="w-full"
+                        aria-label="Choose issue"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {rowGroups.map((group) => (
+                          <SelectItem key={group.key} value={group.key}>
+                            {group.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {activeGroup ? (
+                    <section aria-label="Focused issue" className="space-y-3">
+                      <h3 className="flex items-start gap-2 text-sm font-semibold">
+                        <AlertTriangle
+                          className="text-amber-foreground mt-0.5 size-4 shrink-0"
+                          aria-hidden
+                        />
+                        {activeGroup.title}
+                      </h3>
+                      <p className="text-muted-foreground text-sm">
+                        {activeGroup.explanation} {activeGroup.nextAction}
+                      </p>
+                      <GroupResolver
+                        key={`${selected.sourceKey}:${activeGroup.key}`}
+                        {...props}
+                        context={context}
+                        group={activeGroup}
+                        onResolvePayment={(...args) => {
+                          props.onResolvePayment(...args);
+                          nextRow();
+                        }}
+                      />
+                    </section>
+                  ) : (
+                    <div className="space-y-4">
+                      <CandidateStatus candidate={selected} />
+                      {selected.disposition === 'included' && (
+                        <>
+                          <CandidateOffering candidate={selected} wrap />
+                          <dl className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <dt className="text-muted-foreground">Fee</dt>
+                              <dd>
+                                <CandidateFee candidate={selected} />
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-muted-foreground">Expiry</dt>
+                              <dd>
+                                <CandidateDates candidate={selected} />
+                              </dd>
+                            </div>
+                          </dl>
+                        </>
+                      )}
+                      <DispositionAction
+                        candidate={selected}
+                        onSetDisposition={props.onSetDisposition}
+                      />
+                    </div>
+                  )}
+                  {selected.disposition === 'included' && (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() =>
+                          setDetailEditor(
+                            detailEditor === 'phone' ? null : 'phone'
+                          )
+                        }
+                      >
+                        {detailEditor === 'phone'
+                          ? 'Cancel phone edit'
+                          : 'Edit phone'}
+                      </Button>
+                      {selected.outcomeKind === 'membership' && (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() =>
+                            setDetailEditor(
+                              detailEditor === 'plan' ? null : 'plan'
+                            )
+                          }
+                        >
+                          {detailEditor === 'plan'
+                            ? 'Cancel plan change'
+                            : 'Change plan'}
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {selected.issues.some(
+                    (issue) => issue.severity === 'notice'
+                  ) && (
+                    <div className="space-y-3">
+                      <Separator />
+                      <h3 className="text-sm font-semibold">Import notices</h3>
+                      {selected.issues
+                        .filter((issue) => issue.severity === 'notice')
+                        .map((issue) => (
+                          <div
+                            key={`${issue.code}:${issue.groupKey}`}
+                            className="space-y-1"
+                          >
+                            <p className="text-sm">{issue.explanation}</p>
+                            <p className="text-muted-foreground text-xs">
+                              {issue.nextAction}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          ) : (
+            <div className="text-muted-foreground px-6 py-8 text-sm">
+              Select a row to inspect its values and import notices.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function groupQueueLabel(
-  group: IssueGroup,
-  formatPhone: (phone: string) => string
-) {
-  const first = group.candidates[0];
-  switch (group.code) {
-    case 'plan-needs-resolution':
-    case 'pricing-option-needs-resolution':
-      return `${first.originalValues.planName || '(blank plan)'} · ${first.originalValues.pricingOption || 'No billing option'}`;
-    case 'offering-needs-classification':
-      return first.originalValues.offering || 'Unclassified offering';
-    case 'service-needs-resolution':
-      return `${first.originalValues.serviceName || first.originalValues.offering || 'Unknown service'} · ${first.originalValues.serviceOption || 'No option'}`;
-    case 'missing-phone':
-      return first.draftValues.name || `Source row ${first.sourceRow}`;
-    case 'invalid-phone':
-    case 'shared-phone':
-      return first.draftValues.phone || first.originalValues.phone
-        ? formatPhone(first.draftValues.phone || first.originalValues.phone)
-        : 'Phone issue';
-    case 'payment-conflict':
-    case 'purchase-total-mismatch':
-      return first.draftValues.name || `Source row ${first.sourceRow}`;
-    case 'existing-contact':
-      return (
-        first.draftValues.name ||
-        formatPhone(first.draftValues.phone) ||
-        'Member'
-      );
-    default:
-      // The queue section already names the problem, so a row that falls
-      // through must identify the record instead of repeating the title.
-      return first.draftValues.name || `Source row ${first.sourceRow}`;
-  }
+function SourceMoney({ value }: { value?: string }) {
+  const { fmt } = useLocale();
+  const amount = parseMoney(value ?? '');
+  return (
+    <span
+      className="block truncate tabular-nums"
+      title={amount === null ? value : undefined}
+    >
+      {amount === null ? value || '—' : fmt.money(amount)}
+    </span>
+  );
 }
 
 function candidateName(candidate: MemberImportCandidate) {
@@ -927,6 +985,18 @@ function IssueRows({
   // list takes the scroll so the instruction above and the action below it
   // both stay on screen. Stacked rows are ~4x taller, so they get more room.
   const bounded = group.candidates.length > 4;
+  if (group.candidates.length === 1) {
+    const candidate = group.candidates[0];
+    return (
+      <div className="space-y-3">
+        {renderControl?.(candidate)}
+        <ExcludeAction
+          candidate={candidate}
+          onSetDisposition={onSetDisposition}
+        />
+      </div>
+    );
+  }
   return (
     <ul
       className={cn(
@@ -1008,6 +1078,7 @@ function GroupChoice({
   unavailable?: ReactNode;
   children?: ReactNode;
 }) {
+  const [choice, setChoice] = useState<string | null>(null);
   const affected = group.candidates.map(candidateName);
   const shown = affected.slice(0, 3).join(', ');
   const remaining = affected.length - 3;
@@ -1015,7 +1086,7 @@ function GroupChoice({
     <div className="space-y-3">
       {/* One choice maps rows the operator cannot see here, so the container
           and its caption name exactly who the mapping lands on. */}
-      <div className="border-border grid gap-3 rounded-xl border p-3 sm:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] sm:items-center">
+      <div className="border-border grid gap-3 rounded-xl border p-3 @xl:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] @xl:items-center">
         <div className="min-w-0 space-y-1">
           <p className="text-foreground text-sm font-medium break-words">
             {sourceLabel}
@@ -1027,10 +1098,7 @@ function GroupChoice({
           </p>
         </div>
         {unavailable ?? (
-          <Select<string>
-            value={null}
-            onValueChange={(value) => value && onValueChange(value)}
-          >
+          <Select<string> value={choice} onValueChange={setChoice}>
             <SelectTrigger className="w-full" aria-label={ariaLabel}>
               <SelectValue placeholder={placeholder} />
             </SelectTrigger>
@@ -1038,6 +1106,19 @@ function GroupChoice({
           </Select>
         )}
       </div>
+      {!unavailable && (
+        <Button
+          className="w-full"
+          disabled={!choice}
+          onClick={() => choice && onValueChange(choice)}
+        >
+          Save mapping
+          {group.candidates.length > 1
+            ? ` for ${group.candidates.length} rows`
+            : ''}
+          <ArrowRight />
+        </Button>
+      )}
       <ExcludeGroupAction group={group} onSetDisposition={onSetDisposition} />
     </div>
   );
@@ -1087,7 +1168,7 @@ function PhoneIssueResolver({
         )}
       />
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
         <p className="text-muted-foreground text-xs">
           {changedCandidates.length === 0
             ? 'Edit a phone number to resolve this issue.'
@@ -1113,155 +1194,226 @@ function PhoneIssueResolver({
 
 function PaymentConflictResolver({
   group,
+  context,
   onResolvePayment,
   onSetDisposition,
 }: {
   group: IssueGroup;
+  context: MemberImportCandidateContext;
   onResolvePayment: ImportMembersPreviewProps['onResolvePayment'];
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
 }) {
   const { fmt } = useLocale();
-  const [manualKey, setManualKey] = useState<string | null>(null);
-  const [manualDrafts, setManualDrafts] = useState<
-    Record<string, { paid: string; balance: string }>
-  >({});
-
-  function draftFor(candidate: MemberImportCandidate) {
-    return (
-      manualDrafts[candidate.sourceKey] ?? {
-        paid: candidate.draftValues.amountPaid ?? '',
-        balance: candidate.draftValues.balance ?? '',
-      }
+  const candidate = group.candidates[0];
+  const [choice, setChoice] = useState<string | null>(null);
+  const [manual, setManual] = useState({
+    paid: candidate.draftValues.amountPaid ?? '',
+    balance: effectiveBalance(candidate.draftValues) ?? '',
+  });
+  const fee = parseMoney(candidate.draftValues.fee ?? '');
+  const paid = parseMoney(candidate.draftValues.amountPaid ?? '');
+  const balance = parseMoney(effectiveBalance(candidate.draftValues) ?? '');
+  const resolution =
+    choice === 'keep_fee_paid'
+      ? 'manual'
+      : (choice as MemberImportPaymentResolution | null);
+  const correction =
+    choice === 'keep_fee_paid' && fee !== null && paid !== null
+      ? {
+          paid: String(paid),
+          balance: String(Math.round((fee - paid) * 100) / 100),
+        }
+      : choice === 'manual'
+        ? manual
+        : undefined;
+  const preview = resolution
+    ? resolvePaymentConflict(
+        [candidate],
+        candidate.sourceKey,
+        resolution,
+        correction,
+        context
+      )[0]
+    : null;
+  const previewPaid = preview?.built.payment?.amount ?? 0;
+  const previewFee = preview?.purchaseTotal ?? null;
+  const previewBalance = preview
+    ? parseMoney(effectiveBalance(preview.draftValues) ?? '')
+    : null;
+  const inputsValid =
+    choice === 'manual'
+      ? parseMoney(manual.paid) !== null &&
+        parseMoney(manual.paid)! >= 0 &&
+        parseMoney(manual.balance) !== null
+      : choice === 'keep_fee_paid'
+        ? fee !== null && paid !== null && paid >= 0
+        : choice === 'trust_balance'
+          ? fee !== null && balance !== null && balance <= fee
+          : choice === 'trust_paid'
+            ? paid !== null && paid >= 0 && balance !== null
+            : false;
+  const figuresValid =
+    inputsValid &&
+    previewFee !== null &&
+    previewFee >= 0 &&
+    previewPaid <= previewFee &&
+    previewBalance !== null &&
+    previewBalance >= 0 &&
+    Math.abs(previewFee - previewPaid - previewBalance) <= 0.01 &&
+    !preview?.issues.some(
+      (issue) =>
+        !issue.resolved &&
+        issue.severity !== 'notice' &&
+        [
+          'payment-conflict',
+          'invalid-membership-values',
+          'pricing-mismatch',
+          'purchase-total-mismatch',
+        ].includes(issue.code)
     );
-  }
 
   return (
-    <IssueRows
-      group={group}
-      onSetDisposition={onSetDisposition}
-      stacked
-      renderControl={(candidate) => {
-        const fee = parseMoney(candidate.draftValues.fee ?? '') ?? 0;
-        const paid = parseMoney(candidate.draftValues.amountPaid ?? '') ?? 0;
-        const balance = parseMoney(candidate.draftValues.balance ?? '') ?? 0;
-        const manual = draftFor(candidate);
-        return (
-          <div className="space-y-3">
-            {/* The four figures are the decision itself, so they read as a
-                labelled set rather than one muted run-on line. */}
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
-              {(
+    <div className="space-y-4">
+      <dl className="space-y-2 text-sm">
+        {(
+          [
+            ['Fee', candidate.draftValues.fee],
+            ['Paid', candidate.draftValues.amountPaid],
+            ['Balance', effectiveBalance(candidate.draftValues)],
+          ] as const
+        ).map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-4">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd>
+              <SourceMoney value={value} />
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {fee !== null && paid !== null && balance !== null && (
+        <p className="text-amber-foreground text-sm">
+          Difference:{' '}
+          <span className="tabular-nums">
+            {fmt.money(Math.abs(fee - paid - balance))}
+          </span>
+        </p>
+      )}
+      <Separator />
+      <div className="space-y-2">
+        <Label htmlFor={`payment-choice-${candidate.sourceKey}`}>
+          Use these figures
+        </Label>
+        <Select value={choice} onValueChange={setChoice}>
+          <SelectTrigger
+            id={`payment-choice-${candidate.sourceKey}`}
+            className="w-full"
+            aria-label={`Resolve payment for source row ${candidate.sourceRow}`}
+          >
+            <SelectValue placeholder="Choose which figures to keep" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem
+              value="keep_fee_paid"
+              disabled={fee === null || paid === null || paid > fee}
+            >
+              Keep fee and paid amount
+            </SelectItem>
+            <SelectItem value="trust_balance">Keep fee and balance</SelectItem>
+            <SelectItem value="trust_paid">
+              Keep paid and balance, recalculate fee
+            </SelectItem>
+            <SelectItem value="manual">Enter corrected figures</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {choice === 'manual' && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label size="sm" htmlFor={`paid-${candidate.sourceKey}`}>
+              Corrected paid
+            </Label>
+            <Input
+              id={`paid-${candidate.sourceKey}`}
+              inputMode="decimal"
+              value={manual.paid}
+              onChange={(event) =>
+                setManual({ ...manual, paid: event.currentTarget.value })
+              }
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label size="sm" htmlFor={`balance-${candidate.sourceKey}`}>
+              Corrected balance
+            </Label>
+            <Input
+              id={`balance-${candidate.sourceKey}`}
+              inputMode="decimal"
+              value={manual.balance}
+              onChange={(event) =>
+                setManual({ ...manual, balance: event.currentTarget.value })
+              }
+            />
+          </div>
+        </div>
+      )}
+      {preview && (
+        <section aria-label="After correction" className="space-y-3">
+          <Separator />
+          <h4 className="text-sm font-medium">After correction</h4>
+          <dl className="space-y-2 text-sm">
+            {(
+              [
+                ['Fee', previewFee],
+                ['Already paid', previewPaid],
                 [
-                  ['Total', fee],
-                  ['Paid', paid],
-                  ['Balance', balance],
-                ] as const
-              ).map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-muted-foreground text-xs">{label}</dt>
-                  <dd className="text-foreground text-sm tabular-nums">
-                    {fmt.money(value)}
-                  </dd>
-                </div>
-              ))}
-              <div>
-                <dt className="text-muted-foreground text-xs">Off by</dt>
-                <dd className="text-amber-foreground text-sm tabular-nums">
-                  {fmt.money(fee - paid - balance)}
+                  'Opening dues',
+                  previewFee === null ? null : previewFee - previewPaid,
+                ],
+              ] as const
+            ).map(([label, amount]) => (
+              <div key={label} className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">{label}</dt>
+                <dd className="tabular-nums">
+                  {amount === null ? '—' : fmt.money(amount)}
                 </dd>
               </div>
-            </dl>
-            <Select
-              value={candidate.resolutions.payment}
-              onValueChange={(value) => {
-                if (!value) return;
-                if (value === 'manual') {
-                  setManualKey(candidate.sourceKey);
-                  return;
-                }
-                setManualKey(null);
-                onResolvePayment(
-                  candidate.sourceKey,
-                  value as MemberImportPaymentResolution
-                );
-              }}
+            ))}
+          </dl>
+          {figuresValid ? (
+            <p className="text-emerald-foreground flex items-center gap-2 text-sm">
+              <CheckCircle className="size-4" />
+              Figures reconcile
+            </p>
+          ) : (
+            <p role="alert" className="text-amber-foreground text-sm">
+              These figures still conflict. Check the fee, paid amount, and
+              balance.
+            </p>
+          )}
+          {choice !== 'manual' && (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => setChoice('manual')}
             >
-              <SelectTrigger
-                className="w-full sm:max-w-sm"
-                aria-label={`Resolve payment for source row ${candidate.sourceRow}`}
-              >
-                <SelectValue placeholder="Choose which figures to trust" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="trust_paid">
-                  Keep paid, recalculate the total
-                </SelectItem>
-                <SelectItem value="trust_balance">
-                  Keep balance, recalculate paid
-                </SelectItem>
-                <SelectItem value="member_only">
-                  Import without a payment
-                </SelectItem>
-                <SelectItem value="manual">Enter corrected figures</SelectItem>
-              </SelectContent>
-            </Select>
-            {manualKey === candidate.sourceKey && (
-              <div className="grid gap-3 sm:max-w-sm sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor={`paid-${candidate.sourceKey}`} size="sm">
-                    Corrected paid
-                  </Label>
-                  <Input
-                    id={`paid-${candidate.sourceKey}`}
-                    inputMode="decimal"
-                    value={manual.paid}
-                    onChange={(event) =>
-                      setManualDrafts((current) => ({
-                        ...current,
-                        [candidate.sourceKey]: {
-                          ...manual,
-                          paid: event.currentTarget.value,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor={`balance-${candidate.sourceKey}`} size="sm">
-                    Corrected balance
-                  </Label>
-                  <Input
-                    id={`balance-${candidate.sourceKey}`}
-                    inputMode="decimal"
-                    value={manual.balance}
-                    onChange={(event) =>
-                      setManualDrafts((current) => ({
-                        ...current,
-                        [candidate.sourceKey]: {
-                          ...manual,
-                          balance: event.currentTarget.value,
-                        },
-                      }))
-                    }
-                  />
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="sm:col-span-2 sm:justify-self-end"
-                  onClick={() => {
-                    onResolvePayment(candidate.sourceKey, 'manual', manual);
-                    setManualKey(null);
-                  }}
-                >
-                  Apply corrected figures
-                </Button>
-              </div>
-            )}
-          </div>
-        );
-      }}
-    />
+              Enter amounts manually
+            </Button>
+          )}
+        </section>
+      )}
+      <Button
+        className="w-full"
+        disabled={!resolution || !figuresValid}
+        onClick={() => {
+          if (resolution && figuresValid)
+            onResolvePayment(candidate.sourceKey, resolution, correction);
+        }}
+      >
+        Save &amp; next row
+        <ArrowRight />
+      </Button>
+      <ExcludeGroupAction group={group} onSetDisposition={onSetDisposition} />
+    </div>
   );
 }
 
@@ -1291,7 +1443,7 @@ function FieldCorrectionResolver({
       onSetDisposition={onSetDisposition}
       stacked
       renderControl={(candidate) => (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 @xs:grid-cols-2">
           {fields.map((field) => {
             const id = `${field.key}-${candidate.sourceKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
             return (
@@ -1326,6 +1478,21 @@ const SERVICE_CORRECTION_FIELDS = [
   { key: 'serviceStart', label: 'Service start' },
   { key: 'serviceEnd', label: 'Service expiry' },
   {
+    key: 'serviceListPrice',
+    label: 'Service list price',
+    inputMode: 'decimal',
+  },
+  {
+    key: 'serviceDiscountAmount',
+    label: 'Service discount',
+    inputMode: 'decimal',
+  },
+  {
+    key: 'serviceDiscountPercent',
+    label: 'Service discount %',
+    inputMode: 'decimal',
+  },
+  {
     key: 'serviceSoldPrice',
     label: 'Service sold price',
     inputMode: 'decimal',
@@ -1354,6 +1521,7 @@ const MEMBERSHIP_CORRECTION_FIELDS = [
 
 function GroupResolver({
   group,
+  context,
   plans,
   catalogItems,
   trainers,
@@ -1366,6 +1534,7 @@ function GroupResolver({
   onSetDisposition,
 }: {
   group: IssueGroup;
+  context: MemberImportCandidateContext;
   plans: MembershipPlan[];
   catalogItems: CatalogItem[];
   trainers: Trainer[];
@@ -1583,10 +1752,27 @@ function GroupResolver({
     );
   }
 
+  if (group.code === 'pricing-mismatch') {
+    return (
+      <FieldCorrectionResolver
+        group={group}
+        fields={[
+          { key: 'listPrice', label: 'List price', inputMode: 'decimal' },
+          { key: 'discountAmount', label: 'Discount', inputMode: 'decimal' },
+          { key: 'discountPercent', label: 'Discount %', inputMode: 'decimal' },
+          { key: 'fee', label: 'Fee', inputMode: 'decimal' },
+        ]}
+        onPatch={onPatch}
+        onSetDisposition={onSetDisposition}
+      />
+    );
+  }
+
   if (group.code === 'payment-conflict') {
     return (
       <PaymentConflictResolver
         group={group}
+        context={context}
         onResolvePayment={onResolvePayment}
         onSetDisposition={onSetDisposition}
       />
@@ -1772,7 +1958,14 @@ function CandidateStatus({ candidate }: { candidate: MemberImportCandidate }) {
   }
   return (
     <span className="text-amber-foreground inline-flex items-center gap-1.5 text-xs">
-      <AlertTriangle className="size-3.5 shrink-0" /> Needs resolution
+      <AlertTriangle className="size-3.5 shrink-0" />
+      <span className="min-w-0 whitespace-normal">
+        {candidate.issues.find(
+          (issue) => issue.severity !== 'notice' && !issue.resolved
+        )?.code === 'payment-conflict'
+          ? 'Payment mismatch'
+          : 'Needs review'}
+      </span>
     </span>
   );
 }

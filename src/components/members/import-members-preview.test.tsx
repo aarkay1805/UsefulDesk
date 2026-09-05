@@ -10,12 +10,19 @@ import {
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
+import { downloadCsv } from '@/lib/csv/export';
 import type { CatalogItem, MembershipPlan } from '@/types';
 import {
   buildMemberImportCandidates,
+  resolvePaymentConflict,
   type MemberImportCandidateInput,
 } from '@/lib/memberships/member-import-candidates';
 import { ImportMembersPreview } from './import-members-preview';
+
+vi.mock('@/lib/csv/export', async (original) => ({
+  ...(await original<typeof import('@/lib/csv/export')>()),
+  downloadCsv: vi.fn(),
+}));
 
 vi.mock('@/hooks/use-locale', () => ({
   useLocale: () => ({
@@ -37,6 +44,7 @@ vi.mock('@/hooks/use-locale', () => ({
 }));
 
 beforeAll(() => {
+  Element.prototype.getAnimations = () => [];
   class ResizeObserverMock {
     observe() {}
     unobserve() {}
@@ -152,245 +160,389 @@ function renderPreview(
     onSetDisposition: vi.fn(),
     ...overrides,
   };
-  render(<ImportMembersPreview {...props} />);
-  return props;
+  const { rerender } = render(<ImportMembersPreview {...props} />);
+  return { ...props, rerender };
 }
 
-describe('ImportMembersPreview conflict resolution', () => {
-  it('focuses the issue queue and reveals the row ledger only on request', async () => {
+describe('ImportMembersPreview worksheet', () => {
+  it('opens the needs-review worksheet beside its resolver and keeps ready rows reachable', async () => {
     const user = userEvent.setup();
     renderPreview(
       candidates([input(2, { phone: '' }), input(3, { name: 'Ready member' })])
     );
-
-    expect(
-      screen.getByRole('tab', {
-        name: 'Issues, 1 to resolve',
-        selected: true,
-      })
-    ).toBeTruthy();
+    const table = screen.getByRole('table', { name: 'Import rows' });
+    expect(within(table).getByText('Member 2')).toBeTruthy();
+    expect(within(table).queryByText('Ready member')).toBeNull();
     expect(screen.getByRole('region', { name: 'Focused issue' })).toBeTruthy();
-    expect(screen.queryByTestId('member-import-desktop')).toBeNull();
-
-    await user.click(
-      screen.getByRole('tab', { name: 'Review rows, 2 in total' })
-    );
-
-    expect(screen.getByTestId('member-import-desktop')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Ready 1' }));
     expect(
-      screen.getByRole('searchbox', { name: 'Search import rows' })
+      within(screen.getByRole('table')).getByText('Ready member')
     ).toBeTruthy();
   });
 
-  it('shows a plus on digits-only account-qualified phones', () => {
-    renderPreview(candidates([input(2, { phone: '15550000044' })]));
-
-    const desktop = screen.getByTestId('member-import-desktop');
-    expect(within(desktop).getByText('+15550000044')).toBeTruthy();
-    const mobile = screen.getByTestId('member-import-mobile');
-    expect(within(mobile).getByText('+15550000044')).toBeTruthy();
+  it.each([
+    ['15550000044', '+15550000044'],
+    ['1555000044', '+11555000044'],
+    ['not-a-phone', 'not-a-phone'],
+  ])('shows %s honestly in the row inspector', (phone, display) => {
+    renderPreview(candidates([input(2, { phone })]));
+    expect(
+      within(screen.getByRole('region', { name: 'Row inspector' })).getByText(
+        display
+      )
+    ).toBeTruthy();
+    expect(
+      within(screen.getByTestId('member-import-mobile')).getByText(display)
+    ).toBeTruthy();
   });
 
-  it('preserves invalid source text instead of presenting it as account-qualified', async () => {
+  it('keeps a ready phone editable in the inspector', async () => {
     const user = userEvent.setup();
-    renderPreview(candidates([input(2, { phone: 'not-a-phone' })]));
-
-    await user.click(
-      screen.getByRole('tab', { name: 'Review rows, 1 in total' })
-    );
-
-    const desktop = screen.getByTestId('member-import-desktop');
-    expect(within(desktop).getByText('not-a-phone')).toBeTruthy();
-    expect(within(desktop).queryByText('+1not-a-phone')).toBeNull();
+    const { onPatch } = renderPreview(candidates([input(2)]));
+    await user.click(screen.getByRole('button', { name: 'Edit phone' }));
+    const phone = screen.getByRole('textbox', { name: 'Phone for Member 2' });
+    await user.clear(phone);
+    await user.type(phone, '5550000099');
+    await user.click(screen.getByRole('button', { name: 'Save & resolve' }));
+    expect(onPatch).toHaveBeenCalledWith('sheet:2', { phone: '+15550000099' });
   });
 
-  it('shows the country code for a national phone that begins with the same digit', () => {
-    renderPreview(candidates([input(2, { phone: '1555000044' })]));
-
-    const desktop = screen.getByTestId('member-import-desktop');
-    expect(within(desktop).getByText('+11555000044')).toBeTruthy();
-  });
-
-  it('keeps the complete phone and icon actions together in a floated editor', async () => {
+  it('shows and corrects both people in a shared-phone group without leaving the worksheet', async () => {
     const user = userEvent.setup();
-    renderPreview(candidates([input(2, { phone: '15550000044' })]));
-
-    const desktop = screen.getByTestId('member-import-desktop');
-    await user.click(
-      within(desktop).getByRole('button', { name: '+15550000044' })
-    );
-
-    const phone = within(desktop).getByRole('textbox') as HTMLInputElement;
-    const editor = phone.closest('.shadow-md');
-    const save = within(desktop).getByRole('button', { name: 'Save' });
-    const cancel = within(desktop).getByRole('button', { name: 'Cancel' });
-
-    expect(phone.value).toBe('5550000044');
-    expect(phone.className).toContain('pr-13');
-    expect(editor?.className).toContain('w-[min(15rem,calc(100vw-2rem))]');
-    expect(editor?.className).toContain('z-20');
-    expect(editor?.className).toContain('shadow-md');
-    expect(save.textContent).toBe('');
-    expect(cancel.textContent).toBe('');
-    expect(editor?.contains(save)).toBe(true);
-    expect(editor?.contains(cancel)).toBe(true);
-  });
-
-  it('repairs a phone conflict inline without jumping to the row ledger', async () => {
-    const user = userEvent.setup();
-    const onPatch = vi.fn();
-    renderPreview(
+    const { onPatch } = renderPreview(
       candidates([
         input(2, { phone: '+15550000044', name: 'Asha Rao' }),
         input(3, { phone: '+15550000044', name: 'Neha Rao' }),
-      ]),
-      { onPatch }
+      ])
     );
-
-    const focusedIssue = screen.getByRole('region', { name: 'Focused issue' });
-    const phones = within(focusedIssue).getAllByRole('textbox');
+    const issue = screen.getByRole('region', { name: 'Focused issue' });
+    const phones = within(issue).getAllByRole('textbox');
     expect(phones).toHaveLength(2);
-
     await user.clear(phones[1]);
     await user.type(phones[1], '5550000055');
     await user.click(
-      within(focusedIssue).getByRole('button', { name: 'Save & resolve' })
+      within(issue).getByRole('button', { name: 'Save & resolve' })
     );
-
-    expect(onPatch).toHaveBeenCalledWith('sheet:3', {
-      phone: '+15550000055',
-    });
-    expect(screen.queryByTestId('member-import-desktop')).toBeNull();
+    expect(onPatch).toHaveBeenCalledWith('sheet:3', { phone: '+15550000055' });
+    expect(screen.getByRole('table')).toBeTruthy();
   });
 
-  it('explains each phone issue as the operator advances the queue', async () => {
+  it('changes issue groups and opens the corresponding correction', async () => {
     const user = userEvent.setup();
     renderPreview(
-      candidates([
-        input(2, { phone: '' }),
-        input(3, { phone: 'not-a-phone' }),
-        input(4, { phone: '+15550000044', name: 'Asha Rao' }),
-        input(5, { phone: '+15550000044', name: 'Neha Rao' }),
-      ])
+      candidates([input(2, { phone: '' }), input(3, { phone: 'not-a-phone' })])
     );
-
     expect(
       screen.getByRole('heading', { name: 'Add missing phone number' })
     ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'Every member needs their own phone number. Add one, or exclude the row.'
-      )
-    ).toBeTruthy();
-
-    await user.click(screen.getByRole('button', { name: 'Next issue' }));
+    await user.click(screen.getByRole('button', { name: 'Invalid phones 1' }));
     expect(
       screen.getByRole('heading', { name: 'Correct invalid phone number' })
     ).toBeTruthy();
-
-    await user.click(screen.getByRole('button', { name: 'Next issue' }));
+    await user.click(screen.getByRole('button', { name: 'Missing phones 1' }));
     expect(
-      screen.getByRole('heading', {
-        name: 'Phone number used by multiple members',
-      })
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'More than one member in this file uses this phone number. Give each member their own number, or exclude the duplicate. UsefulDesk never merges these records.'
-      )
+      screen.getByRole('heading', { name: 'Add missing phone number' })
     ).toBeTruthy();
   });
 
-  it('keeps a correction directly accessible when its row is beyond the first ledger page', () => {
+  it('counts each row once per issue type and focuses that type on multi-issue rows', async () => {
+    const user = userEvent.setup();
+    renderPreview(
+      candidates([
+        input(2, {
+          listPrice: '1500',
+          discountAmount: '200',
+          fee: '1200',
+          amountPaid: '700',
+          amountDue: '600',
+        }),
+        input(3, {
+          phone: '+15550000044',
+          fee: '1200',
+          amountPaid: '700',
+          amountDue: '600',
+        }),
+        input(4, { phone: '+15550000044' }),
+        input(5, { phone: '' }),
+        input(6, { phone: 'not-a-phone' }),
+      ])
+    );
+    const table = screen.getByRole('table');
+    expect(
+      screen.getByRole('button', { name: 'Billing issues 2' })
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Needs review 5' })).toBeTruthy();
+    expect(within(table).getByText('Member 2')).toBeTruthy();
+    expect(within(table).getByText('Member 3')).toBeTruthy();
+    expect(within(table).queryByText('Member 4')).toBeNull();
+    await user.click(
+      within(table).getByRole('button', {
+        name: 'Review Member 3, source row 3',
+      })
+    );
+    expect(
+      screen.getByRole('combobox', { name: 'Resolve payment for source row 3' })
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Duplicate phones 2' })
+    );
+    expect(
+      within(screen.getByRole('table')).getByText('Member 3')
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole('table')).getByText('Member 4')
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole('table')).queryByText('Member 2')
+    ).toBeNull();
+    expect(
+      screen.getByRole('textbox', { name: 'Phone for Member 3' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', { name: 'Phone for Member 4' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('combobox', {
+        name: 'Resolve payment for source row 3',
+      })
+    ).toBeNull();
+  });
+
+  it('clears search and pagination when changing groups without widening a grouped plan fix', async () => {
+    const user = userEvent.setup();
+    const rows = Array.from({ length: 51 }, (_, index) =>
+      input(index + 2, {
+        fee: '1200',
+        amountPaid: '700',
+        amountDue: '600',
+      })
+    );
+    rows.push(input(53, { planName: 'Legacy Gold', pricingOption: 'Monthly' }));
+    rows.push(
+      input(54, { planName: 'Legacy Silver', pricingOption: 'Monthly' })
+    );
+    const { onResolveGroupedPlan } = renderPreview(candidates(rows));
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    await user.type(screen.getByRole('searchbox'), 'Member 52');
+    await user.click(screen.getByRole('button', { name: 'Plan matching 2' }));
+    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
+    expect(
+      within(screen.getByRole('table')).getByText('Member 53')
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole('table')).getByText('Member 54')
+    ).toBeTruthy();
+    screen.getByRole('combobox', { name: 'Map Legacy Gold · Monthly' }).focus();
+    await user.keyboard('{ArrowDown}{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Save mapping' }));
+    expect(onResolveGroupedPlan).toHaveBeenCalledWith(['sheet:53'], {
+      planId: 'plan-gold',
+      pricingOptionId: 'gold-month',
+    });
+  });
+
+  it('moves a corrected row out of billing while keeping its duplicate-phone issue visible', () => {
+    const rows = candidates([
+      input(2, {
+        phone: '+15550000044',
+        fee: '1200',
+        amountPaid: '700',
+        amountDue: '600',
+      }),
+      input(3, { phone: '+15550000044' }),
+    ]);
+    const props = renderPreview(rows);
+    expect(
+      screen.getByRole('button', { name: 'Billing issues 1' })
+    ).toBeTruthy();
+    const corrected = resolvePaymentConflict(
+      rows,
+      'sheet:2',
+      'manual',
+      { paid: '700', balance: '500' },
+      {
+        plans,
+        catalogItems: [],
+        dateOrder: 'DMY',
+        today: '2026-07-11',
+      }
+    );
+    props.rerender(<ImportMembersPreview {...props} candidates={corrected} />);
+    expect(screen.queryByRole('button', { name: /Billing issues/ })).toBeNull();
+    expect(
+      screen
+        .getByRole('button', { name: 'Duplicate phones 2' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(
+      screen.getByRole('textbox', { name: 'Phone for Member 2' })
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Needs review 2' })).toBeTruthy();
+  });
+
+  it('finds a problem beyond the first unfiltered page and recovers from empty search', async () => {
+    const user = userEvent.setup();
     const rows = Array.from({ length: 51 }, (_, index) => input(index + 2));
     rows[50] = input(52, { phone: '' });
     renderPreview(candidates(rows));
-
-    const focusedIssue = screen.getByRole('region', { name: 'Focused issue' });
-    expect(within(focusedIssue).getByText('Member 52')).toBeTruthy();
     expect(
-      within(focusedIssue).getByRole('textbox', {
-        name: 'Phone for Member 52',
-      })
+      screen.getByRole('textbox', { name: 'Phone for Member 52' })
     ).toBeTruthy();
-    expect(screen.queryByTestId('member-import-desktop')).toBeNull();
+    await user.type(screen.getByRole('searchbox'), 'missing-search-value');
+    expect(screen.queryByRole('region', { name: 'Row inspector' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Show all rows' }));
+    expect(
+      within(screen.getByRole('table')).getByText('Member 2')
+    ).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(
+      within(screen.getByRole('table')).getByText('Member 52')
+    ).toBeTruthy();
   });
 
-  it('keeps a missing-phone editor visible and saves its correction inline', async () => {
+  it('stages one plan and billing option before applying it to the named matching rows', async () => {
     const user = userEvent.setup();
-    const onPatch = vi.fn();
-    renderPreview(candidates([input(2, { phone: '' })]), { onPatch });
-
-    const phone = screen.getByRole('textbox', { name: 'Phone for Member 2' });
-    await user.type(phone, '5550000099');
-    await user.click(screen.getByRole('button', { name: 'Save & resolve' }));
-
-    expect(onPatch).toHaveBeenCalledWith('sheet:2', {
-      phone: '+15550000099',
-    });
-  });
-
-  it('applies one canonical plan and billing option to every row in a conflict group', async () => {
-    const user = userEvent.setup();
-    const onResolveGroupedPlan = vi.fn();
-    renderPreview(
+    const { onResolveGroupedPlan } = renderPreview(
       candidates([
         input(2, { planName: 'Legacy Gold', pricingOption: 'Monthly' }),
         input(3, { planName: 'Legacy Gold', pricingOption: 'Monthly' }),
-      ]),
-      { onResolveGroupedPlan }
+      ])
     );
-
-    const planSelect = screen.getByRole('combobox', {
-      name: 'Map Legacy Gold · Monthly',
-    });
-    planSelect.focus();
+    screen.getByRole('combobox', { name: 'Map Legacy Gold · Monthly' }).focus();
     await user.keyboard('{ArrowDown}{Enter}');
-
+    expect(onResolveGroupedPlan).not.toHaveBeenCalled();
+    await user.click(
+      screen.getByRole('button', { name: 'Save mapping for 2 rows' })
+    );
     expect(onResolveGroupedPlan).toHaveBeenCalledWith(['sheet:2', 'sheet:3'], {
       planId: 'plan-gold',
       pricingOptionId: 'gold-month',
     });
   });
 
-  it('requires an explicit payment choice and reports the selected decision', async () => {
+  it('keeps fee and paid, previews corrected dues, and only saves after explicit confirmation', async () => {
     const user = userEvent.setup();
-    const onResolvePayment = vi.fn();
-    renderPreview(
+    const { onResolvePayment } = renderPreview(
       candidates([
-        input(2, { fee: '1200', amountPaid: '700', balance: '600' }),
-      ]),
-      { onResolvePayment }
+        input(2, { fee: '1200', amountPaid: '700', amountDue: '600' }),
+      ])
     );
-
-    // The queue names each issue kind above its instances, so the focused
-    // title is asserted as the heading rather than as page text.
     expect(
-      screen.getByRole('heading', { name: 'Payment figures conflict' })
+      within(screen.getByRole('region', { name: 'Focused issue' })).getByText(
+        '$600'
+      )
     ).toBeTruthy();
-    const paymentSelect = screen.getByRole('combobox', {
-      name: 'Resolve payment for source row 2',
+    screen
+      .getByRole('combobox', { name: 'Resolve payment for source row 2' })
+      .focus();
+    await user.keyboard('{ArrowDown}{Enter}');
+    const preview = screen.getByRole('region', { name: 'After correction' });
+    expect(within(preview).getByText('$1200')).toBeTruthy();
+    expect(within(preview).getByText('$700')).toBeTruthy();
+    expect(within(preview).getByText('$500')).toBeTruthy();
+    expect(onResolvePayment).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Save & next row' }));
+    expect(onResolvePayment).toHaveBeenCalledWith('sheet:2', 'manual', {
+      paid: '700',
+      balance: '500',
     });
-    paymentSelect.focus();
-    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Enter}');
-
-    expect(onResolvePayment).toHaveBeenCalledWith('sheet:2', 'member_only');
   });
 
-  it('lets a blocking membership value be repaired without excluding the row', () => {
-    const onPatch = vi.fn();
-    renderPreview(candidates([input(2, { status: 'ALIEN' })]), { onPatch });
+  it('keeps the next unresolved row selected when saving removes a row at a page boundary', async () => {
+    const user = userEvent.setup();
+    const rows = candidates(
+      Array.from({ length: 51 }, (_, index) =>
+        input(index + 2, { fee: '1200', amountPaid: '700', amountDue: '600' })
+      )
+    );
+    const props = renderPreview(rows);
+    await user.click(
+      within(screen.getByRole('table')).getByRole('button', {
+        name: 'Review Member 51, source row 51',
+      })
+    );
+    screen
+      .getByRole('combobox', { name: 'Resolve payment for source row 51' })
+      .focus();
+    await user.keyboard('{ArrowDown}{Enter}');
+    await user.click(screen.getByRole('button', { name: 'Save & next row' }));
+    const corrected = resolvePaymentConflict(
+      rows,
+      'sheet:51',
+      'manual',
+      { paid: '700', balance: '500' },
+      {
+        plans,
+        catalogItems: [],
+        dateOrder: 'DMY',
+        today: '2026-07-11',
+      }
+    );
+    props.rerender(<ImportMembersPreview {...props} candidates={corrected} />);
+    expect(
+      screen.getByRole('combobox', {
+        name: 'Resolve payment for source row 52',
+      })
+    ).toBeTruthy();
+    expect(
+      within(screen.getByRole('table')).getByText('Member 52')
+    ).toBeTruthy();
+  });
 
+  it('blocks unreadable and inconsistent manual corrections instead of treating them as zero', async () => {
+    const user = userEvent.setup();
+    const { onResolvePayment } = renderPreview(
+      candidates([
+        input(2, { fee: '1200', amountPaid: '700', amountDue: '600' }),
+      ])
+    );
+    screen
+      .getByRole('combobox', { name: 'Resolve payment for source row 2' })
+      .focus();
+    await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}{Enter}');
+    const paid = screen.getByRole('textbox', { name: 'Corrected paid' });
+    await user.clear(paid);
+    await user.type(paid, 'unknown');
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'Save & next row',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true);
+    expect(onResolvePayment).not.toHaveBeenCalled();
+  });
+
+  it('repairs an invalid membership field in the inspector', () => {
+    const { onPatch } = renderPreview(
+      candidates([input(2, { status: 'ALIEN' })])
+    );
     const status = screen.getByRole('textbox', {
       name: 'Status for source row 2',
     });
     fireEvent.change(status, { target: { value: 'Active' } });
     fireEvent.blur(status);
-
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { status: 'Active' });
   });
 
-  it('shows service outcome, fee, and its own expiry date', () => {
+  it('exposes the list price and discount that caused a membership pricing mismatch', () => {
+    const { onPatch } = renderPreview(
+      candidates([
+        input(2, { listPrice: '1500', discountAmount: '200', fee: '1200' }),
+      ])
+    );
+    expect(
+      screen.getByRole('textbox', { name: 'List price for source row 2' })
+    ).toBeTruthy();
+    const discount = screen.getByRole('textbox', {
+      name: 'Discount for source row 2',
+    });
+    fireEvent.change(discount, { target: { value: '300' } });
+    fireEvent.blur(discount);
+    expect(onPatch).toHaveBeenCalledWith('sheet:2', { discountAmount: '300' });
+  });
+
+  it('shows service outcome, fee and service expiry in its inspector', () => {
     renderPreview(
       candidates(
         [
@@ -401,25 +553,21 @@ describe('ImportMembersPreview conflict resolution', () => {
             serviceStart: '01/08/2026',
             serviceSoldPrice: '3500',
             fee: '3500',
+            amountPaid: '3500',
           }),
         ],
         services
       ),
       { catalogItems: services }
     );
-
-    const desktop = screen.getByTestId('member-import-desktop');
-    expect(within(desktop).getByText('Service')).toBeTruthy();
-    // The sold price reads from the Fee column, and a service-only row
-    // promotes its own end date into Expiry rather than borrowing a
-    // membership's.
-    expect(within(desktop).getByText('$3500')).toBeTruthy();
-    expect(within(desktop).getByText('2026-09-01')).toBeTruthy();
+    const inspector = screen.getByRole('region', { name: 'Row inspector' });
+    expect(within(inspector).getByText('Service')).toBeTruthy();
+    expect(within(inspector).getByText('$3500')).toBeTruthy();
+    expect(within(inspector).getByText('2026-09-01')).toBeTruthy();
   });
 
-  it('offers labelled corrections for an invalid service purchase total', () => {
-    const onPatch = vi.fn();
-    renderPreview(
+  it('offers corrections for an invalid service purchase total', () => {
+    const { onPatch } = renderPreview(
       candidates(
         [
           input(2, {
@@ -432,12 +580,8 @@ describe('ImportMembersPreview conflict resolution', () => {
         ],
         services
       ),
-      { catalogItems: services, onPatch }
+      { catalogItems: services }
     );
-
-    expect(
-      screen.getByRole('heading', { name: 'Correct purchase total' })
-    ).toBeTruthy();
     const total = screen.getByRole('textbox', {
       name: 'Row total for source row 2',
     });
@@ -446,10 +590,44 @@ describe('ImportMembersPreview conflict resolution', () => {
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { fee: '4000' });
   });
 
-  it('provides a compact issue picker when the desktop queue is unavailable', () => {
-    renderPreview(candidates([input(2, { phone: '' })]));
+  it('makes notices readable even when a row is ready', () => {
+    const rows = candidates([input(2, { endDate: '20/02/2026' })]);
+    const notice = rows[0].issues.find((issue) => issue.severity === 'notice');
+    expect(notice).toBeTruthy();
+    renderPreview(rows);
+    expect(
+      screen.getByRole('heading', { name: 'Import notices' })
+    ).toBeTruthy();
+    expect(screen.getByText(notice!.explanation)).toBeTruthy();
+  });
 
-    expect(screen.getByRole('combobox', { name: 'Choose issue' })).toBeTruthy();
-    expect(screen.getByRole('region', { name: 'Focused issue' })).toBeTruthy();
+  it('clears search to review every excluded row and downloads source values with reasons', async () => {
+    const user = userEvent.setup();
+    const rows = candidates([input(2, { name: '=unsafe formula' }), input(3)]);
+    rows[0] = {
+      ...rows[0],
+      disposition: 'excluded',
+      exclusionReason: 'manual',
+      isReady: false,
+    };
+    renderPreview(rows);
+    await user.type(screen.getByRole('searchbox'), 'Member 3');
+    await user.click(
+      screen.getByRole('button', { name: 'Review excluded rows' })
+    );
+    expect(
+      within(screen.getByRole('table')).getByText('=unsafe formula')
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Download excluded rows' })
+    );
+    expect(downloadCsv).toHaveBeenCalledWith(
+      'member-import-excluded.csv',
+      expect.stringContaining("'=unsafe formula")
+    );
+    expect(downloadCsv).toHaveBeenCalledWith(
+      'member-import-excluded.csv',
+      expect.stringContaining('Excluded by you')
+    );
   });
 });
