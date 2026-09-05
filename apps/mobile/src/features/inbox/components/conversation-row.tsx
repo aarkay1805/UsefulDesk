@@ -36,7 +36,7 @@ export function ConversationRow({
       onPress={onPress}
     >
       <UserAvatar
-        fallbackTone="strong"
+        fallbackTone="tinted"
         name={displayName}
         size="md"
         source={conversation.contact.avatarUrl}

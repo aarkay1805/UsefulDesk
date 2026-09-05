@@ -38,13 +38,13 @@ it('uses a first-initial fallback with an honest avatar label', () => {
   expect(screen.getByText('A')).toBeTruthy();
 });
 
-it('supports the contrast-safe accent fallback used by messaging surfaces', () => {
+it('supports the contrast-safe avatar fallback used by messaging surfaces', () => {
   render(
-    <UserAvatar fallbackTone="strong" name="Asha Rao" source={null} size="md" />
+    <UserAvatar fallbackTone="tinted" name="Asha Rao" source={null} size="md" />
   );
 
-  expect(screen.getByLabelText('Asha Rao').props.className).toBe('bg-accent');
+  expect(screen.getByLabelText('Asha Rao').props.className).toBe('bg-avatar');
   expect(screen.getByText('A').props.classNames).toEqual({
-    text: 'text-accent-foreground',
+    text: 'text-avatar-foreground',
   });
 });

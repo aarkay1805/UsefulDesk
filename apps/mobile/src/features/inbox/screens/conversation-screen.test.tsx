@@ -1621,7 +1621,7 @@ describe('ConversationScreen', () => {
     }
   });
 
-  it('replaces the composer with an amber closed-window bar whose only action is Send a template', async () => {
+  it('replaces the composer with a closed-window bar whose only action is Send a template', async () => {
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
         sendReadiness: {
@@ -1641,7 +1641,13 @@ describe('ConversationScreen', () => {
     render(<ConversationScreen />);
 
     const bar = await screen.findByTestId('closed-window-action-bar');
-    expect(bar.props.className).toContain('bg-warning-soft');
+    /*
+     * The bar takes the composer's surface, not the amber fill the fault bars
+     * on this screen use. A closed window is the resting state of most
+     * conversations, so it carries the hue as a hairline rather than a band.
+     */
+    expect(bar.props.className).toContain('bg-inbox-panel');
+    expect(bar.props.className).not.toContain('bg-warning-soft');
     expect(screen.queryByLabelText('Message')).toBeNull();
     expect(
       within(bar)

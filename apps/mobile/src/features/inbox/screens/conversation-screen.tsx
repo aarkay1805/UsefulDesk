@@ -22,11 +22,13 @@ import {
   Button,
   ErrorState,
   LoadingState,
+  Notice,
   ScreenSafeAreaView,
   Text,
 } from '../../../ui';
 import { useReadyAuth } from '../../auth/auth-context';
 import { ConversationComposer } from '../components/conversation-composer';
+import { ClosedWindowBar } from '../components/closed-window-bar';
 import { ConversationHeader } from '../components/conversation-header';
 import { MessageActionSheet } from '../components/message-action-sheet';
 import { MessageBubble } from '../components/message-bubble';
@@ -136,7 +138,7 @@ function ConversationScaffold({
   const router = useRouter();
 
   return (
-    <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top', 'bottom']}>
+    <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top']}>
       <Stack.Screen options={{ headerShown: false, title: name }} />
       <ConversationHeader
         avatarUrl={avatarUrl}
@@ -144,9 +146,12 @@ function ConversationScaffold({
         onBack={() => router.back()}
         subtitle={subtitle}
       />
-      <View className="bg-chat-canvas flex-1 overflow-hidden rounded-t-[28px]">
+      <ScreenSafeAreaView
+        className="bg-chat-canvas flex-1 overflow-hidden rounded-t-[28px]"
+        edges={['bottom']}
+      >
         {children}
-      </View>
+      </ScreenSafeAreaView>
     </ScreenSafeAreaView>
   );
 }
@@ -765,101 +770,73 @@ function ConversationThread({
       if (templateSendSafety === 'loading') {
         return (
           <View
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
-            className="bg-warning-soft flex-row items-center gap-3 px-3 py-3"
+            className="bg-inbox-panel px-3 py-2"
             testID="template-send-safety-loading"
           >
-            <ActivityIndicator accessibilityLabel="Checking template send safety" />
-            <Text className="text-warning-soft-foreground flex-1 text-sm">
-              Checking template send safety…
-            </Text>
+            <Notice loading>Checking template send safety…</Notice>
           </View>
         );
       }
       if (templateSendSafety === 'error') {
         return (
           <View
-            className="bg-warning-soft gap-2 px-3 py-3"
+            className="bg-inbox-panel px-3 py-2"
             testID="template-send-safety-error"
           >
-            <View
-              accessible
-              accessibilityLiveRegion="polite"
-              accessibilityRole="alert"
-              className="gap-1"
+            <Notice
+              action={
+                <Button
+                  accessibilityLabel="Check template send safety again"
+                  className="self-start"
+                  onPress={() => {
+                    setTemplateSendSafety('loading');
+                    setTemplateSafetyCheckNonce((value) => value + 1);
+                  }}
+                  size="sm"
+                  variant="ghost"
+                >
+                  Check again
+                </Button>
+              }
+              symbol="exclamationmark.triangle"
+              title="Template sending is locked"
             >
-              <Text className="text-warning-soft-foreground text-base font-semibold">
-                Template sending is locked
-              </Text>
-              <Text className="text-warning-soft-foreground text-sm">
-                Could not verify the previous template send status. Check again
-                before sending.
-              </Text>
-            </View>
+              Could not verify the previous template send status. Check again
+              before sending.
+            </Notice>
+          </View>
+        );
+      }
+      return (
+        <ClosedWindowBar
+          onOpenTemplates={() => setTemplatePickerFeed(realtime)}
+        />
+      );
+    }
+    return (
+      <View
+        className="bg-inbox-panel px-3 py-2"
+        testID="conversation-action-blocker"
+      >
+        <Notice
+          action={
             <Button
-              accessibilityLabel="Check template send safety again"
+              accessibilityLabel="Retry send setup"
               className="self-start"
-              onPress={() => {
-                setTemplateSendSafety('loading');
-                setTemplateSafetyCheckNonce((value) => value + 1);
-              }}
+              disabled={thread.refreshing}
+              loading={thread.refreshing}
+              onPress={thread.refresh}
               size="sm"
               variant="ghost"
             >
               Check again
             </Button>
-          </View>
-        );
-      }
-      return (
-        <View
-          className="bg-warning-soft gap-2 px-3 py-2"
-          testID="closed-window-action-bar"
+          }
+          symbol="exclamationmark.triangle"
+          title={actionState.blocker.title}
         >
-          <Text className="text-warning-soft-foreground text-sm">
-            The customer-service window is closed.
-          </Text>
-          <Button
-            accessibilityLabel="Send a template"
-            onPress={() => setTemplatePickerFeed(realtime)}
-            size="sm"
-          >
-            Send a template
-          </Button>
-        </View>
-      );
-    }
-    return (
-      <View
-        className="bg-warning-soft gap-2 px-4 py-3"
-        testID="conversation-action-blocker"
-      >
-        <View
-          accessible
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          className="gap-1"
-        >
-          <Text className="text-warning-soft-foreground text-base font-semibold">
-            {actionState.blocker.title}
-          </Text>
-          <Text className="text-warning-soft-foreground text-sm">
-            {actionState.blocker.reason}
-          </Text>
-        </View>
-        <Button
-          accessibilityLabel="Retry send setup"
-          className="self-start"
-          disabled={thread.refreshing}
-          loading={thread.refreshing}
-          onPress={thread.refresh}
-          size="sm"
-          variant="ghost"
-        >
-          Check again
-        </Button>
+          {actionState.blocker.reason}
+        </Notice>
       </View>
     );
   })();
@@ -877,58 +854,49 @@ function ConversationThread({
         testID="conversation-keyboard-offset-container"
       >
         {thread.connection === 'disconnected' ? (
-          <View
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
-            className="bg-warning-soft mx-4 mt-3 gap-1 rounded-xl p-4"
+          <Notice
+            className="mx-4 mt-3"
+            symbol="exclamationmark.triangle"
+            title="Live updates unavailable"
           >
-            <Text className="text-warning-soft-foreground text-sm font-semibold">
-              Live updates unavailable
-            </Text>
-            <Text className="text-warning-soft-foreground text-sm">
-              Pull to refresh while the connection recovers.
-            </Text>
-          </View>
+            Pull to refresh while the connection recovers.
+          </Notice>
         ) : null}
 
+        {/*
+         * These three were bare centred text with no container, sitting
+         * directly under a banner that was a full card. Centred grey text in a
+         * thread reads as a system message — the idiom for "messages are
+         * encrypted", not for "the thing you just did failed" — so a real
+         * failure was styled quieter than the connection notice above it.
+         */}
         {thread.unreadWarning ? (
-          <View
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
+          <Notice
             className="mx-4 mt-3"
+            symbol="exclamationmark.triangle"
           >
-            <Text className="text-foreground text-center text-sm">
-              Could not clear unread messages
-            </Text>
-          </View>
+            Could not clear unread messages
+          </Notice>
         ) : null}
 
         {thread.refreshWarning ? (
-          <View
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
+          <Notice
             className="mx-4 mt-3"
+            symbol="exclamationmark.triangle"
+            tone="danger"
           >
-            <Text className="text-danger text-center text-sm">
-              {thread.refreshWarning}
-            </Text>
-          </View>
+            {thread.refreshWarning}
+          </Notice>
         ) : null}
 
         {reactions.error ? (
-          <View
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
+          <Notice
             className="mx-4 mt-3"
+            symbol="exclamationmark.triangle"
+            tone="danger"
           >
-            <Text className="text-danger text-center text-sm">
-              {reactions.error}
-            </Text>
-          </View>
+            {reactions.error}
+          </Notice>
         ) : null}
 
         <KeyboardAvoidingView

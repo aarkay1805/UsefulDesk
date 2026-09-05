@@ -22,7 +22,7 @@ export function ConversationHeaderIdentity({
       testID="conversation-header-identity"
     >
       <UserAvatar
-        fallbackTone="strong"
+        fallbackTone="tinted"
         name={name}
         size="sm"
         source={avatarUrl}

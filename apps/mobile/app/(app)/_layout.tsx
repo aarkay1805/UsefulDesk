@@ -10,6 +10,7 @@ function ProtectedAppStack({ guard }: { guard: boolean }) {
         <Stack.Screen name="index" options={{ title: 'Inbox' }} />
         <Stack.Screen name="conversation/[conversationId]" />
         <Stack.Screen name="account" options={{ title: 'Account' }} />
+        <Stack.Screen name="diagnostics" options={{ title: 'Diagnostics' }} />
       </Stack.Protected>
     </Stack>
   );

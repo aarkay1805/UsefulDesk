@@ -8,6 +8,10 @@ jest.mock('uniwind', () => {
     '--color-chat-meta': '#5b5b66',
     '--color-chat-meta-out': '#41506b',
     '--color-chat-read': '#2f7fd1',
+    '--color-warning': '#8a4b00',
+    '--color-danger': '#b42318',
+    '--color-warning-soft-foreground': '#7a3e00',
+    '--color-danger-soft-foreground': '#991b1b',
   };
 
   return {

@@ -10,6 +10,8 @@ import {
   Text,
   type FilterMenuOption,
 } from '../src/ui';
+import { Notice } from '../src/ui/notice';
+import { ClosedWindowBar } from '../src/features/inbox/components/closed-window-bar';
 import { ConversationRow } from '../src/features/inbox/components/conversation-row';
 import { MessageBubble } from '../src/features/inbox/components/message-bubble';
 import {
@@ -197,65 +199,97 @@ export default function InboxPreview() {
   );
 
   return (
-    <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top', 'bottom']}>
+    <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top']}>
       <Stack.Screen options={{ headerShown: false, title: 'Inbox preview' }} />
-      <ScrollView className="bg-inbox-panel flex-1">
-        {/* On the chrome, as the real screen now places it. */}
-        <View className="bg-inbox-chrome pb-4">
-          <Label>Search and filter</Label>
-          <View className="px-4">
-            <SearchField
-              accessibilityLabel="Search conversations"
-              onValueChange={setSearch}
-              placeholder="Search conversations"
-              trailingAccessory={
-                <FilterMenu
-                  accessibilityLabel="Conversation filter"
-                  onValueChange={(next) => setFilter(next)}
-                  options={FILTERS}
-                  value={filter}
-                />
-              }
-              value={search}
-            />
-          </View>
-        </View>
-
-        <Label>Conversation rows</Label>
-        {ROWS.map((conversation) => (
-          <ConversationRow
-            conversation={conversation}
-            formattedPhone={fmt.phone(conversation.contact.phone)}
-            formattedTime={
-              conversation.lastMessageAt
-                ? conversationTimestamp(conversation.lastMessageAt, fmt)
-                : ''
-            }
-            key={conversation.id}
-            onPress={() => {}}
-          />
-        ))}
-
-        <Label>Thread separators and delivery ticks</Label>
-        <View className="px-3 pb-10">
-          {items.map((item) =>
-            item.kind === 'date' ? (
-              <View className="items-center px-3 py-3" key={item.key}>
-                <Text className="text-chat-meta text-xs font-medium">
-                  {item.label}
-                </Text>
-              </View>
-            ) : (
-              <MessageBubble
-                formattedTime={fmt.time(item.message.createdAt)}
-                key={item.key}
-                message={item.message}
-                startsRun={item.startsRun}
+      <ScreenSafeAreaView className="bg-inbox-panel flex-1" edges={['bottom']}>
+        <ScrollView className="bg-inbox-panel flex-1">
+          {/* On the chrome, as the real screen now places it. */}
+          <View className="bg-inbox-chrome pb-4">
+            <Label>Search and filter</Label>
+            <View className="px-4">
+              <SearchField
+                accessibilityLabel="Search conversations"
+                onValueChange={setSearch}
+                placeholder="Search conversations"
+                trailingAccessory={
+                  <FilterMenu
+                    accessibilityLabel="Conversation filter"
+                    onValueChange={(next) => setFilter(next)}
+                    options={FILTERS}
+                    value={filter}
+                  />
+                }
+                value={search}
               />
-            )
-          )}
-        </View>
-      </ScrollView>
+            </View>
+          </View>
+
+          <Label>Conversation rows</Label>
+          {ROWS.map((conversation) => (
+            <ConversationRow
+              conversation={conversation}
+              formattedPhone={fmt.phone(conversation.contact.phone)}
+              formattedTime={
+                conversation.lastMessageAt
+                  ? conversationTimestamp(conversation.lastMessageAt, fmt)
+                  : ''
+              }
+              key={conversation.id}
+              onPress={() => {}}
+            />
+          ))}
+
+          <Label>Thread separators and delivery ticks</Label>
+          <View className="px-3 pb-10">
+            {items.map((item) =>
+              item.kind === 'date' ? (
+                <View className="items-center px-3 py-3" key={item.key}>
+                  <Text className="text-chat-meta text-xs font-medium">
+                    {item.label}
+                  </Text>
+                </View>
+              ) : (
+                <MessageBubble
+                  formattedTime={fmt.time(item.message.createdAt)}
+                  key={item.key}
+                  message={item.message}
+                  startsRun={item.startsRun}
+                />
+              )
+            )}
+          </View>
+
+          {/*
+           * The bottom bar a closed session gets in place of the composer.
+           * Unreachable in the real screen without a conversation whose last
+           * inbound message is over 24 hours old, which is why it lives here.
+           */}
+          <Label>Closed reply window</Label>
+          <ClosedWindowBar onOpenTemplates={() => {}} />
+
+          {/*
+           * The `Notice` emphasis axis, which is the choice a call site
+           * actually has to get right: a fault wears the fill, a condition
+           * that is merely true right now wears the hairline.
+           */}
+          <Label>Notice — fault vs state</Label>
+          <View className="gap-2 px-3 pb-10">
+            <Notice symbol="exclamationmark.triangle" title="Live updates unavailable">
+              Pull to refresh while the connection recovers.
+            </Notice>
+            <Notice loading>Checking template send safety…</Notice>
+            <Notice symbol="exclamationmark.triangle" title="Could not send" tone="danger">
+              The send request did not complete.
+            </Notice>
+            <Notice emphasis="outline" symbol="clock" title="Reply window closed">
+              WhatsApp allows only an approved template until they reply again.
+            </Notice>
+            <Notice emphasis="outline" symbol="exclamationmark.triangle" title="Attachment discarded" tone="danger">
+              The upload was cancelled before it finished.
+            </Notice>
+          </View>
+        </ScrollView>
+      </ScreenSafeAreaView>
     </ScreenSafeAreaView>
   );
 }

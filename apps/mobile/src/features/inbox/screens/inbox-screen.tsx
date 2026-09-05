@@ -8,6 +8,7 @@ import {
   FilterMenu,
   type FilterMenuOption,
   LoadingState,
+  Notice,
   ScreenSafeAreaView,
   SearchField,
   Text,
@@ -132,7 +133,7 @@ export function InboxScreen() {
   };
 
   return (
-    <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top', 'bottom']}>
+    <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top']}>
       <Stack.Screen options={{ headerShown: false, title: 'Inbox' }} />
       <InboxHeader onOpenAccount={() => router.push('/(app)/account')} />
 
@@ -162,34 +163,35 @@ export function InboxScreen() {
         />
       </View>
 
-      <View className="bg-inbox-panel flex-1 overflow-hidden rounded-t-[28px]">
+      {/*
+       * The sheet owns the bottom inset, not the root. The root is painted
+       * with the chrome, so padding it for the home indicator leaves a chrome
+       * band under the sheet; consuming the inset here instead runs the
+       * sheet's own fill to the physical bottom edge while its content still
+       * clears the indicator by exactly the same amount.
+       */}
+      <ScreenSafeAreaView
+        className="bg-inbox-panel flex-1 overflow-hidden rounded-t-[28px]"
+        edges={['bottom']}
+      >
         {inbox.connection === 'disconnected' ? (
-          <View
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
-            className="bg-warning-soft mx-4 my-3 gap-1 rounded-xl p-4"
+          <Notice
+            className="mx-4 my-3"
+            symbol="exclamationmark.triangle"
+            title="Live updates unavailable"
           >
-            <Text className="text-warning-soft-foreground text-sm font-semibold">
-              Live updates unavailable
-            </Text>
-            <Text className="text-warning-soft-foreground text-sm">
-              Pull to refresh while the connection recovers.
-            </Text>
-          </View>
+            Pull to refresh while the connection recovers.
+          </Notice>
         ) : null}
 
         {inbox.refreshWarning ? (
-          <View
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
+          <Notice
             className="mx-4 my-3"
+            symbol="exclamationmark.triangle"
+            tone="danger"
           >
-            <Text className="text-danger text-center text-sm">
-              {inbox.refreshWarning}
-            </Text>
-          </View>
+            {inbox.refreshWarning}
+          </Notice>
         ) : null}
 
         <FlatList
@@ -211,7 +213,7 @@ export function InboxScreen() {
           renderItem={renderConversation}
           testID="conversation-list"
         />
-      </View>
+      </ScreenSafeAreaView>
     </ScreenSafeAreaView>
   );
 }

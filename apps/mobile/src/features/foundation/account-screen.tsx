@@ -97,6 +97,27 @@ export function AccountScreen() {
           ) : null}
         </View>
 
+        <View className="gap-3">
+          <View className="gap-1">
+            <Text
+              accessibilityRole="header"
+              className="text-foreground text-lg font-semibold"
+            >
+              Diagnostics
+            </Text>
+            <Text className="text-muted text-sm leading-5">
+              Check which environment and backend this build points at.
+            </Text>
+          </View>
+          <Button
+            accessibilityLabel="Open diagnostics"
+            onPress={() => router.push('/(app)/diagnostics')}
+            variant="secondary"
+          >
+            Open diagnostics
+          </Button>
+        </View>
+
         <Button
           accessibilityLabel="Sign out"
           loading={signingOut}

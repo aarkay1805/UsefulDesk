@@ -6,6 +6,177 @@
 
 ---
 
+## The orphaned foundation screen becomes the build's own diagnostics page
+
+`features/foundation/foundation-screen.tsx` was the native app's first home
+screen (`882dae9`) and stopped being reachable the moment the Inbox took the
+`(app)/index` route (`0658cc0`). It sat unreferenced afterwards — no route, no
+caller, no test — while still carrying scaffolding copy ("Native connection
+ready") and a button pointing _to_ Account.
+
+It is now `features/foundation/diagnostics-screen.tsx`, routed at
+`app/(app)/diagnostics.tsx` and reached from a **Diagnostics** section on the
+Account screen. It was kept rather than deleted for one reason: a published
+binary bakes its `EXPO_PUBLIC_*` values in at build time, so until this screen
+existed the only way to tell a preview build from a production one — or to catch
+a store build shipped against the staging API — was to unpack the bundle.
+
+**Never render `mobileEnvironment.supabaseAnonKey`, or any other credential, on
+this screen.** Every signed-in user can reach it on their own device, and it is
+the natural thing to screenshot into a support thread. Backends are therefore
+identified by **host alone** (`new URL(...).host`), never by URL, key, or path;
+`readMobileEnvironment` has already rejected any URL carrying credentials, a
+query, or a fragment, so `hostOf` cannot throw and cannot print a secret that
+arrived in the URL. `diagnostics-screen.test.tsx` holds that as a regression
+test, asserting the anon key appears nowhere in the rendered tree.
+
+Two groups, because they answer two different questions: **Build** (environment,
+push channel, app version, build number, API host, Supabase host) is fixed until
+the next binary; **Session** (branch, organization, role, readiness) is what
+support actually asks next. Push channel is on there because `pushEnvironment`
+folds `test` onto the development channel, which is exactly the mismatch a token
+investigation needs to see.
+
+The screen imports `ui/screen-safe-area-view` and `ui/text` **directly, not
+through the `ui` barrel** — the barrel re-exports `async-state`, which pulls
+`heroui-native` and therefore reanimated into any test that touches it, and this
+screen needs neither. Same rule the Inbox leaf components already follow.
+
+## One `Notice` master, and a closed reply window that stops crying wolf
+
+`conversation-screen.tsx` carried five hand-rolled "something you should know"
+boxes: three paddings between them (`px-3 py-2`, `px-3 py-3`, `px-4 py-3`), two
+radii, and only four of the five with an `accessibilityRole="alert"`. They are
+now one master, `ui/notice.tsx`, with `ui/notice.test.tsx` covering the rules
+that used to be re-decided per call site. The canonical-component rule lives in
+`docs/ui-patterns.md` under **Native app masters**.
+
+**`emphasis` is the fault/state axis, and it is why the component exists.**
+`fill` is a fault someone has to clear; `outline` is a condition that is simply
+true right now. The closed 24-hour window was the miss: an edge-to-edge
+`bg-warning-soft` band with one jargon line — "The customer-service window is
+closed." — over a full-width solid button, styled identically to the realtime,
+verification, and setup faults beside it. A closed window is the resting state
+of every conversation nobody has written into for a day, which is most of the
+inbox, so that spent the alarm colour on the common case. It is now
+`features/inbox/components/closed-window-bar.tsx` at `emphasis="outline"`: the
+composer's own surface and slot, hue on a hairline and a clock glyph. That is
+the demotion `message-composer.tsx` already made on web with `bg-card` plus
+`ring-1 ring-amber-500/25`; mobile had diverged.
+
+Numbers, since the hairline is the whole treatment: `border-warning/30` measures
+**1.61:1** light / **2.12:1** dark against the panel, against `border-border`'s
+own 1.34:1 / 1.21:1 — more visible than the app's standard hairline, so it reads
+as a card without reading as a warning. The amber mark is 6.80:1 / 10.92:1, well
+clear of the 3:1 floor for non-text.
+
+**`--color-warning` and `--color-danger` do resolve.** heroui's `theme.css`
+declares them as `var(--warning)` / `var(--danger)` and `global.css` overrides
+those per mode. Only the `-soft` pair is re-aliased locally, which is why the
+family looked narrower than it is. A filled notice tints its mark with the
+**soft foreground** (built to stay legible on that tint); only an outlined one,
+sitting on the page surface, can afford the solid tone. The loading spinner
+takes the same tint — a default one keeps the platform grey and reads as a
+foreign object dropped on the fill.
+
+**The copy block is the alert region and the action is deliberately outside
+it,** so an action is reached as a control rather than read out as part of the
+message. That is the defect the closed-window bar had structurally: no
+`accessible`, no live region, no alert role, so the largest state change on the
+screen — the composer being removed — was silent to VoiceOver and TalkBack.
+
+Copy now names the state and the constraint and lets the button name the move.
+The web strip says "Send an approved template to reopen it" _and_ labels its
+button "Send a template", spending two lines to say one thing twice.
+"Customer-service window" was Meta's term, not a gym owner's.
+
+`Notice` deliberately imports no `heroui-native` — it renders through `ui/text`
+and `ui/glyph`, both plain React Native, and takes its action as a slot instead
+of importing `Button`. So a leaf component can use it without pulling reanimated
+into that component's test. Keep it that way. `clock` → Material `schedule` and
+`exclamationmark.triangle` → Material `warning` joined `ANDROID_SYMBOL`.
+
+Gotcha: `inbox-preview-route.test.tsx` mocks the `../../ui` **barrel**, which
+does not catch a component importing a master by path. `ClosedWindowBar` needed
+its own `jest.mock`, the way `conversation-row` and `message-bubble` already
+have one. Both the bar and a `Notice` variant sheet are in
+`app/inbox-preview.tsx`, because the real state needs a conversation whose last
+inbound message is over 24 hours old.
+
+**Every message box in the Inbox now goes through it** — sixteen call sites
+across `conversation-screen.tsx`, `inbox-screen.tsx`, `conversation-composer.tsx`
+and `template-picker.tsx`. The two screens had been carrying a **byte-identical
+"Live updates unavailable" card each**, which is the clearest possible argument
+for the master.
+
+What deliberately did **not** become a `Notice`, so nobody converts it later:
+the pagination-error footers in both lists (a list footer with a retry, not a
+screen notice), the `Failed` metadata inside a message bubble, unsupported-content
+text inside a bubble, the centred "Conversation is unavailable" empty state
+(that is `AsyncState` territory), and the inline field errors under auth inputs —
+a card under a text input is wrong. One genuine candidate is left and is in
+another feature: the "Branch access needs attention" box in
+`features/auth/screens/select-branch-screen.tsx`.
+
+## The sheet, not the root, owns the bottom safe-area inset
+
+Both native Inbox screens painted a chrome-coloured band across the home
+indicator. `ScreenSafeAreaView` applies an edge inset as **padding on itself**,
+and both roots were `bg-inbox-chrome` with `edges={['top', 'bottom']}` — so the
+sheet stopped short of the physical bottom and the root's chrome showed through
+underneath it. Predates the chrome/sheet split; it was simply easier to see
+once the surfaces were named.
+
+The roots now take `edges={['top']}` and the inner surface consumes the bottom
+inset itself — `bg-inbox-panel` on `inbox-screen.tsx`, `bg-chat-canvas` on
+`conversation-screen.tsx`. Because the inset is padding, the surface's own fill
+runs to the physical edge while its content still clears the indicator by
+exactly the same amount, so no spacing moved; only the colour behind the strip
+did. When a root's fill differs from the sheet's, the bottom edge belongs to
+the sheet.
+
+## Avatar fallbacks get their own tone instead of the accent
+
+Conversation avatars were painted with `--accent` itself — `#2457a6` in light,
+`#86b4ff` in dark — the same token as unread badges, relative timestamps,
+outbound bubbles and selection. Down a full list that made the avatar column
+the loudest thing on the surface, and a face out-shouted the unread badge
+beside it.
+
+`--avatar` / `--avatar-foreground` are now their own pair in `global.css`:
+`#d8e1f0` carrying `#2b4468` in light (7.49:1), `#38435a` carrying `#cbd7ea` in
+dark (6.82:1). `--accent` is unchanged, so bubbles, badges and selection are
+untouched, and an unread badge now clearly out-reads the face beside it.
+`theme-contrast.test.js` asserts the new pair at AA alongside accent, danger
+and warning.
+
+**The shape matters more than the value, and the first attempt got the shape
+wrong.** A mid-tone fill with a white letter (`#4c72ac`/`#fcfcfc`) was tried
+first and still read heavy. A survey of shipping chat lists on Mobbin explains
+why: the apps whose avatars stay quiet — WhatsApp, LINE, eBay, TextNow — all
+use a **pale fill carrying a dark mark**, while the apps that use a saturated
+fill with a white letter either vary the hue per contact (Telegram, Gmail) or
+look exactly as heavy as ours did (Linear's uniform cyan on dark). A fill with
+a white letter reads as emphasis; repeated down a single-hue column that is the
+whole problem. Low chroma is what makes an avatar recede, not mid lightness.
+The circle therefore sits only ~1.3:1 against its surface **by design** — do
+not "fix" that ratio; the letter carries the contrast. Apple Messages runs its
+periwinkle initials at roughly 2.2:1 and treats them as decorative, which this
+repo's AA assertion does not allow, which is why the mark is dark rather than
+the fill being lighter still.
+
+`UserAvatar`'s `fallbackTone` value was `'strong'`, which stopped being true
+the moment the tone stopped being the accent; it is now `'tinted'`. Both call
+sites — `conversation-row.tsx` and `conversation-header-identity.tsx` — pass it.
+
+**Verify a token change against a rendered pixel, not a screenshot.** The first
+pass looked unchanged on the simulator and the temptation was to push the
+colour further. The bundle was simply stale: no client was attached to Metro,
+so the reload broadcast reached nobody and the screenshot was a frame from the
+previous bundle. `curl localhost:8081/json/list` lists attached targets, and
+decoding the PNG to sample the avatar pixel proved the token had landed
+(`#4c72ac`) while the badge beside it had not moved (`#2457a6`).
+
 ## The native Inbox filter becomes a dropdown inside the search field
 
 The mobile Inbox scoped itself with an `All | Unread` chip strip on its own row

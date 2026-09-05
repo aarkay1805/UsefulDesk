@@ -12,7 +12,9 @@ import Svg, { Path } from 'react-native-svg';
 export const ANDROID_SYMBOL = {
   'chevron.down': 'expand_more',
   'chevron.left': 'arrow_back',
+  clock: 'schedule',
   doc: 'description',
+  'exclamationmark.triangle': 'warning',
   paperclip: 'attach_file',
   'person.crop.circle': 'account_circle',
   photo: 'image',

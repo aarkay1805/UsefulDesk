@@ -6,7 +6,7 @@ import {
   MediaValidationError,
   type MediaKind,
 } from '../../../../../../src/lib/storage/media-contract';
-import { Button, ComposerField, IconButton } from '../../../ui';
+import { Button, ComposerField, IconButton, Notice } from '../../../ui';
 import type { GlyphName } from '../../../ui/glyph';
 import { Text } from '../../../ui/text';
 import { pickConversationMedia, type PickedMediaAsset } from '../media-picker';
@@ -578,16 +578,9 @@ export function ConversationComposer({
           </View>
         ) : null}
         {staged.error ? (
-          <View
-            accessible
-            accessibilityLiveRegion="polite"
-            accessibilityRole="alert"
-            className="bg-danger-soft gap-2 rounded-xl px-3 py-2"
-          >
-            <Text className="text-danger-soft-foreground text-sm">
-              {staged.error}
-            </Text>
-          </View>
+          <Notice symbol="exclamationmark.triangle" tone="danger">
+            {staged.error}
+          </Notice>
         ) : null}
         <View className="flex-row flex-wrap gap-2">
           {staged.status === 'upload_failed' ? (
@@ -627,29 +620,27 @@ export function ConversationComposer({
         />
       ) : null}
       {pickerError || failedAttempt ? (
-        <View
-          accessible
-          accessibilityLiveRegion="polite"
-          accessibilityRole="alert"
-          className="bg-danger-soft gap-1 rounded-xl px-3 py-2"
+        <Notice
+          action={
+            canRetry ? (
+              <Button
+                accessibilityLabel="Retry message"
+                className="self-start"
+                disabled={pending}
+                loading={pending}
+                onPress={retry}
+                size="sm"
+                variant="ghost"
+              >
+                Retry
+              </Button>
+            ) : null
+          }
+          symbol="exclamationmark.triangle"
+          tone="danger"
         >
-          <Text className="text-danger-soft-foreground text-sm">
-            {pickerError ?? failedAttempt?.message}
-          </Text>
-          {canRetry ? (
-            <Button
-              accessibilityLabel="Retry message"
-              className="self-start"
-              disabled={pending}
-              loading={pending}
-              onPress={retry}
-              size="sm"
-              variant="ghost"
-            >
-              Retry
-            </Button>
-          ) : null}
-        </View>
+          {pickerError ?? failedAttempt?.message}
+        </Notice>
       ) : null}
       {pickerOpen ? (
         <View className="bg-inbox-chrome overflow-hidden rounded-2xl py-1">

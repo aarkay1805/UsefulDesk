@@ -10,6 +10,7 @@ import type { KeyboardAvoidingViewProps } from 'react-native';
 
 import {
   Button,
+  Notice,
   ScreenSafeAreaView,
   TextField,
   useTextScale,
@@ -450,19 +451,12 @@ export function TemplatePicker({
               </View>
 
               {resolvedBlocker ? (
-                <View
-                  accessible
-                  accessibilityLiveRegion="polite"
-                  accessibilityRole="alert"
-                  className="bg-warning-soft gap-1 rounded-xl px-3 py-3"
+                <Notice
+                  symbol="exclamationmark.triangle"
+                  title={resolvedBlocker.title}
                 >
-                  <Text className="text-warning-soft-foreground text-base font-semibold">
-                    {resolvedBlocker.title}
-                  </Text>
-                  <Text className="text-warning-soft-foreground text-sm">
-                    {resolvedBlocker.reason}
-                  </Text>
-                </View>
+                  {resolvedBlocker.reason}
+                </Notice>
               ) : selectedTemplate ? (
                 <ScrollView
                   keyboardShouldPersistTaps="handled"
@@ -556,58 +550,36 @@ export function TemplatePicker({
                   ) : null}
 
                   {sendFailure ? (
-                    <View
-                      accessible
-                      accessibilityLiveRegion="polite"
-                      accessibilityRole="alert"
-                      className="bg-danger-soft rounded-xl px-3 py-3"
-                    >
-                      <Text className="text-danger-soft-foreground text-sm">
-                        {sendFailure.message}
-                      </Text>
-                    </View>
+                    <Notice symbol="exclamationmark.triangle" tone="danger">
+                      {sendFailure.message}
+                    </Notice>
                   ) : null}
 
                   {safetyFailure ? (
-                    <View
-                      accessible
-                      accessibilityLiveRegion="polite"
-                      accessibilityRole="alert"
-                      className="bg-danger-soft rounded-xl px-3 py-3"
-                    >
-                      <Text className="text-danger-soft-foreground text-sm">
-                        {safetyFailure}
-                      </Text>
-                    </View>
+                    <Notice symbol="exclamationmark.triangle" tone="danger">
+                      {safetyFailure}
+                    </Notice>
                   ) : null}
 
                   {outcomeUnknown && !currentAttemptOutcomeUnknown ? (
-                    <View className="gap-3">
-                      <View
-                        accessible
-                        accessibilityLiveRegion="polite"
-                        accessibilityRole="alert"
-                        className="bg-warning-soft gap-1 rounded-xl px-3 py-3"
-                      >
-                        <Text className="text-warning-soft-foreground text-base font-semibold">
-                          Check the conversation first
-                        </Text>
-                        <Text className="text-warning-soft-foreground text-sm">
-                          A previous template send could not be confirmed. Check
-                          this conversation for the message before sending
-                          another.
-                        </Text>
-                      </View>
-                      <Button
-                        accessibilityLabel="I checked the conversation"
-                        disabled={pending}
-                        loading={pending}
-                        onPress={() => void acknowledgeOutcome()}
-                        variant="outline"
-                      >
-                        I checked the conversation
-                      </Button>
-                    </View>
+                    <Notice
+                      action={
+                        <Button
+                          accessibilityLabel="I checked the conversation"
+                          disabled={pending}
+                          loading={pending}
+                          onPress={() => void acknowledgeOutcome()}
+                          variant="outline"
+                        >
+                          I checked the conversation
+                        </Button>
+                      }
+                      symbol="exclamationmark.triangle"
+                      title="Check the conversation first"
+                    >
+                      A previous template send could not be confirmed. Check
+                      this conversation for the message before sending another.
+                    </Notice>
                   ) : currentAttemptOutcomeUnknown || safetyFailure ? (
                     <Button
                       accessibilityLabel="Close"

@@ -54,6 +54,15 @@ describe.each(['light', 'dark'])('%s semantic theme contrast', (mode) => {
     ).toBeGreaterThanOrEqual(4.5);
   });
 
+  it('keeps avatar initials at WCAG AA contrast on the avatar fill', () => {
+    expect(
+      contrastRatio(
+        variantToken(mode, 'avatar'),
+        variantToken(mode, 'avatar-foreground')
+      )
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
   it('keeps danger body copy and danger-soft copy at WCAG AA contrast', () => {
     expect(
       contrastRatio(variantToken(mode, 'danger'), INHERITED_BACKGROUNDS[mode])

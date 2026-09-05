@@ -5,6 +5,8 @@
 @layer theme {
   @theme inline {
     --color-inbox-chrome: var(--inbox-chrome);
+    --color-avatar: var(--avatar);
+    --color-avatar-foreground: var(--avatar-foreground);
     --color-inbox-panel: var(--inbox-panel);
     --color-chat-canvas: color-mix(
       in oklab,
@@ -42,6 +44,22 @@
       --inbox-panel: var(--white);
       --accent: #2457a6;
       --accent-foreground: #fcfcfc;
+      /*
+       * Avatar fills are their own tone, not --accent. A conversation list
+       * repeats the circle down the whole screen, so painting it with the
+       * badge/timestamp accent made the column the loudest thing on the
+       * surface — a face out-read the unread badge beside it.
+       *
+       * The shape is a pale fill carrying a dark mark, which is what the
+       * messaging apps that keep avatars quiet actually do (WhatsApp, LINE,
+       * eBay). A mid fill with a white letter is the opposite trade: it reads
+       * as emphasis, and repeated down a uniform-hue column that is exactly
+       * what feels heavy. Low chroma is what makes it recede, not mid
+       * lightness. The circle sits ~1.3:1 against its surface by design; the
+       * letter carries the contrast at ~7:1.
+       */
+      --avatar: #d8e1f0;
+      --avatar-foreground: #2b4468;
       --danger: #b42318;
       --danger-foreground: #fcfcfc;
       --danger-soft: #fde8e8;
@@ -61,6 +79,8 @@
       --inbox-panel: var(--surface);
       --accent: #86b4ff;
       --accent-foreground: #18181b;
+      --avatar: #38435a;
+      --avatar-foreground: #cbd7ea;
       --danger: #ffb4ab;
       --danger-foreground: #18181b;
       --danger-soft: #3b171a;

@@ -20,6 +20,42 @@ When you spot a mismatch: **fix it at the master component** so every call-site 
 
 **A chart series that means something never uses `--chart-1`.** That token _is_ the account accent, so any series bound to it changes hue with the theme. It is right for an arbitrary first series (visits, messages) and wrong the moment the series has a fixed meaning — the business overview's cash flow drew income on `--chart-1` against expenses on `--color-red-500`, so on the **rose** accent both series rendered red and on **amber** they sat one hue step apart. Semantic series take the fixed `-500` data-mark primitives the finance module already uses: emerald for money in, red for money out, amber and blue for the remaining declared hues. De-emphasise a secondary series by mixing toward `--card`, not with `fillOpacity` — a translucent mark lets the grid read through it.
 
+## Native app masters (`apps/mobile/src/ui/`)
+
+Both meta-rules at the top of this file apply to the Expo app exactly as they do
+to the web: never hand-roll an element that already has a master, and never
+restyle a master at a call site. The mobile masters are `Button`, `IconButton`,
+`Text`, `Glyph`, `Notice`, `TextField`, `ComposerField`, `SearchField`,
+`FilterMenu`, `UserAvatar`, `AsyncState`, and `ScreenSafeAreaView`.
+
+**`Notice` is the only shape for "something you should know about this screen":**
+a tinted card with a glyph, an optional title, a reason, and at most one control
+that resolves it. Never build a coloured box with a message in it at a call
+site — five hand-rolled copies of exactly that lived in `conversation-screen.tsx`
+alone, with three paddings, two radii, and only four of the five announcing
+themselves to a screen reader.
+
+**`emphasis` is the fault/state axis, and it is the choice that matters.**
+`fill` means something broke and someone has to clear it; the tint is the alarm
+and it has to stay rare enough to mean that. `outline` means a condition that is
+simply true right now — neutral surface, tinted hairline, tinted mark. A closed
+24-hour window is the resting state of most conversations, so it is `outline`;
+painting it like a fault spends the alarm on the common case. `tone` picks the
+hue (`warning`, `danger`) and never carries that distinction on its own.
+
+The master owns what used to be re-decided per call site: the copy block is the
+alert region and the action is deliberately outside it, the glyph gets its own
+column, and the resolution is left-aligned under the copy rather than back at
+the card's edge. A call site's `className` may set margin, width, or alignment
+and nothing else. `Notice` renders through `ui/text` and `ui/glyph` and imports
+no `heroui-native`, so a leaf component can use it without pulling reanimated
+into that component's test; keep it that way, and pass an action in as a slot
+rather than importing `Button` into it.
+
+**Add a glyph to `ANDROID_SYMBOL` in `ui/glyph.tsx`, never `SymbolView` at a
+call site,** so a mark cannot mean one thing beside a label and another inside
+an icon button.
+
 ## Directional trends
 
 Every KPI delta uses the shared `MetricCard` direction treatment: upward/positive is `text-emerald-foreground`, downward/negative is `text-red-foreground`, and unchanged is `text-muted-foreground`. The arrow and label always share the same tone. Direction colours are semantic and must never inherit the account accent; sort arrows, disclosure chevrons, and money-flow direction icons are not trend deltas and keep their own established treatments.
@@ -395,6 +431,12 @@ applied literally: an action that no longer applies is removed, not left
 standing as four controls that open the same explanation. Bubble **Reply** is
 omitted for the same reason — it would arm a quote with nowhere to land, so
 `message-thread.tsx` passes no `onReply` while the window is closed.
+
+On the native app the same rule holds and the bar is
+`features/inbox/components/closed-window-bar.tsx`, which composes `Notice` at
+`emphasis="outline"` — the state, not a fault. It does **not** wear
+`bg-warning-soft`; that fill belongs to the notices on the same screen that
+report a real fault, and a closed window is the resting state of most threads.
 
 Two branches survive the close, deliberately: a **staged attachment** and a
 **live recording**. A session that expires mid-compose must not silently swallow

@@ -178,6 +178,32 @@ the simulator from extra-small through
 accessibility-extra-extra-extra-large in light and dark, on a fresh launch and
 across a runtime change.
 
+Engineering maintenance: **the five hand-rolled message boxes on the native
+conversation screen are one `Notice` master, and a closed reply window no longer
+cries wolf.** The screen carried five coloured boxes with three paddings, two
+radii, and only four of the five announcing themselves to a screen reader.
+`ui/notice.tsx` now owns the shape, and its `emphasis` axis carries the
+distinction that was missing: `fill` for a fault someone must clear, `outline`
+for a condition that is simply true right now. The closed 24-hour window was the
+miss — an edge-to-edge amber band with Meta's own terminology over a full-width
+solid button, styled exactly like the realtime, verification, and setup faults
+beside it, for what is the resting state of most threads. It now takes the
+composer's surface and carries amber on a hairline and a clock glyph, the same
+demotion the web composer already made. The action sits outside the announced
+region so it is reached as a control rather than read as part of the message,
+and the master is free of `heroui-native` so leaf components can use it without
+pulling reanimated into their tests. Every message box in the Inbox now routes through it —
+sixteen call sites, including the byte-identical disconnected-connection card
+the list and conversation screens had each been carrying. Inline bubble
+metadata, list-footer pagination errors, and field errors under auth inputs stay
+as they are by design; one candidate remains in the branch-selection screen.
+
+Engineering maintenance: **conversation avatars no longer borrow `--accent`.**
+The fallback circle has its own `--avatar` / `--avatar-foreground` pair — a
+pale fill carrying a dark mark in both themes, the treatment shipping chat
+lists use to keep avatars quiet — so unread badges read first; `UserAvatar`'s tone is `tinted` rather than `strong`, and the
+contrast test covers the new pair at AA.
+
 Engineering maintenance: **the native Inbox scope moved from a chip strip into
 the search field.** `All | Unread` no longer occupies a row of its own beneath
 the search field; it is a dropdown pinned inside that field's trailing edge,
@@ -199,6 +225,20 @@ resolve the account's calendar day rather than the device's and refresh at that
 day's midnight plus app resume. `weekday()` joins the shared locale formatters
 and a dev-only `app/inbox-preview.tsx` harness renders the states without auth;
 production deep links to the preview redirect to the app root.
+
+Engineering maintenance: **a build can now say what it points at without being
+unpacked.** The native app's original home screen went unreachable when the
+Inbox took `(app)/index` and sat unreferenced afterwards — no route, no caller,
+no test. It is now `features/foundation/diagnostics-screen.tsx` at
+`app/(app)/diagnostics.tsx`, reached from a Diagnostics section on Account,
+answering the one question a published binary otherwise hides: a **Build** group
+(environment, push channel, app version, build number, API host, Supabase host)
+that is fixed until the next binary, over a **Session** group (branch,
+organization, role, readiness) for support. Backends are identified by host
+alone — the Supabase key and every other credential are deliberately absent, and
+a colocated test asserts the key appears nowhere in the rendered tree, because
+every signed-in user can reach this screen and screenshot it into a support
+thread.
 
 Engineering maintenance: **UsefulDesk is operationally detached from the
 former CRM template. Active repository metadata, contributor/security forms,

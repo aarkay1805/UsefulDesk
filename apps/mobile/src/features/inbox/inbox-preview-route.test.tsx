@@ -31,6 +31,16 @@ jest.mock('../../ui', () => {
   };
 });
 
+/*
+ * The harness renders these for real otherwise, and each one reaches
+ * `heroui-native` → reanimated, which this suite does not mock. The `../../ui`
+ * mock above does not catch them: they import the masters by path, not through
+ * the barrel.
+ */
+jest.mock('./components/closed-window-bar', () => ({
+  ClosedWindowBar: () => null,
+}));
+
 jest.mock('./components/conversation-row', () => ({
   ConversationRow: () => null,
 }));

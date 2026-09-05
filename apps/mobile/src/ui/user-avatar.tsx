@@ -6,7 +6,7 @@ export interface UserAvatarProps {
   name: string;
   source: string | null;
   size?: 'sm' | 'md' | 'lg';
-  fallbackTone?: 'default' | 'strong';
+  fallbackTone?: 'default' | 'tinted';
 }
 
 function isSafeAvatarSource(source: string | null): source is string {
@@ -31,14 +31,14 @@ export function UserAvatar({
   size = 'md',
   fallbackTone = 'default',
 }: UserAvatarProps) {
-  const strongFallback = fallbackTone === 'strong';
+  const tintedFallback = fallbackTone === 'tinted';
   const textScale = useTextScale();
 
   return (
     <Avatar
       alt={name}
       accessibilityLabel={name}
-      className={strongFallback ? 'bg-accent' : undefined}
+      className={tintedFallback ? 'bg-avatar' : undefined}
       size={size}
     >
       {isSafeAvatarSource(source) ? (
@@ -46,7 +46,7 @@ export function UserAvatar({
       ) : null}
       <Avatar.Fallback
         classNames={
-          strongFallback ? { text: 'text-accent-foreground' } : undefined
+          tintedFallback ? { text: 'text-avatar-foreground' } : undefined
         }
         key={textScale}
       >

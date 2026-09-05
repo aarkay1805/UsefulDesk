@@ -231,6 +231,19 @@ describe('AccountScreen branch navigation', () => {
     }
   );
 
+  it('opens diagnostics from Account', () => {
+    const accountRouter = { dismissAll: jest.fn(), push: jest.fn() };
+    mockUseRouter.mockReturnValue(accountRouter);
+    mockUseReadyAuth.mockReturnValue(
+      readyAuthValue({ selectBranch: jest.fn(), branches: twoBranches })
+    );
+
+    render(<AccountScreen />);
+    fireEvent.press(screen.getByRole('button', { name: 'Open diagnostics' }));
+
+    expect(accountRouter.push).toHaveBeenCalledWith('/(app)/diagnostics');
+  });
+
   it('shows enabled status without a notification action', () => {
     mockUseRouter.mockReturnValue({ dismissAll: jest.fn() });
     mockUseReadyAuth.mockReturnValue(
