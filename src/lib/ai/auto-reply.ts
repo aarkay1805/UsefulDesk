@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { supabaseAdmin } from './admin-client';
 import { loadAiConfig } from './config';
 import { buildConversationContext } from './context';
@@ -43,6 +44,7 @@ export async function dispatchInboundToAiReply(
 
   try {
     const db = supabaseAdmin();
+    await requireProductAccess(db, accountId);
 
     const config = await loadAiConfig(db, accountId);
     if (!config || !config.autoReplyEnabled) return;

@@ -1,3 +1,5 @@
+import { requireCurrentExecution } from '@/lib/platform-access/execution-guard';
+import { requireProductAccess } from '@/lib/platform-access/server';
 /**
  * Flow runner.
  *
@@ -369,6 +371,12 @@ async function sendButtonsAndSuspend(
   const cfg = node.config as unknown as SendButtonsNodeConfig;
   const { whatsapp_message_id } = await engineSendInteractiveButtons({
     accountId: run.account_id,
+    beforeSend: () =>
+      requireCurrentExecution(db, {
+        kind: 'flow',
+        id: run.id,
+        accountId: run.account_id,
+      }),
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
@@ -405,6 +413,12 @@ async function sendListAndSuspend(
   const cfg = node.config as unknown as SendListNodeConfig;
   const { whatsapp_message_id } = await engineSendInteractiveList({
     accountId: run.account_id,
+    beforeSend: () =>
+      requireCurrentExecution(db, {
+        kind: 'flow',
+        id: run.id,
+        accountId: run.account_id,
+      }),
     userId: run.user_id,
     conversationId: run.conversation_id!,
     contactId: run.contact_id!,
@@ -444,6 +458,11 @@ async function executeHandoff(
   run: FlowRunRow,
   node: FlowNodeRow
 ): Promise<void> {
+  await requireCurrentExecution(db, {
+    kind: 'flow',
+    id: run.id,
+    accountId: run.account_id,
+  });
   const cfg = node.config as { assign_to?: string; note?: string };
   const convUpdate: Record<string, unknown> = {
     status: 'pending',
@@ -567,6 +586,12 @@ async function advanceFromNodeKey(
   // Defensive cap — if a flow has a cycle (which the validator
   // SHOULD catch but doesn't yet in v1), we bail rather than loop.
   for (let safety = 0; safety < 64; safety += 1) {
+    await requireProductAccess(db, run.account_id);
+    await requireCurrentExecution(db, {
+      kind: 'flow',
+      id: run.id,
+      accountId: run.account_id,
+    });
     if (!currentKey) {
       await logEvent(db, run.id, 'error', null, {
         reason: 'next_node_key was null mid-advance',
@@ -595,6 +620,12 @@ async function advanceFromNodeKey(
       try {
         const { whatsapp_message_id } = await engineSendText({
           accountId: run.account_id,
+          beforeSend: () =>
+            requireCurrentExecution(db, {
+              kind: 'flow',
+              id: run.id,
+              accountId: run.account_id,
+            }),
           userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
@@ -620,6 +651,12 @@ async function advanceFromNodeKey(
       try {
         const { whatsapp_message_id } = await engineSendMedia({
           accountId: run.account_id,
+          beforeSend: () =>
+            requireCurrentExecution(db, {
+              kind: 'flow',
+              id: run.id,
+              accountId: run.account_id,
+            }),
           userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
@@ -653,6 +690,12 @@ async function advanceFromNodeKey(
       try {
         const { whatsapp_message_id } = await engineSendText({
           accountId: run.account_id,
+          beforeSend: () =>
+            requireCurrentExecution(db, {
+              kind: 'flow',
+              id: run.id,
+              accountId: run.account_id,
+            }),
           userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,
@@ -717,6 +760,11 @@ async function advanceFromNodeKey(
     if (node.node_type === 'set_tag') {
       const cfg = node.config as unknown as SetTagNodeConfig;
       try {
+        await requireCurrentExecution(db, {
+          kind: 'flow',
+          id: run.id,
+          accountId: run.account_id,
+        });
         if (cfg.mode === 'add') {
           await addContactTagAndDispatch({
             db,
@@ -845,6 +893,7 @@ export async function dispatchInboundToFlows(
 ): Promise<DispatchInboundResult> {
   const db = supabaseAdmin();
   try {
+    await requireProductAccess(db, input.accountId);
     const activeRun = await loadActiveRunForContact(
       db,
       input.accountId,
@@ -901,6 +950,11 @@ async function handleReplyForActiveRun(
   message: ParsedInbound,
   nodes: Map<string, FlowNodeRow>
 ): Promise<DispatchInboundResult> {
+  await requireCurrentExecution(db, {
+    kind: 'flow',
+    id: run.id,
+    accountId: run.account_id,
+  });
   // Note: we intentionally do NOT persist the raw customer text. A
   // `collect_input` prompt that asks "what's your card number?" would
   // otherwise leave the PAN sitting in flow_run_events.payload forever,
@@ -1030,6 +1084,12 @@ async function handleReplyForActiveRun(
       try {
         await engineSendText({
           accountId: run.account_id,
+          beforeSend: () =>
+            requireCurrentExecution(db, {
+              kind: 'flow',
+              id: run.id,
+              accountId: run.account_id,
+            }),
           userId: run.user_id,
           conversationId: run.conversation_id!,
           contactId: run.contact_id!,

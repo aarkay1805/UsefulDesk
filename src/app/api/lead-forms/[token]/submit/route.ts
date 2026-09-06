@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 // ============================================================
 // POST /api/lead-forms/[token]/submit
 //
@@ -127,6 +128,14 @@ export async function POST(
   }
 
   const accountId = form.account_id as string;
+  try {
+    await requireProductAccess(admin, accountId);
+  } catch {
+    return NextResponse.json(
+      { error: 'This form is unavailable' },
+      { status: 404 }
+    );
+  }
   const account = form.accounts as {
     phone_country_code?: string | null;
   } | null;

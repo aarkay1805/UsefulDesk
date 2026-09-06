@@ -478,3 +478,8 @@ describe('POST /api/whatsapp/send — contact_id template path', () => {
     expect(sendTemplateMessage).not.toHaveBeenCalled();
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));

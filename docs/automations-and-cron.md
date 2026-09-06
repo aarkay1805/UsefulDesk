@@ -223,3 +223,7 @@ authenticate automatically — and create `vercel.json`:
 
 Then delete the two GitHub workflows (or leave them — doubled pings are
 harmless, just noisy).
+
+## UsefulDesk access
+
+Outbound automation/flow steps, message attempts/retries, broadcast recipients, push delivery, and renewal/installment/follow-up crons check organization product access. Provider inbound capture and financial reconciliation continue. Restoring expired access retires old queued work; it does not replay missed jobs. See [product access](product-access.md) for staged rollout and recovery rules.

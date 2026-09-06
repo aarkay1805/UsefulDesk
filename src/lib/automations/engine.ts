@@ -1,3 +1,5 @@
+import { requireCurrentExecution } from '@/lib/platform-access/execution-guard';
+import { requireProductAccess } from '@/lib/platform-access/server';
 import type {
   Automation,
   AutomationLogStepResult,
@@ -72,6 +74,7 @@ export async function runAutomationsForTrigger(
 ): Promise<void> {
   try {
     const db = supabaseAdmin();
+    await requireProductAccess(db, input.accountId);
 
     // Tenant isolation. `contactId` can be caller-supplied (the manual
     // POST /api/automations/engine entrypoint reads it straight from the
@@ -169,7 +172,14 @@ export async function resumePendingExecution(
   }
 
   try {
+    await requireCurrentExecution(db, {
+      kind: 'automation',
+      id: pending.id,
+      parentId: pending.automation_id,
+      owner: leaseOwner,
+    });
     await executeStepsFrom({
+      pendingLease: { id: pending.id, owner: leaseOwner },
       automation: automation as Automation,
       contactId: pending.contact_id,
       context: pending.context ?? {},
@@ -254,10 +264,23 @@ interface ExecuteArgs {
   startPosition: number;
   logId: string | null;
   triggerEvent: string;
+  pendingLease?: { id: string; owner: string };
+}
+
+async function requireCurrentAutomation(args: ExecuteArgs): Promise<void> {
+  if (args.pendingLease)
+    await requireCurrentExecution(supabaseAdmin(), {
+      kind: 'automation',
+      id: args.pendingLease.id,
+      parentId: args.automation.id,
+      owner: args.pendingLease.owner,
+    });
 }
 
 async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
   const db = supabaseAdmin();
+  await requireProductAccess(db, args.automation.account_id);
+  await requireCurrentAutomation(args);
 
   const baseQuery = db
     .from('automation_steps')
@@ -291,6 +314,7 @@ async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
   let errorMessage: string | null = null;
 
   for (const step of steps as AutomationStep[]) {
+    await requireCurrentAutomation(args);
     // `wait` is the suspension point: enqueue and stop processing this
     // scope. The cron endpoint will pick it up later.
     if (step.step_type === 'wait') {
@@ -377,6 +401,8 @@ async function runStep(
   args: ExecuteArgs
 ): Promise<string> {
   const db = supabaseAdmin();
+  await requireProductAccess(db, args.automation.account_id);
+  await requireCurrentAutomation(args);
 
   switch (step.step_type) {
     case 'send_message': {
@@ -387,6 +413,7 @@ async function runStep(
       const conversationId = await resolveConversationId(args);
       const { whatsapp_message_id } = await engineSendText({
         accountId: args.automation.account_id,
+        beforeSend: () => requireCurrentAutomation(args),
         userId: args.automation.user_id,
         conversationId,
         contactId: args.contactId,
@@ -421,6 +448,7 @@ async function runStep(
         : [];
       const { whatsapp_message_id } = await engineSendTemplate({
         accountId: args.automation.account_id,
+        beforeSend: () => requireCurrentAutomation(args),
         userId: args.automation.user_id,
         conversationId,
         contactId: args.contactId,
@@ -768,6 +796,8 @@ async function runStep(
       const body = cfg.body_template
         ? interpolate(cfg.body_template, args)
         : JSON.stringify(args.context);
+      await requireProductAccess(db, args.automation.account_id);
+      await requireCurrentAutomation(args);
       const res = await fetch(cfg.url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...(cfg.headers ?? {}) },

@@ -388,3 +388,8 @@ describe('SendMessageError', () => {
     expect(e).toBeInstanceOf(Error);
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));

@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth';
@@ -81,6 +82,11 @@ export async function GET(request: Request) {
   summary.due = reminders.length;
 
   for (const r of reminders) {
+    try {
+      await requireProductAccess(admin, r.account_id);
+    } catch {
+      continue;
+    }
     // Claim first — only one run gets to flip reminder_sent_at from
     // NULL. Losing the race (0 rows) means another run owns this row.
     const { data: claimed } = await admin

@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 // ============================================================
 // Outbound message send — the core that both the dashboard's
 // `/api/whatsapp/send` route and the public `/api/v1/messages`
@@ -235,6 +236,8 @@ export async function sendMessageToConversation(
     persistedMediaUrl,
   });
 
+  await requireProductAccess(db, accountId);
+
   const isMediaKind = (MEDIA_KINDS as readonly string[]).includes(messageType);
 
   // Conversation + contact, account-scoped.
@@ -407,6 +410,7 @@ export async function sendMessageToConversation(
   }
 
   const attempt = async (phone: string): Promise<string> => {
+    await requireProductAccess(db, accountId);
     if (messageType === 'template') {
       const result = await sendTemplateMessage({
         phoneNumberId: config.phone_number_id,

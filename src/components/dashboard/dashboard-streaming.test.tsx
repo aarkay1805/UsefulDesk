@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({
+  blocked: false,
   requestContext: {
     account: {
       supabase: { marker: 'rls-client' },
@@ -13,7 +14,8 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/auth/dashboard-request-context', () => ({
-  getDashboardRequestContext: async () => h.requestContext,
+  getDashboardRequestContext: async () =>
+    h.blocked ? { ...h.requestContext, account: null } : h.requestContext,
   requireDashboardAccountContext: (context: typeof h.requestContext) =>
     context.account,
 }));
@@ -81,4 +83,22 @@ describe('dashboard action streaming', () => {
     expect(markup).toContain('Expiring rows');
     expect(markup).toContain('data-errors="expiringMemberships"');
   });
+});
+
+it('leaves blocked requests to the support gate without a query or rejected server stream', async () => {
+  h.blocked = true;
+  try {
+    const snapshot = loadDashboardActionSnapshotForRequest();
+    await expect(snapshot).resolves.toBeNull();
+    await expect(
+      DashboardActionSectionData({
+        snapshot,
+        section: 'gymMetrics',
+        children: <div>Protected metrics</div>,
+      })
+    ).resolves.toBeNull();
+    expect(h.loadSnapshot).not.toHaveBeenCalled();
+  } finally {
+    h.blocked = false;
+  }
 });

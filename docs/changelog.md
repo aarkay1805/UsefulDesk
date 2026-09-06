@@ -6,6 +6,14 @@
 
 ---
 
+## UsefulDesk trial access and platform administration
+
+Organization access controls and audit history now open in the shared right-side Sheet, with a fixed identity header and scrollable details. Code: `src/components/platform-access/platform-admin.tsx`; mobile uses the full viewport width.
+
+Admin authenticator setup now URL-encodes the SDK's raw SVG QR payload and replaces only unfinished registrations from this screen when retried. This fixes the QR render crash and subsequent duplicate-name error; verified authenticators are preserved. Code and regression coverage: `src/components/platform-access/platform-admin{,.test}.tsx`.
+
+Web release: organization-wide 14-day verified-owner trials, retained complimentary access for existing organizations, web/native expiry-support gates, and MFA-protected platform access administration. Core: `src/lib/platform-access/`, `src/components/platform-access/`, `src/app/platform-admin/`, native `features/product-access/`, and the two organization-product-access migrations. APIs/RLS/outbound workers enforce access; restoration retires old queued work. Migrations and initial admin/support configuration applied, transaction checks passed; enforcement remains disabled. Local administrator enrollment/list acceptance passed; production admin-action acceptance and native client distribution/device acceptance remain pending. See `docs/product-access.md` for rollout order.
+
 ## Member import resolve hierarchy
 
 The Resolve issues subtitle now states the blocking next action, while the

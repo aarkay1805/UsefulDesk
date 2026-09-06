@@ -411,3 +411,7 @@ broadcasts, and outbound webhooks — the full scope of
 [#245](https://github.com/ArnasDon/wacrm/issues/245). Future ideas
 (deals/pipelines, templates, flows, a delivery queue for webhooks) are
 not yet scheduled.
+
+## UsefulDesk subscription access
+
+Valid API keys also require active organization product access. Expired or suspended access returns HTTP 403 with `error.code: "product_access_required"`. Key validity and scope do not bypass the subscription rule. See [product access](product-access.md); rollout is database-owned and initially disabled.

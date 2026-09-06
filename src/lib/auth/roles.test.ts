@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACCOUNT_ROLES,
+  canManagePlatformAccess,
   type AccountRole,
   canDeleteAccount,
   canArchiveBranch,
@@ -455,5 +456,16 @@ describe('capability predicates', () => {
     expect(canDeleteOrganization(null)).toBe(false);
     expect(canViewConsolidatedReports('owner')).toBe(true);
     expect(canViewConsolidatedReports(null)).toBe(false);
+  });
+});
+
+describe('platform access capability', () => {
+  it.each([
+    [false, 'aal2', false],
+    [true, 'aal1', false],
+    [true, null, false],
+    [true, 'aal2', true],
+  ] as const)('admin=%s assurance=%s => %s', (admin, aal, allowed) => {
+    expect(canManagePlatformAccess(admin, aal)).toBe(allowed);
   });
 });

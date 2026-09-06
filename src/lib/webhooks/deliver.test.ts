@@ -148,3 +148,8 @@ describe('dispatchWebhookEvent', () => {
     expect(calls.updates).toHaveLength(0);
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));

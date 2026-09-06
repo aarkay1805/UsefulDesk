@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { randomUUID } from 'node:crypto';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -221,9 +222,24 @@ export async function drainPushDeliveries({
   const deliveryRows = (
     Array.isArray(deliveryClaim.data) ? deliveryClaim.data : []
   ) as DbRow[];
-  const deliveries = claimedDeliveries(deliveryRows);
+  const claimed = claimedDeliveries(deliveryRows);
+  const deliveries: ClaimedPushDelivery[] = [];
+  for (const delivery of claimed) {
+    try {
+      await requireProductAccess(admin, delivery.payload.accountId);
+      deliveries.push(delivery);
+    } catch {
+      await settle(admin, {
+        deliveryId: delivery.deliveryId,
+        workerId,
+        outcome: 'cancelled',
+        errorCode: 'product_access_required',
+      });
+      counts.cancelled += 1;
+    }
+  }
   counts.cancelled += cancelledCount(deliveryRows);
-  counts.claimed += deliveries.length;
+  counts.claimed += claimed.length;
 
   let sendOutcomes: ExpoPushOutcome[];
   try {

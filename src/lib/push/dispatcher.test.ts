@@ -264,3 +264,50 @@ describe('push dispatcher', () => {
     error.mockRestore();
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));
+
+it('cancels expired-organization deliveries before handing payloads to Expo', async () => {
+  const { requireProductAccess, ProductAccessError } =
+    await import('@/lib/platform-access/server');
+  vi.mocked(requireProductAccess).mockRejectedValueOnce(
+    new ProductAccessError()
+  );
+  const db = adminFor({
+    deliveries: [
+      {
+        delivery_id: 'expired-delivery',
+        expo_push_token: 'ExponentPushToken[expired]',
+        title: 'Member',
+        body: 'Private CRM message',
+        payload: { version: 1, accountId: 'expired-account' },
+        attempt_count: 1,
+      },
+    ],
+  });
+  const transport: ExpoPushTransport = {
+    receipts: vi.fn().mockResolvedValue([]),
+    send: vi.fn().mockResolvedValue([]),
+  };
+  const result = await drainPushDeliveries({
+    admin: db.admin,
+    transport,
+    workerId: WORKER_ID,
+  });
+  expect(requireProductAccess).toHaveBeenCalledWith(
+    db.admin,
+    'expired-account'
+  );
+  expect(transport.send).toHaveBeenCalledWith([]);
+  expect(result).toMatchObject({ claimed: 1, cancelled: 1, ticketed: 0 });
+  expect(db.settlements).toContainEqual(
+    expect.objectContaining({
+      p_delivery_id: 'expired-delivery',
+      p_outcome: 'cancelled',
+      p_error_code: 'product_access_required',
+    })
+  );
+});

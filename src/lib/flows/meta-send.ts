@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import {
   sendInteractiveButtons,
   sendInteractiveList,
@@ -32,6 +33,7 @@ import { supabaseAdmin } from './admin-client';
 // ------------------------------------------------------------
 
 interface SendTextEngineArgs {
+  beforeSend?: () => Promise<void>;
   /** Account-level tenancy key. Drives contact + whatsapp_config
    *  lookups so a flow authored by user A still sends through the
    *  WhatsApp number user B saved on the same account. */
@@ -61,6 +63,7 @@ export async function engineSendText(
   args: SendTextEngineArgs
 ): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin();
+  await requireProductAccess(db, args.accountId);
 
   const { data: contact, error: contactErr } = await db
     .from('contacts')
@@ -89,6 +92,8 @@ export async function engineSendText(
   const accessToken = decrypt(config.access_token);
 
   const attempt = async (phone: string): Promise<string> => {
+    await requireProductAccess(db, args.accountId);
+    await args.beforeSend?.();
     const r = await sendTextMessage({
       phoneNumberId: config.phone_number_id,
       accessToken,
@@ -148,6 +153,7 @@ export async function engineSendText(
 }
 
 interface SendMediaEngineArgs {
+  beforeSend?: () => Promise<void>;
   accountId: string;
   userId: string;
   conversationId: string;
@@ -173,6 +179,7 @@ export async function engineSendMedia(
   args: SendMediaEngineArgs
 ): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin();
+  await requireProductAccess(db, args.accountId);
 
   const { data: contact, error: contactErr } = await db
     .from('contacts')
@@ -201,6 +208,8 @@ export async function engineSendMedia(
   const accessToken = decrypt(config.access_token);
 
   const attempt = async (phone: string): Promise<string> => {
+    await requireProductAccess(db, args.accountId);
+    await args.beforeSend?.();
     const r = await sendMediaMessage({
       phoneNumberId: config.phone_number_id,
       accessToken,
@@ -268,6 +277,7 @@ export async function engineSendMedia(
 }
 
 interface SendInteractiveButtonsEngineArgs {
+  beforeSend?: () => Promise<void>;
   accountId: string;
   userId: string;
   conversationId: string;
@@ -279,6 +289,7 @@ interface SendInteractiveButtonsEngineArgs {
 }
 
 interface SendInteractiveListEngineArgs {
+  beforeSend?: () => Promise<void>;
   accountId: string;
   userId: string;
   conversationId: string;
@@ -325,6 +336,7 @@ async function sendInteractiveViaMeta(
   input: SendInput
 ): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin();
+  await requireProductAccess(db, input.accountId);
 
   // Scope the contact + whatsapp_config lookups by account_id —
   // same defense-in-depth rationale as automations/meta-send.ts.
@@ -356,6 +368,8 @@ async function sendInteractiveViaMeta(
   const accessToken = decrypt(config.access_token);
 
   const attempt = async (phone: string): Promise<string> => {
+    await requireProductAccess(db, input.accountId);
+    await input.beforeSend?.();
     if (input.kind === 'buttons') {
       const r = await sendInteractiveButtons({
         phoneNumberId: config.phone_number_id,

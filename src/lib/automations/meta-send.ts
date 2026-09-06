@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api';
 import { decrypt } from '@/lib/whatsapp/encryption';
 import {
@@ -27,6 +28,7 @@ import type { MessageTemplate } from '@/types';
 // ------------------------------------------------------------
 
 interface SendTextArgs {
+  beforeSend?: () => Promise<void>;
   /** Account-level tenancy key. Drives contact + whatsapp_config
    *  lookups so an automation authored by user A still sends through
    *  the WhatsApp number user B saved on the same account. */
@@ -41,6 +43,7 @@ interface SendTextArgs {
 }
 
 interface SendTemplateArgs {
+  beforeSend?: () => Promise<void>;
   accountId: string;
   userId: string;
   conversationId: string;
@@ -69,6 +72,7 @@ async function sendViaMeta(
   input: SendInput
 ): Promise<{ whatsapp_message_id: string }> {
   const db = supabaseAdmin();
+  await requireProductAccess(db, input.accountId);
 
   // Scope the contact + config lookups by account_id, not user_id.
   // The engine uses the service-role client (bypassing RLS); without
@@ -128,6 +132,8 @@ async function sendViaMeta(
   const accessToken = decrypt(config.access_token);
 
   const attempt = async (phone: string): Promise<string> => {
+    await requireProductAccess(db, input.accountId);
+    await input.beforeSend?.();
     if (input.kind === 'template') {
       const r = await sendTemplateMessage({
         phoneNumberId: config.phone_number_id,

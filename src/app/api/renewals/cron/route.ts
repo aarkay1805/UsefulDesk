@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { cronSecretConfigured, isAuthorizedCronRequest } from '@/lib/cron/auth';
@@ -95,6 +96,12 @@ export async function GET(request: Request) {
     }
 
     const accountId = s.account_id as string;
+    try {
+      await requireProductAccess(admin, accountId);
+    } catch {
+      notes.push(`account ${accountId}: product_access_required`);
+      continue;
+    }
     summary.accounts_considered++;
 
     // Readiness gate — mirror the manual button's useReminderReadiness:

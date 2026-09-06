@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   matchReplyId,
   matchesKeywordTrigger,
@@ -297,3 +297,8 @@ describe('evaluateConditionPredicate', () => {
     ).toBe(false);
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));

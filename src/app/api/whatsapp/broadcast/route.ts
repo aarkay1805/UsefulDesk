@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { NextResponse } from 'next/server';
 import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
 import { sendTemplateMessage } from '@/lib/whatsapp/meta-api';
@@ -182,6 +183,7 @@ export async function POST(request: Request) {
     let failedCount = 0;
 
     for (const recipient of recipients) {
+      await requireProductAccess(supabase, accountId);
       const sanitized = sanitizePhoneForMeta(recipient.phone);
 
       if (!isValidE164(sanitized)) {
@@ -202,6 +204,7 @@ export async function POST(request: Request) {
 
       for (const variant of variants) {
         try {
+          await requireProductAccess(supabase, accountId);
           const result = await sendTemplateMessage({
             phoneNumberId: config.phone_number_id,
             accessToken,

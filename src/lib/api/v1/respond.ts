@@ -1,3 +1,4 @@
+import { ProductAccessError } from '@/lib/platform-access/server';
 // ============================================================
 // Public API (v1) response envelope.
 //
@@ -119,6 +120,9 @@ export function fail(
  * never leak internal error text onto the public wire.
  */
 export function toApiErrorResponse(err: unknown): NextResponse {
+  if (err instanceof ProductAccessError) {
+    return fail(err.code, err.message, err.status);
+  }
   if (err instanceof ApiError) {
     return NextResponse.json(
       { error: { code: err.code, message: err.message } },

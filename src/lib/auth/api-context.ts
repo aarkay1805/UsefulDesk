@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 // ============================================================
 // Public API authentication — resolve a request's API key into an
 // account context.
@@ -105,11 +106,14 @@ export async function requireApiKey(
     throw forbidden(`This API key is missing the '${scope}' scope`);
   }
 
+  const supabase = supabaseAdmin();
+  await requireProductAccess(supabase, row.account_id);
+
   touchLastUsed(row.id);
 
   return {
     authType: 'api_key',
-    supabase: supabaseAdmin(),
+    supabase,
     accountId: row.account_id,
     keyId: row.id,
     scopes: row.scopes,

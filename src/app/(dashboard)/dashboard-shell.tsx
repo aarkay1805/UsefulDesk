@@ -15,6 +15,7 @@ import { useNotificationAudio } from '@/hooks/use-notification-audio';
 import { useFollowUpReminderRingtone } from '@/hooks/use-follow-up-reminder-ringtone';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { ProductAccessGate } from '@/components/platform-access/product-access-gate';
 
 // Auth-gated dashboard shell. Extracted from the layout so the layout
 // itself can stay a server component and export metadata (noindex) —
@@ -145,7 +146,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="bg-background flex h-screen overflow-hidden">
+    <div className="bg-background flex h-full overflow-hidden">
       {/* Replaces the browser cache with this user's saved profile
           preference as soon as authentication/profile loading settles. */}
       <AccountAppearanceSync />
@@ -194,9 +195,11 @@ export function DashboardShell({
     <AuthProvider initialUser={initialUser} initialBootstrap={initialBootstrap}>
       {/* Needs useAuth, so it sits inside AuthProvider. Shares the Get
           Started completion state between the sidebar and the page. */}
-      <OnboardingProvider>
-        <DashboardShellInner>{children}</DashboardShellInner>
-      </OnboardingProvider>
+      <ProductAccessGate>
+        <OnboardingProvider>
+          <DashboardShellInner>{children}</DashboardShellInner>
+        </OnboardingProvider>
+      </ProductAccessGate>
     </AuthProvider>
   );
 }

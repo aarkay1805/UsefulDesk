@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 // ============================================================
 // Outbound webhook delivery.
 //
@@ -50,6 +51,7 @@ export async function dispatchWebhookEvent(
   data: unknown
 ): Promise<void> {
   try {
+    await requireProductAccess(db, accountId);
     const { data: rows, error } = await db
       .from('webhook_endpoints')
       .select('id, url, secret')
@@ -74,7 +76,7 @@ export async function dispatchWebhookEvent(
 
     await Promise.allSettled(
       (rows as EndpointRow[]).map((row) =>
-        deliverOne(db, row, event, payload, tsSeconds)
+        deliverOne(db, accountId, row, event, payload, tsSeconds)
       )
     );
   } catch (err) {
@@ -85,6 +87,7 @@ export async function dispatchWebhookEvent(
 
 async function deliverOne(
   db: SupabaseClient,
+  accountId: string,
   row: EndpointRow,
   event: WebhookEvent,
   payload: string,
@@ -110,6 +113,7 @@ async function deliverOne(
     return;
   }
 
+  await requireProductAccess(db, accountId);
   try {
     const res = await fetch(row.url, {
       method: 'POST',

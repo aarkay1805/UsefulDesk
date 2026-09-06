@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '@/lib/automations/admin-client';
@@ -90,6 +91,12 @@ export async function GET(request: Request) {
   }
 
   for (const accountId of accountIds) {
+    try {
+      await requireProductAccess(admin, accountId);
+    } catch {
+      notes.push(`account ${accountId}: product_access_required`);
+      continue;
+    }
     if (summary.sent >= MAX_SENDS_PER_RUN) {
       notes.push(
         'hit MAX_SENDS_PER_RUN — remaining accounts deferred to next run'

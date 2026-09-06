@@ -52,93 +52,121 @@ describe('createBroadcast validation', () => {
 });
 
 describe('public broadcast recovery', () => {
-  it('resumes a persisted pending recipient without the original after() plan', async () => {
-    sendTemplateMessageMock.mockResolvedValueOnce({ messageId: 'wamid.123' });
+  it.each([false, true])(
+    'validates the current recipient lease after claiming cached work (retired=%s)',
+    async (retired) => {
+      sendTemplateMessageMock.mockResolvedValueOnce({ messageId: 'wamid.123' });
 
-    const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
-      if (name === 'claim_public_broadcast_recipients') {
-        return {
-          data: [
-            {
-              recipient_id: 'recipient-1',
-              broadcast_id: 'broadcast-1',
-              account_id: 'account-1',
-              template_name: 'renewal_reminder',
-              template_language: 'en_US',
-              destination_phone: '+919876543210',
-              template_params: ['Riya', 'Gold'],
-              attempt_count: 2,
-              created_at: '2026-08-14T00:00:00.000Z',
-            },
-          ],
-          error: null,
-        };
-      }
-      if (name === 'complete_public_broadcast_recipient') {
-        return { data: true, error: null };
-      }
-      throw new Error(`unexpected RPC ${name}: ${JSON.stringify(args)}`);
-    });
+      const rpc = vi.fn(async (name: string, args: Record<string, unknown>) => {
+        if (name === 'claim_public_broadcast_recipients') {
+          return {
+            data: [
+              {
+                recipient_id: 'recipient-1',
+                broadcast_id: 'broadcast-1',
+                account_id: 'account-1',
+                template_name: 'renewal_reminder',
+                template_language: 'en_US',
+                destination_phone: '+919876543210',
+                template_params: ['Riya', 'Gold'],
+                attempt_count: 2,
+                created_at: '2026-08-14T00:00:00.000Z',
+              },
+            ],
+            error: null,
+          };
+        }
+        if (
+          name === 'complete_public_broadcast_recipient' ||
+          name === 'fail_public_broadcast_recipient'
+        ) {
+          return { data: true, error: null };
+        }
+        throw new Error(`unexpected RPC ${name}: ${JSON.stringify(args)}`);
+      });
 
-    const from = vi.fn((table: string) => {
-      if (table === 'whatsapp_config') {
-        return {
-          select: () => ({
-            eq: () => ({
-              single: async () => ({
-                data: {
-                  phone_number_id: 'phone-number-id',
-                  access_token: 'encrypted-access-token',
-                },
-                error: null,
+      const from = vi.fn((table: string) => {
+        if (table === 'broadcast_recipients') {
+          const builder = {
+            select: () => builder,
+            eq: () => builder,
+            gt: () => builder,
+            maybeSingle: async () => ({
+              data: retired ? null : { id: 'recipient-1' },
+              error: null,
+            }),
+          };
+          return builder;
+        }
+        if (table === 'whatsapp_config') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({
+                  data: {
+                    phone_number_id: 'phone-number-id',
+                    access_token: 'encrypted-access-token',
+                  },
+                  error: null,
+                }),
               }),
             }),
-          }),
-        };
-      }
-      if (table === 'message_templates') {
-        const builder = {
-          select: () => builder,
-          eq: () => builder,
-          maybeSingle: async () => ({
-            data: {
-              id: 'template-1',
-              user_id: 'user-1',
-              name: 'renewal_reminder',
-              category: 'Utility',
-              language: 'en_US',
-              body_text: 'Hi {{1}}, your {{2}} membership is due.',
-              status: 'APPROVED',
-              parameter_format: 'POSITIONAL',
-              created_at: '2026-08-14T00:00:00.000Z',
-            },
-            error: null,
-          }),
-        };
-        return builder;
-      }
-      throw new Error(`unexpected table ${table}`);
-    });
+          };
+        }
+        if (table === 'message_templates') {
+          const builder = {
+            select: () => builder,
+            eq: () => builder,
+            maybeSingle: async () => ({
+              data: {
+                id: 'template-1',
+                user_id: 'user-1',
+                name: 'renewal_reminder',
+                category: 'Utility',
+                language: 'en_US',
+                body_text: 'Hi {{1}}, your {{2}} membership is due.',
+                status: 'APPROVED',
+                parameter_format: 'POSITIONAL',
+                created_at: '2026-08-14T00:00:00.000Z',
+              },
+              error: null,
+            }),
+          };
+          return builder;
+        }
+        throw new Error(`unexpected table ${table}`);
+      });
 
-    const result = await drainPublicBroadcastRecipients(
-      { rpc, from } as unknown as SupabaseClient,
-      { limit: 25 }
-    );
+      const result = await drainPublicBroadcastRecipients(
+        { rpc, from } as unknown as SupabaseClient,
+        { limit: 25 }
+      );
 
-    expect(result).toMatchObject({ claimed: 1, sent: 1, failed: 0 });
-    expect(sendTemplateMessageMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: '919876543210',
-        templateName: 'renewal_reminder',
-        params: ['Riya', 'Gold'],
-      })
-    );
-    expect(rpc).toHaveBeenCalledWith(
-      'complete_public_broadcast_recipient',
-      expect.objectContaining({
-        p_recipient_id: 'recipient-1',
-        p_whatsapp_message_id: 'wamid.123',
-      })
-    );
-  });
+      if (retired) {
+        expect(result).toMatchObject({ claimed: 1, sent: 0, failed: 1 });
+        expect(sendTemplateMessageMock).not.toHaveBeenCalled();
+        return;
+      }
+      expect(result).toMatchObject({ claimed: 1, sent: 1, failed: 0 });
+      expect(sendTemplateMessageMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: '919876543210',
+          templateName: 'renewal_reminder',
+          params: ['Riya', 'Gold'],
+        })
+      );
+      expect(rpc).toHaveBeenCalledWith(
+        'complete_public_broadcast_recipient',
+        expect.objectContaining({
+          p_recipient_id: 'recipient-1',
+          p_whatsapp_message_id: 'wamid.123',
+        })
+      );
+    }
+  );
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));

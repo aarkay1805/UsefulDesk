@@ -203,3 +203,67 @@ describe('engineSendTemplate', () => {
     expect(h.sendTextMessage).toHaveBeenCalledOnce();
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));
+
+it('stops a send when access expires between the entry check and the Meta attempt', async () => {
+  const { requireProductAccess, ProductAccessError } =
+    await import('@/lib/platform-access/server');
+  const access = vi.mocked(requireProductAccess);
+  access.mockResolvedValueOnce({ allowed: true } as never);
+  access.mockRejectedValueOnce(new ProductAccessError());
+  await expect(
+    engineSendText({
+      accountId: 'account-1',
+      userId: 'user-1',
+      conversationId: 'conversation-1',
+      contactId: 'contact-1',
+      text: 'Hello',
+    })
+  ).rejects.toMatchObject({ code: 'product_access_required' });
+  expect(h.sendTextMessage).not.toHaveBeenCalled();
+  expect(access).toHaveBeenCalledTimes(2);
+});
+
+it('rechecks access before a phone-variant retry after the first provider attempt', async () => {
+  const { requireProductAccess, ProductAccessError } =
+    await import('@/lib/platform-access/server');
+  const access = vi.mocked(requireProductAccess);
+  access.mockResolvedValueOnce({ allowed: true } as never);
+  access.mockResolvedValueOnce({ allowed: true } as never);
+  access.mockRejectedValueOnce(new ProductAccessError());
+  h.sendTextMessage.mockRejectedValueOnce(
+    new Error('Recipient phone number not in allowed list')
+  );
+  await expect(
+    engineSendText({
+      accountId: 'account-1',
+      userId: 'user-1',
+      conversationId: 'conversation-1',
+      contactId: 'contact-1',
+      text: 'Hello',
+    })
+  ).rejects.toMatchObject({ code: 'product_access_required' });
+  expect(h.sendTextMessage).toHaveBeenCalledTimes(1);
+});
+
+it('does not send cached work when its execution lease was retired before provider delivery', async () => {
+  const { RetiredExecutionError } =
+    await import('@/lib/platform-access/execution-guard');
+  const beforeSend = vi.fn().mockRejectedValue(new RetiredExecutionError());
+  await expect(
+    engineSendText({
+      accountId: 'account-1',
+      userId: 'user-1',
+      conversationId: 'conversation-1',
+      contactId: 'contact-1',
+      text: 'Hello',
+      beforeSend,
+    })
+  ).rejects.toBeInstanceOf(RetiredExecutionError);
+  expect(beforeSend).toHaveBeenCalledOnce();
+  expect(h.sendTextMessage).not.toHaveBeenCalled();
+});

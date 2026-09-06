@@ -379,3 +379,11 @@ export function canViewConsolidatedReports(
 export function canArchiveBranch(role: AccountRole): boolean {
   return role === 'owner';
 }
+
+/** Platform authority is separate from customer roles and requires verified MFA. */
+export function canManagePlatformAccess(
+  isPlatformAdmin: boolean,
+  assuranceLevel: string | null
+): boolean {
+  return isPlatformAdmin && assuranceLevel === 'aal2';
+}

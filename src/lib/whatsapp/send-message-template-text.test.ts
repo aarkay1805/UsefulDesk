@@ -223,3 +223,8 @@ describe('template sends persist the delivered text', () => {
     expect(captured.message?.content_text).toBe('Composer-rendered body');
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));

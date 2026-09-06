@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
@@ -67,6 +68,11 @@ async function loadDashboardRequestContext(): Promise<DashboardRequestContext> {
   // so every streamed section remains constrained by the same RLS context the
   // bootstrap just authorized through my_branch_accounts().
   const supabase = (await createClient(accountRow.id)) as SupabaseClient;
+  try {
+    await requireProductAccess(supabase, accountRow.id);
+  } catch {
+    return { user, bootstrap, account: null };
+  }
   const locale = resolveAccountLocale(accountRow);
 
   return {

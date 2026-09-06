@@ -25,6 +25,10 @@ vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => authState,
 }));
 
+vi.mock('@/components/platform-access/product-access-gate', () => ({
+  ProductAccessGate: ({ children }: { children: ReactNode }) => children,
+}));
+
 vi.mock('@/hooks/use-onboarding-status', () => ({
   OnboardingProvider: ({ children }: { children: ReactNode }) => children,
 }));

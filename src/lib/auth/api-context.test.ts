@@ -135,3 +135,24 @@ describe('requireApiKey', () => {
     );
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));
+
+it('rejects an otherwise valid scoped key when its organization access expires', async () => {
+  const { requireProductAccess, ProductAccessError } =
+    await import('@/lib/platform-access/server');
+  findActiveKeyByHash.mockResolvedValue(row());
+  vi.mocked(requireProductAccess).mockRejectedValueOnce(
+    new ProductAccessError()
+  );
+  await expect(
+    requireApiKey(reqWith(`Bearer ${KEY}`), 'messages:send')
+  ).rejects.toMatchObject({
+    status: 403,
+    code: 'product_access_required',
+  });
+  expect(touchLastUsed).not.toHaveBeenCalled();
+});

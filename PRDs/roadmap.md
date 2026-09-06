@@ -1,6 +1,12 @@
 # Roadmap
 
-> Phased — build step by step, don't over-engineer. The feature filter (in `CLAUDE.md`) governs everything here: does it save the owner time, recover lost leads, collect renewals, or retain members? If not, defer.
+## Web release — UsefulDesk trials and platform administration
+
+Organization access details open in a responsive side drawer, keeping the organization list in place behind the controls and history.
+
+Authenticator setup recovery is fixed locally: QR payloads render safely, retries clear unfinished registrations from this screen, and verified authenticators remain intact.
+
+Organization-wide 14-day verified-owner trials, complimentary access for existing customers, web/native expiry-support gates, and minimal MFA-protected, audited platform-admin access controls are implemented. Database migrations and initial admin/support configuration are applied; enforcement remains disabled. The web release includes the admin panel and access gates; the administrator completed local authenticator setup and verified the organization list. Production admin-action acceptance, native client distribution/device acceptance, and trial rollout activation remain pending. Checkout, automated SaaS billing, cancellation scheduling, and the broader admin dashboard are deferred. Scope: [trial access MVP](trial-access-mvp.md); operations: [product access](../docs/product-access.md).
 
 ## ✅ Phase 1 — the renewal wedge
 

@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 
@@ -80,6 +81,8 @@ export function createMobileOperationalAccess(
     if (!profile) {
       throw new ForbiddenError('Profile is not linked to an account');
     }
+
+    await requireProductAccess(supabase, accountId);
 
     const { data: membership, error: membershipError } = await supabase
       .from('account_memberships')

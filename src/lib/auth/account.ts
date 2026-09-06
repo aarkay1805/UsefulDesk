@@ -1,3 +1,7 @@
+import {
+  ProductAccessError,
+  requireProductAccess,
+} from '@/lib/platform-access/server';
 // ============================================================
 // Server-side account context — for API routes and server
 // components. Reads the caller's profile + account in one round
@@ -80,6 +84,12 @@ export class ForbiddenError extends Error {
  * server internals out of the wire.
  */
 export function toErrorResponse(err: unknown): NextResponse {
+  if (err instanceof ProductAccessError) {
+    return NextResponse.json(
+      { error: err.message, code: err.code },
+      { status: err.status }
+    );
+  }
   if (err instanceof UnauthorizedError || err instanceof ForbiddenError) {
     return NextResponse.json({ error: err.message }, { status: err.status });
   }
@@ -203,6 +213,7 @@ export async function getCurrentAccount(
   }
   const accountId = requested.accountId ?? profile.account_id;
   const supabase = await createClient(accountId);
+  await requireProductAccess(supabase, accountId);
 
   const { data: membership, error: membershipErr } = await supabase
     .from('account_memberships')

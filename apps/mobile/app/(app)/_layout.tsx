@@ -1,6 +1,7 @@
 import { Stack } from 'expo-router';
 
 import { useAuth } from '../../src/features/auth/auth-context';
+import { ProductAccessGate } from '../../src/features/product-access/product-access-gate';
 import { InboxRealtimeProvider } from '../../src/features/inbox/inbox-realtime-provider';
 
 function ProtectedAppStack({ guard }: { guard: boolean }) {
@@ -23,11 +24,13 @@ export default function AppLayout() {
   if (state.status !== 'ready') return <ProtectedAppStack guard={false} />;
 
   return (
-    <InboxRealtimeProvider
-      key={state.branch.account_id}
-      accountId={state.branch.account_id}
-    >
-      <ProtectedAppStack guard />
-    </InboxRealtimeProvider>
+    <ProductAccessGate>
+      <InboxRealtimeProvider
+        key={state.branch.account_id}
+        accountId={state.branch.account_id}
+      >
+        <ProtectedAppStack guard />
+      </InboxRealtimeProvider>
+    </ProductAccessGate>
   );
 }

@@ -1,3 +1,5 @@
+import { requireCurrentExecution } from '@/lib/platform-access/execution-guard';
+import { requireProductAccess } from '@/lib/platform-access/server';
 // ============================================================
 // Public-API broadcast core.
 //
@@ -123,6 +125,7 @@ export async function createBroadcast(
   auditUserId: string,
   params: CreateBroadcastParams
 ): Promise<BroadcastPlan> {
+  await requireProductAccess(db, accountId);
   const { name, templateName, recipients } = params;
   const templateLanguage = params.templateLanguage || 'en_US';
 
@@ -429,6 +432,13 @@ async function deliverClaimedBroadcastRecipient(
 
   for (const variant of phoneVariants(phone)) {
     try {
+      await requireProductAccess(db, recipient.account_id);
+      await requireCurrentExecution(db, {
+        kind: 'broadcast',
+        id: recipient.recipient_id,
+        parentId: recipient.broadcast_id,
+        owner: leaseOwner,
+      });
       const sendResult = await sendTemplateMessage({
         phoneNumberId: context.phoneNumberId,
         accessToken: context.accessToken,

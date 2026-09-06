@@ -159,3 +159,8 @@ describe('POST /api/whatsapp/broadcast outbound policy', () => {
     expect(mocks.sendTemplateMessage).not.toHaveBeenCalled();
   });
 });
+
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));
