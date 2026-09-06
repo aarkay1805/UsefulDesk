@@ -2,6 +2,8 @@
 
 ## Web release — UsefulDesk trials and platform administration
 
+The initial access check uses a simple spinner, preventing support and blocked-access controls from flashing for signed-in customers.
+
 Organization access details open in a responsive side drawer, keeping the organization list in place behind the controls and history.
 
 Authenticator setup recovery is fixed locally: QR payloads render safely, retries clear unfinished registrations from this screen, and verified authenticators remain intact.

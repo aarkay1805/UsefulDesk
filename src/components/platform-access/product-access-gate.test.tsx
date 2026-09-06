@@ -54,15 +54,32 @@ beforeEach(() => {
   vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-06T00:00:00Z'));
 });
 describe('ProductAccessGate', () => {
-  it('does not mount operational children before access is confirmed', async () => {
-    rpc.mockReturnValue(new Promise(() => {}));
+  it('shows only a spinner until access is confirmed, then mounts operational children', async () => {
+    let finish: (value: unknown) => void = () => {};
+    rpc.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      })
+    );
     render(
       <ProductAccessGate>
         <div>Operations</div>
       </ProductAccessGate>
     );
     expect(screen.queryByText('Operations')).toBeNull();
-    expect(screen.getByText('Checking access…')).toBeTruthy();
+    expect(
+      screen.getByRole('status', { name: 'Loading UsefulDesk' })
+    ).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    await act(async () => {
+      finish({ data: snapshot, error: null });
+    });
+    expect(screen.getByText('Operations')).toBeTruthy();
+    expect(
+      screen.queryByRole('status', { name: 'Loading UsefulDesk' })
+    ).toBeNull();
   });
   it('mounts active trial and closes at its exact deadline before a refresh finishes', async () => {
     vi.useFakeTimers();
@@ -199,7 +216,9 @@ describe('ProductAccessGate', () => {
         </ProductAccessGate>
       );
       await waitFor(() =>
-        expect(screen.queryByText('Checking access…')).toBeNull()
+        expect(
+          screen.queryByRole('status', { name: 'Loading UsefulDesk' })
+        ).toBeNull()
       );
       expect(screen.queryByText('Operations')).toBeNull();
     }

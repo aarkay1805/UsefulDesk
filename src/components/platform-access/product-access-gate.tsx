@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { createClient } from '@/lib/supabase/client';
@@ -169,6 +170,19 @@ function AccountProductAccess({
       setPending('');
     }
   }
+  if (checking && !snapshot && !error)
+    return (
+      <main
+        className="flex min-h-screen items-center justify-center"
+        role="status"
+        aria-label="Loading UsefulDesk"
+      >
+        <Loader2
+          className="text-muted-foreground size-6 animate-spin"
+          aria-hidden="true"
+        />
+      </main>
+    );
   if (allowed)
     return (
       <div className="flex h-screen flex-col">
@@ -217,11 +231,7 @@ function AccountProductAccess({
       <Card className="w-full max-w-xl">
         <CardContent className="space-y-4">
           <Alert>
-            <AlertTitle>
-              {checking && !snapshot && !error
-                ? 'Checking access…'
-                : 'Contact support'}
-            </AlertTitle>
+            <AlertTitle>Contact support</AlertTitle>
             <AlertDescription>
               {error ||
                 (resolved?.status === 'suspended'

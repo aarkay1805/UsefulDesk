@@ -8,6 +8,8 @@
 
 ## UsefulDesk trial access and platform administration
 
+Initial web access checks show only a centered spinner. Support/retry/sign-out/branch controls appear after a denied or failed check, while successful background checks keep the app mounted. Code: `src/components/platform-access/product-access-gate.tsx`, with loading-to-access regression coverage.
+
 Organization access controls and audit history now open in the shared right-side Sheet, with a fixed identity header and scrollable details. Code: `src/components/platform-access/platform-admin.tsx`; mobile uses the full viewport width.
 
 Admin authenticator setup now URL-encodes the SDK's raw SVG QR payload and replaces only unfinished registrations from this screen when retried. This fixes the QR render crash and subsequent duplicate-name error; verified authenticators are preserved. Code and regression coverage: `src/components/platform-access/platform-admin{,.test}.tsx`.
