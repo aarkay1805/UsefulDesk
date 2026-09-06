@@ -2,6 +2,35 @@
 
 final result: passed
 
+## Follow-up: issue accordions
+
+The user clarified that each issue type should expand as an accordion. The
+shared Accordion now contains each section's rows and count, opening one
+section at a time beside the existing inspector. All sections can be collapsed.
+The same structure is used on phones, where Review row opens the details view.
+Search covers closed sections and preserves the query when toggling them.
+Original grouped mapping scopes remain intact even when search hides members.
+
+One desktop/mobile inspection batch compared `accordion-desktop.png` with
+`grouped-billing.png`, and checked `accordion-mobile.png` plus
+`accordion-mobile-overview.png` in the evidence directory below. The dimensions
+and normalization match the earlier captures. The requested structural change
+preserves the shared typography, spacing, semantic colors, icons and inspector.
+No actionable P0/P1/P2 visual findings were identified in these states.
+
+Browser checks exercised opening and collapsing sections, search finding a row
+in a closed section, phone list/detail navigation, and saving Karan's synthetic
+billing correction: Billing fell from two rows to one, while Duplicate phones
+retained both members and still opened the correct resolver. No horizontal
+page overflow occurred at 400px; the browser warning/error log was empty.
+The development-only fixture used local state and was removed after inspection;
+no private-draft persistence or database import acceptance is claimed.
+
+The five focused UI/candidate/service/commit suites pass 85 tests, including
+accordion expansion state, collapse/reopen, cross-section search, unique counts,
+remaining issues after corrections, and unchanged bulk mapping scope. Targeted
+ESLint, TypeScript, formatting and diff whitespace checks pass.
+
 ## Follow-up: issue groups restored
 
 The user requested a blend of the original issue grouping and the new worksheet.

@@ -13,6 +13,12 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
@@ -246,6 +252,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
   const [selectedSectionKey, setSelectedSectionKey] = useState<string | null>(
     null
   );
+  const [sectionsCollapsed, setSectionsCollapsed] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [detailEditor, setDetailEditor] = useState<'phone' | 'plan' | null>(
     null
@@ -255,21 +262,38 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
     [candidates]
   );
   const groups = useMemo(() => unresolvedGroups(candidates), [candidates]);
-  const sections = useMemo(() => issueSections(groups), [groups]);
+  const filtered = useMemo(
+    () =>
+      filterMemberImportCandidates(
+        searchMemberImportCandidates(candidates, search),
+        filter
+      ),
+    [candidates, search, filter]
+  );
+  const sections = useMemo(() => {
+    const matches = new Set(filtered.map((row) => row.sourceKey));
+    return issueSections(groups)
+      .map((section) => ({
+        ...section,
+        sourceKeys: new Set(
+          [...section.sourceKeys].filter((key) => matches.has(key))
+        ),
+      }))
+      .filter((section) => section.sourceKeys.size > 0);
+  }, [groups, filtered]);
+  const reviewingIssues = filter === 'needs-resolution' && groups.length > 0;
   const activeSection =
-    filter === 'needs-resolution'
+    reviewingIssues && !sectionsCollapsed
       ? (sections.find((section) => section.key === selectedSectionKey) ??
         sections[0])
       : undefined;
   const visible = useMemo(() => {
-    const filtered = filterMemberImportCandidates(
-      searchMemberImportCandidates(candidates, search),
-      filter
-    );
-    return activeSection
-      ? filtered.filter((row) => activeSection.sourceKeys.has(row.sourceKey))
+    return reviewingIssues
+      ? activeSection
+        ? filtered.filter((row) => activeSection.sourceKeys.has(row.sourceKey))
+        : []
       : filtered;
-  }, [candidates, search, filter, activeSection]);
+  }, [filtered, reviewingIssues, activeSection]);
   const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
   const selectedIndex = visible.findIndex(
     (row) => row.sourceKey === selectedKey
@@ -329,14 +353,15 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
     setSelectedKey(null);
     setSelectedIssueKey(null);
     setInspectorOpen(false);
+    setSectionsCollapsed(false);
   }
-  function changeSection(key: string) {
+  function changeSection(key: string | null) {
+    setSectionsCollapsed(key === null);
     setSelectedSectionKey(key);
     setDetailEditor(null);
     setSelectedIssueKey(null);
     setSelectedKey(null);
     setPage(0);
-    setSearch('');
     setInspectorOpen(false);
   }
   function selectRow(row: MemberImportCandidate) {
@@ -395,6 +420,140 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
     );
   }
 
+  const worksheetRows =
+    visible.length === 0 ? (
+      <div className="flex min-h-0 flex-1 px-6 pb-4">
+        <EmptyRows
+          filtered={search.trim().length > 0 || filter !== 'all'}
+          onReset={() => {
+            setSearch('');
+            changeFilter('all');
+          }}
+        />
+      </div>
+    ) : (
+      <>
+        <Table
+          containerClassName={cn(
+            'hidden min-h-0 flex-1 overflow-auto md:block',
+            reviewingIssues && 'max-h-[min(24rem,45dvh)]'
+          )}
+          className="min-w-[780px] table-fixed"
+          aria-label="Import rows"
+          data-testid="member-import-desktop"
+        >
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-48 pl-6">Name</TableHead>
+              <TableHead className="w-40">Plan</TableHead>
+              <TableHead className="w-22 text-right">Fee</TableHead>
+              <TableHead className="w-22 text-right">Paid</TableHead>
+              <TableHead className="w-22 text-right">Balance</TableHead>
+              <TableHead className="w-44 pr-6">Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paged.map((row) => (
+              <TableRow
+                key={row.sourceKey}
+                data-state={
+                  selected?.sourceKey === row.sourceKey ? 'selected' : undefined
+                }
+                className="cursor-pointer"
+                onClick={() => selectRow(row)}
+              >
+                <TableCell className="py-3 pl-6">
+                  <MemberIdentity
+                    name={candidateName(row)}
+                    secondary={`Source row ${row.sourceRow}`}
+                  />
+                </TableCell>
+                <TableCell>
+                  <CandidateOffering candidate={row} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <SourceMoney value={row.draftValues.fee} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <SourceMoney value={row.draftValues.amountPaid} />
+                </TableCell>
+                <TableCell className="text-right">
+                  <SourceMoney value={effectiveBalance(row.draftValues)} />
+                </TableCell>
+                <TableCell className="pr-6">
+                  <div className="flex items-center justify-between gap-2">
+                    <CandidateStatus candidate={row} />
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={`Review ${candidateName(row)}, source row ${row.sourceRow}`}
+                      aria-pressed={selected?.sourceKey === row.sourceKey}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        selectRow(row);
+                      }}
+                    >
+                      <ChevronRight />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        <div
+          className={
+            reviewingIssues
+              ? 'grid max-h-[min(24rem,45dvh)] grid-rows-[minmax(0,1fr)] md:hidden'
+              : 'contents'
+          }
+        >
+          <ScrollArea
+            className="min-h-0 flex-1 md:hidden"
+            data-testid="member-import-mobile"
+          >
+            <div className="space-y-3 px-6 pb-4">
+              {paged.map((row) => (
+                <article key={row.sourceKey} className="space-y-3 py-3">
+                  <MemberIdentity
+                    name={candidateName(row)}
+                    secondary={
+                      row.draftValues.phone
+                        ? fmt.phone(row.draftValues.phone)
+                        : 'No phone'
+                    }
+                    meta={`Source row ${row.sourceRow} · ${row.legacyMemberId || 'No Member ID'}`}
+                  />
+                  <CandidateOffering candidate={row} wrap />
+                  <div className="flex items-center justify-between gap-2">
+                    <CandidateStatus candidate={row} />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => selectRow(row)}
+                      aria-label={`Review ${candidateName(row)}, source row ${row.sourceRow}`}
+                    >
+                      Review row
+                    </Button>
+                  </div>
+                  <Separator />
+                </article>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+        <Pagination
+          page={safePage}
+          pageCount={pageCount}
+          total={visible.length}
+          onPageChange={(value) => {
+            setPage(value);
+            setSelectedKey(null);
+          }}
+        />
+      </>
+    );
+
   return (
     <div
       className="flex h-full min-h-0 flex-1 flex-col"
@@ -412,6 +571,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               value={search}
               onValueChange={(value) => {
                 setSearch(value);
+                setSectionsCollapsed(false);
                 setPage(0);
                 setSelectedKey(null);
                 setSelectedIssueKey(null);
@@ -442,59 +602,14 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             </ChipGroup>
           </div>
           <Separator />
-          {activeSection && (
-            <>
-              <div className="shrink-0 space-y-2 px-6 py-3">
-                <ChipGroup<string>
-                  className="hidden sm:block"
-                  selectionMode="single"
-                  value={[activeSection.key]}
-                  onValueChange={(values) =>
-                    values[0] && changeSection(values[0])
-                  }
-                  aria-label="Issue groups"
-                >
-                  {sections.map((section) => (
-                    <Chip key={section.key} value={section.key}>
-                      {section.title}{' '}
-                      <ChipCount count={section.sourceKeys.size} />
-                    </Chip>
-                  ))}
-                </ChipGroup>
-                <div className="sm:hidden">
-                  <Select<string>
-                    value={activeSection.key}
-                    onValueChange={(value) => value && changeSection(value)}
-                  >
-                    <SelectTrigger className="w-full" aria-label="Issue group">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sections.map((section) => (
-                        <SelectItem key={section.key} value={section.key}>
-                          {section.title} ·{' '}
-                          {fmt.number(section.sourceKeys.size)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <p className="text-muted-foreground text-xs">
-                  Rows with more than one issue appear in each relevant group.
-                </p>
-              </div>
-              <Separator />
-            </>
-          )}
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-6 py-2">
             <p
               className="text-muted-foreground text-xs tabular-nums"
               role="status"
             >
-              {fmt.number(visible.length)} row{visible.length === 1 ? '' : 's'}{' '}
-              {activeSection
-                ? `in ${activeSection.title.toLowerCase()}`
-                : 'in this view'}
+              {reviewingIssues
+                ? 'Rows with multiple issues appear in each relevant section.'
+                : `${fmt.number(visible.length)} ${visible.length === 1 ? 'row' : 'rows'} in this view`}
             </p>
             <Button
               variant="link"
@@ -519,130 +634,43 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               </Alert>
             </div>
           )}
-          {visible.length === 0 ? (
-            <div className="flex min-h-0 flex-1 px-6 pb-4">
-              <EmptyRows
-                filtered={search.trim().length > 0 || filter !== 'all'}
-                onReset={() => {
-                  setSearch('');
-                  changeFilter('all');
-                }}
-              />
-            </div>
+          {reviewingIssues && sections.length > 0 ? (
+            <ScrollArea
+              className="min-h-0 flex-1"
+              aria-label="Issue accordions"
+            >
+              <Accordion
+                multiple={false}
+                value={activeSection ? [activeSection.key] : []}
+                onValueChange={(values) =>
+                  changeSection((values[0] as string | undefined) ?? null)
+                }
+              >
+                {sections.map((section) => (
+                  <AccordionItem key={section.key} value={section.key}>
+                    <div className="px-6">
+                      <AccordionTrigger>
+                        <span className="flex items-center gap-2">
+                          <AlertTriangle
+                            className="text-amber-foreground size-4 shrink-0"
+                            aria-hidden
+                          />
+                          {section.title}{' '}
+                          <Badge variant="neutral" size="count">
+                            {fmt.number(section.sourceKeys.size)}
+                          </Badge>
+                        </span>
+                      </AccordionTrigger>
+                    </div>
+                    <AccordionContent>
+                      {activeSection?.key === section.key && worksheetRows}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </ScrollArea>
           ) : (
-            <>
-              <Table
-                containerClassName="hidden min-h-0 flex-1 overflow-auto md:block"
-                className="min-w-[780px] table-fixed"
-                aria-label="Import rows"
-                data-testid="member-import-desktop"
-              >
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-48 pl-6">Name</TableHead>
-                    <TableHead className="w-40">Plan</TableHead>
-                    <TableHead className="w-22 text-right">Fee</TableHead>
-                    <TableHead className="w-22 text-right">Paid</TableHead>
-                    <TableHead className="w-22 text-right">Balance</TableHead>
-                    <TableHead className="w-44 pr-6">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paged.map((row) => (
-                    <TableRow
-                      key={row.sourceKey}
-                      data-state={
-                        selected?.sourceKey === row.sourceKey
-                          ? 'selected'
-                          : undefined
-                      }
-                      className="cursor-pointer"
-                      onClick={() => selectRow(row)}
-                    >
-                      <TableCell className="py-3 pl-6">
-                        <MemberIdentity
-                          name={candidateName(row)}
-                          secondary={`Source row ${row.sourceRow}`}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <CandidateOffering candidate={row} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <SourceMoney value={row.draftValues.fee} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <SourceMoney value={row.draftValues.amountPaid} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <SourceMoney
-                          value={effectiveBalance(row.draftValues)}
-                        />
-                      </TableCell>
-                      <TableCell className="pr-6">
-                        <div className="flex items-center justify-between gap-2">
-                          <CandidateStatus candidate={row} />
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Review ${candidateName(row)}, source row ${row.sourceRow}`}
-                            aria-pressed={selected?.sourceKey === row.sourceKey}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              selectRow(row);
-                            }}
-                          >
-                            <ChevronRight />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <ScrollArea
-                className="min-h-0 flex-1 md:hidden"
-                data-testid="member-import-mobile"
-              >
-                <div className="space-y-3 px-6 pb-4">
-                  {paged.map((row) => (
-                    <article key={row.sourceKey} className="space-y-3 py-3">
-                      <MemberIdentity
-                        name={candidateName(row)}
-                        secondary={
-                          row.draftValues.phone
-                            ? fmt.phone(row.draftValues.phone)
-                            : 'No phone'
-                        }
-                        meta={`Source row ${row.sourceRow} · ${row.legacyMemberId || 'No Member ID'}`}
-                      />
-                      <CandidateOffering candidate={row} wrap />
-                      <div className="flex items-center justify-between gap-2">
-                        <CandidateStatus candidate={row} />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => selectRow(row)}
-                          aria-label={`Review ${candidateName(row)}, source row ${row.sourceRow}`}
-                        >
-                          Review row
-                        </Button>
-                      </div>
-                      <Separator />
-                    </article>
-                  ))}
-                </div>
-              </ScrollArea>
-              <Pagination
-                page={safePage}
-                pageCount={pageCount}
-                total={visible.length}
-                onPageChange={(value) => {
-                  setPage(value);
-                  setSelectedKey(null);
-                }}
-              />
-            </>
+            worksheetRows
           )}
           {summary.exclusions > 0 && (
             <>

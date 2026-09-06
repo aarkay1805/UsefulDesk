@@ -9,8 +9,8 @@ Membership plans, including responsive label-free billing-option comparison card
 ## ✅ Phase 2 — India-first workflows
 
 Built locally: **member import migration worksheet** — searchable source rows,
-Needs review / Ready / Excluded filters, issue-type grouping with unique row
-counts and a mobile group picker, a selected-row inspector, staged payment
+Needs review / Ready / Excluded filters, issue-type accordions with unique row
+counts on desktop and phones, search across closed sections, a selected-row inspector, staged payment
 reconciliation and grouped mapping, readable notices, editable pricing facts,
 excluded-row CSV recovery, and responsive list/detail navigation. The existing
 wizard and resumable draft remain in use; no live import or deployment was run

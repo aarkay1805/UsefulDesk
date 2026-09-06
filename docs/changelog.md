@@ -8,14 +8,15 @@
 
 ## Member import uses a migration worksheet
 
-Issue-type navigation now leads the Needs review worksheet: Billing, Missing
+Issue-type accordions now lead the Needs review worksheet: Billing, Missing
 phones, Invalid phones, Duplicate phones, Plan matching, and the remaining
-problem types each show their affected rows and matching resolver. Counts are
-unique within a group; a row with multiple issues appears in each relevant
-group. Grouped mappings retain their original source-key scope. A compact
-picker exposes the same groups on phones. Switching groups clears stale search,
-pagination and edits; resolved groups leave the queue without hiding other
-unresolved issues on the same customer.
+problem types expand to show their affected rows beside the matching resolver.
+One section opens at a time on desktop and phones; all can be collapsed. Counts
+are unique within a section, and multi-issue rows appear in each relevant
+section. Search finds matches across closed sections. Grouped mappings retain
+their original source-key scope, including when search hides a matching row.
+Switching sections resets pagination and edits; resolved sections leave the
+queue without hiding other unresolved issues on the same customer.
 
 Built locally in `src/components/members/import-members-preview.tsx` and
 `import-members-csv-dialog.tsx`: searchable source rows with counted review
@@ -28,7 +29,7 @@ be reviewed and downloaded with original values and formula-safe text. Pricing
 corrections expose list price and discounts. Existing candidate/commit rules
 remain the authority; this UI work does not resolve the wider ERP migration
 correctness and recovery gaps tracked in the roadmap. No live import was run.
-The focused UI/candidate/service/commit suites pass 84 tests, with targeted
+The focused UI/candidate/service/commit suites pass 85 tests, with targeted
 lint, typecheck and desktop/400px component browser checks passing. The grouped
 follow-up used a temporary local fixture because private draft saving failed
 in the live browser session; `design-qa.md` records that acceptance limit.

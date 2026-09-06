@@ -227,7 +227,7 @@ describe('ImportMembersPreview worksheet', () => {
     expect(screen.getByRole('table')).toBeTruthy();
   });
 
-  it('changes issue groups and opens the corresponding correction', async () => {
+  it('opens one issue accordion at a time beside its corresponding correction', async () => {
     const user = userEvent.setup();
     renderPreview(
       candidates([input(2, { phone: '' }), input(3, { phone: 'not-a-phone' })])
@@ -235,13 +235,55 @@ describe('ImportMembersPreview worksheet', () => {
     expect(
       screen.getByRole('heading', { name: 'Add missing phone number' })
     ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: 'Missing phones 1' })
+        .getAttribute('aria-expanded')
+    ).toBe('true');
     await user.click(screen.getByRole('button', { name: 'Invalid phones 1' }));
+    expect(
+      screen
+        .getByRole('button', { name: 'Missing phones 1' })
+        .getAttribute('aria-expanded')
+    ).toBe('false');
+    expect(
+      screen
+        .getByRole('button', { name: 'Invalid phones 1' })
+        .getAttribute('aria-expanded')
+    ).toBe('true');
     expect(
       screen.getByRole('heading', { name: 'Correct invalid phone number' })
     ).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Missing phones 1' }));
     expect(
       screen.getByRole('heading', { name: 'Add missing phone number' })
+    ).toBeTruthy();
+  });
+
+  it('can collapse every issue accordion and reopen its rows and correction', async () => {
+    const user = userEvent.setup();
+    renderPreview(
+      candidates([input(2, { phone: '' }), input(3, { phone: 'not-a-phone' })])
+    );
+    await user.click(screen.getByRole('button', { name: 'Missing phones 1' }));
+    expect(
+      screen
+        .getByRole('button', { name: 'Missing phones 1' })
+        .getAttribute('aria-expanded')
+    ).toBe('false');
+    expect(
+      screen
+        .getByRole('button', { name: 'Invalid phones 1' })
+        .getAttribute('aria-expanded')
+    ).toBe('false');
+    expect(screen.queryByRole('table')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Row inspector' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Missing phones 1' }));
+    expect(
+      within(screen.getByRole('table')).getByText('Member 2')
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('textbox', { name: 'Phone for Member 2' })
     ).toBeTruthy();
   });
 
@@ -308,7 +350,7 @@ describe('ImportMembersPreview worksheet', () => {
     ).toBeNull();
   });
 
-  it('clears search and pagination when changing groups without widening a grouped plan fix', async () => {
+  it('searches closed accordions and preserves the original grouped mapping scope', async () => {
     const user = userEvent.setup();
     const rows = Array.from({ length: 51 }, (_, index) =>
       input(index + 2, {
@@ -321,24 +363,38 @@ describe('ImportMembersPreview worksheet', () => {
     rows.push(
       input(54, { planName: 'Legacy Silver', pricingOption: 'Monthly' })
     );
+    rows.push(input(55, { planName: 'Legacy Gold', pricingOption: 'Monthly' }));
     const { onResolveGroupedPlan } = renderPreview(candidates(rows));
     await user.click(screen.getByRole('button', { name: 'Next page' }));
-    await user.type(screen.getByRole('searchbox'), 'Member 52');
-    await user.click(screen.getByRole('button', { name: 'Plan matching 2' }));
-    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe('');
+    await user.type(screen.getByRole('searchbox'), 'Member 53');
+    expect(
+      screen
+        .getByRole('button', { name: 'Plan matching 1' })
+        .getAttribute('aria-expanded')
+    ).toBe('true');
+    await user.click(screen.getByRole('button', { name: 'Plan matching 1' }));
+    await user.click(screen.getByRole('button', { name: 'Plan matching 1' }));
+    expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe(
+      'Member 53'
+    );
     expect(
       within(screen.getByRole('table')).getByText('Member 53')
     ).toBeTruthy();
     expect(
-      within(screen.getByRole('table')).getByText('Member 54')
-    ).toBeTruthy();
+      within(screen.getByRole('table')).queryByText('Member 54')
+    ).toBeNull();
     screen.getByRole('combobox', { name: 'Map Legacy Gold · Monthly' }).focus();
     await user.keyboard('{ArrowDown}{Enter}');
-    await user.click(screen.getByRole('button', { name: 'Save mapping' }));
-    expect(onResolveGroupedPlan).toHaveBeenCalledWith(['sheet:53'], {
-      planId: 'plan-gold',
-      pricingOptionId: 'gold-month',
-    });
+    await user.click(
+      screen.getByRole('button', { name: 'Save mapping for 2 rows' })
+    );
+    expect(onResolveGroupedPlan).toHaveBeenCalledWith(
+      ['sheet:53', 'sheet:55'],
+      {
+        planId: 'plan-gold',
+        pricingOptionId: 'gold-month',
+      }
+    );
   });
 
   it('moves a corrected row out of billing while keeping its duplicate-phone issue visible', () => {
@@ -372,7 +428,7 @@ describe('ImportMembersPreview worksheet', () => {
     expect(
       screen
         .getByRole('button', { name: 'Duplicate phones 2' })
-        .getAttribute('aria-pressed')
+        .getAttribute('aria-expanded')
     ).toBe('true');
     expect(
       screen.getByRole('textbox', { name: 'Phone for Member 2' })
