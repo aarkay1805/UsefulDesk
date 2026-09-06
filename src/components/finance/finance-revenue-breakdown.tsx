@@ -139,7 +139,7 @@ export function FinanceRevenueBreakdownCard({
                   return (
                     <AccordionItem key={row.key} value={row.key}>
                       <AccordionTrigger
-                        className="hover:bg-muted/50 rounded-none px-4 hover:no-underline **:data-[slot=accordion-trigger-icon]:absolute **:data-[slot=accordion-trigger-icon]:top-1/2 **:data-[slot=accordion-trigger-icon]:left-4 **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:-translate-y-1/2"
+                        className="mx-4 **:data-[slot=accordion-trigger-icon]:absolute **:data-[slot=accordion-trigger-icon]:top-1/2 **:data-[slot=accordion-trigger-icon]:left-2 **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:-translate-y-1/2"
                         onClick={() =>
                           setExpandedSources((current) =>
                             current.includes(row.key)

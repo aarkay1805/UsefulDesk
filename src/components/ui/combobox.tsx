@@ -105,7 +105,7 @@ export function Combobox({
             type="button"
             className={cn(
               // Mirrors SelectTrigger (size=sm) so the two read identically.
-              'border-input-border focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border bg-transparent py-1.5 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50',
+              'border-input-border not-disabled:not-data-disabled:not-data-readonly:not-aria-invalid:not-focus-visible:hover:border-border-hover focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 flex h-8 w-full min-w-0 items-center justify-between gap-1.5 rounded-lg border bg-transparent py-1.5 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3 disabled:cursor-not-allowed disabled:opacity-50',
               className
             )}
           />

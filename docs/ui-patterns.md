@@ -144,6 +144,29 @@ button:not(:disabled),
 
 A `:disabled` control keeps the arrow (a dead affordance must not advertise itself). **Never add `cursor-pointer` to a button/tab/trigger.** A **non-button** clickable (`<div>`/`<tr>` row, card) still needs it explicitly.
 
+## Hover feedback follows the action
+
+Passive headings, counts, statuses, summaries, and cells do not change on hover.
+A row with controls inside it is passive unless clicking the row itself acts;
+use `TableRow interactive={false}` for that row and for static table headers.
+The default row treatment remains available for clickable review/navigation rows.
+
+Shared masters own hover feedback: primary buttons use `--primary-hover`, text-link
+buttons use a neutral muted fill without an underline, and editable fields and
+picker triggers strengthen their border with `--border-hover`. Checkboxes use the
+neutral border when unchecked and `--primary-hover` when checked or indeterminate.
+Disabled and read-only controls stay visually passive. Field hover must not replace
+keyboard focus rings or invalid-field borders. Never recreate these states at a
+call site; passive children inside clickable rows inherit the row's feedback only.
+
+Accordion triggers use a rounded `bg-muted` hover fill, never an underline. The
+master keeps labels aligned to their container's content edge with 8px horizontal
+padding and an 8px outward inset, plus 4px of vertical breathing room. Place them
+inside the container's normal gutters (16px on phones, 24px in desktop dialog
+panes). Full-width report tables use an external `mx-4` on the trigger to preserve
+their 16px column alignment and keep the tint inset. Do not override the master's
+hover fill or corner radius at a call site; disabled triggers keep no hover fill.
+
 ## Pending button actions
 
 Any button that waits for a network request, storage operation, other asynchronous work, or a cold route transition must show progress in the control that was pressed. Shared `Button` and `GatedButton` consumers use `loading`; the master inserts the spinner, sets `aria-busy`, disables repeat activation, and suppresses a competing direct icon while preserving the label. Do not hand-build a `Loader2` branch at a call site when `loading` fits.

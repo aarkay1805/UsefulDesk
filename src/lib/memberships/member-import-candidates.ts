@@ -920,8 +920,8 @@ function rebuildCandidate(
         'membership-history',
         'notice',
         `membership-history:${candidate.legacyMemberId ?? candidate.sourceKey}`,
-        'Older membership history is retained but excluded from this import.',
-        'Review history if needed; no action is required.',
+        'This older membership row stays in your draft but will not be imported.',
+        'Check that the latest membership row is included.',
         true
       )
     );
@@ -932,7 +932,7 @@ function rebuildCandidate(
         'membership-history',
         'notice',
         `membership-history:${candidate.legacyMemberId ?? candidate.sourceKey}`,
-        'The older membership component is excluded; this row’s service remains eligible.',
+        'The older membership will not be imported. The service on this row can still be imported.',
         'Review the service purchase; no membership action is required.',
         true
       )
@@ -956,7 +956,7 @@ function rebuildCandidate(
         'summary-row',
         'notice',
         `summary-row:${candidate.sourceKey}`,
-        'Source summary row is retained but excluded.',
+        'This row contains summary totals and will not be imported.',
         'No action is required.',
         true
       )

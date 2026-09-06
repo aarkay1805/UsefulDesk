@@ -504,7 +504,7 @@ function PlanPerformanceCard({
               <Accordion multiple>
                 {report.plans.map((plan) => (
                   <AccordionItem key={plan.id} value={plan.id}>
-                    <AccordionTrigger className="hover:bg-muted/50 rounded-none px-4 hover:no-underline **:data-[slot=accordion-trigger-icon]:absolute **:data-[slot=accordion-trigger-icon]:top-1/2 **:data-[slot=accordion-trigger-icon]:left-4 **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:-translate-y-1/2">
+                    <AccordionTrigger className="mx-4 **:data-[slot=accordion-trigger-icon]:absolute **:data-[slot=accordion-trigger-icon]:top-1/2 **:data-[slot=accordion-trigger-icon]:left-2 **:data-[slot=accordion-trigger-icon]:ml-0 **:data-[slot=accordion-trigger-icon]:-translate-y-1/2">
                       <span className="grid min-w-0 flex-1 grid-cols-[minmax(8rem,1fr)_minmax(3.75rem,4.5rem)_minmax(3.5rem,4rem)_minmax(3.75rem,4rem)_minmax(6rem,7rem)] items-center gap-2">
                         <span className="truncate pl-6 font-medium">
                           {plan.name}

@@ -722,7 +722,7 @@ export function ContactDetailContent({
               value="details"
               className="border-border/50 border-b"
             >
-              <AccordionTrigger className="text-foreground text-sm font-semibold hover:no-underline">
+              <AccordionTrigger className="text-foreground text-sm font-semibold">
                 Details
               </AccordionTrigger>
               <AccordionContent>
@@ -954,7 +954,7 @@ export function ContactDetailContent({
 
             {/* Tags */}
             <AccordionItem value="tags" className="border-border/50 border-b">
-              <AccordionTrigger className="text-foreground text-sm font-semibold hover:no-underline">
+              <AccordionTrigger className="text-foreground text-sm font-semibold">
                 Tags
               </AccordionTrigger>
               <AccordionContent>
@@ -1006,7 +1006,7 @@ export function ContactDetailContent({
 
             {/* Notes & follow-ups */}
             <AccordionItem value="notes" className="border-b-0">
-              <AccordionTrigger className="text-foreground text-sm font-semibold hover:no-underline">
+              <AccordionTrigger className="text-foreground text-sm font-semibold">
                 Notes &amp; follow-ups
               </AccordionTrigger>
               {/* The panel is overflow-hidden (open/close animation),

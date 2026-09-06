@@ -6,6 +6,59 @@
 
 ---
 
+## Member import resolve hierarchy
+
+The Resolve issues subtitle now states the blocking next action, while the
+filename and source-row count sit with Draft saved and Start fresh in the footer.
+Code: `src/components/members/import-members-{csv-dialog,preview}.tsx`; the
+dialog test covers both placements. Shared UI masters are unchanged.
+
+## Import resolution panel stays in place
+
+Closing every issue group now keeps the 400px desktop resolution panel and close
+control in place. The shared `EmptyState` explains how to open a group, choose a
+row, and find its fixes. Reopening a group restores its correction controls;
+phones keep the existing rows-first navigation. Code:
+`src/components/members/import-members-preview.tsx`, with collapse/reopen
+regression coverage in its colocated test.
+
+## Rounded accordion hover feedback
+
+Shared accordion triggers now use the neutral muted tint with rounded corners,
+8px horizontal padding, and 4px vertical breathing room while preserving label
+alignment. Import issue groups follow the wizard's responsive side gutters;
+Reports and Finance retain their column alignment with inset hover areas, and
+contact details drop redundant underline overrides. Code: `ui/accordion.tsx` and
+its member-preview, report, finance, and contact-detail consumers. All accordion
+consumers inherit the treatment; keyboard focus and disabled behavior remain.
+
+## Member import hover feedback follows actions
+
+Mapping rows and both wizard table headers now opt out of shared row feedback
+with `TableRow interactive={false}`; clickable review rows keep it. Shared masters
+fix missing primary/link button, editable field, picker-trigger, and checkbox
+hover states using the existing primary-hover, border-hover, and muted tokens.
+Input errors/focus and disabled/read-only states retain their own treatment.
+Code: `src/components/ui/{table,button,input,select,combobox,checkbox}.tsx` and the
+two member-import components. Button/field/checkbox fixes apply to all consumers;
+other tables retain their default behavior. No call-site visual overrides.
+
+## Member import wizard clarified end to end
+
+Upload, mapping, corrections, confirmation, and results now name the action and
+its scope: Match columns, Review rows, Apply to N rows, and explicit phone/payment
+saves. Help distinguishes draft corrections from committed records, file rows
+from members, recorded payments from collection, and automatic exclusions from
+manual ones. The date-order Select has a visible label; missing mappings accept
+Membership plan, Service, or Offering. Unreadable drafts expose Reload and Start
+fresh, and an all-excluded file leads back to its excluded rows. Results use
+member/contact terminology and an Import report action, with accurate partial
+and failed outcomes. Code: `src/components/members/import-members-{csv-dialog,preview}.tsx`
+and candidate/transaction copy in `src/lib/memberships/`. Existing import rules,
+consent, report format, and shared UI masters are unchanged. Regression coverage
+includes draft recovery, exclusion recovery, and zero/partial/full import success
+through mocked transactions; no live member import was performed.
+
 ## Member import wizard distilled and polished
 
 The complete wizard now uses compact upload/confirmation/result layouts,
@@ -16,14 +69,34 @@ adds Fee/Paid/Balance on phones, and shows a clear ready state after the last
 issue is fixed; excluded-row download lives in the Excluded view. The inspector
 keeps name/phone with row navigation, uses aligned shared outline buttons for
 correction and exclusion actions, and drops repeated row/member labels and
-review counts. All four steps share one footer: Back or Cancel/Save & close
-leads; draft status, Start fresh, and Import rules trail with the current
-primary action. On phones, utilities wrap above the navigation row. Confirmation
+review counts. Steps 2–4 put draft status, Start fresh, and recovery
+actions at the leading edge of the footer; Import rules and the current primary
+action trail. Back is a shared chevron icon button beside the heading on steps
+2–4. Close aligns with the header controls, including the active inspector
+header in Resolve issues; the wizard owns its close placement without changing
+the shared dialog master. Upload drops the duplicate Save & close/Cancel action; the
+header close control still flushes pending changes and stays open if saving
+fails. Confirmation
 counts unique customers rather than source rows, and failed/empty outcomes
 point to the receipt without claiming success. Code: `import-members-csv-dialog.tsx`
 and `import-members-preview.tsx` under `src/components/members/`. Existing import,
 draft, and transaction rules remain authoritative; no schema changes or live
 import. Shared UI masters are unchanged.
+
+Upload now groups the filename, row/column counts, draft status, Change file,
+and Start fresh together, with visible draft recovery in the same area. Its
+footer pairs Map manually with the primary Analyze file action. Sample CSV,
+file requirements, privacy, and import rules share one expandable section;
+file actions wrap beneath the filename on phones. Code:
+`src/components/members/import-members-csv-dialog.tsx`. Verified on desktop and
+phone widths, with the existing wizard/preview tests, lint, and typecheck.
+
+Map columns now gives the dialog a definite bounded height so its ScrollArea
+viewport shrinks and the final rows remain reachable; a max-height alone let
+the viewport grow past the footer. The mapped/skipped count is a section heading,
+and date order uses the shared Select with explicit Day / month and Month / day
+choices. Code: `src/components/members/import-members-csv-dialog.tsx`; date-choice
+and Back-navigation coverage lives in its colocated test. Shared masters are unchanged.
 
 Resolve issues now splits the entire modal: title, steps, worksheet, and draft
 navigation stay in the left panel; the right inspector spans the full height

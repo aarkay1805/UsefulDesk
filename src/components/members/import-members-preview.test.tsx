@@ -165,6 +165,37 @@ function renderPreview(
 }
 
 describe('ImportMembersPreview worksheet', () => {
+  it('leads an all-excluded import back to its rows and lets a manual exclusion be reversed', async () => {
+    const user = userEvent.setup();
+    const rows = candidates([input(2, { phone: '' })]);
+    const { rerender, ...props } = renderPreview(rows);
+    rerender(
+      <ImportMembersPreview
+        {...props}
+        candidates={rows.map((row) => ({
+          ...row,
+          disposition: 'excluded',
+          exclusionReason: 'manual',
+          isReady: false,
+        }))}
+      />
+    );
+
+    expect(screen.getByText('Every row is excluded')).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Review excluded rows' })
+    );
+    await user.click(
+      within(screen.getByTestId('member-import-mobile')).getByRole('button', {
+        name: 'Review Member 2, source row 2',
+      })
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Include Member 2, source row 2' })
+    );
+    expect(props.onSetDisposition).toHaveBeenCalledWith('sheet:2', 'included');
+  });
+
   it('keeps a clear way forward when the last review issue is resolved', async () => {
     const user = userEvent.setup();
     const rows = candidates([input(2, { amountPaid: '500', balance: '100' })]);
@@ -228,7 +259,9 @@ describe('ImportMembersPreview worksheet', () => {
     const phone = screen.getByRole('textbox', { name: 'Phone for Member 2' });
     await user.clear(phone);
     await user.type(phone, '5550000099');
-    await user.click(screen.getByRole('button', { name: 'Save & resolve' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Save phone changes' })
+    );
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { phone: '+15550000099' });
   });
 
@@ -248,7 +281,7 @@ describe('ImportMembersPreview worksheet', () => {
     await user.click(
       within(
         screen.getByRole('group', { name: 'Resolution actions' })
-      ).getByRole('button', { name: 'Save & resolve' })
+      ).getByRole('button', { name: 'Save phone changes' })
     );
     expect(onPatch).toHaveBeenCalledWith('sheet:3', { phone: '+15550000055' });
     expect(screen.getByRole('table')).toBeTruthy();
@@ -287,7 +320,7 @@ describe('ImportMembersPreview worksheet', () => {
     ).toBeTruthy();
   });
 
-  it('can collapse every issue accordion and reopen its rows and correction', async () => {
+  it('keeps an instructional side panel when every issue accordion is collapsed and restores the correction on reopen', async () => {
     const user = userEvent.setup();
     renderPreview(
       candidates([input(2, { phone: '' }), input(3, { phone: 'not-a-phone' })])
@@ -304,7 +337,19 @@ describe('ImportMembersPreview worksheet', () => {
         .getAttribute('aria-expanded')
     ).toBe('false');
     expect(screen.queryByRole('table')).toBeNull();
-    expect(screen.queryByRole('region', { name: 'Row inspector' })).toBeNull();
+    const inspector = within(
+      screen.getByRole('region', { name: 'Row inspector' })
+    );
+    expect(inspector.getByText('Choose a row to review')).toBeTruthy();
+    expect(
+      inspector.getByText(
+        'Open a group on the left, then choose a row. This panel shows what needs fixing and how to fix it.'
+      )
+    ).toBeTruthy();
+    expect(inspector.queryByRole('textbox')).toBeNull();
+    expect(
+      inspector.queryByRole('group', { name: 'Resolution actions' })
+    ).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Missing phones 1' }));
     expect(
       within(screen.getByRole('table')).getByText('Member 2')
@@ -312,6 +357,7 @@ describe('ImportMembersPreview worksheet', () => {
     expect(
       screen.getByRole('textbox', { name: 'Phone for Member 2' })
     ).toBeTruthy();
+    expect(screen.queryByText('Choose a row to review')).toBeNull();
   });
 
   it('counts each row once per issue type and focuses that type on multi-issue rows', async () => {
@@ -412,9 +458,7 @@ describe('ImportMembersPreview worksheet', () => {
     ).toBeNull();
     screen.getByRole('combobox', { name: 'Map Legacy Gold · Monthly' }).focus();
     await user.keyboard('{ArrowDown}{Enter}');
-    await user.click(
-      screen.getByRole('button', { name: 'Save mapping for 2 rows' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Apply to 2 rows' }));
     expect(onResolveGroupedPlan).toHaveBeenCalledWith(
       ['sheet:53', 'sheet:55'],
       {
@@ -494,9 +538,7 @@ describe('ImportMembersPreview worksheet', () => {
     screen.getByRole('combobox', { name: 'Map Legacy Gold · Monthly' }).focus();
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onResolveGroupedPlan).not.toHaveBeenCalled();
-    await user.click(
-      screen.getByRole('button', { name: 'Save mapping for 2 rows' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Apply to 2 rows' }));
     expect(onResolveGroupedPlan).toHaveBeenCalledWith(['sheet:2', 'sheet:3'], {
       planId: 'plan-gold',
       pricingOptionId: 'gold-month',
@@ -526,7 +568,7 @@ describe('ImportMembersPreview worksheet', () => {
     expect(onResolvePayment).not.toHaveBeenCalled();
     const save = within(
       screen.getByRole('group', { name: 'Resolution actions' })
-    ).getByRole('button', { name: 'Save & next row' });
+    ).getByRole('button', { name: 'Save payment correction' });
     expect(save.closest('[data-slot="scroll-area-viewport"]')).toBeNull();
     await user.click(save);
     expect(onResolvePayment).toHaveBeenCalledWith('sheet:2', 'manual', {
@@ -552,7 +594,9 @@ describe('ImportMembersPreview worksheet', () => {
       .getByRole('combobox', { name: 'Resolve payment for source row 51' })
       .focus();
     await user.keyboard('{ArrowDown}{Enter}');
-    await user.click(screen.getByRole('button', { name: 'Save & next row' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Save payment correction' })
+    );
     const corrected = resolvePaymentConflict(
       rows,
       'sheet:51',
@@ -593,7 +637,7 @@ describe('ImportMembersPreview worksheet', () => {
     expect(
       (
         screen.getByRole('button', {
-          name: 'Save & next row',
+          name: 'Save payment correction',
         }) as HTMLButtonElement
       ).disabled
     ).toBe(true);

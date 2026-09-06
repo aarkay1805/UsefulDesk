@@ -9,9 +9,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
+  ListChecks,
   XCircle,
 } from 'lucide-react';
 
+import { EmptyState } from '@/components/dashboard/empty-state';
 import { Badge } from '@/components/ui/badge';
 import {
   Accordion,
@@ -103,6 +105,7 @@ const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
 
 interface ImportMembersPreviewProps {
   header?: ReactNode;
+  closeAction?: ReactNode;
   footer?: ReactNode;
   candidates: MemberImportCandidate[];
   context?: MemberImportCandidateContext;
@@ -307,6 +310,9 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
   const paged = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
   const selected =
     paged.find((row) => row.sourceKey === selectedKey) ?? paged[0] ?? null;
+  const showInspector =
+    Boolean(selected) ||
+    (reviewingIssues && sectionsCollapsed && sections.length > 0);
   const rowGroups = selected
     ? (activeSection?.groups ?? groups).filter((group) =>
         group.candidates.some((row) => row.sourceKey === selected.sourceKey)
@@ -433,6 +439,11 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             !search.trim()
           }
           filtered={search.trim().length > 0 || filter !== 'all'}
+          allExcluded={
+            summary.source > 0 &&
+            summary.exclusions === summary.source &&
+            !search.trim()
+          }
           onReset={() => {
             setSearch('');
             changeFilter(
@@ -440,7 +451,9 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                 summary.needsResolution === 0 &&
                 summary.ready > 0
                 ? 'ready'
-                : 'all'
+                : summary.source > 0 && summary.exclusions === summary.source
+                  ? 'excluded'
+                  : 'all'
             );
           }}
         />
@@ -457,7 +470,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
           data-testid="member-import-desktop"
         >
           <TableHeader>
-            <TableRow>
+            <TableRow interactive={false}>
               <TableHead className="w-48 pl-6">Name</TableHead>
               <TableHead className="w-40">Plan</TableHead>
               <TableHead className="w-22 text-right">Fee</TableHead>
@@ -745,7 +758,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
       <div
         className={cn(
           'flex min-h-0 flex-1 flex-col',
-          selected && 'xl:grid xl:grid-cols-[minmax(0,1fr)_auto_28rem]'
+          showInspector && 'xl:grid xl:grid-cols-[minmax(0,1fr)_auto_400px]'
         )}
       >
         <div
@@ -756,7 +769,21 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             inspectorOpen && selected ? 'hidden xl:flex' : 'flex'
           )}
         >
-          {props.header}
+          {props.header && (
+            <div className="relative shrink-0">
+              {props.header}
+              {props.closeAction && (
+                <div
+                  className={cn(
+                    'absolute top-5 right-4 sm:right-6',
+                    showInspector && 'xl:hidden'
+                  )}
+                >
+                  {props.closeAction}
+                </div>
+              )}
+            </div>
+          )}
           {props.header && <Separator />}
           <div className="flex shrink-0 flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
             <SearchInput
@@ -794,15 +821,18 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             </ChipGroup>
           </div>
           <Separator />
-          {!reviewingIssues && (
-            <p
-              className="text-muted-foreground shrink-0 px-4 py-2 text-xs tabular-nums sm:px-6"
-              role="status"
-            >
-              {fmt.number(visible.length)}{' '}
-              {visible.length === 1 ? 'row' : 'rows'} in this view
-            </p>
-          )}
+          {visible.length > 0 &&
+            filter !== 'excluded' &&
+            filter !== 'needs-resolution' && (
+              <p
+                className="text-muted-foreground shrink-0 px-4 py-2 text-xs sm:px-6"
+                role="status"
+              >
+                {filter === 'ready'
+                  ? 'Ready rows have no blocking issues. Review any import notices before confirming.'
+                  : 'All file rows, including rows that will not be imported.'}
+              </p>
+            )}
           {reviewingIssues && sections.length > 0 ? (
             <ScrollArea
               className="min-h-0 flex-1"
@@ -817,7 +847,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               >
                 {sections.map((section) => (
                   <AccordionItem key={section.key} value={section.key}>
-                    <div className="px-6">
+                    <div className="px-4 sm:px-6">
                       <AccordionTrigger>
                         <span className="flex items-center gap-2">
                           <AlertTriangle
@@ -858,30 +888,36 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
           )}
           {props.footer}
         </div>
-        {selected && (
+        {showInspector && (
           <Separator orientation="vertical" className="hidden xl:block" />
         )}
         <div
-          role={selected ? 'region' : undefined}
-          aria-label={selected ? 'Row inspector' : undefined}
+          role={showInspector ? 'region' : undefined}
+          aria-label={showInspector ? 'Row inspector' : undefined}
           className={cn(
             'min-h-0 min-w-0 flex-1 flex-col',
-            !selected ? 'hidden' : inspectorOpen ? 'flex' : 'hidden xl:flex'
+            !showInspector
+              ? 'hidden'
+              : selected && inspectorOpen
+                ? 'flex'
+                : 'hidden xl:flex'
           )}
         >
           {selected ? (
             <>
               <div className="shrink-0 space-y-3 px-4 py-5 sm:px-6">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="xl:hidden"
-                  onClick={() => setInspectorOpen(false)}
-                >
-                  <ChevronLeft />
-                  Back to rows
-                </Button>
-                <div className="flex items-center justify-between gap-3 xl:pr-8">
+                <div className="flex items-center justify-between gap-2 xl:hidden">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setInspectorOpen(false)}
+                  >
+                    <ChevronLeft />
+                    Back to rows
+                  </Button>
+                  {props.closeAction}
+                </div>
+                <div className="flex items-center justify-between gap-3">
                   <MemberIdentity
                     name={candidateName(selected)}
                     secondary={selected.draftValues.phone || 'No phone'}
@@ -915,6 +951,9 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                     >
                       <ChevronRight />
                     </Button>
+                    {props.closeAction && (
+                      <div className="hidden xl:block">{props.closeAction}</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -935,6 +974,13 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                 renderResolution(
                   <div className="space-y-4">
                     <CandidateStatus candidate={selected} />
+                    <p className="text-muted-foreground text-sm">
+                      {selected.disposition === 'included'
+                        ? 'This row is ready for confirmation. It has not been imported yet.'
+                        : selected.exclusionReason === 'manual'
+                          ? 'You excluded this row. Include it again to check it for issues.'
+                          : 'This row is excluded automatically. Open Import notices to see why.'}
+                    </p>
                     {selected.disposition === 'included' && (
                       <>
                         <CandidateOffering candidate={selected} wrap />
@@ -959,9 +1005,21 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               )}
             </>
           ) : (
-            <div className="text-muted-foreground px-6 py-8 text-sm">
-              Select a row to inspect its values and import notices.
-            </div>
+            <>
+              {props.closeAction && (
+                <div className="flex shrink-0 justify-end px-4 py-5 sm:px-6">
+                  {props.closeAction}
+                </div>
+              )}
+              <div className="flex min-h-0 flex-1 items-center px-4 py-5 sm:px-6">
+                <EmptyState
+                  icon={ListChecks}
+                  title="Choose a row to review"
+                  hint="Open a group on the left, then choose a row. This panel shows what needs fixing and how to fix it."
+                  className="h-auto w-full"
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -1192,10 +1250,9 @@ function GroupChoice({
         disabled={!choice}
         onClick={() => choice && onValueChange(choice)}
       >
-        Save mapping
         {group.candidates.length > 1
-          ? ` for ${group.candidates.length} rows`
-          : ''}
+          ? `Apply to ${group.candidates.length} rows`
+          : 'Apply match'}
         <ArrowRight />
       </Button>
     )
@@ -1250,7 +1307,7 @@ function PhoneIssueResolver({
 
       <p className="text-muted-foreground text-xs">
         {changedCandidates.length === 0
-          ? 'Edit a phone number to resolve this issue.'
+          ? 'Edit the phone number, then save to check it again.'
           : `${changedCandidates.length} phone ${changedCandidates.length === 1 ? 'change' : 'changes'} ready to save.`}
       </p>
     </div>,
@@ -1266,7 +1323,7 @@ function PhoneIssueResolver({
         }
       }}
     >
-      Save &amp; resolve
+      Save phone changes
     </Button>
   );
 }
@@ -1443,9 +1500,9 @@ function PaymentConflictResolver({
             {(
               [
                 ['Fee', previewFee],
-                ['Already paid', previewPaid],
+                ['Paid', previewPaid],
                 [
-                  'Opening dues',
+                  'Balance',
                   previewFee === null ? null : previewFee - previewPaid,
                 ],
               ] as const
@@ -1461,7 +1518,7 @@ function PaymentConflictResolver({
           {figuresValid ? (
             <p className="text-emerald-foreground flex items-center gap-2 text-sm">
               <CheckCircle className="size-4" />
-              Figures reconcile
+              Paid + balance matches the fee.
             </p>
           ) : (
             <p role="alert" className="text-amber-foreground text-sm">
@@ -1489,7 +1546,7 @@ function PaymentConflictResolver({
           onResolvePayment(candidate.sourceKey, resolution, correction);
       }}
     >
-      Save &amp; next row
+      Save payment correction
       <ArrowRight />
     </Button>
   );
@@ -1518,39 +1575,44 @@ function FieldCorrectionResolver({
   renderLayout: ResolutionLayout;
 }) {
   return renderLayout(
-    <IssueRows
-      group={group}
-      onSetDisposition={onSetDisposition}
-      stacked
-      renderControl={(candidate) => (
-        <div className="grid gap-3 @xs:grid-cols-2">
-          {fields.map((field) => {
-            const id = `${field.key}-${candidate.sourceKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
-            return (
-              <div key={field.key} className="min-w-0 space-y-1.5">
-                <Label htmlFor={id} size="sm">
-                  {field.label}
-                </Label>
-                <Input
-                  id={id}
-                  aria-label={`${field.label} for source row ${candidate.sourceRow}`}
-                  inputMode={field.inputMode}
-                  defaultValue={
-                    (candidate.draftValues[field.key] as string | undefined) ??
-                    ''
-                  }
-                  onBlur={(event) =>
-                    onPatch(candidate.sourceKey, {
-                      [field.key]: event.currentTarget.value,
-                    })
-                  }
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-    />
+    <div className="space-y-3">
+      <p className="text-muted-foreground text-xs">
+        Changes apply to this import draft when you leave a field.
+      </p>
+      <IssueRows
+        group={group}
+        onSetDisposition={onSetDisposition}
+        stacked
+        renderControl={(candidate) => (
+          <div className="grid gap-3 @xs:grid-cols-2">
+            {fields.map((field) => {
+              const id = `${field.key}-${candidate.sourceKey.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+              return (
+                <div key={field.key} className="min-w-0 space-y-1.5">
+                  <Label htmlFor={id} size="sm">
+                    {field.label}
+                  </Label>
+                  <Input
+                    id={id}
+                    aria-label={`${field.label} for source row ${candidate.sourceRow}`}
+                    inputMode={field.inputMode}
+                    defaultValue={
+                      (candidate.draftValues[field.key] as
+                        string | undefined) ?? ''
+                    }
+                    onBlur={(event) =>
+                      onPatch(candidate.sourceKey, {
+                        [field.key]: event.currentTarget.value,
+                      })
+                    }
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      />
+    </div>
   );
 }
 
@@ -1867,35 +1929,43 @@ function GroupResolver({
 
   if (group.code === 'existing-contact') {
     return renderLayout(
-      <IssueRows
-        group={group}
-        onSetDisposition={onSetDisposition}
-        renderControl={(candidate) => (
-          <Select
-            value={candidate.resolutions.existingContact}
-            onValueChange={(value) =>
-              value &&
-              onResolveExistingContact(
-                candidate.sourceKey,
-                value as MemberImportExistingContactResolution
-              )
-            }
-          >
-            <SelectTrigger
-              className="w-full"
-              aria-label={`Resolve existing contact for source row ${candidate.sourceRow}`}
+      <div className="space-y-3">
+        <p className="text-muted-foreground text-xs">
+          Your choice applies to this draft now. Contact details change when you
+          select Import.
+        </p>
+        <IssueRows
+          group={group}
+          onSetDisposition={onSetDisposition}
+          renderControl={(candidate) => (
+            <Select
+              value={candidate.resolutions.existingContact}
+              onValueChange={(value) =>
+                value &&
+                onResolveExistingContact(
+                  candidate.sourceKey,
+                  value as MemberImportExistingContactResolution
+                )
+              }
             >
-              <SelectValue placeholder="Choose which details to keep" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="keep_existing">Keep saved details</SelectItem>
-              <SelectItem value="use_csv">
-                Use details from your file
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        )}
-      />
+              <SelectTrigger
+                className="w-full"
+                aria-label={`Resolve existing contact for source row ${candidate.sourceRow}`}
+              >
+                <SelectValue placeholder="Choose which details to keep" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="keep_existing">
+                  Keep saved details
+                </SelectItem>
+                <SelectItem value="use_csv">
+                  Use details from your file
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+        />
+      </div>
     );
   }
 
@@ -2086,10 +2156,12 @@ function IncludeAction({
 function EmptyRows({
   filtered,
   ready = false,
+  allExcluded = false,
   onReset,
 }: {
   filtered: boolean;
   ready?: boolean;
+  allExcluded?: boolean;
   onReset: () => void;
 }) {
   return (
@@ -2099,18 +2171,28 @@ function EmptyRows({
     <div className="flex min-h-0 flex-1 flex-col items-center justify-start gap-3 px-6 pt-12 pb-12 text-center md:justify-center">
       {ready && <CheckCircle className="text-emerald-foreground size-5" />}
       <p className="text-sm font-medium">
-        {ready ? 'All included rows are ready' : 'No rows match this view'}
+        {ready
+          ? 'All included rows are ready'
+          : allExcluded
+            ? 'Every row is excluded'
+            : 'No rows match this view'}
       </p>
       <p className="text-muted-foreground max-w-sm text-sm">
         {ready
           ? 'Review your ready rows or continue to confirm the import.'
-          : filtered
-            ? 'Every row is hidden by the current search or filter.'
-            : 'This import has no rows to review.'}
+          : allExcluded
+            ? 'Nothing is ready to import. Review the excluded rows to see why.'
+            : filtered
+              ? 'Try another search or show all rows.'
+              : 'This import has no rows to review.'}
       </p>
       {filtered ? (
         <Button type="button" variant="outline" size="sm" onClick={onReset}>
-          {ready ? 'Review ready rows' : 'Show all rows'}
+          {ready
+            ? 'Review ready rows'
+            : allExcluded
+              ? 'Review excluded rows'
+              : 'Show all rows'}
         </Button>
       ) : null}
     </div>

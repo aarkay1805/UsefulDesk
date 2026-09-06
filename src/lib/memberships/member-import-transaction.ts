@@ -44,7 +44,7 @@ function errorMessage(error: unknown): string {
   ) {
     return error.message;
   }
-  return 'The customer group could not be imported.';
+  return 'This member and their purchases could not be imported.';
 }
 
 function importedContact(candidate: MemberImportCandidate) {
@@ -181,7 +181,7 @@ export async function commitMemberImportGroups(
     options.onProgress?.(
       results.length,
       groups.length,
-      `Processed ${results.length} of ${groups.length} customers`
+      `Processed ${results.length} of ${groups.length} members`
     );
   }
   return { groups: results };

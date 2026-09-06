@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
-  ArrowLeftRight,
   CheckCircle,
+  ChevronLeft,
   Download,
   FileText,
   Info,
@@ -13,6 +13,7 @@ import {
   Upload,
   Wand2,
   XCircle,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -32,6 +33,7 @@ import { Combobox, type ComboboxGroup } from '@/components/ui/combobox';
 import {
   Dialog,
   DialogContent,
+  DialogClose,
   DialogDescription,
   DialogFooter,
   DialogHeader,
@@ -148,6 +150,8 @@ import type {
 type Step = 1 | 2 | 3 | 4;
 const SAMPLE_LIMIT = 3;
 const CUSTOM_VALUE_CHUNK = 100;
+const IMPORT_RULES =
+  'Resolve every included row before confirming. Corrections change this import draft; members and payments are saved when you select Import. Plan and service matches apply to the rows named in the correction. Excluded rows will not be imported. Review automatic exclusions and notices before continuing.';
 const DATE_KEYS = new Set([
   'start_date',
   'end_date',
@@ -357,12 +361,10 @@ export function ImportMembersCsvDialog({
   // One sentence next to the blocked button instead of a stack of rules.
   const mappingIssue = useMemo(() => {
     if (validation.ok) return null;
-    const missing: string[] = [];
-    if (!validation.phoneMapped) missing.push('Phone');
-    if (!validation.planMapped) missing.push('Plan');
     const parts: string[] = [];
-    if (missing.length > 0) {
-      parts.push(`Map a column to ${missing.join(' and ')}.`);
+    if (!validation.phoneMapped) parts.push('Map a column to Phone.');
+    if (!validation.planMapped) {
+      parts.push('Map a column to Membership plan, Service, or Offering.');
     }
     if (validation.duplicateTargets.length > 0) {
       const labels = validation.duplicateTargets.map(
@@ -587,7 +589,7 @@ export function ImportMembersCsvDialog({
       setStep(2);
       if (!data.configured) {
         toast.info(
-          'AI is not configured. A safe local interpretation is shown; you can still map fields manually.'
+          'Columns were matched by name. Review the suggested member fields before continuing.'
         );
       } else if (data.warning) {
         toast.warning(data.warning);
@@ -599,14 +601,14 @@ export function ImportMembersCsvDialog({
       setMapping(mappingForRecipe(input, fallback, customFields));
       setStep(2);
       toast.warning(
-        `${getErrorMessage(error, 'Analysis unavailable')} Safe local mapping is shown instead.`
+        `${getErrorMessage(error, 'Column matching unavailable')} Columns were matched by name instead. Review the suggestions before continuing.`
       );
     } finally {
       setAnalyzing(false);
     }
   }
 
-  // Single bulk action behind the mapping table's "Auto map": re-derive every
+  // Single bulk action behind the mapping table's "Match by name": re-derive every
   // column from its header name, which necessarily discards a suggested recipe.
   function remapFromColumnNames() {
     const source = sourceRaw ?? raw;
@@ -829,7 +831,9 @@ export function ImportMembersCsvDialog({
           if (sequence === fileReadSequence.current) {
             resetWorkingImport();
           }
-          toast.error('Couldn’t save the private import draft. Try again.');
+          toast.error(
+            'Couldn’t save the private import draft. Choose your file again to retry.'
+          );
           return false;
         }
       }
@@ -866,7 +870,9 @@ export function ImportMembersCsvDialog({
     saved: NonNullable<typeof draftManager.draft>
   ) {
     if (!saved.signedUrl) {
-      setResumeError('The saved workbook could not be opened.');
+      setResumeError(
+        'The saved file could not be opened. Reload the draft to try again, or start fresh with your original file.'
+      );
       return false;
     }
     setResumingDraft(true);
@@ -903,7 +909,9 @@ export function ImportMembersCsvDialog({
       if (restored) await revalidateSavedDraftState(saved.state);
       return restored;
     } catch (error) {
-      setResumeError(getErrorMessage(error, 'Could not resume saved import'));
+      setResumeError(
+        `${getErrorMessage(error, 'Could not resume the saved import')}. Reload the draft to try again, or start fresh with your original file.`
+      );
       return false;
     } finally {
       setResumingDraft(false);
@@ -1337,18 +1345,25 @@ export function ImportMembersCsvDialog({
   }
 
   const descriptions: Record<Step, string> = {
-    1: 'Bring your members, memberships, and services into UsefulDesk.',
-    2: 'Check the matched fields. Skip any columns you don’t need.',
-    3: 'Fix each issue, or exclude the rows it affects.',
-    4: 'Check what will be imported, then confirm.',
+    1: 'Upload a file, then review its columns and rows before importing.',
+    2: 'Match file columns to member fields. Choose “Don’t import” to skip a column.',
+    3: 'Fix each issue or exclude its rows before continuing.',
+    4: 'Review the totals, then import the included rows.',
   };
-  const currentDescription =
-    step === 3
+  const currentDescription = descriptions[step];
+  const resolveSourceSummary =
+    !result && step === 3
       ? `${file?.name ?? draftManager.draft?.sourceFilename ?? 'Import worksheet'} · ${fmt.number(candidateSummary.source)} source rows`
-      : descriptions[step];
+      : null;
   /* The two-pane resolve workspace, as opposed to a single scrolling step.
      The result panel replaces the step content, so it is not one. */
   const resolveWorkspace = !result && step === 3;
+  const uploadStep = !result && step === 1;
+  const draftNeedsRecovery =
+    draftManager.saveState === 'error' ||
+    draftManager.saveState === 'conflict' ||
+    draftAction === 'retrying' ||
+    Boolean(resumeError);
   const draftStatusLabel =
     draftManager.saveState === 'saving'
       ? 'Saving draft…'
@@ -1362,11 +1377,140 @@ export function ImportMembersCsvDialog({
               ? 'Loading saved draft…'
               : '';
 
+  const draftControls =
+    (draftManager.saveState === 'error' || draftAction === 'retrying') &&
+    draftManager.draft ? (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-destructive text-xs">Couldn’t save draft.</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          loading={draftAction === 'retrying'}
+          disabled={draftAction !== null}
+          onClick={() => void retryDraftSave()}
+        >
+          Retry saving
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setStartFreshConfirm(true)}
+        >
+          Discard draft
+        </Button>
+      </div>
+    ) : draftManager.saveState === 'conflict' && draftManager.draft ? (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-destructive text-xs">
+          This draft changed elsewhere. Reloading replaces your unsaved changes.
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          loading={draftAction === 'reloading'}
+          disabled={draftAction !== null}
+          onClick={() => void reloadSavedDraft()}
+        >
+          Reload saved draft
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setStartFreshConfirm(true)}
+        >
+          Start fresh
+        </Button>
+      </div>
+    ) : resumeError && draftManager.draft ? (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          loading={draftAction === 'reloading'}
+          disabled={draftAction !== null}
+          onClick={() => void reloadSavedDraft()}
+        >
+          Reload saved draft
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setStartFreshConfirm(true)}
+        >
+          Start fresh
+        </Button>
+      </div>
+    ) : draftManager.draft && !result ? (
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        <span
+          className="text-muted-foreground shrink-0 text-xs whitespace-nowrap"
+          title={draftManager.draft.sourceFilename}
+          role="status"
+          aria-live="polite"
+        >
+          {draftStatusLabel}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setStartFreshConfirm(true)}
+        >
+          Start fresh
+        </Button>
+      </div>
+    ) : null;
+  const closeAction = (
+    <DialogClose
+      render={
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          loading={draftAction === 'closing'}
+          disabled={importing || draftAction !== null}
+        />
+      }
+    >
+      <X />
+      <span className="sr-only">Close</span>
+    </DialogClose>
+  );
   const wizardHeader = (
     <div className="shrink-0 space-y-5 px-4 py-5 sm:px-6">
       <DialogHeader className="gap-1.5">
-        <DialogTitle size="lg">Import members</DialogTitle>
-        <DialogDescription className="pr-4 break-words" aria-live="polite">
+        <div
+          className={cn(
+            'flex min-h-7 items-center gap-2',
+            resolveWorkspace && 'pr-10 xl:pr-0'
+          )}
+        >
+          {!result && step > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Back"
+              disabled={importing || draftAction !== null}
+              onClick={() => setStep((value) => (value - 1) as Step)}
+            >
+              <ChevronLeft />
+            </Button>
+          )}
+          <DialogTitle size="lg" className="min-w-0">
+            Import members
+          </DialogTitle>
+          {!resolveWorkspace && <div className="ml-auto">{closeAction}</div>}
+        </div>
+        <DialogDescription
+          className={cn('break-words', !result && step > 1 && 'pl-9')}
+          aria-live="polite"
+        >
           {result ? 'Review your import results below.' : currentDescription}
         </DialogDescription>
       </DialogHeader>
@@ -1377,21 +1521,6 @@ export function ImportMembersCsvDialog({
         </p>
       ) : null}
     </div>
-  );
-  const backButton = (
-    <Button
-      type="button"
-      variant="outline"
-      loading={step === 1 && draftAction === 'closing'}
-      disabled={importing || draftAction !== null}
-      onClick={() =>
-        step === 1
-          ? void requestClose()
-          : setStep((value) => (value - 1) as Step)
-      }
-    >
-      {step === 1 ? (draftManager.draft ? 'Save & close' : 'Cancel') : 'Back'}
-    </Button>
   );
   const hasPrimaryAction =
     Boolean(result) || step !== 3 || candidateSummary.needsResolution === 0;
@@ -1409,7 +1538,7 @@ export function ImportMembersCsvDialog({
           onClick={analyzeFile}
         >
           <Wand2 className="size-4" />
-          Analyze file
+          Match columns
         </Button>
       )}
       {step === 2 && (
@@ -1430,7 +1559,7 @@ export function ImportMembersCsvDialog({
             serviceFactsLoading
           }
         >
-          Preview {fmt.number(raw?.rows.length ?? 0)} row
+          Review {fmt.number(raw?.rows.length ?? 0)} row
           {raw?.rows.length === 1 ? '' : 's'}
         </Button>
       )}
@@ -1443,7 +1572,7 @@ export function ImportMembersCsvDialog({
           }
           onClick={() => setStep(4)}
         >
-          Next: Confirm
+          Review import
         </Button>
       )}
 
@@ -1466,124 +1595,55 @@ export function ImportMembersCsvDialog({
     </>
   );
   const wizardFooter = (
-    <DialogFooter
-      className={cn(
-        'mx-0 mt-0 mb-0 grid shrink-0 items-center',
-        result
-          ? 'grid-cols-[minmax(0,1fr)_auto]'
-          : 'grid-cols-[auto_minmax(0,1fr)]',
-        !result && hasPrimaryAction && 'sm:grid-cols-[auto_minmax(0,1fr)_auto]'
-      )}
-    >
-      {!result && (
-        <div className="col-start-1 row-start-2 sm:row-start-1">
-          {backButton}
+    <DialogFooter className="mx-0 mt-0 mb-0 shrink-0 flex-row flex-wrap items-center sm:justify-between">
+      {!uploadStep && (resolveSourceSummary || draftControls) && (
+        <div
+          role="group"
+          aria-label="Import draft"
+          className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"
+        >
+          {resolveSourceSummary && (
+            <p
+              className="text-muted-foreground min-w-0 basis-full truncate text-xs sm:basis-auto"
+              title={
+                file?.name ??
+                draftManager.draft?.sourceFilename ??
+                'Import worksheet'
+              }
+            >
+              {resolveSourceSummary}
+            </p>
+          )}
+          {draftControls}
         </div>
       )}
-      <div
-        className={cn(
-          'col-start-1 row-start-1 flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1.5',
-          !result && 'col-span-2 sm:col-span-1 sm:col-start-2'
-        )}
-      >
-        {(draftManager.saveState === 'error' || draftAction === 'retrying') &&
-        draftManager.draft ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-destructive text-xs">
-              Couldn’t save draft.
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              loading={draftAction === 'retrying'}
-              disabled={draftAction !== null}
-              onClick={() => void retryDraftSave()}
-            >
-              Retry
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setStartFreshConfirm(true)}
-            >
-              Discard draft
-            </Button>
-          </div>
-        ) : draftManager.saveState === 'conflict' && draftManager.draft ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-destructive text-xs">
-              This draft changed in another tab or device.
-            </span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              loading={draftAction === 'reloading'}
-              disabled={draftAction !== null}
-              onClick={() => void reloadSavedDraft()}
-            >
-              Reload saved draft
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setStartFreshConfirm(true)}
-            >
-              Start fresh
-            </Button>
-          </div>
-        ) : draftManager.draft && !result ? (
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <span
-              className="text-muted-foreground shrink-0 text-xs whitespace-nowrap"
-              title={draftManager.draft.sourceFilename}
-              role="status"
-              aria-live="polite"
-            >
-              {draftStatusLabel}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setStartFreshConfirm(true)}
-            >
-              Start fresh
-            </Button>
-          </div>
+      <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-2">
+        {uploadStep && (sourceRaw ?? raw)?.rows.length ? (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={readingFile || analyzing}
+            onClick={() => setStep(2)}
+          >
+            Map manually
+          </Button>
         ) : null}
-        {!result && (
+        {!result && !uploadStep && (
           <Popover>
             <PopoverTrigger render={<Button variant="ghost" size="sm" />}>
               <Info /> Import rules
             </PopoverTrigger>
             <PopoverContent side="top" align="end" className="w-80">
               <p className="text-sm font-medium">Before you import</p>
-              <p className="text-muted-foreground text-sm">
-                Resolve every included row before confirming. Matched plan and
-                service choices apply to the matching rows named in the row
-                details. Older membership rows, summary rows, and existing
-                memberships are excluded automatically. Review each exclusion
-                before importing.
-              </p>
+              <p className="text-muted-foreground text-sm">{IMPORT_RULES}</p>
             </PopoverContent>
           </Popover>
         )}
-        {step === 2 && !result && mappingIssue && (
-          <ValidationMessage>{mappingIssue}</ValidationMessage>
-        )}
+        {hasPrimaryAction && primaryAction}
       </div>
-      {hasPrimaryAction && (
-        <div
-          className={cn(
-            'col-start-2 justify-self-end',
-            result ? 'row-start-1' : 'row-start-2 sm:col-start-3 sm:row-start-1'
-          )}
-        >
-          {primaryAction}
+      {step === 2 && !result && mappingIssue && (
+        <div className="basis-full">
+          <ValidationMessage>{mappingIssue}</ValidationMessage>
         </div>
       )}
     </DialogFooter>
@@ -1593,9 +1653,14 @@ export function ImportMembersCsvDialog({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
+          showCloseButton={false}
           className={cn(
             'flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(720px,calc(100%-2rem))]',
-            !result && step === 2 && 'sm:max-w-[min(1040px,calc(100%-2rem))]',
+            // A definite mapping-step height lets ScrollArea's percentage-height
+            // viewport shrink with the dialog instead of growing past its footer.
+            !result &&
+              step === 2 &&
+              'h-[min(92dvh,880px)] sm:max-w-[min(1040px,calc(100%-2rem))]',
             resolveWorkspace &&
               'h-[min(92dvh,880px)] sm:max-w-[min(1320px,calc(100%-2rem))]'
           )}
@@ -1608,6 +1673,7 @@ export function ImportMembersCsvDialog({
             >
               <ImportMembersPreview
                 header={wizardHeader}
+                closeAction={closeAction}
                 footer={wizardFooter}
                 candidates={candidates}
                 context={candidateContext}
@@ -1697,8 +1763,19 @@ export function ImportMembersCsvDialog({
                             inputRef={fileInputRef}
                             onFileChange={handleFileChange}
                             onWorksheetChange={handleWorksheetChange}
-                            onMapManually={() => setStep(2)}
-                            analyzing={analyzing}
+                            draftStatus={
+                              draftManager.draft && !draftNeedsRecovery
+                                ? draftStatusLabel
+                                : ''
+                            }
+                            draftRecovery={
+                              draftNeedsRecovery ? draftControls : null
+                            }
+                            onStartFresh={
+                              draftManager.draft && !draftNeedsRecovery
+                                ? () => setStartFreshConfirm(true)
+                                : undefined
+                            }
                           />
                         </div>
                       )}
@@ -1715,11 +1792,7 @@ export function ImportMembersCsvDialog({
                           phoneDialCode={locale.phoneCountryCode}
                           canCreateFields={canEditSettings}
                           onSetColumn={setColumn}
-                          onToggleDateOrder={() =>
-                            setDateOrder((value) =>
-                              value === 'DMY' ? 'MDY' : 'DMY'
-                            )
-                          }
+                          onDateOrderChange={setDateOrder}
                           onAutoMap={remapFromColumnNames}
                           onReset={() =>
                             setMapping(raw.headers.map(() => MEMBER_IGNORE_KEY))
@@ -1755,7 +1828,8 @@ export function ImportMembersCsvDialog({
           <DialogHeader>
             <DialogTitle>Create custom field</DialogTitle>
             <DialogDescription>
-              Adds the field to every contact, then maps this file column to it.
+              Creates a field for all contacts now, then maps this column to it.
+              Values are filled when you import.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
@@ -1913,8 +1987,9 @@ function UploadStep({
   inputRef,
   onFileChange,
   onWorksheetChange,
-  onMapManually,
-  analyzing,
+  draftStatus,
+  draftRecovery,
+  onStartFresh,
 }: {
   file: File | null;
   readingFile: boolean;
@@ -1924,8 +1999,9 @@ function UploadStep({
   inputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onWorksheetChange: (name: string) => void;
-  onMapManually: () => void;
-  analyzing: boolean;
+  draftStatus: string;
+  draftRecovery: React.ReactNode;
+  onStartFresh?: () => void;
 }) {
   const { fmt } = useLocale();
   const usableSheetCount = workbookSheets.filter((sheet) => sheet.raw).length;
@@ -1935,9 +2011,13 @@ function UploadStep({
     <div className="space-y-5">
       <div
         aria-busy={readingFile}
+        role="group"
+        aria-label="Import draft"
         className={cn(
-          'flex min-w-0 gap-4',
-          file ? 'items-center' : 'flex-col items-center py-5 text-center'
+          'min-w-0 gap-3',
+          file
+            ? 'grid grid-cols-[auto_minmax(0,1fr)] items-center sm:grid-cols-[auto_minmax(0,1fr)_auto]'
+            : 'flex flex-col items-center py-5 text-center'
         )}
       >
         {file ? (
@@ -1953,36 +2033,53 @@ function UploadStep({
               <p className="text-foreground text-sm font-medium break-words">
                 {file.name}
               </p>
-              <p
-                className="text-muted-foreground text-xs tabular-nums"
-                role="status"
-              >
-                {readingFile ? (
-                  'Reading file…'
-                ) : raw ? (
-                  <>
-                    {fmt.number(raw.rows.length)} row
-                    {raw.rows.length === 1 ? '' : 's'} ·{' '}
-                    {fmt.number(raw.headers.length)} column
-                    {raw.headers.length === 1 ? '' : 's'}
-                  </>
-                ) : workbookSheets.length > 0 ? (
-                  <>
-                    {fmt.number(workbookSheets.length)} worksheet
-                    {workbookSheets.length === 1 ? '' : 's'}
-                  </>
-                ) : null}
-              </p>
+              <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                <span role="status" className="tabular-nums">
+                  {readingFile ? (
+                    'Reading file…'
+                  ) : raw ? (
+                    <>
+                      {fmt.number(raw.rows.length)} row
+                      {raw.rows.length === 1 ? '' : 's'} ·{' '}
+                      {fmt.number(raw.headers.length)} column
+                      {raw.headers.length === 1 ? '' : 's'}
+                    </>
+                  ) : workbookSheets.length > 0 ? (
+                    <>
+                      {fmt.number(workbookSheets.length)} worksheet
+                      {workbookSheets.length === 1 ? '' : 's'}
+                    </>
+                  ) : null}
+                </span>
+                {draftStatus && (
+                  <span role="status" aria-live="polite">
+                    <span aria-hidden="true">· </span>
+                    <span>{draftStatus}</span>
+                  </span>
+                )}
+              </div>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={readingFile}
-              onClick={() => inputRef.current?.click()}
-            >
-              Change file
-            </Button>
+            <div className="col-start-2 flex flex-wrap items-center gap-1 sm:col-start-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={readingFile}
+                onClick={() => inputRef.current?.click()}
+              >
+                Change file
+              </Button>
+              {onStartFresh && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={onStartFresh}
+                >
+                  Start fresh
+                </Button>
+              )}
+            </div>
           </>
         ) : (
           <>
@@ -2002,8 +2099,26 @@ function UploadStep({
             >
               Choose file
             </Button>
+            {(draftStatus || onStartFresh) && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <span className="text-muted-foreground text-xs" role="status">
+                  {draftStatus}
+                </span>
+                {onStartFresh && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={onStartFresh}
+                  >
+                    Start fresh
+                  </Button>
+                )}
+              </div>
+            )}
           </>
         )}
+        {draftRecovery && <div className="col-span-full">{draftRecovery}</div>}
       </div>
       {workbookSheets.length > 1 && (
         <div className="space-y-1.5">
@@ -2055,37 +2170,11 @@ function UploadStep({
           {workbookSheets[0].error}
         </p>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {!file && (
-          <p className="text-muted-foreground text-xs">
-            Need a starting point?
-          </p>
-        )}
-        <Button
-          type="button"
-          variant="link"
-          size="sm"
-          onClick={() =>
-            downloadCsv('members-template.csv', MEMBER_TEMPLATE_CSV)
-          }
-        >
-          <Download /> Sample CSV
-        </Button>
-        {raw?.rows.length ? (
-          <Button
-            type="button"
-            variant="link"
-            size="sm"
-            disabled={readingFile || analyzing}
-            onClick={onMapManually}
-          >
-            Map manually
-          </Button>
-        ) : null}
-      </div>
       <Accordion>
         <AccordionItem value="file-guidance">
-          <AccordionTrigger>File requirements &amp; privacy</AccordionTrigger>
+          <AccordionTrigger>
+            File requirements &amp; import rules
+          </AccordionTrigger>
           <AccordionContent>
             <div className="text-muted-foreground space-y-3">
               <p>
@@ -2094,11 +2183,25 @@ function UploadStep({
                 importing.
               </p>
               <p>For legacy .xls files, save as .xlsx or .csv.</p>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={() =>
+                  downloadCsv('members-template.csv', MEMBER_TEMPLATE_CSV)
+                }
+              >
+                <Download /> Download sample CSV
+              </Button>
               <p>
-                Your file is saved in a private draft. Analysis uses column
-                headers and summary counts; names, phone numbers, notes, and raw
-                values are not sent for analysis.
+                Your file and progress are saved in a private draft. Close this
+                window and reopen Import to continue later.
               </p>
+              <p>
+                Column matching uses headers and summary counts. Names, phone
+                numbers, notes, and raw values are not sent for analysis.
+              </p>
+              <p>{IMPORT_RULES}</p>
             </div>
           </AccordionContent>
         </AccordionItem>
@@ -2127,7 +2230,7 @@ function MappingStep({
   phoneDialCode,
   canCreateFields,
   onSetColumn,
-  onToggleDateOrder,
+  onDateOrderChange,
   onAutoMap,
   onReset,
   onRequestCreateField,
@@ -2143,11 +2246,12 @@ function MappingStep({
   phoneDialCode: string;
   canCreateFields: boolean;
   onSetColumn: (column: number, key: string) => void;
-  onToggleDateOrder: () => void;
+  onDateOrderChange: (value: DateOrder) => void;
   onAutoMap: () => void;
   onReset: () => void;
   onRequestCreateField: (column: number) => void;
 }) {
+  const { fmt } = useLocale();
   // Groups come from the field registry so membership and service each read
   // as a complete, self-contained purchase; inside a group the short label is
   // enough because the heading already supplies the context.
@@ -2243,37 +2347,44 @@ function MappingStep({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-base font-medium">
+          {unmapped === 0
+            ? `All ${fmt.number(mapping.length)} columns mapped`
+            : `${fmt.number(mapping.length - unmapped)} mapped · ${fmt.number(unmapped)} skipped`}
+        </h3>
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-muted-foreground text-xs">
-            {unmapped === 0
-              ? `All ${mapping.length} columns mapped`
-              : `${mapping.length - unmapped} mapped · ${unmapped} skipped`}
-          </p>
           {/* One control for one global setting, not one per ambiguous column. */}
           {hasAmbiguousDates && (
-            <Button
-              type="button"
-              variant="pill"
-              size="sm"
-              onClick={onToggleDateOrder}
-              aria-label={`Dates read as ${
-                dateOrder === 'DMY' ? 'day then month' : 'month then day'
-              }. Switch.`}
-            >
-              <span className="text-foreground font-mono">
-                {dateOrder === 'DMY' ? 'DD/MM' : 'MM/DD'}
-              </span>
-              {dateOrder === 'DMY' ? '02/07 = 2 July' : '02/07 = Feb 7'}
-              <ArrowLeftRight />
-            </Button>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="member-import-date-order" size="sm">
+                Date order
+              </Label>
+              <Select
+                value={dateOrder}
+                onValueChange={(value) => {
+                  if (value === 'DMY' || value === 'MDY')
+                    onDateOrderChange(value);
+                }}
+              >
+                <SelectTrigger
+                  id="member-import-date-order"
+                  size="sm"
+                  aria-label="Date order"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DMY">Day / month</SelectItem>
+                  <SelectItem value="MDY">Month / day</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           )}
-        </div>
-        <div className="flex gap-1.5">
           <Button type="button" size="sm" variant="outline" onClick={onAutoMap}>
-            <Wand2 className="size-3.5" /> Auto map
+            <Wand2 className="size-3.5" /> Match by name
           </Button>
           <Button type="button" size="sm" variant="ghost" onClick={onReset}>
-            <RotateCcw className="size-3.5" /> Reset
+            <RotateCcw className="size-3.5" /> Clear matches
           </Button>
         </div>
       </div>
@@ -2306,7 +2417,7 @@ function MappingStep({
           aria-label="Column mapping"
         >
           <TableHeader>
-            <TableRow>
+            <TableRow interactive={false}>
               <TableHead className="w-[25%]">File column</TableHead>
               <TableHead className="w-[32%]">Sample data</TableHead>
               <TableHead className="w-[43%]">Member field</TableHead>
@@ -2314,7 +2425,7 @@ function MappingStep({
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={row.column}>
+              <TableRow key={row.column} interactive={false}>
                 <TableCell className="whitespace-normal">
                   <span className="font-medium break-words">
                     {row.header || (
@@ -2399,12 +2510,20 @@ function ConfirmStep({
       <dl className="grid grid-cols-3 gap-4">
         <SummaryValue label="Memberships" value={summary.memberships} />
         <SummaryValue label="Services" value={summary.services} />
-        <SummaryValue label="Payments" value={summary.payments} />
+        <SummaryValue label="Payments to record" value={summary.payments} />
       </dl>
+      <p className="text-muted-foreground text-sm">
+        Import creates the memberships, services, and payment records shown
+        here. Paid amounts are recorded; importing does not collect payment.
+      </p>
       <Accordion>
         <AccordionItem value="import-breakdown">
           <AccordionTrigger>Source rows &amp; invoice details</AccordionTrigger>
           <AccordionContent>
+            <p className="text-muted-foreground mb-4 text-sm">
+              Member totals group matching rows for the same person. Row totals
+              count individual lines in your file.
+            </p>
             <dl className="space-y-3">
               {(
                 [
@@ -2412,7 +2531,7 @@ function ConfirmStep({
                   ['Unresolved rows', summary.needsResolution],
                   ['Automatically excluded', summary.automaticExcluded],
                   ['Excluded by you', summary.explicitlyExcluded],
-                  ['Combined invoices', summary.combinedInvoices],
+                  ['Membership + service invoices', summary.combinedInvoices],
                   ['Service-only invoices', summary.serviceOnlyInvoices],
                 ] as const
               ).map(([label, value]) => (
@@ -2460,36 +2579,47 @@ function ResultPanel({ result }: { result: ImportResult }) {
   const successful = result.imported + result.attached;
   const needsAttention =
     result.failed > 0 || result.paymentFailed > 0 || result.statusFailed > 0;
-  const StatusIcon = needsAttention ? AlertTriangle : CheckCircle;
+  const StatusIcon = needsAttention
+    ? AlertTriangle
+    : successful > 0
+      ? CheckCircle
+      : Info;
   return (
     <div className="space-y-5">
       <div className="flex items-start gap-3">
         <StatusIcon
           className={cn(
             'mt-0.5 size-5 shrink-0',
-            needsAttention ? 'text-amber-foreground' : 'text-emerald-foreground'
+            needsAttention
+              ? 'text-amber-foreground'
+              : successful > 0
+                ? 'text-emerald-foreground'
+                : 'text-muted-foreground'
           )}
         />
         <div className="space-y-1">
           <h3 className="text-base font-medium">
             {successful > 0
-              ? `${fmt.number(successful)} customer${successful === 1 ? '' : 's'} imported`
-              : 'No customers imported'}
+              ? `${fmt.number(successful)} member${successful === 1 ? '' : 's'} imported`
+              : 'No members imported'}
           </h3>
           <p className="text-muted-foreground text-sm">
             {needsAttention
-              ? 'Some records need attention. Download the receipt to review them.'
+              ? 'Download the import report to see which rows succeeded and which need attention.'
               : successful > 0
                 ? 'Your imported members are available in Members.'
-                : 'Download the receipt to review the outcome of each row.'}
+                : 'Download the import report to see why each row was skipped.'}
           </p>
         </div>
       </div>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-        <SummaryValue label="New customers" value={result.imported} />
-        <SummaryValue label="Existing customers" value={result.attached} />
+        <SummaryValue label="New contacts" value={result.imported} />
+        <SummaryValue label="Existing contacts" value={result.attached} />
         <SummaryValue label="Payments recorded" value={result.payments} />
-        <SummaryValue label="Skipped" value={result.skipped + result.invalid} />
+        <SummaryValue
+          label="Rows skipped"
+          value={result.skipped + result.invalid}
+        />
       </dl>
       {needsAttention && (
         <Alert>
@@ -2497,7 +2627,7 @@ function ResultPanel({ result }: { result: ImportResult }) {
           <AlertTitle>Review incomplete records</AlertTitle>
           <AlertDescription>
             {result.failed > 0 &&
-              `${fmt.number(result.failed)} customer group${result.failed === 1 ? '' : 's'} failed. `}
+              `${fmt.number(result.failed)} member${result.failed === 1 ? '' : 's'} could not be imported. `}
             {result.paymentFailed > 0 &&
               `${fmt.number(result.paymentFailed)} payment${result.paymentFailed === 1 ? '' : 's'} could not be recorded. `}
             {result.statusFailed > 0 &&
@@ -2519,7 +2649,7 @@ function ResultPanel({ result }: { result: ImportResult }) {
           downloadCsv('member-import-receipt.csv', result.receiptCsv)
         }
       >
-        <Download /> Download CSV receipt
+        <Download /> Download import report
       </Button>
     </div>
   );
