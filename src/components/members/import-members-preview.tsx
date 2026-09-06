@@ -34,7 +34,6 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Table,
   TableBody,
@@ -103,6 +102,8 @@ const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
 };
 
 interface ImportMembersPreviewProps {
+  header?: ReactNode;
+  footer?: ReactNode;
   candidates: MemberImportCandidate[];
   context?: MemberImportCandidateContext;
   plans: MembershipPlan[];
@@ -148,6 +149,8 @@ interface IssueGroup {
   nextAction: string;
   candidates: MemberImportCandidate[];
 }
+
+type ResolutionLayout = (body: ReactNode, action?: ReactNode) => ReactNode;
 
 interface IssueSection {
   key: string;
@@ -253,7 +256,6 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
     null
   );
   const [sectionsCollapsed, setSectionsCollapsed] = useState(false);
-  const [showRules, setShowRules] = useState(false);
   const [detailEditor, setDetailEditor] = useState<'phone' | 'plan' | null>(
     null
   );
@@ -424,10 +426,22 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
     visible.length === 0 ? (
       <div className="flex min-h-0 flex-1 px-6 pb-4">
         <EmptyRows
+          ready={
+            filter === 'needs-resolution' &&
+            summary.needsResolution === 0 &&
+            summary.ready > 0 &&
+            !search.trim()
+          }
           filtered={search.trim().length > 0 || filter !== 'all'}
           onReset={() => {
             setSearch('');
-            changeFilter('all');
+            changeFilter(
+              filter === 'needs-resolution' &&
+                summary.needsResolution === 0 &&
+                summary.ready > 0
+                ? 'ready'
+                : 'all'
+            );
           }}
         />
       </div>
@@ -522,9 +536,27 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                         ? fmt.phone(row.draftValues.phone)
                         : 'No phone'
                     }
-                    meta={`Source row ${row.sourceRow} · ${row.legacyMemberId || 'No Member ID'}`}
+                    meta={`Source row ${row.sourceRow}`}
                   />
                   <CandidateOffering candidate={row} wrap />
+                  <dl className="grid grid-cols-3 gap-3 text-sm">
+                    {(
+                      [
+                        ['Fee', row.draftValues.fee],
+                        ['Paid', row.draftValues.amountPaid],
+                        ['Balance', effectiveBalance(row.draftValues)],
+                      ] as const
+                    ).map(([label, value]) => (
+                      <div key={label} className="min-w-0 space-y-1">
+                        <dt className="text-muted-foreground text-xs">
+                          {label}
+                        </dt>
+                        <dd>
+                          <SourceMoney value={value} />
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
                   <div className="flex items-center justify-between gap-2">
                     <CandidateStatus candidate={row} />
                     <Button
@@ -545,7 +577,6 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
         <Pagination
           page={safePage}
           pageCount={pageCount}
-          total={visible.length}
           onPageChange={(value) => {
             setPage(value);
             setSelectedKey(null);
@@ -554,19 +585,180 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
       </>
     );
 
+  // Resolvers keep their own form state and supply an action to this layout.
+  // The action never enters the scrollport, so long forms cannot hide Save.
+  const renderResolution: ResolutionLayout = (body, action) => {
+    if (!selected) return null;
+    const included = selected.disposition === 'included';
+    const automaticExclusion =
+      !included &&
+      selected.exclusionReason !== null &&
+      selected.exclusionReason !== 'manual';
+    const canChangePlan = included && selected.outcomeKind === 'membership';
+    const excludesGroup =
+      activeGroup &&
+      [
+        'plan-needs-resolution',
+        'pricing-option-needs-resolution',
+        'offering-needs-classification',
+        'service-needs-resolution',
+        'payment-conflict',
+      ].includes(activeGroup.code);
+    return (
+      <>
+        <ScrollArea
+          key={selected.sourceKey}
+          className="min-h-0 flex-1"
+          aria-label="Resolution details"
+        >
+          <div className="@container space-y-4 px-4 py-5 sm:px-6">
+            {rowGroups.length > 1 && (
+              <Select
+                value={activeGroup?.key}
+                onValueChange={(value) =>
+                  value && (setDetailEditor(null), setSelectedIssueKey(value))
+                }
+              >
+                <SelectTrigger className="w-full" aria-label="Choose issue">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {rowGroups.map((group) => (
+                    <SelectItem key={group.key} value={group.key}>
+                      {group.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {activeGroup ? (
+              <section aria-label="Focused issue" className="space-y-3">
+                <h3 className="flex items-start gap-2 text-sm font-semibold">
+                  <AlertTriangle
+                    className="text-amber-foreground mt-0.5 size-4 shrink-0"
+                    aria-hidden
+                  />
+                  {activeGroup.title}
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  {activeGroup.explanation} {activeGroup.nextAction}
+                </p>
+                {body}
+              </section>
+            ) : (
+              body
+            )}
+            {selected.issues.some((issue) => issue.severity === 'notice') && (
+              <Accordion>
+                <AccordionItem value="notices">
+                  <AccordionTrigger>Import notices</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-3">
+                      {selected.issues
+                        .filter((issue) => issue.severity === 'notice')
+                        .map((issue) => (
+                          <div
+                            key={`${issue.code}:${issue.groupKey}`}
+                            className="space-y-1"
+                          >
+                            <p className="text-sm">{issue.explanation}</p>
+                            <p className="text-muted-foreground text-xs">
+                              {issue.nextAction}
+                            </p>
+                          </div>
+                        ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
+          </div>
+        </ScrollArea>
+        {!automaticExclusion && (
+          <>
+            <Separator />
+            <div
+              role="group"
+              aria-label="Resolution actions"
+              className="flex shrink-0 flex-col gap-2 px-4 py-4 sm:px-6"
+            >
+              {action}
+              {included && (
+                <div
+                  className={cn(
+                    'grid gap-2',
+                    canChangePlan ? 'grid-cols-2' : 'grid-cols-1'
+                  )}
+                >
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setDetailEditor(detailEditor === 'phone' ? null : 'phone')
+                    }
+                  >
+                    {detailEditor === 'phone'
+                      ? 'Cancel phone edit'
+                      : 'Edit phone'}
+                  </Button>
+                  {canChangePlan && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setDetailEditor(detailEditor === 'plan' ? null : 'plan')
+                      }
+                    >
+                      {detailEditor === 'plan'
+                        ? 'Cancel plan change'
+                        : 'Change plan'}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {included ? (
+                <ExcludeGroupAction
+                  group={
+                    excludesGroup ? activeGroup : { candidates: [selected] }
+                  }
+                  onSetDisposition={props.onSetDisposition}
+                />
+              ) : (
+                <IncludeAction
+                  candidate={selected}
+                  onSetDisposition={props.onSetDisposition}
+                />
+              )}
+            </div>
+          </>
+        )}
+      </>
+    );
+  };
+
   return (
     <div
       className="flex h-full min-h-0 flex-1 flex-col"
       aria-label="Import worksheet"
     >
-      <div className="flex min-h-0 flex-1 flex-col xl:grid xl:grid-cols-[minmax(0,1fr)_auto_24rem]">
+      <div
+        className={cn(
+          'flex min-h-0 flex-1 flex-col',
+          selected && 'xl:grid xl:grid-cols-[minmax(0,1fr)_auto_28rem]'
+        )}
+      >
         <div
+          role="region"
+          aria-label="Import rows panel"
           className={cn(
             'min-h-0 min-w-0 flex-1 flex-col',
-            inspectorOpen ? 'hidden xl:flex' : 'flex'
+            inspectorOpen && selected ? 'hidden xl:flex' : 'flex'
           )}
         >
-          <div className="flex shrink-0 flex-wrap items-center gap-3 px-6 py-4">
+          {props.header}
+          {props.header && <Separator />}
+          <div className="flex shrink-0 flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
             <SearchInput
               value={search}
               onValueChange={(value) => {
@@ -577,7 +769,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                 setSelectedIssueKey(null);
                 setDetailEditor(null);
               }}
-              placeholder="Search name or ID"
+              placeholder="Search name, phone, or ID"
               aria-label="Search import rows"
             />
             <ChipGroup<MemberImportCandidateFilter>
@@ -602,37 +794,14 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             </ChipGroup>
           </div>
           <Separator />
-          <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-6 py-2">
+          {!reviewingIssues && (
             <p
-              className="text-muted-foreground text-xs tabular-nums"
+              className="text-muted-foreground shrink-0 px-4 py-2 text-xs tabular-nums sm:px-6"
               role="status"
             >
-              {reviewingIssues
-                ? 'Rows with multiple issues appear in each relevant section.'
-                : `${fmt.number(visible.length)} ${visible.length === 1 ? 'row' : 'rows'} in this view`}
+              {fmt.number(visible.length)}{' '}
+              {visible.length === 1 ? 'row' : 'rows'} in this view
             </p>
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => setShowRules(!showRules)}
-              aria-expanded={showRules}
-            >
-              {showRules ? 'Hide import rules' : 'View import rules'}
-            </Button>
-          </div>
-          {showRules && (
-            <div className="shrink-0 px-6 pb-3">
-              <Alert>
-                <Info />
-                <AlertDescription>
-                  Resolve every included row before confirming. Matched plan and
-                  service choices apply to the matching rows named in the
-                  inspector. Older membership rows, summary rows, and existing
-                  memberships are excluded automatically. Review each exclusion
-                  before importing.
-                </AlertDescription>
-              </Alert>
-            </div>
           )}
           {reviewingIssues && sections.length > 0 ? (
             <ScrollArea
@@ -672,7 +841,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
           ) : (
             worksheetRows
           )}
-          {summary.exclusions > 0 && (
+          {filter === 'excluded' && summary.exclusions > 0 && (
             <>
               <Separator />
               <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-6 py-3">
@@ -680,16 +849,6 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                 <p className="text-muted-foreground text-xs">
                   {fmt.number(summary.exclusions)} rows will not be imported.
                 </p>
-                <Button
-                  variant="link"
-                  size="sm"
-                  onClick={() => {
-                    setSearch('');
-                    changeFilter('excluded');
-                  }}
-                >
-                  Review excluded rows
-                </Button>
                 <Button variant="link" size="sm" onClick={exportExcluded}>
                   <Download />
                   Download excluded rows
@@ -697,19 +856,22 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               </div>
             </>
           )}
+          {props.footer}
         </div>
-        <Separator orientation="vertical" className="hidden xl:block" />
+        {selected && (
+          <Separator orientation="vertical" className="hidden xl:block" />
+        )}
         <div
           role={selected ? 'region' : undefined}
           aria-label={selected ? 'Row inspector' : undefined}
           className={cn(
             'min-h-0 min-w-0 flex-1 flex-col',
-            inspectorOpen ? 'flex' : 'hidden xl:flex'
+            !selected ? 'hidden' : inspectorOpen ? 'flex' : 'hidden xl:flex'
           )}
         >
           {selected ? (
             <>
-              <div className="flex shrink-0 items-center justify-between gap-2 px-6 pt-4">
+              <div className="shrink-0 space-y-3 px-4 py-5 sm:px-6">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -719,185 +881,82 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                   <ChevronLeft />
                   Back to rows
                 </Button>
-                <p className="text-muted-foreground text-xs">
-                  Row {selected.sourceRow} details
-                </p>
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label="Previous row"
-                    disabled={visible[0]?.sourceKey === selected.sourceKey}
-                    onClick={() => {
-                      const index = visible.indexOf(selected) - 1;
-                      selectRow(visible[index]);
-                      setPage(Math.floor(index / PAGE_SIZE));
-                    }}
-                  >
-                    <ChevronLeft />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    aria-label="Next row"
-                    disabled={visible.at(-1)?.sourceKey === selected.sourceKey}
-                    onClick={() => {
-                      const index = visible.indexOf(selected) + 1;
-                      selectRow(visible[index]);
-                      setPage(Math.floor(index / PAGE_SIZE));
-                    }}
-                  >
-                    <ChevronRight />
-                  </Button>
+                <div className="flex items-center justify-between gap-3 xl:pr-8">
+                  <MemberIdentity
+                    name={candidateName(selected)}
+                    secondary={selected.draftValues.phone || 'No phone'}
+                  />
+                  <div className="flex shrink-0 gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Previous row"
+                      disabled={visible[0]?.sourceKey === selected.sourceKey}
+                      onClick={() => {
+                        const index = visible.indexOf(selected) - 1;
+                        selectRow(visible[index]);
+                        setPage(Math.floor(index / PAGE_SIZE));
+                      }}
+                    >
+                      <ChevronLeft />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label="Next row"
+                      disabled={
+                        visible.at(-1)?.sourceKey === selected.sourceKey
+                      }
+                      onClick={() => {
+                        const index = visible.indexOf(selected) + 1;
+                        selectRow(visible[index]);
+                        setPage(Math.floor(index / PAGE_SIZE));
+                      }}
+                    >
+                      <ChevronRight />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="shrink-0 px-6 pt-4 pb-3">
-                <MemberIdentity
-                  name={candidateName(selected)}
-                  secondary={
-                    selected.draftValues.phone
-                      ? fmt.phone(selected.draftValues.phone)
-                      : 'No phone'
-                  }
-                  meta={
-                    <p className="text-muted-foreground text-xs">
-                      Member ID {selected.legacyMemberId || 'not set'}
-                    </p>
-                  }
-                />
               </div>
               <Separator />
-              <ScrollArea key={selected.sourceKey} className="min-h-0 flex-1">
-                <div className="@container space-y-4 px-6 py-4">
-                  {rowGroups.length > 1 && (
-                    <Select
-                      value={activeGroup?.key}
-                      onValueChange={(value) =>
-                        value &&
-                        (setDetailEditor(null), setSelectedIssueKey(value))
-                      }
-                    >
-                      <SelectTrigger
-                        className="w-full"
-                        aria-label="Choose issue"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rowGroups.map((group) => (
-                          <SelectItem key={group.key} value={group.key}>
-                            {group.title}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {activeGroup ? (
-                    <section aria-label="Focused issue" className="space-y-3">
-                      <h3 className="flex items-start gap-2 text-sm font-semibold">
-                        <AlertTriangle
-                          className="text-amber-foreground mt-0.5 size-4 shrink-0"
-                          aria-hidden
-                        />
-                        {activeGroup.title}
-                      </h3>
-                      <p className="text-muted-foreground text-sm">
-                        {activeGroup.explanation} {activeGroup.nextAction}
-                      </p>
-                      <GroupResolver
-                        key={`${selected.sourceKey}:${activeGroup.key}`}
-                        {...props}
-                        context={context}
-                        group={activeGroup}
-                        onResolvePayment={(...args) => {
-                          props.onResolvePayment(...args);
-                          nextRow();
-                        }}
-                      />
-                    </section>
-                  ) : (
-                    <div className="space-y-4">
-                      <CandidateStatus candidate={selected} />
-                      {selected.disposition === 'included' && (
-                        <>
-                          <CandidateOffering candidate={selected} wrap />
-                          <dl className="grid grid-cols-2 gap-3 text-sm">
-                            <div>
-                              <dt className="text-muted-foreground">Fee</dt>
-                              <dd>
-                                <CandidateFee candidate={selected} />
-                              </dd>
-                            </div>
-                            <div>
-                              <dt className="text-muted-foreground">Expiry</dt>
-                              <dd>
-                                <CandidateDates candidate={selected} />
-                              </dd>
-                            </div>
-                          </dl>
-                        </>
-                      )}
-                      <DispositionAction
-                        candidate={selected}
-                        onSetDisposition={props.onSetDisposition}
-                      />
-                    </div>
-                  )}
-                  {selected.disposition === 'included' && (
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() =>
-                          setDetailEditor(
-                            detailEditor === 'phone' ? null : 'phone'
-                          )
-                        }
-                      >
-                        {detailEditor === 'phone'
-                          ? 'Cancel phone edit'
-                          : 'Edit phone'}
-                      </Button>
-                      {selected.outcomeKind === 'membership' && (
-                        <Button
-                          variant="link"
-                          size="sm"
-                          onClick={() =>
-                            setDetailEditor(
-                              detailEditor === 'plan' ? null : 'plan'
-                            )
-                          }
-                        >
-                          {detailEditor === 'plan'
-                            ? 'Cancel plan change'
-                            : 'Change plan'}
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                  {selected.issues.some(
-                    (issue) => issue.severity === 'notice'
-                  ) && (
-                    <div className="space-y-3">
-                      <Separator />
-                      <h3 className="text-sm font-semibold">Import notices</h3>
-                      {selected.issues
-                        .filter((issue) => issue.severity === 'notice')
-                        .map((issue) => (
-                          <div
-                            key={`${issue.code}:${issue.groupKey}`}
-                            className="space-y-1"
-                          >
-                            <p className="text-sm">{issue.explanation}</p>
-                            <p className="text-muted-foreground text-xs">
-                              {issue.nextAction}
-                            </p>
+              {activeGroup ? (
+                <GroupResolver
+                  key={`${selected.sourceKey}:${activeGroup.key}`}
+                  {...props}
+                  context={context}
+                  group={activeGroup}
+                  renderLayout={renderResolution}
+                  onResolvePayment={(...args) => {
+                    props.onResolvePayment(...args);
+                    nextRow();
+                  }}
+                />
+              ) : (
+                renderResolution(
+                  <div className="space-y-4">
+                    <CandidateStatus candidate={selected} />
+                    {selected.disposition === 'included' && (
+                      <>
+                        <CandidateOffering candidate={selected} wrap />
+                        <dl className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <dt className="text-muted-foreground">Fee</dt>
+                            <dd>
+                              <CandidateFee candidate={selected} />
+                            </dd>
                           </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
+                          <div>
+                            <dt className="text-muted-foreground">Expiry</dt>
+                            <dd>
+                              <CandidateDates candidate={selected} />
+                            </dd>
+                          </div>
+                        </dl>
+                      </>
+                    )}
+                  </div>
+                )
+              )}
             </>
           ) : (
             <div className="text-muted-foreground px-6 py-8 text-sm">
@@ -939,7 +998,7 @@ function CandidateIdentity({
   return (
     <MemberIdentity
       name={candidateName(candidate)}
-      secondary={`Member ID ${candidate.legacyMemberId || 'not set'}`}
+      secondary={candidate.draftValues.phone || 'No phone'}
       meta={`Source row ${candidate.sourceRow}`}
     />
   );
@@ -958,7 +1017,7 @@ function ExcludeAction({
   return (
     <Button
       type="button"
-      variant="link"
+      variant="outline"
       size="sm"
       className={className}
       aria-label={`Exclude ${name}, source row ${candidate.sourceRow}`}
@@ -973,15 +1032,16 @@ function ExcludeGroupAction({
   group,
   onSetDisposition,
 }: {
-  group: IssueGroup;
+  group: Pick<IssueGroup, 'candidates'>;
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
 }) {
   const count = group.candidates.length;
   return (
     <Button
       type="button"
-      variant="link"
+      variant="ghost"
       size="sm"
+      className="w-full"
       onClick={() => {
         for (const candidate of group.candidates) {
           onSetDisposition(candidate.sourceKey, 'excluded');
@@ -994,9 +1054,9 @@ function ExcludeGroupAction({
 }
 
 /**
- * Every per-row resolver renders through this shell: identity, the control
- * that fixes the row, and the same escape hatch. `stacked` gives the control
- * the full width when it is a field grid rather than a single input.
+ * Multi-row resolvers retain an identity and exclusion for each affected row.
+ * A single row uses the inspector header and footer. `stacked` gives field
+ * grids the full width beneath their row's identity.
  */
 function IssueRows({
   group,
@@ -1014,16 +1074,7 @@ function IssueRows({
   // both stay on screen. Stacked rows are ~4x taller, so they get more room.
   const bounded = group.candidates.length > 4;
   if (group.candidates.length === 1) {
-    const candidate = group.candidates[0];
-    return (
-      <div className="space-y-3">
-        {renderControl?.(candidate)}
-        <ExcludeAction
-          candidate={candidate}
-          onSetDisposition={onSetDisposition}
-        />
-      </div>
-    );
+    return renderControl?.(group.candidates[0]) ?? null;
   }
   return (
     <ul
@@ -1093,7 +1144,7 @@ function GroupChoice({
   ariaLabel,
   placeholder,
   onValueChange,
-  onSetDisposition,
+  renderLayout,
   unavailable,
   children,
 }: {
@@ -1102,7 +1153,7 @@ function GroupChoice({
   ariaLabel: string;
   placeholder: string;
   onValueChange: (value: string) => void;
-  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+  renderLayout: ResolutionLayout;
   unavailable?: ReactNode;
   children?: ReactNode;
 }) {
@@ -1110,11 +1161,11 @@ function GroupChoice({
   const affected = group.candidates.map(candidateName);
   const shown = affected.slice(0, 3).join(', ');
   const remaining = affected.length - 3;
-  return (
+  return renderLayout(
     <div className="space-y-3">
       {/* One choice maps rows the operator cannot see here, so the container
           and its caption name exactly who the mapping lands on. */}
-      <div className="border-border grid gap-3 rounded-xl border p-3 @xl:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] @xl:items-center">
+      <div className="grid gap-3 @xl:grid-cols-[minmax(0,1fr)_minmax(15rem,1fr)] @xl:items-center">
         <div className="min-w-0 space-y-1">
           <p className="text-foreground text-sm font-medium break-words">
             {sourceLabel}
@@ -1134,21 +1185,20 @@ function GroupChoice({
           </Select>
         )}
       </div>
-      {!unavailable && (
-        <Button
-          className="w-full"
-          disabled={!choice}
-          onClick={() => choice && onValueChange(choice)}
-        >
-          Save mapping
-          {group.candidates.length > 1
-            ? ` for ${group.candidates.length} rows`
-            : ''}
-          <ArrowRight />
-        </Button>
-      )}
-      <ExcludeGroupAction group={group} onSetDisposition={onSetDisposition} />
-    </div>
+    </div>,
+    !unavailable && (
+      <Button
+        className="w-full"
+        disabled={!choice}
+        onClick={() => choice && onValueChange(choice)}
+      >
+        Save mapping
+        {group.candidates.length > 1
+          ? ` for ${group.candidates.length} rows`
+          : ''}
+        <ArrowRight />
+      </Button>
+    )
   );
 }
 
@@ -1156,10 +1206,12 @@ function PhoneIssueResolver({
   group,
   onPatch,
   onSetDisposition,
+  renderLayout,
 }: {
   group: IssueGroup;
   onPatch: ImportMembersPreviewProps['onPatch'];
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+  renderLayout: ResolutionLayout;
 }) {
   const [drafts, setDrafts] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -1173,7 +1225,7 @@ function PhoneIssueResolver({
     (candidate) => drafts[candidate.sourceKey] !== candidate.draftValues.phone
   );
 
-  return (
+  return renderLayout(
     <div className="space-y-4">
       <IssueRows
         group={group}
@@ -1196,27 +1248,26 @@ function PhoneIssueResolver({
         )}
       />
 
-      <div className="flex flex-col gap-3 @xl:flex-row @xl:items-center @xl:justify-between">
-        <p className="text-muted-foreground text-xs">
-          {changedCandidates.length === 0
-            ? 'Edit a phone number to resolve this issue.'
-            : `${changedCandidates.length} phone ${changedCandidates.length === 1 ? 'change' : 'changes'} ready to save.`}
-        </p>
-        <Button
-          type="button"
-          disabled={changedCandidates.length === 0}
-          onClick={() => {
-            for (const candidate of changedCandidates) {
-              onPatch(candidate.sourceKey, {
-                phone: drafts[candidate.sourceKey],
-              });
-            }
-          }}
-        >
-          Save &amp; resolve
-        </Button>
-      </div>
-    </div>
+      <p className="text-muted-foreground text-xs">
+        {changedCandidates.length === 0
+          ? 'Edit a phone number to resolve this issue.'
+          : `${changedCandidates.length} phone ${changedCandidates.length === 1 ? 'change' : 'changes'} ready to save.`}
+      </p>
+    </div>,
+    <Button
+      type="button"
+      className="w-full"
+      disabled={changedCandidates.length === 0}
+      onClick={() => {
+        for (const candidate of changedCandidates) {
+          onPatch(candidate.sourceKey, {
+            phone: drafts[candidate.sourceKey],
+          });
+        }
+      }}
+    >
+      Save &amp; resolve
+    </Button>
   );
 }
 
@@ -1224,12 +1275,12 @@ function PaymentConflictResolver({
   group,
   context,
   onResolvePayment,
-  onSetDisposition,
+  renderLayout,
 }: {
   group: IssueGroup;
   context: MemberImportCandidateContext;
   onResolvePayment: ImportMembersPreviewProps['onResolvePayment'];
-  onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+  renderLayout: ResolutionLayout;
 }) {
   const { fmt } = useLocale();
   const candidate = group.candidates[0];
@@ -1300,7 +1351,7 @@ function PaymentConflictResolver({
         ].includes(issue.code)
     );
 
-  return (
+  return renderLayout(
     <div className="space-y-4">
       <dl className="space-y-2 text-sm">
         {(
@@ -1429,19 +1480,18 @@ function PaymentConflictResolver({
           )}
         </section>
       )}
-      <Button
-        className="w-full"
-        disabled={!resolution || !figuresValid}
-        onClick={() => {
-          if (resolution && figuresValid)
-            onResolvePayment(candidate.sourceKey, resolution, correction);
-        }}
-      >
-        Save &amp; next row
-        <ArrowRight />
-      </Button>
-      <ExcludeGroupAction group={group} onSetDisposition={onSetDisposition} />
-    </div>
+    </div>,
+    <Button
+      className="w-full"
+      disabled={!resolution || !figuresValid}
+      onClick={() => {
+        if (resolution && figuresValid)
+          onResolvePayment(candidate.sourceKey, resolution, correction);
+      }}
+    >
+      Save &amp; next row
+      <ArrowRight />
+    </Button>
   );
 }
 
@@ -1455,6 +1505,7 @@ function FieldCorrectionResolver({
   fields,
   onPatch,
   onSetDisposition,
+  renderLayout,
 }: {
   group: IssueGroup;
   fields: {
@@ -1464,8 +1515,9 @@ function FieldCorrectionResolver({
   }[];
   onPatch: ImportMembersPreviewProps['onPatch'];
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+  renderLayout: ResolutionLayout;
 }) {
-  return (
+  return renderLayout(
     <IssueRows
       group={group}
       onSetDisposition={onSetDisposition}
@@ -1560,6 +1612,7 @@ function GroupResolver({
   onResolveExistingContact,
   onPatch,
   onSetDisposition,
+  renderLayout,
 }: {
   group: IssueGroup;
   context: MemberImportCandidateContext;
@@ -1573,6 +1626,7 @@ function GroupResolver({
   onResolveExistingContact: ImportMembersPreviewProps['onResolveExistingContact'];
   onPatch: ImportMembersPreviewProps['onPatch'];
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
+  renderLayout: ResolutionLayout;
 }) {
   const first = group.candidates[0];
   const sourceKeys = group.candidates.map((candidate) => candidate.sourceKey);
@@ -1584,6 +1638,7 @@ function GroupResolver({
   ) {
     return (
       <PhoneIssueResolver
+        renderLayout={renderLayout}
         group={group}
         onPatch={onPatch}
         onSetDisposition={onSetDisposition}
@@ -1599,7 +1654,7 @@ function GroupResolver({
         sourceLabel={sourceLabel}
         ariaLabel={`Classify ${sourceLabel}`}
         placeholder="Choose plan or service"
-        onSetDisposition={onSetDisposition}
+        renderLayout={renderLayout}
         onValueChange={(value) => {
           const [kind, primaryId, optionId] = value.split('::');
           if (kind === 'membership') {
@@ -1685,7 +1740,7 @@ function GroupResolver({
         sourceLabel={sourceLabel}
         ariaLabel={`Map ${sourceLabel}`}
         placeholder="Choose service, option, and trainer"
-        onSetDisposition={onSetDisposition}
+        renderLayout={renderLayout}
         onValueChange={(value) => {
           const [itemId, optionId, trainerId] = value.split('::');
           onResolveGroupedService(sourceKeys, {
@@ -1728,7 +1783,7 @@ function GroupResolver({
         sourceLabel={sourceLabel}
         ariaLabel={`Map ${sourceLabel}`}
         placeholder="Choose plan and billing option"
-        onSetDisposition={onSetDisposition}
+        renderLayout={renderLayout}
         onValueChange={(value) => {
           const [planId, pricingOptionId] = value.split('::');
           onResolveGroupedPlan(sourceKeys, { planId, pricingOptionId });
@@ -1758,6 +1813,7 @@ function GroupResolver({
   ) {
     return (
       <FieldCorrectionResolver
+        renderLayout={renderLayout}
         group={group}
         fields={[...SERVICE_CORRECTION_FIELDS]}
         onPatch={onPatch}
@@ -1772,6 +1828,7 @@ function GroupResolver({
   ) {
     return (
       <FieldCorrectionResolver
+        renderLayout={renderLayout}
         group={group}
         fields={[...MEMBERSHIP_CORRECTION_FIELDS]}
         onPatch={onPatch}
@@ -1783,6 +1840,7 @@ function GroupResolver({
   if (group.code === 'pricing-mismatch') {
     return (
       <FieldCorrectionResolver
+        renderLayout={renderLayout}
         group={group}
         fields={[
           { key: 'listPrice', label: 'List price', inputMode: 'decimal' },
@@ -1802,13 +1860,13 @@ function GroupResolver({
         group={group}
         context={context}
         onResolvePayment={onResolvePayment}
-        onSetDisposition={onSetDisposition}
+        renderLayout={renderLayout}
       />
     );
   }
 
   if (group.code === 'existing-contact') {
-    return (
+    return renderLayout(
       <IssueRows
         group={group}
         onSetDisposition={onSetDisposition}
@@ -1841,7 +1899,9 @@ function GroupResolver({
     );
   }
 
-  return <IssueRows group={group} onSetDisposition={onSetDisposition} />;
+  return renderLayout(
+    <IssueRows group={group} onSetDisposition={onSetDisposition} />
+  );
 }
 
 /**
@@ -1998,40 +2058,22 @@ function CandidateStatus({ candidate }: { candidate: MemberImportCandidate }) {
   );
 }
 
-function DispositionAction({
+function IncludeAction({
   candidate,
   onSetDisposition,
 }: {
   candidate: MemberImportCandidate;
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
 }) {
-  const automatic =
-    candidate.exclusionReason === 'membership-history' ||
-    candidate.exclusionReason === 'summary-row' ||
-    candidate.exclusionReason === 'existing-member';
   const name = candidateName(candidate);
-  if (automatic) {
-    return (
-      <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-        <Info className="size-3.5 shrink-0" /> Automatic
-      </span>
-    );
-  }
-  const included = candidate.disposition === 'included';
   return (
     <Button
       type="button"
-      size="sm"
-      variant="ghost"
-      aria-label={`${included ? 'Exclude' : 'Include'} ${name}, source row ${candidate.sourceRow}`}
-      onClick={() =>
-        onSetDisposition(
-          candidate.sourceKey,
-          included ? 'excluded' : 'included'
-        )
-      }
+      className="w-full"
+      aria-label={`Include ${name}, source row ${candidate.sourceRow}`}
+      onClick={() => onSetDisposition(candidate.sourceKey, 'included')}
     >
-      {included ? 'Exclude' : 'Include'}
+      Include this row
     </Button>
   );
 }
@@ -2043,25 +2085,32 @@ function DispositionAction({
  */
 function EmptyRows({
   filtered,
+  ready = false,
   onReset,
 }: {
   filtered: boolean;
+  ready?: boolean;
   onReset: () => void;
 }) {
   return (
     // Top-weighted on a phone, where the frame is tall enough that a centred
     // message lands well below the fold; centred once the table surface takes
     // over and the frame is short.
-    <div className="border-border flex min-h-0 flex-1 flex-col items-center justify-start gap-3 rounded-xl border px-6 pt-16 pb-12 text-center md:justify-center md:pt-12">
-      <p className="text-sm font-medium">No rows match this view</p>
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-start gap-3 px-6 pt-12 pb-12 text-center md:justify-center">
+      {ready && <CheckCircle className="text-emerald-foreground size-5" />}
+      <p className="text-sm font-medium">
+        {ready ? 'All included rows are ready' : 'No rows match this view'}
+      </p>
       <p className="text-muted-foreground max-w-sm text-sm">
-        {filtered
-          ? 'Every row is hidden by the current search or filter.'
-          : 'This import has no rows to review.'}
+        {ready
+          ? 'Review your ready rows or continue to confirm the import.'
+          : filtered
+            ? 'Every row is hidden by the current search or filter.'
+            : 'This import has no rows to review.'}
       </p>
       {filtered ? (
         <Button type="button" variant="outline" size="sm" onClick={onReset}>
-          Show all rows
+          {ready ? 'Review ready rows' : 'Show all rows'}
         </Button>
       ) : null}
     </div>
@@ -2071,50 +2120,45 @@ function EmptyRows({
 function Pagination({
   page,
   pageCount,
-  total,
   onPageChange,
 }: {
   page: number;
   pageCount: number;
-  total: number;
   onPageChange: (page: number) => void;
 }) {
   const { fmt } = useLocale();
+  if (pageCount <= 1) return null;
   return (
-    <div className="border-border flex h-11 shrink-0 items-center justify-between gap-3 border-t px-3">
-      <p className="text-muted-foreground text-xs tabular-nums">
-        {fmt.number(total)} row{total === 1 ? '' : 's'}
-      </p>
-      {/* A single page needs no pager: two dead arrows and "Page 1 of 1"
-          are chrome that says nothing. */}
-      {pageCount > 1 ? (
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            disabled={page === 0}
-            aria-label="Previous page"
-            onClick={() => onPageChange(page - 1)}
-          >
-            <ChevronLeft className="size-4" />
-          </Button>
-          <span className="text-muted-foreground px-2 text-xs tabular-nums">
-            Page {page + 1} of {pageCount}
-          </span>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            disabled={page >= pageCount - 1}
-            aria-label="Next page"
-            onClick={() => onPageChange(page + 1)}
-          >
-            <ChevronRight className="size-4" />
-          </Button>
-        </div>
-      ) : null}
-    </div>
+    <nav
+      aria-label="Import row pages"
+      className="border-border flex h-11 shrink-0 items-center justify-end border-t px-3"
+    >
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          disabled={page === 0}
+          aria-label="Previous page"
+          onClick={() => onPageChange(page - 1)}
+        >
+          <ChevronLeft className="size-4" />
+        </Button>
+        <span className="text-muted-foreground px-2 text-xs tabular-nums">
+          Page {fmt.number(page + 1)} of {fmt.number(pageCount)}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          disabled={page >= pageCount - 1}
+          aria-label="Next page"
+          onClick={() => onPageChange(page + 1)}
+        >
+          <ChevronRight className="size-4" />
+        </Button>
+      </div>
+    </nav>
   );
 }
 

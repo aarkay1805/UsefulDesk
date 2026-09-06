@@ -165,6 +165,31 @@ function renderPreview(
 }
 
 describe('ImportMembersPreview worksheet', () => {
+  it('keeps a clear way forward when the last review issue is resolved', async () => {
+    const user = userEvent.setup();
+    const rows = candidates([input(2, { amountPaid: '500', balance: '100' })]);
+    const { rerender, ...props } = renderPreview(rows);
+    await user.click(
+      within(screen.getByTestId('member-import-mobile')).getByRole('button', {
+        name: 'Review Member 2, source row 2',
+      })
+    );
+    const corrected = resolvePaymentConflict(
+      rows,
+      rows[0].sourceKey,
+      'manual',
+      { paid: '500', balance: '700' },
+      { plans, dateOrder: 'DMY', today: '2026-07-11' }
+    );
+    rerender(<ImportMembersPreview {...props} candidates={corrected} />);
+    expect(screen.getByText('All included rows are ready')).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Row inspector' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Review ready rows' }));
+    expect(
+      within(screen.getByRole('table')).getByText('Member 2')
+    ).toBeTruthy();
+  });
+
   it('opens the needs-review worksheet beside its resolver and keeps ready rows reachable', async () => {
     const user = userEvent.setup();
     renderPreview(
@@ -221,7 +246,9 @@ describe('ImportMembersPreview worksheet', () => {
     await user.clear(phones[1]);
     await user.type(phones[1], '5550000055');
     await user.click(
-      within(issue).getByRole('button', { name: 'Save & resolve' })
+      within(
+        screen.getByRole('group', { name: 'Resolution actions' })
+      ).getByRole('button', { name: 'Save & resolve' })
     );
     expect(onPatch).toHaveBeenCalledWith('sheet:3', { phone: '+15550000055' });
     expect(screen.getByRole('table')).toBeTruthy();
@@ -497,7 +524,11 @@ describe('ImportMembersPreview worksheet', () => {
     expect(within(preview).getByText('$700')).toBeTruthy();
     expect(within(preview).getByText('$500')).toBeTruthy();
     expect(onResolvePayment).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Save & next row' }));
+    const save = within(
+      screen.getByRole('group', { name: 'Resolution actions' })
+    ).getByRole('button', { name: 'Save & next row' });
+    expect(save.closest('[data-slot="scroll-area-viewport"]')).toBeNull();
+    await user.click(save);
     expect(onResolvePayment).toHaveBeenCalledWith('sheet:2', 'manual', {
       paid: '700',
       balance: '500',
@@ -620,6 +651,74 @@ describe('ImportMembersPreview worksheet', () => {
     expect(within(inspector).getByText('Service')).toBeTruthy();
     expect(within(inspector).getByText('$3500')).toBeTruthy();
     expect(within(inspector).getByText('2026-09-01')).toBeTruthy();
+    const actions = screen.getByRole('group', { name: 'Resolution actions' });
+    expect(
+      within(actions)
+        .getAllByRole('button')
+        .map((button) => button.textContent)
+    ).toEqual(['Edit phone', 'Exclude this row']);
+  });
+
+  it.each(['membership-history', 'summary-row', 'existing-member'] as const)(
+    'keeps an automatically excluded %s row read-only without an empty action footer',
+    (exclusionReason) => {
+      const rows = candidates([input(2)]);
+      rows[0] = {
+        ...rows[0],
+        disposition: 'excluded',
+        exclusionReason,
+        isReady: false,
+      };
+      renderPreview(rows);
+      expect(
+        screen.getByRole('region', { name: 'Row inspector' })
+      ).toBeTruthy();
+      expect(
+        screen.queryByRole('group', { name: 'Resolution actions' })
+      ).toBeNull();
+      expect(screen.queryByRole('button', { name: /^Include / })).toBeNull();
+    }
+  );
+
+  it('offers only reinclusion for a manually excluded row', async () => {
+    const user = userEvent.setup();
+    const rows = candidates([input(2)]);
+    rows[0] = {
+      ...rows[0],
+      disposition: 'excluded',
+      exclusionReason: 'manual',
+      isReady: false,
+    };
+    const { onSetDisposition } = renderPreview(rows);
+    const actions = screen.getByRole('group', { name: 'Resolution actions' });
+    const buttons = within(actions).getAllByRole('button');
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].textContent).toBe('Include this row');
+    await user.click(buttons[0]);
+    expect(onSetDisposition).toHaveBeenCalledWith('sheet:2', 'included');
+  });
+
+  it('omits Save when a service has no available mapping option', () => {
+    renderPreview(
+      candidates([
+        input(2, {
+          planName: '',
+          serviceName: 'Unlisted service',
+          serviceOption: '1 month',
+          serviceStart: '01/08/2026',
+          serviceSoldPrice: '1200',
+        }),
+      ])
+    );
+    expect(
+      screen.getByText(/No active service option matches this row/)
+    ).toBeTruthy();
+    const actions = screen.getByRole('group', { name: 'Resolution actions' });
+    expect(
+      within(actions)
+        .getAllByRole('button')
+        .map((button) => button.textContent)
+    ).toEqual(['Edit phone', 'Exclude this row']);
   });
 
   it('offers corrections for an invalid service purchase total', () => {
@@ -646,7 +745,8 @@ describe('ImportMembersPreview worksheet', () => {
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { fee: '4000' });
   });
 
-  it('makes notices readable even when a row is ready', () => {
+  it('makes notices available on demand even when a row is ready', async () => {
+    const user = userEvent.setup();
     const rows = candidates([input(2, { endDate: '20/02/2026' })]);
     const notice = rows[0].issues.find((issue) => issue.severity === 'notice');
     expect(notice).toBeTruthy();
@@ -654,10 +754,12 @@ describe('ImportMembersPreview worksheet', () => {
     expect(
       screen.getByRole('heading', { name: 'Import notices' })
     ).toBeTruthy();
+    expect(screen.queryByText(notice!.explanation)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Import notices' }));
     expect(screen.getByText(notice!.explanation)).toBeTruthy();
   });
 
-  it('clears search to review every excluded row and downloads source values with reasons', async () => {
+  it('reviews excluded rows through their filter and downloads source values with reasons', async () => {
     const user = userEvent.setup();
     const rows = candidates([input(2, { name: '=unsafe formula' }), input(3)]);
     rows[0] = {
@@ -668,9 +770,8 @@ describe('ImportMembersPreview worksheet', () => {
     };
     renderPreview(rows);
     await user.type(screen.getByRole('searchbox'), 'Member 3');
-    await user.click(
-      screen.getByRole('button', { name: 'Review excluded rows' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    await user.click(screen.getByRole('button', { name: /^Excluded/ }));
     expect(
       within(screen.getByRole('table')).getByText('=unsafe formula')
     ).toBeTruthy();

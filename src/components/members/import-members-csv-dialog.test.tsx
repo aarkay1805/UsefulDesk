@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import {
   afterEach,
@@ -216,9 +222,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       )
     );
 
-    expect(
-      screen.getByText('Click to choose a CSV or Excel file')
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choose file' })).toBeTruthy();
     expect(screen.queryByText('unsaved-members.csv')).toBeNull();
     expect(
       (
@@ -317,7 +321,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
 
     await user.click(screen.getByRole('button', { name: 'Start fresh' }));
 
-    expect(screen.getAllByText(/August members\.xlsx/)).toHaveLength(2);
+    expect(screen.getByText(/August members\.xlsx/)).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Delete draft and start fresh' })
     ).toBeTruthy();
@@ -354,6 +358,16 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       inspector.querySelector('[data-slot="scroll-area-viewport"]')
     ).toBeTruthy();
 
+    const rowsPanel = screen.getByRole('region', { name: 'Import rows panel' });
+    expect(
+      within(rowsPanel).getByRole('heading', { name: 'Import members' })
+    ).toBeTruthy();
+    expect(
+      within(rowsPanel).getByRole('button', { name: 'Back' })
+    ).toBeTruthy();
+    expect(inspector.contains(rowsPanel)).toBe(false);
+    expect(rowsPanel.contains(inspector)).toBe(false);
+
     // Step 3 is a two-pane workspace: the step frame itself must not scroll,
     // or the tab strip and both panes ride one shared column scroll.
     const frameClasses = screen
@@ -363,11 +377,15 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     expect(frameClasses).not.toContain('overflow-y-auto');
   });
 
-  it('keeps a grouped resolution when navigating from Confirm back to Resolve issues', async () => {
+  it('keeps draft utilities throughout the wizard and preserves grouped corrections on Back', async () => {
     const user = userEvent.setup();
-    render(
-      <ImportMembersCsvDialog open onOpenChange={vi.fn()} onSaved={vi.fn()} />
-    );
+    const props = { open: true, onOpenChange: vi.fn(), onSaved: vi.fn() };
+    const view = render(<ImportMembersCsvDialog {...props} />);
+    const expectDraftUtilities = () => {
+      expect(screen.getByRole('button', { name: 'Start fresh' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Import rules' })).toBeTruthy();
+      expect(screen.getByText('Draft saved')).toBeTruthy();
+    };
     const input =
       document.querySelector<HTMLInputElement>('input[type="file"]');
     expect(input).toBeTruthy();
@@ -382,14 +400,32 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       )
     );
 
+    draftHook.draft = {
+      id: 'draft-new',
+      revision: 1,
+      sourceFilename: 'members.csv',
+      state: {},
+    };
+    draftHook.saveState = 'saved';
+    view.rerender(<ImportMembersCsvDialog {...props} />);
+    expectDraftUtilities();
+    expect(screen.getByRole('button', { name: 'Save & close' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Import rules' }));
+    expect(await screen.findByText('Before you import')).toBeTruthy();
+    await user.keyboard('{Escape}');
+
     await user.click(
       await screen.findByRole('button', { name: 'Map manually' })
     );
+    expectDraftUtilities();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Preview 1 row' }));
 
     const planSelect = await screen.findByRole('combobox', {
       name: /^Map /,
     });
+    expectDraftUtilities();
+    expect(screen.queryByRole('button', { name: 'Next: Confirm' })).toBeNull();
     planSelect.focus();
     await user.keyboard('{ArrowDown}{Enter}');
     await user.click(screen.getByRole('button', { name: 'Save mapping' }));
@@ -405,8 +441,19 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
 
     await user.click(screen.getByRole('button', { name: 'Next: Confirm' }));
     expect(
-      screen.getByText('Review the exact source equation and confirm.')
+      screen.getByText('Check what will be imported, then confirm.')
     ).toBeTruthy();
+    expectDraftUtilities();
+    const submit = screen.getByRole('button', {
+      name: 'Import 1 member',
+    }) as HTMLButtonElement;
+    expect(submit.disabled).toBe(true);
+    await user.click(screen.getByRole('checkbox'));
+    expect(submit.disabled).toBe(false);
+    await user.click(
+      screen.getByRole('button', { name: 'Source rows & invoice details' })
+    );
+    expect(screen.getByText('Automatically excluded')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Back' }));
 
     expect(
@@ -415,5 +462,6 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       })
     ).toBeNull();
     expect(screen.getAllByText('Ready').length).toBeGreaterThan(0);
+    expectDraftUtilities();
   });
 });

@@ -6,6 +6,37 @@
 
 ---
 
+## Member import wizard distilled and polished
+
+The complete wizard now uses compact upload/confirmation/result layouts,
+accessible step progress, a shared mapping table, inline duplicate-field
+guidance, and concise draft status. File guidance and invoice/source breakdowns
+are available on demand. Resolve issues keeps its worksheet and corrections,
+adds Fee/Paid/Balance on phones, and shows a clear ready state after the last
+issue is fixed; excluded-row download lives in the Excluded view. The inspector
+keeps name/phone with row navigation, uses aligned shared outline buttons for
+correction and exclusion actions, and drops repeated row/member labels and
+review counts. All four steps share one footer: Back or Cancel/Save & close
+leads; draft status, Start fresh, and Import rules trail with the current
+primary action. On phones, utilities wrap above the navigation row. Confirmation
+counts unique customers rather than source rows, and failed/empty outcomes
+point to the receipt without claiming success. Code: `import-members-csv-dialog.tsx`
+and `import-members-preview.tsx` under `src/components/members/`. Existing import,
+draft, and transaction rules remain authoritative; no schema changes or live
+import. Shared UI masters are unchanged.
+
+Resolve issues now splits the entire modal: title, steps, worksheet, and draft
+navigation stay in the left panel; the right inspector spans the full height
+with its own member header, scroll area, and pinned resolution actions. The
+same action slot handles payment, phone, and grouped mapping saves without
+moving their form state. Phone navigation switches between the complete list
+and inspector, and import notices expand on demand. Grouped and individual
+exclusion scopes are preserved. The footer contracts to its available actions:
+a single edit fills the row, manual exclusions get one full-width Include
+action, and automatic exclusions have no action footer. Save remains full-width
+when present; omitted actions reserve no space. Repeated worksheet row-count
+strips are removed; page navigation renders only for multiple pages.
+
 ## Member import uses a migration worksheet
 
 Issue-type accordions now lead the Needs review worksheet: Billing, Missing

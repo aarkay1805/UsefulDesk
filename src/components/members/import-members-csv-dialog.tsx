@@ -1,13 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertTriangle,
   ArrowLeftRight,
   CheckCircle,
   Download,
   FileText,
+  Info,
   Loader2,
   RotateCcw,
   Upload,
@@ -19,7 +19,13 @@ import { toast } from 'sonner';
 import { ImportMembersPreview } from './import-members-preview';
 import { useAccountStaff } from './use-account-staff';
 import { useMembershipPlans } from './use-membership-plans';
-import { Badge } from '@/components/ui/badge';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox, type ComboboxGroup } from '@/components/ui/combobox';
@@ -34,6 +40,21 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   Select,
   SelectContent,
@@ -1316,10 +1337,10 @@ export function ImportMembersCsvDialog({
   }
 
   const descriptions: Record<Step, string> = {
-    1: 'Upload a CSV or Excel workbook of members to begin.',
-    2: 'Map your file columns to member fields.',
+    1: 'Bring your members, memberships, and services into UsefulDesk.',
+    2: 'Check the matched fields. Skip any columns you don’t need.',
     3: 'Fix each issue, or exclude the rows it affects.',
-    4: 'Review the exact source equation and confirm.',
+    4: 'Check what will be imported, then confirm.',
   };
   const currentDescription =
     step === 3
@@ -1330,9 +1351,9 @@ export function ImportMembersCsvDialog({
   const resolveWorkspace = !result && step === 3;
   const draftStatusLabel =
     draftManager.saveState === 'saving'
-      ? 'Saving…'
+      ? 'Saving draft…'
       : draftManager.saveState === 'saved'
-        ? 'Saved just now'
+        ? 'Draft saved'
         : draftManager.saveState === 'conflict'
           ? 'Saved draft changed elsewhere'
           : draftManager.saveState === 'error'
@@ -1341,407 +1362,388 @@ export function ImportMembersCsvDialog({
               ? 'Loading saved draft…'
               : '';
 
+  const wizardHeader = (
+    <div className="shrink-0 space-y-5 px-4 py-5 sm:px-6">
+      <DialogHeader className="gap-1.5">
+        <DialogTitle size="lg">Import members</DialogTitle>
+        <DialogDescription className="pr-4 break-words" aria-live="polite">
+          {result ? 'Review your import results below.' : currentDescription}
+        </DialogDescription>
+      </DialogHeader>
+      {!result && <StepIndicator step={step} />}
+      {resumeError ? (
+        <p className="text-destructive text-sm" role="alert">
+          {resumeError}
+        </p>
+      ) : null}
+    </div>
+  );
+  const backButton = (
+    <Button
+      type="button"
+      variant="outline"
+      loading={step === 1 && draftAction === 'closing'}
+      disabled={importing || draftAction !== null}
+      onClick={() =>
+        step === 1
+          ? void requestClose()
+          : setStep((value) => (value - 1) as Step)
+      }
+    >
+      {step === 1 ? (draftManager.draft ? 'Save & close' : 'Cancel') : 'Back'}
+    </Button>
+  );
+  const hasPrimaryAction =
+    Boolean(result) || step !== 3 || candidateSummary.needsResolution === 0;
+  const primaryAction = result ? (
+    <Button type="button" onClick={() => onOpenChange(false)}>
+      Done
+    </Button>
+  ) : (
+    <>
+      {step === 1 && (
+        <Button
+          type="button"
+          disabled={readingFile || analyzing || !sourceRaw?.rows.length}
+          loading={analyzing}
+          onClick={analyzeFile}
+        >
+          <Wand2 className="size-4" />
+          Analyze file
+        </Button>
+      )}
+      {step === 2 && (
+        <Button
+          type="button"
+          disabled={
+            !validation.ok ||
+            plansLoading ||
+            staffLoading ||
+            serviceFactsLoading ||
+            loadingPreview
+          }
+          onClick={buildPreview}
+          loading={
+            loadingPreview ||
+            plansLoading ||
+            staffLoading ||
+            serviceFactsLoading
+          }
+        >
+          Preview {fmt.number(raw?.rows.length ?? 0)} row
+          {raw?.rows.length === 1 ? '' : 's'}
+        </Button>
+      )}
+
+      {step === 3 && candidateSummary.needsResolution === 0 && (
+        <Button
+          type="button"
+          disabled={
+            candidateSummary.needsResolution > 0 || candidateSummary.ready === 0
+          }
+          onClick={() => setStep(4)}
+        >
+          Next: Confirm
+        </Button>
+      )}
+
+      {step === 4 && (
+        <Button
+          type="button"
+          disabled={
+            !compliance ||
+            importing ||
+            readyRows.length === 0 ||
+            candidateSummary.needsResolution > 0
+          }
+          onClick={handleImport}
+          loading={importing}
+        >
+          Import {fmt.number(candidateSummary.uniqueCustomers)} member
+          {candidateSummary.uniqueCustomers === 1 ? '' : 's'}
+        </Button>
+      )}
+    </>
+  );
+  const wizardFooter = (
+    <DialogFooter
+      className={cn(
+        'mx-0 mt-0 mb-0 grid shrink-0 items-center',
+        result
+          ? 'grid-cols-[minmax(0,1fr)_auto]'
+          : 'grid-cols-[auto_minmax(0,1fr)]',
+        !result && hasPrimaryAction && 'sm:grid-cols-[auto_minmax(0,1fr)_auto]'
+      )}
+    >
+      {!result && (
+        <div className="col-start-1 row-start-2 sm:row-start-1">
+          {backButton}
+        </div>
+      )}
+      <div
+        className={cn(
+          'col-start-1 row-start-1 flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1.5',
+          !result && 'col-span-2 sm:col-span-1 sm:col-start-2'
+        )}
+      >
+        {(draftManager.saveState === 'error' || draftAction === 'retrying') &&
+        draftManager.draft ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-destructive text-xs">
+              Couldn’t save draft.
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              loading={draftAction === 'retrying'}
+              disabled={draftAction !== null}
+              onClick={() => void retryDraftSave()}
+            >
+              Retry
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setStartFreshConfirm(true)}
+            >
+              Discard draft
+            </Button>
+          </div>
+        ) : draftManager.saveState === 'conflict' && draftManager.draft ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-destructive text-xs">
+              This draft changed in another tab or device.
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              loading={draftAction === 'reloading'}
+              disabled={draftAction !== null}
+              onClick={() => void reloadSavedDraft()}
+            >
+              Reload saved draft
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setStartFreshConfirm(true)}
+            >
+              Start fresh
+            </Button>
+          </div>
+        ) : draftManager.draft && !result ? (
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            <span
+              className="text-muted-foreground shrink-0 text-xs whitespace-nowrap"
+              title={draftManager.draft.sourceFilename}
+              role="status"
+              aria-live="polite"
+            >
+              {draftStatusLabel}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setStartFreshConfirm(true)}
+            >
+              Start fresh
+            </Button>
+          </div>
+        ) : null}
+        {!result && (
+          <Popover>
+            <PopoverTrigger render={<Button variant="ghost" size="sm" />}>
+              <Info /> Import rules
+            </PopoverTrigger>
+            <PopoverContent side="top" align="end" className="w-80">
+              <p className="text-sm font-medium">Before you import</p>
+              <p className="text-muted-foreground text-sm">
+                Resolve every included row before confirming. Matched plan and
+                service choices apply to the matching rows named in the row
+                details. Older membership rows, summary rows, and existing
+                memberships are excluded automatically. Review each exclusion
+                before importing.
+              </p>
+            </PopoverContent>
+          </Popover>
+        )}
+        {step === 2 && !result && mappingIssue && (
+          <ValidationMessage>{mappingIssue}</ValidationMessage>
+        )}
+      </div>
+      {hasPrimaryAction && (
+        <div
+          className={cn(
+            'col-start-2 justify-self-end',
+            result ? 'row-start-1' : 'row-start-2 sm:col-start-3 sm:row-start-1'
+          )}
+        >
+          {primaryAction}
+        </div>
+      )}
+    </DialogFooter>
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
           className={cn(
-            'flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1200px,calc(100%-2rem))]',
+            'flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(720px,calc(100%-2rem))]',
+            !result && step === 2 && 'sm:max-w-[min(1040px,calc(100%-2rem))]',
             resolveWorkspace &&
               'h-[min(92dvh,880px)] sm:max-w-[min(1320px,calc(100%-2rem))]'
           )}
         >
-          <div className="border-border/80 shrink-0 space-y-4 border-b px-6 pt-6 pb-5">
-            <DialogHeader className="gap-1.5">
-              <DialogTitle size="lg">Import Members</DialogTitle>
-              <DialogDescription>
-                {result ? 'Import complete.' : currentDescription}
-              </DialogDescription>
-            </DialogHeader>
-            <StepIndicator step={result ? 4 : step} />
-            {resumeError ? (
-              <p className="text-destructive text-sm" role="alert">
-                {resumeError}
-              </p>
-            ) : null}
-          </div>
+          {resolveWorkspace ? (
+            <div
+              role="region"
+              aria-label="Resolve issues content"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              <ImportMembersPreview
+                header={wizardHeader}
+                footer={wizardFooter}
+                candidates={candidates}
+                context={candidateContext}
+                plans={plans}
+                catalogItems={catalogItems}
+                trainers={trainers}
+                onPatch={patchCandidate}
+                onResolveGroupedPlan={(sourceKeys, resolution) =>
+                  setCandidates((current) =>
+                    resolveGroupedPlan(
+                      current,
+                      sourceKeys,
+                      resolution,
+                      candidateContext
+                    )
+                  )
+                }
+                onResolveGroupedOffering={(sourceKeys, resolution) =>
+                  setCandidates((current) =>
+                    resolveGroupedOffering(
+                      current,
+                      sourceKeys,
+                      resolution,
+                      candidateContext
+                    )
+                  )
+                }
+                onResolveGroupedService={(sourceKeys, resolution) =>
+                  setCandidates((current) =>
+                    resolveGroupedService(
+                      current,
+                      sourceKeys,
+                      resolution,
+                      candidateContext
+                    )
+                  )
+                }
+                onResolvePayment={(sourceKey, resolution, correction) =>
+                  setCandidates((current) =>
+                    resolvePaymentConflict(
+                      current,
+                      sourceKey,
+                      resolution,
+                      correction,
+                      candidateContext
+                    )
+                  )
+                }
+                onResolveExistingContact={(sourceKey, resolution) =>
+                  setCandidates((current) =>
+                    resolveExistingContact(
+                      current,
+                      sourceKey,
+                      resolution,
+                      candidateContext
+                    )
+                  )
+                }
+                onSetDisposition={(sourceKey, disposition) =>
+                  patchCandidate(sourceKey, { disposition })
+                }
+              />
+            </div>
+          ) : (
+            <>
+              {wizardHeader}
+              <Separator />
 
-          <div
-            role={resolveWorkspace ? 'region' : undefined}
-            aria-label={resolveWorkspace ? 'Resolve issues content' : undefined}
-            /* Every other step is one scrolling column, so the body owns the
-               scrollport and the step's gutters. Step 3 is a two-pane
-               workspace that owns its own scrollports, so the body stops
-               scrolling and becomes the flex frame that hands them a height.
-               It has to be flex, not `h-full`: the dialog is max-height
-               clamped rather than height-set, so a percentage height here
-               resolves against an indefinite parent, collapses to `auto`,
-               and drops the tab strip, the queue rail, and the focused issue
-               into one shared column scroll. */
-            className={cn(
-              'min-h-0 flex-1',
-              resolveWorkspace
-                ? 'flex flex-col overflow-hidden'
-                : 'overflow-y-auto px-5 py-3'
-            )}
-          >
-            {result ? (
-              <ResultPanel result={result} />
-            ) : (
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={step}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.13, ease: 'easeOut' }}
-                  className={cn(
-                    'min-h-0',
-                    resolveWorkspace ? 'flex flex-1 flex-col' : 'shrink-0'
-                  )}
-                >
-                  {step === 1 && (
-                    <div className="space-y-3">
-                      <UploadStep
-                        file={file}
-                        readingFile={readingFile}
-                        raw={sourceRaw ?? raw}
-                        workbookSheets={workbookSheets}
-                        selectedSheet={selectedSheet}
-                        inputRef={fileInputRef}
-                        onFileChange={handleFileChange}
-                        onWorksheetChange={handleWorksheetChange}
-                      />
-                      {(sourceRaw ?? raw) && (
-                        <p className="text-muted-foreground text-xs">
-                          Analysis is local-first. Only headers and aggregate
-                          type, blank, distinct, and format counts may leave
-                          this browser—never names, phones, IDs, notes, sample
-                          values, or raw financial values.
-                        </p>
+              <div
+                /* A bounded flex frame lets each step's ScrollArea shrink while
+               the header and footer stay put. Resolve owns two scrollports. */
+                className="flex min-h-0 flex-1 flex-col overflow-hidden"
+              >
+                <ImportStepBody>
+                  {result ? (
+                    <ResultPanel result={result} />
+                  ) : (
+                    <div key={step} className="min-h-0 shrink-0">
+                      {step === 1 && (
+                        <div className="space-y-3">
+                          <UploadStep
+                            file={file}
+                            readingFile={readingFile}
+                            raw={sourceRaw ?? raw}
+                            workbookSheets={workbookSheets}
+                            selectedSheet={selectedSheet}
+                            inputRef={fileInputRef}
+                            onFileChange={handleFileChange}
+                            onWorksheetChange={handleWorksheetChange}
+                            onMapManually={() => setStep(2)}
+                            analyzing={analyzing}
+                          />
+                        </div>
+                      )}
+                      {step === 2 && raw && (
+                        <MappingStep
+                          raw={raw}
+                          targets={targets}
+                          targetByKey={targetByKey}
+                          mapping={mapping}
+                          samples={samples}
+                          duplicateKeys={duplicateKeys}
+                          ambiguousDateCols={ambiguousDateCols}
+                          dateOrder={dateOrder}
+                          phoneDialCode={locale.phoneCountryCode}
+                          canCreateFields={canEditSettings}
+                          onSetColumn={setColumn}
+                          onToggleDateOrder={() =>
+                            setDateOrder((value) =>
+                              value === 'DMY' ? 'MDY' : 'DMY'
+                            )
+                          }
+                          onAutoMap={remapFromColumnNames}
+                          onReset={() =>
+                            setMapping(raw.headers.map(() => MEMBER_IGNORE_KEY))
+                          }
+                          onRequestCreateField={requestCreateField}
+                        />
+                      )}
+
+                      {step === 4 && (
+                        <ConfirmStep
+                          candidates={candidates}
+                          compliance={compliance}
+                          progress={importProgress}
+                          onComplianceChange={setCompliance}
+                        />
                       )}
                     </div>
                   )}
-                  {step === 2 && raw && (
-                    <MappingStep
-                      raw={raw}
-                      targets={targets}
-                      targetByKey={targetByKey}
-                      mapping={mapping}
-                      samples={samples}
-                      duplicateKeys={duplicateKeys}
-                      ambiguousDateCols={ambiguousDateCols}
-                      dateOrder={dateOrder}
-                      phoneDialCode={locale.phoneCountryCode}
-                      canCreateFields={canEditSettings}
-                      onSetColumn={setColumn}
-                      onToggleDateOrder={() =>
-                        setDateOrder((value) =>
-                          value === 'DMY' ? 'MDY' : 'DMY'
-                        )
-                      }
-                      onAutoMap={remapFromColumnNames}
-                      onReset={() =>
-                        setMapping(raw.headers.map(() => MEMBER_IGNORE_KEY))
-                      }
-                      onRequestCreateField={requestCreateField}
-                    />
-                  )}
-                  {step === 3 && (
-                    <ImportMembersPreview
-                      candidates={candidates}
-                      context={candidateContext}
-                      plans={plans}
-                      catalogItems={catalogItems}
-                      trainers={trainers}
-                      onPatch={patchCandidate}
-                      onResolveGroupedPlan={(sourceKeys, resolution) =>
-                        setCandidates((current) =>
-                          resolveGroupedPlan(
-                            current,
-                            sourceKeys,
-                            resolution,
-                            candidateContext
-                          )
-                        )
-                      }
-                      onResolveGroupedOffering={(sourceKeys, resolution) =>
-                        setCandidates((current) =>
-                          resolveGroupedOffering(
-                            current,
-                            sourceKeys,
-                            resolution,
-                            candidateContext
-                          )
-                        )
-                      }
-                      onResolveGroupedService={(sourceKeys, resolution) =>
-                        setCandidates((current) =>
-                          resolveGroupedService(
-                            current,
-                            sourceKeys,
-                            resolution,
-                            candidateContext
-                          )
-                        )
-                      }
-                      onResolvePayment={(sourceKey, resolution, correction) =>
-                        setCandidates((current) =>
-                          resolvePaymentConflict(
-                            current,
-                            sourceKey,
-                            resolution,
-                            correction,
-                            candidateContext
-                          )
-                        )
-                      }
-                      onResolveExistingContact={(sourceKey, resolution) =>
-                        setCandidates((current) =>
-                          resolveExistingContact(
-                            current,
-                            sourceKey,
-                            resolution,
-                            candidateContext
-                          )
-                        )
-                      }
-                      onSetDisposition={(sourceKey, disposition) =>
-                        patchCandidate(sourceKey, { disposition })
-                      }
-                    />
-                  )}
-                  {step === 4 && (
-                    <ConfirmStep
-                      candidates={candidates}
-                      compliance={compliance}
-                      progress={importProgress}
-                      onComplianceChange={setCompliance}
-                    />
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            )}
-          </div>
+                </ImportStepBody>
+              </div>
 
-          <DialogFooter className="border-border/80 bg-background/50 mx-0 mt-0 mb-0 shrink-0 items-center gap-2 border-t px-6 py-4 sm:justify-between">
-            {/* The whole draft story — saved, failing, conflicted — plus the
-                step's own aside, on one wrapping row. Block children stacked
-                a second line into a footer that is fixed against a height
-                constrained dialog. */}
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5">
-              {(draftManager.saveState === 'error' ||
-                draftAction === 'retrying') &&
-              draftManager.draft ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-destructive text-xs">
-                    Couldn’t save draft.
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    loading={draftAction === 'retrying'}
-                    disabled={draftAction !== null}
-                    onClick={() => void retryDraftSave()}
-                  >
-                    Retry
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setStartFreshConfirm(true)}
-                  >
-                    Discard draft
-                  </Button>
-                </div>
-              ) : draftManager.saveState === 'conflict' &&
-                draftManager.draft ? (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-destructive text-xs">
-                    This draft changed in another tab or device.
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    loading={draftAction === 'reloading'}
-                    disabled={draftAction !== null}
-                    onClick={() => void reloadSavedDraft()}
-                  >
-                    Reload saved draft
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setStartFreshConfirm(true)}
-                  >
-                    Start fresh
-                  </Button>
-                </div>
-              ) : draftManager.draft && !result ? (
-                /* The resting state of the same draft the two branches above
-                   report on, so all three read from one place instead of the
-                   quiet one sitting in the header as a second title block. It
-                   is confirmation rather than a decision, so it stays quiet
-                   and the filename is the part that gives way. */
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                  <span
-                    className="text-foreground min-w-0 truncate text-xs font-medium"
-                    title={draftManager.draft.sourceFilename}
-                  >
-                    {/* On a phone the connector word would eat the whole line
-                        and truncate away the one thing worth reading. `Start
-                        fresh` beside it already says a draft is in progress. */}
-                    <span className="text-muted-foreground hidden font-normal sm:inline">
-                      Continuing{' '}
-                    </span>
-                    {draftManager.draft.sourceFilename}
-                  </span>
-                  <span
-                    className="text-muted-foreground shrink-0 text-xs whitespace-nowrap"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {draftStatusLabel}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setStartFreshConfirm(true)}
-                  >
-                    Start fresh
-                  </Button>
-                </div>
-              ) : null}
-              {step === 1 && !result && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() =>
-                    downloadCsv('members-template.csv', MEMBER_TEMPLATE_CSV)
-                  }
-                >
-                  <Download className="size-4" /> Sample CSV
-                </Button>
-              )}
-              {step === 2 && !result && mappingIssue && (
-                <ValidationMessage>{mappingIssue}</ValidationMessage>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              {result ? (
-                <Button type="button" onClick={() => onOpenChange(false)}>
-                  Done
-                </Button>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    loading={step === 1 && draftAction === 'closing'}
-                    disabled={importing || draftAction !== null}
-                    onClick={() =>
-                      step === 1
-                        ? void requestClose()
-                        : setStep((value) => (value - 1) as Step)
-                    }
-                  >
-                    {step === 1
-                      ? draftManager.draft
-                        ? 'Save & close'
-                        : 'Cancel'
-                      : 'Back'}
-                  </Button>
-                  {step === 1 && (
-                    <>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={readingFile || !sourceRaw?.rows.length}
-                        onClick={() => setStep(2)}
-                      >
-                        Map manually
-                      </Button>
-                      <Button
-                        type="button"
-                        disabled={
-                          readingFile || analyzing || !sourceRaw?.rows.length
-                        }
-                        onClick={analyzeFile}
-                      >
-                        {analyzing ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : (
-                          <Wand2 className="size-4" />
-                        )}
-                        Analyze file
-                      </Button>
-                    </>
-                  )}
-                  {step === 2 && (
-                    <Button
-                      type="button"
-                      disabled={
-                        !validation.ok ||
-                        plansLoading ||
-                        staffLoading ||
-                        serviceFactsLoading ||
-                        loadingPreview
-                      }
-                      onClick={buildPreview}
-                    >
-                      {(loadingPreview ||
-                        plansLoading ||
-                        staffLoading ||
-                        serviceFactsLoading) && (
-                        <Loader2 className="size-4 animate-spin" />
-                      )}
-                      Preview {raw?.rows.length ?? 0} row
-                      {raw?.rows.length === 1 ? '' : 's'}
-                    </Button>
-                  )}
-                  {step === 3 && candidateSummary.needsResolution > 0 && (
-                    <p className="text-muted-foreground text-xs">
-                      {candidateSummary.needsResolution} rows still need review
-                    </p>
-                  )}
-                  {step === 3 && candidateSummary.needsResolution === 0 && (
-                    <Button
-                      type="button"
-                      disabled={
-                        candidateSummary.needsResolution > 0 ||
-                        candidateSummary.ready === 0
-                      }
-                      onClick={() => setStep(4)}
-                    >
-                      Next: Confirm
-                    </Button>
-                  )}
-                  {step === 4 && (
-                    <Button
-                      type="button"
-                      disabled={
-                        !compliance ||
-                        importing ||
-                        readyRows.length === 0 ||
-                        candidateSummary.needsResolution > 0
-                      }
-                      onClick={handleImport}
-                    >
-                      {importing && <Loader2 className="size-4 animate-spin" />}
-                      Import {readyRows.length} member
-                      {readyRows.length === 1 ? '' : 's'}
-                    </Button>
-                  )}
-                </>
-              )}
-            </div>
-          </DialogFooter>
+              {wizardFooter}
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -1839,16 +1841,31 @@ export function ImportMembersCsvDialog({
   );
 }
 
+function ImportStepBody({ children }: { children: React.ReactNode }) {
+  return (
+    <ScrollArea className="min-h-0 flex-1">
+      <div className="px-4 py-5 sm:px-6">{children}</div>
+    </ScrollArea>
+  );
+}
+
 function StepIndicator({ step }: { step: Step }) {
   const labels = ['Upload', 'Map columns', 'Resolve issues', 'Confirm'];
   return (
-    <div className="flex items-center gap-2 overflow-x-auto">
+    <ol aria-label="Import progress" className="flex items-center gap-2">
       {labels.map((label, index) => {
         const number = (index + 1) as Step;
         const active = number === step;
         const done = number < step;
         return (
-          <div key={label} className="flex flex-1 items-center gap-2">
+          <li
+            key={label}
+            aria-current={active ? 'step' : undefined}
+            className={cn(
+              'flex items-center gap-2',
+              index < labels.length - 1 && 'flex-1'
+            )}
+          >
             <div
               className={cn(
                 'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-colors',
@@ -1873,14 +1890,17 @@ function StepIndicator({ step }: { step: Step }) {
               )}
             >
               {label}
+              <span className="sr-only">
+                {done ? ', completed' : active ? ', current step' : ''}
+              </span>
             </span>
             {index < labels.length - 1 && (
               <span className="bg-border mx-1 h-px flex-1" />
             )}
-          </div>
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }
 
@@ -1893,6 +1913,8 @@ function UploadStep({
   inputRef,
   onFileChange,
   onWorksheetChange,
+  onMapManually,
+  analyzing,
 }: {
   file: File | null;
   readingFile: boolean;
@@ -1902,77 +1924,89 @@ function UploadStep({
   inputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onWorksheetChange: (name: string) => void;
+  onMapManually: () => void;
+  analyzing: boolean;
 }) {
+  const { fmt } = useLocale();
   const usableSheetCount = workbookSheets.filter((sheet) => sheet.raw).length;
   const unavailableSheets = workbookSheets.filter((sheet) => sheet.error);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div
-        role="button"
-        tabIndex={readingFile ? -1 : 0}
-        aria-disabled={readingFile}
-        onClick={() => !readingFile && inputRef.current?.click()}
-        onKeyDown={(event) => {
-          if (!readingFile && (event.key === 'Enter' || event.key === ' ')) {
-            event.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
+        aria-busy={readingFile}
         className={cn(
-          'group flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-8 transition-colors',
-          file
-            ? 'border-primary/35 bg-primary/[0.04]'
-            : 'border-border/80 bg-background/40 hover:border-border-hover'
+          'flex min-w-0 gap-4',
+          file ? 'items-center' : 'flex-col items-center py-5 text-center'
         )}
       >
-        {readingFile ? (
+        {file ? (
           <>
-            <div className="bg-muted/80 ring-border/80 flex size-10 items-center justify-center rounded-lg ring-1">
-              <Loader2 className="text-muted-foreground size-5 animate-spin" />
+            <div className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-lg">
+              {readingFile ? (
+                <Loader2 className="size-5 animate-spin" />
+              ) : (
+                <FileText className="size-5" />
+              )}
             </div>
-            <p className="text-foreground max-w-full truncate px-2 text-sm font-medium">
-              {file?.name}
-            </p>
-            <p className="text-muted-foreground text-xs">Reading file…</p>
-          </>
-        ) : file ? (
-          <>
-            <div className="bg-primary/15 ring-primary/25 flex size-10 items-center justify-center rounded-lg ring-1">
-              <FileText className="text-primary-text size-5" />
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-foreground text-sm font-medium break-words">
+                {file.name}
+              </p>
+              <p
+                className="text-muted-foreground text-xs tabular-nums"
+                role="status"
+              >
+                {readingFile ? (
+                  'Reading file…'
+                ) : raw ? (
+                  <>
+                    {fmt.number(raw.rows.length)} row
+                    {raw.rows.length === 1 ? '' : 's'} ·{' '}
+                    {fmt.number(raw.headers.length)} column
+                    {raw.headers.length === 1 ? '' : 's'}
+                  </>
+                ) : workbookSheets.length > 0 ? (
+                  <>
+                    {fmt.number(workbookSheets.length)} worksheet
+                    {workbookSheets.length === 1 ? '' : 's'}
+                  </>
+                ) : null}
+              </p>
             </div>
-            <p className="text-foreground max-w-full truncate px-2 text-sm font-medium">
-              {file.name}
-            </p>
-            {raw ? (
-              <Badge variant="neutral">
-                {raw.rows.length} row{raw.rows.length === 1 ? '' : 's'} ·{' '}
-                {raw.headers.length} column
-                {raw.headers.length === 1 ? '' : 's'}
-              </Badge>
-            ) : workbookSheets.length > 0 ? (
-              <Badge variant="neutral">
-                {workbookSheets.length} worksheet
-                {workbookSheets.length === 1 ? '' : 's'}
-              </Badge>
-            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={readingFile}
+              onClick={() => inputRef.current?.click()}
+            >
+              Change file
+            </Button>
           </>
         ) : (
           <>
-            <div className="bg-muted/80 ring-border/80 flex size-10 items-center justify-center rounded-lg ring-1">
+            <div className="bg-muted flex size-10 items-center justify-center rounded-lg">
               <Upload className="text-muted-foreground size-5" />
             </div>
-            <p className="text-muted-foreground text-sm">
-              Click to choose a CSV or Excel file
-            </p>
-            <p className="text-muted-foreground text-xs">
-              Any column layout — you&apos;ll map fields next
-            </p>
+            <div className="space-y-1">
+              <p className="text-sm font-medium">Choose your member file</p>
+              <p className="text-muted-foreground text-sm">
+                CSV or Excel (.xlsx), in any column order.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+            >
+              Choose file
+            </Button>
           </>
         )}
       </div>
       {workbookSheets.length > 1 && (
-        <div className="mx-auto max-w-sm space-y-1.5">
+        <div className="space-y-1.5">
           <Label htmlFor="member-import-worksheet">Worksheet</Label>
           <Select
             value={selectedSheet || undefined}
@@ -2021,9 +2055,54 @@ function UploadStep({
           {workbookSheets[0].error}
         </p>
       )}
-      <p className="text-muted-foreground text-center text-xs">
-        Supports .csv and .xlsx. For legacy .xls files, save as .xlsx or .csv.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {!file && (
+          <p className="text-muted-foreground text-xs">
+            Need a starting point?
+          </p>
+        )}
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          onClick={() =>
+            downloadCsv('members-template.csv', MEMBER_TEMPLATE_CSV)
+          }
+        >
+          <Download /> Sample CSV
+        </Button>
+        {raw?.rows.length ? (
+          <Button
+            type="button"
+            variant="link"
+            size="sm"
+            disabled={readingFile || analyzing}
+            onClick={onMapManually}
+          >
+            Map manually
+          </Button>
+        ) : null}
+      </div>
+      <Accordion>
+        <AccordionItem value="file-guidance">
+          <AccordionTrigger>File requirements &amp; privacy</AccordionTrigger>
+          <AccordionContent>
+            <div className="text-muted-foreground space-y-3">
+              <p>
+                Include a phone number for every member, plus their plan or
+                service details. You can check the matched columns before
+                importing.
+              </p>
+              <p>For legacy .xls files, save as .xlsx or .csv.</p>
+              <p>
+                Your file is saved in a private draft. Analysis uses column
+                headers and summary counts; names, phone numbers, notes, and raw
+                values are not sent for analysis.
+              </p>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
       <input
         ref={inputRef}
         type="file"
@@ -2131,9 +2210,11 @@ function MappingStep({
                 }
               : null
           }
-          className={cn('text-xs', row.isDuplicate && 'border-destructive')}
           contentClassName="w-64"
         >
+          <span className="sr-only">
+            Map {row.header || `column ${row.column + 1}`} to:{' '}
+          </span>
           {/* Muted "Don't import" is the row's status; no status column needed. */}
           <span
             className={cn('truncate', !row.isMapped && 'text-muted-foreground')}
@@ -2143,6 +2224,12 @@ function MappingStep({
               : "Don't import"}
           </span>
         </Combobox>
+        {row.isDuplicate && (
+          <ValidationMessage>
+            This field is matched more than once. Choose a different field or
+            skip this column.
+          </ValidationMessage>
+        )}
         {row.key === 'phone' && (
           <p className="text-muted-foreground mt-1 text-xs">
             Existing members are matched on this column. Local numbers get{' '}
@@ -2154,7 +2241,7 @@ function MappingStep({
   }
 
   return (
-    <div className="space-y-2.5">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-muted-foreground text-xs">
@@ -2185,67 +2272,73 @@ function MappingStep({
           <Button type="button" size="sm" variant="outline" onClick={onAutoMap}>
             <Wand2 className="size-3.5" /> Auto map
           </Button>
-          <Button type="button" size="sm" variant="outline" onClick={onReset}>
+          <Button type="button" size="sm" variant="ghost" onClick={onReset}>
             <RotateCcw className="size-3.5" /> Reset
           </Button>
         </div>
       </div>
 
-      <div className="border-border overflow-hidden rounded-xl border">
+      <div>
         {/* Phone: one question per column, stacked. No sideways scroll to
             reach the picker, which is the only control on this step. */}
-        <ul className="divide-border/70 divide-y sm:hidden">
+        <ul className="sm:hidden">
           {rows.map((row) => (
-            <li key={row.column} className="space-y-1.5 px-3 py-3">
-              <p className="text-foreground truncate text-xs font-medium">
+            <li key={row.column} className="space-y-2 py-3">
+              <p className="text-foreground text-sm font-medium break-words">
                 {row.header || (
                   <span className="text-muted-foreground italic">
                     (unnamed)
                   </span>
                 )}
               </p>
-              <p className="text-muted-foreground truncate font-mono text-xs">
+              <p className="text-muted-foreground text-xs break-words">
                 {row.sample}
               </p>
               {renderPicker(row)}
+              <Separator />
             </li>
           ))}
         </ul>
 
-        <table className="hidden w-full table-fixed text-xs sm:table">
-          <thead>
-            <tr className="border-border bg-muted/40 border-b">
-              <th className="text-muted-foreground w-[26%] px-3 py-2 text-left font-medium">
-                File column
-              </th>
-              <th className="text-muted-foreground w-[32%] px-3 py-2 text-left font-medium">
-                Sample data
-              </th>
-              <th className="text-muted-foreground w-[42%] px-3 py-2 text-left font-medium">
-                Member field
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-border/70 divide-y">
+        <Table
+          containerClassName="hidden sm:block"
+          className="table-fixed"
+          aria-label="Column mapping"
+        >
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[25%]">File column</TableHead>
+              <TableHead className="w-[32%]">Sample data</TableHead>
+              <TableHead className="w-[43%]">Member field</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {rows.map((row) => (
-              <tr key={row.column} className="hover:bg-muted/30">
-                <td className="text-foreground truncate px-3 py-2 font-medium">
-                  {row.header || (
-                    <span className="text-muted-foreground italic">
-                      (unnamed)
-                    </span>
-                  )}
-                </td>
-                <td className="text-muted-foreground px-3 py-2">
-                  <span className="block truncate font-mono text-xs">
+              <TableRow key={row.column}>
+                <TableCell className="whitespace-normal">
+                  <span className="font-medium break-words">
+                    {row.header || (
+                      <span className="text-muted-foreground italic">
+                        (unnamed)
+                      </span>
+                    )}
+                  </span>
+                </TableCell>
+                <TableCell className="whitespace-normal">
+                  <span
+                    className="text-muted-foreground line-clamp-2 break-words"
+                    title={row.sample}
+                  >
                     {row.sample}
                   </span>
-                </td>
-                <td className="px-3 py-2">{renderPicker(row)}</td>
-              </tr>
+                </TableCell>
+                <TableCell className="py-3 whitespace-normal">
+                  {renderPicker(row)}
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
@@ -2267,17 +2360,17 @@ function ConfirmStep({
 
   return (
     <div className="space-y-5">
-      {progress && (
-        <div
-          className="border-border bg-muted/20 space-y-2 rounded-lg border p-4"
-          aria-live="polite"
-        >
+      {progress ? (
+        <div className="space-y-3" role="status">
           <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-foreground font-medium">
-              Importing members
-            </span>
-            <span className="text-muted-foreground shrink-0 tabular-nums">
-              {Math.round((progress.completed / progress.total) * 100)}%
+            <span className="font-medium">Importing members</span>
+            <span className="text-muted-foreground tabular-nums">
+              {fmt.number(
+                Math.round(
+                  (progress.completed / Math.max(1, progress.total)) * 100
+                )
+              )}
+              %
             </span>
           </div>
           <Progress
@@ -2285,120 +2378,159 @@ function ConfirmStep({
             max={progress.total}
             aria-label="Member import progress"
           />
-          <p className="text-muted-foreground text-xs">{progress.label}</p>
+          <p className="text-muted-foreground text-sm">{progress.label}</p>
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <h3 className="text-base font-medium">
+            {fmt.number(summary.uniqueCustomers)} member
+            {summary.uniqueCustomers === 1 ? '' : 's'} ready to import
+          </h3>
+          <p className="text-muted-foreground text-sm">
+            {fmt.number(summary.ready)} of {fmt.number(summary.source)} source
+            rows included
+            {summary.exclusions > 0
+              ? ` · ${fmt.number(summary.exclusions)} excluded`
+              : ''}
+            .
+          </p>
         </div>
       )}
-      <div className="border-border bg-background/40 rounded-lg border p-4">
-        <p className="text-foreground text-sm font-medium">
-          Exact source equation
-        </p>
-        <p className="text-muted-foreground mt-1 text-sm tabular-nums">
-          {fmt.number(summary.source)} source rows = {fmt.number(summary.ready)}{' '}
-          ready + {fmt.number(summary.needsResolution)} needs resolution +{' '}
-          {fmt.number(summary.automaticExcluded)} automatic exclusions +{' '}
-          {fmt.number(summary.explicitlyExcluded)} explicit exclusions
-        </p>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="Unique customers" value={summary.uniqueCustomers} />
-        <SummaryCard label="Memberships" value={summary.memberships} />
-        <SummaryCard label="Services" value={summary.services} />
-        <SummaryCard
-          label="Combined invoices"
-          value={summary.combinedInvoices}
-        />
-        <SummaryCard
-          label="Service-only invoices"
-          value={summary.serviceOnlyInvoices}
-        />
-        <SummaryCard label="Payments" value={summary.payments} />
-        <SummaryCard label="Exclusions" value={summary.exclusions} />
-        <SummaryCard label="Unresolved rows" value={summary.needsResolution} />
-      </div>
-      <label className="border-border flex items-start gap-3 rounded-lg border p-4">
+      <dl className="grid grid-cols-3 gap-4">
+        <SummaryValue label="Memberships" value={summary.memberships} />
+        <SummaryValue label="Services" value={summary.services} />
+        <SummaryValue label="Payments" value={summary.payments} />
+      </dl>
+      <Accordion>
+        <AccordionItem value="import-breakdown">
+          <AccordionTrigger>Source rows &amp; invoice details</AccordionTrigger>
+          <AccordionContent>
+            <dl className="space-y-3">
+              {(
+                [
+                  ['Ready rows', summary.ready],
+                  ['Unresolved rows', summary.needsResolution],
+                  ['Automatically excluded', summary.automaticExcluded],
+                  ['Excluded by you', summary.explicitlyExcluded],
+                  ['Combined invoices', summary.combinedInvoices],
+                  ['Service-only invoices', summary.serviceOnlyInvoices],
+                ] as const
+              ).map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-4 text-sm">
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd className="tabular-nums">{fmt.number(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+      <div className="flex items-start gap-3">
         <Checkbox
+          id="member-import-confirm"
           checked={compliance}
           onCheckedChange={(value) => onComplianceChange(value === true)}
         />
-        <span className="text-foreground text-sm">
+        <label
+          htmlFor="member-import-confirm"
+          className="text-sm leading-relaxed"
+        >
           I confirm this gym is allowed to store and contact the people in this
-          file, and I have reviewed the rows above.
-        </span>
-      </label>
+          file, and I have reviewed the import details.
+        </label>
+      </div>
     </div>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryValue({ label, value }: { label: string; value: number }) {
+  const { fmt } = useLocale();
   return (
-    <div className="border-border bg-background/40 rounded-lg border p-3">
-      <p className="text-muted-foreground text-xs">{label}</p>
-      <p className="text-foreground mt-1 text-xl font-semibold tabular-nums">
-        {value}
-      </p>
+    <div className="space-y-1">
+      <dt className="text-muted-foreground text-xs">{label}</dt>
+      <dd className="text-base font-medium tabular-nums">
+        {fmt.number(value)}
+      </dd>
     </div>
   );
 }
 
 function ResultPanel({ result }: { result: ImportResult }) {
+  const { fmt } = useLocale();
   const successful = result.imported + result.attached;
+  const needsAttention =
+    result.failed > 0 || result.paymentFailed > 0 || result.statusFailed > 0;
+  const StatusIcon = needsAttention ? AlertTriangle : CheckCircle;
   return (
     <div className="space-y-5">
-      <div className="flex flex-col items-center gap-3 py-4 text-center">
-        <div className="flex size-12 items-center justify-center rounded-full bg-emerald-500/10">
-          <CheckCircle className="text-emerald-foreground size-6" />
-        </div>
-        <div>
-          <p className="text-foreground text-lg font-semibold">
-            {successful} customer{successful === 1 ? '' : 's'} imported
-          </p>
+      <div className="flex items-start gap-3">
+        <StatusIcon
+          className={cn(
+            'mt-0.5 size-5 shrink-0',
+            needsAttention ? 'text-amber-foreground' : 'text-emerald-foreground'
+          )}
+        />
+        <div className="space-y-1">
+          <h3 className="text-base font-medium">
+            {successful > 0
+              ? `${fmt.number(successful)} customer${successful === 1 ? '' : 's'} imported`
+              : 'No customers imported'}
+          </h3>
           <p className="text-muted-foreground text-sm">
-            The Members action lists are ready to use.
+            {needsAttention
+              ? 'Some records need attention. Download the receipt to review them.'
+              : successful > 0
+                ? 'Your imported members are available in Members.'
+                : 'Download the receipt to review the outcome of each row.'}
           </p>
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <SummaryCard label="New customers" value={result.imported} />
-        <SummaryCard label="Existing customers" value={result.attached} />
-        <SummaryCard label="Payments recorded" value={result.payments} />
-        <SummaryCard label="Skipped" value={result.skipped + result.invalid} />
-      </div>
-      {(result.failed > 0 ||
-        result.paymentFailed > 0 ||
-        result.statusFailed > 0) && (
-        <div className="border-border bg-background/40 text-amber-foreground flex items-start gap-2 rounded-lg border p-3 text-sm">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>
-            {result.failed > 0 && `${result.failed} customer groups failed. `}
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <SummaryValue label="New customers" value={result.imported} />
+        <SummaryValue label="Existing customers" value={result.attached} />
+        <SummaryValue label="Payments recorded" value={result.payments} />
+        <SummaryValue label="Skipped" value={result.skipped + result.invalid} />
+      </dl>
+      {needsAttention && (
+        <Alert>
+          <AlertTriangle />
+          <AlertTitle>Review incomplete records</AlertTitle>
+          <AlertDescription>
+            {result.failed > 0 &&
+              `${fmt.number(result.failed)} customer group${result.failed === 1 ? '' : 's'} failed. `}
+            {result.paymentFailed > 0 &&
+              `${fmt.number(result.paymentFailed)} payment${result.paymentFailed === 1 ? '' : 's'} could not be recorded. `}
             {result.statusFailed > 0 &&
-              `${result.statusFailed} imported cancellations need their status corrected.`}
-          </span>
-        </div>
+              `${fmt.number(result.statusFailed)} imported cancellation${result.statusFailed === 1 ? ' needs' : 's need'} a status correction.`}
+          </AlertDescription>
+        </Alert>
       )}
       {(result.tagsAssigned > 0 || result.customValues > 0) && (
-        <p className="text-muted-foreground text-center text-xs">
-          {result.tagsAssigned} tag assignments · {result.customValues} custom
-          values saved
+        <p className="text-muted-foreground text-xs">
+          {fmt.number(result.tagsAssigned)} tag assignments ·{' '}
+          {fmt.number(result.customValues)} custom values saved
         </p>
       )}
-      <div className="flex justify-center">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            downloadCsv('member-import-receipt.csv', result.receiptCsv)
-          }
-        >
-          <Download className="size-4" /> Download CSV receipt
-        </Button>
-      </div>
+      <Separator />
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() =>
+          downloadCsv('member-import-receipt.csv', result.receiptCsv)
+        }
+      >
+        <Download /> Download CSV receipt
+      </Button>
     </div>
   );
 }
 
 function ValidationMessage({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-red-foreground flex items-center gap-1.5 text-xs">
+    <p
+      role="alert"
+      className="text-red-foreground flex items-start gap-1.5 text-xs"
+    >
       <XCircle className="size-3.5 shrink-0" /> {children}
     </p>
   );
