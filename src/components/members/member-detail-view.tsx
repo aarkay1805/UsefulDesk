@@ -1972,27 +1972,33 @@ function MembershipDetailView({
 
         {membership && membership.id === membershipId && (
           <>
-            <RenewMembershipDialog
-              open={renewOpen}
-              onOpenChange={setRenewOpen}
-              membership={membership}
-              outstandingBalance={outstandingBalance}
-              onSaved={refreshAll}
-            />
-            <RenewMembershipDialog
-              open={convertOpen}
-              onOpenChange={setConvertOpen}
-              membership={membership}
-              variant="convert"
-              onSaved={refreshAll}
-            />
-            <ChangePlanDialog
-              open={changePlanOpen}
-              onOpenChange={setChangePlanOpen}
-              membership={membership}
-              currentInvoice={currentInvoice}
-              onSaved={refreshAll}
-            />
+            {renewOpen && (
+              <RenewMembershipDialog
+                open={renewOpen}
+                onOpenChange={setRenewOpen}
+                membership={membership}
+                outstandingBalance={outstandingBalance}
+                onSaved={refreshAll}
+              />
+            )}
+            {convertOpen && (
+              <RenewMembershipDialog
+                open={convertOpen}
+                onOpenChange={setConvertOpen}
+                membership={membership}
+                variant="convert"
+                onSaved={refreshAll}
+              />
+            )}
+            {changePlanOpen && (
+              <ChangePlanDialog
+                open={changePlanOpen}
+                onOpenChange={setChangePlanOpen}
+                membership={membership}
+                currentInvoice={currentInvoice}
+                onSaved={refreshAll}
+              />
+            )}
             <SetUpAutoPayDialog
               open={autoPayOpen}
               onOpenChange={setAutoPayOpen}

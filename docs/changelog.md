@@ -8,6 +8,14 @@
 
 ## UsefulDesk trial access and platform administration
 
+Member-detail renewal, trial-conversion, and plan-change dialogs now mount only
+while open, so opening a member no longer starts three closed-dialog catalogue
+reads. `use-membership-plans` and `use-account-staff` share branch-keyed
+results and in-flight reads, surface safe load errors, and refresh existing
+pickers after plan/profile mutations without leaking a prior branch's data.
+Code: `src/components/members/{member-detail-view,use-membership-plans,use-account-staff}.tsx`
+and `src/components/settings/{plans-settings,profile-form}.tsx`.
+
 Web Inbox now reads conversations in bounded, server-filtered keyset pages and
 offers a continuation control instead of materializing the account's full
 conversation list. Opening a thread starts from the newest 50 messages under a

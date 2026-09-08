@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { UserAvatar } from '@/components/ui/user-avatar';
+import { invalidateAccountStaff } from '@/components/members/use-account-staff';
 import { SettingsPanelHead } from './settings-panel-head';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
@@ -24,7 +25,8 @@ const ALLOWED_MIME = new Set([
 ]);
 
 export function ProfileForm() {
-  const { user, profile, profileLoading, refreshProfile } = useAuth();
+  const { user, profile, profileLoading, refreshProfile, accountId } =
+    useAuth();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -143,6 +145,7 @@ export function ProfileForm() {
       if (!updatedProfiles?.length) {
         throw new Error('Your profile could not be updated. Try again.');
       }
+      if (accountId) invalidateAccountStaff(accountId);
 
       setPendingAvatar(null);
       setPreviewUrl(null);

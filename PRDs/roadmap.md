@@ -2,6 +2,13 @@
 
 ## Web release — UsefulDesk trials and platform administration
 
+Engineering maintenance: **member action pickers no longer fetch while their
+dialogs are closed.** Renew, trial conversion, and plan-change dialogs mount on
+demand; plan and staff consumers share branch-keyed results plus in-flight
+reads, retain safe error state, and explicitly refresh live pickers after plan
+catalogue mutations. A branch transition cannot reuse a previous branch's
+catalogue or staff list.
+
 Engineering maintenance: **member profile identity renders immediately after
 the authorized membership read.** Attendance, purchases, billing, and AutoPay
 now resolve independently with section-level loading/retry states; collection,

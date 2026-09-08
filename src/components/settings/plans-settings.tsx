@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { PlanTypeBadge } from '@/components/members/membership-status-badge';
 import { PlanEditorDialog } from './plan-editor-dialog';
+import { invalidateMembershipPlans } from '@/components/members/use-membership-plans';
 import { SettingsPanelHead } from './settings-panel-head';
 
 /** The one-click seed on an empty account: ONE recurring plan with three
@@ -113,6 +114,7 @@ export function PlansSettings() {
   }, [reloadNonce, supabase]);
 
   function refreshPlans() {
+    if (accountId) invalidateMembershipPlans(accountId);
     setLoading(true);
     setReloadNonce((nonce) => nonce + 1);
   }
