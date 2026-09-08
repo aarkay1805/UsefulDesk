@@ -222,6 +222,19 @@ function startsNewRun(
   return gapMs > RUN_BREAK_MINUTES * 60_000;
 }
 
+/** Reconcile a catch-up page without dropping realtime or optimistic state. */
+export function reconcileResyncedMessages(
+  current: Message[],
+  newestPage: Message[]
+): Message[] {
+  const byId = new Map(current.map((message) => [message.id, message]));
+  for (const message of newestPage) byId.set(message.id, message);
+  return [...byId.values()].sort(
+    (a, b) =>
+      a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)
+  );
+}
+
 export function MessageThread({
   conversation,
   contact,
@@ -349,8 +362,18 @@ export function MessageThread({
     onMessagesLoadedRef.current = onMessagesLoaded;
   });
 
+  // A background resync races realtime delivery and optimistic sends. Keep a
+  // current snapshot in a ref so the async completion can reconcile with the
+  // latest parent-owned state without making the fetch effect refire whenever
+  // that state changes.
+  const messagesRef = useRef(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   const conversationId = conversation?.id;
   const hasUnread = (conversation?.unread_count ?? 0) > 0;
+  const loadedConversationIdRef = useRef<string | undefined>(undefined);
 
   // Clear the jump-to-latest affordance when the thread changes. Adjusted
   // during render through a synced-prop guard rather than in an effect —
@@ -373,9 +396,13 @@ export function MessageThread({
 
     const supabase = createClient();
     let cancelled = false;
+    // A token bump for the same conversation is a background catch-up, not a
+    // new thread. Keep the bubbles readable while it runs; a conversation
+    // switch still gets the loading boundary so no previous thread leaks in.
+    const isInitialLoad = loadedConversationIdRef.current !== conversationId;
 
     (async () => {
-      setLoading(true);
+      if (isInitialLoad) setLoading(true);
 
       // Fetch newest first so a provider row cap can never turn an active
       // thread into an old, apparently-current conversation. Rendering keeps
@@ -396,15 +423,27 @@ export function MessageThread({
         const rows = (data ?? []) as Message[];
         const page = rows.slice(0, MESSAGE_PAGE_SIZE);
         const oldest = page[page.length - 1];
-        setOlderCursor(
+        const nextCursor =
           rows.length > MESSAGE_PAGE_SIZE && oldest
             ? { createdAt: oldest.created_at, id: oldest.id }
-            : null
-        );
-        onMessagesLoadedRef.current(page.reverse());
+            : null;
+
+        if (isInitialLoad) {
+          setOlderCursor(nextCursor);
+          onMessagesLoadedRef.current(page.reverse());
+        } else {
+          // Do not reset the cursor after the reader has loaded older pages.
+          // Merge the newest database page with messages that arrived through
+          // realtime or are still optimistic, then restore chronological order.
+          setOlderCursor((current) => current ?? nextCursor);
+          onMessagesLoadedRef.current(
+            reconcileResyncedMessages(messagesRef.current, page)
+          );
+        }
+        loadedConversationIdRef.current = conversationId;
       }
 
-      if (!cancelled) setLoading(false);
+      if (!cancelled && isInitialLoad) setLoading(false);
     })();
 
     return () => {

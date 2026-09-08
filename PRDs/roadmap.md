@@ -15,7 +15,10 @@ returning a server page and continue with a stable keyset cursor. A thread opens
 from its newest 50 messages, preserves chronological rendering, hydrates only
 loaded-message reactions, and exposes older-history loading by the same stable
 `(created_at, id)` cursor. Existing realtime, deep-link, unread, and optimistic
-send behavior remains page-owned.
+send behavior remains page-owned. Same-conversation reconnect, foreground, and
+manual catch-up requests retain rendered bubbles and loaded-history cursors while
+reconciling the newest server page with realtime and optimistic sends; initial
+loads and conversation switches retain their loading boundary.
 
 Valid dashboard cold entries reuse the server-validated, branch-bound access
 snapshot through hydration; focus, periodic, expiry, and manual checks still
