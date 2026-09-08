@@ -34,6 +34,13 @@ requests keep loaded bubbles visible, retain older-history cursors, and merge
 newest-page rows with in-flight realtime and optimistic sends. Code:
 `src/components/inbox/{conversation-list,message-thread}.tsx`.
 
+Template pickers now use the already-resolved authenticated branch context
+instead of a serial `auth.getUser()` lookup. Approved templates are shared by
+branch across picker reopens and revalidate after template submission, Meta sync,
+or deletion; the RLS-protected read and send authorization remain authoritative.
+Code: `src/components/inbox/{template-picker,use-approved-message-templates}.tsx`
+and `src/components/settings/template-manager.tsx`.
+
 Member profiles now publish the authorized membership/contact identity before
 secondary reads complete. Attendance, purchases, billing, and AutoPay have
 separate loading/error boundaries; billing and mandate-dependent actions remain

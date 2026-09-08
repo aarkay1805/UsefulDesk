@@ -67,6 +67,7 @@ import {
   type TemplatePreset,
 } from '@/lib/whatsapp/template-presets';
 import { getErrorMessage } from '@/lib/errors';
+import { invalidateApprovedMessageTemplates } from '@/components/inbox/use-approved-message-templates';
 
 const CATEGORIES = ['Marketing', 'Utility', 'Authentication'] as const;
 type HeaderFormat = 'none' | 'text' | 'image' | 'video' | 'document';
@@ -567,6 +568,7 @@ export function TemplateManager() {
         );
       }
       setReloadNonce((nonce) => nonce + 1);
+      if (accountId) invalidateApprovedMessageTemplates(accountId);
       toast.success(
         data.dry_run
           ? isEdit
@@ -633,6 +635,7 @@ export function TemplateManager() {
         );
       }
       setReloadNonce((nonce) => nonce + 1);
+      invalidateApprovedMessageTemplates(accountId);
     } catch (err) {
       console.error('Template sync error:', err);
       toast.error(getErrorMessage(err, 'Failed to sync templates'));
@@ -658,6 +661,7 @@ export function TemplateManager() {
       }
       toast.success('Template deleted');
       setTemplates((prev) => prev.filter((t) => t.id !== target.id));
+      if (accountId) invalidateApprovedMessageTemplates(accountId);
       setTemplateToDelete(null);
     } catch (err) {
       console.error('Delete error:', err);

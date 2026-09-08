@@ -33,6 +33,12 @@ manual catch-up requests retain rendered bubbles and loaded-history cursors whil
 reconciling the newest server page with realtime and optimistic sends; initial
 loads and conversation switches retain their loading boundary.
 
+Engineering maintenance: **template pickers reuse the established authenticated
+branch context.** Opening a picker no longer waits on another `auth.getUser()`
+request before its RLS-protected approved-template query. Approved results are
+shared for the active branch and revalidated after local template mutations or a
+Meta sync; the actual data read and send paths remain authorized independently.
+
 Valid dashboard cold entries reuse the server-validated, branch-bound access
 snapshot through hydration; focus, periodic, expiry, and manual checks still
 revalidate access, and branch switches never reuse that grant.

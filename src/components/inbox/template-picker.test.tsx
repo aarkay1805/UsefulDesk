@@ -19,6 +19,12 @@ const canonicalTemplate: MessageTemplate = {
   created_at: '2026-08-22T00:00:00Z',
 };
 
+const authState = {
+  accountId: 'account-1',
+  profileLoading: false,
+};
+let authScope = 0;
+
 const paymentDueTemplate: MessageTemplate = {
   ...canonicalTemplate,
   id: 'template-payment-due',
@@ -99,6 +105,11 @@ const membership = {
 } satisfies Membership;
 
 const templateResult = vi.fn();
+const templateQuery = {
+  eq: vi.fn(),
+  order: templateResult,
+};
+templateQuery.eq.mockReturnValue(templateQuery);
 const membershipResult = vi.fn();
 const invoiceResult = vi.fn();
 const paymentLinkResult = vi.fn();
@@ -125,9 +136,7 @@ const supabase = {
   from: vi.fn((table: string) => {
     if (table === 'message_templates') {
       return {
-        select: () => ({
-          eq: () => ({ order: templateResult }),
-        }),
+        select: () => templateQuery,
       };
     }
     if (table === 'memberships') {
@@ -173,6 +182,10 @@ vi.mock('@/hooks/use-locale', () => ({
   }),
 }));
 
+vi.mock('@/hooks/use-auth', () => ({
+  useAuth: () => authState,
+}));
+
 const { TemplatePicker } = await import('./template-picker');
 
 function renderPicker(template = canonicalTemplate) {
@@ -188,6 +201,7 @@ function renderPicker(template = canonicalTemplate) {
 }
 
 beforeEach(() => {
+  authState.accountId = `account-${++authScope}`;
   templateResult.mockReset();
   templateResult.mockResolvedValue({ data: [canonicalTemplate], error: null });
   membershipResult.mockReset();
@@ -226,6 +240,7 @@ beforeEach(() => {
     ],
     error: null,
   });
+  supabase.auth.getUser.mockClear();
   supabase.from.mockClear();
   vi.stubGlobal(
     'ResizeObserver',
@@ -244,6 +259,43 @@ afterEach(() => {
 });
 
 describe('TemplatePicker', () => {
+  it('uses the authenticated branch context without another auth lookup', async () => {
+    templateResult.mockResolvedValue({
+      data: [canonicalTemplate],
+      error: null,
+    });
+
+    render(
+      <TemplatePicker
+        open
+        onOpenChange={vi.fn()}
+        onSelect={vi.fn()}
+        contact={contact}
+      />
+    );
+
+    expect(
+      await screen.findByRole('button', { name: /Membership renewal/i })
+    ).toBeTruthy();
+    expect(supabase.auth.getUser).not.toHaveBeenCalled();
+  });
+
+  it('reuses approved templates when the picker reopens in the same branch', async () => {
+    const props = {
+      onOpenChange: vi.fn(),
+      onSelect: vi.fn(),
+      contact,
+    };
+    const { rerender } = render(<TemplatePicker open {...props} />);
+
+    await screen.findByRole('button', { name: /Membership renewal/i });
+    rerender(<TemplatePicker open={false} {...props} />);
+    rerender(<TemplatePicker open {...props} />);
+
+    await screen.findByRole('button', { name: /Membership renewal/i });
+    expect(templateResult).toHaveBeenCalledTimes(1);
+  });
+
   it('presents canonical templates using their business title and purpose', async () => {
     renderPicker();
 
