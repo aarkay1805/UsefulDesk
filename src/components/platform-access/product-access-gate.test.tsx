@@ -25,10 +25,11 @@ vi.mock('@/hooks/use-locale', () => ({
 }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ rpc }) }));
 import { ProductAccessGate } from './product-access-gate';
+import type { ProductAccessSnapshot } from '@/lib/platform-access/model';
 import { useEffect } from 'react';
 const access = {
   organization_id: 'org-1',
-  mode: 'trial',
+  mode: 'trial' as const,
   trial_started_at: '2026-09-01T00:00:00Z',
   trial_ends_at: '2026-09-15T00:00:00Z',
   access_starts_at: null,
@@ -43,17 +44,87 @@ const snapshot = {
   enforcement_enabled: true,
   support_email: null,
   support_whatsapp: '919056208861',
-};
+} satisfies ProductAccessSnapshot;
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
 beforeEach(() => {
   auth.accountId = 'branch-1';
+  auth.organizationId = 'org-1';
   rpc.mockReset();
   vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-06T00:00:00Z'));
 });
 describe('ProductAccessGate', () => {
+  it('uses a server-validated snapshot on cold entry before background revalidation', async () => {
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: 'branch-1',
+          organizationId: 'org-1',
+          snapshot,
+        }}
+      >
+        <div>Operations</div>
+      </ProductAccessGate>
+    );
+
+    expect(screen.getByText('Operations')).toBeTruthy();
+    expect(
+      screen.queryByRole('status', { name: 'Loading UsefulDesk' })
+    ).toBeNull();
+    expect(rpc).not.toHaveBeenCalled();
+
+    rpc.mockResolvedValue({ data: snapshot, error: null });
+    fireEvent.focus(window);
+    await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
+  });
+  it('does not reuse the server snapshot for a different branch', async () => {
+    auth.accountId = 'branch-2';
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Access check unavailable' },
+    });
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: 'branch-1',
+          organizationId: 'org-1',
+          snapshot,
+        }}
+      >
+        <div>Operations</div>
+      </ProductAccessGate>
+    );
+
+    expect(screen.queryByText('Operations')).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByText('Access check unavailable')).toBeTruthy()
+    );
+  });
+  it('does not reuse the server snapshot for a different organization', async () => {
+    auth.organizationId = 'org-2';
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message: 'Access check unavailable' },
+    });
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: 'branch-1',
+          organizationId: 'org-1',
+          snapshot,
+        }}
+      >
+        <div>Operations</div>
+      </ProductAccessGate>
+    );
+
+    expect(screen.queryByText('Operations')).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByText('Access check unavailable')).toBeTruthy()
+    );
+  });
   it('shows only a spinner until access is confirmed, then mounts operational children', async () => {
     let finish: (value: unknown) => void = () => {};
     rpc.mockReturnValue(

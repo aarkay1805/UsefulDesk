@@ -1,4 +1,5 @@
 import { requireProductAccess } from '@/lib/platform-access/server';
+import type { ProductAccessSnapshot } from '@/lib/platform-access/model';
 import { cache } from 'react';
 import { headers } from 'next/headers';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
@@ -22,6 +23,7 @@ import { createClient } from '@/lib/supabase/server';
 
 export interface DashboardAuthorizedAccount extends AccountContext {
   dateContext: DashboardActionDateContext;
+  productAccess: ProductAccessSnapshot;
 }
 
 export interface DashboardRequestContext {
@@ -68,8 +70,9 @@ async function loadDashboardRequestContext(): Promise<DashboardRequestContext> {
   // so every streamed section remains constrained by the same RLS context the
   // bootstrap just authorized through my_branch_accounts().
   const supabase = (await createClient(accountRow.id)) as SupabaseClient;
+  let productAccess: ProductAccessSnapshot;
   try {
-    await requireProductAccess(supabase, accountRow.id);
+    productAccess = await requireProductAccess(supabase, accountRow.id);
   } catch {
     return { user, bootstrap, account: null };
   }
@@ -95,6 +98,7 @@ async function loadDashboardRequestContext(): Promise<DashboardRequestContext> {
         timeZone: locale.timeZone,
         today: todayInTz(locale.timeZone),
       },
+      productAccess,
     },
   };
 }

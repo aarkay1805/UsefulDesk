@@ -8,6 +8,14 @@
 
 ## UsefulDesk trial access and platform administration
 
+The server-validated, organization- and branch-bound product-access snapshot
+now crosses the dashboard client boundary, so a valid cold entry mounts the
+dashboard without repeating the browser RPC. Focus, periodic, deadline, and
+manual rechecks remain authoritative; switching branches cannot reuse the
+snapshot. Code: `dashboard-request-context.ts`, `dashboard-shell.tsx`, and
+`product-access-gate.tsx`, with cold-entry and branch-binding regression
+coverage.
+
 Initial web access checks show only a centered spinner. Support/retry/sign-out/branch controls appear after a denied or failed check, while successful background checks keep the app mounted. Code: `src/components/platform-access/product-access-gate.tsx`, with loading-to-access regression coverage.
 
 Organization access controls and audit history now open in the shared right-side Sheet, with a fixed identity header and scrollable details. Code: `src/components/platform-access/platform-admin.tsx`; mobile uses the full viewport width.

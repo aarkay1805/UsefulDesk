@@ -60,7 +60,35 @@ describe('dashboard server layout authentication backstop', () => {
     expect(result.props.children).toBe('protected content');
     expect(result.props.initialUser).toEqual({ id: 'user-1' });
     expect(result.props.initialBootstrap).toBe(initialBootstrap);
+    expect(result.props.initialProductAccess).toBeNull();
     expect(authState.getContext).toHaveBeenCalledOnce();
     expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it('passes a validated account access snapshot to the client shell', async () => {
+    const productAccess = { allowed: true };
+    authState.getContext.mockResolvedValue({
+      user: { id: 'user-1' },
+      bootstrap: {
+        profile: null,
+        account: null,
+        branches: [],
+        branchAccessError: null,
+        accountStatusDetail: null,
+      },
+      account: {
+        accountId: 'branch-1',
+        account: { organizationId: 'org-1' },
+        productAccess,
+      },
+    });
+
+    const result = await DashboardLayout({ children: 'protected content' });
+
+    expect(result.props.initialProductAccess).toEqual({
+      accountId: 'branch-1',
+      organizationId: 'org-1',
+      snapshot: productAccess,
+    });
   });
 });

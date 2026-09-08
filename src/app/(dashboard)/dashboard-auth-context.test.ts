@@ -4,6 +4,7 @@ const h = vi.hoisted(() => ({
   createClient: vi.fn(),
   getUser: vi.fn(),
   loadBootstrap: vi.fn(),
+  requireProductAccess: vi.fn(),
 }));
 
 vi.mock('react', async (importOriginal) => {
@@ -37,6 +38,24 @@ vi.mock('@/lib/auth/dashboard-bootstrap', () => ({
 
 const { getDashboardRequestContext, requireDashboardAccountContext } =
   await import('@/lib/auth/dashboard-request-context');
+
+const productAccess = {
+  access: {
+    organization_id: 'organization-1',
+    mode: 'complimentary' as const,
+    trial_started_at: null,
+    trial_ends_at: null,
+    access_starts_at: null,
+    access_ends_at: null,
+    suspended_at: null,
+    version: 1,
+  },
+  status: 'complimentary' as const,
+  allowed: true,
+  enforcement_enabled: true,
+  support_email: null,
+  support_whatsapp: null,
+};
 
 const bootstrap = {
   profile: {
@@ -85,6 +104,7 @@ describe('dashboard request context', () => {
       error: null,
     });
     h.loadBootstrap.mockResolvedValue(bootstrap);
+    h.requireProductAccess.mockResolvedValue(productAccess);
     h.createClient
       .mockResolvedValueOnce({ auth: { getUser: h.getUser } })
       .mockResolvedValueOnce({ marker: 'selected-branch-client' });
@@ -107,7 +127,12 @@ describe('dashboard request context', () => {
       dateContext: {
         timeZone: 'Asia/Kolkata',
       },
+      productAccess,
     });
+    expect(h.requireProductAccess).toHaveBeenCalledWith(
+      { marker: 'selected-branch-client' },
+      bootstrap.account.id
+    );
   });
 
   it('fails closed when the selected branch bootstrap is unavailable', async () => {
@@ -130,5 +155,5 @@ describe('dashboard request context', () => {
 
 vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
-  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+  requireProductAccess: h.requireProductAccess,
 }));

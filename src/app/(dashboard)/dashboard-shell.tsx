@@ -5,6 +5,7 @@ import type { User } from '@supabase/supabase-js';
 import { usePathname, useRouter } from 'next/navigation';
 import { AuthProvider, useAuth } from '@/hooks/use-auth';
 import type { DashboardAuthBootstrap } from '@/lib/auth/dashboard-bootstrap';
+import type { InitialProductAccess } from '@/components/platform-access/product-access-gate';
 import { OnboardingProvider } from '@/hooks/use-onboarding-status';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Header } from '@/components/layout/header';
@@ -186,16 +187,18 @@ export function DashboardShell({
   children,
   initialUser,
   initialBootstrap,
+  initialProductAccess = null,
 }: {
   children: React.ReactNode;
   initialUser: User;
   initialBootstrap: DashboardAuthBootstrap;
+  initialProductAccess?: InitialProductAccess | null;
 }) {
   return (
     <AuthProvider initialUser={initialUser} initialBootstrap={initialBootstrap}>
       {/* Needs useAuth, so it sits inside AuthProvider. Shares the Get
           Started completion state between the sidebar and the page. */}
-      <ProductAccessGate>
+      <ProductAccessGate initialAccess={initialProductAccess}>
         <OnboardingProvider>
           <DashboardShellInner>{children}</DashboardShellInner>
         </OnboardingProvider>

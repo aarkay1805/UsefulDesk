@@ -37,6 +37,15 @@ export default async function DashboardLayout({
     <DashboardShell
       initialUser={context.user}
       initialBootstrap={context.bootstrap}
+      initialProductAccess={
+        context.account
+          ? {
+              accountId: context.account.accountId,
+              organizationId: context.account.account.organizationId,
+              snapshot: context.account.productAccess,
+            }
+          : null
+      }
     >
       {children}
     </DashboardShell>

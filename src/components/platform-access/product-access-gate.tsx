@@ -25,13 +25,29 @@ import {
   SelectItem,
 } from '@/components/ui/select';
 
-export function ProductAccessGate({ children }: { children: ReactNode }) {
+export interface InitialProductAccess {
+  accountId: string;
+  organizationId: string;
+  snapshot: ProductAccessSnapshot;
+}
+
+export function ProductAccessGate({
+  children,
+  initialAccess = null,
+}: {
+  children: ReactNode;
+  initialAccess?: InitialProductAccess | null;
+}) {
   const { accountId, accountStatus, branchAccessError } = useAuth();
   // Hydration and branch errors retain their existing recovery surface.
   if (accountStatus !== 'ready' || !accountId || branchAccessError)
     return children;
   return (
-    <AccountProductAccess key={accountId} accountId={accountId}>
+    <AccountProductAccess
+      key={accountId}
+      accountId={accountId}
+      initialAccess={initialAccess}
+    >
       {children}
     </AccountProductAccess>
   );
@@ -39,20 +55,31 @@ export function ProductAccessGate({ children }: { children: ReactNode }) {
 function AccountProductAccess({
   accountId,
   children,
+  initialAccess,
 }: {
   accountId: string;
   children: ReactNode;
+  initialAccess: InitialProductAccess | null;
 }) {
   const { branches, switchBranch, signOut, account, organizationId } =
     useAuth();
   const { fmt } = useLocale();
   const router = useRouter();
   const wasBlocked = useRef(false);
-  const [snapshot, setSnapshot] = useState<ProductAccessSnapshot | null>(null);
+  const initialSnapshot =
+    initialAccess?.accountId === accountId &&
+    initialAccess.organizationId === organizationId &&
+    isProductAccessSnapshot(initialAccess.snapshot, organizationId)
+      ? initialAccess.snapshot
+      : null;
+  const skipInitialRevalidation = useRef(initialSnapshot !== null);
+  const [snapshot, setSnapshot] = useState<ProductAccessSnapshot | null>(
+    initialSnapshot
+  );
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
-  const [checking, setChecking] = useState(true);
-  const [now, setNow] = useState(0);
+  const [checking, setChecking] = useState(initialSnapshot === null);
+  const [now, setNow] = useState(() => Date.now());
   const [pending, setPending] = useState('');
   const [requested, setRequested] = useState(false);
   const organizationName =
@@ -82,6 +109,10 @@ function AccountProductAccess({
       toast.success('Support request received');
     });
   useEffect(() => {
+    if (skipInitialRevalidation.current) {
+      skipInitialRevalidation.current = false;
+      return;
+    }
     let cancelled = false;
     void (async () => {
       setChecking(true);

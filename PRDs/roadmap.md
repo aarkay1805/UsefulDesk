@@ -2,6 +2,10 @@
 
 ## Web release — UsefulDesk trials and platform administration
 
+Valid dashboard cold entries reuse the server-validated, branch-bound access
+snapshot through hydration; focus, periodic, expiry, and manual checks still
+revalidate access, and branch switches never reuse that grant.
+
 The initial access check uses a simple spinner, preventing support and blocked-access controls from flashing for signed-in customers.
 
 Organization access details open in a responsive side drawer, keeping the organization list in place behind the controls and history.
