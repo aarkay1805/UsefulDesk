@@ -6,6 +6,36 @@
 
 ---
 
+## 2026-09-08 — Meta Lead Ads approval verified; rollout remains pending
+
+Live Meta App Review submission `1914379289558468` shows all six Lead Ads
+permissions Approved and existing business/WhatsApp/public-profile access Renewed.
+September 2 at 00:27 IST is the submission time, not a verified approval time.
+`PRDs/roadmap.md` now records approval and the remaining acceptance, scoped canary,
+and global activation plan. No deployment, environment, Page connection, or
+customer rollout was changed; current production gate/health checks remain planned.
+
+The post-approval release baseline then found a deployment-alias blocker: GitHub
+`main` and a Ready Vercel Production deployment are `ca502ec79fdbe33b0bf0266e1aee8b0413c1fb89`,
+but `desk.usefulmade.com` and the Production main alias still serve the September
+6 `9144c02` build. The GitHub Production deployment record for `ca502ec` reports
+failed checks. The global `NEXT_PUBLIC_META_LEADS_CONFIG_ID` remains absent, so
+customer connections are still dark. Production has one healthy review Page,
+six processed Meta events, and no due backlog; the optional unavailable
+lead-access diagnostic remains unstamped. Database-owned and GitHub backup Meta
+recovery runs completed successfully with zero claims/failures, and the focused
+regression gate passed (16 files, 84 tests). No Page, customer asset, message,
+environment, or activation change was made. Disposable acceptance must wait for
+the deployment-alias gate to be resolved.
+
+With explicit authorization, the Ready Vercel deployment
+`dpl_BQeuyskF6m8uEbG7sj455XnR3UFB`, built from `ca502ec`, was promoted to the
+Production aliases. `desk.usefulmade.com` and the Production main alias now
+resolve to that reviewed build; the public Meta Lead Ads configuration remains
+absent. A further database-owned recovery run at 23:53 IST returned HTTP 200
+with no Meta event/Page claims or failures. GitHub's failed deployment-status
+record remains a reporting discrepancy for the already-promoted build.
+
 ## Formatting check removed from GitHub Actions
 
 Removed the advisory Prettier step and its warning from `.github/workflows/ci.yml`.

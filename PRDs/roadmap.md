@@ -947,7 +947,7 @@ Member import follow-up: a valid Phone + Service mapping can now reach preview i
 
 **Left:**
 
-- **Meta lead ads: the self-healing implementation, additive Production migrations, owned recovery route, and 15-minute scheduler are live and verified.** Production records `20260822100000_meta_lead_ads_self_healing.sql` and `20260822100001_index_meta_page_config_user_id.sql` as connector-applied versions `20260822093418` and `20260822093424`; deployment commit `e13098e` serves the route, and repeated scheduled runs are healthy with zero configured Pages or queued Meta events. Business Verification, Meta Tech Provider approval, and the WhatsApp Embedded Signup review for `whatsapp_business_messaging`, `whatsapp_business_management`, and `business_management` are complete; their four renewal allowed-use certifications are also complete in the current submission. The **Capture & manage ad leads with Marketing API** use case is attached to the live Meta app and draft `1914379289558468` is scoped to `pages_show_list`, `pages_manage_metadata`, `leads_retrieval`, plus Meta-required `pages_manage_ads`, `pages_read_engagement`, and `ads_management`; unused `ads_read` and Marketing API Access Tier requests are excluded. All six permission descriptions/agreements, the data-handling assessment, and reviewer instructions are complete; the reviewer copy retains the existing test credentials, covers both integrations, and correctly keeps consumer Facebook Login marked **No** because UsefulDesk uses Facebook Login for Business only to authorize selected business assets. The separate **UsefulDesk Lead Ads** Facebook Login for Business configuration (`1039026725782445`) uses the General/user-token flow and exactly those six scopes; it neither enables Facebook sign-in to UsefulDesk nor changes the WhatsApp configuration. Disposable Page **UsefulDesk Lead Ads Test** (Page asset ID `1300231026509095`; profile URL ID `61593607592072`) exists with no public content, contact data, branding, WhatsApp link, or invited audience. Its active review-only Instant Form **UsefulDesk Lead Ads Test Form** (`2157208975142771`) collects full name, phone number, and email, points to `https://usefulmade.com/useful-desk/privacy`, and is not attached to an ad or campaign. The dedicated review account alone receives the non-secret Lead Ads configuration ID on the production domain; normal customer accounts remain dark while the global Production environment gate stays unset. The disposable Page is connected and its Page-level plus app-level `leadgen` subscriptions are healthy; Meta's official test tool confirms user lead permission, Lead Access Manager, Page administration, and clean app diagnostics. The optional `has_lead_access` diagnostic is unavailable for this Page and correctly remains unstamped. The app callback uses the stable Production endpoint, and its handshake plus signed sample succeed. Fresh dummy and custom synthetic deliveries both processed in Production; the dummy placeholder completed safely as phone-less, while the custom lead created one unassigned Meta lead and one enquiry note. The same product walkthrough screencast is saved on all six permission requests, and successful API tests cover every required scope; Meta warns usage counters can take up to 24 hours to update. After the counters update, refresh reviewer instructions to the production-domain review-account URLs and submit App Review. After approval, pass disposable Facebook and Instagram canaries and obtain explicit authorization for a Production canary. Only after that can `NEXT_PUBLIC_META_LEADS_CONFIG_ID` be enabled globally in Production; it remains the customer dark-launch gate.
+- **Meta lead ads: the self-healing implementation, additive Production migrations, owned recovery route, and 15-minute scheduler are live and verified.** Production records `20260822100000_meta_lead_ads_self_healing.sql` and `20260822100001_index_meta_page_config_user_id.sql` as connector-applied versions `20260822093418` and `20260822093424`; deployment commit `e13098e` serves the route, and repeated scheduled runs are healthy with zero configured Pages or queued Meta events. Business Verification, Meta Tech Provider approval, and the WhatsApp Embedded Signup review for `whatsapp_business_messaging`, `whatsapp_business_management`, and `business_management` are complete; their four renewal allowed-use certifications are also complete in the current submission. The **Capture & manage ad leads with Marketing API** use case is attached to the live Meta app and draft `1914379289558468` is scoped to `pages_show_list`, `pages_manage_metadata`, `leads_retrieval`, plus Meta-required `pages_manage_ads`, `pages_read_engagement`, and `ads_management`; unused `ads_read` and Marketing API Access Tier requests are excluded. All six permission descriptions/agreements, the data-handling assessment, and reviewer instructions are complete; the reviewer copy retains the existing test credentials, covers both integrations, and correctly keeps consumer Facebook Login marked **No** because UsefulDesk uses Facebook Login for Business only to authorize selected business assets. The separate **UsefulDesk Lead Ads** Facebook Login for Business configuration (`1039026725782445`) uses the General/user-token flow and exactly those six scopes; it neither enables Facebook sign-in to UsefulDesk nor changes the WhatsApp configuration. Disposable Page **UsefulDesk Lead Ads Test** (Page asset ID `1300231026509095`; profile URL ID `61593607592072`) exists with no public content, contact data, branding, WhatsApp link, or invited audience. Its active review-only Instant Form **UsefulDesk Lead Ads Test Form** (`2157208975142771`) collects full name, phone number, and email, points to `https://usefulmade.com/useful-desk/privacy`, and is not attached to an ad or campaign. The dedicated review account alone receives the non-secret Lead Ads configuration ID on the production domain; normal customer accounts remain dark while the global Production environment gate stays unset. The disposable Page is connected and its Page-level plus app-level `leadgen` subscriptions are healthy; Meta's official test tool confirms user lead permission, Lead Access Manager, Page administration, and clean app diagnostics. The optional `has_lead_access` diagnostic is unavailable for this Page and correctly remains unstamped. The app callback uses the stable Production endpoint, and its handshake plus signed sample succeed. Fresh dummy and custom synthetic deliveries both processed in Production; the dummy placeholder completed safely as phone-less, while the custom lead created one unassigned Meta lead and one enquiry note. The same product walkthrough screencast is saved on all six permission requests, and successful API tests cover every required scope; Meta warns usage counters can take up to 24 hours to update. **Approval verified in the live Meta dashboard on 2026-09-08:** submission `1914379289558468`, submitted September 2, 2026 at 00:27 IST, is **Submission approved**. All six Lead Ads permissions above are Approved; `business_management`, `whatsapp_business_management`, `whatsapp_business_messaging`, and `public_profile` are Renewed. The dashboard does not establish the approval date. App Review is complete; remaining work is disposable Facebook/Instagram acceptance, a separately authorized production canary, and global activation after passing evidence. The production environment gate has not been rechecked during this approval-only inspection; its last recorded state is unset. See the [remaining implementation and rollout plan](#meta-lead-ads-post-approval-implementation-plan).
 - Booking.
 - `received_via='automation'` remains a **reserved, unwired slot** (a future "create contact" automation step) — set it on that insert and the Leads "Received By" column lights up automatically. See `src/lib/leads/attributes.ts` (`autoReceivedLabel`).
 
@@ -1005,3 +1005,196 @@ Branded member app · class marketplace · payroll · workout/nutrition tracking
 - Auto-generating / charging _future_ invoices (a billing cron — overlaps AutoPay) · persisting the Upcoming projection.
 - Account-wide pending-transfers console · lead-transfer auto-expiry cron.
 - Leads board **group-by** (pivot on source / assignee instead of status) — has a real drag-semantics decision (dragging would set the grouped dimension: a direct source-write vs the approval-gated `requestLeadAssignment`), so it's a feature, not a pref.
+
+
+## Meta Lead Ads post-approval implementation plan
+
+**Goal:** accept the existing Facebook/Instagram capture and recovery integration,
+then release customer connections with verified tenant isolation and recovery.
+**Architecture:** reuse the existing connection, signed webhook, owned event
+processing, Page health, and scheduler paths. No new ingestion pipeline or schema
+is planned; change code only for a reproduced acceptance failure.
+**Stack:** existing Next.js routes, Supabase RLS/service-only RPCs, Meta Login for
+Business, and the shared Graph API version.
+**Spec:** `docs/superpowers/specs/2026-08-22-meta-lead-ads-self-healing-design.md`.
+This plan supersedes that spec's historical rollout order: migrations, recovery
+code, and scheduling are already recorded as live. It does not repeat them.
+
+**Verified baseline:** on 2026-09-08 the live Meta App Review dashboard showed all
+six Lead Ads permissions Approved for submission `1914379289558468` and the four
+existing permissions Renewed. Submission time was September 2 at 00:27 IST;
+approval time was not displayed. Current production configuration, Page health,
+and end-to-end capture still require the checks below.
+
+**2026-09-08 release-baseline result:** GitHub `main` is
+`ca502ec79fdbe33b0bf0266e1aee8b0413c1fb89`, and Vercel built a Ready Production
+deployment for it at 23:19 IST. However, `desk.usefulmade.com` and the Production
+main alias still resolve to the September 6 build of `9144c02`; the GitHub
+Production deployment record for `ca502ec` reports its deployment checks failed.
+The reviewed Ready deployment was promoted at 23:54 IST; `desk.usefulmade.com`
+and the Production main alias now resolve to deployment `dpl_BQeuyskF6m8uEbG7sj455XnR3UFB`,
+built from `ca502ec`. The stale GitHub deployment-status record remains an
+external reporting discrepancy, not an active-alias failure. The Production
+`NEXT_PUBLIC_META_LEADS_CONFIG_ID` is absent (the global
+customer gate remains unset). The review Page `1300231026509095` is connected,
+healthy at 19:19 IST, has no active attention incident or health failures, keeps
+the unavailable optional lead-access diagnostic unstamped, and has a stamped
+subscription check. There are six processed Meta events and no due backlog.
+Both schedulers are healthy: the database-owned ops job is active and its 23:23
+and 23:53 IST runs completed the Meta recovery route with zero events/pages
+claimed or failed; the GitHub backup's 23:05 IST run reported the same aggregate.
+The focused regression gate passed (16 files, 84 tests). All owned recovery and
+Page-health RPCs remain service-role-only, with no browser-role execute grant.
+
+**Execution constraints:** follow `AGENTS.md`; use the executing-plans skill for
+execution. Keep auto-captured leads unassigned with immutable `received_via='meta'`.
+A repeat enquiry creates a new note; replay of the same provider event does not.
+Use existing authorization predicates and branch boundaries. Do not infer outbound
+message authorization from this plan. Store evidence as safe IDs/counts/timestamps,
+never tokens or customer payloads. Before code changes, read the relevant bundled
+Next.js guide; before UI changes, read `docs/ui-patterns.md` completely. Any newly
+necessary migration uses the approved migration tool, never `supabase db push`.
+
+### Task 1 — Establish the current release baseline
+
+**Read:** `src/lib/meta/lead-ads-availability.ts`,
+`src/lib/meta/lead-ads-availability.test.ts`,
+`src/app/api/meta/leads/connect/route.ts`,
+`src/app/api/meta/leads/health/route.ts`,
+`src/app/api/meta/leads/webhook/route.ts`,
+`src/app/api/meta/leads/recovery/cron/route.ts`,
+`docs/automations-and-cron.md`, and `.github/workflows/ops-crons.yml`.
+**Record results:** this section and `docs/changelog.md` at release closeout.
+
+- [x] Compare current GitHub main SHA with the active production deployment.
+- [x] Check only the presence/scope of production Meta configuration; do not dump
+  environment values or Page tokens. Confirm whether the global public config is
+  still unset. The review fallback is account `24094e14-83b9-4ecb-b6eb-7bafd740196d`
+  and Login for Business configuration `1039026725782445`.
+- [x] Read current Page health and unprocessed Meta event counts through approved
+  privileged tooling. Verify the deployed owned recovery RPCs and current grants;
+  do not reapply migrations merely because they appear in the older design.
+- [x] Check both database-owned cron execution results and GitHub backup results
+  for the Meta recovery endpoint. A dispatched request alone is not a successful
+  recovery run. Retain aggregate outcomes and latest successful timestamps.
+- [x] Run the existing focused regression gate:
+
+  ```sh
+  npx vitest run src/lib/meta src/lib/leads/meta-capture-retry.test.ts src/lib/leads/meta-field-mapping.test.ts src/app/api/meta/leads src/components/settings/meta-leads-connect.test.tsx
+  ```
+
+**Exit:** deployment SHA, gate state, scheduler health, regression results, and
+exact authorized test environment/assets are recorded. A failing gate is resolved
+before progressing; historic green checks do not count as current evidence.
+
+### Task 2 — Accept disposable Facebook and Instagram capture
+
+**Inspect if a failure occurs:** `src/lib/meta/lead-ingestion.ts`,
+`src/lib/leads/meta-field-mapping.ts`, their colocated tests, and the webhook route
+and its colocated tests. Existing review assets are Page `1300231026509095` and
+form `2157208975142771`; verify their current ownership and environment first.
+
+- [ ] Establish authorized disposable assets and synthetic contact data. Verify
+  whether the review account's automations could send messages before creating
+  leads; use an isolated no-send test setup. Confirm the associated Instagram
+  professional account. Missing Instagram assets block Instagram acceptance only.
+- [ ] Connect the approved Page through Settings and inspect safe health results.
+  Confirm subscription verification; preserve an unavailable `has_lead_access`
+  diagnostic as unverified instead of fabricating a passed timestamp.
+- [ ] Deliver a Facebook test lead through the provider and prove correct account,
+  normalized phone, Facebook attribution, `received_via='meta'`, no assignee, one
+  enquiry note, and exactly-once creation-trigger bookkeeping.
+- [ ] Deliver an Instagram-origin lead and prove Instagram attribution and the same
+  invariants. A mocked `platform` field alone does not prove provider Instagram
+  delivery. If provider testing requires a paid ad, record that dependency and
+  obtain separate asset/budget authorization before running one.
+- [ ] Deliver a distinct enquiry for the same phone: one contact remains and one
+  additional enquiry note appears. Replay an already processed provider event:
+  no duplicate contact, note, or creation-trigger dispatch appears.
+- [ ] Exercise the provider's phone-less test payload: one terminal skip, no
+  fabricated contact, and no repeated skip increment on replay.
+- [ ] Use a second authorized test branch and lower-privilege role to verify that
+  Page configuration, health actions, and captured data remain inaccessible there.
+
+**Exit:** each case has timestamped provider/event evidence and safe database
+counts; Facebook and Instagram results are recorded independently.
+
+### Task 3 — Accept recovery and close any reproduced gaps
+
+**Inspect/patch only if required:** `src/lib/meta/page-health-recovery.ts`,
+`src/lib/meta/lead-event-recovery.ts`, `src/lib/meta/recovery.ts`,
+`src/lib/meta/lead-ads-health.ts`, `src/lib/meta/recovery.test.ts`,
+`src/lib/meta/lead-ads-health.test.ts`, and health/connect/cron route tests.
+
+- [ ] In the isolated test environment, induce a transient lead-fetch failure;
+  restore the dependency and let owned recovery process the event without another
+  provider delivery. Prove eventual completion without duplicate capture effects.
+- [ ] On the authorized disposable Page only, remove this app's `leadgen`
+  subscription and verify that recovery restores it and reads it back.
+- [ ] With explicit authority for the disposable access change, revoke lead
+  access or the test token. Verify actionable reconnect/setup status and one
+  owner/admin notification per incident; viewers receive none. Restore access
+  through the established Meta login path and verify healthy recovery.
+- [ ] Exercise overlapping Check now/recovery and reconnect generation changes.
+  Use existing automated tests for races and inspect live results for lease
+  conflicts; stale workers must not overwrite a newer connection.
+- [ ] Verify disposable disconnect removes the subscription/configuration while
+  preserving captured lead history; reconnect for the final healthy baseline.
+- [ ] For each reproduced defect, add a focused failing regression at its existing
+  boundary, apply the smallest repair, rerun the focused gate from Task 1, then
+  run `npm run verify` if application code changed. Repeat the affected acceptance
+  case. No speculative refactor, new master component, or replacement scheduler.
+
+**Exit:** recovery, isolation, notification deduplication, and reconnect cases pass;
+any code correction has regression and full application verification evidence.
+
+### Task 4 — Run one scoped production canary
+
+**Boundary:** existing review-account availability fallback; connect/health/webhook
+routes above. No global flag change belongs in this task.
+
+- [ ] Present the passing disposable acceptance record and identify the exact
+  production branch, Page, Meta owner, and synthetic lead data for authorization.
+  Current planning authorization is not authorization to connect customer assets
+  or trigger customer messaging.
+- [ ] Prefer the existing review branch for a production canary if suitable and
+  authorized. If a different branch is required, first define a narrowly scoped
+  availability change in `src/lib/meta/lead-ads-availability.ts` and its test;
+  do not use the global config to simulate a limited release.
+- [ ] Once authorized, connect that Page and repeat one provider lead, a same-phone
+  repeat enquiry, and an idempotent replay; verify branch isolation and health.
+- [ ] Observe at least two actual scheduled recovery completions plus a manual
+  health result. Record backlog age/count, processed/failed counts, attention
+  incidents, and absence of unintended outbound messages.
+
+**Exit:** the named canary is healthy with no unexplained pending events, duplicated
+capture, cross-branch exposure, or unintended sends. Otherwise fix forward while
+keeping general customer connections unavailable.
+
+### Task 5 — Activate and verify customer availability
+
+**Configuration:** Vercel Production `NEXT_PUBLIC_META_LEADS_CONFIG_ID`.
+**Docs:** this roadmap, `docs/changelog.md`, and operational changes, if any, in
+`docs/automations-and-cron.md`.
+
+- [ ] Present the concrete passing canary evidence and intended global activation
+  for owner authorization, as required by the existing rollout scope.
+- [ ] Set the approved configuration ID `1039026725782445` in the Production scope
+  and redeploy the reviewed commit; the public build-time value requires a new
+  build. Preserve separate Preview/Test settings.
+- [ ] Verify production aliases resolve to the reviewed deployment. In an ordinary
+  branch, verify the connection UI becomes available with existing role gates;
+  do not connect additional customer Pages as part of this smoke check.
+- [ ] Observe the first two successful scheduled recovery runs after activation.
+  Keep a 24-hour observation checkpoint for growing event backlog, repeated health
+  errors, or permission failures; arrange a monitor only if requested.
+- [ ] Update this plan's checkboxes, move Lead Ads out of Phase 2's Left list, and
+  record release SHA, activation time, safe acceptance evidence, and residual
+  limitations in the changelog. Do not mark Instagram accepted without its result.
+
+**Rollback:** clear the public config and rebuild to hide new customer connections;
+this does not stop existing Page ingestion or the review-account fallback. If a
+hard stop is necessary, separately authorize disconnecting the affected Pages.
+Pausing recovery requires accounting for both database and GitHub schedulers and
+still does not stop signed webhooks. Preserve captured leads, notes, and durable
+event history; do not reverse additive migrations or delete evidence.
