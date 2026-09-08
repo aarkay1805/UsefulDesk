@@ -8,6 +8,15 @@
 
 ## UsefulDesk trial access and platform administration
 
+Member profiles now publish the authorized membership/contact identity before
+secondary reads complete. Attendance, purchases, billing, and AutoPay have
+separate loading/error boundaries; billing and mandate-dependent actions remain
+blocked until their authoritative reads finish. The visible invoice ledger is
+bounded to the latest 25 records while the complete period set still supplies
+renewal's outstanding-balance warning. Code:
+`src/components/members/member-detail-view.tsx`, with deferred-billing
+regression coverage in `member-detail-template-action.test.tsx`.
+
 The server-validated, organization- and branch-bound product-access snapshot
 now crosses the dashboard client boundary, so a valid cold entry mounts the
 dashboard without repeating the browser RPC. Focus, periodic, deadline, and

@@ -2,6 +2,13 @@
 
 ## Web release — UsefulDesk trials and platform administration
 
+Engineering maintenance: **member profile identity renders immediately after
+the authorized membership read.** Attendance, purchases, billing, and AutoPay
+now resolve independently with section-level loading/retry states; collection,
+renewal balance, lifecycle, and AutoPay actions wait for their authoritative
+billing/mandate prerequisites. The displayed invoice ledger is bounded to the
+latest 25 records without truncating the complete period-based renewal balance.
+
 Valid dashboard cold entries reuse the server-validated, branch-bound access
 snapshot through hydration; focus, periodic, expiry, and manual checks still
 revalidate access, and branch switches never reuse that grant.

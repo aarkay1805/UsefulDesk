@@ -102,7 +102,24 @@ const mandate: PaymentMandate = {
   updated_at: '2026-08-01T00:00:00.000Z',
 };
 
-function resultFor(table: string) {
+type QueryResult = { data: unknown; error: null };
+
+function deferredResult<T>() {
+  let resolve: (value: T) => void;
+  const promise = new Promise<T>((next) => {
+    resolve = next;
+  });
+  return { promise, resolve: resolve! };
+}
+
+let genericBillingDeferred: ReturnType<
+  typeof deferredResult<QueryResult>
+> | null = null;
+
+function resultFor(table: string): QueryResult | Promise<QueryResult> {
+  if (table === 'invoice_balances' && genericBillingDeferred) {
+    return genericBillingDeferred.promise;
+  }
   if (table === 'memberships') return { data: membership, error: null };
   if (table === 'payment_mandates') return { data: mandate, error: null };
   if (table === 'message_templates') return { data: [template], error: null };
@@ -123,7 +140,7 @@ function makeQuery(table: string) {
         : { data: null, error: null },
     single: async () => ({ data: null, error: null }),
     then(
-      onFulfilled: (value: ReturnType<typeof resultFor>) => unknown,
+      onFulfilled: (value: QueryResult) => unknown,
       onRejected?: (reason: unknown) => unknown
     ) {
       return Promise.resolve(resultFor(table)).then(onFulfilled, onRejected);
@@ -209,10 +226,37 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  genericBillingDeferred = null;
   vi.unstubAllGlobals();
 });
 
 describe('member profile template action', () => {
+  it('publishes member identity while billing history is still loading', async () => {
+    genericBillingDeferred = deferredResult();
+    render(
+      <MemberDetailView
+        membershipId="membership-1"
+        open
+        onOpenChange={vi.fn()}
+        readiness={{
+          loading: false,
+          ready: true,
+          reason: null,
+          resolution: null,
+          templateName: 'gym_membership_renewal',
+          templateLanguage: 'en_US',
+        }}
+        onChanged={vi.fn()}
+        onEdit={vi.fn()}
+      />
+    );
+
+    expect(
+      await screen.findByRole('button', { name: 'Template' })
+    ).toBeTruthy();
+    expect(await screen.findByText('Loading billing history…')).toBeTruthy();
+  });
+
   it('opens the approved-template picker and sends to the member contact', async () => {
     const user = userEvent.setup();
     render(

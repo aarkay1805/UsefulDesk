@@ -206,6 +206,7 @@ const SECTIONS = [
 ] as const;
 
 type LifecycleAction = 'freeze' | 'resume' | 'cancel' | 'reactivate';
+type DetailSectionState = 'idle' | 'loading' | 'ready' | 'error';
 
 const LIFECYCLE_COPY: Record<
   LifecycleAction,
@@ -365,6 +366,16 @@ function MembershipDetailView({
   const [cancellingAutoPay, setCancellingAutoPay] = useState(false);
   const [mandate, setMandate] = useState<PaymentMandate | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [attendanceState, setAttendanceState] =
+    useState<DetailSectionState>('idle');
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
+  const [purchasesState, setPurchasesState] =
+    useState<DetailSectionState>('idle');
+  const [purchasesError, setPurchasesError] = useState<string | null>(null);
+  const [billingState, setBillingState] = useState<DetailSectionState>('idle');
+  const [billingError, setBillingError] = useState<string | null>(null);
+  const [mandateState, setMandateState] = useState<DetailSectionState>('idle');
+  const [mandateError, setMandateError] = useState<string | null>(null);
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
   const [saleOpen, setSaleOpen] = useState(false);
   const [openingPurchasePage, setOpeningPurchasePage] = useState(false);
@@ -410,108 +421,136 @@ function MembershipDetailView({
         setLoadError('Member not found or you no longer have access.');
         return;
       }
+      setMembership(m as Membership);
+      setVisits([]);
+      setInvoices([]);
+      setServices([]);
+      setMerchandise([]);
+      setGenericInvoices([]);
+      setMandate(null);
+      setAttendanceState('loading');
+      setAttendanceError(null);
+      setPurchasesState('loading');
+      setPurchasesError(null);
+      setBillingState('loading');
+      setBillingError(null);
+      setMandateState('loading');
+      setMandateError(null);
 
-      const [
-        attendanceResult,
-        invoicesResult,
-        mandateResult,
-        servicesResult,
-        genericBillingResult,
-      ] = await Promise.all([
-        supabase
-          .from('attendance')
+      void (async () => {
+        const [attendanceResult, usage] = await Promise.all([
+          supabase
+            .from('attendance')
+            .select('*')
+            .eq('membership_id', membershipId)
+            .order('checked_in_at', { ascending: false })
+            .limit(20),
+          fetchCheckInUsage(supabase, m as Membership, fmt.today(), locale),
+        ]);
+        if (cancelled) return;
+        if (attendanceResult.error) {
+          setAttendanceState('error');
+          setAttendanceError(attendanceResult.error.message);
+          return;
+        }
+        setVisits((attendanceResult.data as Attendance[]) ?? []);
+        setUsageCount(usage ? usage.used : null);
+        setAttendanceState('ready');
+      })();
+
+      void (async () => {
+        const servicesResult = await supabase
+          .from('member_service_details')
           .select('*')
           .eq('membership_id', membershipId)
-          .order('checked_in_at', { ascending: false })
-          .limit(20),
-        supabase
-          .from('membership_period_invoices')
-          .select('*')
-          .eq('membership_id', membershipId)
-          .order('period_start', { ascending: false }),
-        // The live auto-debit mandate (if any). Not load-critical — a
-        // failure here just hides the auto-pay status, never blocks the
-        // sheet.
-        supabase
+          .order('start_date', { ascending: false });
+        if (cancelled) return;
+        if (servicesResult.error) {
+          setPurchasesState('error');
+          setPurchasesError(servicesResult.error.message);
+          return;
+        }
+        setServices((servicesResult.data as MemberService[]) ?? []);
+        setPurchasesState('ready');
+      })();
+
+      void (async () => {
+        const [periodInvoicesResult, genericInvoicesResult] = await Promise.all(
+          [
+            supabase
+              .from('membership_period_invoices')
+              .select('*')
+              .eq('membership_id', membershipId)
+              .order('period_start', { ascending: false }),
+            supabase
+              .from('invoice_balances')
+              .select('*')
+              .eq('membership_id', membershipId)
+              .order('issued_at', { ascending: false })
+              .limit(25),
+          ]
+        );
+        if (cancelled) return;
+        if (periodInvoicesResult.error || genericInvoicesResult.error) {
+          setBillingState('error');
+          setBillingError(
+            (periodInvoicesResult.error ?? genericInvoicesResult.error)!.message
+          );
+          return;
+        }
+        const invoiceIds = (genericInvoicesResult.data ?? []).map(
+          (invoice) => invoice.id
+        );
+        const invoiceLinesResult = invoiceIds.length
+          ? await supabase
+              .from('invoice_line_balances')
+              .select('*')
+              .in('invoice_id', invoiceIds)
+              .order('sort_order')
+          : { data: [], error: null };
+        if (cancelled) return;
+        if (invoiceLinesResult.error) {
+          setBillingState('error');
+          setBillingError(invoiceLinesResult.error.message);
+          return;
+        }
+        setInvoices(
+          (periodInvoicesResult.data as MembershipPeriodInvoice[]) ?? []
+        );
+        const loadedInvoiceLines =
+          (invoiceLinesResult.data as InvoiceLine[]) ?? [];
+        setMerchandise(
+          loadedInvoiceLines
+            .filter((line) => line.kind === 'merchandise')
+            .sort((left, right) =>
+              right.created_at.localeCompare(left.created_at)
+            )
+        );
+        const pageInvoices = (
+          (genericInvoicesResult.data as MemberInvoiceBalance[]) ?? []
+        ).map(memberInvoiceDetail);
+        setGenericInvoices(pageInvoices);
+        setBillingState('ready');
+      })();
+
+      void (async () => {
+        const mandateResult = await supabase
           .from('payment_mandates')
           .select('*')
           .eq('membership_id', membershipId)
           .in('status', ['creating', 'pending', 'active', 'paused', 'orphaned'])
           .order('created_at', { ascending: false })
           .limit(1)
-          .maybeSingle(),
-        supabase
-          .from('member_service_details')
-          .select('*')
-          .eq('membership_id', membershipId)
-          .order('start_date', { ascending: false }),
-        (async () => {
-          const { data: genericInvoices, error: genericError } = await supabase
-            .from('invoice_balances')
-            .select('*')
-            .eq('membership_id', membershipId);
-          if (genericError) return { data: null, error: genericError };
-          const ids = (genericInvoices ?? []).map((invoice) => invoice.id);
-          if (ids.length === 0) {
-            return {
-              data: { invoices: [], lines: [] },
-              error: null,
-            };
-          }
-          const lineResult = await supabase
-            .from('invoice_line_balances')
-            .select('*')
-            .in('invoice_id', ids)
-            .order('sort_order');
-          return {
-            data: {
-              invoices: genericInvoices,
-              lines: lineResult.data ?? [],
-            },
-            error: lineResult.error,
-          };
-        })(),
-      ]);
-      if (cancelled) return;
-      const childError =
-        attendanceResult.error ??
-        invoicesResult.error ??
-        servicesResult.error ??
-        genericBillingResult.error;
-      if (childError) {
-        setLoadError(childError.message);
-        return;
-      }
-      setMembership(m as Membership);
-      setVisits((attendanceResult.data as Attendance[]) ?? []);
-      setInvoices((invoicesResult.data as MembershipPeriodInvoice[]) ?? []);
-      setServices((servicesResult.data as MemberService[]) ?? []);
-      const loadedInvoiceLines =
-        (genericBillingResult.data?.lines as InvoiceLine[]) ?? [];
-      setMerchandise(
-        loadedInvoiceLines
-          .filter((line) => line.kind === 'merchandise')
-          .sort((left, right) =>
-            right.created_at.localeCompare(left.created_at)
-          )
-      );
-      setGenericInvoices(
-        (
-          (genericBillingResult.data?.invoices as MemberInvoiceBalance[]) ?? []
-        ).map(memberInvoiceDetail)
-      );
-      setMandate((mandateResult.data as PaymentMandate | null) ?? null);
-
-      // Usage vs the plan's limit / pack size (062) — count visits in
-      // the plan's window. Not load-critical.
-      const usage = await fetchCheckInUsage(
-        supabase,
-        m as Membership,
-        fmt.today(),
-        locale
-      );
-      if (cancelled) return;
-      setUsageCount(usage ? usage.used : null);
+          .maybeSingle();
+        if (cancelled) return;
+        if (mandateResult.error) {
+          setMandateState('error');
+          setMandateError(mandateResult.error.message);
+          return;
+        }
+        setMandate((mandateResult.data as PaymentMandate | null) ?? null);
+        setMandateState('ready');
+      })();
     })();
     return () => {
       cancelled = true;
@@ -815,6 +854,7 @@ function MembershipDetailView({
       ) ?? null)
     : null;
   const canCollectCurrent =
+    billingState === 'ready' &&
     !!currentGenericInvoice &&
     currentGenericInvoice.state === 'open' &&
     isChargeableAmount(currentGenericInvoice.balance) &&
@@ -823,6 +863,8 @@ function MembershipDetailView({
   // offered for an active, non-trial member on a RECURRING plan (only
   // recurring plans auto-renew, 062) who has no live mandate yet.
   const canSetupAutoPay =
+    billingState === 'ready' &&
+    mandateState === 'ready' &&
     !!membership &&
     !!accountRole &&
     canManageMandates(accountRole) &&
@@ -831,12 +873,16 @@ function MembershipDetailView({
     isRenewalChaseable(membership.plan) &&
     !mandate;
   const canCancelAutoPay =
+    mandateState === 'ready' &&
     !!mandate?.gateway_subscription_id &&
     !!accountRole &&
     canConfigurePaymentGateway(accountRole);
-  const membershipLifecycleBlockReason = mandate
-    ? "Resolve this member's AutoPay mandate before changing this membership."
-    : null;
+  const membershipLifecycleBlockReason =
+    billingState !== 'ready' || mandateState !== 'ready'
+      ? 'Checking billing and AutoPay status before changing this membership.'
+      : mandate
+        ? "Resolve this member's AutoPay mandate before changing this membership."
+        : null;
 
   // Usage vs limit / sessions left (062) — the Attendance section line.
   const usagePlan = membership?.plan ?? null;
@@ -1291,7 +1337,37 @@ function MembershipDetailView({
                           ) : null}
                         </CardHeader>
                         <CardContent>
-                          {purchases.length === 0 ? (
+                          {purchasesState === 'loading' ? (
+                            <p
+                              className="text-muted-foreground flex items-center gap-2 text-sm"
+                              role="status"
+                            >
+                              <Loader2
+                                aria-hidden="true"
+                                className="size-4 animate-spin"
+                              />
+                              Loading purchases…
+                            </p>
+                          ) : purchasesState === 'error' ? (
+                            <Alert variant="destructive">
+                              <CircleAlert className="size-4" />
+                              <AlertTitle>
+                                Couldn&apos;t load purchases
+                              </AlertTitle>
+                              <AlertDescription>
+                                <p>{purchasesError}</p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-3"
+                                  onClick={() => setNonce((n) => n + 1)}
+                                >
+                                  <RefreshCw className="size-3.5" /> Try again
+                                </Button>
+                              </AlertDescription>
+                            </Alert>
+                          ) : purchases.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                               No purchases yet.
                             </p>
@@ -1507,7 +1583,37 @@ function MembershipDetailView({
                             )}
                         </CardHeader>
                         <CardContent className="flex flex-col gap-4">
-                          {membership.is_trial ? (
+                          {billingState === 'loading' ? (
+                            <p
+                              className="text-muted-foreground flex items-center gap-2 text-sm"
+                              role="status"
+                            >
+                              <Loader2
+                                aria-hidden="true"
+                                className="size-4 animate-spin"
+                              />
+                              Loading billing history…
+                            </p>
+                          ) : billingState === 'error' ? (
+                            <Alert variant="destructive">
+                              <CircleAlert className="size-4" />
+                              <AlertTitle>
+                                Couldn&apos;t load billing history
+                              </AlertTitle>
+                              <AlertDescription>
+                                <p>{billingError}</p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-3"
+                                  onClick={() => setNonce((n) => n + 1)}
+                                >
+                                  <RefreshCw className="size-3.5" /> Try again
+                                </Button>
+                              </AlertDescription>
+                            </Alert>
+                          ) : membership.is_trial ? (
                             <p className="text-muted-foreground text-sm">
                               Trials aren&apos;t billed. Convert to a member to
                               start invoicing.
@@ -1524,6 +1630,27 @@ function MembershipDetailView({
                               {/* The one place auto-pay is stated. The
                                   Membership card used to say it too, in
                                   different words. */}
+                              {mandateState === 'error' && (
+                                <Alert variant="destructive">
+                                  <CircleAlert className="size-4" />
+                                  <AlertTitle>
+                                    Couldn&apos;t verify AutoPay status
+                                  </AlertTitle>
+                                  <AlertDescription>
+                                    <p>{mandateError}</p>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="mt-3"
+                                      onClick={() => setNonce((n) => n + 1)}
+                                    >
+                                      <RefreshCw className="size-3.5" /> Try
+                                      again
+                                    </Button>
+                                  </AlertDescription>
+                                </Alert>
+                              )}
                               {mandate && (
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                   <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
@@ -1741,7 +1868,37 @@ function MembershipDetailView({
                               </Badge>
                             </div>
                           )}
-                          {visits.length === 0 ? (
+                          {attendanceState === 'loading' ? (
+                            <p
+                              className="text-muted-foreground flex items-center gap-2 text-sm"
+                              role="status"
+                            >
+                              <Loader2
+                                aria-hidden="true"
+                                className="size-4 animate-spin"
+                              />
+                              Loading attendance…
+                            </p>
+                          ) : attendanceState === 'error' ? (
+                            <Alert variant="destructive">
+                              <CircleAlert className="size-4" />
+                              <AlertTitle>
+                                Couldn&apos;t load attendance
+                              </AlertTitle>
+                              <AlertDescription>
+                                <p>{attendanceError}</p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="mt-3"
+                                  onClick={() => setNonce((n) => n + 1)}
+                                >
+                                  <RefreshCw className="size-3.5" /> Try again
+                                </Button>
+                              </AlertDescription>
+                            </Alert>
+                          ) : visits.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
                               No check-ins yet.
                             </p>
