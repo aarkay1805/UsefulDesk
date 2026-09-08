@@ -8,6 +8,14 @@
 
 ## UsefulDesk trial access and platform administration
 
+Web Inbox now reads conversations in bounded, server-filtered keyset pages and
+offers a continuation control instead of materializing the account's full
+conversation list. Opening a thread starts from the newest 50 messages under a
+stable `(created_at, id)` cursor; older history loads on demand in chronological
+order, while reactions are hydrated only for the visible message page. Realtime,
+deep links, unread clearing, and optimistic sends continue to use the page-owned
+thread state. Code: `src/components/inbox/{conversation-list,message-thread}.tsx`.
+
 Member profiles now publish the authorized membership/contact identity before
 secondary reads complete. Attendance, purchases, billing, and AutoPay have
 separate loading/error boundaries; billing and mandate-dependent actions remain

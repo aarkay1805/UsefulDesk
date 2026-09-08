@@ -205,6 +205,8 @@ const RUN_BREAK_MINUTES = 5;
  * Roughly two bubbles' worth, so a half-scrolled last message still pins.
  */
 const STICK_TO_BOTTOM_PX = 120;
+/** Keep the initial inbox payload small while still making history available. */
+const MESSAGE_PAGE_SIZE = 50;
 
 function startsNewRun(
   message: Message,
@@ -239,6 +241,11 @@ export function MessageThread({
   const { fmt } = useLocale();
   const { getPresence, getRow, now } = usePresence();
   const [loading, setLoading] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderCursor, setOlderCursor] = useState<{
+    createdAt: string;
+    id: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   /**
    * True while the reader is parked at the newest message — the only state
@@ -370,18 +377,31 @@ export function MessageThread({
     (async () => {
       setLoading(true);
 
+      // Fetch newest first so a provider row cap can never turn an active
+      // thread into an old, apparently-current conversation. Rendering keeps
+      // chronological order by reversing this bounded page below.
       const { data, error } = await supabase
         .from('messages')
         .select('*')
         .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(MESSAGE_PAGE_SIZE + 1);
 
       if (cancelled) return;
 
       if (error) {
         console.error('Failed to fetch messages:', error);
       } else {
-        onMessagesLoadedRef.current(data ?? []);
+        const rows = (data ?? []) as Message[];
+        const page = rows.slice(0, MESSAGE_PAGE_SIZE);
+        const oldest = page[page.length - 1];
+        setOlderCursor(
+          rows.length > MESSAGE_PAGE_SIZE && oldest
+            ? { createdAt: oldest.created_at, id: oldest.id }
+            : null
+        );
+        onMessagesLoadedRef.current(page.reverse());
       }
 
       if (!cancelled) setLoading(false);
@@ -395,6 +415,48 @@ export function MessageThread({
     // realtime is best-effort and any message events sent while the WS
     // was disconnected or throttled are otherwise lost.
   }, [conversationId, resyncToken]);
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!conversationId || !olderCursor || loadingOlder) return;
+    setLoadingOlder(true);
+    const supabase = createClient();
+    const cursor = olderCursor;
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .or(
+        `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`
+      )
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(MESSAGE_PAGE_SIZE + 1);
+
+    if (error) {
+      console.error('Failed to fetch older messages:', error);
+      setLoadingOlder(false);
+      return;
+    }
+    const rows = (data ?? []) as Message[];
+    const page = rows.slice(0, MESSAGE_PAGE_SIZE);
+    const oldest = page[page.length - 1];
+    setOlderCursor(
+      rows.length > MESSAGE_PAGE_SIZE && oldest
+        ? { createdAt: oldest.created_at, id: oldest.id }
+        : null
+    );
+    // The parent owns realtime/optimistic state. Merge rather than replace so
+    // a message arriving while history is loading is never lost.
+    // `messages` already contains every known item; only page rows can be new.
+    const chronologicalPage = [...page].reverse();
+    onMessagesLoadedRef.current(
+      [...chronologicalPage, ...messages].filter(
+        (message, index, all) =>
+          all.findIndex((item) => item.id === message.id) === index
+      )
+    );
+    setLoadingOlder(false);
+  }, [conversationId, loadingOlder, messages, olderCursor]);
 
   // Reactions fetch — pulls the current state from the DB. Kept separate
   // from the channel subscription below so a `resyncToken` bump just
@@ -411,10 +473,16 @@ export function MessageThread({
         return;
       }
       const supabase = createClient();
+      const messageIds = messages.map((message) => message.id);
+      if (messageIds.length === 0) {
+        setReactions([]);
+        return;
+      }
       const { data, error } = await supabase
         .from('message_reactions')
         .select('*')
-        .eq('conversation_id', conversationId);
+        .eq('conversation_id', conversationId)
+        .in('message_id', messageIds);
       if (cancelled) return;
       if (error) {
         console.error('Failed to fetch reactions:', error);
@@ -426,7 +494,7 @@ export function MessageThread({
     return () => {
       cancelled = true;
     };
-  }, [conversationId, resyncToken]);
+  }, [conversationId, messages, resyncToken]);
 
   // Reactions realtime subscription per conversation. Subscribing here
   // (not at the page level) keeps the channel scoped to the visible
@@ -1249,6 +1317,18 @@ export function MessageThread({
             </div>
           ) : (
             <div>
+              {olderCursor && (
+                <div className="flex justify-center pb-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    loading={loadingOlder}
+                    onClick={() => void loadOlderMessages()}
+                  >
+                    Load older messages
+                  </Button>
+                </div>
+              )}
               {messageGroups.map((group) => (
                 <div key={group.date}>
                   {/* Date separator — sticky, like WhatsApp's, so the day you

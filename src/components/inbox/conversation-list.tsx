@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import {
   CONVERSATION_SELECT,
-  matchesContactFilters,
   normalizeConversations,
 } from '@/lib/inbox/conversations';
 import { cn } from '@/lib/utils';
@@ -71,6 +70,23 @@ const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = [
   { label: 'Closed', value: 'closed' },
 ];
 
+const CONVERSATION_PAGE_SIZE = 50;
+
+function searchTerm(value: string): string {
+  return value
+    .trim()
+    .replace(/[,%.()\\*_:|&]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, 100)
+    .trim();
+}
+
+function intersectIds(current: string[] | null, next: string[]): string[] {
+  if (current === null) return next;
+  const allowed = new Set(next);
+  return current.filter((id) => allowed.has(id));
+}
+
 export function ConversationList({
   activeConversationId,
   onSelect,
@@ -83,6 +99,11 @@ export function ConversationList({
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<InboxFilter>('all');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<{
+    updatedAt: string;
+    id: string;
+  } | null>(null);
   // Contact-based filters (issue #272). Tags use OR logic (a conversation
   // matches if its contact carries any selected tag), consistent with
   // Broadcast audience filtering.
@@ -111,10 +132,81 @@ export function ConversationList({
     let cancelled = false;
 
     (async () => {
-      const { data, error } = await supabase
-        .from('conversations')
-        .select(CONVERSATION_SELECT)
-        .order('last_message_at', { ascending: false });
+      setLoading(true);
+      setNextCursor(null);
+      const term = searchTerm(search);
+      let contactIds: string[] | null = null;
+      if (term) {
+        const { data } = await supabase
+          .from('contacts')
+          .select('id')
+          .or(`name.ilike.*${term}*,phone.ilike.*${term}*`)
+          .limit(500);
+        contactIds = intersectIds(
+          contactIds,
+          (data ?? []).map((contact) => contact.id)
+        );
+      }
+      if (selectedTagIds.length > 0) {
+        const { data } = await supabase
+          .from('contact_tags')
+          .select('contact_id')
+          .in('tag_id', selectedTagIds)
+          .limit(500);
+        contactIds = intersectIds(
+          contactIds,
+          (data ?? []).map((row) => row.contact_id)
+        );
+      }
+      if (filter === 'member') {
+        const { data } = await supabase
+          .from('memberships')
+          .select('contact_id')
+          .limit(500);
+        contactIds = intersectIds(
+          contactIds,
+          (data ?? []).map((row) => row.contact_id)
+        );
+      }
+      if (filter === 'lead') {
+        const { data } = await supabase
+          .from('contacts')
+          .select('id, memberships!left(id)')
+          .is('memberships.id', null)
+          .limit(500);
+        contactIds = intersectIds(
+          contactIds,
+          (data ?? []).map((contact) => contact.id)
+        );
+      }
+
+      let query = supabase.from('conversations').select(CONVERSATION_SELECT);
+
+      if (filter === 'unread') query = query.gt('unread_count', 0);
+      if (contactIds !== null) {
+        if (contactIds.length === 0) {
+          if (!cancelled) {
+            onConversationsLoadedRef.current([]);
+            setLoading(false);
+          }
+          return;
+        }
+        query = query.in('contact_id', contactIds);
+      }
+      if (filter === 'open' || filter === 'pending' || filter === 'closed') {
+        query = query.eq('status', filter);
+      }
+      if (term) {
+        const parts = [`last_message_text.ilike.*${term}*`];
+        if (contactIds && contactIds.length > 0)
+          parts.push(`contact_id.in.(${contactIds.join(',')})`);
+        query = query.or(parts.join(','));
+      }
+
+      const { data, error } = await query
+        .order('updated_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(CONVERSATION_PAGE_SIZE + 1);
 
       if (cancelled) return;
 
@@ -130,7 +222,15 @@ export function ConversationList({
         return;
       }
 
-      onConversationsLoadedRef.current(normalizeConversations(data ?? []));
+      const rows = normalizeConversations(data ?? []);
+      const page = rows.slice(0, CONVERSATION_PAGE_SIZE);
+      const last = page[page.length - 1];
+      setNextCursor(
+        rows.length > CONVERSATION_PAGE_SIZE && last
+          ? { updatedAt: last.updated_at, id: last.id }
+          : null
+      );
+      onConversationsLoadedRef.current(page);
       setLoading(false);
     })();
 
@@ -140,7 +240,103 @@ export function ConversationList({
     // `resyncToken` is included so the parent can force a refetch when
     // the realtime channel reconnects or the tab regains focus — catches
     // up on any events sent while the WS was disconnected or throttled.
-  }, [resyncToken]);
+  }, [filter, resyncToken, search, selectedTagIds]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    const supabase = createClient();
+    const term = searchTerm(search);
+    let contactIds: string[] | null = null;
+    if (term) {
+      const { data } = await supabase
+        .from('contacts')
+        .select('id')
+        .or(`name.ilike.*${term}*,phone.ilike.*${term}*`)
+        .limit(500);
+      contactIds = intersectIds(
+        contactIds,
+        (data ?? []).map((contact) => contact.id)
+      );
+    }
+    if (selectedTagIds.length > 0) {
+      const { data } = await supabase
+        .from('contact_tags')
+        .select('contact_id')
+        .in('tag_id', selectedTagIds)
+        .limit(500);
+      contactIds = intersectIds(
+        contactIds,
+        (data ?? []).map((row) => row.contact_id)
+      );
+    }
+    if (filter === 'member') {
+      const { data } = await supabase
+        .from('memberships')
+        .select('contact_id')
+        .limit(500);
+      contactIds = intersectIds(
+        contactIds,
+        (data ?? []).map((row) => row.contact_id)
+      );
+    }
+    if (filter === 'lead') {
+      const { data } = await supabase
+        .from('contacts')
+        .select('id, memberships!left(id)')
+        .is('memberships.id', null)
+        .limit(500);
+      contactIds = intersectIds(
+        contactIds,
+        (data ?? []).map((contact) => contact.id)
+      );
+    }
+    if (contactIds !== null && contactIds.length === 0) {
+      setNextCursor(null);
+      setLoadingMore(false);
+      return;
+    }
+    let query = supabase
+      .from('conversations')
+      .select(CONVERSATION_SELECT)
+      .or(
+        `updated_at.lt.${nextCursor.updatedAt},and(updated_at.eq.${nextCursor.updatedAt},id.lt.${nextCursor.id})`
+      )
+      .order('updated_at', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(CONVERSATION_PAGE_SIZE + 1);
+    if (filter === 'unread') query = query.gt('unread_count', 0);
+    if (filter === 'open' || filter === 'pending' || filter === 'closed')
+      query = query.eq('status', filter);
+    if (contactIds !== null) query = query.in('contact_id', contactIds);
+    if (term) {
+      const parts = [`last_message_text.ilike.*${term}*`];
+      if (contactIds && contactIds.length > 0)
+        parts.push(`contact_id.in.(${contactIds.join(',')})`);
+      query = query.or(parts.join(','));
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error('Failed to fetch more conversations:', error);
+      setLoadingMore(false);
+      return;
+    }
+    const rows = normalizeConversations(data ?? []);
+    const page = rows.slice(0, CONVERSATION_PAGE_SIZE);
+    const last = page[page.length - 1];
+    setNextCursor(
+      rows.length > CONVERSATION_PAGE_SIZE && last
+        ? { updatedAt: last.updated_at, id: last.id }
+        : null
+    );
+    onConversationsLoadedRef.current(
+      [...conversations, ...page].filter(
+        (conversation, index, all) =>
+          all.findIndex((item) => item.id === conversation.id) === index
+      )
+    );
+    setLoadingMore(false);
+  }, [conversations, filter, loadingMore, nextCursor, search, selectedTagIds]);
 
   // Tag definitions for the filter picker — loaded once so labels/colours
   // stay stable regardless of which conversations happen to be loaded.
@@ -162,38 +358,7 @@ export function ConversationList({
     return m;
   }, [tags]);
 
-  const filtered = useMemo(() => {
-    let result = conversations;
-
-    if (filter === 'unread') {
-      result = result.filter((c) => c.unread_count > 0);
-    } else if (filter === 'member') {
-      result = result.filter((c) => c.isMember);
-    } else if (filter === 'lead') {
-      result = result.filter((c) => !c.isMember);
-    } else if (filter !== 'all') {
-      result = result.filter((c) => c.status === filter);
-    }
-
-    // Contact-based filters (tags via OR logic).
-    if (selectedTagIds.length > 0) {
-      result = result.filter((c) =>
-        matchesContactFilters(c, { tagIds: selectedTagIds })
-      );
-    }
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter((c) => {
-        const name = c.contact?.name?.toLowerCase() ?? '';
-        const phone = c.contact?.phone?.toLowerCase() ?? '';
-        const lastMsg = c.last_message_text?.toLowerCase() ?? '';
-        return name.includes(q) || phone.includes(q) || lastMsg.includes(q);
-      });
-    }
-
-    return result;
-  }, [conversations, filter, search, selectedTagIds]);
+  const filtered = conversations;
 
   const toggleTag = useCallback((id: string) => {
     setSelectedTagIds((prev) =>
@@ -384,6 +549,18 @@ export function ConversationList({
                 contactPanelOpen={contactPanelOpen}
               />
             ))}
+            {nextCursor && (
+              <div className="flex justify-center pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={loadingMore}
+                  onClick={() => void loadMore()}
+                >
+                  Load more conversations
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>
