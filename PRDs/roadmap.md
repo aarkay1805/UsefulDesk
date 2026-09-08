@@ -2,6 +2,12 @@
 
 ## Web release — UsefulDesk trials and platform administration
 
+Engineering maintenance: **broadcast details now separate the stored broadcast
+summary from recipient loading.** Recipient status filters and exact displayed
+counts are server-side; recipients continue through stable `(created_at, id)`
+pages, while CSV export independently walks the complete broadcast in bounded
+200-row requests.
+
 Engineering maintenance: **member action pickers no longer fetch while their
 dialogs are closed.** Renew, trial conversion, and plan-change dialogs mount on
 demand; plan and staff consumers share branch-keyed results plus in-flight

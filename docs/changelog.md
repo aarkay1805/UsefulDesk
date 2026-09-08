@@ -8,6 +8,13 @@
 
 ## UsefulDesk trial access and platform administration
 
+Broadcast detail now renders the stored broadcast summary independently from a
+bounded recipient page. Recipient status filtering and counts run on the
+server, pagination uses a stable `(created_at, id)` cursor, and CSV export
+walks complete 200-row pages rather than exporting only the visible page. Code:
+`src/app/(dashboard)/broadcasts/[id]/page.tsx` and
+`src/lib/broadcasts/recipient-pagination.ts`.
+
 Member-detail renewal, trial-conversion, and plan-change dialogs now mount only
 while open, so opening a member no longer starts three closed-dialog catalogue
 reads. `use-membership-plans` and `use-account-staff` share branch-keyed

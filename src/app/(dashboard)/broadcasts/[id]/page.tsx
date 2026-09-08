@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Broadcast, BroadcastRecipient, RecipientStatus } from '@/types';
@@ -38,6 +38,16 @@ import { toast } from 'sonner';
 import { getBroadcastStatus, getRecipientStatus } from '@/lib/broadcast-status';
 import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 import { useLocale } from '@/hooks/use-locale';
+import { downloadCsv, toCsv } from '@/lib/csv/export';
+import {
+  boundedRecipientPage,
+  RECIPIENT_EXPORT_PAGE_SIZE,
+  RECIPIENT_PAGE_SIZE,
+  recipientCursorFilter,
+  recipientStatusQuery,
+  type RecipientCursor,
+  walkRecipientPages,
+} from '@/lib/broadcasts/recipient-pagination';
 
 interface StatCardProps {
   label: string;
@@ -45,9 +55,17 @@ interface StatCardProps {
   total: number;
   icon: React.ReactNode;
   color: string;
+  formatNumber: (value: number) => string;
 }
 
-function StatCard({ label, value, total, icon, color }: StatCardProps) {
+function StatCard({
+  label,
+  value,
+  total,
+  icon,
+  color,
+  formatNumber,
+}: StatCardProps) {
   const pct = total > 0 ? Math.round((value / total) * 100) : 0;
   return (
     <div className="border-border bg-card rounded-xl border p-4">
@@ -60,7 +78,7 @@ function StatCard({ label, value, total, icon, color }: StatCardProps) {
         <span className="text-muted-foreground text-xs">{pct}%</span>
       </div>
       <p className="text-foreground mt-3 text-2xl font-bold">
-        {value.toLocaleString()}
+        {formatNumber(value)}
       </p>
       <p className="text-muted-foreground text-xs">{label}</p>
     </div>
@@ -78,7 +96,13 @@ interface FunnelStep {
  * Width is relative to the largest step (typically Sent) so we
  * always render a full bar at the top and proportional tails.
  */
-function FunnelChart({ steps }: { steps: FunnelStep[] }) {
+function FunnelChart({
+  steps,
+  formatNumber,
+}: {
+  steps: FunnelStep[];
+  formatNumber: (value: number) => string;
+}) {
   const max = Math.max(...steps.map((s) => s.value), 1);
   return (
     <div className="border-border bg-card rounded-xl border p-4">
@@ -101,7 +125,7 @@ function FunnelChart({ steps }: { steps: FunnelStep[] }) {
                   style={{ width: `${pctOfMax}%` }}
                 />
                 <span className="text-foreground absolute inset-0 flex items-center px-3 text-xs font-medium">
-                  {step.value.toLocaleString()}
+                  {formatNumber(step.value)}
                   <span className="text-muted-foreground/80 ml-2">
                     ({pctOfSent}%)
                   </span>
@@ -124,27 +148,6 @@ const RECIPIENT_STATUSES: readonly RecipientStatus[] = [
   'failed',
 ];
 
-/**
- * CSV export helper — RFC 4180 quoting. Quote every field so
- * commas/newlines/quotes round-trip cleanly.
- */
-function toCsv(rows: string[][]): string {
-  const escape = (v: string) => `"${v.replace(/"/g, '""')}"`;
-  return rows.map((r) => r.map(escape).join(',')).join('\n');
-}
-
-function downloadBlob(filename: string, content: string) {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
 export default function BroadcastDetailPage() {
   const { fmt } = useLocale();
   const params = useParams();
@@ -158,14 +161,22 @@ export default function BroadcastDetailPage() {
   const [statusFilter, setStatusFilter] = useState<RecipientStatus | 'all'>(
     'all'
   );
+  const [recipientCount, setRecipientCount] = useState<number | null>(null);
+  const [recipientError, setRecipientError] = useState<string | null>(null);
+  const [recipientsLoading, setRecipientsLoading] = useState(true);
+  const [loadingMoreRecipients, setLoadingMoreRecipients] = useState(false);
+  const [nextRecipientCursor, setNextRecipientCursor] =
+    useState<RecipientCursor | null>(null);
+  const [recipientRequest, setRecipientRequest] = useState(0);
+  const [exporting, setExporting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    async function fetchData() {
+    let cancelled = false;
+    void (async () => {
       try {
         const supabase = createClient();
-
         const { data: bc, error: bcError } = await supabase
           .from('broadcasts')
           .select('*')
@@ -173,63 +184,143 @@ export default function BroadcastDetailPage() {
           .single();
 
         if (bcError) throw bcError;
-        setBroadcast(bc);
-
-        const { data: recs, error: recsError } = await supabase
-          .from('broadcast_recipients')
-          .select('*, contact:contacts(*)')
-          .eq('broadcast_id', broadcastId)
-          .order('created_at', { ascending: false });
-
-        if (recsError) throw recsError;
-        setRecipients(recs ?? []);
+        if (!cancelled) setBroadcast(bc);
       } catch (err) {
+        if (cancelled) return;
         setError(
           err instanceof Error ? err.message : 'Failed to load broadcast'
         );
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    }
+    })();
 
-    fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, [broadcastId]);
 
-  const filteredRecipients = useMemo(
-    () =>
-      statusFilter === 'all'
-        ? recipients
-        : recipients.filter((r) => r.status === statusFilter),
-    [recipients, statusFilter]
+  const fetchRecipientPage = useCallback(
+    async (
+      cursor: RecipientCursor | null,
+      pageSize: number,
+      filter: RecipientStatus | 'all' = statusFilter
+    ) => {
+      const supabase = createClient();
+      let query = supabase
+        .from('broadcast_recipients')
+        .select(
+          'id,broadcast_id,contact_id,status,sent_at,delivered_at,read_at,replied_at,error_message,whatsapp_message_id,created_at,contact:contacts(id,name,phone)',
+          { count: 'exact' }
+        )
+        .eq('broadcast_id', broadcastId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
+      const recipientStatus = recipientStatusQuery(filter);
+      if (recipientStatus) query = query.eq('status', recipientStatus);
+      if (cursor) query = query.or(recipientCursorFilter(cursor));
+
+      const { data, error: pageError, count } = await query.limit(pageSize + 1);
+      const page = boundedRecipientPage(
+        (data ?? []) as unknown as BroadcastRecipient[],
+        pageSize
+      );
+      return { ...page, count, error: pageError };
+    },
+    [broadcastId, statusFilter]
   );
 
-  function handleExport() {
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setRecipientsLoading(true);
+      setRecipientError(null);
+      setRecipients([]);
+      setRecipientCount(null);
+      setNextRecipientCursor(null);
+
+      const page = await fetchRecipientPage(null, RECIPIENT_PAGE_SIZE);
+      if (cancelled) return;
+      if (page.error) {
+        setRecipientError(page.error.message);
+      } else {
+        setRecipients(page.rows);
+        setRecipientCount(page.count ?? 0);
+        setNextRecipientCursor(page.nextCursor);
+      }
+      setRecipientsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchRecipientPage, recipientRequest]);
+
+  const loadMoreRecipients = useCallback(async () => {
+    if (!nextRecipientCursor || loadingMoreRecipients) return;
+    setLoadingMoreRecipients(true);
+    const page = await fetchRecipientPage(
+      nextRecipientCursor,
+      RECIPIENT_PAGE_SIZE
+    );
+    if (page.error) {
+      setRecipientError(page.error.message);
+    } else {
+      setRecipients((current) => [...current, ...page.rows]);
+      setNextRecipientCursor(page.nextCursor);
+    }
+    setLoadingMoreRecipients(false);
+  }, [fetchRecipientPage, loadingMoreRecipients, nextRecipientCursor]);
+
+  async function handleExport() {
     if (!broadcast) return;
-    const header = [
-      'Contact',
-      'Phone',
-      'Status',
-      'Sent At',
-      'Delivered At',
-      'Read At',
-      'Replied At',
-      'Error',
-    ];
-    const rows = recipients.map((r) => [
-      r.contact?.name ?? '',
-      fmt.phone(r.contact?.phone),
-      r.status,
-      r.sent_at ?? '',
-      r.delivered_at ?? '',
-      r.read_at ?? '',
-      r.replied_at ?? '',
-      r.error_message ?? '',
-    ]);
-    const csv = toCsv([header, ...rows]);
-    const safeName = broadcast.name
-      .replace(/[^a-z0-9-_]+/gi, '-')
-      .toLowerCase();
-    downloadBlob(`broadcast-${safeName}-${broadcastId.slice(0, 8)}.csv`, csv);
+    setExporting(true);
+    try {
+      const allRecipients = await walkRecipientPages(async (cursor) => {
+        const page = await fetchRecipientPage(
+          cursor,
+          RECIPIENT_EXPORT_PAGE_SIZE,
+          'all'
+        );
+        if (page.error) throw page.error;
+        return page;
+      });
+      const header = [
+        'Contact',
+        'Phone',
+        'Status',
+        'Sent At',
+        'Delivered At',
+        'Read At',
+        'Replied At',
+        'Error',
+      ];
+      const rows = allRecipients.map((r) => [
+        r.contact?.name ?? '',
+        fmt.phone(r.contact?.phone),
+        r.status,
+        r.sent_at ?? '',
+        r.delivered_at ?? '',
+        r.read_at ?? '',
+        r.replied_at ?? '',
+        r.error_message ?? '',
+      ]);
+      const safeName = broadcast.name
+        .replace(/[^a-z0-9-_]+/gi, '-')
+        .toLowerCase();
+      downloadCsv(
+        `broadcast-${safeName}-${broadcastId.slice(0, 8)}.csv`,
+        toCsv(header, rows)
+      );
+    } catch (exportError) {
+      const message =
+        exportError instanceof Error
+          ? exportError.message
+          : 'Failed to export broadcast recipients';
+      toast.error(message);
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function handleDelete() {
@@ -239,13 +330,16 @@ export default function BroadcastDetailPage() {
     // single delete is sufficient — the aggregate trigger in migration 003
     // is defined on broadcast_recipients but fires only on its own row
     // changes, not on a cascaded drop of the parent row.
-    const { error: delErr } = await supabase
+    const { data: deleted, error: delErr } = await supabase
       .from('broadcasts')
       .delete()
-      .eq('id', broadcastId);
-    if (delErr) {
+      .eq('id', broadcastId)
+      .select('id');
+    if (delErr || !deleted?.length) {
       setDeleting(false);
-      toast.error(`Failed to delete: ${delErr.message}`);
+      toast.error(
+        `Failed to delete: ${delErr?.message ?? 'Broadcast was not found or access was denied'}`
+      );
       return;
     }
     toast.success('Broadcast deleted');
@@ -330,9 +424,7 @@ export default function BroadcastDetailPage() {
             <div className="text-muted-foreground mt-1 flex items-center gap-3 text-sm">
               <span>Template: {broadcast.template_name}</span>
               <span>-</span>
-              <span>
-                Created {new Date(broadcast.created_at).toLocaleDateString()}
-              </span>
+              <span>Created {fmt.date(broadcast.created_at)}</span>
             </div>
           </div>
         </div>
@@ -390,6 +482,7 @@ export default function BroadcastDetailPage() {
           total={broadcast.total_recipients}
           icon={<Users className="h-4 w-4" />}
           color="bg-muted text-muted-foreground"
+          formatNumber={fmt.number}
         />
         <StatCard
           label="Sent"
@@ -397,6 +490,7 @@ export default function BroadcastDetailPage() {
           total={broadcast.total_recipients}
           icon={<Send className="h-4 w-4" />}
           color="bg-primary/10 text-primary-text"
+          formatNumber={fmt.number}
         />
         <StatCard
           label="Delivered"
@@ -404,6 +498,7 @@ export default function BroadcastDetailPage() {
           total={broadcast.total_recipients}
           icon={<CheckCheck className="h-4 w-4" />}
           color="bg-teal-500/10 text-teal-foreground"
+          formatNumber={fmt.number}
         />
         <StatCard
           label="Read"
@@ -411,6 +506,7 @@ export default function BroadcastDetailPage() {
           total={broadcast.total_recipients}
           icon={<Eye className="h-4 w-4" />}
           color="bg-blue-500/10 text-blue-foreground"
+          formatNumber={fmt.number}
         />
         <StatCard
           label="Replied"
@@ -418,6 +514,7 @@ export default function BroadcastDetailPage() {
           total={broadcast.total_recipients}
           icon={<MessageCircle className="h-4 w-4" />}
           color="bg-indigo-500/10 text-indigo-foreground"
+          formatNumber={fmt.number}
         />
         <StatCard
           label="Failed"
@@ -425,17 +522,18 @@ export default function BroadcastDetailPage() {
           total={broadcast.total_recipients}
           icon={<AlertCircle className="h-4 w-4" />}
           color="bg-red-500/10 text-red-foreground"
+          formatNumber={fmt.number}
         />
       </div>
 
-      <FunnelChart steps={funnelSteps} />
+      <FunnelChart steps={funnelSteps} formatNumber={fmt.number} />
 
       {/* Recipients Table */}
       <div className="border-border bg-card rounded-xl border">
         <div className="border-border flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
           <h2 className="text-foreground text-sm font-medium">
-            Recipients ({filteredRecipients.length}
-            {statusFilter !== 'all' ? ` of ${recipients.length}` : ''})
+            Recipients
+            {recipientCount !== null ? ` (${fmt.number(recipientCount)})` : ''}
           </h2>
           <div className="flex items-center gap-2">
             <DropdownMenu>
@@ -484,8 +582,9 @@ export default function BroadcastDetailPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={handleExport}
-              disabled={recipients.length === 0}
+              onClick={() => void handleExport()}
+              loading={exporting}
+              disabled={recipientsLoading || broadcast.total_recipients === 0}
               className="border-border text-muted-foreground hover:bg-muted"
             >
               <Download className="h-3.5 w-3.5" />
@@ -494,10 +593,37 @@ export default function BroadcastDetailPage() {
           </div>
         </div>
 
-        {filteredRecipients.length === 0 ? (
+        {recipientsLoading ? (
+          <TableSkeleton
+            label="Loading broadcast recipients"
+            rows={7}
+            columns={[
+              { label: 'Contact', variant: 'identity' },
+              { label: 'Phone' },
+              { label: 'Status', variant: 'badge' },
+              { label: 'Sent' },
+              { label: 'Delivered' },
+              { label: 'Read' },
+              { label: 'Error' },
+            ]}
+          />
+        ) : recipientError ? (
+          <div className="flex h-32 flex-col items-center justify-center gap-2">
+            <p className="text-red-foreground text-sm">
+              Failed to load recipients: {recipientError}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRecipientRequest((current) => current + 1)}
+            >
+              Retry
+            </Button>
+          </div>
+        ) : recipients.length === 0 ? (
           <div className="flex h-32 items-center justify-center">
             <p className="text-muted-foreground text-sm">
-              {recipients.length === 0
+              {statusFilter === 'all'
                 ? 'No recipients found.'
                 : 'No recipients match this filter.'}
             </p>
@@ -506,7 +632,7 @@ export default function BroadcastDetailPage() {
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
+                <TableRow interactive={false} className="border-border">
                   <TableHead>Contact</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Status</TableHead>
@@ -517,7 +643,7 @@ export default function BroadcastDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRecipients.map((recipient) => {
+                {recipients.map((recipient) => {
                   const rStatus = getRecipientStatus(recipient.status);
                   return (
                     <TableRow key={recipient.id} className="border-border">
@@ -536,17 +662,17 @@ export default function BroadcastDetailPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {recipient.sent_at
-                          ? new Date(recipient.sent_at).toLocaleString()
+                          ? fmt.dateTime(recipient.sent_at)
                           : '-'}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {recipient.delivered_at
-                          ? new Date(recipient.delivered_at).toLocaleString()
+                          ? fmt.dateTime(recipient.delivered_at)
                           : '-'}
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {recipient.read_at
-                          ? new Date(recipient.read_at).toLocaleString()
+                          ? fmt.dateTime(recipient.read_at)
                           : '-'}
                       </TableCell>
                       <TableCell className="text-red-foreground max-w-xs truncate text-xs">
@@ -557,6 +683,18 @@ export default function BroadcastDetailPage() {
                 })}
               </TableBody>
             </Table>
+            {nextRecipientCursor && (
+              <div className="flex justify-center px-4 py-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  loading={loadingMoreRecipients}
+                  onClick={() => void loadMoreRecipients()}
+                >
+                  Load more recipients
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
