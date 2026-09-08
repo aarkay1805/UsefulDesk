@@ -424,7 +424,7 @@ success, and never stores the PIN or requires Manual setup.**
 
 Engineering maintenance: **Husky and GitHub CI now execute one shared
 `npm run verify` contract requiring lint, typecheck, the full test suite, and
-the production build. Prettier runs as a separate advisory CI step, so
+the production build. Prettier and its warning step have been removed from CI, so
 formatting differences cannot block pushes or Vercel deployment. Staged-file
 auto-formatting and local formatting commands remain available; the existing
 CI check name and Vercel status are unchanged. The Members Realtime dependency

@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   check:
+    # Keep the existing check name stable for branch protection rules.
     name: Format, lint, typecheck, test, build
     runs-on: ubuntu-latest
     permissions:
@@ -50,17 +51,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      # Formatting remains visible without blocking the required checks or
-      # the Vercel deployment status. Only this step may fail without failing CI.
-      - name: Formatting (advisory)
-        id: formatting
-        continue-on-error: true
-        run: npm run format:check
-
-      - name: Report formatting warning
-        if: steps.formatting.outcome == 'failure'
-        run: echo "::warning::Formatting check did not pass. Run npm run format locally to review and fix formatting; deployment is not blocked by this check."
 
       - name: Install PDF test tooling
         run: |

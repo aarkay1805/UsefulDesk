@@ -6,6 +6,13 @@
 
 ---
 
+## Formatting check removed from GitHub Actions
+
+Removed the advisory Prettier step and its warning from `.github/workflows/ci.yml`.
+CI still requires lint, typecheck, tests, and build through `npm run verify`.
+The existing check name stays stable for branch protection; local formatting
+commands and staged-file auto-formatting remain available.
+
 ## UsefulDesk trial access and platform administration
 
 Broadcast detail now renders the stored broadcast summary independently from a

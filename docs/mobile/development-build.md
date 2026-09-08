@@ -264,7 +264,7 @@ typecheck first regenerates Expo Router declarations, so a missing ignored
 `.expo/types/router.d.ts` cannot make a clean checkout fail.
 
 The aggregate `npm run verify` requires lint, typecheck, tests, and the production
-build. Formatting is a separate advisory CI check; use `npm run format:check`
+build. Formatting does not run in CI; use `npm run format:check`
 to inspect it locally. Generated Expo/native directories remain ignored by
 Prettier.
 
