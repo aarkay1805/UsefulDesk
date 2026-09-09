@@ -101,6 +101,7 @@ const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
   'churn-risk-unmatched': 'Churn risk not recognised',
   'profile-value-invalid': 'Height or weight not readable',
   'cancelled-dues-written-off': 'Cancelled member has unpaid balance',
+  'membership-term-needs-resolution': 'Choose the current membership term',
 };
 
 interface ImportMembersPreviewProps {
@@ -112,6 +113,8 @@ interface ImportMembersPreviewProps {
   plans: MembershipPlan[];
   catalogItems: CatalogItem[];
   trainers: Trainer[];
+  /** Successful and uncertain journal rows are immutable until a definite rollback. */
+  lockedSourceKeys?: ReadonlySet<string>;
   onPatch: (sourceKey: string, patch: CandidatePatch) => void;
   onResolveGroupedPlan: (
     sourceKeys: string[],
@@ -138,6 +141,8 @@ interface ImportMembersPreviewProps {
     sourceKey: string,
     resolution: MemberImportExistingContactResolution
   ) => void;
+  onResolveMembershipTerm: (legacyMemberId: string, sourceKey: string) => void;
+  onResolveCancelledDebt: (sourceKey: string) => void;
   onSetDisposition: (
     sourceKey: string,
     disposition: MemberImportCandidateDisposition
@@ -171,6 +176,8 @@ const ISSUE_SECTION_LABELS: Partial<Record<IssueCode, string>> = {
   'service-values-invalid': 'Service details',
   'duplicate-service': 'Duplicate services',
   'existing-contact': 'Contact details',
+  'membership-term-needs-resolution': 'Membership history',
+  'cancelled-dues-written-off': 'Cancelled memberships',
   'invalid-membership-values': 'Member details',
   'expiry-not-after-start': 'Membership dates',
 };
@@ -310,6 +317,9 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
   const paged = visible.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
   const selected =
     paged.find((row) => row.sourceKey === selectedKey) ?? paged[0] ?? null;
+  const selectedLocked = Boolean(
+    selected && props.lockedSourceKeys?.has(selected.sourceKey)
+  );
   const showInspector =
     Boolean(selected) ||
     (reviewingIssues && sectionsCollapsed && sections.length > 0);
@@ -958,7 +968,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                 </div>
               </div>
               <Separator />
-              {activeGroup ? (
+              {activeGroup && !selectedLocked ? (
                 <GroupResolver
                   key={`${selected.sourceKey}:${activeGroup.key}`}
                   {...props}
@@ -973,6 +983,13 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               ) : (
                 renderResolution(
                   <div className="space-y-4">
+                    {selectedLocked ? (
+                      <p className="text-muted-foreground text-sm">
+                        This row already has a saved import attempt. Its details
+                        are locked so a retry can use the exact recorded
+                        payload.
+                      </p>
+                    ) : null}
                     <CandidateStatus candidate={selected} />
                     <p className="text-muted-foreground text-sm">
                       {selected.disposition === 'included'
@@ -1672,6 +1689,8 @@ function GroupResolver({
   onResolveGroupedService,
   onResolvePayment,
   onResolveExistingContact,
+  onResolveMembershipTerm,
+  onResolveCancelledDebt,
   onPatch,
   onSetDisposition,
   renderLayout,
@@ -1686,12 +1705,75 @@ function GroupResolver({
   onResolveGroupedService: ImportMembersPreviewProps['onResolveGroupedService'];
   onResolvePayment: ImportMembersPreviewProps['onResolvePayment'];
   onResolveExistingContact: ImportMembersPreviewProps['onResolveExistingContact'];
+  onResolveMembershipTerm: ImportMembersPreviewProps['onResolveMembershipTerm'];
+  onResolveCancelledDebt: ImportMembersPreviewProps['onResolveCancelledDebt'];
   onPatch: ImportMembersPreviewProps['onPatch'];
   onSetDisposition: ImportMembersPreviewProps['onSetDisposition'];
   renderLayout: ResolutionLayout;
 }) {
   const first = group.candidates[0];
   const sourceKeys = group.candidates.map((candidate) => candidate.sourceKey);
+
+  if (group.code === 'membership-term-needs-resolution') {
+    const legacyMemberId = first.legacyMemberId ?? '';
+    const selected = group.candidates.find(
+      (candidate) =>
+        candidate.resolutions.currentTermSourceKey === candidate.sourceKey
+    );
+    return renderLayout(
+      <div className="space-y-3">
+        <p className="text-muted-foreground text-xs">
+          Choose the one membership term that should be current. Other terms
+          remain as import history.
+        </p>
+        <Select
+          value={selected?.sourceKey ?? null}
+          onValueChange={(sourceKey) =>
+            sourceKey && onResolveMembershipTerm(legacyMemberId, sourceKey)
+          }
+        >
+          <SelectTrigger
+            aria-label={`Choose current membership term for ${legacyMemberId || `source row ${first.sourceRow}`}`}
+          >
+            <SelectValue placeholder="Choose a membership term" />
+          </SelectTrigger>
+          <SelectContent>
+            {group.candidates.map((candidate) => (
+              <SelectItem key={candidate.sourceKey} value={candidate.sourceKey}>
+                Source row {candidate.sourceRow} ·{' '}
+                {candidate.built.membership?.start_date ?? 'Unknown start'} to{' '}
+                {candidate.built.membership?.end_date ?? 'Unknown expiry'}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  }
+
+  if (group.code === 'cancelled-dues-written-off') {
+    return renderLayout(
+      <div className="space-y-3">
+        <p className="text-muted-foreground text-xs">
+          This records a write-off only for the membership balance shown in this
+          row. Any service balance remains unchanged.
+        </p>
+        <IssueRows
+          group={group}
+          onSetDisposition={onSetDisposition}
+          renderControl={(candidate) => (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onResolveCancelledDebt(candidate.sourceKey)}
+            >
+              Record membership balance write-off
+            </Button>
+          )}
+        />
+      </div>
+    );
+  }
 
   if (
     group.code === 'missing-phone' ||

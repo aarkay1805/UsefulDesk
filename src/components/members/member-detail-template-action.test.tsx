@@ -41,6 +41,8 @@ vi.mock('sonner', () => ({
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
     user: { id: 'user-1' },
+    accountId: 'account-1',
+    profileLoading: false,
     canSendMessages: true,
     accountRole: 'owner',
   }),

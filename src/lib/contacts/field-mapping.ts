@@ -304,7 +304,12 @@ export function parseCsvRaw(text: string): RawCsv {
   };
 }
 
-function parseCsvRecords(text: string): string[][] {
+/**
+ * Low-level RFC 4180 records, including blank records. Import adapters that
+ * need to retain the original record number use this rather than `parseCsvRaw`,
+ * which intentionally drops blanks for the generic contacts wizard.
+ */
+export function parseCsvRecords(text: string): string[][] {
   const records: string[][] = [];
   let row: string[] = [];
   let field = '';

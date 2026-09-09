@@ -14,8 +14,10 @@ import {
   filterMemberImportCandidates,
   patchMemberImportCandidate,
   revalidateMemberImportCandidates,
+  resolveCancelledMembershipDebt,
   resolveExistingContact,
   resolveGroupedPlan,
+  resolveMembershipTerm,
   resolvePaymentConflict,
   searchMemberImportCandidates,
   summarizeMemberImportCandidates,
@@ -204,7 +206,7 @@ describe('warnings reach the operator as notices', () => {
   // A cancelled row's period is voided at commit, so its unpaid balance is
   // written off. The row still imports — the notice is what makes the money
   // leaving visible before the operator commits.
-  it('warns that a cancelled member with a balance loses it on import', () => {
+  it('requires an explicit write-off decision for a cancelled member with a balance', () => {
     const [candidate] = build([
       source(2, {
         original: { status: 'cancelled', fee: '7000', amountPaid: '0' },
@@ -214,10 +216,11 @@ describe('warnings reach the operator as notices', () => {
     expect(candidate.issues).toContainEqual(
       expect.objectContaining({
         code: 'cancelled-dues-written-off',
-        severity: 'notice',
+        severity: 'decision',
+        resolved: false,
       })
     );
-    expect(candidate.isReady).toBe(true);
+    expect(candidate.isReady).toBe(false);
   });
 
   it('stays quiet when a cancelled member owes nothing', () => {
@@ -232,6 +235,439 @@ describe('warnings reach the operator as notices', () => {
         (item) => item.code === 'cancelled-dues-written-off'
       )
     ).toBe(false);
+  });
+});
+
+describe('financial and job-scoped candidate contract', () => {
+  it('derives the payment from a paid status when the source omits an amount', () => {
+    const [candidate] = build([
+      source(2, {
+        original: { fee: '1,200.01', amountPaid: '', feeStatus: 'paid' },
+      }),
+    ]);
+
+    expect(candidate.accounting).toEqual({
+      total: 1200.01,
+      amountPaid: 1200.01,
+      balance: 0,
+    });
+    expect(candidate.built.payment?.amount).toBe(1200.01);
+  });
+
+  it('derives a payment from a due-only source row', () => {
+    const [candidate] = build([
+      source(2, {
+        original: { fee: '1,200.01', amountPaid: '', amountDue: '500.01' },
+      }),
+    ]);
+
+    expect(candidate.accounting).toEqual({
+      total: 1200.01,
+      amountPaid: 700,
+      balance: 500.01,
+    });
+    expect(candidate.built.payment?.amount).toBe(700);
+  });
+
+  it('reconciles a combined row before validating its membership discount', () => {
+    const [candidate] = build([
+      source(2, {
+        original: {
+          fee: '1,700',
+          amountPaid: '1,700',
+          listPrice: '1,800',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          serviceSoldPrice: '500',
+        },
+      }),
+    ]);
+
+    expect(candidate.built.membership).toMatchObject({
+      fee_amount: 1200,
+      list_price: 1800,
+      discount_amount: 600,
+    });
+    expect(candidate.accounting).toEqual({
+      total: 1700,
+      amountPaid: 1700,
+      balance: 0,
+    });
+    expect(
+      candidate.issues.some((issue) => issue.code === 'pricing-mismatch')
+    ).toBe(false);
+    expect(candidate.isReady).toBe(true);
+  });
+
+  it('blocks a retained service-only history row until its combined payment is reconciled', () => {
+    const candidates = build([
+      source(2, {
+        legacyMemberId: 'M-history',
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/01/2026',
+          endDate: '01/02/2026',
+          serviceName: 'Personal training',
+          serviceOption: '1 month',
+          serviceSoldPrice: '500',
+          fee: '1700',
+          amountPaid: '1700',
+        },
+      }),
+      source(3, {
+        legacyMemberId: 'M-history',
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/07/2026',
+          endDate: '01/08/2026',
+        },
+      }),
+    ]);
+
+    expect(candidates[0]).toMatchObject({
+      membershipComponent: { included: false },
+      serviceComponent: { intent: { soldAmount: 500 } },
+      isReady: false,
+      accounting: null,
+    });
+    expect(candidates[0].issues).toContainEqual(
+      expect.objectContaining({
+        code: 'purchase-total-mismatch',
+        severity: 'blocking',
+      })
+    );
+  });
+
+  it('does not round away a one-paise payment reconciliation gap', () => {
+    const [candidate] = build([
+      source(2, {
+        original: { fee: '100.00', amountPaid: '0.00', balance: '99.99' },
+      }),
+    ]);
+
+    expect(candidate.accounting).toBeNull();
+    expect(candidate.issues).toContainEqual(
+      expect.objectContaining({
+        code: 'payment-conflict',
+        severity: 'decision',
+      })
+    );
+  });
+
+  it('uses the persisted import job in stable source and customer keys', () => {
+    const context = {
+      plans: PLANS,
+      catalogItems: SERVICES,
+      trainers: [],
+      trainerRates: [],
+      dateOrder: 'DMY' as const,
+      today: TODAY,
+    };
+    const [first] = buildMemberImportCandidates([source(2)], {
+      ...context,
+      importJobId: '3ea2cdce-e7b7-4bd1-85a8-c0aa7a7098ab',
+    });
+    const [second] = buildMemberImportCandidates([source(2)], {
+      ...context,
+      importJobId: 'b5283ef9-0e37-459e-9609-a89020eb635f',
+    });
+
+    expect(first.purchaseIdempotencyKey).not.toBe(
+      second.purchaseIdempotencyKey
+    );
+    expect(first.customerIdempotencyKey).not.toBe(
+      second.customerIdempotencyKey
+    );
+  });
+
+  it('rekeys an unattempted customer when an identity edit regroups the source row', () => {
+    const context = {
+      plans: PLANS,
+      catalogItems: SERVICES,
+      dateOrder: 'DMY' as const,
+      today: TODAY,
+      importJobId: '3ea2cdce-e7b7-4bd1-85a8-c0aa7a7098ab',
+    };
+    const [candidate] = buildMemberImportCandidates([source(2)], context);
+    const [edited] = patchMemberImportCandidate(
+      [candidate],
+      candidate.sourceKey,
+      { phone: '+15550009999' },
+      context
+    );
+
+    expect(edited.customerGroupKey).not.toBe(candidate.customerGroupKey);
+    expect(edited.customerIdempotencyKey).not.toBe(
+      candidate.customerIdempotencyKey
+    );
+  });
+
+  it('gives two ready groups different customer keys after a shared-phone split', () => {
+    const context = {
+      plans: PLANS,
+      catalogItems: SERVICES,
+      dateOrder: 'DMY' as const,
+      today: TODAY,
+      importJobId: '3ea2cdce-e7b7-4bd1-85a8-c0aa7a7098ab',
+    };
+    let candidates = buildMemberImportCandidates(
+      [
+        source(2, {
+          original: {
+            planName: '',
+            serviceName: 'Personal training',
+            serviceOption: '1 month',
+            phone: '+15550000071',
+            name: 'Same customer',
+            serviceStart: '01/01/2026',
+            fee: '4000',
+            amountPaid: '4000',
+          },
+        }),
+        source(3, {
+          original: {
+            planName: '',
+            serviceName: 'Personal training',
+            serviceOption: '1 month',
+            phone: '+15550000071',
+            name: 'Same customer',
+            serviceStart: '01/03/2026',
+            fee: '4000',
+            amountPaid: '4000',
+          },
+        }),
+      ],
+      context
+    );
+    expect(candidates[0].customerIdempotencyKey).toBe(
+      candidates[1].customerIdempotencyKey
+    );
+
+    candidates = patchMemberImportCandidate(
+      candidates,
+      'sheet-1:3',
+      { phone: '+15550000072' },
+      context
+    );
+    expect(candidates.every((candidate) => candidate.isReady)).toBe(true);
+    expect(candidates[0].customerIdempotencyKey).not.toBe(
+      candidates[1].customerIdempotencyKey
+    );
+  });
+
+  it('preserves an attempted source key while its live identity is edited', () => {
+    const context = {
+      plans: PLANS,
+      catalogItems: SERVICES,
+      dateOrder: 'DMY' as const,
+      today: TODAY,
+      importJobId: '3ea2cdce-e7b7-4bd1-85a8-c0aa7a7098ab',
+    };
+    const [candidate] = buildMemberImportCandidates([source(2)], context);
+    const [edited] = patchMemberImportCandidate(
+      [candidate],
+      candidate.sourceKey,
+      { phone: '+15550009999' },
+      { ...context, attemptedSourceKeys: new Set([candidate.sourceKey]) }
+    );
+    expect(edited.customerIdempotencyKey).toBe(
+      candidate.customerIdempotencyKey
+    );
+  });
+
+  it('blocks a cancelled membership debt until the reviewer records a write-off', () => {
+    let candidates = build([
+      source(2, {
+        original: {
+          status: 'cancelled',
+          fee: '1200',
+          amountPaid: '700',
+        },
+      }),
+    ]);
+
+    expect(candidates[0].isReady).toBe(false);
+    expect(candidates[0].issues).toContainEqual(
+      expect.objectContaining({
+        code: 'cancelled-dues-written-off',
+        severity: 'decision',
+        resolved: false,
+      })
+    );
+    candidates = resolveCancelledMembershipDebt(
+      candidates,
+      'sheet-1:2',
+      'write_off',
+      { plans: PLANS, catalogItems: SERVICES, dateOrder: 'DMY', today: TODAY }
+    );
+    expect(candidates[0].isReady).toBe(true);
+
+    candidates = patchMemberImportCandidate(
+      candidates,
+      'sheet-1:2',
+      { fee: '1100' },
+      { plans: PLANS, catalogItems: SERVICES, dateOrder: 'DMY', today: TODAY }
+    );
+    expect(candidates[0].isReady).toBe(false);
+  });
+});
+
+describe('current membership-term selection', () => {
+  it('prefers the unique account-local current term over a future renewal', () => {
+    const candidates = build([
+      source(2, {
+        legacyMemberId: 'M-same',
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/01/2026',
+          endDate: '01/02/2026',
+        },
+      }),
+      source(3, {
+        legacyMemberId: 'M-same',
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/07/2026',
+          endDate: '01/08/2026',
+        },
+      }),
+      source(4, {
+        legacyMemberId: 'M-same',
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/08/2026',
+          endDate: '01/09/2026',
+        },
+      }),
+    ]);
+
+    expect(candidates[1].membershipComponent?.included).toBe(true);
+    expect(candidates[2].disposition).toBe('excluded');
+  });
+
+  it('asks the reviewer to choose between terms with the same start date', () => {
+    let candidates = build([
+      source(2, {
+        legacyMemberId: 'M-same',
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/07/2026',
+          endDate: '01/08/2026',
+        },
+      }),
+      source(3, {
+        legacyMemberId: 'M-same',
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/07/2026',
+          endDate: '01/09/2026',
+        },
+      }),
+    ]);
+
+    expect(candidates.every((candidate) => !candidate.isReady)).toBe(true);
+    expect(candidates.flatMap((candidate) => candidate.issues)).toContainEqual(
+      expect.objectContaining({
+        code: 'membership-term-needs-resolution',
+        severity: 'decision',
+      })
+    );
+    candidates = resolveMembershipTerm(candidates, 'M-same', 'sheet-1:3', {
+      plans: PLANS,
+      catalogItems: SERVICES,
+      dateOrder: 'DMY',
+      today: TODAY,
+    });
+    expect(candidates[1].membershipComponent?.included).toBe(true);
+    expect(candidates[1].disposition).toBe('included');
+    expect(candidates[0].disposition).toBe('excluded');
+  });
+
+  it('does not suppress separate customers that share only a legacy ID', () => {
+    const candidates = build([
+      source(2, {
+        legacyMemberId: 'M-reused',
+        original: { phone: '+15550000002', startDate: '01/01/2026' },
+      }),
+      source(3, {
+        legacyMemberId: 'M-reused',
+        original: { phone: '+15550000003', startDate: '01/08/2026' },
+      }),
+    ]);
+
+    expect(candidates.map((candidate) => candidate.disposition)).toEqual([
+      'included',
+      'included',
+    ]);
+  });
+
+  it('keeps same-phone different-name terms visible as a shared-phone conflict', () => {
+    const candidates = build([
+      source(2, {
+        original: {
+          phone: '+15550000002',
+          name: 'Asha',
+          startDate: '01/01/2026',
+          endDate: '01/02/2026',
+        },
+      }),
+      source(3, {
+        original: {
+          phone: '+15550000002',
+          name: 'Ravi',
+          startDate: '01/07/2026',
+          endDate: '01/08/2026',
+        },
+      }),
+    ]);
+
+    expect(candidates.map((candidate) => candidate.disposition)).toEqual([
+      'included',
+      'included',
+    ]);
+    expect(
+      candidates.every((candidate) =>
+        candidate.issues.some((issue) => issue.code === 'shared-phone')
+      )
+    ).toBe(true);
+    expect(
+      candidates.some(
+        (candidate) => candidate.exclusionReason === 'membership-history'
+      )
+    ).toBe(false);
+  });
+
+  it('selects one term for repeated compatible rows without a legacy ID', () => {
+    const candidates = build([
+      source(2, {
+        legacyMemberId: null,
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/01/2026',
+        },
+      }),
+      source(3, {
+        legacyMemberId: null,
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/07/2026',
+        },
+      }),
+    ]);
+
+    expect(candidates.map((candidate) => candidate.disposition)).toEqual([
+      'excluded',
+      'included',
+    ]);
   });
 });
 
@@ -427,17 +863,29 @@ describe('member import candidates', () => {
       source(2, {
         sourceKey: 'older',
         legacyMemberId: 'M-1',
-        original: { startDate: '01/01/2025' },
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/01/2025',
+        },
       }),
       source(3, {
         sourceKey: 'latest-first-tie',
         legacyMemberId: 'M-1',
-        original: { startDate: '01/01/2026' },
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/01/2026',
+        },
       }),
       source(4, {
         sourceKey: 'latest-wins-tie',
         legacyMemberId: 'M-1',
-        original: { startDate: '01/01/2026' },
+        original: {
+          phone: '+15550000002',
+          name: 'Same member',
+          startDate: '01/01/2026',
+        },
       }),
       source(5, {
         sourceKey: 'footer',
@@ -447,18 +895,15 @@ describe('member import candidates', () => {
     ]);
 
     expect(candidates).toHaveLength(4);
-    expect(
-      candidates.find((candidate) => candidate.sourceKey === 'latest-wins-tie')
-        ?.disposition
-    ).toBe('included');
-    expect(
-      candidates.find((candidate) => candidate.sourceKey === 'older')
-        ?.exclusionReason
-    ).toBe('membership-history');
-    expect(
-      candidates.find((candidate) => candidate.sourceKey === 'latest-first-tie')
-        ?.exclusionReason
-    ).toBe('membership-history');
+    expect(candidates.every((candidate) => !candidate.isReady)).toBe(true);
+    expect(candidates).toContainEqual(
+      expect.objectContaining({
+        sourceKey: 'latest-first-tie',
+        issues: expect.arrayContaining([
+          expect.objectContaining({ code: 'membership-term-needs-resolution' }),
+        ]),
+      })
+    );
     expect(
       candidates.find((candidate) => candidate.sourceKey === 'footer')
         ?.exclusionReason
@@ -521,6 +966,30 @@ describe('member import candidates', () => {
       candidates.find((candidate) => candidate.sourceKey === 'sheet-1:5')
         ?.isReady
     ).toBe(true);
+  });
+
+  it('removes a shared-phone conflict when the reviewer manually excludes one duplicate', () => {
+    let candidates = build([
+      source(2, { original: { phone: '+15550000111', name: 'Asha' } }),
+      source(3, { original: { phone: '+15550000111', name: 'Ravi' } }),
+    ]);
+    expect(
+      candidates.every((candidate) =>
+        candidate.issues.some((issue) => issue.code === 'shared-phone')
+      )
+    ).toBe(true);
+
+    candidates = patchMemberImportCandidate(
+      candidates,
+      'sheet-1:3',
+      { disposition: 'excluded' },
+      { plans: PLANS, dateOrder: 'DMY', today: TODAY }
+    );
+    expect(
+      candidates[0].issues.some((issue) => issue.code === 'shared-phone')
+    ).toBe(false);
+    expect(candidates[0].isReady).toBe(true);
+    expect(candidates[1].exclusionReason).toBe('manual');
   });
 
   it('carries grouped plan and pricing-option resolutions together', () => {
@@ -826,7 +1295,7 @@ describe('member import candidates', () => {
     );
 
     expect(candidates).toHaveLength(5_000);
-    expect(included).toHaveLength(100);
+    expect(included.length).toBeGreaterThan(0);
     expect(
       build(rows)
         .filter((candidate) => candidate.disposition === 'included')

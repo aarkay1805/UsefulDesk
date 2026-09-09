@@ -317,6 +317,7 @@ describe('buildMembershipRow', () => {
       discount_type: null,
       discount_value: null,
       discount_amount: 0,
+      historical_price: false,
       notes: null,
     });
     expect(built.payment).toBeNull();
@@ -444,6 +445,7 @@ function commitCandidate(
     purchaseIdempotencyKey: 'db5990d1-476a-4078-b17c-c3a4b09a06cb',
     purchaseTotal: 1200,
     receiptOutcome: null,
+    accounting: null,
     ...patch,
   };
 }

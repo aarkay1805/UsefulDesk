@@ -36,7 +36,7 @@ describe('normalizeMemberImportSheet', () => {
         [9876543210, ' Asha ', new Date('2026-07-26T00:00:00Z'), 1500, true],
         [null, null, null, null, null],
       ])
-    ).toEqual({
+    ).toMatchObject({
       name: 'Members',
       raw: {
         headers: ['Phone', 'Name', 'Joined', 'Paid', 'Active'],
@@ -46,6 +46,13 @@ describe('normalizeMemberImportSheet', () => {
       columnCount: 5,
       error: null,
     });
+    const sheet = normalizeMemberImportSheet('Members', [
+      ['Phone', 'Name', 'Joined', 'Paid', 'Active'],
+      [9876543210, ' Asha ', new Date('2026-07-26T00:00:00Z'), 1500, true],
+      [null, null, null, null, null],
+    ]);
+    expect(sheet.sourceRows).toEqual([2]);
+    expect(sheet.headerRow).toBe(1);
   });
 
   it('keeps unnamed columns aligned and removes only trailing blank columns', () => {

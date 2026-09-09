@@ -4,7 +4,10 @@ import {
   buildMembershipRow,
   parseImportDate,
   parseMoney,
+  parseFeeStatus,
   parsePaymentMethod,
+  resolvePlan,
+  resolvePricingOption,
   type BuiltMemberRow,
   type MemberImportRow,
 } from '@/lib/memberships/import-commit';
@@ -40,7 +43,7 @@ export interface MemberImportDraftValues extends MemberImportRow {
 
 /** Mapped "Amount due", unless the reviewer corrected it during resolve. */
 export function effectiveBalance(
-  values: MemberImportDraftValues
+  values: Pick<MemberImportDraftValues, 'balance' | 'amountDue'>
 ): string | undefined {
   return values.balance ?? values.amountDue;
 }
@@ -51,6 +54,12 @@ export interface MemberImportExistingMatch {
   receivedVia?: string | null;
   /** Set only when imported profile values actually differ from this contact. */
   profileConflict?: boolean;
+  /**
+   * Snapshot of the contact facts and CSV profile reviewed with an existing
+   * contact decision. A later match may retain that decision only when this
+   * value still agrees.
+   */
+  profileFingerprint?: string;
 }
 
 export interface MemberImportReceiptOutcome {
@@ -97,6 +106,7 @@ export interface MemberImportCandidateIssue {
     | 'purchase-total-mismatch'
     | 'expiry-duration-mismatch'
     | 'membership-history'
+    | 'membership-term-needs-resolution'
     | 'summary-row'
     | 'existing-member';
   severity: MemberImportIssueSeverity;
@@ -120,6 +130,19 @@ export interface MemberImportCandidateResolutions {
   } | null;
   payment: MemberImportPaymentResolution | null;
   existingContact: MemberImportExistingContactResolution | null;
+  /** The reviewer-selected current membership source row for a legacy ID. */
+  currentTermSourceKey?: string | null;
+  /** A cancellation only voids debt after this fact-bound reviewer decision. */
+  cancelledDebt?: {
+    decision: 'write_off';
+    fingerprint: string;
+  } | null;
+}
+
+export interface MemberImportRowAccounting {
+  total: number;
+  amountPaid: number;
+  balance: number;
 }
 
 export type MemberImportOutcomeKind =
@@ -150,6 +173,8 @@ export interface MemberImportCandidate {
   customerIdempotencyKey: string;
   purchaseIdempotencyKey: string;
   purchaseTotal: number | null;
+  /** The exact equation sent to the transactional import boundary. */
+  accounting: MemberImportRowAccounting | null;
   issues: MemberImportCandidateIssue[];
   disposition: MemberImportCandidateDisposition;
   exclusionReason: MemberImportCandidateExclusionReason | null;
@@ -166,6 +191,10 @@ export interface MemberImportCandidateContext {
   dateOrder: DateOrder;
   today: string;
   staff?: StaffRef[];
+  /** Persisted private-draft UUID; scopes idempotency to one import job. */
+  importJobId?: string;
+  /** Source rows already journaled by execution; their request identity is immutable. */
+  attemptedSourceKeys?: ReadonlySet<string>;
 }
 
 export interface MemberImportPaymentCorrection {
@@ -389,12 +418,42 @@ function membershipStart(
     : null;
 }
 
+function membershipEnd(
+  candidate: MemberImportCandidate,
+  context: MemberImportCandidateContext,
+  start: string
+): string | null {
+  const explicit = candidate.draftValues.endDate
+    ? parseImportDate(candidate.draftValues.endDate, context.dateOrder)
+    : null;
+  if (explicit) return explicit;
+  const plan = resolvePlan(candidate.draftValues.planName ?? '', context.plans);
+  const option = plan
+    ? resolvePricingOption(
+        plan,
+        candidate.draftValues.pricingOption ?? '',
+        candidate.draftValues.planName
+      )
+    : null;
+  return option ? optionEndDate(start, option) : null;
+}
+
+function membershipTermGroup(candidate: MemberImportCandidate): string {
+  const phone = normalizeKey(candidate.draftValues.phone);
+  const legacyMemberId = normalizeGroupValue(candidate.legacyMemberId);
+  if (phone) return `phone:${phone}:legacy:${legacyMemberId || '-'}`;
+  return legacyMemberId
+    ? `legacy:${legacyMemberId}`
+    : `source:${candidate.sourceKey}`;
+}
+
 function historyExclusions(
   candidates: MemberImportCandidate[],
   context: MemberImportCandidateContext
 ): {
   rows: Map<string, MemberImportCandidateExclusionReason | null>;
   memberships: Map<string, 'membership-history' | 'existing-member'>;
+  ambiguousMembershipTerms: Set<string>;
 } {
   const exclusions = new Map<
     string,
@@ -404,16 +463,45 @@ function historyExclusions(
     string,
     'membership-history' | 'existing-member'
   >();
-  const latestByLegacyId = new Map<
+  const termsByIdentity = new Map<
     string,
-    { sourceKey: string; start: string; sourceRow: number }
+    { candidate: MemberImportCandidate; start: string; end: string | null }[]
   >();
+  const ambiguousMembershipTerms = new Set<string>();
+  const identitiesByPhone = new Map<
+    string,
+    { legacyIds: Set<string>; names: Set<string> }
+  >();
+
+  // A shared phone with different customer identifiers is a contact conflict,
+  // not a membership-history sequence. Decide that before term suppression so
+  // an older term cannot hide a separate person from the reviewer.
+  for (const candidate of candidates) {
+    if (
+      candidate.exclusionReason === 'summary-row' ||
+      candidate.exclusionReason === 'manual'
+    ) {
+      continue;
+    }
+    const phone = normalizeKey(candidate.draftValues.phone);
+    if (!phone || !hasMembershipSource(candidate)) continue;
+    const identities = identitiesByPhone.get(phone) ?? {
+      legacyIds: new Set<string>(),
+      names: new Set<string>(),
+    };
+    const legacyId = normalizeGroupValue(candidate.legacyMemberId);
+    const name = normalizeGroupValue(candidate.draftValues.name);
+    if (legacyId) identities.legacyIds.add(legacyId);
+    if (name) identities.names.add(name);
+    identitiesByPhone.set(phone, identities);
+  }
 
   for (const candidate of candidates) {
     if (candidate.exclusionReason === 'summary-row') {
       exclusions.set(candidate.sourceKey, 'summary-row');
       continue;
     }
+    if (candidate.exclusionReason === 'manual') continue;
     if (!hasMembershipSource(candidate)) continue;
     if (candidate.existingMatch?.isMember) {
       if (hasServiceSource(candidate)) {
@@ -423,36 +511,98 @@ function historyExclusions(
       }
       continue;
     }
-    const legacyMemberId = trim(candidate.legacyMemberId);
     const start = membershipStart(candidate, context);
-    if (!legacyMemberId || !start) continue;
-    const current = latestByLegacyId.get(legacyMemberId);
+    if (!start) continue;
+    const phone = normalizeKey(candidate.draftValues.phone);
+    const identities = phone ? identitiesByPhone.get(phone) : null;
     if (
-      !current ||
-      start > current.start ||
-      (start === current.start && candidate.sourceRow > current.sourceRow)
+      identities &&
+      (identities.legacyIds.size > 1 || identities.names.size > 1)
     ) {
-      latestByLegacyId.set(legacyMemberId, {
-        sourceKey: candidate.sourceKey,
-        start,
-        sourceRow: candidate.sourceRow,
-      });
+      continue;
     }
+    const end = membershipEnd(candidate, context, start);
+    const identity = membershipTermGroup(candidate);
+    termsByIdentity.set(identity, [
+      ...(termsByIdentity.get(identity) ?? []),
+      { candidate, start, end },
+    ]);
   }
 
-  for (const candidate of candidates) {
-    if (exclusions.has(candidate.sourceKey)) continue;
-    const legacyMemberId = trim(candidate.legacyMemberId);
-    const latest = legacyMemberId ? latestByLegacyId.get(legacyMemberId) : null;
-    if (latest && latest.sourceKey !== candidate.sourceKey) {
-      if (hasServiceSource(candidate)) {
-        membershipExclusions.set(candidate.sourceKey, 'membership-history');
+  for (const [, terms] of termsByIdentity) {
+    const explicit = [
+      ...new Set(
+        terms
+          .map((term) => term.candidate.resolutions.currentTermSourceKey)
+          .filter((value): value is string => Boolean(value))
+      ),
+    ];
+    const available = new Map(
+      terms.map((term) => [term.candidate.sourceKey, term])
+    );
+    let selected =
+      explicit.length === 1 ? (available.get(explicit[0]) ?? null) : null;
+    if (!selected) {
+      const current = terms.filter(
+        (term) =>
+          term.start <= context.today &&
+          (!term.end || term.end >= context.today)
+      );
+      const past = terms.filter((term) => term.start <= context.today);
+      const future = terms.filter((term) => term.start > context.today);
+      const choices =
+        current.length > 0
+          ? current
+          : past.length > 0
+            ? past.filter(
+                (term) =>
+                  term.start ===
+                  [...past].sort((a, b) => b.start.localeCompare(a.start))[0]
+                    .start
+              )
+            : future.filter(
+                (term) =>
+                  term.start ===
+                  [...future].sort((a, b) => a.start.localeCompare(b.start))[0]
+                    ?.start
+              );
+      if (choices.length === 1) selected = choices[0];
+      else if (choices.length > 1) {
+        const choiceKeys = new Set(
+          choices.map((choice) => choice.candidate.sourceKey)
+        );
+        for (const term of terms) {
+          if (choiceKeys.has(term.candidate.sourceKey)) {
+            ambiguousMembershipTerms.add(term.candidate.sourceKey);
+          } else if (hasServiceSource(term.candidate)) {
+            membershipExclusions.set(
+              term.candidate.sourceKey,
+              'membership-history'
+            );
+          } else {
+            exclusions.set(term.candidate.sourceKey, 'membership-history');
+          }
+        }
+      }
+    }
+    if (!selected) continue;
+    for (const term of terms) {
+      if (term.candidate.sourceKey === selected.candidate.sourceKey) continue;
+      if (hasServiceSource(term.candidate)) {
+        membershipExclusions.set(
+          term.candidate.sourceKey,
+          'membership-history'
+        );
       } else {
-        exclusions.set(candidate.sourceKey, 'membership-history');
+        exclusions.set(term.candidate.sourceKey, 'membership-history');
       }
     }
   }
-  return { rows: exclusions, memberships: membershipExclusions };
+  return {
+    rows: exclusions,
+    memberships: membershipExclusions,
+    ambiguousMembershipTerms,
+  };
 }
 
 function planResolutionDraft(
@@ -473,15 +623,125 @@ function planResolutionDraft(
   };
 }
 
-function paymentConflict(values: MemberImportDraftValues): boolean {
-  const fee = parseMoney(values.fee ?? '');
-  const paid = parseMoney(values.amountPaid ?? '');
-  const balance = parseMoney(effectiveBalance(values) ?? '');
-  if (fee === null || (paid === null && balance === null)) return false;
-  if (paid !== null && paid > fee) return true;
-  return (
-    paid !== null && balance !== null && Math.abs(paid + balance - fee) > 0.01
-  );
+function paise(value: number): number {
+  return Math.round(value * 100);
+}
+
+function fromPaise(value: number): number {
+  return value / 100;
+}
+
+function moneyText(value: number): string {
+  return fromPaise(paise(value)).toFixed(2);
+}
+
+/**
+ * Resolve the one equation the preview and import payload both use.  Source
+ * files commonly supply only a paid status or only a balance, so neither is
+ * allowed to be overwritten by a missing raw `amountPaid` cell.
+ */
+export function resolveMemberImportRowAccounting(input: {
+  total: number;
+  values: Pick<
+    MemberImportDraftValues,
+    'amountPaid' | 'amountDue' | 'balance' | 'feeStatus'
+  >;
+  paymentResolution: MemberImportPaymentResolution | null;
+}): {
+  accounting: MemberImportRowAccounting | null;
+  conflict: boolean;
+  invalid: boolean;
+} {
+  const totalPaise = paise(input.total);
+  const paidRaw = trim(input.values.amountPaid);
+  const balanceRaw = trim(effectiveBalance(input.values));
+  const paid = paidRaw ? parseMoney(paidRaw) : null;
+  const balance = balanceRaw ? parseMoney(balanceRaw) : null;
+  if (
+    totalPaise < 0 ||
+    (paidRaw && paid === null) ||
+    (balanceRaw && balance === null) ||
+    (paid !== null && paise(paid) < 0) ||
+    (balance !== null && paise(balance) < 0)
+  ) {
+    return { accounting: null, conflict: false, invalid: true };
+  }
+
+  let paidPaise = paid === null ? null : paise(paid);
+  let balancePaise = balance === null ? null : paise(balance);
+  if (input.paymentResolution === 'member_only') {
+    paidPaise = 0;
+    balancePaise = totalPaise;
+  } else if (input.paymentResolution === 'trust_paid' && paidPaise !== null) {
+    balancePaise = totalPaise - paidPaise;
+  } else if (
+    input.paymentResolution === 'trust_balance' &&
+    balancePaise !== null
+  ) {
+    paidPaise = totalPaise - balancePaise;
+  } else if (input.paymentResolution === 'manual') {
+    if (paidPaise === null && balancePaise !== null) {
+      paidPaise = totalPaise - balancePaise;
+    } else if (balancePaise === null && paidPaise !== null) {
+      balancePaise = totalPaise - paidPaise;
+    }
+  } else if (paidPaise === null && balancePaise === null) {
+    if (parseFeeStatus(input.values.feeStatus ?? '') === 'paid') {
+      paidPaise = totalPaise;
+      balancePaise = 0;
+    } else {
+      paidPaise = 0;
+      balancePaise = totalPaise;
+    }
+  } else if (paidPaise === null && balancePaise !== null) {
+    paidPaise = totalPaise - balancePaise;
+  } else if (paidPaise !== null && balancePaise === null) {
+    balancePaise = totalPaise - paidPaise;
+  }
+
+  if (
+    paidPaise === null ||
+    balancePaise === null ||
+    paidPaise < 0 ||
+    balancePaise < 0 ||
+    paidPaise + balancePaise !== totalPaise
+  ) {
+    return { accounting: null, conflict: true, invalid: false };
+  }
+  return {
+    accounting: {
+      total: fromPaise(totalPaise),
+      amountPaid: fromPaise(paidPaise),
+      balance: fromPaise(balancePaise),
+    },
+    conflict: false,
+    invalid: false,
+  };
+}
+
+export function cancellationDebtFingerprint(
+  membership: NonNullable<BuiltMemberRow['membership']>,
+  accounting: MemberImportRowAccounting,
+  serviceAmount: number
+): string {
+  return [
+    membership.plan_id,
+    membership.pricing_option_id,
+    membership.start_date,
+    membership.end_date,
+    membership.status,
+    moneyText(membership.fee_amount),
+    moneyText(membership.list_price),
+    membership.discount_type ?? '',
+    membership.discount_value === null
+      ? ''
+      : moneyText(membership.discount_value),
+    moneyText(membership.discount_amount),
+    moneyText(serviceAmount),
+    moneyText(accounting.total),
+    moneyText(accounting.amountPaid),
+    moneyText(accounting.balance),
+  ].join('|');
 }
 
 function expiryMismatch(
@@ -514,6 +774,7 @@ function rebuildCandidate(
   context: MemberImportCandidateContext,
   exclusionReason: MemberImportCandidateExclusionReason | null,
   membershipExclusion: 'membership-history' | 'existing-member' | null,
+  ambiguousMembershipTerm: boolean,
   customerGroup: { key: string; conflict: boolean }
 ): MemberImportCandidate {
   const values = materializedDraft(candidate, context);
@@ -656,64 +917,6 @@ function rebuildCandidate(
       )
     );
   }
-  // An INACTIVE row with a future expiry maps to `cancelled`, whose current
-  // period is voided on commit. The money disappearing is the point of the
-  // notice: the row still imports, but never without saying so.
-  if (built.warnings.includes('cancelled-dues-written-off')) {
-    issues.push(
-      issue(
-        'cancelled-dues-written-off',
-        'notice',
-        'cancelled-dues',
-        'This membership is cancelled with an unpaid balance, so the balance is written off on import.',
-        'Exclude the row if the balance is still collectible, or import to clear it.',
-        true
-      )
-    );
-  }
-  if (membershipSource && built.errors.includes('expiry-not-after-start')) {
-    issues.push(
-      issue(
-        'expiry-not-after-start',
-        'blocking',
-        `expiry-range:${candidate.sourceKey}`,
-        'Expiry is not after the start date, so this membership covers no time.',
-        'Set an expiry at least a day after the start — a per-session row usually means the next day — or exclude it.'
-      )
-    );
-  }
-  if (membershipSource && built.errors.includes('pricing-mismatch')) {
-    issues.push(
-      issue(
-        'pricing-mismatch',
-        'blocking',
-        `pricing:${candidate.sourceKey}`,
-        'List price, discount, and fee charged do not add up.',
-        'Correct one of the three amounts, or leave the discount columns unmapped.'
-      )
-    );
-  }
-  if (
-    membershipSource &&
-    built.errors.some(
-      (error) =>
-        error !== 'unknown-plan' &&
-        error !== 'no-pricing' &&
-        error !== 'pricing-mismatch' &&
-        error !== 'expiry-not-after-start'
-    )
-  ) {
-    issues.push(
-      issue(
-        'invalid-membership-values',
-        'blocking',
-        `membership-values:${candidate.sourceKey}`,
-        'Some membership values in this row cannot be read.',
-        'Correct them below, or exclude the row.'
-      )
-    );
-  }
-
   let serviceComponent: MemberImportServiceComponent | null = null;
   if (serviceSource) {
     const serviceResult = buildImportedServiceIntent(
@@ -782,11 +985,89 @@ function rebuildCandidate(
   }
 
   const explicitTotal = trim(values.fee) ? parseMoney(values.fee ?? '') : null;
-  const membershipConfiguredAmount = built.membership?.fee_amount ?? 0;
   const serviceAmount = serviceComponent?.intent.soldAmount ?? 0;
-  const purchaseTotal =
-    explicitTotal ?? membershipConfiguredAmount + serviceAmount;
-  if (trim(values.fee) && explicitTotal === null && serviceComponent) {
+  if (membershipSource && serviceComponent && explicitTotal !== null) {
+    const membershipAmount = explicitTotal - serviceAmount;
+    // The source fee is the combined invoice total. Rebuild the membership
+    // using its final line amount before discount validation; never patch a
+    // validated fee afterwards.
+    built = buildMembershipRow(
+      {
+        ...values,
+        fee: moneyText(membershipAmount),
+        amountPaid: '',
+        amountDue: '',
+        feeStatus: '',
+        paidAt: '',
+      },
+      context.plans,
+      context.dateOrder,
+      context.today,
+      context.staff,
+      context.trainers
+    );
+  }
+  // Combined rows are priced as one invoice in source files. Run these
+  // validations after allocating the service amount, otherwise the original
+  // whole-invoice fee falsely fails membership discount validation.
+  if (membershipSource && built.errors.includes('expiry-not-after-start')) {
+    issues.push(
+      issue(
+        'expiry-not-after-start',
+        'blocking',
+        `expiry-range:${candidate.sourceKey}`,
+        'Expiry is not after the start date, so this membership covers no time.',
+        'Set an expiry at least a day after the start — a per-session row usually means the next day — or exclude it.'
+      )
+    );
+  }
+  if (membershipSource && built.errors.includes('pricing-mismatch')) {
+    issues.push(
+      issue(
+        'pricing-mismatch',
+        'blocking',
+        `pricing:${candidate.sourceKey}`,
+        'List price, discount, and fee charged do not add up.',
+        'Correct one of the three amounts, or leave the discount columns unmapped.'
+      )
+    );
+  }
+  if (
+    membershipSource &&
+    built.errors.some(
+      (error) =>
+        error !== 'unknown-plan' &&
+        error !== 'no-pricing' &&
+        error !== 'pricing-mismatch' &&
+        error !== 'expiry-not-after-start'
+    )
+  ) {
+    issues.push(
+      issue(
+        'invalid-membership-values',
+        'blocking',
+        `membership-values:${candidate.sourceKey}`,
+        'Some membership values in this row cannot be read.',
+        'Correct them below, or exclude the row.'
+      )
+    );
+  }
+  // A retained service from an older/existing membership is a service-only
+  // purchase. Its old membership amount is not an import invoice line. Keep
+  // the source figures visible as a blocking reconciliation problem instead
+  // of inventing how the historic payment should be split between lines.
+  const membershipConfiguredAmount = membershipExclusion
+    ? 0
+    : (built.membership?.fee_amount ?? 0);
+  const lineTotal = membershipConfiguredAmount + serviceAmount;
+  // Do not make a source-plan/service decision impossible to resolve. Until
+  // every supplied offering has a concrete line, the total and paid/balance
+  // figures have no authoritative denominator. Revalidate them immediately
+  // after the reviewer chooses the missing offering.
+  const financialLinesResolved =
+    (!membershipSource || built.membership !== null) &&
+    (!serviceSource || serviceComponent !== null);
+  if (financialLinesResolved && trim(values.fee) && explicitTotal === null) {
     issues.push(
       issue(
         'purchase-total-mismatch',
@@ -797,22 +1078,12 @@ function rebuildCandidate(
       )
     );
   }
-  if (explicitTotal !== null && serviceComponent && !membershipSource) {
-    if (Math.abs(explicitTotal - serviceAmount) > 0.01) {
-      issues.push(
-        issue(
-          'purchase-total-mismatch',
-          'blocking',
-          `purchase-total:${candidate.sourceKey}`,
-          'The row total does not match the service price.',
-          'Correct the total, or the service sold price.'
-        )
-      );
-    }
-  }
-  if (explicitTotal !== null && serviceComponent && built.membership) {
-    const membershipAmount = explicitTotal - serviceAmount;
-    if (membershipAmount < 0) {
+  if (
+    financialLinesResolved &&
+    explicitTotal !== null &&
+    Math.abs(explicitTotal - lineTotal) > 0.001
+  ) {
+    if (membershipSource && serviceComponent && explicitTotal < serviceAmount) {
       issues.push(
         issue(
           'purchase-total-mismatch',
@@ -823,38 +1094,81 @@ function rebuildCandidate(
         )
       );
     } else {
-      built = {
-        ...built,
-        membership: { ...built.membership, fee_amount: membershipAmount },
-      };
+      issues.push(
+        issue(
+          'purchase-total-mismatch',
+          'blocking',
+          `purchase-total:${candidate.sourceKey}`,
+          'The row total does not match its resolved membership and service lines.',
+          'Correct the total or a historical line price.'
+        )
+      );
     }
   }
 
-  const amountPaid = parseMoney(values.amountPaid ?? '');
+  const accountingResolution = financialLinesResolved
+    ? resolveMemberImportRowAccounting({
+        total: lineTotal,
+        values,
+        paymentResolution: candidate.resolutions.payment,
+      })
+    : { accounting: null, conflict: false, invalid: false };
   const paidOn = values.paidAt
     ? parseImportDate(values.paidAt, context.dateOrder)
     : null;
-  if (
-    amountPaid !== null &&
-    amountPaid > purchaseTotal &&
-    !paymentConflict(values)
-  ) {
+  if (accountingResolution.invalid) {
+    issues.push(
+      issue(
+        'payment-conflict',
+        'blocking',
+        `payment-conflict:${candidate.sourceKey}`,
+        'Paid or due is not a valid non-negative amount.',
+        'Correct the payment figures, or exclude the row.'
+      )
+    );
+  }
+  if (accountingResolution.conflict) {
     issues.push(
       issue(
         'payment-conflict',
         'decision',
         `payment-conflict:${candidate.sourceKey}`,
-        'Paid is more than this row’s total.',
-        'Choose which figures to trust, or import without a payment.'
+        'Paid, balance, and total do not add up.',
+        'Choose which figures to trust, or enter corrected ones.'
+      )
+    );
+  }
+  const accounting = accountingResolution.accounting;
+  if (
+    built.membership?.status === 'cancelled' &&
+    accounting &&
+    accounting.balance > 0
+  ) {
+    const fingerprint = cancellationDebtFingerprint(
+      built.membership,
+      accounting,
+      serviceAmount
+    );
+    const approved =
+      candidate.resolutions.cancelledDebt?.decision === 'write_off' &&
+      candidate.resolutions.cancelledDebt.fingerprint === fingerprint;
+    issues.push(
+      issue(
+        'cancelled-dues-written-off',
+        'decision',
+        `cancelled-dues:${candidate.sourceKey}`,
+        'This cancelled membership may write off its allocated membership-line balance; service debt remains separate.',
+        'Record the membership-line write-off decision, correct the financial facts, or exclude the row.',
+        approved
       )
     );
   }
   built = {
     ...built,
     payment:
-      amountPaid !== null && amountPaid > 0
+      accounting && accounting.amountPaid > 0
         ? {
-            amount: amountPaid,
+            amount: accounting.amountPaid,
             method: parsePaymentMethod(values.paymentMethod ?? ''),
             paidOn:
               paidOn ??
@@ -875,18 +1189,6 @@ function rebuildCandidate(
     built = { ...built, membership: null };
   }
 
-  const hasPaymentConflict = paymentConflict(candidate.draftValues);
-  if (hasPaymentConflict) {
-    issues.push(
-      issue(
-        'payment-conflict',
-        'decision',
-        `payment-conflict:${candidate.sourceKey}`,
-        'Paid, balance, and total do not add up.',
-        'Choose which figures to trust, or enter corrected ones.'
-      )
-    );
-  }
   if (
     candidate.existingMatch &&
     !candidate.existingMatch.isMember &&
@@ -935,6 +1237,17 @@ function rebuildCandidate(
         'The older membership will not be imported. The service on this row can still be imported.',
         'Review the service purchase; no membership action is required.',
         true
+      )
+    );
+  }
+  if (ambiguousMembershipTerm) {
+    issues.push(
+      issue(
+        'membership-term-needs-resolution',
+        'decision',
+        `membership-term:${candidate.legacyMemberId ?? candidate.sourceKey}`,
+        'More than one membership term is equally current in this file.',
+        'Choose the one current membership term to import.'
       )
     );
   }
@@ -1002,11 +1315,18 @@ function rebuildCandidate(
     serviceComponent,
     outcomeKind,
     customerGroupKey: customerGroup.key,
-    customerIdempotencyKey: deterministicUuid(`customer:${customerGroup.key}`),
+    customerIdempotencyKey: context.attemptedSourceKeys?.has(
+      candidate.sourceKey
+    )
+      ? candidate.customerIdempotencyKey
+      : deterministicUuid(
+          `customer:${context.importJobId ?? 'unsaved'}:group:${customerGroup.key}`
+        ),
     purchaseIdempotencyKey: deterministicUuid(
-      `purchase:${customerGroup.key}:${candidate.sourceKey}`
+      `purchase:${context.importJobId ?? 'unsaved'}:${candidate.sourceKey}`
     ),
-    purchaseTotal,
+    purchaseTotal: accounting?.total ?? lineTotal,
+    accounting,
     issues,
     disposition,
     exclusionReason,
@@ -1024,13 +1344,22 @@ function recomputeMemberImportCandidates(
     const manual = candidate.exclusionReason === 'manual';
     return {
       ...candidate,
-      disposition: automatic || manual ? 'excluded' : candidate.disposition,
+      // Automatic history exclusions are recomputed from scratch. A reviewer
+      // selecting a different current term must restore the formerly
+      // automatic row instead of carrying its prior excluded disposition.
+      disposition:
+        automatic || manual ? ('excluded' as const) : ('included' as const),
       exclusionReason: automatic ?? (manual ? 'manual' : null),
     };
   });
   const rowsByPhone = new Map<string, MemberImportCandidate[]>();
   for (const candidate of withExclusions) {
-    if (candidate.disposition !== 'included') continue;
+    if (
+      candidate.exclusionReason === 'summary-row' ||
+      candidate.exclusionReason === 'manual'
+    ) {
+      continue;
+    }
     const key = normalizeKey(candidate.draftValues.phone);
     if (key && isValidE164(key)) {
       rowsByPhone.set(key, [...(rowsByPhone.get(key) ?? []), candidate]);
@@ -1058,6 +1387,7 @@ function recomputeMemberImportCandidates(
       context,
       candidate.exclusionReason,
       automaticExclusions.memberships.get(candidate.sourceKey) ?? null,
+      automaticExclusions.ambiguousMembershipTerms.has(candidate.sourceKey),
       customerGroups.get(candidate.sourceKey) ?? {
         key: `source:${candidate.sourceKey}`,
         conflict: false,
@@ -1150,12 +1480,13 @@ export function buildMemberImportCandidates(
         outcomeKind: 'none' as const,
         customerGroupKey: `source:${input.sourceKey}`,
         customerIdempotencyKey: deterministicUuid(
-          `customer:source:${input.sourceKey}`
+          `customer:${context.importJobId ?? 'unsaved'}:identity:${normalizeKey(input.originalValues.phone)}:legacy:${normalizeGroupValue(input.legacyMemberId) || '-'}`
         ),
         purchaseIdempotencyKey: deterministicUuid(
           `purchase:source:${input.sourceKey}`
         ),
         purchaseTotal: null,
+        accounting: null,
         issues: [],
         disposition: input.isSummaryRow
           ? ('excluded' as const)
@@ -1167,6 +1498,8 @@ export function buildMemberImportCandidates(
           service: null,
           payment: null,
           existingContact: null,
+          currentTermSourceKey: null,
+          cancelledDebt: null,
         },
         isReady: false,
         receiptOutcome: input.receiptOutcome ?? null,
@@ -1191,6 +1524,7 @@ export function revalidateMemberImportCandidates(
       serviceComponent: null,
       outcomeKind: 'none',
       purchaseTotal: null,
+      accounting: null,
       issues: [],
       isReady: false,
       resolutions: {
@@ -1201,6 +1535,9 @@ export function revalidateMemberImportCandidates(
         service: candidate.resolutions?.service ?? null,
         payment: candidate.resolutions?.payment ?? null,
         existingContact: candidate.resolutions?.existingContact ?? null,
+        currentTermSourceKey:
+          candidate.resolutions?.currentTermSourceKey ?? null,
+        cancelledDebt: candidate.resolutions?.cancelledDebt ?? null,
       },
     })),
     context
@@ -1231,6 +1568,83 @@ export function patchMemberImportCandidate(
               : candidate.exclusionReason,
       };
     }),
+    context
+  );
+}
+
+/** Persist an explicit choice when membership terms cannot be selected safely. */
+export function resolveMembershipTerm(
+  candidates: MemberImportCandidate[],
+  legacyMemberId: string,
+  sourceKey: string,
+  context: MemberImportCandidateContext
+): MemberImportCandidate[] {
+  const selected = candidates.find(
+    (candidate) =>
+      candidate.sourceKey === sourceKey && hasMembershipSource(candidate)
+  );
+  if (
+    !selected ||
+    (trim(legacyMemberId) &&
+      trim(selected.legacyMemberId) !== trim(legacyMemberId))
+  ) {
+    return candidates;
+  }
+  const identity = membershipTermGroup(selected);
+  return recomputeMemberImportCandidates(
+    candidates.map((candidate) =>
+      membershipTermGroup(candidate) === identity
+        ? {
+            ...candidate,
+            resolutions: {
+              ...candidate.resolutions,
+              currentTermSourceKey: sourceKey,
+            },
+          }
+        : candidate
+    ),
+    context
+  );
+}
+
+/** Record a cancellation write-off only for the exact financial facts reviewed. */
+export function resolveCancelledMembershipDebt(
+  candidates: MemberImportCandidate[],
+  sourceKey: string,
+  decision: 'write_off',
+  context: MemberImportCandidateContext
+): MemberImportCandidate[] {
+  const reviewed = candidates.find(
+    (candidate) => candidate.sourceKey === sourceKey
+  );
+  const membership = reviewed?.built.membership;
+  const accounting = reviewed?.accounting;
+  if (
+    !reviewed ||
+    !membership ||
+    membership.status !== 'cancelled' ||
+    !accounting ||
+    accounting.balance <= 0
+  ) {
+    return candidates;
+  }
+  const fingerprint = cancellationDebtFingerprint(
+    membership,
+    accounting,
+    reviewed.serviceComponent?.intent.soldAmount ?? 0
+  );
+  return recomputeMemberImportCandidates(
+    candidates.map((candidate) =>
+      candidate.sourceKey === sourceKey
+        ? {
+            ...candidate,
+            resolutions: {
+              ...candidate.resolutions,
+              cancelledDebt: { decision, fingerprint },
+            },
+          }
+        : candidate
+    ),
     context
   );
 }

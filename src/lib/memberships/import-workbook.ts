@@ -1,8 +1,15 @@
 import type { RawCsv } from '@/lib/contacts/field-mapping';
+import {
+  MAX_MEMBER_IMPORT_SOURCE_COLUMNS,
+  MAX_MEMBER_IMPORT_SOURCE_ROWS,
+  MemberImportSourceError,
+  normalizeMemberImportSource,
+  type MemberImportExcludedSourceRow,
+} from './import-source';
 
 export const MAX_IMPORT_WORKBOOK_BYTES = 10 * 1024 * 1024;
-export const MAX_IMPORT_SHEET_ROWS = 5_000;
-export const MAX_IMPORT_SHEET_COLUMNS = 100;
+export const MAX_IMPORT_SHEET_ROWS = MAX_MEMBER_IMPORT_SOURCE_ROWS;
+export const MAX_IMPORT_SHEET_COLUMNS = MAX_MEMBER_IMPORT_SOURCE_COLUMNS;
 
 export type MemberImportFileKind = 'csv' | 'xlsx';
 
@@ -11,6 +18,12 @@ export interface MemberImportSheet {
   raw: RawCsv | null;
   rowCount: number;
   columnCount: number;
+  /** One-based worksheet row for each row in `raw.rows`. */
+  sourceRows: number[];
+  /** One-based worksheet row containing the selected table header. */
+  headerRow: number | null;
+  excludedRows: MemberImportExcludedSourceRow[];
+  normalizedBytes: number;
   error: string | null;
 }
 
@@ -30,100 +43,46 @@ export function memberImportFileKind(
   return null;
 }
 
-function cellText(value: unknown): string {
-  if (value == null) return '';
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime())
-      ? ''
-      : value.toISOString().slice(0, 10);
-  }
-  if (typeof value === 'string') return value.trim();
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-  return String(value).trim();
-}
-
-function nonEmptyWidth(row: unknown[]): number {
-  for (let index = row.length - 1; index >= 0; index--) {
-    if (cellText(row[index])) return index + 1;
-  }
-  return 0;
-}
-
 /**
- * Converts one Excel worksheet to the same header + string-row contract used
- * by the existing CSV member import. Formatting and formulas are deliberately
- * left behind; the mapped preview remains the editing surface.
+ * Converts one explicitly-selected Excel worksheet to the common bounded
+ * report-table contract. The adapter deliberately supports one table only;
+ * titles, blank records, repeated headings and known report footers are
+ * tracked without changing the source-row identity of member rows.
  */
 export function normalizeMemberImportSheet(
   name: string,
   data: unknown[][]
 ): MemberImportSheet {
-  const columnCount = data.reduce(
-    (largest, row) => Math.max(largest, nonEmptyWidth(row)),
-    0
-  );
-  const dataRows = data
-    .slice(1)
-    .filter((row) => row.some((cell) => cellText(cell)));
-  const rowCount = dataRows.length;
-
-  if (columnCount > MAX_IMPORT_SHEET_COLUMNS) {
+  try {
+    const normalized = normalizeMemberImportSource(name, data);
+    return {
+      name,
+      raw: normalized.raw,
+      rowCount: normalized.raw.rows.length,
+      columnCount: normalized.raw.headers.length,
+      sourceRows: normalized.sourceRows,
+      headerRow: normalized.headerRow,
+      excludedRows: normalized.excludedRows,
+      normalizedBytes: normalized.normalizedBytes,
+      error: null,
+    };
+  } catch (error) {
+    const message =
+      error instanceof MemberImportSourceError
+        ? error.message
+        : `“${name}” could not be normalized.`;
     return {
       name,
       raw: null,
-      rowCount,
-      columnCount,
-      error: `“${name}” has ${columnCount} columns. The limit is ${MAX_IMPORT_SHEET_COLUMNS}.`,
+      rowCount: 0,
+      columnCount: 0,
+      sourceRows: [],
+      headerRow: null,
+      excludedRows: [],
+      normalizedBytes: 0,
+      error: message,
     };
   }
-  if (rowCount > MAX_IMPORT_SHEET_ROWS) {
-    return {
-      name,
-      raw: null,
-      rowCount,
-      columnCount,
-      error: `“${name}” has ${rowCount} data rows. The limit is ${MAX_IMPORT_SHEET_ROWS}.`,
-    };
-  }
-
-  const headers = Array.from({ length: columnCount }, (_, column) =>
-    cellText(data[0]?.[column])
-  );
-  if (headers.length === 0 || !headers.some(Boolean)) {
-    return {
-      name,
-      raw: null,
-      rowCount,
-      columnCount,
-      error: `“${name}” does not have a header row.`,
-    };
-  }
-  if (rowCount === 0) {
-    return {
-      name,
-      raw: null,
-      rowCount,
-      columnCount,
-      error: `“${name}” has a header row but no member data.`,
-    };
-  }
-
-  return {
-    name,
-    raw: {
-      headers,
-      rows: dataRows.map((row) =>
-        Array.from({ length: columnCount }, (_, column) =>
-          cellText(row[column])
-        )
-      ),
-    },
-    rowCount,
-    columnCount,
-    error: null,
-  };
 }
 
 export async function parseMemberImportWorkbook(

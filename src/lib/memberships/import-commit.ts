@@ -874,6 +874,8 @@ export interface BuiltMembership {
   discount_type: 'amount' | 'percentage' | null;
   discount_value: number | null;
   discount_amount: number;
+  /** True only when the source supplied a historical membership charge. */
+  historical_price: boolean;
   notes: string | null;
 }
 
@@ -1098,6 +1100,12 @@ export function buildMembershipRow(
       discount_type: resolvedPricing.pricing.discountType,
       discount_value: resolvedPricing.pricing.discountValue,
       discount_amount: resolvedPricing.pricing.discountAmount,
+      historical_price: Boolean(
+        row.fee?.trim() ||
+        row.listPrice?.trim() ||
+        row.discountAmount?.trim() ||
+        row.discountPercent?.trim()
+      ),
       notes: row.notes?.trim() || null,
     },
     payment:

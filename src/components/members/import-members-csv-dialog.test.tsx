@@ -31,6 +31,7 @@ const draftHook = vi.hoisted(() => ({
   saveState: 'idle' as
     'idle' | 'loading' | 'saving' | 'saved' | 'error' | 'conflict',
   lastAcknowledgedRevision: null as number | null,
+  lastError: null as string | null,
   adopt: vi.fn(),
   load: vi.fn(async (): Promise<MockImportDraft | null> => null),
   reload: vi.fn(async (): Promise<MockImportDraft | null> => null),
@@ -44,6 +45,7 @@ const draftHook = vi.hoisted(() => ({
   ),
   save: vi.fn(),
   flush: vi.fn(async () => true),
+  saveAndFlush: vi.fn(async () => true),
   discard: vi.fn(async () => true),
 }));
 
@@ -117,14 +119,20 @@ vi.mock('./use-account-staff', () => ({
 const emptyResult = { data: [], error: null };
 const supabase = {
   rpc: vi.fn(),
-  from: vi.fn((table: string) => ({
-    select: () => ({
-      eq: () =>
-        table === 'custom_fields'
-          ? { order: async () => emptyResult }
-          : Promise.resolve(emptyResult),
-    }),
-  })),
+  from: vi.fn((table: string) => {
+    const result = table === 'custom_fields' ? emptyResult : emptyResult;
+    const query = {
+      range: async () => result,
+      order: () => query,
+      then: (resolve: (value: typeof result) => unknown) =>
+        Promise.resolve(result).then(resolve),
+    };
+    const filter = {
+      eq: () => query,
+      order: () => filter,
+    };
+    return { select: () => filter };
+  }),
 };
 
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => supabase }));
@@ -161,13 +169,18 @@ beforeEach(() => {
   draftHook.lastAcknowledgedRevision = null;
   draftHook.load.mockClear();
   draftHook.reload.mockClear();
-  draftHook.initialize.mockReset().mockResolvedValue({
-    id: 'draft-new',
-    revision: 1,
-    sourceFilename: 'members.csv',
-    state: {},
+  draftHook.initialize.mockReset().mockImplementation(async () => {
+    const next = {
+      id: 'draft-new',
+      revision: 1,
+      sourceFilename: 'members.csv',
+      state: {},
+    };
+    draftHook.draft = next;
+    return next;
   });
   draftHook.save.mockClear();
+  draftHook.saveAndFlush.mockReset().mockResolvedValue(true);
   draftHook.flush.mockReset().mockResolvedValue(true);
   draftHook.discard.mockReset().mockResolvedValue(true);
 });
@@ -216,6 +229,12 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
                 data: {
                   contact_id: `contact-${index}`,
                   membership_id: `membership-${index}`,
+                  rows: [
+                    {
+                      source_key: `members.csv:${index + 2}`,
+                      status: 'imported',
+                    },
+                  ],
                 },
                 error: null,
               }
@@ -341,6 +360,31 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
         }) as HTMLButtonElement
       ).disabled
     ).toBe(false);
+  });
+
+  it('keeps automatically excluded repeated headers inspectable', async () => {
+    const user = userEvent.setup();
+    render(
+      <ImportMembersCsvDialog open onOpenChange={vi.fn()} onSaved={vi.fn()} />
+    );
+    await user.upload(
+      document.querySelector<HTMLInputElement>('input[type="file"]')!,
+      new window.File(
+        [
+          'Name,Phone,Plan\nAsha,+919876543210,Gold\nName,Phone,Plan\nRavi,+919876543211,Gold',
+        ],
+        'members.csv',
+        { type: 'text/csv' }
+      )
+    );
+    expect(
+      await screen.findByText('1 source row excluded automatically')
+    ).toBeTruthy();
+    await user.click(
+      screen.getByRole('button', { name: 'Inspect excluded source rows' })
+    );
+    expect(screen.getByText('repeated header')).toBeTruthy();
+    expect(screen.getByText('Name | Phone | Plan')).toBeTruthy();
   });
 
   it('clears a selected workbook when private draft initialization fails', async () => {

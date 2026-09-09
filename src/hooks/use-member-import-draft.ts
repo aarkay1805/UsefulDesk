@@ -54,18 +54,26 @@ export function useMemberImportDraft({
   const [lastAcknowledgedRevision, setLastAcknowledgedRevision] = useState<
     number | null
   >(null);
+  const [lastError, setLastError] = useState<string | null>(null);
   const draftRef = useRef<MemberImportDraftClientRecord | null>(null);
   const pendingRef = useRef<MemberImportDraftState | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef<Promise<boolean> | null>(null);
   const conflictRef = useRef(false);
+  // A reload/adopt can happen while an older PATCH is in flight. Responses from
+  // that generation must never replace the newer private draft snapshot.
+  const generationRef = useRef(0);
 
   const adopt = useCallback((next: MemberImportDraftClientRecord | null) => {
+    generationRef.current += 1;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = null;
     draftRef.current = next;
     pendingRef.current = null;
     conflictRef.current = false;
     setDraft(next);
     setLastAcknowledgedRevision(next?.revision ?? null);
+    setLastError(null);
     setSaveState(next ? 'saved' : 'idle');
   }, []);
 
@@ -74,9 +82,11 @@ export function useMemberImportDraft({
     const current = draftRef.current;
     const state = pendingRef.current;
     if (!current || !state) return true;
+    const generation = generationRef.current;
     pendingRef.current = null;
     setSaveState('saving');
 
+    let requestSucceeded = false;
     const request = (async () => {
       try {
         const response = await fetch('/api/members/import-draft', {
@@ -91,9 +101,19 @@ export function useMemberImportDraft({
         const result = (await response.json().catch(() => null)) as {
           ok?: boolean;
           code?: string;
+          error?: string;
           revision?: number;
           saved_at?: string;
         } | null;
+        if (
+          generation !== generationRef.current ||
+          draftRef.current !== current
+        ) {
+          // A reload/adopt owns the current state now. The old request is
+          // harmless, but its acknowledgement must not advance this draft.
+          requestSucceeded = true;
+          return true;
+        }
         if (
           !response.ok ||
           !result?.ok ||
@@ -101,6 +121,7 @@ export function useMemberImportDraft({
         ) {
           pendingRef.current ??= state;
           conflictRef.current = result?.code === 'draft_conflict';
+          setLastError(result?.error ?? null);
           setSaveState(conflictRef.current ? 'conflict' : 'error');
           return false;
         }
@@ -113,18 +134,42 @@ export function useMemberImportDraft({
         draftRef.current = acknowledged;
         setDraft(acknowledged);
         setLastAcknowledgedRevision(result.revision);
-        setSaveState('saved');
+        // A timer may have fired while this request was in flight. Do not
+        // claim the draft is saved until that newer snapshot is acknowledged.
+        if (!pendingRef.current) setSaveState('saved');
+        requestSucceeded = true;
         return true;
       } catch {
+        if (
+          generation !== generationRef.current ||
+          draftRef.current !== current
+        ) {
+          return true;
+        }
         pendingRef.current ??= state;
+        setLastError('Could not save this private import draft.');
         setSaveState('error');
         return false;
       } finally {
-        inFlightRef.current = null;
+        // A newer save can be queued after this request completes.
+        // `inFlightRef` is cleared by the caller below once this promise is
+        // installed, so do not disturb a newer generation here.
       }
     })();
     inFlightRef.current = request;
-    return request;
+    return request.finally(() => {
+      if (inFlightRef.current === request) {
+        inFlightRef.current = null;
+        if (
+          generation === generationRef.current &&
+          requestSucceeded &&
+          pendingRef.current &&
+          !conflictRef.current
+        ) {
+          void performSave();
+        }
+      }
+    });
   }, []);
 
   const save = useCallback(
@@ -146,12 +191,27 @@ export function useMemberImportDraft({
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    if (inFlightRef.current) {
-      const succeeded = await inFlightRef.current;
-      if (!succeeded) return false;
+    while (true) {
+      if (inFlightRef.current) {
+        const succeeded = await inFlightRef.current;
+        if (!succeeded) return false;
+        continue;
+      }
+      if (conflictRef.current) return false;
+      if (!pendingRef.current) return true;
+      if (!(await performSave())) return false;
     }
-    return performSave();
   }, [performSave]);
+
+  /** Persist an exact execution checkpoint before the caller sends its RPC. */
+  const saveAndFlush = useCallback(
+    async (state: MemberImportDraftState): Promise<boolean> => {
+      if (!draftRef.current || conflictRef.current) return false;
+      save(state);
+      return flush();
+    },
+    [flush, save]
+  );
 
   const load =
     useCallback(async (): Promise<MemberImportDraftClientRecord | null> => {
@@ -244,12 +304,14 @@ export function useMemberImportDraft({
     draft,
     saveState,
     lastAcknowledgedRevision,
+    lastError,
     adopt,
     load,
     reload: load,
     initialize,
     save,
     flush,
+    saveAndFlush,
     discard,
   };
 }

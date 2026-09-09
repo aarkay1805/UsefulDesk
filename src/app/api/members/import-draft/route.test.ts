@@ -11,6 +11,7 @@ vi.mock('@/lib/auth/account', () => ({
 }));
 
 import { PATCH } from './route';
+import { MEMBER_IMPORT_DRAFT_MAX_STATE_BYTES } from '@/lib/memberships/import-draft';
 
 const DRAFT_ID = '11111111-1111-4111-8111-111111111111';
 const state = {
@@ -78,6 +79,35 @@ describe('member import draft route', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns a recoverable split-file error for a UTF-8 state beyond capacity', async () => {
+    const response = await PATCH(
+      new Request('https://desk.example/api/members/import-draft', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          id: DRAFT_ID,
+          revision: 4,
+          state: {
+            ...state,
+            candidates: [
+              '😀'.repeat(
+                Math.ceil(MEMBER_IMPORT_DRAFT_MAX_STATE_BYTES / 2) + 1
+              ),
+            ],
+          },
+        }),
+      })
+    );
+
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({
+      ok: false,
+      code: 'draft_too_large',
+      error: expect.stringContaining('Split the file'),
+    });
     expect(h.rpc).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,13 @@
 # Roadmap
 
+> Status reconciliation — 2026-09-09: use the current release summaries and
+> explicit closeouts below over older engineering entries. Historical single-account
+> Razorpay pins, the closed VBF continuation, and Utility renewal-template guidance
+> have been superseded by database-owned rollout eligibility, the VBF G12 canary,
+> and the exact Marketing renewal contracts. Application commit `ca502ec` is
+> recorded as promoted on 2026-09-08; the later `7f39815` changes documentation only.
+> Deployment inclusion does not establish device/provider acceptance.
+
 ## Web release — UsefulDesk trials and platform administration
 
 Engineering maintenance: **broadcast details now separate the stored broadcast
@@ -57,13 +65,14 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
-Built locally: **member import migration worksheet** — searchable source rows,
+Implemented and included in the recorded production release: **member import migration worksheet** — searchable source rows,
 Needs review / Ready / Excluded filters, issue-type accordions with unique row
 counts on desktop and phones, search across closed sections, a selected-row inspector, staged payment
 reconciliation and grouped mapping, readable notices, editable pricing facts,
 excluded-row CSV recovery, and responsive list/detail navigation. The existing
-wizard and resumable draft remain in use; no live import or deployment was run
-for this change. The Resolve issues heading states the blocking next action,
+wizard and resumable draft remain in use. The worksheet is included in `ca502ec`,
+recorded as promoted on 2026-09-08; live import acceptance is still unrecorded.
+The Resolve issues heading states the blocking next action,
 while source-file metadata stays with the saved-draft controls in the footer.
 See `design-qa.md` for visual and interaction evidence.
 
@@ -92,8 +101,9 @@ and the remaining tester-binary/device acceptance gates. Historical development
 push acceptance does not prove Preview signing or device delivery. Tester text
 delivery passed on both platforms; iOS quoted replies and incoming realtime
 passed. Reaction testing found a proxy bearer/branch forwarding gap: the local
-fix passes 66 focused tests, lint, and typecheck, but deployment and live retest
-remain pending. Android document/image/video/audio delivery passed on build 1;
+fix passes 66 focused tests, lint, and typecheck and is included in `ca502ec`,
+recorded as promoted on 2026-09-08. Live reaction retesting remains pending.
+Android document/image/video/audio delivery passed on build 1;
 iOS media, attachment opening/playback, Preview push, and remaining device gates
 still block release sign-off.
 
@@ -745,6 +755,17 @@ Shipped addition: **member-only Products & services with fixed or trainer-specif
 
 Shipped addition: **service-aware, resumable Members CSV/XLSX import with membership-only, service-only, and combined customer purchases; active catalogue/trainer/rate resolution; grouped per-customer atomic accounting; historical sold-price/expiry snapshots; stable retry idempotency; contact-backed service customers without fake memberships; author-private, revision-safe, cross-device drafts in a private bucket with 30-day cleanup; and explicit missing/invalid/conflicting-phone explanations whose Fix phone actions reveal and focus the exact paginated candidate editor. Membership, attendance, renewal, and AutoPay metrics remain membership-only. Merchandise and multiple numbered service-column families are deliberately deferred.**
 
+Built locally (2026-09-09): **member-import reliability** — one final paise-level
+membership/service/paid/due equation, explicit term and cancellation-debt decisions,
+complete fresh contact matching, job-scoped immutable transaction checkpoints,
+partial financial and metadata recovery, honored ignored columns, bounded CSV/XLSX
+report adapters with source-row evidence, and exact resumable-state capacity checks.
+Independent source, financial, recovery and integration reviews are complete.
+Required migration `20260909120000_member_import_reliability.sql` is not applied:
+approved Test database reads time out. Database acceptance and deployment remain
+pending; this is not a new Production release. See the implementation/acceptance
+record below.
+
 Engineering maintenance: **shared phone inputs now canonicalize visible country codes with `+`, member-import review rows present digits-only qualified phones with that visible prefix, and constrained table-cell phone editors expand into a responsive elevated 240px surface that keeps the complete number plus the original compact check/cross actions unobstructed without changing column widths; persistence, dedupe, WhatsApp normalization, and every other inline editor remain unchanged.**
 
 Engineering maintenance: **the Leads table's built-in Phone column now uses the `PhoneInput` master instead of a plain text input, closing the last subscriber phone field that bypassed it; the column also renders stored digits-only numbers with the account's visible country code. Typed phone custom fields, sorting, dedupe, the required-phone guard, and stored values are unchanged.**
@@ -831,7 +852,7 @@ Engineering maintenance: **Razorpay recurring payment safety now reserves mandat
 
 Engineering maintenance: **the first Razorpay audit containment slice is implemented on `main`: provider retry state is separate from local mandate lifecycle, `subscription.pending` no longer fails collection, halted and terminal states remain monotonic, signed authorization revocation invalidates OAuth grants while retaining merchant mapping, stale imported-account readiness is re-verified by recovery, disconnect refuses unresolved provider work with an actionable conflict, and mandate setup fails closed on cross-site requests, frozen memberships, or unavailable account currency. New AutoPay setup remains enabled by explicit owner decision. Production applied and verified the additive containment migration plus a forward-only grants hardening migration before application deployment; no financial or membership row changed**.
 
-Engineering maintenance: **Razorpay recurring-charge recovery is implemented on `main`: the worker leases only the immediately next provider `paid_count`, atomically re-evaluates an earlier sequence exception after its predecessor is applied, and retains the exception as resolved audit history instead of duplicating a period or payment. A separate 20-mandate provider-source batch compares subscription `paid_count` with a complete chronologically verified paid-invoice/payment set once per day and preserves captured charges absent from UsefulDesk as review-held exceptions; it never auto-credits provider-discovered money. Settings now gives admins two explicit resolutions for only those provider-discovered items: fresh provider revalidation plus atomic canonical apply, or actor/reason-audited handled-externally with no ledger credit. Mocked ordering, provider-gap, refund-refusal, route-boundary, schema, and UI tests pass. Production applied connector versions `20260826040518`, `20260826040539`, and resolution version `20260826044721`; schema, grants, actor guards, resource counts, and advisors are verified. The first naturally scheduled Production Live scan claimed and scanned the one due mandate with zero observations and failures. A live no-work refund-reconciliation null shape now has a regression guard, and any recovery phase failure returns diagnostic `503` so GitHub Actions alerts instead of remaining falsely green. The original P1 audit set is closed in code; deployment is the remaining release step for the final runtime guards**.
+Engineering maintenance: **Razorpay recurring-charge recovery is implemented on `main`: the worker leases only the immediately next provider `paid_count`, atomically re-evaluates an earlier sequence exception after its predecessor is applied, and retains the exception as resolved audit history instead of duplicating a period or payment. A separate 20-mandate provider-source batch compares subscription `paid_count` with a complete chronologically verified paid-invoice/payment set once per day and preserves captured charges absent from UsefulDesk as review-held exceptions; it never auto-credits provider-discovered money. Settings now gives admins two explicit resolutions for only those provider-discovered items: fresh provider revalidation plus atomic canonical apply, or actor/reason-audited handled-externally with no ledger credit. Mocked ordering, provider-gap, refund-refusal, route-boundary, schema, and UI tests pass. Production applied connector versions `20260826040518`, `20260826040539`, and resolution version `20260826044721`; schema, grants, actor guards, resource counts, and advisors are verified. The first naturally scheduled Production Live scan claimed and scanned the one due mandate with zero observations and failures. A live no-work refund-reconciliation null shape now has a regression guard, and any recovery phase failure returns diagnostic `503` so GitHub Actions alerts instead of remaining falsely green. The original P1 audit set is closed in code; the final runtime guards are included in `ca502ec`, recorded as promoted to Production on 2026-09-08; the earlier deployment-pending note is superseded**.
 
 Engineering maintenance: **the final migrated payment allocator now preserves that AutoPay membership-line isolation together with refund-adjusted collectible balances; a final-definition contract test prevents a later `CREATE OR REPLACE` migration from silently restoring generic cross-line allocation**.
 
@@ -991,21 +1012,188 @@ Left: richer legal-entity administration and tax documents · explicit organizat
 
 Branded member app · class marketplace · payroll · workout/nutrition tracking · franchise analytics · door access · loyalty.
 
+## Member import reliability implementation plan — 2026-09-09
+
+**Goal:** make the existing migration worksheet financially consistent, job-scoped,
+and recoverable without changing the grouped accounting or private draft architecture.
+**Architecture:** retain pure candidate building, one transactional RPC per customer,
+and author-private revisioned drafts. Use the persisted draft UUID as the import job
+identity; persist exact attempted payloads/results before permitting recovery edits.
+**Stack:** existing TypeScript/React, Next.js route handlers, Supabase/Postgres.
+**Spec:** `docs/superpowers/specs/2026-08-16-service-aware-resumable-member-import-design.md`,
+with the nine reliability requirements in this task superseding latest-start selection.
+
+### Existing behavior and reproduced code-path defects
+
+- Pricing already resolves list/discount/charged values in paise and SQL validates
+  their equation. Candidate rebuilding then replaces inferred payment with only the
+  raw amount-paid value, and combined rows subtract service price from membership
+  fee after discount validation. Due-only rows and paid-status rows can therefore
+  disagree with commit; combined discounts can disagree with SQL.
+- Contact matches refresh on resume/initial preview only. Identity edits retain a
+  stale contact ID and saved profile decision. Both lookup paths are unpaginated.
+- Customer keys depend only on phone/legacy ID; purchase keys add filename/sheet
+  and row. They collide across distinct jobs and change when identity edits regroup.
+  SQL already stores payload hashes and rejects changed replays; preserve that guard.
+- Each group is atomic, but a thrown transport failure aborts the client loop, and
+  the dialog discards the draft even when groups fail. Successful receipts are not
+  checkpointed into candidates before retry. Best-effort tag/custom failures need
+  separate recovery/reporting without replaying a changed financial payload.
+- History selection uses greatest start date, even if it is a future renewal;
+  automatic exclusions cannot be reconsidered. Choose the operational term explicitly.
+- Ignored due and legacy-ID columns re-enter through recipe fallback reads.
+- XLSX supports worksheet selection but assumes row one is the header; report title,
+  repeated header/footer variations have no adapter contract. Support CSV and selected
+  XLSX worksheets with a recognizable tabular member header, bounded title rows,
+  repeated headers and visible summary exclusions. Do not join arbitrary sheets,
+  infer financial ledgers, support merchandise, or promise universal ERP compatibility.
+- Source accepts 10 MB / 5,000 rows / 100 columns, while normalized candidate state
+  is capped at 5 MB. Enforce one honest resumable-state capacity before commit and
+  expose a recoverable split-file message; never silently truncate source or contacts.
+- Cancellation with unpaid membership debt is an already-resolved notice although
+  SQL voids the current period. Require a persisted explicit write-off decision or
+  correction/exclusion, invalidate it when affected facts change, enforce at SQL.
+
+### Global constraints
+
+Author-private drafts remain revision/CAS-protected and branch-scoped. Financial
+writes remain grouped and transactional, all references tenant-validated, and SQL
+remains authoritative. No live customer import, messages, money movement, production
+deployment, or unrelated rollout. Reuse existing UI masters without visual overrides.
+Read `docs/ui-patterns.md` completely before UI work. Read bundled Next.js guides
+before code changes; use Context7 for library/API-specific questions. Migrations
+use approved tooling only, never `supabase db push`. Owner-approved implementation
+is delegated to Terra High; Astra Medium coordinates and reviews.
+
+### Slice 1 — Financial and candidate contract (Terra High)
+
+**Own:** `src/lib/memberships/member-import-candidates.ts`, `import-commit.ts`,
+`member-import-services.ts`, their tests, schema-contract tests, and additive migration
+`supabase/migrations/20260909120000_member_import_reliability.sql`.
+**Produce:** optional `importJobId` in candidate context; job-scoped stable keys;
+explicit current-term selection and cancellation-debt decisions exposed as pure
+resolvers; a single resolved row accounting equation used by preview and payload.
+Coordinate exact exported resolver signatures with Slice 2 before UI wiring.
+
+- [x] Add failing cases for due-only/paid-status inference, mixed membership/service
+      discounts, malformed/negative/over-total money, penny boundaries, and correction
+      choices. Resolve total/paid/due from the same final lines; do not mutate a membership
+      fee after validating its discount. Preserve explicit historical prices, revalidate
+      configured prices in SQL when no historical override is supplied.
+- [x] Cover past/current/future rows, equal starts, identity changes, and manual
+      exclusions. Default to the unique term containing account-local today, then latest
+      past or earliest future; ambiguous alternatives require an explicit reviewer choice
+      and remain visible. Preserve independent service purchases.
+- [x] Add persisted debt decision with fingerprint of financial/status facts;
+      cancellation without approval blocks readiness and SQL execution.
+- [x] Extend authoritative SQL with necessary price/decision/job guards, preserving
+      grants, tenant checks, group payload-hash replay, and transaction rollback.
+- [x] Run focused candidate, pricing, service and schema regression checks; report
+      before/after failures, exact exports, migration requirements, and remaining limits.
+
+### Slice 2 — Durable execution, matching and review UI (Terra High)
+
+**Own:** `member-import-transaction.ts` and tests, `use-member-import-draft.ts` and
+its tests, `import-members-csv-dialog.tsx`, `import-members-preview.tsx` and tests;
+new focused matching/recovery helpers under `src/lib/memberships/` if required.
+**Consume:** Slice 1 context/resolvers; Slice 3 source adapter metadata.
+No edits to Slice 1/3 files; coordinate interfaces by message.
+
+- [x] Page complete branch-scoped contact/member lookup; re-match edited identity
+      and profile values and clear stale contact decisions. Fail closed on lookup error,
+      refresh before commit, and preserve locked completed/uncertain attempted groups.
+- [x] Require persisted job identity before commit; flush exact attempted group
+      payload before RPC. Keep attempted keys/payload immutable across unknown outcomes,
+      skip confirmed successes and retry uncertain outcomes exactly. Catch per-group
+      transport failures and checkpoint every result; do not erase partial progress.
+- [x] Retain partial-failure draft and source, provide retry/review recovery, record
+      best-effort metadata failures separately, and clean up only fully successful work.
+- [x] Remove raw-column recipe fallback for explicitly ignored money/identity fields.
+      Wire term choice and debt decision through existing controls; confirmations and
+      receipt counts must reflect exact committed versus outstanding work.
+- [x] Regress edited phone A→B, beyond-1,000 matches, branch errors, interrupted RPC,
+      partial success→resume, conflict save, exact retry, different jobs, ignored columns,
+      explicit term/debt choices, and metadata failures using synthetic/mocked writes.
+
+### Slice 3 — Supported source adapters and draft capacity (Terra High)
+
+**Own:** `import-workbook.ts`, `migration-recipe.ts`, `import-draft.ts`, their tests,
+`src/app/api/members/import-draft/route.ts` and tests if needed; new source helper/tests.
+**Produce:** adapter metadata preserving source row identity; source normalization
+used by CSV and XLSX, with explicit supported-shape detection and honest errors.
+Coordinate integration with Slice 2; no dialog/candidate edits.
+
+- [x] Reproduce and cover titled reports, multiple selectable sheets, repeated
+      headers, blank rows, summary/footer rows, duplicate headers, unsupported shapes,
+      column/row limits and original source-row identity. Never silently pick/join sheets.
+- [x] Reconcile normalized-state/source limits with preflight validation and a clear
+      split-file recovery message; account for serialized UTF-8 size, not character count.
+      Preserve private storage, CAS and forbidden-value checks. Avoid increasing limits
+      beyond a database/API boundary without verifying it.
+- [x] Run workbook/recipe/draft/route regressions and report supported formats,
+      metadata interface and exact capacity behavior to coordinator and Slice 2.
+
+### Integration and acceptance (Astra Medium)
+
+- [x] Review each slice for spec compliance and code quality, then cross-slice data
+      flow. Financial preview and SQL agree; no duplicate write after unknown response;
+      another author/branch cannot read a job; retries retain completed groups; ignored
+      fields have no effect; supported reports preserve source identities and exclusions.
+- [ ] Inspect approved migration tooling and target environment; apply only to an
+      identified non-production test database, verify schema/grants and synthetic
+      transaction regressions. Record any missing authorized test environment rather
+      than treating static SQL assertions as database acceptance.
+- [x] Run focused regression suite and required `npm run verify`; address failures.
+      Reconcile the parent audit: worksheet, reaction proxy and Razorpay recovery runtime
+      guards are included in recorded September 8 `ca502ec` release; live import/reaction
+      acceptance remains unrecorded. Preserve parent's three-file status corrections.
+- [x] Update this progress and `docs/changelog.md` with verified changes and exact
+      residual deployment/database acceptance requirements. Production deployment excluded.
+
+**Preflight ownership/interface review:**
+
+| Pair/slice | Producer and consumer                                                       | Check                                                                            |
+| ---------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 1 → 2      | Candidate context, term/debt resolvers, SQL payload fields → transaction/UI | No shared edits; signatures coordinated before wiring                            |
+| 3 → 2      | Source row metadata and state capacity helper → dialog                      | No shared edits; preserve raw-row lookup and true source-row identity separately |
+| 1          | Financial/candidate tests and additive SQL                                  | Tests cover the same row equations and decisions as SQL                          |
+| 2          | Matching/recovery helpers, hook and UI                                      | Checkpoint before RPC; completed/uncertain attempts cannot be rematerialized     |
+| 3          | Workbook/recipe/draft helpers and tests                                     | Supported formats bounded; source and state failures explicit                    |
+
+**Implementation and review outcome:** all three Terra High slices are complete.
+Independent Astra reviews closed the source, financial, recovery and cross-slice
+findings. Final focused recovery checks passed 66 tests; financial checks passed
+131 tests before the final snapshot-only recovery correction. Source checks passed
+28 tests. Final `npm run verify` passed: lint (three existing Leads warnings),
+TypeScript, 433 files / 3,286 tests, and the production build. Two stale tests were
+corrected: the lifecycle contract recognizes the existing billing/readiness guard, and
+the template action fixture supplies the account context required by its established
+hook. These two corrections change no production behavior.
+
+**Database acceptance — blocked, not performed:** three approved read-only queries
+to Test `gxwhpraswnkosjibvquz` and its migration-list request timed out. The connector
+lists the project as healthy, but no approved alternate test branch exists. No
+migration or fixture write was attempted. Apply the additive migration through the
+approved tool when Test is reachable, then run the rollback fixture script in
+`supabase/tests/member_import_reliability.sql` with stop-on-error execution. Verify
+schema/grants, author/branch isolation, exact/changed and concurrent replay,
+configured-price changes, and mixed membership/service partial-payment cancellation
+(including stale/malformed decisions and rollback). The script covers a subset;
+static schema tests are not database acceptance. Production deployment, live imports,
+messages and money movement were excluded and remain unperformed.
+
 ## Optional / open
 
-- Member import migration reliability: unify inferred paid/due and membership/service
-  pricing with SQL guards; re-match contacts after identity edits; scope retry keys
-  to durable import jobs; preserve partial-failure recovery; select current versus
-  past/future terms explicitly; honor ignored columns; add source adapters for
-  multi-sheet/report variations; reconcile draft limits and complete contact lookup.
-  The migration worksheet improves review but does not establish general ERP
-  compatibility. Debt-changing notices still need an explicit decision contract.
+- Member import reliability database acceptance and release: local implementation
+  and independent reviews are complete; the required migration remains unapplied
+  because approved Test database reads time out. Complete the acceptance record
+  above before a separately authorized release. Arbitrary ERP joins, ledger inference,
+  merchandise, and numbered service families remain deferred.
 - Richer Razorpay `payment.failed` handling — an immediate "auto-pay failed, pay manually" nudge instead of waiting for `subscription.halted` → manual.
 - One-click "Connect Razorpay" via OAuth: **Technology Partner onboarding, isolated Stages 1–4, owner-controlled Stage 5 Live acceptance, the real gym-owner connection-readiness pilot and ₹40 delivery/settlement, pinned-readiness recovery, Stage 6 OAuth-only retirement, and the database-owned multi-account rollout gate are complete and live in Production.** The owner-controlled account remains permanently enabled and exactly bound; VBF is the sole unbound G12 first-bind canary, with no credential or active OAuth state. VBF's Razorpay owner may now complete Live consent; then the established no-money readiness, isolation, and zero-queue checks close G12. The VBF authorization does not include a Payment Link, message, transaction, refund, or money movement. Manual keys, legacy per-account ingress, environment account/merchant pins, and in-place client-secret rotation are not rollout options. Exact evidence lives in `docs/razorpay-operations.md`.
 - Auto-generating / charging _future_ invoices (a billing cron — overlaps AutoPay) · persisting the Upcoming projection.
 - Account-wide pending-transfers console · lead-transfer auto-expiry cron.
 - Leads board **group-by** (pivot on source / assignee instead of status) — has a real drag-semantics decision (dragging would set the grouped dimension: a direct source-write vs the approval-gated `requestLeadAssignment`), so it's a feature, not a pref.
-
 
 ## Meta Lead Ads post-approval implementation plan
 
@@ -1068,15 +1256,15 @@ necessary migration uses the approved migration tool, never `supabase db push`.
 
 - [x] Compare current GitHub main SHA with the active production deployment.
 - [x] Check only the presence/scope of production Meta configuration; do not dump
-  environment values or Page tokens. Confirm whether the global public config is
-  still unset. The review fallback is account `24094e14-83b9-4ecb-b6eb-7bafd740196d`
-  and Login for Business configuration `1039026725782445`.
+      environment values or Page tokens. Confirm whether the global public config is
+      still unset. The review fallback is account `24094e14-83b9-4ecb-b6eb-7bafd740196d`
+      and Login for Business configuration `1039026725782445`.
 - [x] Read current Page health and unprocessed Meta event counts through approved
-  privileged tooling. Verify the deployed owned recovery RPCs and current grants;
-  do not reapply migrations merely because they appear in the older design.
+      privileged tooling. Verify the deployed owned recovery RPCs and current grants;
+      do not reapply migrations merely because they appear in the older design.
 - [x] Check both database-owned cron execution results and GitHub backup results
-  for the Meta recovery endpoint. A dispatched request alone is not a successful
-  recovery run. Retain aggregate outcomes and latest successful timestamps.
+      for the Meta recovery endpoint. A dispatched request alone is not a successful
+      recovery run. Retain aggregate outcomes and latest successful timestamps.
 - [x] Run the existing focused regression gate:
 
   ```sh
@@ -1095,26 +1283,26 @@ and its colocated tests. Existing review assets are Page `1300231026509095` and
 form `2157208975142771`; verify their current ownership and environment first.
 
 - [ ] Establish authorized disposable assets and synthetic contact data. Verify
-  whether the review account's automations could send messages before creating
-  leads; use an isolated no-send test setup. Confirm the associated Instagram
-  professional account. Missing Instagram assets block Instagram acceptance only.
+      whether the review account's automations could send messages before creating
+      leads; use an isolated no-send test setup. Confirm the associated Instagram
+      professional account. Missing Instagram assets block Instagram acceptance only.
 - [ ] Connect the approved Page through Settings and inspect safe health results.
-  Confirm subscription verification; preserve an unavailable `has_lead_access`
-  diagnostic as unverified instead of fabricating a passed timestamp.
+      Confirm subscription verification; preserve an unavailable `has_lead_access`
+      diagnostic as unverified instead of fabricating a passed timestamp.
 - [ ] Deliver a Facebook test lead through the provider and prove correct account,
-  normalized phone, Facebook attribution, `received_via='meta'`, no assignee, one
-  enquiry note, and exactly-once creation-trigger bookkeeping.
+      normalized phone, Facebook attribution, `received_via='meta'`, no assignee, one
+      enquiry note, and exactly-once creation-trigger bookkeeping.
 - [ ] Deliver an Instagram-origin lead and prove Instagram attribution and the same
-  invariants. A mocked `platform` field alone does not prove provider Instagram
-  delivery. If provider testing requires a paid ad, record that dependency and
-  obtain separate asset/budget authorization before running one.
+      invariants. A mocked `platform` field alone does not prove provider Instagram
+      delivery. If provider testing requires a paid ad, record that dependency and
+      obtain separate asset/budget authorization before running one.
 - [ ] Deliver a distinct enquiry for the same phone: one contact remains and one
-  additional enquiry note appears. Replay an already processed provider event:
-  no duplicate contact, note, or creation-trigger dispatch appears.
+      additional enquiry note appears. Replay an already processed provider event:
+      no duplicate contact, note, or creation-trigger dispatch appears.
 - [ ] Exercise the provider's phone-less test payload: one terminal skip, no
-  fabricated contact, and no repeated skip increment on replay.
+      fabricated contact, and no repeated skip increment on replay.
 - [ ] Use a second authorized test branch and lower-privilege role to verify that
-  Page configuration, health actions, and captured data remain inaccessible there.
+      Page configuration, health actions, and captured data remain inaccessible there.
 
 **Exit:** each case has timestamped provider/event evidence and safe database
 counts; Facebook and Instagram results are recorded independently.
@@ -1127,23 +1315,23 @@ counts; Facebook and Instagram results are recorded independently.
 `src/lib/meta/lead-ads-health.test.ts`, and health/connect/cron route tests.
 
 - [ ] In the isolated test environment, induce a transient lead-fetch failure;
-  restore the dependency and let owned recovery process the event without another
-  provider delivery. Prove eventual completion without duplicate capture effects.
+      restore the dependency and let owned recovery process the event without another
+      provider delivery. Prove eventual completion without duplicate capture effects.
 - [ ] On the authorized disposable Page only, remove this app's `leadgen`
-  subscription and verify that recovery restores it and reads it back.
+      subscription and verify that recovery restores it and reads it back.
 - [ ] With explicit authority for the disposable access change, revoke lead
-  access or the test token. Verify actionable reconnect/setup status and one
-  owner/admin notification per incident; viewers receive none. Restore access
-  through the established Meta login path and verify healthy recovery.
+      access or the test token. Verify actionable reconnect/setup status and one
+      owner/admin notification per incident; viewers receive none. Restore access
+      through the established Meta login path and verify healthy recovery.
 - [ ] Exercise overlapping Check now/recovery and reconnect generation changes.
-  Use existing automated tests for races and inspect live results for lease
-  conflicts; stale workers must not overwrite a newer connection.
+      Use existing automated tests for races and inspect live results for lease
+      conflicts; stale workers must not overwrite a newer connection.
 - [ ] Verify disposable disconnect removes the subscription/configuration while
-  preserving captured lead history; reconnect for the final healthy baseline.
+      preserving captured lead history; reconnect for the final healthy baseline.
 - [ ] For each reproduced defect, add a focused failing regression at its existing
-  boundary, apply the smallest repair, rerun the focused gate from Task 1, then
-  run `npm run verify` if application code changed. Repeat the affected acceptance
-  case. No speculative refactor, new master component, or replacement scheduler.
+      boundary, apply the smallest repair, rerun the focused gate from Task 1, then
+      run `npm run verify` if application code changed. Repeat the affected acceptance
+      case. No speculative refactor, new master component, or replacement scheduler.
 
 **Exit:** recovery, isolation, notification deduplication, and reconnect cases pass;
 any code correction has regression and full application verification evidence.
@@ -1154,18 +1342,18 @@ any code correction has regression and full application verification evidence.
 routes above. No global flag change belongs in this task.
 
 - [ ] Present the passing disposable acceptance record and identify the exact
-  production branch, Page, Meta owner, and synthetic lead data for authorization.
-  Current planning authorization is not authorization to connect customer assets
-  or trigger customer messaging.
+      production branch, Page, Meta owner, and synthetic lead data for authorization.
+      Current planning authorization is not authorization to connect customer assets
+      or trigger customer messaging.
 - [ ] Prefer the existing review branch for a production canary if suitable and
-  authorized. If a different branch is required, first define a narrowly scoped
-  availability change in `src/lib/meta/lead-ads-availability.ts` and its test;
-  do not use the global config to simulate a limited release.
+      authorized. If a different branch is required, first define a narrowly scoped
+      availability change in `src/lib/meta/lead-ads-availability.ts` and its test;
+      do not use the global config to simulate a limited release.
 - [ ] Once authorized, connect that Page and repeat one provider lead, a same-phone
-  repeat enquiry, and an idempotent replay; verify branch isolation and health.
+      repeat enquiry, and an idempotent replay; verify branch isolation and health.
 - [ ] Observe at least two actual scheduled recovery completions plus a manual
-  health result. Record backlog age/count, processed/failed counts, attention
-  incidents, and absence of unintended outbound messages.
+      health result. Record backlog age/count, processed/failed counts, attention
+      incidents, and absence of unintended outbound messages.
 
 **Exit:** the named canary is healthy with no unexplained pending events, duplicated
 capture, cross-branch exposure, or unintended sends. Otherwise fix forward while
@@ -1178,19 +1366,19 @@ keeping general customer connections unavailable.
 `docs/automations-and-cron.md`.
 
 - [ ] Present the concrete passing canary evidence and intended global activation
-  for owner authorization, as required by the existing rollout scope.
+      for owner authorization, as required by the existing rollout scope.
 - [ ] Set the approved configuration ID `1039026725782445` in the Production scope
-  and redeploy the reviewed commit; the public build-time value requires a new
-  build. Preserve separate Preview/Test settings.
+      and redeploy the reviewed commit; the public build-time value requires a new
+      build. Preserve separate Preview/Test settings.
 - [ ] Verify production aliases resolve to the reviewed deployment. In an ordinary
-  branch, verify the connection UI becomes available with existing role gates;
-  do not connect additional customer Pages as part of this smoke check.
+      branch, verify the connection UI becomes available with existing role gates;
+      do not connect additional customer Pages as part of this smoke check.
 - [ ] Observe the first two successful scheduled recovery runs after activation.
-  Keep a 24-hour observation checkpoint for growing event backlog, repeated health
-  errors, or permission failures; arrange a monitor only if requested.
+      Keep a 24-hour observation checkpoint for growing event backlog, repeated health
+      errors, or permission failures; arrange a monitor only if requested.
 - [ ] Update this plan's checkboxes, move Lead Ads out of Phase 2's Left list, and
-  record release SHA, activation time, safe acceptance evidence, and residual
-  limitations in the changelog. Do not mark Instagram accepted without its result.
+      record release SHA, activation time, safe acceptance evidence, and residual
+      limitations in the changelog. Do not mark Instagram accepted without its result.
 
 **Rollback:** clear the public config and rebuild to hide new customer connections;
 this does not stop existing Page ingestion or the review-account fallback. If a

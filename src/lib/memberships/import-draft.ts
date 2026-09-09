@@ -3,13 +3,22 @@ import type { DateOrder } from '@/lib/leads/import-coerce';
 export const MEMBER_IMPORT_DRAFT_BUCKET = 'member-import-drafts';
 export const MEMBER_IMPORT_DRAFT_VERSION = 1 as const;
 export const MEMBER_IMPORT_DRAFT_MAX_STATE_BYTES = 5 * 1024 * 1024;
+/**
+ * Normalized source data is not itself persisted in a draft. Candidate rows and
+ * review choices are, so reserve half of the database-safe state capacity for
+ * them before the owner starts mapping a report.
+ */
+export const MEMBER_IMPORT_DRAFT_SOURCE_BUDGET_BYTES = Math.floor(
+  MEMBER_IMPORT_DRAFT_MAX_STATE_BYTES / 2
+);
 
 export type MemberImportDraftErrorCode =
   | 'draft_conflict'
   | 'draft_expired'
   | 'draft_unavailable'
   | 'source_mismatch'
-  | 'invalid_state';
+  | 'invalid_state'
+  | 'draft_too_large';
 
 export interface MemberImportDraftState {
   version: typeof MEMBER_IMPORT_DRAFT_VERSION;
@@ -88,7 +97,7 @@ export function validateDraftState(
   value: unknown
 ):
   | { ok: true; state: MemberImportDraftState }
-  | { ok: false; code: 'invalid_state' } {
+  | { ok: false; code: 'invalid_state' | 'draft_too_large' } {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return { ok: false, code: 'invalid_state' };
   }
@@ -116,7 +125,7 @@ export function validateDraftState(
       new TextEncoder().encode(serialized).byteLength >
       MEMBER_IMPORT_DRAFT_MAX_STATE_BYTES
     ) {
-      return { ok: false, code: 'invalid_state' };
+      return { ok: false, code: 'draft_too_large' };
     }
   } catch {
     return { ok: false, code: 'invalid_state' };

@@ -71,8 +71,8 @@ describe('Razorpay membership lifecycle boundary', () => {
   });
 
   it('guards the known member UI mutation surfaces when a mandate blocks them', () => {
-    expect(memberDetail).toContain(
-      'const membershipLifecycleBlockReason = mandate'
+    expect(memberDetail).toMatch(
+      /const membershipLifecycleBlockReason\s*=\s*[\s\S]*?billingState !== 'ready'[\s\S]*?mandateState !== 'ready'[\s\S]*?: mandate[\s\S]*?Resolve this member's AutoPay mandate/
     );
     expect(memberDetail).toContain(
       'blockedReason={membershipLifecycleBlockReason}'

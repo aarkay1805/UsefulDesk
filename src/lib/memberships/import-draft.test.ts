@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   draftObjectPath,
+  MEMBER_IMPORT_DRAFT_MAX_STATE_BYTES,
   saveDraft,
   validateDraftState,
   type MemberImportDraftState,
@@ -32,6 +33,16 @@ describe('member import draft validation', () => {
         recipe: { signedUrl: 'https://private.example/object' },
       })
     ).toEqual({ ok: false, code: 'invalid_state' });
+  });
+
+  it('measures state capacity in UTF-8 bytes and gives it a recoverable code', () => {
+    const emojiCount = Math.ceil(MEMBER_IMPORT_DRAFT_MAX_STATE_BYTES / 2) + 1;
+    expect(
+      validateDraftState({
+        ...STATE,
+        candidates: ['😀'.repeat(emojiCount)],
+      })
+    ).toEqual({ ok: false, code: 'draft_too_large' });
   });
 
   it('builds an author-private object path', () => {

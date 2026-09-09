@@ -106,6 +106,31 @@ The browser sends only the selected plan/option, start date, structured discount
 
 Every included import candidate requires its own valid account-qualified phone number. A normalized phone shared by different names or legacy Member IDs is blocking because contacts and memberships are phone-deduped; staff must correct the affected phone or explicitly exclude the duplicate/wrong row. Resolve issues names missing, invalid, and conflicting-number cases separately and links each one to the canonical candidate phone editor rather than offering a second editor.
 
+**Import reliability contract:** the persisted private draft UUID identifies the import job.
+Before sending a customer group, save its exact request in the revisioned draft;
+an unknown response retries that request unchanged, and confirmed success is never
+rebuilt from changed catalogue or contact data. A proven transaction rejection may
+return to review. Keep partial financial and metadata progress until recovery is
+complete; tag/custom-field retries must not repeat successful financial writes.
+Receipt and metadata rows must belong to the confirmed transaction’s exact source
+keys. Repeated identical custom-field assignments are deduplicated; differing values
+for one customer/field use the last source row and are counted in the saved receipt.
+Preview and RPC use one final line-total/paid/due equation in integer paise. A
+membership cancellation that clears debt requires an explicit decision bound to
+the reviewed financial facts, with SQL checking the actual membership-line balance;
+service cancellation alone never clears debt. Existing-contact identity is re-matched
+after edits and checked again at the transaction boundary.
+
+Membership term selection stays within a compatible phone/legacy identity. Prefer
+the unique term containing account-local today, otherwise the latest past or earliest
+future term; ambiguous terms require review, and alternate terms remain inspectable.
+Do not fold separate people together because a source reuses a legacy ID. Ignored
+columns cannot re-enter through a recipe. CSV and individually selected XLSX tables
+use the bounded source adapter; report exclusions retain source row/value evidence.
+Unsupported joins, arbitrary ledger reports, merchandise, and numbered service
+families remain outside this import contract. Enforce exact UTF-8 draft capacity
+before financial execution rather than silently truncating source or contact lookup.
+
 Import drafts are author-private per branch, revisioned with compare-and-swap, and store the original file in the private `member-import-drafts` bucket. Successful saves extend a 30-day expiry. Resume revalidates current plans, services, trainers, rates, and customer facts before confirm; stale clients must reload or Start fresh and never overwrite a newer revision. The service-only cleanup boundary claims expired rows, deletes their objects, and removes metadata idempotently.
 
 Canonical pure helpers live in `src/lib/products-services.ts`. Full product behavior and non-goals are in `PRDs/products_services_and_trainer_pricing.md`.

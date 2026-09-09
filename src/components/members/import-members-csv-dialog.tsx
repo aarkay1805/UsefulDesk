@@ -71,7 +71,6 @@ import {
   customFieldId,
   CUSTOM_FIELD_TYPES,
   normalizeImportHeader,
-  parseCsvRaw,
   type CustomFieldRef,
   type RawCsv,
   type TargetField,
@@ -81,8 +80,7 @@ import {
   resolveImportTagIds,
   type ContactTagAssignment,
 } from '@/lib/contacts/resolve-import-tags';
-import { normalizeKey } from '@/lib/contacts/dedupe';
-import { downloadCsv } from '@/lib/csv/export';
+import { downloadCsv, toCsv } from '@/lib/csv/export';
 import { getErrorMessage } from '@/lib/errors';
 import { dateAtNoonInTz } from '@/lib/locale/format';
 import { importDateOrder } from '@/lib/locale/config';
@@ -103,6 +101,7 @@ import {
 } from '@/lib/memberships/import-commit';
 import {
   MEMBER_IMPORT_DRAFT_VERSION,
+  validateDraftState,
   type MemberImportDraftState,
 } from '@/lib/memberships/import-draft';
 import {
@@ -111,6 +110,16 @@ import {
   parseMemberImportWorkbook,
   type MemberImportSheet,
 } from '@/lib/memberships/import-workbook';
+import {
+  memberImportSourceKey,
+  normalizeMemberImportCsv,
+  type MemberImportExcludedSourceRow,
+} from '@/lib/memberships/import-source';
+import {
+  loadMemberImportMatchIndex,
+  preserveMemberImportCandidateSnapshots,
+  rematchMemberImportCandidates,
+} from '@/lib/memberships/member-import-matching';
 import {
   MEMBER_IMPORT_FIELDS,
   MEMBER_IMPORT_GROUP_LABEL,
@@ -132,11 +141,16 @@ import {
   resolveGroupedOffering,
   resolveGroupedPlan,
   resolveGroupedService,
+  resolveMembershipTerm,
+  resolveCancelledMembershipDebt,
   resolvePaymentConflict,
   summarizeMemberImportCandidates,
   type MemberImportCandidate,
 } from '@/lib/memberships/member-import-candidates';
-import { commitMemberImportGroups } from '@/lib/memberships/member-import-transaction';
+import {
+  commitMemberImportGroups,
+  type MemberImportTransactionCheckpoint,
+} from '@/lib/memberships/member-import-transaction';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 import type {
@@ -176,7 +190,11 @@ interface ImportResult {
   paymentFailed: number;
   statusFailed: number;
   tagsAssigned: number;
+  tagsFailed: number;
   customValues: number;
+  customValuesFailed: number;
+  /** Conflicting contact-level values were resolved from the latest source row. */
+  customValueConflicts: number;
   receiptCsv: string;
 }
 
@@ -222,6 +240,10 @@ export function ImportMembersCsvDialog({
   const [selectedSheet, setSelectedSheet] = useState('');
   const [raw, setRaw] = useState<RawCsv | null>(null);
   const [sourceRaw, setSourceRaw] = useState<RawCsv | null>(null);
+  const [sourceRows, setSourceRows] = useState<number[]>([]);
+  const [sourceExclusions, setSourceExclusions] = useState<
+    MemberImportExcludedSourceRow[]
+  >([]);
   const [mapping, setMapping] = useState<string[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [suggestedRecipe, setSuggestedRecipe] =
@@ -240,6 +262,10 @@ export function ImportMembersCsvDialog({
     null
   );
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [executionJournal, setExecutionJournal] = useState<
+    MemberImportTransactionCheckpoint[]
+  >([]);
+  const executionJournalRef = useRef<MemberImportTransactionCheckpoint[]>([]);
   const [resumingDraft, setResumingDraft] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [startFreshConfirm, setStartFreshConfirm] = useState(false);
@@ -265,6 +291,8 @@ export function ImportMembersCsvDialog({
       setSelectedSheet('');
       setRaw(null);
       setSourceRaw(null);
+      setSourceRows([]);
+      setSourceExclusions([]);
       setMapping([]);
       setAnalyzing(false);
       setSuggestedRecipe(null);
@@ -409,14 +437,62 @@ export function ImportMembersCsvDialog({
       dateOrder,
       today: fmt.today(),
       staff,
+      importJobId: draftManager.draft?.id,
+      attemptedSourceKeys: new Set(
+        executionJournal.flatMap((entry) => entry.sourceKeys)
+      ),
     }),
-    [catalogItems, dateOrder, fmt, plans, staff, trainerRates, trainers]
+    [
+      catalogItems,
+      dateOrder,
+      draftManager.draft?.id,
+      executionJournal,
+      fmt,
+      plans,
+      staff,
+      trainerRates,
+      trainers,
+    ]
   );
   const candidateSummary = useMemo(
     () => summarizeMemberImportCandidates(candidates),
     [candidates]
   );
   const readyRows = candidates.filter((candidate) => candidate.isReady);
+  const hasJournalWork = executionJournal.some(
+    (entry) =>
+      entry.status === 'pending' ||
+      entry.status === 'uncertain' ||
+      entry.status === 'imported'
+  );
+  const lockedSourceKeys = useMemo(() => {
+    const attempted = new Set(
+      executionJournal
+        .filter(
+          (entry) =>
+            entry.status === 'pending' ||
+            entry.status === 'imported' ||
+            entry.status === 'uncertain'
+        )
+        .flatMap((entry) => entry.sourceKeys)
+    );
+    const attemptedGroups = new Set(
+      candidates
+        .filter((candidate) => attempted.has(candidate.sourceKey))
+        .map((candidate) => candidate.customerGroupKey)
+    );
+    return new Set(
+      candidates
+        .filter((candidate) => attemptedGroups.has(candidate.customerGroupKey))
+        .map((candidate) => candidate.sourceKey)
+    );
+  }, [candidates, executionJournal]);
+  const hasUnresolvedNewCandidates = candidates.some(
+    (candidate) =>
+      !lockedSourceKeys.has(candidate.sourceKey) &&
+      candidate.disposition === 'included' &&
+      !candidate.isReady
+  );
   const draftState = useMemo<MemberImportDraftState>(
     () => ({
       version: MEMBER_IMPORT_DRAFT_VERSION,
@@ -426,7 +502,7 @@ export function ImportMembersCsvDialog({
       dateOrder,
       recipe: suggestedRecipe,
       candidates,
-      resolutions: {},
+      resolutions: { execution: executionJournal },
       exclusions: candidates
         .filter((candidate) => candidate.disposition === 'excluded')
         .map((candidate) => candidate.sourceKey),
@@ -435,6 +511,7 @@ export function ImportMembersCsvDialog({
     [
       candidates,
       dateOrder,
+      executionJournal,
       mapping,
       result,
       selectedSheet,
@@ -472,7 +549,7 @@ export function ImportMembersCsvDialog({
     if (importing) return;
     setDraftAction('closing');
     try {
-      if (draftManager.draft && file && !result) {
+      if (draftManager.draft && file) {
         const saved = await draftManager.flush();
         if (!saved) return;
       }
@@ -498,6 +575,8 @@ export function ImportMembersCsvDialog({
     setSelectedSheet('');
     setRaw(null);
     setSourceRaw(null);
+    setSourceRows([]);
+    setSourceExclusions([]);
     setMapping([]);
     setSuggestedRecipe(null);
     setDateOrder(accountDateOrder);
@@ -505,6 +584,8 @@ export function ImportMembersCsvDialog({
     setCompliance(false);
     setImportProgress(null);
     setResult(null);
+    setExecutionJournal([]);
+    executionJournalRef.current = [];
     setResumeError(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
@@ -637,17 +718,28 @@ export function ImportMembersCsvDialog({
     setSuggestedRecipe((state.recipe as MemberMigrationRecipe | null) ?? null);
     setCandidates((state.candidates as MemberImportCandidate[]) ?? []);
     setResult((state.receipt as ImportResult | null) ?? null);
+    const savedJournal = (state.resolutions as { execution?: unknown })
+      .execution;
+    if (
+      Array.isArray(savedJournal) &&
+      savedJournal.every(
+        (entry) =>
+          entry &&
+          typeof entry === 'object' &&
+          typeof (entry as { customerGroupKey?: unknown }).customerGroupKey ===
+            'string' &&
+          typeof (entry as { payload?: unknown }).payload === 'object'
+      )
+    ) {
+      const next = savedJournal as MemberImportTransactionCheckpoint[];
+      executionJournalRef.current = next;
+      setExecutionJournal(next);
+    }
   }
 
   async function revalidateSavedDraftState(state: MemberImportDraftState) {
     if (!accountId || !Array.isArray(state.candidates)) return;
-    const [
-      plansResult,
-      itemsResult,
-      trainersResult,
-      contactsResult,
-      membersResult,
-    ] = await Promise.all([
+    const [plansResult, itemsResult, trainersResult] = await Promise.all([
       supabase
         .from('membership_plans')
         .select('*, pricing_options:plan_pricing_options(*)')
@@ -657,23 +749,9 @@ export function ImportMembersCsvDialog({
         .select('*, catalog_options(*, trainer_rates(*))')
         .eq('account_id', accountId),
       supabase.from('trainers').select('*').eq('account_id', accountId),
-      supabase
-        .from('contacts')
-        .select(
-          'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
-        )
-        .eq('account_id', accountId),
-      supabase
-        .from('memberships')
-        .select('contact_id')
-        .eq('account_id', accountId),
     ]);
     const loadError =
-      plansResult.error ??
-      itemsResult.error ??
-      trainersResult.error ??
-      contactsResult.error ??
-      membersResult.error;
+      plansResult.error ?? itemsResult.error ?? trainersResult.error ?? null;
     if (loadError) throw loadError;
 
     const freshPlans = (plansResult.data as MembershipPlan[]) ?? [];
@@ -695,48 +773,66 @@ export function ImportMembersCsvDialog({
       dateOrder: state.dateOrder,
       today: fmt.today(),
       staff,
+      importJobId: draftManager.draft?.id,
+      attemptedSourceKeys: new Set(
+        executionJournalRef.current.flatMap((entry) => entry.sourceKeys)
+      ),
     };
-    const preliminary = revalidateMemberImportCandidates(
+    const rebuilt = revalidateMemberImportCandidates(
       savedCandidates,
       freshContext
     );
-    const contactsByPhone = new Map<string, Record<string, unknown>>();
-    for (const contact of contactsResult.data ?? []) {
-      const record = contact as Record<string, unknown>;
-      if (typeof record.phone_normalized === 'string') {
-        contactsByPhone.set(record.phone_normalized, record);
-      }
-    }
-    const memberContactIds = new Set(
-      (membersResult.data ?? []).map((membership) => membership.contact_id)
+    const lockedSourceKeys = new Set(
+      executionJournalRef.current
+        .filter(
+          (entry) =>
+            entry.status === 'pending' ||
+            entry.status === 'imported' ||
+            entry.status === 'uncertain'
+        )
+        .flatMap((entry) => entry.sourceKeys)
     );
-    const withMatches = preliminary.map((candidate) => {
-      const contact = contactsByPhone.get(
-        normalizeKey(candidate.draftValues.phone)
-      );
-      if (!contact) return { ...candidate, existingMatch: null };
-      const contactId = String(contact.id);
-      const profileConflict = Object.entries(candidate.built.contact).some(
-        ([key, value]) =>
-          value !== null && String(contact[key] ?? '') !== String(value)
-      );
-      return {
-        ...candidate,
-        existingMatch: {
-          contactId,
-          isMember: memberContactIds.has(contactId),
-          receivedVia:
-            typeof contact.received_via === 'string'
-              ? contact.received_via
-              : null,
-          profileConflict,
-        },
-      };
+    const preliminary = rebuilt.map((candidate, index) =>
+      lockedSourceKeys.has(candidate.sourceKey)
+        ? (savedCandidates[index] ?? candidate)
+        : candidate
+    );
+    const matchIndex = await loadMemberImportMatchIndex({
+      contactsPage: (from, to) =>
+        supabase
+          .from('contacts')
+          .select(
+            'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+          )
+          .eq('account_id', accountId)
+          .order('id')
+          .range(from, to),
+      membershipsPage: (from, to) =>
+        supabase
+          .from('memberships')
+          .select('contact_id')
+          .eq('account_id', accountId)
+          .order('id')
+          .range(from, to),
     });
     setCatalogItems(freshItems);
     setTrainers(freshTrainers);
     setTrainerRates(freshRates);
-    setCandidates(revalidateMemberImportCandidates(withMatches, freshContext));
+    const rematched = rematchMemberImportCandidates(
+      preliminary,
+      matchIndex,
+      freshContext,
+      true
+    );
+    // A journal-owned row is a snapshot of the exact payload and outcome we
+    // can safely recover. A resume lookup informs only unattempted rows.
+    setCandidates(
+      rematched.map((candidate, index) =>
+        lockedSourceKeys.has(candidate.sourceKey)
+          ? (savedCandidates[index] ?? candidate)
+          : candidate
+      )
+    );
   }
 
   async function processSelectedFile(
@@ -779,7 +875,11 @@ export function ImportMembersCsvDialog({
         receipt: null,
       };
       if (kind === 'csv') {
-        const parsed = parseCsvRaw(await selected.text());
+        const normalized = normalizeMemberImportCsv(
+          selected.name,
+          await selected.text()
+        );
+        const parsed = normalized.raw;
         if (sequence !== fileReadSequence.current) return false;
         if (parsed.headers.length === 0 || parsed.rows.length === 0) {
           throw new MemberImportFileError(
@@ -787,6 +887,8 @@ export function ImportMembersCsvDialog({
           );
         }
         const prepared = prepareRawTable(parsed);
+        setSourceRows(normalized.sourceRows);
+        setSourceExclusions(normalized.excludedRows);
         initialState = {
           ...initialState,
           mapping: prepared.mapping,
@@ -805,6 +907,8 @@ export function ImportMembersCsvDialog({
         if (selectedWorksheet?.raw) {
           setSelectedSheet(selectedWorksheet.name);
           const prepared = prepareRawTable(selectedWorksheet.raw);
+          setSourceRows(selectedWorksheet.sourceRows);
+          setSourceExclusions(selectedWorksheet.excludedRows);
           initialState = {
             ...initialState,
             worksheet: selectedWorksheet.name,
@@ -938,6 +1042,8 @@ export function ImportMembersCsvDialog({
     const sheet = workbookSheets.find((item) => item.name === name);
     if (!sheet?.raw) return;
     setSelectedSheet(name);
+    setSourceRows(sheet.sourceRows);
+    setSourceExclusions(sheet.excludedRows);
     prepareRawTable(sheet.raw);
   }
 
@@ -1017,22 +1123,9 @@ export function ImportMembersCsvDialog({
       });
       const recipe =
         suggestedRecipe ?? suggestMemberMigrationRecipe(raw.headers);
-      const headerIndex = new Map(
-        raw.headers.map((header, index) => [header, index])
-      );
-      const sourceCell = (row: string[], header: string | null | undefined) =>
-        header ? (row[headerIndex.get(header) ?? -1] ?? '').trim() : '';
       const inputs = mapped.rows.map((mappedRow, index) => {
         const source = raw.rows[index] ?? [];
-        // A mapped "Amount due" column is authoritative. The recipe's balance
-        // column stays only as a fallback for drafts saved before that field
-        // existed — a column shown as "Don't import" must never steer a row.
-        const originalValues = {
-          ...mappedRow,
-          ...(mappedRow.amountDue?.trim()
-            ? {}
-            : { balance: sourceCell(source, recipe.money.balanceColumn) }),
-        };
+        const originalValues = { ...mappedRow };
         if (recipe.splitPlanDuration && originalValues.planName) {
           const split = splitPlanDuration(originalValues.planName);
           originalValues.planName = split.plan;
@@ -1044,9 +1137,9 @@ export function ImportMembersCsvDialog({
           dateOrder,
           fmt.today()
         );
-        const legacyMemberId =
-          mappedRow.legacyMemberId?.trim() ||
-          sourceCell(source, recipe.identityColumn);
+        // Only a reviewed mapping can establish an identity or financial fact.
+        // Recipe guesses are presentation help, never a hidden import fallback.
+        const legacyMemberId = mappedRow.legacyMemberId?.trim() || '';
         if (recipe.legacyId !== 'exclude' && legacyMemberId) {
           originalValues.notes = [
             originalValues.notes,
@@ -1056,8 +1149,11 @@ export function ImportMembersCsvDialog({
             .join(' · ');
         }
         return {
-          sourceKey: `${selectedSheet || file?.name || 'csv'}:${index + 2}`,
-          sourceRow: index + 2,
+          sourceKey: memberImportSourceKey(
+            selectedSheet || file?.name || 'csv',
+            sourceRows[index] ?? index + 2
+          ),
+          sourceRow: sourceRows[index] ?? index + 2,
           legacyMemberId,
           originalValues,
           isSummaryRow:
@@ -1068,61 +1164,37 @@ export function ImportMembersCsvDialog({
         };
       });
       const preliminary = buildMemberImportCandidates(inputs, candidateContext);
-      const [
-        { data: contacts, error: contactsError },
-        { data: memberships, error: membersError },
-      ] = await Promise.all([
-        supabase
-          .from('contacts')
-          .select(
-            'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
-          )
-          .eq('account_id', accountId),
-        supabase
-          .from('memberships')
-          .select('contact_id')
-          .eq('account_id', accountId),
-      ]);
-      if (contactsError) throw contactsError;
-      if (membersError) throw membersError;
-
-      const contactByPhone = new Map<string, Record<string, unknown>>();
-      for (const contact of contacts ?? []) {
-        const item = contact as Record<string, unknown>;
-        const phone = item.phone_normalized;
-        if (typeof phone === 'string') contactByPhone.set(phone, item);
-      }
-      const memberContactIds = new Set(
-        (memberships ?? []).map(
-          (membership) => (membership as { contact_id: string }).contact_id
-        )
-      );
-
-      const withMatches = inputs.map((input, index) => {
-        const candidate = preliminary[index];
-        const existing = contactByPhone.get(
-          normalizeKey(candidate.draftValues.phone)
-        );
-        if (!existing) return input;
-        const contactId = String(existing.id);
-        const profileConflict = Object.entries(candidate.built.contact).some(
-          ([key, value]) =>
-            value !== null && String(existing[key] ?? '') !== String(value)
-        );
-        return {
-          ...input,
-          existingMatch: {
-            contactId,
-            isMember: memberContactIds.has(contactId),
-            receivedVia:
-              typeof existing.received_via === 'string'
-                ? existing.received_via
-                : null,
-            profileConflict,
-          },
-        };
+      const matchIndex = await loadMemberImportMatchIndex({
+        contactsPage: (from, to) =>
+          supabase
+            .from('contacts')
+            .select(
+              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+            )
+            .eq('account_id', accountId)
+            .order('id')
+            .range(from, to),
+        membershipsPage: (from, to) =>
+          supabase
+            .from('memberships')
+            .select('contact_id')
+            .eq('account_id', accountId)
+            .order('id')
+            .range(from, to),
       });
-      setCandidates(buildMemberImportCandidates(withMatches, candidateContext));
+      const nextCandidates = rematchMemberImportCandidates(
+        preliminary,
+        matchIndex,
+        candidateContext
+      );
+      if (
+        !validateDraftState({ ...draftState, candidates: nextCandidates }).ok
+      ) {
+        throw new Error(
+          'This import is too large to keep resumable. Split the report into smaller files and import them one at a time.'
+        );
+      }
+      setCandidates(nextCandidates);
       setStep(3);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Could not prepare the preview'));
@@ -1135,27 +1207,182 @@ export function ImportMembersCsvDialog({
     sourceKey: string,
     patch: Parameters<typeof patchMemberImportCandidate>[2]
   ) {
-    setCandidates((current) =>
-      patchMemberImportCandidate(current, sourceKey, patch, candidateContext)
-    );
+    if (lockedSourceKeys.has(sourceKey)) return;
+    setCandidates((current) => {
+      const next = patchMemberImportCandidate(
+        current,
+        sourceKey,
+        patch,
+        candidateContext
+      );
+      void rematchEditedCandidates();
+      return next;
+    });
+  }
+
+  function canEditSources(sourceKeys: string[]) {
+    return sourceKeys.every((sourceKey) => !lockedSourceKeys.has(sourceKey));
+  }
+
+  async function rematchEditedCandidates() {
+    if (!accountId) return;
+    try {
+      const index = await loadMemberImportMatchIndex({
+        contactsPage: (from, to) =>
+          supabase
+            .from('contacts')
+            .select(
+              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+            )
+            .eq('account_id', accountId)
+            .order('id')
+            .range(from, to),
+        membershipsPage: (from, to) =>
+          supabase
+            .from('memberships')
+            .select('contact_id')
+            .eq('account_id', accountId)
+            .order('id')
+            .range(from, to),
+      });
+      setCandidates((current) =>
+        preserveMemberImportCandidateSnapshots(
+          current,
+          rematchMemberImportCandidates(current, index, candidateContext, true),
+          lockedSourceKeys
+        )
+      );
+    } catch (error) {
+      // A stale contact id is never safe to send. Removing it forces the
+      // reviewer back through the existing-contact decision once lookup works.
+      setCandidates((current) => {
+        const revalidated = revalidateMemberImportCandidates(
+          current.map((candidate) =>
+            lockedSourceKeys.has(candidate.sourceKey)
+              ? candidate
+              : {
+                  ...candidate,
+                  existingMatch: null,
+                  resolutions: {
+                    ...candidate.resolutions,
+                    existingContact: null,
+                  },
+                }
+          ),
+          candidateContext
+        );
+        return preserveMemberImportCandidateSnapshots(
+          current,
+          revalidated,
+          lockedSourceKeys
+        );
+      });
+      toast.error(
+        getErrorMessage(
+          error,
+          'Could not refresh matching contacts. Review the row again before importing.'
+        )
+      );
+    }
   }
 
   async function handleImport() {
-    if (
-      !accountId ||
-      !user ||
-      readyRows.length === 0 ||
-      candidateSummary.needsResolution > 0
-    )
-      return;
+    if (!accountId || !user) return;
     setImporting(true);
-    setImportProgress({
-      completed: 0,
-      total: Math.max(1, readyRows.length),
-      label: 'Preparing member import…',
-    });
     try {
-      const allTagNames = readyRows.flatMap(
+      const importJobId = draftManager.draft?.id;
+      if (!importJobId) {
+        throw new Error(
+          'Save this private import draft before importing members.'
+        );
+      }
+      const journalOwnedSourceKeys = new Set(
+        executionJournalRef.current.flatMap((entry) => entry.sourceKeys)
+      );
+      const matchIndex = await loadMemberImportMatchIndex({
+        contactsPage: (from, to) =>
+          supabase
+            .from('contacts')
+            .select(
+              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+            )
+            .eq('account_id', accountId)
+            .order('id')
+            .range(from, to),
+        membershipsPage: (from, to) =>
+          supabase
+            .from('memberships')
+            .select('contact_id')
+            .eq('account_id', accountId)
+            .order('id')
+            .range(from, to),
+      });
+      // Match every unattempted row immediately before payload construction.
+      // Attempted rows retain their candidate snapshot because their exact
+      // payload is already durable and must never be rebuilt.
+      const rematched = rematchMemberImportCandidates(
+        candidates,
+        matchIndex,
+        candidateContext,
+        true
+      );
+      const activeCandidates = rematched.map((candidate, index) =>
+        journalOwnedSourceKeys.has(candidate.sourceKey)
+          ? (candidates[index] ?? candidate)
+          : candidate
+      );
+      const replayableGroups = new Set(
+        executionJournalRef.current
+          .filter(
+            (entry) =>
+              entry.status === 'pending' ||
+              entry.status === 'uncertain' ||
+              entry.status === 'imported'
+          )
+          .map((entry) => entry.customerGroupKey)
+      );
+      const enrichmentCandidates = activeCandidates.filter(
+        (candidate) =>
+          candidate.isReady || replayableGroups.has(candidate.customerGroupKey)
+      );
+      // Show new lookup facts before returning. In particular, a changed
+      // existing contact must visibly reopen its keep/use decision.
+      setCandidates(activeCandidates);
+      if (
+        enrichmentCandidates.length === 0 ||
+        activeCandidates.some(
+          (candidate) =>
+            !journalOwnedSourceKeys.has(candidate.sourceKey) &&
+            candidate.disposition === 'included' &&
+            !candidate.isReady
+        )
+      ) {
+        setStep(3);
+        toast.warning(
+          'Contact matching changed. Review the affected rows before importing.'
+        );
+        return;
+      }
+      setImportProgress({
+        completed: 0,
+        total: Math.max(1, enrichmentCandidates.length),
+        label: 'Preparing member import…',
+      });
+      if (
+        !validateDraftState({
+          ...draftState,
+          candidates: activeCandidates,
+          resolutions: {
+            ...draftState.resolutions,
+            execution: executionJournalRef.current,
+          },
+        }).ok
+      ) {
+        throw new Error(
+          'This import is too large to keep resumable. Split the report into smaller files and import them one at a time.'
+        );
+      }
+      const allTagNames = enrichmentCandidates.flatMap(
         (candidate) => candidate.draftValues.tagNames
       );
       const { tagIdByKey, skippedNames } = await resolveImportTagIds(supabase, {
@@ -1165,18 +1392,104 @@ export function ImportMembersCsvDialog({
         canCreateTags: canEditSettings,
       });
 
-      const transaction = await commitMemberImportGroups(candidates, {
+      const transaction = await commitMemberImportGroups(activeCandidates, {
         accountId,
+        importJobId,
         rpc: (functionName, args) => supabase.rpc(functionName, args),
         paidAt: (date) =>
           (dateAtNoonInTz(date, locale.timeZone) ?? new Date()).toISOString(),
+        checkpoints: executionJournalRef.current,
+        prepare: async (pending) => {
+          const byGroup = new Map(
+            executionJournalRef.current.map((entry) => [
+              entry.customerGroupKey,
+              entry,
+            ])
+          );
+          for (const checkpoint of pending) {
+            byGroup.set(checkpoint.customerGroupKey, checkpoint);
+          }
+          const next = [...byGroup.values()];
+          if (
+            !validateDraftState({
+              ...draftState,
+              candidates: activeCandidates,
+              resolutions: { ...draftState.resolutions, execution: next },
+            }).ok
+          ) {
+            toast.error(
+              'This import is too large to keep resumable. Split the report into smaller files and import them one at a time.'
+            );
+            return false;
+          }
+          executionJournalRef.current = next;
+          setExecutionJournal(next);
+          return draftManager.saveAndFlush({
+            ...draftState,
+            candidates: activeCandidates,
+            resolutions: { ...draftState.resolutions, execution: next },
+          });
+        },
+        checkpoint: async (checkpoint) => {
+          const previous = executionJournalRef.current;
+          const index = previous.findIndex(
+            (entry) => entry.customerGroupKey === checkpoint.customerGroupKey
+          );
+          const next = [...previous];
+          if (index >= 0) next[index] = checkpoint;
+          else next.push(checkpoint);
+          executionJournalRef.current = next;
+          setExecutionJournal(next);
+          // The payload is written before its RPC and is the only retry source.
+          if (
+            !validateDraftState({
+              ...draftState,
+              candidates: activeCandidates,
+              resolutions: { ...draftState.resolutions, execution: next },
+            }).ok
+          ) {
+            toast.error(
+              'This import is too large to keep resumable. Split the report into smaller files and import them one at a time.'
+            );
+            return false;
+          }
+          return draftManager.saveAndFlush({
+            ...draftState,
+            candidates: activeCandidates,
+            resolutions: { ...draftState.resolutions, execution: next },
+          });
+        },
         onProgress: (completed, total, label) =>
           setImportProgress({ completed, total, label }),
       });
       const groupByKey = new Map(
         transaction.groups.map((group) => [group.customerGroupKey, group])
       );
-      const results = candidates.map((candidate) => {
+      const results = activeCandidates.map((candidate) => {
+        // A confirmed journal entry owns recovery. A live re-match may now
+        // call this contact an existing member, but that must not erase the
+        // confirmed outcome or skip its pending metadata enrichment.
+        const confirmed = groupByKey.get(candidate.customerGroupKey);
+        if (
+          confirmed?.status === 'imported' &&
+          confirmed.sourceKeys.includes(candidate.sourceKey)
+        ) {
+          return {
+            sourceRowIndex: candidate.sourceRow,
+            disposition: 'imported' as const,
+            memberOutcome: candidate.existingMatch
+              ? ('attached' as const)
+              : ('created' as const),
+            paymentOutcome: candidate.built.payment
+              ? ('recorded' as const)
+              : ('not-requested' as const),
+            reason: null,
+            contactId: confirmed.contactId,
+            membershipId: candidate.membershipComponent?.included
+              ? confirmed.membershipId
+              : null,
+          };
+        }
         if (candidate.disposition === 'excluded') {
           return {
             sourceRowIndex: candidate.sourceRow,
@@ -1199,8 +1512,8 @@ export function ImportMembersCsvDialog({
             membershipId: null,
           };
         }
-        const group = groupByKey.get(candidate.customerGroupKey);
-        if (!group || group.status === 'failed') {
+        const group = confirmed;
+        if (!group || group.status !== 'imported') {
           return {
             sourceRowIndex: candidate.sourceRow,
             disposition: 'failed' as const,
@@ -1232,7 +1545,7 @@ export function ImportMembersCsvDialog({
       const statusFailed = 0;
 
       const candidateByRow = new Map(
-        candidates.map((candidate) => [candidate.sourceRow, candidate])
+        activeCandidates.map((candidate) => [candidate.sourceRow, candidate])
       );
       const persisted = results.filter((item) => item.contactId);
       const tagAssignments: ContactTagAssignment[] = persisted.flatMap(
@@ -1254,22 +1567,64 @@ export function ImportMembersCsvDialog({
           contact_id: item.contactId!,
           custom_field_id: custom.fieldId,
           value: custom.value,
+          sourceRow: item.sourceRowIndex,
         }));
       });
+      // Contact custom values are customer-scoped whereas an import group can
+      // contain several purchases. Collapse exact repeats and let the last
+      // physical source row win a conflicting value, so one bulk upsert never
+      // contains the same conflict target twice. The warning makes that
+      // deterministic choice inspectable without creating an unfixable retry.
+      const customValueByContactField = new Map<
+        string,
+        (typeof customValueRows)[number]
+      >();
+      let conflictingCustomValues = 0;
+      for (const row of customValueRows) {
+        const key = `${row.contact_id}:${row.custom_field_id}`;
+        const previous = customValueByContactField.get(key);
+        if (previous && previous.value !== row.value)
+          conflictingCustomValues += 1;
+        if (!previous || row.sourceRow >= previous.sourceRow) {
+          customValueByContactField.set(key, row);
+        }
+      }
+      const deduplicatedCustomValueRows = [
+        ...customValueByContactField.values(),
+      ].map(({ contact_id, custom_field_id, value }) => ({
+        contact_id,
+        custom_field_id,
+        value,
+      }));
 
       let customValues = 0;
+      let customValuesFailed = 0;
       for (
         let index = 0;
-        index < customValueRows.length;
+        index < deduplicatedCustomValueRows.length;
         index += CUSTOM_VALUE_CHUNK
       ) {
-        const chunk = customValueRows.slice(index, index + CUSTOM_VALUE_CHUNK);
-        const { error } = await supabase
-          .from('contact_custom_values')
-          .upsert(chunk, { onConflict: 'contact_id,custom_field_id' });
-        if (!error) customValues += chunk.length;
+        const chunk = deduplicatedCustomValueRows.slice(
+          index,
+          index + CUSTOM_VALUE_CHUNK
+        );
+        try {
+          const { error } = await supabase
+            .from('contact_custom_values')
+            .upsert(chunk, { onConflict: 'contact_id,custom_field_id' });
+          if (!error) customValues += chunk.length;
+          else customValuesFailed += chunk.length;
+        } catch {
+          customValuesFailed += chunk.length;
+        }
+      }
+      if (conflictingCustomValues > 0) {
+        toast.warning(
+          `Used the value from the last source row for ${conflictingCustomValues} conflicting contact custom value${conflictingCustomValues === 1 ? '' : 's'}.`
+        );
       }
       let tagsAssigned = 0;
+      let tagsFailed = 0;
       try {
         tagsAssigned = await assignImportedContactTags(
           supabase,
@@ -1277,20 +1632,21 @@ export function ImportMembersCsvDialog({
           tagIdByKey
         );
       } catch {
+        tagsFailed = tagAssignments.length;
         toast.warning('Members imported, but some tag assignments failed.');
       }
       const successfulGroups = transaction.groups.filter(
         (group) => group.status === 'imported'
       );
       const imported = successfulGroups.filter((group) => {
-        const source = candidates.find(
+        const source = activeCandidates.find(
           (candidate) => candidate.customerGroupKey === group.customerGroupKey
         );
         return !source?.existingMatch;
       }).length;
       const attached = successfulGroups.length - imported;
       const failed = transaction.groups.filter(
-        (group) => group.status === 'failed'
+        (group) => group.status !== 'imported'
       ).length;
       const payments = results.filter(
         (item) => item.paymentOutcome === 'recorded'
@@ -1311,13 +1667,36 @@ export function ImportMembersCsvDialog({
         paymentFailed,
         statusFailed,
         tagsAssigned,
+        tagsFailed,
         customValues,
+        customValuesFailed,
+        customValueConflicts: conflictingCustomValues,
         receiptCsv: serializeMemberImportReceiptCsv(
-          buildMemberImportReceiptRows(candidates, results)
+          buildMemberImportReceiptRows(activeCandidates, results)
         ),
       };
       setResult(nextResult);
-      if (draftManager.draft) {
+      const receiptSaved = await draftManager.saveAndFlush({
+        ...draftState,
+        candidates: activeCandidates,
+        resolutions: {
+          ...draftState.resolutions,
+          execution: executionJournalRef.current,
+        },
+        receipt: nextResult,
+      });
+      if (!receiptSaved) {
+        toast.warning(
+          'Import results need saving before this draft can close.'
+        );
+      }
+      if (
+        draftManager.draft &&
+        receiptSaved &&
+        failed === 0 &&
+        tagsFailed === 0 &&
+        customValuesFailed === 0
+      ) {
         const cleaned = await draftManager.discard();
         if (!cleaned) {
           toast.warning(
@@ -1381,7 +1760,9 @@ export function ImportMembersCsvDialog({
     (draftManager.saveState === 'error' || draftAction === 'retrying') &&
     draftManager.draft ? (
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-destructive text-xs">Couldn’t save draft.</span>
+        <span className="text-destructive text-xs">
+          {draftManager.lastError ?? 'Couldn’t save draft.'}
+        </span>
         <Button
           type="button"
           variant="ghost"
@@ -1520,12 +1901,13 @@ export function ImportMembersCsvDialog({
           {resumeError}
         </p>
       ) : null}
+      <SourceExclusionNotice exclusions={sourceExclusions} />
     </div>
   );
   const hasPrimaryAction =
     Boolean(result) || step !== 3 || candidateSummary.needsResolution === 0;
   const primaryAction = result ? (
-    <Button type="button" onClick={() => onOpenChange(false)}>
+    <Button type="button" onClick={() => void requestClose()}>
       Done
     </Button>
   ) : (
@@ -1582,8 +1964,8 @@ export function ImportMembersCsvDialog({
           disabled={
             !compliance ||
             importing ||
-            readyRows.length === 0 ||
-            candidateSummary.needsResolution > 0
+            (readyRows.length === 0 && !hasJournalWork) ||
+            hasUnresolvedNewCandidates
           }
           onClick={handleImport}
           loading={importing}
@@ -1676,12 +2058,14 @@ export function ImportMembersCsvDialog({
                 closeAction={closeAction}
                 footer={wizardFooter}
                 candidates={candidates}
+                lockedSourceKeys={lockedSourceKeys}
                 context={candidateContext}
                 plans={plans}
                 catalogItems={catalogItems}
                 trainers={trainers}
                 onPatch={patchCandidate}
-                onResolveGroupedPlan={(sourceKeys, resolution) =>
+                onResolveGroupedPlan={(sourceKeys, resolution) => {
+                  if (!canEditSources(sourceKeys)) return;
                   setCandidates((current) =>
                     resolveGroupedPlan(
                       current,
@@ -1689,9 +2073,10 @@ export function ImportMembersCsvDialog({
                       resolution,
                       candidateContext
                     )
-                  )
-                }
-                onResolveGroupedOffering={(sourceKeys, resolution) =>
+                  );
+                }}
+                onResolveGroupedOffering={(sourceKeys, resolution) => {
+                  if (!canEditSources(sourceKeys)) return;
                   setCandidates((current) =>
                     resolveGroupedOffering(
                       current,
@@ -1699,9 +2084,10 @@ export function ImportMembersCsvDialog({
                       resolution,
                       candidateContext
                     )
-                  )
-                }
-                onResolveGroupedService={(sourceKeys, resolution) =>
+                  );
+                }}
+                onResolveGroupedService={(sourceKeys, resolution) => {
+                  if (!canEditSources(sourceKeys)) return;
                   setCandidates((current) =>
                     resolveGroupedService(
                       current,
@@ -1709,9 +2095,10 @@ export function ImportMembersCsvDialog({
                       resolution,
                       candidateContext
                     )
-                  )
-                }
-                onResolvePayment={(sourceKey, resolution, correction) =>
+                  );
+                }}
+                onResolvePayment={(sourceKey, resolution, correction) => {
+                  if (!canEditSources([sourceKey])) return;
                   setCandidates((current) =>
                     resolvePaymentConflict(
                       current,
@@ -1720,9 +2107,10 @@ export function ImportMembersCsvDialog({
                       correction,
                       candidateContext
                     )
-                  )
-                }
-                onResolveExistingContact={(sourceKey, resolution) =>
+                  );
+                }}
+                onResolveExistingContact={(sourceKey, resolution) => {
+                  if (!canEditSources([sourceKey])) return;
                   setCandidates((current) =>
                     resolveExistingContact(
                       current,
@@ -1730,8 +2118,30 @@ export function ImportMembersCsvDialog({
                       resolution,
                       candidateContext
                     )
-                  )
-                }
+                  );
+                }}
+                onResolveMembershipTerm={(legacyMemberId, sourceKey) => {
+                  if (!canEditSources([sourceKey])) return;
+                  setCandidates((current) =>
+                    resolveMembershipTerm(
+                      current,
+                      legacyMemberId,
+                      sourceKey,
+                      candidateContext
+                    )
+                  );
+                }}
+                onResolveCancelledDebt={(sourceKey) => {
+                  if (!canEditSources([sourceKey])) return;
+                  setCandidates((current) =>
+                    resolveCancelledMembershipDebt(
+                      current,
+                      sourceKey,
+                      'write_off',
+                      candidateContext
+                    )
+                  );
+                }}
                 onSetDisposition={(sourceKey, disposition) =>
                   patchCandidate(sourceKey, { disposition })
                 }
@@ -1749,7 +2159,32 @@ export function ImportMembersCsvDialog({
               >
                 <ImportStepBody>
                   {result ? (
-                    <ResultPanel result={result} />
+                    <ResultPanel
+                      result={result}
+                      sourceExclusions={sourceExclusions}
+                      onRetry={() => {
+                        setResult(null);
+                        setStep(4);
+                        setCompliance(true);
+                      }}
+                      onReviewFailed={() => {
+                        const next = executionJournalRef.current.filter(
+                          (entry) => entry.status !== 'failed'
+                        );
+                        executionJournalRef.current = next;
+                        setExecutionJournal(next);
+                        setResult(null);
+                        setStep(3);
+                        void draftManager.saveAndFlush({
+                          ...draftState,
+                          candidates,
+                          resolutions: {
+                            ...draftState.resolutions,
+                            execution: next,
+                          },
+                        });
+                      }}
+                    />
                   ) : (
                     <div key={step} className="min-h-0 shrink-0">
                       {step === 1 && (
@@ -2574,11 +3009,25 @@ function SummaryValue({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ResultPanel({ result }: { result: ImportResult }) {
+function ResultPanel({
+  result,
+  onRetry,
+  onReviewFailed,
+  sourceExclusions,
+}: {
+  result: ImportResult;
+  onRetry: () => void;
+  onReviewFailed: () => void;
+  sourceExclusions: MemberImportExcludedSourceRow[];
+}) {
   const { fmt } = useLocale();
   const successful = result.imported + result.attached;
   const needsAttention =
-    result.failed > 0 || result.paymentFailed > 0 || result.statusFailed > 0;
+    result.failed > 0 ||
+    result.paymentFailed > 0 ||
+    result.statusFailed > 0 ||
+    (result.tagsFailed ?? 0) > 0 ||
+    (result.customValuesFailed ?? 0) > 0;
   const StatusIcon = needsAttention
     ? AlertTriangle
     : successful > 0
@@ -2632,6 +3081,10 @@ function ResultPanel({ result }: { result: ImportResult }) {
               `${fmt.number(result.paymentFailed)} payment${result.paymentFailed === 1 ? '' : 's'} could not be recorded. `}
             {result.statusFailed > 0 &&
               `${fmt.number(result.statusFailed)} imported cancellation${result.statusFailed === 1 ? ' needs' : 's need'} a status correction.`}
+            {(result.tagsFailed ?? 0) > 0 &&
+              ` ${fmt.number(result.tagsFailed ?? 0)} contact tag assignment${result.tagsFailed === 1 ? '' : 's'} need retrying.`}
+            {(result.customValuesFailed ?? 0) > 0 &&
+              ` ${fmt.number(result.customValuesFailed ?? 0)} custom value${result.customValuesFailed === 1 ? '' : 's'} need retrying.`}
           </AlertDescription>
         </Alert>
       )}
@@ -2639,6 +3092,13 @@ function ResultPanel({ result }: { result: ImportResult }) {
         <p className="text-muted-foreground text-xs">
           {fmt.number(result.tagsAssigned)} tag assignments ·{' '}
           {fmt.number(result.customValues)} custom values saved
+        </p>
+      )}
+      {(result.customValueConflicts ?? 0) > 0 && (
+        <p className="text-muted-foreground text-xs">
+          For {fmt.number(result.customValueConflicts ?? 0)} contact custom
+          value{result.customValueConflicts === 1 ? '' : 's'}, the value from
+          the last source row was saved.
         </p>
       )}
       <Separator />
@@ -2651,7 +3111,98 @@ function ResultPanel({ result }: { result: ImportResult }) {
       >
         <Download /> Download import report
       </Button>
+      {sourceExclusions.length > 0 ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() =>
+            downloadCsv(
+              'member-import-source-exclusions.csv',
+              sourceExclusionsCsv(sourceExclusions)
+            )
+          }
+        >
+          <Download /> Download excluded source rows
+        </Button>
+      ) : null}
+      {needsAttention ? (
+        <Button type="button" variant="outline" onClick={onRetry}>
+          Retry outstanding members
+        </Button>
+      ) : null}
+      {result.failed > 0 ? (
+        <Button type="button" variant="outline" onClick={onReviewFailed}>
+          Review failed members
+        </Button>
+      ) : null}
     </div>
+  );
+}
+
+function sourceExclusionsCsv(exclusions: MemberImportExcludedSourceRow[]) {
+  return toCsv(
+    ['Source row', 'Reason', 'Source values'],
+    exclusions.map((row) => [
+      row.sourceRow,
+      row.reason.replace('_', ' '),
+      row.values.join(' | '),
+    ])
+  );
+}
+
+function SourceExclusionNotice({
+  exclusions,
+}: {
+  exclusions: MemberImportExcludedSourceRow[];
+}) {
+  const inspected = exclusions.filter(
+    (row) => row.reason === 'repeated_header' || row.reason === 'footer_summary'
+  );
+  if (inspected.length === 0) return null;
+  return (
+    <Alert>
+      <Info />
+      <AlertTitle>
+        {inspected.length} source row{inspected.length === 1 ? '' : 's'}{' '}
+        excluded automatically
+      </AlertTitle>
+      <AlertDescription className="space-y-2">
+        Repeated headers and report totals are kept out of the member preview.
+        Their original values remain available here and in the import receipt.
+        <Accordion>
+          <AccordionItem value="source-exclusions" className="border-b-0">
+            <AccordionTrigger className="py-1 text-sm">
+              Inspect excluded source rows
+            </AccordionTrigger>
+            <AccordionContent>
+              <Table className="text-xs">
+                <TableHeader>
+                  <TableRow interactive={false}>
+                    <TableHead>Source row</TableHead>
+                    <TableHead>Reason</TableHead>
+                    <TableHead>Values</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {inspected.map((row) => (
+                    <TableRow
+                      key={`${row.reason}:${row.sourceRow}`}
+                      interactive={false}
+                    >
+                      <TableCell>{row.sourceRow}</TableCell>
+                      <TableCell>{row.reason.replace('_', ' ')}</TableCell>
+                      <TableCell className="break-all">
+                        {row.values.join(' | ')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </AlertDescription>
+    </Alert>
   );
 }
 

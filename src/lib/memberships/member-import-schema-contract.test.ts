@@ -129,6 +129,13 @@ const discountSql = readFileSync(
   ),
   'utf8'
 );
+const reliabilitySql = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260909120000_member_import_reliability.sql'
+  ),
+  'utf8'
+);
 
 describe('imported discount schema contract', () => {
   it('keeps the import RPC security-definer and agent-gated', () => {
@@ -192,5 +199,61 @@ describe('imported discount schema contract', () => {
       'Purchase total does not match imported invoice lines'
     );
     expect(discountSql).not.toContain('apply_oldest_member_credit');
+  });
+});
+
+describe('member import reliability schema contract', () => {
+  it('binds a group to its active author-private draft before the atomic writer', () => {
+    expect(reliabilitySql).toContain('import_job_id UUID');
+    expect(reliabilitySql).toMatch(
+      /draft\.id = v_job_id[\s\S]*draft\.account_id = v_account_id[\s\S]*draft\.author_id = v_actor[\s\S]*draft\.status = 'active'/
+    );
+    expect(reliabilitySql).toContain(
+      'public.perform_member_import_group_unchecked(v_inner_payload)'
+    );
+  });
+
+  it('rejects stale contact attachments and revalidates non-historical prices', () => {
+    expect(reliabilitySql).toContain(
+      'Selected customer no longer matches the imported phone'
+    );
+    expect(reliabilitySql).toContain(
+      'Configured membership price changed; review the historical price'
+    );
+    expect(reliabilitySql).toContain(
+      'Configured service price changed; review the historical price'
+    );
+  });
+
+  it('holds cancellation until the actual membership-line balance is checked', () => {
+    expect(reliabilitySql).toContain('public.invoice_line_balances');
+    expect(reliabilitySql).toContain(
+      'Cancelled membership debt needs an explicit current write-off decision'
+    );
+    expect(reliabilitySql).toContain(
+      'public.set_membership_cancellation(v_membership_id, TRUE)'
+    );
+    expect(reliabilitySql).toContain(
+      "v_debt_decision IS DISTINCT FROM 'write_off'"
+    );
+  });
+
+  it('returns a verified replay before mutable catalog or contact checks', () => {
+    const replay = reliabilitySql.indexOf('RETURN v_existing_run.outcome');
+    const contact = reliabilitySql.indexOf(
+      'Selected customer no longer matches the imported phone'
+    );
+    const servicePrice = reliabilitySql.indexOf(
+      'Configured service price changed; review the historical price'
+    );
+
+    expect(replay).toBeGreaterThan(-1);
+    expect(replay).toBeLessThan(contact);
+    expect(replay).toBeLessThan(servicePrice);
+    expect(reliabilitySql).toContain('request_payload_hash TEXT');
+    expect(reliabilitySql).toContain(
+      'v_existing_run.request_payload_hash IS DISTINCT FROM v_request_hash'
+    );
+    expect(reliabilitySql).toContain('pg_advisory_xact_lock');
   });
 });

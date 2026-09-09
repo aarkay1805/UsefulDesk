@@ -58,21 +58,21 @@ API 200 or provider ID.
 
 Baseline source: `d47c9ed`, with release-readiness changes in the working tree.
 
-| Check                                | Evidence/status                                                                                                                                         |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Baseline mobile lint/typecheck/tests | Pass: 69 suites, 785 tests                                                                                                                              |
-| Clean dependency install             | Pass: `npm ci`; original unrelated Supabase versions retained                                                                                           |
-| Expo SDK health                      | Pass: 21/21 after patch alignment and native dependency deduplication                                                                                   |
-| Post-repair mobile gates             | Pass: lint, typecheck, 69 suites / 785 tests                                                                                                            |
-| Native bundle export                 | Pass: iOS and Android Preview bundles                                                                                                                   |
-| Distribution profile                 | Standalone `preview` profile added                                                                                                                      |
-| EAS authentication                   | Existing configured owner authenticated                                                                                                                 |
-| EAS environments                     | Four public Preview variables configured; Development remains unchanged                                                                                 |
-| Available hardware                   | iPhone Air and connected OnePlus 6 (Android 11) available                                                                 |
-| Android tester build                 | `9804b99c-c920-4c0a-bd50-49303b10f660`: finished; APK installed after owner-approved development-app replacement, version 0.1.0 / build 1                                                               |
-| iOS tester build                     | `3e0f1a92-8010-4081-8a78-9dcfc4f08607`: finished; signed IPA downloaded and installed on registered iPhone Air; version 0.1.0 / build 1                 |
-| Tester-binary acceptance             | Partial: standalone launch and delivered text on both phones; iOS quoted reply and incoming realtime passed; remaining gates below |
-| Live test contact                    | Rajat in the Rajat Kashyap branch; explicitly selected by the owner                                                                                     |
+| Check                                | Evidence/status                                                                                                                           |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Baseline mobile lint/typecheck/tests | Pass: 69 suites, 785 tests                                                                                                                |
+| Clean dependency install             | Pass: `npm ci`; original unrelated Supabase versions retained                                                                             |
+| Expo SDK health                      | Pass: 21/21 after patch alignment and native dependency deduplication                                                                     |
+| Post-repair mobile gates             | Pass: lint, typecheck, 69 suites / 785 tests                                                                                              |
+| Native bundle export                 | Pass: iOS and Android Preview bundles                                                                                                     |
+| Distribution profile                 | Standalone `preview` profile added                                                                                                        |
+| EAS authentication                   | Existing configured owner authenticated                                                                                                   |
+| EAS environments                     | Four public Preview variables configured; Development remains unchanged                                                                   |
+| Available hardware                   | iPhone Air and connected OnePlus 6 (Android 11) available                                                                                 |
+| Android tester build                 | `9804b99c-c920-4c0a-bd50-49303b10f660`: finished; APK installed after owner-approved development-app replacement, version 0.1.0 / build 1 |
+| iOS tester build                     | `3e0f1a92-8010-4081-8a78-9dcfc4f08607`: finished; signed IPA downloaded and installed on registered iPhone Air; version 0.1.0 / build 1   |
+| Tester-binary acceptance             | Partial: standalone launch and delivered text on both phones; iOS quoted reply and incoming realtime passed; remaining gates below        |
+| Live test contact                    | Rajat in the Rajat Kashyap branch; explicitly selected by the owner                                                                       |
 
 Root verification: lint and typecheck passed; the full run passed 3,145 tests
 and found one stale Expo-version expectation. That expectation is updated and
@@ -114,8 +114,9 @@ exception to `/api/whatsapp/react` and preserves its explicit branch header.
 Anonymous cookie requests and unrelated WhatsApp paths remain protected.
 Regression tests reproduced the failure before the fix; the proxy, mobile
 operational-access, and reaction-route suites now pass 66 tests. Focused lint
-and root typecheck pass. **This backend fix is not deployed; live reaction
-add/change/remove acceptance is still pending.** No mobile rebuild is needed
+and root typecheck pass. **Release status correction (2026-09-09): this backend
+fix is included in `ca502ec`, recorded as promoted to Production on 2026-09-08.
+Live reaction add/change/remove acceptance is still pending.** No mobile rebuild is needed
 for this proxy-only change.
 
 The Android document picker opened, but injected taps did not reliably navigate

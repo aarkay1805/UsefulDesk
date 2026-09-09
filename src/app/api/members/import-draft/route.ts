@@ -40,6 +40,23 @@ function draftResponseStatus(code: string): number {
   return 404;
 }
 
+function draftValidationResponse(
+  validation: Exclude<ReturnType<typeof validateDraftState>, { ok: true }>
+) {
+  if (validation.code === 'draft_too_large') {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: validation.code,
+        error:
+          'This import is too large to save as a resumable draft. Split the file into smaller reports and import them one at a time.',
+      },
+      { status: 413 }
+    );
+  }
+  return NextResponse.json(validation, { status: 400 });
+}
+
 async function signedDraft(
   supabase: Awaited<ReturnType<typeof requireRole>>['supabase'],
   draft: MemberImportDraftRecord
@@ -134,7 +151,7 @@ export async function POST(request: Request) {
     }
     const validation = validateDraftState(state);
     if (!validation.ok) {
-      return NextResponse.json(validation, { status: 400 });
+      return draftValidationResponse(validation);
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
@@ -222,7 +239,7 @@ export async function PATCH(request: Request) {
     }
     const validation = validateDraftState(body.state);
     if (!validation.ok) {
-      return NextResponse.json(validation, { status: 400 });
+      return draftValidationResponse(validation);
     }
     const { data, error } = await ctx.supabase.rpc('save_member_import_draft', {
       p_draft_id: body.id,

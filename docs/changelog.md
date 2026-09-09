@@ -6,6 +6,38 @@
 
 ---
 
+## 2026-09-09 — Member import reliability implemented locally
+
+The import now shares final paise-level accounting between candidate review and
+transaction payloads, refreshes complete contact matches, and requires explicit
+term/debt decisions. Durable private drafts checkpoint immutable job-scoped requests
+and retain partial financial/metadata recovery. Bounded CSV/XLSX report adapters
+preserve excluded source-row evidence and enforce exact UTF-8 draft capacity;
+ignored columns no longer re-enter through recipes.
+
+Code lives in `src/lib/memberships/member-import-*`, `import-source.ts`,
+`import-draft.ts`, the import dialog/preview, and the private draft hook/API.
+Migration `20260909120000_member_import_reliability.sql` adds authoritative job,
+price, paise and cancellation-debt guards. It is **not applied**: approved Test
+schema/migration reads time out, so SQL runtime acceptance remains pending.
+The rollback fixture script is `supabase/tests/member_import_reliability.sql`;
+additional mixed-line cancellation/concurrency checks remain required. No deployment
+or live import occurred. Independent code reviews and `npm run verify` passed (433 files / 3,286 tests,
+typecheck and production build; three existing Leads lint warnings). Two stale
+existing test fixtures were corrected without changing production behavior.
+
+## 2026-09-09 — Reconcile launch status with the recorded production release
+
+Corrected stale deployment-pending notes in `PRDs/roadmap.md` and
+`docs/mobile/internal-testing.md`: the member-import worksheet, native reaction
+proxy fix, and Razorpay recovery runtime guards are included in application
+commit `ca502ec`, whose Production promotion is recorded on September 8.
+The later `7f39815` changes only the roadmap and changelog. Live import and
+tester reaction acceptance remain unrecorded; mobile binaries have separate
+release gates. Historical Razorpay scope and renewal-template entries are
+explicitly superseded by current rollout and contract summaries. No new
+deployment, provider operation, or live acceptance was performed for this update.
+
 ## 2026-09-08 — Meta Lead Ads approval verified; rollout remains pending
 
 Live Meta App Review submission `1914379289558468` shows all six Lead Ads
@@ -2198,7 +2230,7 @@ Application-canonical webhooks now retain signed unknown merchants for exact OAu
 
 ## Razorpay P1 recovery is operationally closed and scheduler-visible
 
-The first naturally scheduled Production Live provider-source scan completed on GitHub Actions run `32932150863`: one due mandate was claimed and scanned, with zero observations and zero failures. A later live run exposed that PostgREST represents the refund-reconciliation RPC's null composite as an object whose fields are all null; `reconcileClaimedRefundWindow` now treats that shape as no claimed work instead of attempting credential lookup for account `null`. The Razorpay recovery route also returns `503` with its full aggregate result whenever any isolated phase reports a failure, so the existing `curl --fail` workflow becomes red without hiding phase diagnostics. Key code lives in `src/lib/payments/razorpay-refunds.ts` and `src/app/api/payments/razorpay/recovery/cron/route.ts`; regressions cover the live null shape and all seven failure counters. Deployment is required before Production gains these two runtime guards.
+The first naturally scheduled Production Live provider-source scan completed on GitHub Actions run `32932150863`: one due mandate was claimed and scanned, with zero observations and zero failures. A later live run exposed that PostgREST represents the refund-reconciliation RPC's null composite as an object whose fields are all null; `reconcileClaimedRefundWindow` now treats that shape as no claimed work instead of attempting credential lookup for account `null`. The Razorpay recovery route also returns `503` with its full aggregate result whenever any isolated phase reports a failure, so the existing `curl --fail` workflow becomes red without hiding phase diagnostics. Key code lives in `src/lib/payments/razorpay-refunds.ts` and `src/app/api/payments/razorpay/recovery/cron/route.ts`; regressions cover the live null shape and all seven failure counters. Release status correction (2026-09-09): these guards are included in `ca502ec`, recorded as promoted to Production on 2026-09-08. Deployment is no longer pending; this correction does not claim a new provider acceptance run.
 
 ## Historical Razorpay tenant mismatches are terminally audited
 

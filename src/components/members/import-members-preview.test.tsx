@@ -157,6 +157,8 @@ function renderPreview(
     onResolveGroupedService: vi.fn(),
     onResolvePayment: vi.fn(),
     onResolveExistingContact: vi.fn(),
+    onResolveMembershipTerm: vi.fn(),
+    onResolveCancelledDebt: vi.fn(),
     onSetDisposition: vi.fn(),
     ...overrides,
   };
@@ -654,6 +656,72 @@ describe('ImportMembersPreview worksheet', () => {
     fireEvent.change(status, { target: { value: 'Active' } });
     fireEvent.blur(status);
     expect(onPatch).toHaveBeenCalledWith('sheet:2', { status: 'Active' });
+  });
+
+  it('offers an explicit current-term choice for ambiguous legacy memberships', async () => {
+    const rows = candidates(
+      [
+        input(2, { startDate: '01/07/2026', endDate: '01/08/2026' }),
+        input(3, { startDate: '01/07/2026', endDate: '01/09/2026' }),
+      ].map((row) => ({ ...row, legacyMemberId: 'LEG-SAME' }))
+    ).map((row) => ({
+      ...row,
+      isReady: false,
+      issues: [
+        ...row.issues,
+        {
+          code: 'membership-term-needs-resolution' as const,
+          severity: 'decision' as const,
+          groupKey: 'membership-term:LEG-SAME',
+          explanation:
+            'More than one membership term is equally current in this file.',
+          nextAction: 'Choose the one current membership term to import.',
+          message:
+            'More than one membership term is equally current in this file.',
+          resolved: false,
+        },
+      ],
+    }));
+    const { onResolveMembershipTerm } = renderPreview(rows);
+    const choice = screen.getByRole('combobox', {
+      name: 'Choose current membership term for LEG-SAME',
+    });
+    choice.focus();
+    await userEvent.setup().keyboard('{ArrowDown}{Enter}');
+    expect(onResolveMembershipTerm).toHaveBeenCalledWith('LEG-SAME', 'sheet:2');
+  });
+
+  it('locks a checkpointed row from identity edits while it is recoverable', () => {
+    renderPreview(candidates([input(2, { phone: '' })]), {
+      lockedSourceKeys: new Set(['sheet:2']),
+    });
+    expect(
+      screen.getByText(
+        'This row already has a saved import attempt. Its details are locked so a retry can use the exact recorded payload.'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('textbox', { name: 'Phone for Member 2' })
+    ).toBeNull();
+  });
+
+  it('requires an explicit cancelled-membership balance write-off', async () => {
+    const user = userEvent.setup();
+    const { onResolveCancelledDebt } = renderPreview(
+      candidates([
+        input(2, {
+          status: 'cancelled',
+          amountPaid: '500',
+          amountDue: '700',
+        }),
+      ])
+    );
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Record membership balance write-off',
+      })
+    );
+    expect(onResolveCancelledDebt).toHaveBeenCalledWith('sheet:2');
   });
 
   it('exposes the list price and discount that caused a membership pricing mismatch', () => {
