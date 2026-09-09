@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-09-09 — Member import Test database acceptance
+
+The owner-approved restart restored the unhealthy Test database. Applied the
+import reliability migration there as `20260909091406_member_import_reliability`;
+restored pre-existing Test permission drift to the canonical import grants as
+`20260909091617_restore_member_import_test_permissions`. Production is unchanged.
+
+Expanded `supabase/tests/member_import_reliability.sql` and passed its rollback
+checks for exact financial allocations, membership-only debt write-off, service
+balance preservation, original/changed replay, archived-catalog replay, author/branch
+isolation and RPC/table grants. All fixture rows rolled back. Independent review
+approved the additions. A separate two-session read-only probe verified request-lock
+contention; successful replay was tested separately, not as simultaneous successful
+submissions. Release limits and exact evidence are in `PRDs/roadmap.md`.
+
 ## 2026-09-09 — Member import reliability implemented locally
 
 The import now shares final paise-level accounting between candidate review and
@@ -18,11 +33,10 @@ ignored columns no longer re-enter through recipes.
 Code lives in `src/lib/memberships/member-import-*`, `import-source.ts`,
 `import-draft.ts`, the import dialog/preview, and the private draft hook/API.
 Migration `20260909120000_member_import_reliability.sql` adds authoritative job,
-price, paise and cancellation-debt guards. It is **not applied**: approved Test
-schema/migration reads time out, so SQL runtime acceptance remains pending.
-The rollback fixture script is `supabase/tests/member_import_reliability.sql`;
-additional mixed-line cancellation/concurrency checks remain required. No deployment
-or live import occurred. Independent code reviews and `npm run verify` passed (433 files / 3,286 tests,
+price, paise and cancellation-debt guards. Test application and rollback acceptance
+are now complete as recorded above; Production application/deployment remain pending.
+The rollback fixture script is `supabase/tests/member_import_reliability.sql`.
+No deployment or live customer import occurred. Independent code reviews and `npm run verify` passed (433 files / 3,286 tests,
 typecheck and production build; three existing Leads lint warnings). Two stale
 existing test fixtures were corrected without changing production behavior.
 

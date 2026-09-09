@@ -761,10 +761,10 @@ complete fresh contact matching, job-scoped immutable transaction checkpoints,
 partial financial and metadata recovery, honored ignored columns, bounded CSV/XLSX
 report adapters with source-row evidence, and exact resumable-state capacity checks.
 Independent source, financial, recovery and integration reviews are complete.
-Required migration `20260909120000_member_import_reliability.sql` is not applied:
-approved Test database reads time out. Database acceptance and deployment remain
-pending; this is not a new Production release. See the implementation/acceptance
-record below.
+The required migration is applied to the approved Test database and rollback
+acceptance has passed, including financial, author/branch and grant checks.
+Production migration/deployment remain pending; this is not a Production release.
+See the acceptance record below for the concurrency test boundary.
 
 Engineering maintenance: **shared phone inputs now canonicalize visible country codes with `+`, member-import review rows present digits-only qualified phones with that visible prefix, and constrained table-cell phone editors expand into a responsive elevated 240px surface that keeps the complete number plus the original compact check/cross actions unobstructed without changing column widths; persistence, dedupe, WhatsApp normalization, and every other inline editor remain unchanged.**
 
@@ -1139,7 +1139,7 @@ Coordinate integration with Slice 2; no dialog/candidate edits.
       flow. Financial preview and SQL agree; no duplicate write after unknown response;
       another author/branch cannot read a job; retries retain completed groups; ignored
       fields have no effect; supported reports preserve source identities and exclusions.
-- [ ] Inspect approved migration tooling and target environment; apply only to an
+- [x] Inspect approved migration tooling and target environment; apply only to an
       identified non-production test database, verify schema/grants and synthetic
       transaction regressions. Record any missing authorized test environment rather
       than treating static SQL assertions as database acceptance.
@@ -1170,25 +1170,51 @@ corrected: the lifecycle contract recognizes the existing billing/readiness guar
 the template action fixture supplies the account context required by its established
 hook. These two corrections change no production behavior.
 
-**Database acceptance — blocked, not performed:** three approved read-only queries
-to Test `gxwhpraswnkosjibvquz` and its migration-list request timed out. The connector
-lists the project as healthy, but no approved alternate test branch exists. No
-migration or fixture write was attempted. Apply the additive migration through the
-approved tool when Test is reachable, then run the rollback fixture script in
-`supabase/tests/member_import_reliability.sql` with stop-on-error execution. Verify
-schema/grants, author/branch isolation, exact/changed and concurrent replay,
-configured-price changes, and mixed membership/service partial-payment cancellation
-(including stale/malformed decisions and rollback). The script covers a subset;
-static schema tests are not database acceptance. Production deployment, live imports,
-messages and money movement were excluded and remain unperformed.
+**Test database acceptance — passed (2026-09-09), with the boundary below:**
+The dashboard showed Test `gxwhpraswnkosjibvquz` as Unhealthy despite the connector's
+healthy status. The owner-approved restart restored health and SQL access. Applied
+`20260909120000_member_import_reliability.sql` through the approved tool as Test
+migration `20260909091406_member_import_reliability`; no Production action occurred.
+
+The Test grant audit found pre-existing drift from the canonical August 16 import
+migration. Test migration `20260909091617_restore_member_import_test_permissions`
+restored those exact grants: draft save authenticated-only, expired-draft cleanup
+service-only, and direct import-run access service-only. The wrapper allows
+only authenticated callers and the unchecked inner RPC denies anon/authenticated.
+RLS remains enabled. The advisor's remaining import-specific
+[authenticated SECURITY DEFINER notice](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable)
+is intentional for this agent/author/branch-checked RPC;
+unrelated Test notices were not expanded into this task.
+
+`supabase/tests/member_import_reliability.sql` passed through the approved SQL tool:
+active-due import, exact/changed replay, missing/expired/wrong-author job rejection,
+paise reconciliation, stale contact, configured-price checks, real branch isolation,
+same-branch author-private draft read/save, and cancellation debt decisions.
+The mixed 150 total / 75 paid case rejects absent, stale and malformed decisions;
+approval preserves the active service, one payment and one source outcome. Actual
+allocations are 50 to the void membership line (balance 0) and 25 to the active
+service line (balance 25). Completed replay still succeeds after the option is
+archived. All fixtures roll back; post-checks found zero fixture plans, drafts,
+services or contacts, with the original 18 eligible account memberships retained.
+Independent review approved the final SQL test additions.
+
+**Concurrency boundary:** connector-only concurrent calls actually ran sequentially
+(confirmed by database timestamps). A dashboard read-only lock holder and connector
+RPC then overlapped successfully: the RPC waited for the same account/request lock
+and rejected a missing job after release, without fixture writes. Exact successful
+replay passed separately in the rollback script. Two simultaneous successful
+submissions sharing committed fixtures were not run; this record does not claim
+that broader test. Production migration, deployment, live customer imports,
+messages and money movement remain unperformed.
 
 ## Optional / open
 
-- Member import reliability database acceptance and release: local implementation
-  and independent reviews are complete; the required migration remains unapplied
-  because approved Test database reads time out. Complete the acceptance record
-  above before a separately authorized release. Arbitrary ERP joins, ledger inference,
-  merchandise, and numbered service families remain deferred.
+- Member import reliability release: local verification, independent reviews and
+  approved Test rollback acceptance are complete. Production migration/deployment
+  and live acceptance require a separately authorized release. The successful
+  simultaneous duplicate test remains outside the rollback-only acceptance scope;
+  serialization and successful replay were verified separately. Arbitrary ERP joins,
+  ledger inference, merchandise and numbered service families remain deferred.
 - Richer Razorpay `payment.failed` handling — an immediate "auto-pay failed, pay manually" nudge instead of waiting for `subscription.halted` → manual.
 - One-click "Connect Razorpay" via OAuth: **Technology Partner onboarding, isolated Stages 1–4, owner-controlled Stage 5 Live acceptance, the real gym-owner connection-readiness pilot and ₹40 delivery/settlement, pinned-readiness recovery, Stage 6 OAuth-only retirement, and the database-owned multi-account rollout gate are complete and live in Production.** The owner-controlled account remains permanently enabled and exactly bound; VBF is the sole unbound G12 first-bind canary, with no credential or active OAuth state. VBF's Razorpay owner may now complete Live consent; then the established no-money readiness, isolation, and zero-queue checks close G12. The VBF authorization does not include a Payment Link, message, transaction, refund, or money movement. Manual keys, legacy per-account ingress, environment account/merchant pins, and in-place client-secret rotation are not rollout options. Exact evidence lives in `docs/razorpay-operations.md`.
 - Auto-generating / charging _future_ invoices (a billing cron — overlaps AutoPay) · persisting the Upcoming projection.
