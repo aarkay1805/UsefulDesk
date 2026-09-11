@@ -43,3 +43,8 @@ jobs:
           curl --fail --silent --show-error \
             -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
             https://desk.usefulmade.com/api/payment-installments/cron
+      - name: Trigger invoice lifecycle reminders
+        run: |
+          curl --fail --silent --show-error \
+            -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
+            https://desk.usefulmade.com/api/reminders/cron

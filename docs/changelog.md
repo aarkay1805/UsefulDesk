@@ -6,6 +6,114 @@
 
 ---
 
+## 2026-09-11 — Retention lifecycle is durable and opt-in
+
+Step 6 adds `src/lib/reminders/retention-worker.ts`, exact retention template
+contracts, settings controls, and the canonical member freeze dialog's explicit
+planned-return date. Session packs use only current-cycle derived attendance;
+zero supersedes low inventory. Return-day work is a service-only deduplicated
+staff follow-up, never an automatic unfreeze, billing action, or date change.
+Membership/service win-back uses bounded +14/+30/+60 latest-milestone catch-up,
+and stops on current renewal/replacement/cancellation, reply, commitment/hold,
+or pending short-expiry work. Applied migrations `20260911010900`–`11100` harden
+the provider boundary and service-only follow-up RPC: it validates the current
+generation, exact subject/contact/owner and local due day, and records terminal
+escalation so completed-task replays remain idempotent. The rollback harness
+exercises creation, completed-task replay, edited return dates, and disabled
+schedules while rolling all synthetic work back; production read-back keeps all
+new settings disabled. No template submission/approval, send, provider
+operation, payment action, deployment, or delivery evidence occurred.
+
+## 2026-09-11 — Verified AutoPay recovery and transaction confirmations are opt-in
+
+Step 5 adds `src/lib/reminders/transaction-events.ts`, exact Utility contracts,
+and settings/history UI for transaction confirmations and Razorpay recovery.
+The committed `payments` trigger is the sole confirmation source across manual,
+checkout, payment-link, and captured provider paths; it records a payment-only
+outcome separately from an actual renewed period. Canonical verified
+`subscription.pending`/`subscription.halted` events enqueue retry/terminal
+recovery only with the bound mandate, and terminal work rechecks the signed
+provider cycle, balance, holds, healthy mandates, and daily contact budget
+before sending. Migrations `20260911010200`, forward
+repair `20260911010300`, manual-settlement supersession repair `20260911010400`,
+canonical-event-kind hardening `20260911010500`, operation/cycle binding
+`20260911010600`/`20260911010700`, and the new-row activation repair
+`20260911010800` are applied and read back; the rollback harness proves
+payment-only enqueue, exact renewal enqueue, and service-role enforcement,
+then rolls back. New
+schedules remain off; no template/provider/customer/payment/deployment action
+ran.
+
+## 2026-09-11 — Invoice commitments and link follow-up shipped safely
+
+Step 4 adds the revisioned, invoice-linked authored commitment/hold lifecycle:
+`src/app/api/invoices/[invoiceId]/commitments/route.ts`,
+`src/components/finance/invoice-collection-commitments.tsx`, and the shared
+worker now handle exact promise amounts/dates, verification/dispute holds,
+author-only edits/resolution, audited author-or-admin cancellation, allocation-snapshot fulfillment,
+and one-open-follow-up broken-promise escalation. Generic collection and the
+legacy installment sender re-read an open commitment before provider work.
+Payment-link follow-up is limited to an active, exact-balance link after a
+persisted accepted WhatsApp send; expiry creates staff work and never a new
+provider link. Additive migrations `20260911010000_invoice_commitment_lifecycle.sql`
+and `20260911010100_invoice_commitment_contact_hardening.sql` were applied and
+read back through the approved connector; the rollback-only harness exercised
+author create/edit/resolve and service reconciliation, then rolled back. Both
+schedules remain off and no provider/template/payment/customer action ran.
+
+## 2026-09-11 — Post-expiry recovery is durable and opt-in
+
+Step 3 extends `src/lib/reminders/worker.ts` and the existing lifecycle queue
+with independently disabled membership/service expiry+1/+3/+7 sequences,
+current-state and reply checks at the provider boundary, exact Marketing
+`gym_membership_post_expiry` / `gym_service_post_expiry` contracts, and one
+deduplicated branch-owner follow-up after the final unanswered reminder. The
+forward-only migrations `20260911006000_post_expiry_reminder_lifecycle.sql`,
+`20260911007000_prioritize_debt_over_post_expiry.sql`, and
+`20260911008000_harden_post_expiry_activation_guard.sql`, and
+`20260911009000_revalidate_post_expiry_escalations.sql` are applied and read
+back in production: both new settings default off, invoice debt has priority
+over retention work, activation fields remain system-managed, and the locked
+service-only escalation RPC revalidates current subject/settings/reply state
+before writing its one durable outcome. The rollback-only harness at
+`supabase/tests/post_expiry_reminder_lifecycle_rollback.sql` creates only a
+synthetic queue row and rolls it back. No template submission, schedule
+activation, provider call, customer message, payment action, deployment, or
+live-delivery evidence occurred.
+
+## 2026-09-10 — Invoice collection lifecycle is durable and opt-in
+
+Step 2 adds the shared `src/lib/reminders/` scheduler/worker, no-backfill
+invoice settings, durable `lifecycle_reminder_jobs`, service-only atomic
+claim/finish RPCs, atomic daily reservation, and `/api/reminders/cron` through both existing renewal cron
+paths. The worker rechecks the authoritative `invoice_balances` facts before a
+provider call; an `attempting` lease remains ambiguous rather than being
+blindly resent after a crash. Generic invoices use their account-local issued
+date as the documented effective due date because no generic due-date field
+exists; fixed installments retain `second_due_on`. Settings exposes disabled
+defaults, exact Utility template setup, window/milestone controls, and
+non-content blocked/accepted history. The additive migrations are applied to
+production and their disabled defaults, queue RLS, service-only function
+grants, exact no-backfill activation timestamp, and service-JWT RPC behavior were read back; active-mandate membership lines now create a visible reconciliation hold instead of suppressing a mixed invoice. No template submission, schedule enablement, provider call,
+payment action, deployment, or live delivery occurred. See
+`docs/invoice-collection-reminders.md`.
+
+## 2026-09-10 — Existing reminder readiness is observable and safe
+
+Step 1 of the reminder lifecycle adds the settings-authorized, no-PII
+`/api/reminders/readiness` diagnostic and a Renewal reminders surface for
+membership, service, and joining-installment blocked/empty/eligible states.
+It distinguishes date-matched work from currently sendable, missing-phone,
+send-window-deferred, and already-handled work. The installment sender retains
+the authoritative open, positive, non-refund-review invoice balance check
+without a blanket membership-status or AutoPay suppression; worker output
+distinguishes provider acceptance from delivery. Runbooks now use the active
+database `:41` and GitHub `:47` cadence and give exact missing-template recovery. Production audit found
+zero currently eligible cohorts and empty reminder ledgers, while the latest
+database aggregate completed both workers successfully; no migration, provider
+submission, send, payment, deployment, or live delivery acceptance occurred.
+See `docs/reminder-readiness-2026-09-10.md`.
+
 ## 2026-09-09 — Member import Test database acceptance
 
 The owner-approved restart restored the unhealthy Test database. Applied the

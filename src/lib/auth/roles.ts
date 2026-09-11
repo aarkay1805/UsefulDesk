@@ -330,6 +330,38 @@ export function canManagePaymentLinks(role: AccountRole): boolean {
   return hasMinRole(role, 'agent');
 }
 
+/** Agent+ may record a staff-authored invoice payment commitment or hold. */
+export function canCreateInvoiceCollectionCommitment(role: AccountRole): boolean {
+  return hasMinRole(role, 'agent');
+}
+
+/** The author alone may change the terms of a collection commitment. */
+export function canEditInvoiceCollectionCommitment(
+  role: AccountRole,
+  actorId: string | null,
+  authorId: string | null
+): boolean {
+  return canEditAuthoredContent(role, actorId, authorId);
+}
+
+/** Authors may cancel their own commitment; admins may moderate any with an audit trail. */
+export function canCancelInvoiceCollectionCommitment(
+  role: AccountRole,
+  actorId: string | null,
+  authorId: string | null
+): boolean {
+  return canDeleteAuthoredContent(role, actorId, authorId);
+}
+
+/** Only the author may resolve a staff-authored verification/dispute hold. */
+export function canResolveInvoiceCollectionCommitment(
+  role: AccountRole,
+  actorId: string | null,
+  authorId: string | null
+): boolean {
+  return canEditAuthoredContent(role, actorId, authorId);
+}
+
 /**
  * Owner / admin: cancel a live auto-debit mandate (destructive — stops
  * the recurring collection) and edit the account's payment-gateway

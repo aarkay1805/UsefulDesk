@@ -153,7 +153,7 @@ The `memberships` row stays the current-cycle pointer (its start/end/fee mirror 
 | renew / convert                             | `POST /api/member-checkouts` → `perform_member_checkout`; `renew_membership_transaction` is an internal implementation detail   |
 | mid-cycle plan swap / upgrade               | RPC `change_membership_plan` (`061`)                                                                                            |
 | edit cycle / unfreeze / cancel / reactivate | RPCs `edit_membership_cycle` / `unfreeze_membership` / `set_membership_cancellation` (`058`) — thin TS wrappers in `periods.ts` |
-| freeze                                      | the one remaining direct membership write — still chains `.select('id')`                                                        |
+| freeze                                      | the one remaining direct membership write — still chains `.select('id')`; an optional explicit `planned_return_on` and branch-valid `planned_return_owner_id` may be stored with it |
 
 A trigger can't tell a renewal from an edit from an unfreeze — hence the RPCs, each ONE transaction. Lifecycle RPCs raise **real errors** (no silent-RLS ambiguity). Direct `authenticated` execution of the legacy `renew_membership_transaction` RPC is revoked; new UI must enter through the canonical checkout boundary so price, offers, credit, add-ons, and collection stay database-authoritative.
 
@@ -223,6 +223,7 @@ Commit = RPC `change_membership_plan` — one transaction, `membership_operation
 ## Attendance & limits
 
 - **Session-pack remaining is DERIVED** (`sessions_count` − attendance count since current cycle start, keyed `membership_id`) — **never a stored counter.**
+- A frozen membership's `planned_return_on` is an explicit operational date, never inferred from `frozen_at`. It may create a reminder one day before and one return-day staff follow-up, but it never auto-unfreezes, charges, or moves the membership cycle.
 - Limits / exhausted packs are **warn-with-override at check-in** (`AttendanceOverrideDialog`, both check-in paths) — **never a hard block.**
 - Both paths (`check-in-view.tsx`, member-sheet `checkIn()`) fresh-count the plan's usage window and open the override dialog at the limit / on an exhausted pack. Usage lines ("9/12 this month" / "7 of 10 sessions left") render in check-in row meta + the sheet's Attendance section.
 - The Attendance register has one search field for member name or Member ID. Staff select the matching row and use its existing check-in/check-out action, which keeps the normal limit/override flow and avoids a separate ID-specific action. Member ID remains an identifier, never a self-service PIN.

@@ -79,6 +79,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -388,6 +389,7 @@ function MembershipDetailView({
   const [cancellingService, setCancellingService] = useState(false);
   const [pendingLifecycle, setPendingLifecycle] =
     useState<LifecycleAction | null>(null);
+  const [plannedReturnOn, setPlannedReturnOn] = useState('');
   const [returnToInvoiceAfterPay, setReturnToInvoiceAfterPay] = useState(false);
   // Bumped to re-pull this sheet after a mutation (renew/payment/freeze/check-in).
   const [nonce, setNonce] = useState(0);
@@ -703,7 +705,14 @@ function MembershipDetailView({
     // rows, so an empty result is the real failure signal.
     const { data, error } = await supabase
       .from('memberships')
-      .update({ status: 'frozen', frozen_at: fmt.today() })
+      .update({
+        status: 'frozen',
+        frozen_at: fmt.today(),
+        planned_return_on: plannedReturnOn || null,
+        // The teammate who records the plan owns its return follow-up unless
+        // a future assignment UI explicitly chooses another branch member.
+        planned_return_owner_id: plannedReturnOn ? user?.id ?? null : null,
+      })
       .eq('id', membership.id)
       .select('id');
     setBusy(false);
@@ -782,7 +791,10 @@ function MembershipDetailView({
           : pendingLifecycle === 'cancel'
             ? await cancelMembership()
             : await reactivate();
-    if (succeeded) setPendingLifecycle(null);
+    if (succeeded) {
+      setPendingLifecycle(null);
+      setPlannedReturnOn('');
+    }
   }
 
   async function insertCheckIn() {
@@ -1305,6 +1317,12 @@ function MembershipDetailView({
                                 the paused days are added back on resume.
                               </p>
                             )}
+                          {membership.status === 'frozen' && membership.planned_return_on && (
+                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                              <CalendarDays className="size-3.5 shrink-0" />
+                              Planned return {fmt.date(membership.planned_return_on)} — a staff follow-up is due that day.
+                            </p>
+                          )}
                           {membership.notes && (
                             <p className="border-border text-muted-foreground border-l pl-3 text-sm">
                               {membership.notes}
@@ -2105,6 +2123,13 @@ function MembershipDetailView({
                     {lifecycleCopy?.description}
                   </DialogDescription>
                 </DialogHeader>
+                {pendingLifecycle === 'freeze' ? (
+                  <div className="space-y-2">
+                    <Label>Planned return date <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <DatePicker value={plannedReturnOn} onChange={setPlannedReturnOn} min={fmt.today()} disabled={busy} aria-label="Planned return date" />
+                    <p className="text-muted-foreground text-xs">Leave this empty when no return date is agreed. A date creates a reminder one day before and assigns the return-day follow-up to you; it never resumes the membership automatically.</p>
+                  </div>
+                ) : null}
                 <DialogFooter>
                   <Button
                     type="button"

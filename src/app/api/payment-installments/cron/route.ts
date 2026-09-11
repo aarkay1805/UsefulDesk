@@ -59,6 +59,7 @@ export async function GET(request: Request) {
     accounts_considered: 0,
     accounts_skipped: 0,
     accounts_before_send_hour: 0,
+    accepted: 0,
     sent: 0,
     failed: 0,
     skipped_already_sent: 0,
@@ -140,8 +141,18 @@ export async function GET(request: Request) {
       !account
     ) {
       summary.accounts_skipped++;
+      if (!config || config.status !== 'connected') {
+        notes.push(`account ${accountId}: blocked: connect WhatsApp`);
+      }
       if (!templateReadiness.ready) {
-        notes.push(`account ${accountId}: ${templateReadiness.message}`);
+        notes.push(
+          `account ${accountId}: blocked: ${templateReadiness.message}`
+        );
+      }
+      if (!account) {
+        notes.push(
+          `account ${accountId}: blocked: account locale is unavailable`
+        );
       }
       continue;
     }
@@ -205,6 +216,19 @@ export async function GET(request: Request) {
           Number(invoice.balance),
         ])
       );
+      const { data: commitmentRows, error: commitmentError } = invoiceIds.length
+        ? await admin
+            .from('invoice_collection_commitments')
+            .select('invoice_id')
+            .eq('account_id', accountId)
+            .in('invoice_id', invoiceIds)
+            .eq('state', 'open')
+        : { data: [], error: null };
+      if (commitmentError) {
+        notes.push(`account ${accountId}: commitment hold lookup failed — ${commitmentError.message}`);
+        continue;
+      }
+      const heldInvoiceIds = new Set((commitmentRows ?? []).map((row) => row.invoice_id as string));
 
       for (const candidate of candidates) {
         if (summary.sent >= MAX_SENDS_PER_RUN) break;
@@ -213,7 +237,7 @@ export async function GET(request: Request) {
           ? (balanceByInvoice.get(candidate.invoice_id) ?? 0)
           : 0;
         const phone = candidate.contact?.phone?.trim();
-        if (balance <= 0 || !phone) continue;
+        if (balance <= 0 || !phone || (candidate.invoice_id && heldInvoiceIds.has(candidate.invoice_id))) continue;
 
         const { data: claim, error: claimError } = await admin
           .from('installment_reminders_sent')
@@ -254,6 +278,19 @@ export async function GET(request: Request) {
           );
           const amountDue = Math.min(Number(candidate.second_amount), balance);
           const { whatsapp_message_id } = await engineSendTemplate({
+            beforeSend: async () => {
+              // A promise/verification hold can be added after the source scan;
+              // collection must honour that current state at the provider edge.
+              const { data: activeHold, error: holdError } = await admin
+                .from('invoice_collection_commitments')
+                .select('id')
+                .eq('account_id', accountId)
+                .eq('invoice_id', candidate.invoice_id)
+                .eq('state', 'open')
+                .limit(1);
+              if (holdError) throw holdError;
+              if ((activeHold ?? []).length > 0) throw new Error('invoice commitment or hold is open');
+            },
             accountId,
             userId: ownerUserId,
             conversationId,
@@ -273,6 +310,7 @@ export async function GET(request: Request) {
             .update({ wa_message_id: whatsapp_message_id })
             .eq('id', claim.id as string);
           summary.sent++;
+          summary.accepted++;
         } catch (error) {
           await admin
             .from('installment_reminders_sent')

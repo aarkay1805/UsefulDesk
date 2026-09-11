@@ -25,6 +25,10 @@ import {
   canVoidExpenses,
   canManageMandates,
   canManagePaymentLinks,
+  canCreateInvoiceCollectionCommitment,
+  canEditInvoiceCollectionCommitment,
+  canCancelInvoiceCollectionCommitment,
+  canResolveInvoiceCollectionCommitment,
   canConfigurePaymentGateway,
   canDownloadInvoiceDocuments,
   canEditSettings,
@@ -267,6 +271,18 @@ describe('capability predicates', () => {
     expect(canManagePaymentLinks('admin')).toBe(true);
     expect(canManagePaymentLinks('agent')).toBe(true);
     expect(canManagePaymentLinks('viewer')).toBe(false);
+  });
+
+  it('gates invoice commitments by authored-content and author-or-admin cancellation rules', () => {
+    expect(canCreateInvoiceCollectionCommitment('agent')).toBe(true);
+    expect(canCreateInvoiceCollectionCommitment('viewer')).toBe(false);
+    expect(canEditInvoiceCollectionCommitment('agent', 'author', 'author')).toBe(true);
+    expect(canEditInvoiceCollectionCommitment('admin', 'other', 'author')).toBe(false);
+    expect(canCancelInvoiceCollectionCommitment('admin', 'other', 'author')).toBe(true);
+    expect(canCancelInvoiceCollectionCommitment('agent', 'author', 'author')).toBe(true);
+    expect(canCancelInvoiceCollectionCommitment('agent', 'other', 'author')).toBe(false);
+    expect(canResolveInvoiceCollectionCommitment('agent', 'author', 'author')).toBe(true);
+    expect(canResolveInvoiceCollectionCommitment('admin', 'other', 'author')).toBe(false);
   });
 
   it('canConfigurePaymentGateway: admin+ (creds / cancel mandate)', () => {

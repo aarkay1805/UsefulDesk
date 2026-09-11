@@ -86,6 +86,11 @@ describe('Razorpay subscription webhook lifecycle', () => {
       })
     );
     expect(rpc).not.toHaveBeenCalledWith('revoke_mandate', expect.anything());
+    expect(rpc).toHaveBeenCalledWith('enqueue_razorpay_autopay_recovery', {
+      p_canonical_webhook_event_id: 'event-id',
+      p_mandate_id: 'mandate-id',
+      p_event_kind: 'retry_pending',
+    });
   });
 
   it('marks a halted subscription failed after recording the provider state', async () => {
@@ -101,6 +106,11 @@ describe('Razorpay subscription webhook lifecycle', () => {
     expect(rpc).toHaveBeenCalledWith('revoke_mandate', {
       p_mandate_id: 'mandate-id',
       p_status: 'failed',
+    });
+    expect(rpc).toHaveBeenCalledWith('enqueue_razorpay_autopay_recovery', {
+      p_canonical_webhook_event_id: 'event-id',
+      p_mandate_id: 'mandate-id',
+      p_event_kind: 'terminal',
     });
   });
 

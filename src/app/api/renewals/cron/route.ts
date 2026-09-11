@@ -41,6 +41,13 @@ import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 const MAX_SENDS_PER_RUN = 200;
 const SERVICE_TEMPLATE_NAME = TEMPLATE_CONTRACTS.service_renewal.payload.name;
 
+class ReminderSetupBlockedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReminderSetupBlockedError';
+  }
+}
+
 /** Shape of a membership row hydrated for a reminder (to-one embeds). */
 interface ReminderCandidate {
   id: string;
@@ -69,11 +76,13 @@ export async function GET(request: Request) {
     accounts_considered: 0,
     accounts_skipped: 0,
     accounts_before_send_hour: 0,
+    accepted: 0,
     sent: 0,
     failed: 0,
     skipped_already_sent: 0,
     service_sent: 0,
     service_failed: 0,
+    service_blocked: 0,
   };
   const notes: string[] = [];
 
@@ -129,10 +138,28 @@ export async function GET(request: Request) {
           .maybeSingle(),
       ]);
 
+    const templateReadiness = evaluateTemplateReadiness(
+      templates,
+      'membership_renewal',
+      'en_US'
+    );
     const template = selectRenewalTemplate(templates);
 
     if (!config || config.status !== 'connected' || !template || !account) {
       summary.accounts_skipped++;
+      if (!config || config.status !== 'connected') {
+        notes.push(`account ${accountId}: blocked: connect WhatsApp`);
+      }
+      if (!templateReadiness.ready) {
+        notes.push(
+          `account ${accountId}: blocked: ${templateReadiness.message}`
+        );
+      }
+      if (!account) {
+        notes.push(
+          `account ${accountId}: blocked: account locale is unavailable`
+        );
+      }
       continue;
     }
 
@@ -265,6 +292,7 @@ export async function GET(request: Request) {
             .eq('id', claim.id as string);
 
           summary.sent++;
+          summary.accepted++;
         } catch (err) {
           // Roll the claim back so a later run retries this member.
           await admin
@@ -326,13 +354,23 @@ export async function GET(request: Request) {
             'en_US'
           );
           if (!config || config.status !== 'connected') {
-            throw new Error('setup required: connect WhatsApp');
+            throw new ReminderSetupBlockedError(
+              'setup required: connect WhatsApp'
+            );
           }
           if (!templateReadiness.ready) {
-            throw new Error(`setup required: ${templateReadiness.message}`);
+            throw new ReminderSetupBlockedError(
+              `setup required: ${templateReadiness.message}`
+            );
           }
-          if (!account) throw new Error('setup required: account not found');
-          if (!candidate.phone) throw new Error('member has no phone number');
+          if (!account) {
+            throw new ReminderSetupBlockedError(
+              'setup required: account not found'
+            );
+          }
+          if (!candidate.phone) {
+            throw new ReminderSetupBlockedError('member has no phone number');
+          }
           const fmt = buildFormatters(resolveAccountLocale(account));
           const conversationId = await findOrCreateConversation(
             admin,
@@ -365,6 +403,7 @@ export async function GET(request: Request) {
           });
           summary.service_sent++;
           summary.sent++;
+          summary.accepted++;
         } catch (error) {
           await admin.rpc('finish_service_renewal_reminder', {
             p_member_service_id: candidate.id,
@@ -374,12 +413,17 @@ export async function GET(request: Request) {
             p_wa_message_id: null,
             p_error: error instanceof Error ? error.message : String(error),
           });
-          summary.service_failed++;
-          summary.failed++;
+          const blocked = error instanceof ReminderSetupBlockedError;
+          if (blocked) {
+            summary.service_blocked++;
+          } else {
+            summary.service_failed++;
+            summary.failed++;
+          }
           notes.push(
             `account ${candidate.account_id} service ${candidate.id}: ${
-              error instanceof Error ? error.message : String(error)
-            }`
+              blocked ? 'blocked — ' : ''
+            }${error instanceof Error ? error.message : String(error)}`
           );
         }
       }

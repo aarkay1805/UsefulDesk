@@ -76,6 +76,7 @@ import { useAccountStaff } from '../members/use-account-staff';
 import { PaymentLinkActions } from './payment-link-actions';
 import { GatewayRefundDialog } from './gateway-refund-dialog';
 import { InvoiceDocumentActions } from './invoice-document-actions';
+import { InvoiceCollectionCommitments } from './invoice-collection-commitments';
 
 export type InvoiceDetail = Pick<
   FinanceInvoiceRow,
@@ -987,6 +988,11 @@ function InvoiceDetailBody({
           )}
         </section>
       </div>
+
+      <InvoiceCollectionCommitments
+        invoiceId={currentInvoice.id}
+        maxAmount={Number(currentInvoice.collectible_balance ?? currentInvoice.balance)}
+      />
 
       {refundPayment ? (
         <GatewayRefundDialog
