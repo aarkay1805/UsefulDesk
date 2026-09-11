@@ -389,12 +389,16 @@ async function handleRazorpayEvent(
       const providerStatus =
         event.event === 'subscription.pending' ? 'pending' : 'halted';
       await recordMandateProviderStatus(admin, mandateId, providerStatus);
-      if (event.event === 'subscription.pending') return;
+      if (event.event === 'subscription.pending') {
+        await enqueueAutoPayRecovery(admin, webhookEventId, mandateId, 'retry_pending');
+        return;
+      }
       const { error } = await admin.rpc('revoke_mandate', {
         p_mandate_id: mandateId,
         p_status: 'failed',
       });
       if (error) throw new Error(`revoke_mandate(failed): ${error.message}`);
+      await enqueueAutoPayRecovery(admin, webhookEventId, mandateId, 'terminal');
       return;
     }
 
@@ -439,6 +443,21 @@ async function handleRazorpayEvent(
     default:
       return;
   }
+}
+
+/** Canonical claimed Razorpay events are the only source allowed to enqueue recovery. */
+async function enqueueAutoPayRecovery(
+  admin: SupabaseClient,
+  webhookEventId: string,
+  mandateId: string,
+  kind: 'retry_pending' | 'terminal'
+): Promise<void> {
+  const { error } = await admin.rpc('enqueue_razorpay_autopay_recovery', {
+    p_canonical_webhook_event_id: webhookEventId,
+    p_mandate_id: mandateId,
+    p_event_kind: kind,
+  });
+  if (error) throw new Error(`enqueue AutoPay recovery: ${error.message}`);
 }
 
 async function recordMandateProviderStatus(

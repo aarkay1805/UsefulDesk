@@ -1,5 +1,132 @@
 # Roadmap
 
+## Shipped in code — renewal and collection reminder lifecycle (2026-09-10)
+
+Authorized for sequential implementation in six GPT-5.6 Terra tasks directly on
+`main`: (1) existing reminder readiness/diagnostics, (2) unpaid invoice and overdue
+installment collection, (3) post-expiry membership/service recovery, (4) payment
+promises and unpaid-link follow-up, (5) failed AutoPay recovery and transaction
+confirmations, (6) session depletion, planned freeze return, and win-back.
+The acceptance contracts and execution status live in
+[`reminder lifecycle plan`](../docs/superpowers/plans/2026-09-10-reminder-lifecycle.md).
+New schedules default off; implementation, applied schema, provider readiness,
+deployment, and proven live delivery are separate completion states.
+
+Step 1 complete (not deployed): existing renewal and installment readiness now
+has a settings-authorized, read-only aggregate diagnostic that distinguishes
+date-matched, sendable, missing-phone, deferred, and already-handled work.
+Installments retain the authoritative open, positive, non-refund-review invoice
+balance check without a blanket membership-status or AutoPay suppression. See
+[`reminder readiness evidence`](../docs/reminder-readiness-2026-09-10.md).
+No schema migration, template submission, message, payment action, or live
+delivery acceptance occurred; the exact installment template and an authorized
+staff-controlled recipient remain prerequisites.
+
+Step 2 implementation is complete; its additive database schema is applied,
+but the application change is not deployed: durable, branch-isolated generic
+invoice and overdue-installment collection now shares the lifecycle queue,
+account-local scheduling, exact Utility setup contracts, and existing renewal
+cron paths. Generic invoices use their account-local issued date as the
+documented effective due date because the authoritative invoice view has no
+generic due-date field; fixed installments retain their promised `second_due_on`.
+The additive lifecycle and repair migrations are applied and read back: the
+production settings row remains disabled, the queue RLS policy and service-JWT
+claim/finish grants are present, an atomic daily reservation prevents duplicate
+chases, and the exact activation timestamp prevents same-day historical
+backfill. Active-mandate membership lines are held for reconciliation rather
+than silently suppressing a mixed invoice. New schedules are off, no old
+balances backfill on activation, and no provider
+submission, send, payment operation, deployment, or live delivery occurred.
+Operator details: [`invoice collection reminders`](../docs/invoice-collection-reminders.md).
+
+Step 3 implementation is complete; its three additive production migrations
+(`20260911006000_post_expiry_reminder_lifecycle.sql`,
+`20260911007000_prioritize_debt_over_post_expiry.sql`, and
+`20260911008000_harden_post_expiry_activation_guard.sql`, and
+`20260911009000_revalidate_post_expiry_escalations.sql`) are applied and read
+back, but the application change is not deployed. The existing durable
+lifecycle queue now supports separate disabled-by-default expiry+1/+3/+7
+membership and renewable-service Marketing sequences. Eligibility is derived
+from current dates and state, rechecked before provider submission, and stops on
+renewal/replacement, cancellation/freeze, non-renewable plans, healthy AutoPay,
+missing current service price, or a customer reply. The final unanswered reminder
+creates or links exactly one existing branch-owner follow-up without editing an
+authored task; delayed escalation rechecks the same current eligibility and
+reply conditions before it writes. Both new settings remain off in production; no template was
+submitted, no message was sent, no schedule was enabled, and no delivery was
+claimed. The no-send rollback harness is
+`supabase/tests/post_expiry_reminder_lifecycle_rollback.sql`.
+
+Step 4 is shipped with approved-connector application/read-back of
+`20260911010000_invoice_commitment_lifecycle.sql` and forward-only
+`20260911010100_invoice_commitment_contact_hardening.sql`. Invoice detail owns revisioned,
+amount-bounded promise-to-pay and verification/dispute hold records, with
+author-only editing/resolution, audited author-or-admin cancellation, branch-staff assignment, and
+actual payment-allocation snapshot reconciliation. Promises/holds suppress
+generic and legacy installment collection; a broken promise preserves the
+one-open-follow-up invariant. Link follow-up uses only a recorded accepted
+WhatsApp send and current active exact-balance link, while expiry creates a
+staff replacement action instead of a provider link. Both schedules are off;
+no template submission, message, link creation, payment operation, deployment,
+or live delivery occurred. The no-send harness is
+`supabase/tests/invoice_commitment_lifecycle_rollback.sql`.
+
+Step 5 implementation is complete and remains undeployed. Forward-only
+production migrations `20260911010200_autopay_recovery_and_payment_confirmations.sql`,
+`20260911010300_repair_payment_confirmation_trigger.sql`, and
+`20260911010400_supersede_autopay_recovery_on_manual_settlement.sql`, and
+`20260911010500_harden_autopay_recovery_event_kind.sql`,
+`20260911010600_bind_confirmations_and_autopay_cycles.sql`,
+`20260911010700_confirm_renewal_operation_identity.sql`, and
+`20260911010800_confirm_new_ledger_rows_after_activation.sql` add independently
+disabled confirmation and AutoPay-recovery settings, exact payment/event queue
+identity, and the canonical-webhook-bound recovery record. The first migration
+was repaired forward before any schedule was enabled after its rollback-only
+harness exposed an unset payment-only period value. The final harness proves a
+rolled-back authoritative `payments` insert enqueues exactly its own
+confirmation, the actual renewal transaction yields one exact combined
+confirmation, and authenticated callers cannot invoke the provider-only
+recovery RPC. Confirmations distinguish payment-only settlement from recorded
+membership renewal; retry notices never request a manual payment, while
+terminal recovery rechecks the exact signed cycle, balance, hold,
+healthy-mandate, and shared daily-cap state. Production read-back shows zero
+enabled Step 5 schedules.
+No template submission, provider message, charge, refund, link action, deploy,
+or live delivery occurred. Provider prerequisites remain approved/synced exact
+Utility contracts and an authorized recipient/action for any live test.
+
+Step 6 implementation is complete and remains undeployed. Applied migrations
+`20260911010900_retention_reminder_lifecycle.sql` through
+`20260911011100_freeze_return_disable_precedence.sql` add independently disabled
+session-pack, planned-return, membership win-back, and service win-back settings,
+explicit frozen-membership return date/owner fields, lifecycle kinds, and the
+service-only return-day staff-follow-up RPC. The lifecycle worker derives each
+session-pack count from the current-cycle attendance RPC; zero sessions
+supersedes low inventory. It queues only an explicit return date (never
+`frozen_at`), sends the one-day-before reminder within the account-local window,
+and creates/reuses a staff task on the return date without unfreezing, charging,
+or changing membership dates. It chooses latest +14/+30/+60 win-back work and
+rechecks renewals, replies, commitments/holds, short-sequence overlap, current
+service rate, activation date/generation, and daily coordination immediately
+before a provider request. A blocked milestone cannot send after a newer
+win-back milestone becomes current. The return-day RPC locks and revalidates the
+exact account, subject, contact, enabled generation, owner, and local due date;
+its terminal escalation state makes a completed-task replay idempotent.
+Read-back confirms all four new settings remain disabled, the membership RLS
+uses the canonical agent predicate, and the new RPC is service-role-only; the
+rollback harness exercises created-task replay, an edited return date, and a
+disabled schedule while rolling every synthetic row back. No template
+submission/approval, setting activation, message, provider operation, payment,
+deployment, or live delivery occurred.
+
+> Status reconciliation — 2026-09-09: use the current release summaries and
+> explicit closeouts below over older engineering entries. Historical single-account
+> Razorpay pins, the closed VBF continuation, and Utility renewal-template guidance
+> have been superseded by database-owned rollout eligibility, the VBF G12 canary,
+> and the exact Marketing renewal contracts. Application commit `ca502ec` is
+> recorded as promoted on 2026-09-08; the later `7f39815` changes documentation only.
+> Deployment inclusion does not establish device/provider acceptance.
+
 ## Web release — UsefulDesk trials and platform administration
 
 Engineering maintenance: **broadcast details now separate the stored broadcast
@@ -57,13 +184,14 @@ Membership plans, including responsive label-free billing-option comparison card
 
 ## ✅ Phase 2 — India-first workflows
 
-Built locally: **member import migration worksheet** — searchable source rows,
+Implemented and included in the recorded production release: **member import migration worksheet** — searchable source rows,
 Needs review / Ready / Excluded filters, issue-type accordions with unique row
 counts on desktop and phones, search across closed sections, a selected-row inspector, staged payment
 reconciliation and grouped mapping, readable notices, editable pricing facts,
 excluded-row CSV recovery, and responsive list/detail navigation. The existing
-wizard and resumable draft remain in use; no live import or deployment was run
-for this change. The Resolve issues heading states the blocking next action,
+wizard and resumable draft remain in use. The worksheet is included in `ca502ec`,
+recorded as promoted on 2026-09-08; live import acceptance is still unrecorded.
+The Resolve issues heading states the blocking next action,
 while source-file metadata stays with the saved-draft controls in the footer.
 See `design-qa.md` for visual and interaction evidence.
 
@@ -92,8 +220,9 @@ and the remaining tester-binary/device acceptance gates. Historical development
 push acceptance does not prove Preview signing or device delivery. Tester text
 delivery passed on both platforms; iOS quoted replies and incoming realtime
 passed. Reaction testing found a proxy bearer/branch forwarding gap: the local
-fix passes 66 focused tests, lint, and typecheck, but deployment and live retest
-remain pending. Android document/image/video/audio delivery passed on build 1;
+fix passes 66 focused tests, lint, and typecheck and is included in `ca502ec`,
+recorded as promoted on 2026-09-08. Live reaction retesting remains pending.
+Android document/image/video/audio delivery passed on build 1;
 iOS media, attachment opening/playback, Preview push, and remaining device gates
 still block release sign-off.
 
@@ -831,7 +960,7 @@ Engineering maintenance: **Razorpay recurring payment safety now reserves mandat
 
 Engineering maintenance: **the first Razorpay audit containment slice is implemented on `main`: provider retry state is separate from local mandate lifecycle, `subscription.pending` no longer fails collection, halted and terminal states remain monotonic, signed authorization revocation invalidates OAuth grants while retaining merchant mapping, stale imported-account readiness is re-verified by recovery, disconnect refuses unresolved provider work with an actionable conflict, and mandate setup fails closed on cross-site requests, frozen memberships, or unavailable account currency. New AutoPay setup remains enabled by explicit owner decision. Production applied and verified the additive containment migration plus a forward-only grants hardening migration before application deployment; no financial or membership row changed**.
 
-Engineering maintenance: **Razorpay recurring-charge recovery is implemented on `main`: the worker leases only the immediately next provider `paid_count`, atomically re-evaluates an earlier sequence exception after its predecessor is applied, and retains the exception as resolved audit history instead of duplicating a period or payment. A separate 20-mandate provider-source batch compares subscription `paid_count` with a complete chronologically verified paid-invoice/payment set once per day and preserves captured charges absent from UsefulDesk as review-held exceptions; it never auto-credits provider-discovered money. Settings now gives admins two explicit resolutions for only those provider-discovered items: fresh provider revalidation plus atomic canonical apply, or actor/reason-audited handled-externally with no ledger credit. Mocked ordering, provider-gap, refund-refusal, route-boundary, schema, and UI tests pass. Production applied connector versions `20260826040518`, `20260826040539`, and resolution version `20260826044721`; schema, grants, actor guards, resource counts, and advisors are verified. The first naturally scheduled Production Live scan claimed and scanned the one due mandate with zero observations and failures. A live no-work refund-reconciliation null shape now has a regression guard, and any recovery phase failure returns diagnostic `503` so GitHub Actions alerts instead of remaining falsely green. The original P1 audit set is closed in code; deployment is the remaining release step for the final runtime guards**.
+Engineering maintenance: **Razorpay recurring-charge recovery is implemented on `main`: the worker leases only the immediately next provider `paid_count`, atomically re-evaluates an earlier sequence exception after its predecessor is applied, and retains the exception as resolved audit history instead of duplicating a period or payment. A separate 20-mandate provider-source batch compares subscription `paid_count` with a complete chronologically verified paid-invoice/payment set once per day and preserves captured charges absent from UsefulDesk as review-held exceptions; it never auto-credits provider-discovered money. Settings now gives admins two explicit resolutions for only those provider-discovered items: fresh provider revalidation plus atomic canonical apply, or actor/reason-audited handled-externally with no ledger credit. Mocked ordering, provider-gap, refund-refusal, route-boundary, schema, and UI tests pass. Production applied connector versions `20260826040518`, `20260826040539`, and resolution version `20260826044721`; schema, grants, actor guards, resource counts, and advisors are verified. The first naturally scheduled Production Live scan claimed and scanned the one due mandate with zero observations and failures. A live no-work refund-reconciliation null shape now has a regression guard, and any recovery phase failure returns diagnostic `503` so GitHub Actions alerts instead of remaining falsely green. The original P1 audit set is closed in code; the final runtime guards are included in `ca502ec`, recorded as promoted to Production on 2026-09-08; the earlier deployment-pending note is superseded**.
 
 Engineering maintenance: **the final migrated payment allocator now preserves that AutoPay membership-line isolation together with refund-adjusted collectible balances; a final-definition contract test prevents a later `CREATE OR REPLACE` migration from silently restoring generic cross-line allocation**.
 

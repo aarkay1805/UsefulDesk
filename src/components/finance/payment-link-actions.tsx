@@ -316,6 +316,7 @@ export function PaymentLinkActions({
           template_language: templateLanguage,
           template_message_params: { body: params },
           template_params: params,
+          payment_link_id: next.id,
         }),
       });
       const body = await response.json().catch(() => ({}));
@@ -324,7 +325,11 @@ export function PaymentLinkActions({
           `${body.error ?? 'WhatsApp send failed'}. The payment link is still available to copy.`
         );
       }
-      toast.success('Payment link sent on WhatsApp');
+      if (body.payment_link_send_recorded === false) {
+        toast.warning('Payment link was sent, but follow-up evidence was not recorded. The link remains available to copy.');
+      } else {
+        toast.success('Payment link sent on WhatsApp');
+      }
     } catch (error) {
       toast.error(getErrorMessage(error, 'Payment link could not be sent'));
     } finally {

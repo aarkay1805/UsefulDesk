@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       template_params,
       template_message_params,
       reply_to_message_id,
+      payment_link_id,
     } = body;
 
     if ((!conversationIdInput && !contact_id) || !message_type) {
@@ -143,10 +144,36 @@ export async function POST(request: Request) {
         replyToMessageId: reply_to_message_id,
       });
 
+      // Payment-link follow-up is anchored to a persisted provider-accepted
+      // send, never to provider-link creation. The RPC also confirms this
+      // caller can act in the link's branch and refuses non-active links.
+      let paymentLinkSendRecorded: boolean | undefined;
+      if (
+        template_name === 'gym_payment_link' &&
+        typeof payment_link_id === 'string' &&
+        result.whatsappMessageId
+      ) {
+        const { data: linkSendRecorded, error: linkSendError } = await supabase.rpc(
+          'record_payment_link_whatsapp_send',
+          {
+            p_link_id: payment_link_id,
+            p_whatsapp_message_id: result.whatsappMessageId,
+          }
+        );
+        paymentLinkSendRecorded = linkSendRecorded === true;
+        if (linkSendError || !paymentLinkSendRecorded) {
+          console.error(
+            'Payment Link send evidence was not recorded:',
+            linkSendError?.message ?? 'the persisted message did not match this active invoice link'
+          );
+        }
+      }
+
       return NextResponse.json({
         success: true,
         message_id: result.messageId,
         whatsapp_message_id: result.whatsappMessageId,
+        ...(paymentLinkSendRecorded === undefined ? {} : { payment_link_send_recorded: paymentLinkSendRecorded }),
       });
     } catch (err) {
       if (err instanceof SendMessageError) {

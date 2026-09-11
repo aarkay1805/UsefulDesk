@@ -21,6 +21,7 @@ const OPS_PATHS = [
 const RENEWAL_PATHS = [
   '/api/renewals/cron',
   '/api/payment-installments/cron',
+  '/api/reminders/cron',
 ] as const;
 
 interface DispatchResult {

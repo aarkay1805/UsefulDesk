@@ -17,14 +17,17 @@ import {
 } from '@/components/ui/card';
 import { Chip, ChipGroup } from '@/components/ui/chip';
 import { Collapse } from '@/components/ui/collapse';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/use-auth';
+import { BRANCH_HEADER, browserBranchId } from '@/lib/auth/branch-context';
 import { getErrorMessage } from '@/lib/errors';
 import {
   DEFAULT_DAYS_BEFORE,
   normalizeDaysBefore,
 } from '@/lib/memberships/renewal-reminders';
+import type { ReminderDiagnostic } from '@/lib/memberships/reminder-readiness';
 import { createClient } from '@/lib/supabase/client';
 import {
   FEATURE_TEMPLATE_CONTRACTS,
@@ -38,7 +41,7 @@ import {
 import { SettingsPanelHead } from './settings-panel-head';
 
 const PANEL_DESCRIPTION =
-  'Choose when UsefulDesk sends WhatsApp reminders for expiring memberships and services.';
+  'Choose when UsefulDesk sends WhatsApp reminders for renewals and open invoices.';
 
 /** The cron accepts any offset, but these choices cover the useful cadence. */
 const OFFSET_CHOICES: { value: number; label: string }[] = [
@@ -54,6 +57,21 @@ interface ReminderConfig {
   offsets: number[];
   serviceEnabled: boolean;
   serviceOffsets: number[];
+  invoiceCollectionEnabled: boolean;
+  invoiceBeforeDueDays: number[];
+  invoiceOverdueDays: number[];
+  invoiceSendWindowStart: number;
+  invoiceSendWindowEnd: number;
+  membershipPostExpiryEnabled: boolean;
+  servicePostExpiryEnabled: boolean;
+  promiseToPayRemindersEnabled: boolean;
+  paymentLinkFollowUpEnabled: boolean;
+  paymentConfirmationsEnabled: boolean;
+  autopayRecoveryEnabled: boolean;
+  sessionPackRemindersEnabled: boolean;
+  freezeReturnRemindersEnabled: boolean;
+  membershipWinBackEnabled: boolean;
+  serviceWinBackEnabled: boolean;
 }
 
 interface SetupStatus {
@@ -65,12 +83,69 @@ interface SetupStatus {
   action: string;
 }
 
+interface ReminderHistoryEntry {
+  state: 'accepted' | 'blocked' | 'skipped';
+  created_at: string;
+  reason: { code?: string } | null;
+  escalation_state?: 'created' | 'existing' | 'owner_unavailable' | 'replied' | null;
+}
+
+const DIAGNOSTIC_LABELS: Record<ReminderDiagnostic['kind'], string> = {
+  membership_renewal: 'Membership renewal',
+  service_renewal: 'Service renewal',
+  installment_reminder: 'Joining installment',
+};
+
+function diagnosticBadge(state: ReminderDiagnostic['state']) {
+  switch (state) {
+    case 'ready':
+      return { label: 'Eligible now', variant: 'success' as const };
+    case 'no_eligible':
+      return { label: 'Nothing due', variant: 'neutral' as const };
+    case 'disabled':
+      return { label: 'Off', variant: 'neutral' as const };
+    case 'blocked':
+      return { label: 'Blocked', variant: 'warning' as const };
+    case 'deferred':
+      return { label: 'Waiting', variant: 'info' as const };
+  }
+}
+
+function diagnosticDetail(diagnostic: ReminderDiagnostic) {
+  const details = [`${diagnostic.dateMatchedCount} date-matched`];
+  if (diagnostic.pendingCount > 0) {
+    details.push(`${diagnostic.pendingCount} sendable now`);
+  }
+  if (diagnostic.deferredCount > 0) {
+    details.push(`${diagnostic.deferredCount} waiting for send window`);
+  }
+  if (diagnostic.blockedCount > 0) {
+    details.push(`${diagnostic.blockedCount} missing phone`);
+  }
+  return details.join(' · ');
+}
+
 function configKey(config: ReminderConfig) {
   return JSON.stringify({
     enabled: config.enabled,
     offsets: normalizeDaysBefore(config.offsets),
     serviceEnabled: config.serviceEnabled,
     serviceOffsets: normalizeDaysBefore(config.serviceOffsets),
+    invoiceCollectionEnabled: config.invoiceCollectionEnabled,
+    invoiceBeforeDueDays: normalizeDaysBefore(config.invoiceBeforeDueDays),
+    invoiceOverdueDays: normalizeDaysBefore(config.invoiceOverdueDays),
+    invoiceSendWindowStart: config.invoiceSendWindowStart,
+    invoiceSendWindowEnd: config.invoiceSendWindowEnd,
+    membershipPostExpiryEnabled: config.membershipPostExpiryEnabled,
+    servicePostExpiryEnabled: config.servicePostExpiryEnabled,
+    promiseToPayRemindersEnabled: config.promiseToPayRemindersEnabled,
+    paymentLinkFollowUpEnabled: config.paymentLinkFollowUpEnabled,
+    paymentConfirmationsEnabled: config.paymentConfirmationsEnabled,
+    autopayRecoveryEnabled: config.autopayRecoveryEnabled,
+    sessionPackRemindersEnabled: config.sessionPackRemindersEnabled,
+    freezeReturnRemindersEnabled: config.freezeReturnRemindersEnabled,
+    membershipWinBackEnabled: config.membershipWinBackEnabled,
+    serviceWinBackEnabled: config.serviceWinBackEnabled,
   });
 }
 
@@ -156,6 +231,63 @@ function ReminderSchedule({
   );
 }
 
+function InvoiceSchedule({
+  beforeDueDays,
+  overdueDays,
+  onBeforeDueChange,
+  onOverdueChange,
+  disabled,
+}: {
+  beforeDueDays: number[];
+  overdueDays: number[];
+  onBeforeDueChange: (days: number[]) => void;
+  onOverdueChange: (days: number[]) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label id="invoice-before-due-schedule">Due milestones</Label>
+        <p className="text-sm text-muted-foreground">
+          Generic invoices use their issued date as the effective due date, so
+          only “On due date” can run until invoices have a real due date.
+        </p>
+        <ChipGroup<string>
+          selectionMode="multiple"
+          value={beforeDueDays.map(String)}
+          onValueChange={(values) =>
+            onBeforeDueChange(normalizeDaysBefore(values.map(Number)))
+          }
+          aria-labelledby="invoice-before-due-schedule"
+        >
+          {[3, 1, 0].map((days) => (
+            <Chip key={days} value={String(days)} disabled={disabled}>
+              {days === 0 ? 'On due date' : `${days} day${days === 1 ? '' : 's'} before`}
+            </Chip>
+          ))}
+        </ChipGroup>
+      </div>
+      <div className="space-y-2">
+        <Label id="invoice-overdue-schedule">Overdue milestones</Label>
+        <ChipGroup<string>
+          selectionMode="multiple"
+          value={overdueDays.map(String)}
+          onValueChange={(values) =>
+            onOverdueChange(normalizeDaysBefore(values.map(Number)))
+          }
+          aria-labelledby="invoice-overdue-schedule"
+        >
+          {[1, 3, 7, 14].map((days) => (
+            <Chip key={days} value={String(days)} disabled={disabled}>
+              {`${days} day${days === 1 ? '' : 's'} overdue`}
+            </Chip>
+          ))}
+        </ChipGroup>
+      </div>
+    </div>
+  );
+}
+
 function SetupNote({ status }: { status: SetupStatus }) {
   if (status.ready) return null;
 
@@ -194,8 +326,25 @@ export function RenewalRemindersSettings() {
   const [serviceEnabled, setServiceEnabled] = useState(false);
   const [serviceOffsets, setServiceOffsets] =
     useState<number[]>(DEFAULT_DAYS_BEFORE);
+  const [invoiceCollectionEnabled, setInvoiceCollectionEnabled] = useState(false);
+  const [invoiceBeforeDueDays, setInvoiceBeforeDueDays] = useState<number[]>([3, 1, 0]);
+  const [invoiceOverdueDays, setInvoiceOverdueDays] = useState<number[]>([1, 3, 7, 14]);
+  const [invoiceSendWindowStart, setInvoiceSendWindowStart] = useState(9);
+  const [invoiceSendWindowEnd, setInvoiceSendWindowEnd] = useState(19);
+  const [membershipPostExpiryEnabled, setMembershipPostExpiryEnabled] = useState(false);
+  const [servicePostExpiryEnabled, setServicePostExpiryEnabled] = useState(false);
+  const [promiseToPayRemindersEnabled, setPromiseToPayRemindersEnabled] = useState(false);
+  const [paymentLinkFollowUpEnabled, setPaymentLinkFollowUpEnabled] = useState(false);
+  const [paymentConfirmationsEnabled, setPaymentConfirmationsEnabled] = useState(false);
+  const [autopayRecoveryEnabled, setAutopayRecoveryEnabled] = useState(false);
+  const [sessionPackRemindersEnabled, setSessionPackRemindersEnabled] = useState(false);
+  const [freezeReturnRemindersEnabled, setFreezeReturnRemindersEnabled] = useState(false);
+  const [membershipWinBackEnabled, setMembershipWinBackEnabled] = useState(false);
+  const [serviceWinBackEnabled, setServiceWinBackEnabled] = useState(false);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
   const [templates, setTemplates] = useState<TemplateReadinessRow[]>([]);
+  const [diagnostics, setDiagnostics] = useState<ReminderDiagnostic[]>([]);
+  const [reminderHistory, setReminderHistory] = useState<ReminderHistoryEntry[]>([]);
   const [savedConfigKey, setSavedConfigKey] = useState('');
 
   useEffect(() => {
@@ -205,32 +354,50 @@ export function RenewalRemindersSettings() {
     (async () => {
       setLoading(true);
       setLoadError(null);
+      const branchId = browserBranchId();
 
-      const [settingsResult, templatesResult, whatsappResult] =
-        await Promise.all([
-          supabase
-            .from('renewal_reminder_settings')
-            .select(
-              'enabled, days_before, service_enabled, service_days_before'
-            )
-            .eq('account_id', accountId)
-            .maybeSingle(),
-          supabase
-            .from('message_templates')
-            .select('*')
-            .eq('account_id', accountId)
-            .in(
-              'name',
-              FEATURE_TEMPLATE_CONTRACTS.map(
-                (contract) => contract.payload.name
-              )
-            ),
-          supabase
-            .from('whatsapp_config')
-            .select('status')
-            .eq('account_id', accountId)
-            .maybeSingle(),
-        ]);
+      const [
+        settingsResult,
+        templatesResult,
+        whatsappResult,
+        diagnosticsResult,
+        historyResult,
+      ] = await Promise.all([
+        supabase
+          .from('renewal_reminder_settings')
+          .select('enabled, days_before, service_enabled, service_days_before, invoice_collection_enabled, invoice_collection_before_due_days, invoice_collection_overdue_days, invoice_collection_send_window_start, invoice_collection_send_window_end, membership_post_expiry_enabled, service_post_expiry_enabled, promise_to_pay_reminders_enabled, payment_link_follow_up_enabled, payment_confirmations_enabled, autopay_recovery_enabled, session_pack_reminders_enabled, freeze_return_reminders_enabled, membership_win_back_enabled, service_win_back_enabled')
+          .eq('account_id', accountId)
+          .maybeSingle(),
+        supabase
+          .from('message_templates')
+          .select('*')
+          .eq('account_id', accountId)
+          .in(
+            'name',
+            FEATURE_TEMPLATE_CONTRACTS.map((contract) => contract.payload.name)
+          ),
+        supabase
+          .from('whatsapp_config')
+          .select('status')
+          .eq('account_id', accountId)
+          .maybeSingle(),
+        fetch('/api/reminders/readiness', {
+          cache: 'no-store',
+          headers: branchId ? { [BRANCH_HEADER]: branchId } : undefined,
+        })
+          .then(async (response) => {
+            if (!response.ok) return null;
+            return (await response.json()) as {
+              diagnostics?: ReminderDiagnostic[];
+            };
+          })
+          .catch(() => null),
+        supabase
+          .from('lifecycle_reminder_jobs')
+          .select('state, created_at, reason, escalation_state')
+          .eq('account_id', accountId)
+          .in('state', ['blocked', 'accepted', 'skipped']),
+      ]);
       if (cancelled) return;
 
       const firstError =
@@ -258,6 +425,27 @@ export function RenewalRemindersSettings() {
           normalizeDaysBefore(data?.service_days_before).length > 0
             ? normalizeDaysBefore(data?.service_days_before)
             : DEFAULT_DAYS_BEFORE,
+        invoiceCollectionEnabled: Boolean(data?.invoice_collection_enabled),
+        invoiceBeforeDueDays:
+          normalizeDaysBefore(data?.invoice_collection_before_due_days).length > 0
+            ? normalizeDaysBefore(data?.invoice_collection_before_due_days)
+            : [3, 1, 0],
+        invoiceOverdueDays:
+          normalizeDaysBefore(data?.invoice_collection_overdue_days).length > 0
+            ? normalizeDaysBefore(data?.invoice_collection_overdue_days)
+            : [1, 3, 7, 14],
+        invoiceSendWindowStart: Number(data?.invoice_collection_send_window_start ?? 9),
+        invoiceSendWindowEnd: Number(data?.invoice_collection_send_window_end ?? 19),
+        membershipPostExpiryEnabled: Boolean(data?.membership_post_expiry_enabled),
+        servicePostExpiryEnabled: Boolean(data?.service_post_expiry_enabled),
+        promiseToPayRemindersEnabled: Boolean(data?.promise_to_pay_reminders_enabled),
+        paymentLinkFollowUpEnabled: Boolean(data?.payment_link_follow_up_enabled),
+        paymentConfirmationsEnabled: Boolean(data?.payment_confirmations_enabled),
+        autopayRecoveryEnabled: Boolean(data?.autopay_recovery_enabled),
+        sessionPackRemindersEnabled: Boolean(data?.session_pack_reminders_enabled),
+        freezeReturnRemindersEnabled: Boolean(data?.freeze_return_reminders_enabled),
+        membershipWinBackEnabled: Boolean(data?.membership_win_back_enabled),
+        serviceWinBackEnabled: Boolean(data?.service_win_back_enabled),
       };
       const templates = templatesResult.data ?? [];
 
@@ -265,8 +453,32 @@ export function RenewalRemindersSettings() {
       setOffsets(nextConfig.offsets);
       setServiceEnabled(nextConfig.serviceEnabled);
       setServiceOffsets(nextConfig.serviceOffsets);
+      setInvoiceCollectionEnabled(nextConfig.invoiceCollectionEnabled);
+      setInvoiceBeforeDueDays(nextConfig.invoiceBeforeDueDays);
+      setInvoiceOverdueDays(nextConfig.invoiceOverdueDays);
+      setInvoiceSendWindowStart(nextConfig.invoiceSendWindowStart);
+      setInvoiceSendWindowEnd(nextConfig.invoiceSendWindowEnd);
+      setMembershipPostExpiryEnabled(nextConfig.membershipPostExpiryEnabled);
+      setServicePostExpiryEnabled(nextConfig.servicePostExpiryEnabled);
+      setPromiseToPayRemindersEnabled(nextConfig.promiseToPayRemindersEnabled);
+      setPaymentLinkFollowUpEnabled(nextConfig.paymentLinkFollowUpEnabled);
+      setPaymentConfirmationsEnabled(nextConfig.paymentConfirmationsEnabled);
+      setAutopayRecoveryEnabled(nextConfig.autopayRecoveryEnabled);
+      setSessionPackRemindersEnabled(nextConfig.sessionPackRemindersEnabled);
+      setFreezeReturnRemindersEnabled(nextConfig.freezeReturnRemindersEnabled);
+      setMembershipWinBackEnabled(nextConfig.membershipWinBackEnabled);
+      setServiceWinBackEnabled(nextConfig.serviceWinBackEnabled);
       setWhatsappConnected(whatsappResult.data?.status === 'connected');
       setTemplates(templates);
+      setDiagnostics(diagnosticsResult?.diagnostics ?? []);
+      setReminderHistory(
+        ((historyResult.data ?? []) as ReminderHistoryEntry[])
+          .filter(
+            (entry): entry is ReminderHistoryEntry =>
+              entry.state === 'blocked' || entry.state === 'accepted'
+          )
+          .slice(0, 5)
+      );
       setSavedConfigKey(configKey(nextConfig));
       setLoading(false);
     })();
@@ -281,6 +493,21 @@ export function RenewalRemindersSettings() {
     offsets,
     serviceEnabled,
     serviceOffsets,
+    invoiceCollectionEnabled,
+    invoiceBeforeDueDays,
+    invoiceOverdueDays,
+    invoiceSendWindowStart,
+    invoiceSendWindowEnd,
+    membershipPostExpiryEnabled,
+    servicePostExpiryEnabled,
+    promiseToPayRemindersEnabled,
+    paymentLinkFollowUpEnabled,
+    paymentConfirmationsEnabled,
+    autopayRecoveryEnabled,
+    sessionPackRemindersEnabled,
+    freezeReturnRemindersEnabled,
+    membershipWinBackEnabled,
+    serviceWinBackEnabled,
   };
   const hasChanges = savedConfigKey !== configKey(currentConfig);
   const featureStatuses = FEATURE_TEMPLATE_CONTRACTS.map((contract) => ({
@@ -314,6 +541,26 @@ export function RenewalRemindersSettings() {
       toast.error('Choose at least one service reminder day.');
       return;
     }
+    const invoiceBeforeDueClean = normalizeDaysBefore(invoiceBeforeDueDays);
+    const invoiceOverdueClean = normalizeDaysBefore(invoiceOverdueDays);
+    if (invoiceCollectionEnabled && invoiceBeforeDueClean.length === 0) {
+      toast.error('Choose at least one invoice due milestone.');
+      return;
+    }
+    if (invoiceCollectionEnabled && invoiceOverdueClean.length === 0) {
+      toast.error('Choose at least one overdue invoice milestone.');
+      return;
+    }
+    if (
+      !Number.isInteger(invoiceSendWindowStart) ||
+      !Number.isInteger(invoiceSendWindowEnd) ||
+      invoiceSendWindowStart < 0 ||
+      invoiceSendWindowEnd > 23 ||
+      invoiceSendWindowStart > invoiceSendWindowEnd
+    ) {
+      toast.error('Choose a valid local invoice reminder send window.');
+      return;
+    }
 
     setSaving(true);
     try {
@@ -326,6 +573,21 @@ export function RenewalRemindersSettings() {
             days_before: clean,
             service_enabled: serviceEnabled,
             service_days_before: serviceClean,
+            invoice_collection_enabled: invoiceCollectionEnabled,
+            invoice_collection_before_due_days: invoiceBeforeDueClean,
+            invoice_collection_overdue_days: invoiceOverdueClean,
+            invoice_collection_send_window_start: invoiceSendWindowStart,
+            invoice_collection_send_window_end: invoiceSendWindowEnd,
+            membership_post_expiry_enabled: membershipPostExpiryEnabled,
+            service_post_expiry_enabled: servicePostExpiryEnabled,
+            promise_to_pay_reminders_enabled: promiseToPayRemindersEnabled,
+            payment_link_follow_up_enabled: paymentLinkFollowUpEnabled,
+            payment_confirmations_enabled: paymentConfirmationsEnabled,
+            autopay_recovery_enabled: autopayRecoveryEnabled,
+            session_pack_reminders_enabled: sessionPackRemindersEnabled,
+            freeze_return_reminders_enabled: freezeReturnRemindersEnabled,
+            membership_win_back_enabled: membershipWinBackEnabled,
+            service_win_back_enabled: serviceWinBackEnabled,
           },
           { onConflict: 'account_id' }
         )
@@ -341,6 +603,21 @@ export function RenewalRemindersSettings() {
           offsets: clean,
           serviceEnabled,
           serviceOffsets: serviceClean,
+          invoiceCollectionEnabled,
+          invoiceBeforeDueDays: invoiceBeforeDueClean,
+          invoiceOverdueDays: invoiceOverdueClean,
+          invoiceSendWindowStart,
+          invoiceSendWindowEnd,
+          membershipPostExpiryEnabled,
+          servicePostExpiryEnabled,
+          promiseToPayRemindersEnabled,
+          paymentLinkFollowUpEnabled,
+          paymentConfirmationsEnabled,
+          autopayRecoveryEnabled,
+          sessionPackRemindersEnabled,
+          freezeReturnRemindersEnabled,
+          membershipWinBackEnabled,
+          serviceWinBackEnabled,
         })
       );
       toast.success('Reminder settings saved');
@@ -451,6 +728,109 @@ export function RenewalRemindersSettings() {
         <Card>
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center gap-2">
+              Payment confirmations
+              <Badge variant={paymentConfirmationsEnabled ? 'warning' : 'neutral'}>
+                {paymentConfirmationsEnabled ? 'On' : 'Off'}
+              </Badge>
+            </CardTitle>
+            <CardAction>
+              <Switch checked={paymentConfirmationsEnabled} onCheckedChange={setPaymentConfirmationsEnabled} disabled={!canEditSettings} aria-label="Payment confirmations" />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">Confirm new staff, checkout, payment-link, and captured AutoPay payments from the committed ledger. A balance settlement does not claim to renew a membership; a true renewal includes its recorded end date.</p>
+            <p className="text-muted-foreground text-xs">Only payments committed after this is enabled are eligible. Factual confirmations do not use the daily collection-reminder cap.</p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'payment_confirmation')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Failed AutoPay recovery
+              <Badge variant={autopayRecoveryEnabled ? 'warning' : 'neutral'}>
+                {autopayRecoveryEnabled ? 'On' : 'Off'}
+              </Badge>
+            </CardTitle>
+            <CardAction>
+              <Switch checked={autopayRecoveryEnabled} onCheckedChange={setAutopayRecoveryEnabled} disabled={!canEditSettings} aria-label="Failed AutoPay recovery" />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">For a verified Razorpay retry, members are told no action is needed. A terminal failure asks for help only when its exact current invoice remains collectible and no healthy mandate covers it.</p>
+            <p className="text-muted-foreground text-xs">New verified provider events only. A later captured payment, refund hold, or restored mandate supersedes the older recovery work before it can send.</p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'autopay_recovery_pending')} />
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'autopay_recovery_terminal')} />
+          </CardContent>
+        </Card>
+
+        {reminderHistory.length > 0 ? (
+          <Card>
+            <CardHeader>
+            <CardTitle>Recent lifecycle reminder activity</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {reminderHistory.map((entry, index) => (
+                <div
+                  key={`${entry.state}-${entry.created_at}-${index}`}
+                  className="flex flex-wrap items-center justify-between gap-2"
+                >
+                  <span className="text-muted-foreground text-sm">
+                    {entry.state === 'accepted'
+                      ? 'Provider accepted a lifecycle reminder.'
+                      : entry.reason?.code ?? (entry.state === 'skipped' ? 'Reminder paused or superseded.' : 'Reminder is blocked.')}
+                    {entry.escalation_state ? ` Staff follow-up: ${entry.escalation_state.replace('_', ' ')}.` : ''}
+                  </span>
+                  <Badge variant={entry.state === 'accepted' ? 'success' : entry.state === 'skipped' ? 'neutral' : 'warning'}>
+                    {entry.state === 'accepted' ? 'Accepted' : entry.state === 'skipped' ? 'Paused' : 'Blocked'}
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Scheduled reminder readiness</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {diagnostics.length === 0 ? (
+              <p className="text-muted-foreground text-sm">
+                Readiness details are unavailable. Refresh this page to try
+                again.
+              </p>
+            ) : (
+              diagnostics.map((diagnostic) => {
+                const badge = diagnosticBadge(diagnostic.state);
+                return (
+                  <div
+                    key={diagnostic.kind}
+                    data-testid={`diagnostic-${diagnostic.kind}`}
+                    className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {DIAGNOSTIC_LABELS[diagnostic.kind]}
+                      </p>
+                      <p className="text-muted-foreground text-sm">
+                        {diagnostic.reason}
+                      </p>
+                      <p className="text-muted-foreground mt-1 text-xs">
+                        {diagnosticDetail(diagnostic)}
+                      </p>
+                    </div>
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                  </div>
+                );
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
               Membership reminders
               <Badge variant={membershipStatus.ready ? 'success' : 'warning'}>
                 {membershipStatus.badge}
@@ -520,6 +900,242 @@ export function RenewalRemindersSettings() {
               />
             </Collapse>
             <SetupNote status={serviceStatus} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Invoice collection
+              <Badge variant={invoiceCollectionEnabled ? 'warning' : 'neutral'}>
+                {invoiceCollectionEnabled ? 'On' : 'Off'}
+              </Badge>
+            </CardTitle>
+            <CardAction>
+              <Switch
+                checked={invoiceCollectionEnabled}
+                onCheckedChange={setInvoiceCollectionEnabled}
+                disabled={!canEditSettings}
+                aria-label="Invoice collection reminders"
+                aria-describedby="invoice-collection-description"
+              />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p
+              id="invoice-collection-description"
+              className="text-muted-foreground text-sm"
+            >
+              Collect only an open invoice&apos;s current remaining balance. This
+              schedule starts with invoices issued after you turn it on; because
+              generic invoices do not store a due date, the issued date is the
+              effective due date. Fixed joining installments keep their own
+              promised due date.
+            </p>
+            <Collapse open={invoiceCollectionEnabled}>
+              <div className="space-y-4">
+                <InvoiceSchedule
+                  beforeDueDays={invoiceBeforeDueDays}
+                  overdueDays={invoiceOverdueDays}
+                  onBeforeDueChange={setInvoiceBeforeDueDays}
+                  onOverdueChange={setInvoiceOverdueDays}
+                  disabled={!canEditSettings}
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="invoice-send-window-start">Send from</Label>
+                    <Input
+                      id="invoice-send-window-start"
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={invoiceSendWindowStart}
+                      disabled={!canEditSettings}
+                      onChange={(event) => setInvoiceSendWindowStart(Number(event.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="invoice-send-window-end">Send until</Label>
+                    <Input
+                      id="invoice-send-window-end"
+                      type="number"
+                      min={0}
+                      max={23}
+                      value={invoiceSendWindowEnd}
+                      disabled={!canEditSettings}
+                      onChange={(event) => setInvoiceSendWindowEnd(Number(event.target.value))}
+                    />
+                  </div>
+                </div>
+                <p className="text-muted-foreground text-xs">
+                  Account-local hours, inclusive. Default: 09:00–19:00. Missing
+                  phone numbers, WhatsApp connection, or exact templates stay
+                  visible as blocked jobs rather than being counted as sent. This
+                  lifecycle window also governs enabled post-expiry recovery.
+                </p>
+              </div>
+            </Collapse>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Post-expiry membership follow-up
+              <Badge variant={membershipPostExpiryEnabled ? 'warning' : 'neutral'}>
+                {membershipPostExpiryEnabled ? 'On' : 'Off'}
+              </Badge>
+            </CardTitle>
+            <CardAction>
+              <Switch
+                checked={membershipPostExpiryEnabled}
+                onCheckedChange={setMembershipPostExpiryEnabled}
+                disabled={!canEditSettings}
+                aria-label="Post-expiry membership follow-up"
+              />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">
+              Follow up at 1, 3, and 7 days after an unchanged expired membership.
+              A current AutoPay membership, renewed cycle, reply, frozen/cancelled
+              membership, or non-recurring plan stops the sequence.
+            </p>
+            <p className="text-muted-foreground text-xs">
+              The last unanswered reminder creates one owner task; an existing open
+              follow-up stays untouched. This new schedule starts with cycles that
+              expire after it is enabled.
+            </p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'membership_post_expiry')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Post-expiry service follow-up
+              <Badge variant={servicePostExpiryEnabled ? 'warning' : 'neutral'}>
+                {servicePostExpiryEnabled ? 'On' : 'Off'}
+              </Badge>
+            </CardTitle>
+            <CardAction>
+              <Switch
+                checked={servicePostExpiryEnabled}
+                onCheckedChange={setServicePostExpiryEnabled}
+                disabled={!canEditSettings}
+                aria-label="Post-expiry service follow-up"
+              />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">
+              Follow up at 1, 3, and 7 days after a renewable service expires.
+              An archived service or missing current rate is held instead of sent.
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Membership and service reminders share one member-level daily contact
+              limit. This new schedule starts with cycles that expire after it is enabled.
+            </p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'service_post_expiry')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Promise-to-pay reminders
+              <Badge variant={promiseToPayRemindersEnabled ? 'warning' : 'neutral'}>
+                {promiseToPayRemindersEnabled ? 'On' : 'Off'}
+              </Badge>
+            </CardTitle>
+            <CardAction>
+              <Switch checked={promiseToPayRemindersEnabled} onCheckedChange={setPromiseToPayRemindersEnabled} disabled={!canEditSettings} aria-label="Promise-to-pay reminders" />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">Send one reminder the day before and on the exact staff-recorded promise date. A payment allocation that meets the promised amount fulfils it; an underpayment leaves the residual obligation open.</p>
+            <p className="text-muted-foreground text-xs">A broken promise creates one staff follow-up. This schedule starts only with commitments recorded after it is enabled.</p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'payment_promise_reminder')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Payment-link follow-up
+              <Badge variant={paymentLinkFollowUpEnabled ? 'warning' : 'neutral'}>
+                {paymentLinkFollowUpEnabled ? 'On' : 'Off'}
+              </Badge>
+            </CardTitle>
+            <CardAction>
+              <Switch checked={paymentLinkFollowUpEnabled} onCheckedChange={setPaymentLinkFollowUpEnabled} disabled={!canEditSettings} aria-label="Payment-link follow-up" />
+            </CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">Follow up 1 and 3 days after an accepted WhatsApp payment-link send, only while the exact link is active, unexpired, and still matches the current unpaid balance.</p>
+            <p className="text-muted-foreground text-xs">Expired or changed links become a staff action to create a replacement through the existing payment-link flow; this worker never creates a provider link.</p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'payment_link')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Session pack reminders
+              <Badge variant={sessionPackRemindersEnabled ? 'warning' : 'neutral'}>{sessionPackRemindersEnabled ? 'On' : 'Off'}</Badge>
+            </CardTitle>
+            <CardAction><Switch checked={sessionPackRemindersEnabled} onCheckedChange={setSessionPackRemindersEnabled} disabled={!canEditSettings} aria-label="Session pack reminders" /></CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">Remind members at two sessions remaining and when their current pack reaches zero. Attendance is counted from the current pack cycle; this never blocks check-in.</p>
+            <p className="text-muted-foreground text-xs">Zero remaining supersedes the low-session reminder. New cycles start fresh; there is no stored usage counter.</p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'session_pack_low')} />
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'session_pack_exhausted')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Planned freeze return
+              <Badge variant={freezeReturnRemindersEnabled ? 'warning' : 'neutral'}>{freezeReturnRemindersEnabled ? 'On' : 'Off'}</Badge>
+            </CardTitle>
+            <CardAction><Switch checked={freezeReturnRemindersEnabled} onCheckedChange={setFreezeReturnRemindersEnabled} disabled={!canEditSettings} aria-label="Planned freeze return reminders" /></CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">Send one reminder the day before a staff-recorded planned return, then create one staff follow-up on that date.</p>
+            <p className="text-muted-foreground text-xs">This does not resume the membership, charge a payment, or change membership dates.</p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'freeze_return')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Membership win-back
+              <Badge variant={membershipWinBackEnabled ? 'warning' : 'neutral'}>{membershipWinBackEnabled ? 'On' : 'Off'}</Badge>
+            </CardTitle>
+            <CardAction><Switch checked={membershipWinBackEnabled} onCheckedChange={setMembershipWinBackEnabled} disabled={!canEditSettings} aria-label="Membership win-back" /></CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">Invite members back at 14, 30, and 60 days after an unchanged expiry, after the short expiry sequence has finished.</p>
+            <p className="text-muted-foreground text-xs">A renewal, replacement cycle, cancellation, reply, promise, or hold stops the campaign.</p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'membership_win_back')} />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              Service win-back
+              <Badge variant={serviceWinBackEnabled ? 'warning' : 'neutral'}>{serviceWinBackEnabled ? 'On' : 'Off'}</Badge>
+            </CardTitle>
+            <CardAction><Switch checked={serviceWinBackEnabled} onCheckedChange={setServiceWinBackEnabled} disabled={!canEditSettings} aria-label="Service win-back" /></CardAction>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-muted-foreground text-sm">Invite former service customers back at 14, 30, and 60 days after an unchanged expiry, using the current service price.</p>
+            <p className="text-muted-foreground text-xs">A renewed or replaced service, cancellation, reply, promise, or hold stops the campaign.</p>
+            <SetupNote status={resolveContractSetupStatus(whatsappConnected, templates, 'service_win_back')} />
           </CardContent>
         </Card>
 

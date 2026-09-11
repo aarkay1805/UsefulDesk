@@ -114,8 +114,9 @@ exception to `/api/whatsapp/react` and preserves its explicit branch header.
 Anonymous cookie requests and unrelated WhatsApp paths remain protected.
 Regression tests reproduced the failure before the fix; the proxy, mobile
 operational-access, and reaction-route suites now pass 66 tests. Focused lint
-and root typecheck pass. **This backend fix is not deployed; live reaction
-add/change/remove acceptance is still pending.** No mobile rebuild is needed
+and root typecheck pass. **Release status correction (2026-09-09): this backend
+fix is included in `ca502ec`, recorded as promoted to Production on 2026-09-08.
+Live reaction add/change/remove acceptance is still pending.** No mobile rebuild is needed
 for this proxy-only change.
 
 The Android document picker opened, but injected taps did not reliably navigate

@@ -905,6 +905,10 @@ export interface Membership {
   conversion_bonus_months?: number;
   /** Set to the freeze date while status='frozen'. */
   frozen_at?: string | null;
+  /** Optional staff-recorded return plan for a frozen membership. Never inferred from frozen_at. */
+  planned_return_on?: string | null;
+  /** Branch-valid teammate accountable for the planned return follow-up. */
+  planned_return_owner_id?: string | null;
   /** True while this row is a trial/lead (migration 035), before it
    *  converts to a paid membership. Trials are kept out of the renewal
    *  action lists + active-member KPI; they drive the Trials lists. */

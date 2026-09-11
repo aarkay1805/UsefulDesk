@@ -39,7 +39,7 @@ const { TemplateManager } = await import('./template-manager');
 afterEach(cleanup);
 
 describe('TemplateManager gym preset library', () => {
-  it('groups all ten contracts and explains operational requirements', async () => {
+  it('groups all twenty-three contracts and explains operational requirements', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);
 
@@ -57,7 +57,20 @@ describe('TemplateManager gym preset library', () => {
     for (const title of [
       'Membership renewal',
       'Service renewal',
+      'Expired membership follow-up',
+      'Expired service follow-up',
+      'Low session pack balance',
+      'Session pack used',
+      'Planned membership return',
+      'Membership win-back',
+      'Service win-back',
       'Installment reminder',
+      'Invoice due reminder',
+      'Overdue invoice reminder',
+      'Payment promise reminder',
+      'Payment confirmation',
+      'AutoPay retry update',
+      'AutoPay payment help',
       'Payment link',
       'Invoice document',
       'Payment due',
@@ -72,7 +85,7 @@ describe('TemplateManager gym preset library', () => {
     expect(
       screen.queryByText(/Requires recorded .* WhatsApp opt-in/)
     ).toBeNull();
-    expect(screen.getAllByText(/Sends when:/).length).toBe(10);
+    expect(screen.getAllByText(/Sends when:/).length).toBe(23);
     expect(
       screen.getAllByText(/approval and recipient delivery are not guaranteed/)
         .length

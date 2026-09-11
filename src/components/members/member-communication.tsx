@@ -61,6 +61,18 @@ const TEMPLATE_REASONS: Record<string, { type: string; subject: string }> = {
     type: 'Payment receipt',
     subject: 'Recorded payment — amount, plan and active-until date',
   },
+  gym_payment_confirmation: {
+    type: 'Payment confirmation',
+    subject: 'Recorded payment — exact amount and transaction outcome',
+  },
+  gym_autopay_retry_update: {
+    type: 'AutoPay retry update',
+    subject: 'Verified AutoPay retry — no manual payment requested',
+  },
+  gym_autopay_payment_help: {
+    type: 'AutoPay payment help',
+    subject: 'Verified terminal AutoPay failure — current invoice help',
+  },
   gym_membership_activation: {
     type: 'Membership activation',
     subject: 'Activated membership — plan, gym and membership dates',

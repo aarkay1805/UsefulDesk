@@ -10,9 +10,10 @@ Add member and lead conversion can collect the first invoice either in full or a
 
 ## WhatsApp prerequisite
 
-The account must have WhatsApp connected, a positive recorded
-`whatsapp_account_updates` opt-in for the recipient, and the exact approved Meta
-**Utility** contract `gym_installment_reminder`. It uses POSITIONAL body
+The account must have WhatsApp connected and the exact approved Meta **Utility**
+contract `gym_installment_reminder`. Existing consent/opt-out records remain
+audit history and do not gate this repository's established outbound path. It
+uses the `whatsapp_account_updates` channel and POSITIONAL body
 parameters in this order:
 
 1. member name
@@ -32,9 +33,20 @@ components, and parameter order rather than approval by name alone.
 
 If the template is missing or not approved, joining/conversion and payment collection still work; the cron skips the message and reports the setup issue in its response notes.
 
+The diagnostic in Settings → Renewal reminders reports the same prerequisite as
+**Blocked** with the exact recovery message, while **Nothing due** means there
+is no eligible installment today. It does not execute the worker. A candidate
+must still have a phone and an open positive invoice balance that is not under
+refund review. Do not use membership status or collection mode as a blanket
+suppression here: an installment can be backed by a combined historical invoice,
+and its invoice balance is the current collection authority.
+
 ## Operations
 
-GitHub Actions calls `/api/payment-installments/cron` hourly at :30 alongside renewal reminders. The route uses the shared `AUTOMATION_CRON_SECRET` / `CRON_SECRET` authentication described in [automations-and-cron.md](automations-and-cron.md).
+The database-owned aggregator calls `/api/payment-installments/cron` hourly at
+:41; GitHub Actions supplies the redundant run at :47. The route uses the
+shared `AUTOMATION_CRON_SECRET` / `CRON_SECRET` authentication described in
+[automations-and-cron.md](automations-and-cron.md).
 
 Verify manually:
 
@@ -45,3 +57,5 @@ curl -sS \
 ```
 
 The response reports scanned schedules, sent messages, skipped claims, failures, and setup notes.
+`accepted` means Meta accepted a request; it is not delivered/read evidence.
+Webhook delivery status remains authoritative.

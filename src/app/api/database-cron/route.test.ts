@@ -83,9 +83,21 @@ describe('GET /api/database-cron', () => {
     expect(response.status).toBe(503);
     expect(body).toMatchObject({
       group: 'renewals',
-      dispatched: 2,
+      dispatched: 3,
       failed: 1,
     });
+  });
+
+  it('dispatches the lifecycle reminder worker with the same verified secret', async () => {
+    const response = await GET(request('renewals'));
+
+    expect(response.status).toBe(200);
+    expect(fetch).toHaveBeenCalledWith(
+      new URL('https://desk.example/api/reminders/cron'),
+      expect.objectContaining({
+        headers: { 'x-cron-secret': 'internal-cron-secret' },
+      })
+    );
   });
 
   it('rejects unknown groups without dispatching work', async () => {
