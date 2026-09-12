@@ -1,5 +1,21 @@
 # Roadmap
 
+## Proposed — automated messaging usability (2026-09-11)
+
+Benchmark before expanding the provisional reminder Settings UI. Recommended
+scope: a predefined Automated messages catalogue grouped by purpose, contextual
+readiness linked to the existing Templates destination, and actionable activity
+covering every current rule type. Activation gating and per-rule save behavior
+remain product decisions; no new implementation is authorized by this entry.
+See [benchmark and proposed scope](automated-messages-benchmark.md).
+
+## Shipped in code — reminder settings organization (2026-09-11)
+
+Provisional implementation, pending the benchmark decision above.
+Settings → **Reminders & messages** groups controls into Renewals, Payments,
+and Retention, with separate Template setup and Activity views. Existing links
+and schedule behavior are preserved; edits persist across groups until saved.
+
 ## Shipped in code — renewal and collection reminder lifecycle (2026-09-10)
 
 Authorized for sequential implementation in six GPT-5.6 Terra tasks directly on

@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-09-11 — Reminders settings grouped by purpose
+
+Settings now uses **Reminders & messages** at the existing `?tab=reminders`
+link. `renewal-reminders-settings.tsx` separates Messages (Renewals, Payments,
+Retention), Template setup, and Activity. Switch badges show On/Off; template
+readiness stays in its own view with a compact setup notice beside controls.
+Draft changes survive view/category changes and Save settings saves all groups.
+No reminder schedules, delivery rules, or stored settings changed.
+
 ## 2026-09-11 — Retention lifecycle is durable and opt-in
 
 Step 6 adds `src/lib/reminders/retention-worker.ts`, exact retention template

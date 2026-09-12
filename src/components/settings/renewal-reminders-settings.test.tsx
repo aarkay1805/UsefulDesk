@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { MessageTemplate } from '@/types';
@@ -11,7 +11,11 @@ import {
 
 const database = vi.hoisted(() => ({
   templates: [] as Partial<MessageTemplate>[],
-  history: [] as { state: string; created_at: string; reason: { code?: string } | null }[],
+  history: [] as {
+    state: string;
+    created_at: string;
+    reason: { code?: string } | null;
+  }[],
 }));
 
 vi.mock('sonner', () => ({
@@ -61,12 +65,12 @@ function makeQuery(table: string) {
       onRejected?: (reason: unknown) => unknown
     ) {
       return Promise.resolve({
-        data: table === 'lifecycle_reminder_jobs' ? database.history : database.templates,
+        data:
+          table === 'lifecycle_reminder_jobs'
+            ? database.history
+            : database.templates,
         error: null,
-      }).then(
-        onFulfilled,
-        onRejected
-      );
+      }).then(onFulfilled, onRejected);
     },
   };
   return query;
@@ -82,11 +86,25 @@ const { RenewalRemindersSettings } =
   await import('./renewal-reminders-settings');
 
 beforeEach(() => {
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
+  );
   database.templates = [];
   database.history = [];
+  const slot = document.createElement('div');
+  slot.id = 'page-header-tabs';
+  document.body.appendChild(slot);
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  document.getElementById('page-header-tabs')?.remove();
+});
 
 describe('RenewalRemindersSettings template readiness', () => {
   beforeEach(() => {
@@ -133,7 +151,7 @@ describe('RenewalRemindersSettings template readiness', () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it('reports all six feature contracts independently', async () => {
+  it('reports feature contracts independently in template setup', async () => {
     database.templates = [
       approved('membership_renewal'),
       approved('installment_reminder'),
@@ -141,6 +159,7 @@ describe('RenewalRemindersSettings template readiness', () => {
 
     render(<RenewalRemindersSettings />);
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Template setup' }));
     expect(await screen.findByText('WhatsApp template readiness')).toBeTruthy();
     expect(
       screen.getByTestId('readiness-membership_renewal').textContent
@@ -157,9 +176,9 @@ describe('RenewalRemindersSettings template readiness', () => {
     expect(screen.getByTestId('readiness-invoice_due').textContent).toContain(
       'Needs setup'
     );
-    expect(screen.getByTestId('readiness-invoice_overdue').textContent).toContain(
-      'Needs setup'
-    );
+    expect(
+      screen.getByTestId('readiness-invoice_overdue').textContent
+    ).toContain('Needs setup');
     expect(
       screen.getByTestId('readiness-membership_renewal').textContent
     ).not.toMatch(/opt-in/i);
@@ -168,21 +187,37 @@ describe('RenewalRemindersSettings template readiness', () => {
   it('keeps invoice collection explicitly off and explains its issued-date policy', async () => {
     render(<RenewalRemindersSettings />);
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Payments' }));
     expect(await screen.findByText('Invoice collection')).toBeTruthy();
     expect(
-      screen.getByLabelText('Invoice collection reminders').getAttribute('aria-checked')
+      screen
+        .getByLabelText('Invoice collection reminders')
+        .getAttribute('aria-checked')
     ).toBe('false');
-    expect(screen.getByText(/issued date is the effective due date/i)).toBeTruthy();
+    expect(
+      screen.getByText(/issued date is the effective due date/i)
+    ).toBeTruthy();
   });
 
   it('shows durable blocked and accepted invoice outcomes without customer content', async () => {
     database.history = [
-      { state: 'blocked', created_at: '2026-09-10T10:00:00.000Z', reason: { code: 'missing_phone' } },
-      { state: 'accepted', created_at: '2026-09-10T09:00:00.000Z', reason: null },
+      {
+        state: 'blocked',
+        created_at: '2026-09-10T10:00:00.000Z',
+        reason: { code: 'missing_phone' },
+      },
+      {
+        state: 'accepted',
+        created_at: '2026-09-10T09:00:00.000Z',
+        reason: null,
+      },
     ];
     render(<RenewalRemindersSettings />);
 
-    expect(await screen.findByText('Recent lifecycle reminder activity')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
+    expect(
+      await screen.findByText('Recent lifecycle reminder activity')
+    ).toBeTruthy();
     expect(screen.getAllByText('Blocked')).not.toHaveLength(0);
     expect(screen.getByText('Accepted')).toBeTruthy();
     expect(screen.getByText('missing_phone')).toBeTruthy();
@@ -195,6 +230,7 @@ describe('RenewalRemindersSettings template readiness', () => {
 
     render(<RenewalRemindersSettings />);
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Template setup' }));
     expect(
       await screen.findAllByText(
         /does not have the category required by its UsefulDesk contract/
@@ -205,6 +241,7 @@ describe('RenewalRemindersSettings template readiness', () => {
   it('shows empty work as healthy and a missing installment template as actionable', async () => {
     render(<RenewalRemindersSettings />);
 
+    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
     expect(
       await screen.findByText('Scheduled reminder readiness')
     ).toBeTruthy();
@@ -214,5 +251,41 @@ describe('RenewalRemindersSettings template readiness', () => {
     expect(
       screen.getByTestId('diagnostic-installment_reminder').textContent
     ).toContain('Blocked');
+  });
+  it('separates controls by type and preserves edits across views', async () => {
+    render(<RenewalRemindersSettings />);
+    const membership = await screen.findByRole('switch', {
+      name: 'Membership renewal reminders',
+    });
+    expect(screen.queryByText('WhatsApp template readiness')).toBeNull();
+    expect(
+      screen.queryByRole('switch', { name: 'Payment confirmations' })
+    ).toBeNull();
+    fireEvent.click(membership);
+    fireEvent.click(screen.getByRole('button', { name: 'Payments' }));
+    expect(
+      screen.getByRole('switch', { name: 'Payment confirmations' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('switch', { name: 'Membership renewal reminders' })
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retention' }));
+    expect(
+      screen.getByRole('switch', { name: 'Session pack reminders' })
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('tab', { name: 'Template setup' }));
+    expect(screen.queryByRole('switch')).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: 'Messages' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Renewals' }));
+    expect(
+      screen
+        .getByRole('switch', { name: 'Membership renewal reminders' })
+        .getAttribute('aria-checked')
+    ).toBe('true');
+    expect(
+      screen
+        .getByRole('button', { name: 'Save settings' })
+        .hasAttribute('disabled')
+    ).toBe(false);
   });
 });

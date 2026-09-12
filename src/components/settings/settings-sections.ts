@@ -133,7 +133,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   },
   reminders: {
     id: 'reminders',
-    label: 'Renewal reminders',
+    label: 'Reminders & messages',
     icon: BellRing,
     group: 'messaging',
   },

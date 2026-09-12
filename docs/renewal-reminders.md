@@ -1,4 +1,11 @@
-# Renewal reminders — operator runbook
+# Reminders & messages — operator runbook
+
+Settings → **Reminders & messages** separates **Messages**, **Template setup**,
+and **Activity**. Messages groups switches and schedules into **Renewals**,
+**Payments**, and **Retention**; On/Off reflects configuration, not template
+approval. Template setup reports the exact WhatsApp prerequisites and links to
+Templates for management. Activity contains scheduled diagnostics and recent
+lifecycle outcomes. Save settings applies draft edits across all message groups.
 
 UsefulDesk has two renewal reminder contracts. Both promote a future purchase,
 so both are Meta **Marketing** templates. Their audit category is
@@ -76,7 +83,7 @@ Meta returning a `wamid` means the request was accepted, not delivered.
 Delivery-status webhooks remain authoritative for sent, delivered, read, and
 failed outcomes.
 
-Settings → Renewal reminders now also shows a read-only **Scheduled reminder
+Settings → Reminders & messages → Activity now also shows a read-only **Scheduled reminder
 readiness** result for membership, service, and joining-installment workers. It
 contains only aggregate eligibility counts and setup reasons: **Off**,
 **Blocked**, **Waiting**, **Nothing due**, or **Eligible now**. It never claims a reminder,
@@ -250,7 +257,7 @@ mutation, or cleanup is authorized by this runbook alone.
    parameters, body, footer, and buttons, then submit it for Meta review.
 3. After Meta review, select **Sync from Meta**. The reminder remains blocked
    until the exact row is Approved and the sync reports no component change.
-4. Return to Renewal reminders and confirm the feature reads Ready. A provider
+4. Open Reminders & messages → Template setup and confirm the feature reads Ready. A provider
    request being accepted is still not delivery evidence; wait for the delivery
    webhook after separately authorized testing.
 
