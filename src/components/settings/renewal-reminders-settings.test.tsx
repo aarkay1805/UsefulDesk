@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -71,6 +78,7 @@ const { RenewalRemindersSettings } =
   await import('./renewal-reminders-settings');
 
 beforeEach(() => {
+  window.history.replaceState({}, '', '/settings?tab=reminders');
   vi.stubGlobal(
     'ResizeObserver',
     class {
@@ -134,6 +142,75 @@ describe('Automated messages catalogue', () => {
     ).toBe(true);
     expect(
       calls.some(([url]) => String(url).includes('/api/whatsapp/send'))
+    ).toBe(false);
+  });
+
+  it('expands the clicked row in place, closes its sibling, and retains collapsed drafts', async () => {
+    mockFetch();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          rules: [
+            rules[0],
+            {
+              ...rules[0],
+              id: 'service_renewal',
+              title: 'Service renewal',
+              templateContracts: ['service_renewal'],
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+    render(<RenewalRemindersSettings />);
+    const membershipRow = await screen.findByTestId(
+      'rule-row-membership_renewal'
+    );
+    const serviceRow = screen.getByTestId('rule-row-service_renewal');
+    const configureMembership = within(membershipRow).getByRole('button', {
+      name: 'Configure',
+    });
+    expect(configureMembership.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(configureMembership);
+    expect(
+      within(membershipRow).getByTestId('rule-detail-membership_renewal')
+    ).toBeTruthy();
+    expect(
+      within(membershipRow)
+        .getByRole('button', { name: 'Close' })
+        .getAttribute('aria-expanded')
+    ).toBe('true');
+    fireEvent.click(
+      within(membershipRow).getByRole('button', { name: '14 days' })
+    );
+    fireEvent.click(
+      within(serviceRow).getByRole('button', { name: 'Configure' })
+    );
+    expect(
+      within(serviceRow).getByTestId('rule-detail-service_renewal')
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        within(membershipRow).queryByTestId('rule-detail-membership_renewal')
+      ).toBeNull()
+    );
+    fireEvent.click(
+      within(membershipRow).getByRole('button', { name: 'Configure' })
+    );
+    expect(
+      within(membershipRow)
+        .getByRole('button', { name: '14 days' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+    fireEvent.click(
+      within(membershipRow).getByRole('button', { name: 'Close' })
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId('rule-detail-membership_renewal')).toBeNull()
+    );
+    expect(
+      vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')
     ).toBe(false);
   });
 
@@ -209,6 +286,10 @@ describe('Automated messages catalogue', () => {
     ).toBe('true');
     expect(screen.getByText('Managed schedule')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(screen.queryByTestId('rule-detail-joining_installments')).toBeNull();
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('rule-detail-joining_installments')
+      ).toBeNull()
+    );
   });
 });

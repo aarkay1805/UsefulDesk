@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AutomatedMessageActivity } from '@/components/settings/automated-message-activity';
@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Chip, ChipGroup } from '@/components/ui/chip';
+import { Collapse } from '@/components/ui/collapse';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ResolvableAction } from '@/components/ui/resolvable-action';
@@ -347,7 +348,6 @@ function RuleDetail({
   draft,
   onDraftChange,
   onSave,
-  onClose,
   lifecycleWindow,
   hasUnsavedChanges,
   onOpenInvoiceCollection,
@@ -357,7 +357,6 @@ function RuleDetail({
   draft: ReminderRulePatch;
   onDraftChange: (patch: ReminderRulePatch) => void;
   onSave: (id: ReminderRuleId, patch: ReminderRulePatch) => Promise<void>;
-  onClose: () => void;
   lifecycleWindow: { start: number; end: number } | null;
   hasUnsavedChanges: boolean;
   onOpenInvoiceCollection: () => void;
@@ -387,198 +386,185 @@ function RuleDetail({
   };
   const usesLifecycleWindow = LIFECYCLE_RULE_IDS.has(rule.id);
   return (
-    <Card className="mt-2" data-testid={`rule-detail-${rule.id}`}>
-      <CardContent className="space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 className="font-medium">{rule.title}</h3>
-            <p className="text-muted-foreground mt-1 max-w-2xl text-sm">
-              {RULE_DETAILS[rule.id].eligibility}
-            </p>
-          </div>
-          <Button size="sm" variant="ghost" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-        {rule.id === 'joining_installments' ? (
-          <Alert>
-            <AlertTitle>Managed schedule</AlertTitle>
-            <AlertDescription>
-              Joining installments follow the membership payment schedule. They
-              are not an independent toggle. Inspect a member’s Billing details
-              for their recorded payment schedule.
-            </AlertDescription>
-            {!hasUnsavedChanges ? (
-              <Button
-                nativeButton={false}
-                render={
-                  <Link href={branchHref('/members', browserBranchId())} />
-                }
-                variant="link"
-                size="sm"
-              >
-                Open members
-              </Button>
-            ) : null}
-          </Alert>
-        ) : null}
-        <div className="space-y-1 text-sm">
-          <p className="font-medium">When it sends</p>
-          <p className="text-muted-foreground">{timingSummary(rule)}</p>
-          {[
-            'membership_renewal',
-            'service_renewal',
-            'joining_installments',
-          ].includes(rule.id) ? (
-            <p className="text-muted-foreground">
-              From {localTime(9)} in this branch’s timezone.
-            </p>
+    <div className="space-y-5 pt-5" data-testid={`rule-detail-${rule.id}`}>
+      <div className="space-y-1 text-sm">
+        <p className="font-medium">Who qualifies</p>
+        <p className="text-muted-foreground max-w-2xl">
+          {RULE_DETAILS[rule.id].eligibility}
+        </p>
+      </div>
+      {rule.id === 'joining_installments' ? (
+        <Alert>
+          <AlertTitle>Managed schedule</AlertTitle>
+          <AlertDescription>
+            Joining installments follow the membership payment schedule. They
+            are not an independent toggle. Inspect a member’s Billing details
+            for their recorded payment schedule.
+          </AlertDescription>
+          {!hasUnsavedChanges ? (
+            <Button
+              nativeButton={false}
+              render={<Link href={branchHref('/members', browserBranchId())} />}
+              variant="link"
+              size="sm"
+            >
+              Open members
+            </Button>
           ) : null}
-        </div>
-        {rule.id === 'autopay_recovery' ? (
-          <Alert>
-            <AlertTitle>AutoPay retry update</AlertTitle>
-            <AlertDescription>
-              Retry updates explain the next provider attempt and do not ask for
-              manual payment or use the collection daily budget. Terminal
-              failure messages request payment only after eligibility checks and
-              reserve the shared collection daily budget.
-            </AlertDescription>
-          </Alert>
+        </Alert>
+      ) : null}
+      <div className="space-y-1 text-sm">
+        <p className="font-medium">When it sends</p>
+        <p className="text-muted-foreground">{timingSummary(rule)}</p>
+        {[
+          'membership_renewal',
+          'service_renewal',
+          'joining_installments',
+        ].includes(rule.id) ? (
+          <p className="text-muted-foreground">
+            From {localTime(9)} in this branch’s timezone.
+          </p>
         ) : null}
-        {usesLifecycleWindow && lifecycleWindow ? (
-          <Alert>
-            <AlertTitle>Lifecycle send window</AlertTitle>
-            <AlertDescription>
-              This rule uses the shared account-local window of{' '}
-              {localTime(lifecycleWindow.start)} through{' '}
-              {localTime(lifecycleWindow.end, '59')}, configured under Invoice
-              collection.
-            </AlertDescription>
-            {rule.id === 'invoice_collection' ? null : !dirty ? (
-              <Button
-                variant="link"
-                size="sm"
-                onClick={onOpenInvoiceCollection}
-              >
-                Open Invoice collection timing
-              </Button>
-            ) : (
-              <p className="text-muted-foreground mt-2 text-xs">
-                Save or cancel this rule’s changes before opening Invoice
-                collection timing.
-              </p>
-            )}
-          </Alert>
-        ) : null}
-        <TimingControls
-          rule={rule}
-          draft={draft}
-          onChange={onDraftChange}
-          disabled={!canEdit || saving}
-        />
-        <div className="space-y-2">
-          <Label>Sample message</Label>
-          {rule.templateContracts.map((contractId) => {
-            const contract = getTemplateContractById(contractId);
-            const message = contract?.payload.body_text.replace(
-              /\{\{(\d+)\}\}/g,
-              (_match, index) =>
-                previewValue(
-                  contract?.parameterLabels[Number(index) - 1] ?? 'Member',
-                  fmt
-                )
-            );
-            return (
+      </div>
+      {rule.id === 'autopay_recovery' ? (
+        <Alert>
+          <AlertTitle>AutoPay retry update</AlertTitle>
+          <AlertDescription>
+            Retry updates explain the next provider attempt and do not ask for
+            manual payment or use the collection daily budget. Terminal failure
+            messages request payment only after eligibility checks and reserve
+            the shared collection daily budget.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {usesLifecycleWindow && lifecycleWindow ? (
+        <Alert>
+          <AlertTitle>Lifecycle send window</AlertTitle>
+          <AlertDescription>
+            This rule uses the shared account-local window of{' '}
+            {localTime(lifecycleWindow.start)} through{' '}
+            {localTime(lifecycleWindow.end, '59')}, configured under Invoice
+            collection.
+          </AlertDescription>
+          {rule.id === 'invoice_collection' ? null : !dirty ? (
+            <Button variant="link" size="sm" onClick={onOpenInvoiceCollection}>
+              Open Invoice collection timing
+            </Button>
+          ) : (
+            <p className="text-muted-foreground mt-2 text-xs">
+              Save or cancel this rule’s changes before opening Invoice
+              collection timing.
+            </p>
+          )}
+        </Alert>
+      ) : null}
+      <TimingControls
+        rule={rule}
+        draft={draft}
+        onChange={onDraftChange}
+        disabled={!canEdit || saving}
+      />
+      <div className="space-y-2">
+        <Label>Sample message</Label>
+        {rule.templateContracts.map((contractId) => {
+          const contract = getTemplateContractById(contractId);
+          const message = contract?.payload.body_text.replace(
+            /\{\{(\d+)\}\}/g,
+            (_match, index) =>
+              previewValue(
+                contract?.parameterLabels[Number(index) - 1] ?? 'Member',
+                fmt
+              )
+          );
+          return (
+            <div
+              className="bg-chat-canvas relative overflow-hidden rounded-lg p-3"
+              key={contractId}
+            >
               <div
-                className="bg-chat-canvas relative overflow-hidden rounded-lg p-3"
-                key={contractId}
-              >
-                <div
-                  aria-hidden
-                  className="chat-doodle pointer-events-none absolute inset-0"
-                />
-                <div className="bg-chat-bubble-in text-foreground relative w-fit max-w-[88%] rounded-lg rounded-tl-none p-2 text-sm whitespace-pre-wrap shadow-[var(--chat-bubble-shadow)]">
-                  <BubbleTail side="left" />
-                  {rule.templateContracts.length > 1 ? (
-                    <p className="mb-2 font-medium">{contract?.title}</p>
-                  ) : null}
-                  {message}
-                  {contract?.payload.footer_text ? (
-                    <p className="text-muted-foreground mt-2 text-xs">
-                      {contract.payload.footer_text}
-                    </p>
-                  ) : null}
-                  {contract?.payload.buttons?.length ? (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {contract.payload.buttons.map((button) => (
-                        <Button
-                          key={`${contractId}-${button.text}`}
-                          size="sm"
-                          variant="outline"
-                          disabled
-                        >
-                          {button.text}
-                        </Button>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-                {!hasUnsavedChanges ? (
-                  <Link
-                    className={buttonVariants({ variant: 'link', size: 'sm' })}
-                    href={ruleHref(rule, contractId)}
-                  >
-                    Open {contract?.payload.name ?? 'template'}
-                  </Link>
+                aria-hidden
+                className="chat-doodle pointer-events-none absolute inset-0"
+              />
+              <div className="bg-chat-bubble-in text-foreground relative w-fit max-w-[88%] rounded-lg rounded-tl-none p-2 text-sm whitespace-pre-wrap shadow-[var(--chat-bubble-shadow)]">
+                <BubbleTail side="left" />
+                {rule.templateContracts.length > 1 ? (
+                  <p className="mb-2 font-medium">{contract?.title}</p>
+                ) : null}
+                {message}
+                {contract?.payload.footer_text ? (
+                  <p className="text-muted-foreground mt-2 text-xs">
+                    {contract.payload.footer_text}
+                  </p>
+                ) : null}
+                {contract?.payload.buttons?.length ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {contract.payload.buttons.map((button) => (
+                      <Button
+                        key={`${contractId}-${button.text}`}
+                        size="sm"
+                        variant="outline"
+                        disabled
+                      >
+                        {button.text}
+                      </Button>
+                    ))}
+                  </div>
                 ) : null}
               </div>
-            );
-          })}
+              {!hasUnsavedChanges ? (
+                <Link
+                  className={buttonVariants({ variant: 'link', size: 'sm' })}
+                  href={ruleHref(rule, contractId)}
+                >
+                  Open {contract?.payload.name ?? 'template'}
+                </Link>
+              ) : null}
+            </div>
+          );
+        })}
+        <p className="text-muted-foreground text-xs">
+          Preview only. It never sends a message.
+        </p>
+      </div>
+      <div className="space-y-1 text-sm">
+        <p>
+          <span className="font-medium">Stops when:</span>{' '}
+          {RULE_DETAILS[rule.id].stops}
+        </p>
+        <p>
+          <span className="font-medium">Staff follow-up:</span>{' '}
+          {RULE_DETAILS[rule.id].staff}
+        </p>
+        {hasUnsavedChanges ? (
           <p className="text-muted-foreground text-xs">
-            Preview only. It never sends a message.
-          </p>
-        </div>
-        <div className="space-y-1 text-sm">
-          <p>
-            <span className="font-medium">Stops when:</span>{' '}
-            {RULE_DETAILS[rule.id].stops}
-          </p>
-          <p>
-            <span className="font-medium">Staff follow-up:</span>{' '}
-            {RULE_DETAILS[rule.id].staff}
-          </p>
-          {hasUnsavedChanges ? (
-            <p className="text-muted-foreground text-xs">
-              Save or cancel unsaved rule changes before opening template setup.
-            </p>
-          ) : null}
-        </div>
-        <div className="flex justify-end gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={!dirty || saving}
-            onClick={() => onDraftChange({})}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            loading={saving}
-            disabled={!dirty || !canEdit}
-            onClick={save}
-          >
-            Save changes
-          </Button>
-        </div>
-        {!rule.readiness.ready ? (
-          <p className="text-muted-foreground text-xs">
-            Saving configuration never turns this rule on.
+            Save or cancel unsaved rule changes before opening template setup.
           </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!dirty || saving}
+          onClick={() => onDraftChange({})}
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          loading={saving}
+          disabled={!dirty || !canEdit}
+          onClick={save}
+        >
+          Save changes
+        </Button>
+      </div>
+      {!rule.readiness.ready ? (
+        <p className="text-muted-foreground text-xs">
+          Saving configuration never turns this rule on.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -586,12 +572,16 @@ function RuleRow({
   rule,
   canEdit,
   hasDraft,
+  expanded,
+  children,
   onOpen,
   onSave,
 }: {
   rule: RuleRow;
   canEdit: boolean;
   hasDraft: boolean;
+  expanded: boolean;
+  children: ReactNode;
   onOpen: () => void;
   onSave: (id: ReminderRuleId, patch: ReminderRulePatch) => Promise<void>;
 }) {
@@ -642,7 +632,9 @@ function RuleRow({
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-48 flex-1">
-          <p className="font-medium">{rule.title}</p>
+          <p className="font-medium" id={`rule-title-${rule.id}`}>
+            {rule.title}
+          </p>
           <p className="text-muted-foreground text-sm">{timingSummary(rule)}</p>
         </div>
         {rule.id === 'joining_installments' ? (
@@ -680,11 +672,28 @@ function RuleRow({
           ) : (
             <Badge variant="neutral">Scheduled</Badge>
           )}
-          <Button size="sm" variant="outline" onClick={onOpen}>
-            Configure
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onOpen}
+            id={`rule-configure-${rule.id}`}
+            aria-expanded={expanded}
+            aria-controls={`rule-panel-${rule.id}`}
+          >
+            {expanded ? 'Close' : 'Configure'}
+            {expanded ? <ChevronUp /> : <ChevronDown />}
           </Button>
         </div>
       </div>
+      <Collapse open={expanded}>
+        <div
+          id={`rule-panel-${rule.id}`}
+          role="region"
+          aria-labelledby={`rule-title-${rule.id}`}
+        >
+          {children}
+        </div>
+      </Collapse>
     </div>
   );
 }
@@ -888,41 +897,42 @@ export function RenewalRemindersSettings() {
                   rule={rule}
                   canEdit={canEditSettings}
                   hasDraft={hasUnsavedChanges}
+                  expanded={selected?.id === rule.id}
                   onOpen={() => {
-                    setSelectedId(rule.id);
-                    setGroup(rule.group);
-                    setDismissedLinkedRule(null);
+                    if (selected?.id === rule.id) {
+                      setSelectedId(null);
+                      setDismissedLinkedRule(linkedRuleId);
+                    } else {
+                      setSelectedId(rule.id);
+                      setGroup(rule.group);
+                      setDismissedLinkedRule(null);
+                    }
                   }}
                   onSave={save}
-                />
+                >
+                  <RuleDetail
+                    rule={rule}
+                    canEdit={canEditSettings}
+                    draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
+                    onDraftChange={(patch) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [`${draftScope}:${rule.id}`]: patch,
+                      }))
+                    }
+                    onSave={save}
+                    lifecycleWindow={lifecycleWindow}
+                    hasUnsavedChanges={hasUnsavedChanges}
+                    onOpenInvoiceCollection={() => {
+                      setSelectedId('invoice_collection');
+                      setGroup('collections');
+                      setDismissedLinkedRule(null);
+                    }}
+                  />
+                </RuleRow>
               ))}
             </CardContent>
           </Card>
-          {selected ? (
-            <RuleDetail
-              rule={selected}
-              canEdit={canEditSettings}
-              draft={drafts[`${draftScope}:${selected.id}`] ?? {}}
-              onDraftChange={(patch) =>
-                setDrafts((current) => ({
-                  ...current,
-                  [`${draftScope}:${selected.id}`]: patch,
-                }))
-              }
-              onSave={save}
-              onClose={() => {
-                setSelectedId(null);
-                setDismissedLinkedRule(linkedRuleId);
-              }}
-              lifecycleWindow={lifecycleWindow}
-              hasUnsavedChanges={hasUnsavedChanges}
-              onOpenInvoiceCollection={() => {
-                setSelectedId('invoice_collection');
-                setGroup('collections');
-                setDismissedLinkedRule(null);
-              }}
-            />
-          ) : null}
         </TabsContent>
         <TabsContent value="activity">
           <AutomatedMessageActivity

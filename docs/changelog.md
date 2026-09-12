@@ -6,6 +6,12 @@
 
 ---
 
+## 2026-09-12 — Reminder configuration expands inside its row
+
+`renewal-reminders-settings.tsx` uses the shared `Collapse` to reveal a rule’s
+settings inside its own catalogue row. Configure/Close toggles that row; opening
+another closes the previous one while retaining drafts and template deep links.
+
 ## 2026-09-12 — Automated messages has scoped rules and actionable history
 
 `renewal-reminders-settings.tsx` now exposes Rules/Activity and four purpose

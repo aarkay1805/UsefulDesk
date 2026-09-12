@@ -6,8 +6,9 @@ rules under Renewals, Collections, Retention, and Confirmations.
 
 ## Configure and activate
 
-1. Choose a rule and **Configure** to inspect who qualifies, its timing, sample
-   message, stopping conditions, and staff follow-up behavior.
+1. Choose a rule and **Configure** to expand its own row and inspect who qualifies, its timing, sample
+   message, stopping conditions, and staff follow-up behavior. **Close** collapses
+   it; opening another rule closes the previous one without discarding drafts.
 2. **Save changes** writes only that rule’s changed fields. Configuration can
    be saved while Off and never activates a schedule. **Cancel** restores the
    saved values. Unsaved changes survive group/detail navigation within this

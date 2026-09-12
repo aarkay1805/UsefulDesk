@@ -9,7 +9,8 @@ off; activation requires the connected branch and every exact approved/synced
 template. Existing On intent survives lost readiness. Template setup remains in
 Templates, with exact-contract focus and a return to the originating rule;
 unsaved edits must be saved or cancelled before leaving for setup. Previews
-use sample values and send nothing.
+use sample values and send nothing. Configure expands the selected rule inside
+its own catalogue row; one row is open at a time and drafts survive collapse.
 
 Activity reads the lifecycle queue and all three legacy reminder ledgers with
 branch-scoped member identity, rule/outcome/local-date filters, bounded keyset
