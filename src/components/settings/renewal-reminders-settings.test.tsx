@@ -3,84 +3,69 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { MessageTemplate } from '@/types';
-import {
-  TEMPLATE_CONTRACTS,
-  type TemplateContractId,
-} from '@/lib/whatsapp/template-contracts';
-
-const database = vi.hoisted(() => ({
-  templates: [] as Partial<MessageTemplate>[],
-  history: [] as {
-    state: string;
-    created_at: string;
-    reason: { code?: string } | null;
-  }[],
+vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => '/settings',
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
-
-vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-}));
-
 vi.mock('@/hooks/use-auth', () => ({
-  useAuth: () => ({ accountId: 'account-1', canEditSettings: true }),
+  useAuth: () => ({
+    canEditSettings: true,
+    locale: { timeZone: 'Asia/Kolkata' },
+    fmt: {
+      today: () => '2026-09-12',
+      time: (value: Date) => value.toISOString(),
+      date: (value: string) => value,
+      money: (value: number) => `₹${value}`,
+    },
+  }),
+}));
+vi.mock('@/components/settings/automated-message-activity', () => ({
+  AutomatedMessageActivity: () => <p>Activity content</p>,
 }));
 
-function approved(id: TemplateContractId): Partial<MessageTemplate> {
-  return {
-    account_id: 'account-1',
-    ...TEMPLATE_CONTRACTS[id].payload,
-    status: 'APPROVED',
-    parameter_format: 'POSITIONAL',
-  };
-}
-
-function makeQuery(table: string) {
-  const query = {
-    select: () => query,
-    eq: () => query,
-    in: () => query,
-    maybeSingle: async () => {
-      if (table === 'renewal_reminder_settings') {
-        return {
-          data: {
-            enabled: false,
-            days_before: [7, 3, 1],
-            service_enabled: false,
-            service_days_before: [7, 3, 1],
-          },
-          error: null,
-        };
-      }
-      if (table === 'whatsapp_config') {
-        return { data: { status: 'connected' }, error: null };
-      }
-      return { data: null, error: null };
+const rules = [
+  {
+    id: 'membership_renewal',
+    group: 'renewals',
+    title: 'Membership renewal',
+    templateContracts: ['membership_renewal'],
+    configurable: true,
+    fields: [
+      {
+        key: 'enabled',
+        type: 'boolean',
+        label: 'Enabled',
+        defaultValue: false,
+      },
+      {
+        key: 'daysBefore',
+        type: 'integer-array',
+        label: 'Days before',
+        defaultValue: [7, 3, 1],
+        min: 0,
+        max: 365,
+      },
+    ],
+    settings: { enabled: false, daysBefore: [7, 3, 1] },
+    readiness: {
+      ready: false,
+      code: 'template_missing',
+      message: 'Create the exact template.',
     },
-    then(
-      onFulfilled: (value: {
-        data: Partial<MessageTemplate>[];
-        error: null;
-      }) => unknown,
-      onRejected?: (reason: unknown) => unknown
-    ) {
-      return Promise.resolve({
-        data:
-          table === 'lifecycle_reminder_jobs'
-            ? database.history
-            : database.templates,
-        error: null,
-      }).then(onFulfilled, onRejected);
-    },
-  };
-  return query;
-}
-
-const supabase = { from: (table: string) => makeQuery(table) };
-
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => supabase,
-}));
+  },
+  {
+    id: 'joining_installments',
+    group: 'collections',
+    title: 'Joining installments',
+    templateContracts: ['installment_reminder'],
+    configurable: false,
+    fields: [],
+    settings: {},
+    readiness: { ready: true, code: 'ready' },
+  },
+] as const;
 
 const { RenewalRemindersSettings } =
   await import('./renewal-reminders-settings');
@@ -94,198 +79,136 @@ beforeEach(() => {
       disconnect() {}
     }
   );
-  database.templates = [];
-  database.history = [];
-  const slot = document.createElement('div');
-  slot.id = 'page-header-tabs';
-  document.body.appendChild(slot);
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   document.getElementById('page-header-tabs')?.remove();
 });
 
-describe('RenewalRemindersSettings template readiness', () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            diagnostics: [
-              {
-                kind: 'membership_renewal',
-                state: 'no_eligible',
-                dateMatchedCount: 0,
-                pendingCount: 0,
-                blockedCount: 0,
-                deferredCount: 0,
-                reason: 'No eligible reminders are due right now.',
+function mockFetch(failPatch = false) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH')
+        if (failPatch)
+          return Promise.resolve(
+            new Response(JSON.stringify({ error: 'Write failed' }), {
+              status: 500,
+            })
+          );
+      if (init?.method === 'PATCH')
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              rule: {
+                ...rules[0],
+                settings: { enabled: false, daysBefore: [14, 7] },
               },
-              {
-                kind: 'service_renewal',
-                state: 'no_eligible',
-                dateMatchedCount: 0,
-                pendingCount: 0,
-                blockedCount: 0,
-                deferredCount: 0,
-                reason: 'No eligible reminders are due right now.',
-              },
-              {
-                kind: 'installment_reminder',
-                state: 'blocked',
-                dateMatchedCount: 1,
-                pendingCount: 0,
-                blockedCount: 0,
-                deferredCount: 0,
-                reason:
-                  'Create and submit the exact gym_installment_reminder template.',
-              },
-            ],
-          })
-        )
-      )
-    );
-  });
+            }),
+            { status: 200 }
+          )
+        );
+      return Promise.resolve(
+        new Response(JSON.stringify({ rules }), { status: 200 })
+      );
+    })
+  );
+}
 
-  afterEach(() => vi.unstubAllGlobals());
-
-  it('reports feature contracts independently in template setup', async () => {
-    database.templates = [
-      approved('membership_renewal'),
-      approved('installment_reminder'),
-    ];
-
+describe('Automated messages catalogue', () => {
+  it('keeps timing configurable while a rule is off, and preview does not send', async () => {
+    mockFetch();
+    const slot = document.createElement('div');
+    slot.id = 'page-header-tabs';
+    document.body.appendChild(slot);
     render(<RenewalRemindersSettings />);
-
-    fireEvent.click(await screen.findByRole('tab', { name: 'Template setup' }));
-    expect(await screen.findByText('WhatsApp template readiness')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    expect(screen.getByText(/Preview only. It never sends/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '14 days' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls;
     expect(
-      screen.getByTestId('readiness-membership_renewal').textContent
-    ).toContain('Ready');
+      calls.some(([, init]) => (init as RequestInit)?.method === 'PATCH')
+    ).toBe(true);
     expect(
-      screen.getByTestId('readiness-service_renewal').textContent
-    ).toContain('Needs setup');
-    expect(
-      screen.getByTestId('readiness-installment_reminder').textContent
-    ).toContain('Ready');
-    expect(screen.getByTestId('readiness-payment_link').textContent).toContain(
-      'Needs setup'
-    );
-    expect(screen.getByTestId('readiness-invoice_due').textContent).toContain(
-      'Needs setup'
-    );
-    expect(
-      screen.getByTestId('readiness-invoice_overdue').textContent
-    ).toContain('Needs setup');
-    expect(
-      screen.getByTestId('readiness-membership_renewal').textContent
-    ).not.toMatch(/opt-in/i);
-  });
-
-  it('keeps invoice collection explicitly off and explains its issued-date policy', async () => {
-    render(<RenewalRemindersSettings />);
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Payments' }));
-    expect(await screen.findByText('Invoice collection')).toBeTruthy();
-    expect(
-      screen
-        .getByLabelText('Invoice collection reminders')
-        .getAttribute('aria-checked')
-    ).toBe('false');
-    expect(
-      screen.getByText(/issued date is the effective due date/i)
-    ).toBeTruthy();
-  });
-
-  it('shows durable blocked and accepted invoice outcomes without customer content', async () => {
-    database.history = [
-      {
-        state: 'blocked',
-        created_at: '2026-09-10T10:00:00.000Z',
-        reason: { code: 'missing_phone' },
-      },
-      {
-        state: 'accepted',
-        created_at: '2026-09-10T09:00:00.000Z',
-        reason: null,
-      },
-    ];
-    render(<RenewalRemindersSettings />);
-
-    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
-    expect(
-      await screen.findByText('Recent lifecycle reminder activity')
-    ).toBeTruthy();
-    expect(screen.getAllByText('Blocked')).not.toHaveLength(0);
-    expect(screen.getByText('Accepted')).toBeTruthy();
-    expect(screen.getByText('missing_phone')).toBeTruthy();
-  });
-
-  it('requires the exact Marketing membership-renewal contract', async () => {
-    database.templates = [
-      { ...approved('membership_renewal'), category: 'Utility' },
-    ];
-
-    render(<RenewalRemindersSettings />);
-
-    fireEvent.click(await screen.findByRole('tab', { name: 'Template setup' }));
-    expect(
-      await screen.findAllByText(
-        /does not have the category required by its UsefulDesk contract/
-      )
-    ).toBeTruthy();
-  });
-
-  it('shows empty work as healthy and a missing installment template as actionable', async () => {
-    render(<RenewalRemindersSettings />);
-
-    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
-    expect(
-      await screen.findByText('Scheduled reminder readiness')
-    ).toBeTruthy();
-    expect(
-      screen.getByTestId('diagnostic-membership_renewal').textContent
-    ).toContain('Nothing due');
-    expect(
-      screen.getByTestId('diagnostic-installment_reminder').textContent
-    ).toContain('Blocked');
-  });
-  it('separates controls by type and preserves edits across views', async () => {
-    render(<RenewalRemindersSettings />);
-    const membership = await screen.findByRole('switch', {
-      name: 'Membership renewal reminders',
-    });
-    expect(screen.queryByText('WhatsApp template readiness')).toBeNull();
-    expect(
-      screen.queryByRole('switch', { name: 'Payment confirmations' })
-    ).toBeNull();
-    fireEvent.click(membership);
-    fireEvent.click(screen.getByRole('button', { name: 'Payments' }));
-    expect(
-      screen.getByRole('switch', { name: 'Payment confirmations' })
-    ).toBeTruthy();
-    expect(
-      screen.queryByRole('switch', { name: 'Membership renewal reminders' })
-    ).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Retention' }));
-    expect(
-      screen.getByRole('switch', { name: 'Session pack reminders' })
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole('tab', { name: 'Template setup' }));
-    expect(screen.queryByRole('switch')).toBeNull();
-    fireEvent.click(screen.getByRole('tab', { name: 'Messages' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Renewals' }));
-    expect(
-      screen
-        .getByRole('switch', { name: 'Membership renewal reminders' })
-        .getAttribute('aria-checked')
-    ).toBe('true');
-    expect(
-      screen
-        .getByRole('button', { name: 'Save settings' })
-        .hasAttribute('disabled')
+      calls.some(([url]) => String(url).includes('/api/whatsapp/send'))
     ).toBe(false);
+  });
+
+  it('blocks activation for missing setup while preserving the saved Off state', async () => {
+    mockFetch();
+    render(<RenewalRemindersSettings />);
+    const toggle = await screen.findByLabelText(
+      'Membership renewal automation'
+    );
+    fireEvent.click(toggle);
+    expect(await screen.findByText('This template needs setup')).toBeTruthy();
+    expect(screen.getByText('Off')).toBeTruthy();
+  });
+
+  it('keeps a failed configuration draft and hides every template link', async () => {
+    mockFetch(true);
+    render(<RenewalRemindersSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    fireEvent.click(screen.getByRole('button', { name: '14 days' }));
+    expect(
+      screen.queryByRole('link', { name: /Open gym_membership_renewal/i })
+    ).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    expect(
+      await screen.findByRole('button', { name: 'Save changes' })
+    ).not.toHaveProperty('disabled', true);
+    expect(
+      screen.getByText(/Save or cancel unsaved rule changes/i)
+    ).toBeTruthy();
+  });
+
+  it('protects a draft when opening another rule’s template setup', async () => {
+    mockFetch();
+    render(<RenewalRemindersSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    fireEvent.click(screen.getByRole('button', { name: '14 days' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Collections' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    expect(screen.getByTestId('rule-detail-joining_installments')).toBeTruthy();
+    expect(
+      screen.queryByRole('link', { name: /Open gym_installment_reminder/ })
+    ).toBeNull();
+    expect(
+      screen.getByText(/Save or cancel unsaved rule changes/)
+    ).toBeTruthy();
+  });
+
+  it('shows joining installments as managed rather than an independent toggle', async () => {
+    mockFetch();
+    render(<RenewalRemindersSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Collections' }));
+    expect(await screen.findByText('Managed')).toBeTruthy();
+    expect(
+      screen.queryByRole('switch', { name: 'Joining installments automation' })
+    ).toBeNull();
+  });
+
+  it('opens a linked rule in its group and lets Close dismiss that link', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/settings?tab=reminders&rule=joining_installments'
+    );
+    mockFetch();
+    render(<RenewalRemindersSettings />);
+    expect(
+      await screen.findByTestId('rule-detail-joining_installments')
+    ).toBeTruthy();
+    expect(
+      screen
+        .getByRole('button', { name: 'Collections' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(screen.getByText('Managed schedule')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(screen.queryByTestId('rule-detail-joining_installments')).toBeNull();
   });
 });

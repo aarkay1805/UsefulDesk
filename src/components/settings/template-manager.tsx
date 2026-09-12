@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   Plus,
@@ -66,6 +67,12 @@ import {
   TEMPLATE_PRESETS,
   type TemplatePreset,
 } from '@/lib/whatsapp/template-presets';
+import {
+  getTemplateContractById,
+  type TemplateContractId,
+} from '@/lib/whatsapp/template-contracts';
+import { REMINDER_RULES } from '@/lib/reminders/rules';
+import { browserBranchId } from '@/lib/auth/branch-context';
 import { getErrorMessage } from '@/lib/errors';
 import { invalidateApprovedMessageTemplates } from '@/components/inbox/use-approved-message-templates';
 
@@ -365,12 +372,46 @@ function emptyButton(type: TemplateButton['type']): TemplateButton {
 
 export function TemplateManager() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { accountId, canEditSettings, loading: authLoading } = useAuth();
+  const focusedContractId = searchParams.get('contract');
+  const focusedContract = focusedContractId
+    ? getTemplateContractById(focusedContractId as TemplateContractId)
+    : null;
+  const focusedRule = REMINDER_RULES.find(
+    (rule) => rule.id === searchParams.get('rule')
+  );
+  const safeReturnTo =
+    focusedRule &&
+    focusedContract &&
+    (focusedRule.templateContracts as readonly TemplateContractId[]).includes(
+      focusedContract.id
+    )
+      ? (() => {
+          const params = new URLSearchParams({
+            tab: 'reminders',
+            rule: focusedRule.id,
+          });
+          const branchId = browserBranchId();
+          if (branchId) params.set('branch', branchId);
+          return `/settings?${params.toString()}`;
+        })()
+      : null;
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const focusedPreset = focusedContract
+    ? (TEMPLATE_PRESETS.find((preset) => preset.id === focusedContract.id) ??
+      null)
+    : null;
+  const focusedTemplate = focusedContract
+    ? (templates.find(
+        (template) => template.name === focusedContract.payload.name
+      ) ?? null)
+    : null;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -813,6 +854,53 @@ export function TemplateManager() {
           </div>
         }
       />
+
+      {focusedContract ? (
+        <Alert>
+          <AlertTitle>{focusedContract.title}</AlertTitle>
+          <AlertDescription>
+            <p>
+              This automated message needs the exact{' '}
+              <span className="font-medium">
+                {focusedContract.payload.name}
+              </span>{' '}
+              contract. Use its feature preset or sync its approved provider
+              template here.
+            </p>
+            {safeReturnTo ? (
+              <Button
+                variant="link"
+                size="sm"
+                className="px-0"
+                onClick={() => router.replace(safeReturnTo)}
+              >
+                Return to automated messages
+              </Button>
+            ) : null}
+            {focusedPreset ? (
+              <GatedButton
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                canAct={canEditSettings}
+                gateReason={
+                  focusedTemplate
+                    ? 'edit this message template'
+                    : 'create this message template'
+                }
+                onClick={() => {
+                  if (focusedTemplate) openEdit(focusedTemplate);
+                  else applyPreset(focusedPreset);
+                }}
+              >
+                {focusedTemplate
+                  ? `Open ${focusedContract.payload.name}`
+                  : `Use ${focusedContract.title} preset`}
+              </GatedButton>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {!canEditSettings ? (
         <Alert>

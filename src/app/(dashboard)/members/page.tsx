@@ -179,13 +179,15 @@ export default function MembersPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const requestedMember = params.get('member');
-    if (!isUuid(requestedMember)) return;
+    const requestedContact = params.get('contact');
+    if (!isUuid(requestedMember) && !isUuid(requestedContact)) return;
 
     let cancelled = false;
     void (async () => {
       await Promise.resolve();
       if (!cancelled) {
-        setDetailId(requestedMember);
+        setDetailId(isUuid(requestedMember) ? requestedMember : null);
+        setDetailContactId(isUuid(requestedMember) ? null : requestedContact);
         setDetailOpen(true);
       }
     })();
@@ -332,8 +334,12 @@ export default function MembersPage() {
     setDetailOpen(open);
     if (!open) {
       const url = new URL(window.location.href);
-      if (url.searchParams.get('member') === detailId) {
+      if (
+        url.searchParams.get('member') === detailId ||
+        url.searchParams.get('contact') === detailContactId
+      ) {
         url.searchParams.delete('member');
+        url.searchParams.delete('contact');
         window.history.replaceState(null, '', url);
       }
       setDetailContactId(null);

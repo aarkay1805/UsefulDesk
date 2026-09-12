@@ -1,20 +1,32 @@
 # Roadmap
 
-## Proposed — automated messaging usability (2026-09-11)
+## Shipped in code — Automated messages catalogue and activity (2026-09-12)
 
-Benchmark before expanding the provisional reminder Settings UI. Recommended
-scope: a predefined Automated messages catalogue grouped by purpose, contextual
-readiness linked to the existing Templates destination, and actionable activity
-covering every current rule type. Activation gating and per-rule save behavior
-remain product decisions; no new implementation is authorized by this entry.
-See [benchmark and proposed scope](automated-messages-benchmark.md).
+Settings → **Automated messages** preserves `?tab=reminders` and existing
+settings permissions. Rules groups the 14 existing behaviors into Renewals,
+Collections, Retention, and Confirmations. Per-rule configuration saves while
+off; activation requires the connected branch and every exact approved/synced
+template. Existing On intent survives lost readiness. Template setup remains in
+Templates, with exact-contract focus and a return to the originating rule;
+unsaved edits must be saved or cancelled before leaving for setup. Previews
+use sample values and send nothing.
 
-## Shipped in code — reminder settings organization (2026-09-11)
+Activity reads the lifecycle queue and all three legacy reminder ledgers with
+branch-scoped member identity, rule/outcome/local-date filters, bounded keyset
+pages, and relevant member/invoice/conversation links. It separates accepted
+from confirmed delivery/read, pauses, waiting, blockers, failures, and unknown
+legacy outcomes. The three current schedule diagnostics are explicitly scoped;
+empty history is not proof of no eligible work. Historical failed legacy
+claims that were deleted cannot be reconstructed.
 
-Provisional implementation, pending the benchmark decision above.
-Settings → **Reminders & messages** groups controls into Renewals, Payments,
-and Retention, with separate Template setup and Activity views. Existing links
-and schedule behavior are preserved; edits persist across groups until saved.
+The activation guard and security-invoker activity-view migrations are applied
+and read back. A rollback-only guard check rejects unready activation while
+preserving configuration. Existing membership/service settings remain on;
+all newer lifecycle schedules remain off. Application deployment and live
+provider delivery remain separate, unperformed steps. Owner usability and
+outcome measurement remain future work in the
+[approved benchmark](automated-messages-benchmark.md). Operator and validation
+notes: [Automated messages runbook](../docs/automated-messages.md).
 
 ## Shipped in code — renewal and collection reminder lifecycle (2026-09-10)
 

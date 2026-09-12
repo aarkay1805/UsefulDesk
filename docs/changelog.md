@@ -6,6 +6,22 @@
 
 ---
 
+## 2026-09-12 — Automated messages has scoped rules and actionable history
+
+`renewal-reminders-settings.tsx` now exposes Rules/Activity and four purpose
+groups; `src/lib/reminders/rules.ts` owns the 14-rule catalogue and narrow
+settings patches. `/api/reminders/settings` allows off-state configuration and
+gates new activation; the applied `20260912103000` trigger closes direct-write
+bypasses without changing existing On preferences. Templates focuses the exact
+contract and returns to its rule; draft edits require Save/Cancel before setup.
+`/api/reminders/activity` queries the applied `20260912104000` security-invoker
+view across lifecycle and legacy ledgers using selected-branch authorization,
+local-date filters, and bounded timestamp/ID pagination. Provider acceptance
+is distinct from delivery/read; missing legacy outcomes stay unconfirmed.
+Member/contact and exact invoice links open existing detail surfaces. No new
+message type, schedule activation, provider operation, or deployment occurred.
+See `docs/automated-messages.md` for verification and historical-data limits.
+
 ## 2026-09-11 — Reminders settings grouped by purpose
 
 Settings now uses **Reminders & messages** at the existing `?tab=reminders`

@@ -1,11 +1,25 @@
-# Reminders & messages — operator runbook
+# Automated messages — operator runbook
 
-Settings → **Reminders & messages** separates **Messages**, **Template setup**,
-and **Activity**. Messages groups switches and schedules into **Renewals**,
-**Payments**, and **Retention**; On/Off reflects configuration, not template
-approval. Template setup reports the exact WhatsApp prerequisites and links to
-Templates for management. Activity contains scheduled diagnostics and recent
-lifecycle outcomes. Save settings applies draft edits across all message groups.
+Settings → **Automated messages** retains the `?tab=reminders` URL and existing
+admin/owner settings permission. **Rules** groups the existing behaviours into
+**Renewals**, **Collections**, **Retention**, and **Confirmations**. **Activity**
+is the read-only operational record. **Templates** remains the single place to
+create, submit, and synchronize templates; each rule links to its exact contract.
+
+Rule summaries distinguish the saved **On/Off** preference from current
+readiness. Configure a rule while it is off, inspect its sample message, and
+save only that rule's changes. A preview sends nothing. A new activation requires
+connected WhatsApp and the relevant exact Approved/synced templates. A failed
+activation leaves the rule off; later approval cannot silently activate it.
+An already-enabled rule that loses readiness retains **On + Blocked** until
+setup is restored or the operator turns it off.
+
+Joining installments are **managed by checkout**, with their fixed 7/3/1/0-day
+schedule. They do not have an independent account switch. Overdue-installment
+collection follows the invoice-collection opt-in. The lifecycle send window is
+shared by collection, post-expiry, and retention rules. Transaction confirmations
+and AutoPay updates run from their recorded events without this window;
+membership, service, and pre-due installment workers retain their after-09:00 gate.
 
 UsefulDesk has two renewal reminder contracts. Both promote a future purchase,
 so both are Meta **Marketing** templates. Their audit category is
@@ -83,7 +97,7 @@ Meta returning a `wamid` means the request was accepted, not delivered.
 Delivery-status webhooks remain authoritative for sent, delivered, read, and
 failed outcomes.
 
-Settings → Reminders & messages → Activity now also shows a read-only **Scheduled reminder
+Settings → Automated messages → Activity also shows a read-only **Scheduled reminder
 readiness** result for membership, service, and joining-installment workers. It
 contains only aggregate eligibility counts and setup reasons: **Off**,
 **Blocked**, **Waiting**, **Nothing due**, or **Eligible now**. It never claims a reminder,
@@ -104,7 +118,7 @@ redundant GitHub workflow calls it at :47. For each enabled account the route:
    later run can retry.
 
 Membership and service schedules are independently configurable in Settings →
-Renewal reminders. Service candidates also require an active catalogue option
+Automated messages. Service candidates also require an active catalogue option
 and current fixed or trainer-specific rate. A reminder never renews a service
 or changes its dates.
 
@@ -257,7 +271,7 @@ mutation, or cleanup is authorized by this runbook alone.
    parameters, body, footer, and buttons, then submit it for Meta review.
 3. After Meta review, select **Sync from Meta**. The reminder remains blocked
    until the exact row is Approved and the sync reports no component change.
-4. Open Reminders & messages → Template setup and confirm the feature reads Ready. A provider
+4. Return to Automated messages → Rules and confirm the feature reads Ready. A provider
    request being accepted is still not delivery evidence; wait for the delivery
    webhook after separately authorized testing.
 

@@ -74,8 +74,10 @@ and activate two jobs:
 The redundant GitHub renewal workflow runs at :47 (not :30). Both reminder
 workers report provider **accepted** separately from delivery; the `wamid` and
 delivery-status webhook remain the evidence for later outcomes. Operators can
-inspect aggregate prerequisite and eligibility states in Settings → Renewal
-reminders without running a cron endpoint.
+inspect recorded outcomes in Settings → Automated messages → Activity without
+running a cron endpoint. Its separate current-schedule diagnostic covers only
+membership, service, and joining-installment eligibility; an empty activity
+page is not proof that no members are eligible.
 
 The database generates a 256-bit secret internally, stores it only in Vault,
 and retains only its SHA-256 digest in a private RLS-on/no-policy table. The

@@ -156,37 +156,15 @@ import {
 } from '@/components/finance/invoice-detail-dialog';
 import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-payment-dialog';
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
-import { financeInvoiceReference } from '@/lib/finance/invoices';
+import { invoiceDetailFromBalance } from '@/lib/finance/invoice-detail';
 import { buildMemberPurchaseHref } from '@/lib/members/member-purchase-navigation';
 import { ServiceCustomerDetailView } from './service-customer-detail-view';
 import { MembershipActionsMenu } from './membership-actions-menu';
 
 type MemberInvoiceBalance = Invoice;
 
-export function memberInvoiceDetail(
-  invoice: MemberInvoiceBalance
-): InvoiceDetail {
-  return {
-    id: invoice.id,
-    reference: financeInvoiceReference(invoice),
-    invoice_number: invoice.invoice_number,
-    seller_snapshot: invoice.seller_snapshot,
-    customer_snapshot: invoice.customer_snapshot,
-    source: invoice.source,
-    created_at: invoice.issued_at,
-    fee_amount: Number(invoice.total),
-    amount_paid: Number(invoice.amount_paid),
-    credit_applied: Number(invoice.credit_applied),
-    balance: Number(invoice.balance),
-    gross_amount_paid: Number(invoice.gross_amount_paid),
-    processed_refund_amount: Number(invoice.processed_refund_amount),
-    invoice_adjustment_amount: Number(invoice.invoice_adjustment_amount),
-    accounting_balance: Number(invoice.accounting_balance),
-    collectible_balance: Number(invoice.collectible_balance),
-    requires_refund_review: Boolean(invoice.requires_refund_review),
-    state: invoice.state,
-  };
-}
+const memberInvoiceDetail = invoiceDetailFromBalance;
+export { memberInvoiceDetail };
 
 /**
  * Jump-nav anchors, in scroll order. Ids double as `#sec-<id>`.

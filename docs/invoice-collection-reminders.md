@@ -31,18 +31,20 @@ resolve the allocation first.
 
 ## Setup
 
-1. In **Settings → Renewal reminders**, create and sync the exact Utility
+1. In **Settings → Templates**, create and sync the exact Utility
    contracts `gym_invoice_due` and `gym_invoice_overdue`.
-2. Keep **Invoice collection** off until the templates, WhatsApp connection,
-   and staff policy are ready. The toggle stamps the activation boundary; it
-   does not send or create a backlog.
+2. In **Automated messages → Collections**, configure **Invoice collection**
+   while it is off. Turning it on requires the templates and WhatsApp
+   connection to be ready; the database also rejects an unready new activation.
+   The toggle stamps the activation boundary and does not create a backlog.
 3. Choose the due/overdue milestones and inclusive account-local send window
    (default 09:00–19:00), then save. For generic invoices, the issued date is
    the effective due date, so pre-due milestones cannot run without a real
    due-date field; the on-due and overdue choices are the applicable ones.
-4. Inspect **Recent invoice reminder activity**. It records blocked and
-   provider-accepted outcomes without customer message content. Accepted is
-   not delivered/read evidence; delivery webhooks remain authoritative.
+4. Inspect **Automated messages → Activity**, filtered to Invoice collection
+   or Joining installments. Pauses, setup blockers, failed attempts, and
+   provider acceptance are distinct. Accepted is not delivered/read evidence;
+   the matching message's webhook status remains authoritative.
 
 The durable table is `lifecycle_reminder_jobs`. Its business key contains the
 kind, invoice, subject/cycle, activation generation, and milestone—not the

@@ -33,7 +33,7 @@ components, and parameter order rather than approval by name alone.
 
 If the template is missing or not approved, joining/conversion and payment collection still work; the cron skips the message and reports the setup issue in its response notes.
 
-The diagnostic in Settings → Renewal reminders reports the same prerequisite as
+The diagnostic in Settings → Automated messages → Activity reports the same prerequisite as
 **Blocked** with the exact recovery message, while **Nothing due** means there
 is no eligible installment today. It does not execute the worker. A candidate
 must still have a phone and an open positive invoice balance that is not under

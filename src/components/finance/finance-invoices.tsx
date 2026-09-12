@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   CircleCheck,
@@ -22,6 +23,7 @@ import { FinanceInvoiceStatusBadge } from '@/components/members/membership-statu
 import {
   InvoiceDetailDialog,
   InvoiceRecordPaymentAction,
+  type InvoiceDetail,
 } from '@/components/finance/invoice-detail-dialog';
 import { RecordInvoicePaymentDialog } from '@/components/finance/record-invoice-payment-dialog';
 import { VoidInvoicePaymentDialog } from '@/components/finance/void-invoice-payment-dialog';
@@ -61,7 +63,8 @@ import {
 } from '@/lib/finance/invoices';
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import { createClient } from '@/lib/supabase/client';
-import type { Payment } from '@/types';
+import type { Invoice, Payment } from '@/types';
+import { invoiceDetailFromBalance } from '@/lib/finance/invoice-detail';
 
 const SORT_COLUMNS: {
   key: FinanceInvoiceSortKey;
@@ -127,7 +130,8 @@ export function FinanceInvoices({
   month: string;
   onMonthChange: (month: string) => void;
 }) {
-  const { accountRole } = useAuth();
+  const { accountId, accountRole } = useAuth();
+  const searchParams = useSearchParams();
   const { fmt, locale } = useLocale();
   const mayRecordPayments = accountRole
     ? canRecordPayments(accountRole)
@@ -153,8 +157,10 @@ export function FinanceInvoices({
   const [page, setPage] = useState(1);
   const [selectedInvoice, setSelectedInvoice] =
     useState<FinanceInvoiceRow | null>(null);
+  const [deepLinkedInvoice, setDeepLinkedInvoice] =
+    useState<InvoiceDetail | null>(null);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [paymentTarget, setPaymentTarget] = useState<FinanceInvoiceRow | null>(
+  const [paymentTarget, setPaymentTarget] = useState<InvoiceDetail | null>(
     null
   );
   const [paymentToVoid, setPaymentToVoid] = useState<Payment | null>(null);
@@ -163,6 +169,49 @@ export function FinanceInvoices({
   >(null);
   const [exporting, setExporting] = useState(false);
   const today = fmt.today();
+
+  useEffect(() => {
+    const invoiceId = searchParams.get('invoice');
+    if (
+      !accountId ||
+      !invoiceId ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        invoiceId
+      )
+    )
+      return;
+    let cancelled = false;
+    void (async () => {
+      setDeepLinkedInvoice(null);
+      setSelectedInvoice(null);
+      setInvoiceOpen(false);
+      try {
+        const { data, error } = await createClient()
+          .from('invoice_balances')
+          .select('*')
+          .eq('id', invoiceId)
+          .eq('account_id', accountId)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error) {
+          toast.error(getErrorMessage(error, 'Invoice could not be loaded'));
+          return;
+        }
+        if (!data) {
+          toast.error('This invoice is unavailable in the selected branch.');
+          return;
+        }
+        setDeepLinkedInvoice(invoiceDetailFromBalance(data as Invoice));
+        setInvoiceOpen(true);
+      } catch (cause) {
+        if (!cancelled)
+          toast.error(getErrorMessage(cause, 'Invoice could not be loaded'));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, searchParams]);
 
   const querySignature = JSON.stringify({
     search: debouncedSearch,
@@ -756,20 +805,34 @@ export function FinanceInvoices({
         open={invoiceOpen}
         onOpenChange={(nextOpen) => {
           setInvoiceOpen(nextOpen);
-          if (!nextOpen) setRefundReviewFocusInvoiceId(null);
+          if (!nextOpen) {
+            setRefundReviewFocusInvoiceId(null);
+            setDeepLinkedInvoice(null);
+            const url = new URL(window.location.href);
+            if (url.searchParams.has('invoice')) {
+              url.searchParams.delete('invoice');
+              window.history.replaceState(null, '', url);
+            }
+          }
         }}
-        invoice={selectedInvoice}
+        invoice={deepLinkedInvoice ?? selectedInvoice}
         canRecord={mayRecordPayments}
         canVoid={mayCorrectPayments}
         onVoidPayment={setPaymentToVoid}
-        focusRefundReview={selectedInvoice?.id === refundReviewFocusInvoiceId}
+        focusRefundReview={
+          (deepLinkedInvoice ?? selectedInvoice)?.id ===
+          refundReviewFocusInvoiceId
+        }
         onRefundReviewFocusConsumed={() =>
           setRefundReviewFocusInvoiceId((current) =>
-            current === selectedInvoice?.id ? null : current
+            current === (deepLinkedInvoice ?? selectedInvoice)?.id
+              ? null
+              : current
           )
         }
         onRecord={() => {
-          if (selectedInvoice) recordInvoice(selectedInvoice);
+          const invoice = deepLinkedInvoice ?? selectedInvoice;
+          if (invoice) setPaymentTarget(invoice);
         }}
       />
 

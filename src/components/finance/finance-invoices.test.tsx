@@ -15,6 +15,8 @@ import type { FinanceInvoiceRow } from '@/lib/finance/invoices';
 
 const testState = vi.hoisted(() => ({
   accountRole: 'admin' as 'admin' | 'viewer',
+  searchParams: new URLSearchParams(),
+  invoiceQuery: vi.fn(),
   loadFinanceInvoices: vi.fn(),
   detailPromise: Promise.resolve() as Promise<void>,
   resolveDetail: (() => undefined) as () => void,
@@ -40,6 +42,7 @@ vi.mock('sonner', () => ({
 vi.mock('next/navigation', () => ({
   usePathname: () => '/finance',
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => testState.searchParams,
 }));
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
@@ -86,7 +89,11 @@ vi.mock('@/lib/supabase/client', () => ({
       const resolved = () => testState.detailPromise.then(() => result);
       const builder = {
         select: () => builder,
-        eq: () => builder,
+        eq: (...args: unknown[]) => {
+          testState.invoiceQuery(table, ...args);
+          return builder;
+        },
+        maybeSingle: resolved,
         order: resolved,
         single: resolved,
       };
@@ -276,6 +283,8 @@ function desktopRow(): HTMLElement {
 
 beforeEach(() => {
   testState.accountRole = 'admin';
+  testState.searchParams = new URLSearchParams();
+  testState.invoiceQuery.mockReset();
   testState.loadFinanceInvoices.mockReset().mockResolvedValue(invoicePage);
   resetDetailGate();
   scrollIntoView.mockReset();
@@ -494,5 +503,36 @@ describe('FinanceInvoices server ledger coordination', () => {
       await first;
     });
     expect(screen.queryByText('INV-1')).toBeNull();
+  });
+});
+
+describe('FinanceInvoices exact activity link', () => {
+  it('opens the exact invoice under the selected account even outside the visible list', async () => {
+    const invoiceId = '123e4567-e89b-42d3-a456-426614174000';
+    testState.searchParams = new URLSearchParams({ invoice: invoiceId });
+    renderInvoices();
+    await finishDetailLoad();
+    expect(await screen.findByRole('dialog')).toBeTruthy();
+    expect(testState.invoiceQuery).toHaveBeenCalledWith(
+      'invoice_balances',
+      'id',
+      invoiceId
+    );
+    expect(testState.invoiceQuery).toHaveBeenCalledWith(
+      'invoice_balances',
+      'account_id',
+      'account-1'
+    );
+    expect(await screen.findByText('Invoice INV-1')).toBeTruthy();
+  });
+
+  it('does not query a malformed invoice link', async () => {
+    testState.searchParams = new URLSearchParams({
+      invoice: 'other.or(account_id.eq.any)',
+    });
+    renderInvoices();
+    await screen.findByRole('button', { name: 'Record payment' });
+    expect(testState.invoiceQuery).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });

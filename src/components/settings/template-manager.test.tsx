@@ -8,6 +8,11 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
     accountId: 'account-1',
@@ -36,9 +41,32 @@ vi.mock('@/lib/storage/upload-media', () => ({
 
 const { TemplateManager } = await import('./template-manager');
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState({}, '', '/settings?tab=templates');
+});
 
 describe('TemplateManager gym preset library', () => {
+  it('opens the exact locked feature preset from an automated-message focus', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/settings?tab=templates&rule=membership_renewal&contract=membership_renewal'
+    );
+    const user = userEvent.setup();
+    render(<TemplateManager />);
+    await user.click(
+      await screen.findByRole('button', {
+        name: 'Use Membership renewal preset',
+      })
+    );
+    expect(screen.getByLabelText('Template name')).toHaveProperty(
+      'disabled',
+      true
+    );
+    expect(screen.getByText(/feature contract is locked/i)).toBeTruthy();
+  });
+
   it('groups all twenty-three contracts and explains operational requirements', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);

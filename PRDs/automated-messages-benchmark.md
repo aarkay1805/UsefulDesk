@@ -1,6 +1,11 @@
-# Automated messaging benchmark and proposed scope
+# Automated messaging benchmark and approved scope
 
-Researched 11 September 2026. Status: recommendation for product decision, not an approved implementation plan. The prior Settings UI reorganization is provisional.
+Researched 11 September 2026. Implementation approved 12 September 2026:
+predefined rule catalogue, configuration separate from activation, contextual
+template setup, and actionable activity across existing reminder types. The
+prior Settings organization is superseded by this direction. Provider sends,
+template submissions, production schedule activation, and deployment remain
+outside this implementation approval.
 
 ## Decision
 
@@ -65,7 +70,7 @@ No eligible members is a healthy empty state, not a setup failure. Provider acce
 
 - Preserve the existing URL and permissions; rename the navigation label.
 - Implement the four groups, concise summaries, shared detail treatment, and contextual setup links.
-- Allow configuration while off. Proposed activation behavior: explain and resolve missing prerequisites before a new enablement; saving a draft must not silently arm a send that starts later when a template is approved. This changes the current preference-saving behavior and needs an explicit product decision before implementation.
+- Allow configuration while off. Approved activation behavior: explain and resolve missing prerequisites before a new enablement; saving a draft must not silently arm a send that starts later when a template is approved. Preserve the saved On preference when an already-enabled rule later loses readiness.
 - For already-enabled rules that later lose readiness, retain the saved preference and show On + Blocked. Do not silently turn them off.
 - Add a message preview using sample values that sends nothing. Keep actual test sends a separately labeled action if built later.
 - Save and Cancel should have a clear scope. Prefer saving the selected rule's settings; implement safe partial writes or merge semantics so editing one rule cannot overwrite unrelated settings.
@@ -85,7 +90,9 @@ Evaluate additional message types against unmet owner tasks and existing roadmap
 
 ## Acceptance and validation
 
-These are proposed acceptance criteria, not measured results:
+These are acceptance criteria, not measured usability results. Implementation
+checks establish functional behavior; the moderated owner study and outcome
+measurements below remain future validation:
 
 - In a short moderated check with five owner/front-desk users, at least four can find the renewal rule, explain its timing, identify why it cannot send, and locate the fix within 30 seconds each without prompting.
 - Users can distinguish a payment receipt from a collection reminder, and a customer message from a staff follow-up.
