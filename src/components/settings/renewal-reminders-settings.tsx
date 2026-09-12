@@ -35,7 +35,11 @@ import {
   type ReminderRuleId,
   type ReminderRulePatch,
 } from '@/lib/reminders/rules';
-import { getTemplateContractById } from '@/lib/whatsapp/template-contracts';
+import {
+  getTemplateContractById,
+  type TemplateContractId,
+} from '@/lib/whatsapp/template-contracts';
+import { TemplateManager } from './template-manager';
 import { useLocale } from '@/hooks/use-locale';
 import { SettingsPanelHead } from './settings-panel-head';
 
@@ -244,13 +248,6 @@ function setupHref(rule: RuleRow) {
       : '/settings?tab=whatsapp';
   }
   return ruleHref(rule);
-}
-
-function templateName(rule: RuleRow) {
-  const contract = rule.templateContracts[0]
-    ? getTemplateContractById(rule.templateContracts[0])
-    : null;
-  return contract?.payload.name ?? 'message template';
 }
 
 function previewValue(label: string, fmt: ReturnType<typeof useLocale>['fmt']) {
@@ -575,6 +572,7 @@ function RuleRow({
   expanded,
   children,
   onOpen,
+  onSetupTemplate,
   onSave,
 }: {
   rule: RuleRow;
@@ -583,6 +581,7 @@ function RuleRow({
   expanded: boolean;
   children: ReactNode;
   onOpen: () => void;
+  onSetupTemplate: (contractId: TemplateContractId) => void;
   onSave: (id: ReminderRuleId, patch: ReminderRulePatch) => Promise<void>;
 }) {
   const [saving, setSaving] = useState(false);
@@ -599,18 +598,26 @@ function RuleRow({
           description:
             rule.readiness.message ??
             'Connect WhatsApp and approve the exact template before it can send.',
-          ...(hasDraft
-            ? {
-                description:
-                  'Save or cancel this rule’s changes before resolving setup.',
-              }
+          ...(rule.readiness.code === 'whatsapp_not_connected'
+            ? hasDraft
+              ? {
+                  description:
+                    'Save or cancel unsaved rule changes before opening WhatsApp settings.',
+                }
+              : {
+                  resolution: {
+                    label: 'Open WhatsApp settings',
+                    href: setupHref(rule),
+                  },
+                }
             : {
                 resolution: {
-                  label:
-                    rule.readiness.code === 'whatsapp_not_connected'
-                      ? 'Open WhatsApp settings'
-                      : `Open ${templateName(rule)}`,
-                  href: setupHref(rule),
+                  label: 'Set up required template',
+                  onResolve: () =>
+                    onSetupTemplate(
+                      rule.readiness.templateContractId ??
+                        rule.templateContracts[0]
+                    ),
                 },
               }),
         }
@@ -704,6 +711,10 @@ export function RenewalRemindersSettings() {
   const branchParam = searchParams.get('branch');
   const draftScope = `${accountId ?? 'anonymous'}:${branchParam ?? 'primary'}`;
   const [view, setView] = useState('rules');
+  const [templateSetup, setTemplateSetup] = useState<{
+    contractId: TemplateContractId;
+    scope: string;
+  } | null>(null);
   const [group, setGroup] = useState<keyof typeof GROUP_COPY>('renewals');
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [selectedId, setSelectedId] = useState<ReminderRuleId | null>(null);
@@ -908,6 +919,12 @@ export function RenewalRemindersSettings() {
                       setDismissedLinkedRule(null);
                     }
                   }}
+                  onSetupTemplate={(contractId) => {
+                    setSelectedId(rule.id);
+                    setGroup(rule.group);
+                    setDismissedLinkedRule(null);
+                    setTemplateSetup({ contractId, scope: draftScope });
+                  }}
                   onSave={save}
                 >
                   <RuleDetail
@@ -947,6 +964,16 @@ export function RenewalRemindersSettings() {
           />
         </TabsContent>
       </section>
+      {templateSetup?.scope === draftScope ? (
+        <TemplateManager
+          key={`${draftScope}:${templateSetup.contractId}`}
+          setupContractId={templateSetup.contractId}
+          onSetupClose={(submitted) => {
+            setTemplateSetup(null);
+            if (submitted) setReloadNonce((value) => value + 1);
+          }}
+        />
+      ) : null}
     </Tabs>
   );
 }

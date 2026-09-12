@@ -2,7 +2,12 @@
 
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const setupState = vi.hoisted(() => ({
+  rows: [] as unknown[],
+  error: null as { message: string } | null,
+}));
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -27,7 +32,7 @@ vi.mock('@/lib/supabase/client', () => ({
       const query = {
         select: () => query,
         eq: () => query,
-        order: async () => ({ data: [], error: null }),
+        order: async () => ({ data: setupState.rows, error: setupState.error }),
       };
       return query;
     },
@@ -41,12 +46,131 @@ vi.mock('@/lib/storage/upload-media', () => ({
 
 const { TemplateManager } = await import('./template-manager');
 
+beforeEach(() => {
+  setupState.rows = [];
+  setupState.error = null;
+  vi.stubGlobal('fetch', vi.fn());
+});
+
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   window.history.replaceState({}, '', '/settings?tab=templates');
 });
 
 describe('TemplateManager gym preset library', () => {
+  it('opens the required new-template modal directly without a gallery or provider call', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/settings?tab=reminders&rule=membership_renewal'
+    );
+    const close = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <TemplateManager
+        setupContractId="membership_renewal"
+        onSetupClose={close}
+      />
+    );
+    const name = await screen.findByLabelText('Template name');
+    expect(name).toHaveProperty('value', 'gym_membership_renewal');
+    expect(name).toHaveProperty('disabled', true);
+    expect(screen.getByRole('heading', { name: 'New template' })).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'Message templates' })
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Use preset' })).toBeNull();
+    expect(screen.getByLabelText('Language')).toHaveProperty('value', 'en_US');
+    expect(window.location.search).toBe(
+      '?tab=reminders&rule=membership_renewal'
+    );
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(close).toHaveBeenCalledWith(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('opens an existing required template instead of creating a duplicate', async () => {
+    setupState.rows = [
+      {
+        id: 'existing-template',
+        status: 'APPROVED',
+        name: 'gym_membership_renewal',
+        language: 'en_US',
+        category: 'Marketing',
+        body_text: 'Existing template content',
+        sample_values: {},
+        buttons: [],
+      },
+    ];
+    render(
+      <TemplateManager
+        setupContractId="membership_renewal"
+        onSetupClose={vi.fn()}
+      />
+    );
+    expect(
+      await screen.findByRole('heading', { name: 'Edit template' })
+    ).toBeTruthy();
+    expect(screen.getByLabelText('Body text')).toHaveProperty(
+      'value',
+      'Existing template content'
+    );
+    expect(
+      screen.getByRole('button', { name: 'Save and resubmit' })
+    ).toBeTruthy();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('shows a pending template in place without offering another submission', async () => {
+    setupState.rows = [
+      {
+        id: 'pending-template',
+        body_text: 'Pending template content',
+        category: 'Marketing',
+        name: 'gym_membership_renewal',
+        language: 'en_US',
+        status: 'PENDING',
+      },
+    ];
+    render(
+      <TemplateManager
+        setupContractId="membership_renewal"
+        onSetupClose={vi.fn()}
+      />
+    );
+    expect(
+      await screen.findByText(/has already been submitted to Meta/)
+    ).toBeTruthy();
+    expect(screen.queryByLabelText('Template name')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Save and resubmit' })
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Submit for approval' })
+    ).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('does not offer a duplicate creation form when the template lookup fails', async () => {
+    setupState.error = { message: 'Template lookup failed' };
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(
+      <TemplateManager
+        setupContractId="membership_renewal"
+        onSetupClose={vi.fn()}
+      />
+    );
+    expect(await screen.findByText('Template lookup failed')).toBeTruthy();
+    expect(screen.queryByLabelText('Template name')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Submit for approval' })
+    ).toBeNull();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(fetch).not.toHaveBeenCalled();
+    errorLog.mockRestore();
+  });
+
   it('opens the exact locked feature preset from an automated-message focus', async () => {
     window.history.replaceState(
       {},

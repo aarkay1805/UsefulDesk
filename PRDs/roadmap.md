@@ -7,8 +7,11 @@ settings permissions. Rules groups the 14 existing behaviors into Renewals,
 Collections, Retention, and Confirmations. Per-rule configuration saves while
 off; activation requires the connected branch and every exact approved/synced
 template. Existing On intent survives lost readiness. Template setup remains in
-Templates, with exact-contract focus and a return to the originating rule;
-unsaved edits must be saved or cancelled before leaving for setup. Previews
+Templates, with exact-contract focus and a return to the originating rule.
+The blocked-toggle setup CTA opens the required template editor directly over
+the rule, preserving drafts; an existing matching template opens for editing
+or displays its pending approval status without offering another submission.
+Other links that leave the rule page still require saving or cancelling drafts. Previews
 use sample values and send nothing. Configure expands the selected rule inside
 its own catalogue row; one row is open at a time and drafts survive collapse.
 

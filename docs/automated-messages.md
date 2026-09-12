@@ -13,11 +13,14 @@ rules under Renewals, Collections, Retention, and Confirmations.
    be saved while Off and never activates a schedule. **Cancel** restores the
    saved values. Unsaved changes survive group/detail navigation within this
    page and are isolated by account/branch; they are not persisted across reloads.
-3. Save or cancel a draft before opening Templates or the shared send-window
-   configuration. The exact-template link carries the originating rule and
-   branch. Templates offers that locked preset or its existing local template,
-   then **Return to automated messages** reopens the rule. Opening a preset
-   only creates an editor draft; submitting to Meta is a separate action.
+3. When a blocked toggle offers **Set up required template**, it opens the
+   required prefilled template modal over the rule. The branch’s existing
+   template opens for editing if eligible; pending templates show their approval
+   status without another submission action. Cancel/close returns to
+   the same expanded rule with unsaved edits intact. Submitting remains an
+   explicit action and refreshes readiness without turning the rule on.
+   Separate links that navigate to Templates still require saving or cancelling
+   drafts; those links focus the exact contract and retain a return path.
 4. Turn a rule On only after its branch WhatsApp connection and all required
    exact Approved/synced POSITIONAL contracts are ready. The API and database
    both reject a new enablement that lacks prerequisites. Already-On rules

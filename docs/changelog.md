@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-09-12 — Required template setup opens directly from a rule
+
+The blocked-toggle CTA in `renewal-reminders-settings.tsx` opens the existing
+`TemplateManager` editor as an inline modal, prefilled with the exact required
+preset. A branch-scoped lookup opens an existing matching template instead of
+creating a duplicate; pending templates show status without resubmission and
+lookup failures offer retry. Closing returns to the
+expanded rule with drafts intact, and submission refreshes readiness without
+enabling the rule. The gallery still uses the same editor.
+
 ## 2026-09-12 — Reminder configuration expands inside its row
 
 `renewal-reminders-settings.tsx` uses the shared `Collapse` to reveal a rule’s

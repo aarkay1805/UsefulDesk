@@ -370,12 +370,51 @@ function emptyButton(type: TemplateButton['type']): TemplateButton {
   }
 }
 
-export function TemplateManager() {
+function formFromPreset(preset: TemplatePreset): TemplateFormData {
+  const f = preset.fields;
+  return {
+    ...emptyForm,
+    name: preset.wired ? f.name : '',
+    category: f.category,
+    language: 'en_US',
+    header_format: f.header_format,
+    header_content: f.header_content ?? '',
+    header_sample: f.header_sample ?? '',
+    body_text: f.body_text,
+    body_samples: [...f.body_samples],
+    footer_text: f.footer_text ?? '',
+    buttons: f.buttons ? [...f.buttons] : [],
+  };
+}
+
+function formFromTemplate(template: MessageTemplate): TemplateFormData {
+  return {
+    name: template.name,
+    category: template.category,
+    language: template.language || 'en_US',
+    header_format: (template.header_type ?? 'none') as HeaderFormat,
+    header_content: template.header_content ?? '',
+    header_media_url: template.header_media_url ?? '',
+    header_sample: template.sample_values?.header?.[0] ?? '',
+    body_text: template.body_text,
+    body_samples: template.sample_values?.body ?? [],
+    footer_text: template.footer_text ?? '',
+    buttons: template.buttons ?? [],
+  };
+}
+
+export function TemplateManager({
+  setupContractId,
+  onSetupClose,
+}: {
+  setupContractId?: TemplateContractId;
+  onSetupClose?: (submitted: boolean) => void;
+} = {}) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { accountId, canEditSettings, loading: authLoading } = useAuth();
-  const focusedContractId = searchParams.get('contract');
+  const focusedContractId = setupContractId ?? searchParams.get('contract');
   const focusedContract = focusedContractId
     ? getTemplateContractById(focusedContractId as TemplateContractId)
     : null;
@@ -412,7 +451,7 @@ export function TemplateManager() {
         (template) => template.name === focusedContract.payload.name
       ) ?? null)
     : null;
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(Boolean(setupContractId));
   const [submitting, setSubmitting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [form, setForm] = useState<TemplateFormData>(emptyForm);
@@ -420,6 +459,19 @@ export function TemplateManager() {
   // submit handler from POST /submit to PATCH /[id] and changes the
   // dialog title + CTA. Set to the template id to pre-fill from a row.
   const [editingId, setEditingId] = useState<string | null>(null);
+  const setupTemplate = setupContractId
+    ? templates.find(
+        (template) =>
+          template.name === focusedContract?.payload.name &&
+          template.language === 'en_US'
+      )
+    : null;
+  const setupReadOnly = Boolean(
+    setupTemplate &&
+    !['DRAFT', 'APPROVED', 'REJECTED', 'PAUSED'].includes(
+      setupTemplate.status ?? 'DRAFT'
+    )
+  );
   // Preset gallery — pick a ready-made gym template to pre-fill the form.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false);
   // Feature-backed presets are exact application contracts. Lock every
@@ -493,6 +545,29 @@ export function TemplateManager() {
         if (error) throw error;
         if (cancelled) return;
         setTemplates(data || []);
+        if (setupContractId) {
+          const contract = getTemplateContractById(setupContractId);
+          const preset = TEMPLATE_PRESETS.find(
+            (item) => item.id === setupContractId
+          );
+          if (!contract || !preset)
+            throw new Error('The required template preset is unavailable.');
+          const existing = data?.find(
+            (item) =>
+              item.name === contract.payload.name && item.language === 'en_US'
+          );
+          setEditingId(
+            (existing?.status ?? 'DRAFT') === 'DRAFT'
+              ? null
+              : (existing?.id ?? null)
+          );
+          setContractLocked(
+            !existing || (existing.status ?? 'DRAFT') === 'DRAFT'
+          );
+          setForm(
+            existing ? formFromTemplate(existing) : formFromPreset(preset)
+          );
+        }
       } catch (err) {
         if (cancelled) return;
         const message = getErrorMessage(err, 'Failed to load templates');
@@ -505,7 +580,7 @@ export function TemplateManager() {
     return () => {
       cancelled = true;
     };
-  }, [accountId, authLoading, reloadNonce, supabase]);
+  }, [accountId, authLoading, reloadNonce, setupContractId, supabase]);
 
   function buildSubmitPayload() {
     const sample_values: TemplateSampleValues = {};
@@ -539,22 +614,9 @@ export function TemplateManager() {
   // Feature presets retain the exact provider name and payload. Non-feature
   // presets are copied into an explicitly custom, separately named draft.
   function applyPreset(preset: TemplatePreset) {
-    const f = preset.fields;
     setEditingId(null);
     setContractLocked(preset.wired);
-    setForm({
-      ...emptyForm,
-      name: preset.wired ? f.name : '',
-      category: f.category,
-      language: 'en_US',
-      header_format: f.header_format,
-      header_content: f.header_content ?? '',
-      header_sample: f.header_sample ?? '',
-      body_text: f.body_text,
-      body_samples: [...f.body_samples],
-      footer_text: f.footer_text ?? '',
-      buttons: f.buttons ? [...f.buttons] : [],
-    });
+    setForm(formFromPreset(preset));
     setPresetPickerOpen(false);
     setDialogOpen(true);
   }
@@ -562,19 +624,7 @@ export function TemplateManager() {
   function openEdit(template: MessageTemplate) {
     setEditingId(template.id);
     setContractLocked(false);
-    setForm({
-      name: template.name,
-      category: template.category,
-      language: template.language || 'en_US',
-      header_format: (template.header_type ?? 'none') as HeaderFormat,
-      header_content: template.header_content ?? '',
-      header_media_url: template.header_media_url ?? '',
-      header_sample: template.sample_values?.header?.[0] ?? '',
-      body_text: template.body_text,
-      body_samples: template.sample_values?.body ?? [],
-      footer_text: template.footer_text ?? '',
-      buttons: template.buttons ?? [],
-    });
+    setForm(formFromTemplate(template));
     setDialogOpen(true);
   }
 
@@ -589,7 +639,12 @@ export function TemplateManager() {
     event?.preventDefault();
     // AUTHENTICATION is blocked by the persistent banner + disabled
     // submit button; this is a defensive second line of defense.
-    if (!canEditSettings || form.category === 'Authentication') return;
+    if (
+      !canEditSettings ||
+      form.category === 'Authentication' ||
+      (setupContractId && (loading || loadError || !accountId || setupReadOnly))
+    )
+      return;
     try {
       setSubmitting(true);
       const isEdit = editingId !== null;
@@ -624,6 +679,7 @@ export function TemplateManager() {
       setForm(emptyForm);
       setEditingId(null);
       setContractLocked(false);
+      onSetupClose?.(true);
     } catch (err) {
       console.error('Submit error:', err);
       toast.error(getErrorMessage(err, 'Failed to submit template'));
@@ -816,303 +872,87 @@ export function TemplateManager() {
     }
   }
 
-  return (
-    <section className="animate-in fade-in-50 space-y-4 duration-200">
-      <SettingsPanelHead
-        title="Message templates"
-        description="Create WhatsApp templates, submit them to Meta, or sync ones created elsewhere."
-        action={
-          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-            <GatedButton
-              onClick={openCreate}
-              canAct={canEditSettings}
-              gateReason="create message templates"
-            >
-              <Plus />
-              New template
-            </GatedButton>
-            <GatedButton
-              variant="outline"
-              onClick={() => setPresetPickerOpen(true)}
-              canAct={canEditSettings}
-              gateReason="create message templates"
-            >
-              <LayoutTemplate />
-              Use preset
-            </GatedButton>
-            <GatedButton
-              variant="outline"
-              onClick={handleSyncFromMeta}
-              disabled={syncing || loading || !accountId}
-              canAct={canEditSettings}
-              gateReason="sync message templates from Meta"
-              title="Pull templates from your Meta WhatsApp Business Account"
-            >
-              <RefreshCw className={syncing ? 'animate-spin' : undefined} />
-              {syncing ? 'Syncing…' : 'Sync from Meta'}
-            </GatedButton>
-          </div>
+  const editorDialog = (
+    <Dialog
+      open={dialogOpen}
+      onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) {
+          setEditingId(null);
+          setContractLocked(false);
+          setForm(emptyForm);
+          onSetupClose?.(false);
         }
-      />
-
-      {focusedContract ? (
-        <Alert>
-          <AlertTitle>{focusedContract.title}</AlertTitle>
-          <AlertDescription>
-            <p>
-              This automated message needs the exact{' '}
-              <span className="font-medium">
-                {focusedContract.payload.name}
-              </span>{' '}
-              contract. Use its feature preset or sync its approved provider
-              template here.
-            </p>
-            {safeReturnTo ? (
-              <Button
-                variant="link"
-                size="sm"
-                className="px-0"
-                onClick={() => router.replace(safeReturnTo)}
-              >
-                Return to automated messages
-              </Button>
-            ) : null}
-            {focusedPreset ? (
-              <GatedButton
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                canAct={canEditSettings}
-                gateReason={
-                  focusedTemplate
-                    ? 'edit this message template'
-                    : 'create this message template'
-                }
-                onClick={() => {
-                  if (focusedTemplate) openEdit(focusedTemplate);
-                  else applyPreset(focusedPreset);
-                }}
-              >
-                {focusedTemplate
-                  ? `Open ${focusedContract.payload.name}`
-                  : `Use ${focusedContract.title} preset`}
-              </GatedButton>
-            ) : null}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {!canEditSettings ? (
-        <Alert>
-          <AlertTitle>Read-only</AlertTitle>
-          <AlertDescription>
-            Only admins and owners can create, sync, edit, or delete templates.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {loading ? (
-        <div
-          className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
-          role="status"
-          aria-live="polite"
-        >
-          <Loader2 className="size-4 animate-spin" />
-          Loading templates…
-        </div>
-      ) : loadError ? (
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertTitle>Templates couldn&apos;t load</AlertTitle>
-          <AlertDescription>
-            <p>{loadError}</p>
-            <Button
-              variant="destructive"
-              size="sm"
-              className="mt-3"
-              onClick={() => setReloadNonce((nonce) => nonce + 1)}
-            >
-              Try again
-            </Button>
-          </AlertDescription>
-        </Alert>
-      ) : templates.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-foreground font-medium">No templates yet</p>
-            <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-              Use a gym preset or create a template from scratch, then submit it
-              to Meta for approval.
-            </p>
-            <GatedButton
-              className="mt-4"
-              onClick={() => setPresetPickerOpen(true)}
-              canAct={canEditSettings}
-              gateReason="create message templates"
-            >
-              <LayoutTemplate />
-              Use a preset
-            </GatedButton>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {templates.map((template) => {
-            const statusKey = template.status || 'DRAFT';
-            const status = resolveTemplateStatusDisplay(
-              statusKey,
-              template.provider_missing_since
-            );
-            return (
-              <Card key={template.id}>
-                <CardContent className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-2">
-                      <h3 className="text-foreground truncate font-medium">
-                        {template.name}
-                      </h3>
-                      <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-                        <Badge
-                          variant={
-                            categoryVariants[template.category] || 'neutral'
-                          }
-                        >
-                          {template.category}
-                        </Badge>
-                        <Badge
-                          variant={
-                            template.provider_missing_since
-                              ? 'danger'
-                              : statusVariant(statusKey)
-                          }
-                        >
-                          {status.label}
-                        </Badge>
-                        {template.language && (
-                          <span className="uppercase">{template.language}</span>
-                        )}
-                        {template.quality_score && (
-                          <Badge
-                            variant={qualityVariant(template.quality_score)}
-                            title="Meta quality score"
-                          >
-                            Quality: {template.quality_score.toLowerCase()}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {statusKey === 'APPROVED' && (
-                        <GatedButton
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(template)}
-                          title="Editing sends the template back to Meta for review"
-                          aria-label="Edit template"
-                          canAct={canEditSettings}
-                          gateReason="edit message templates"
-                        >
-                          <Pencil />
-                          Edit
-                        </GatedButton>
-                      )}
-                      {(statusKey === 'REJECTED' || statusKey === 'PAUSED') && (
-                        <GatedButton
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(template)}
-                          title="Edit and resubmit this template to Meta"
-                          aria-label="Edit and resubmit template"
-                          canAct={canEditSettings}
-                          gateReason="edit message templates"
-                        >
-                          <RotateCcw />
-                          Resubmit
-                        </GatedButton>
-                      )}
-                      <GatedButton
-                        variant="destructive-ghost"
-                        size="icon"
-                        onClick={() => setTemplateToDelete(template)}
-                        disabled={deletingId === template.id}
-                        canAct={canEditSettings}
-                        gateReason="delete message templates"
-                        aria-label={
-                          template.meta_template_id &&
-                          !template.provider_missing_since
-                            ? 'Delete template from Meta and locally'
-                            : 'Delete template locally'
-                        }
-                        title={
-                          template.meta_template_id &&
-                          !template.provider_missing_since
-                            ? 'Delete from Meta and UsefulDesk'
-                            : 'Delete from UsefulDesk'
-                        }
-                      >
-                        {deletingId === template.id ? (
-                          <Loader2 className="animate-spin" />
-                        ) : (
-                          <Trash2 />
-                        )}
-                      </GatedButton>
-                    </div>
-                  </div>
-                  <p className="text-muted-foreground line-clamp-2 text-sm">
-                    {template.body_text}
-                  </p>
-                  {template.footer_text && (
-                    <p className="text-muted-foreground text-xs italic">
-                      {template.footer_text}
-                    </p>
-                  )}
-                  {template.provider_missing_since ? (
-                    <Alert variant="destructive">
-                      <AlertCircle />
-                      <AlertDescription>
-                        This template was not returned by Meta during the last
-                        complete sync. Re-create it in Meta or delete this local
-                        record.
-                      </AlertDescription>
-                    </Alert>
-                  ) : template.rejection_reason || template.submission_error ? (
-                    <Alert variant="destructive">
-                      <AlertCircle />
-                      <AlertDescription>
-                        {template.rejection_reason || template.submission_error}
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
-
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(open) => {
-          setDialogOpen(open);
-          if (!open) {
-            setEditingId(null);
-            setContractLocked(false);
-            setForm(emptyForm);
-          }
-        }}
-      >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle size="lg">
-              {editingId ? 'Edit template' : 'New template'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingId
+      }}
+    >
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle size="lg">
+            {setupReadOnly
+              ? 'Required template'
+              : editingId
+                ? 'Edit template'
+                : 'New template'}
+          </DialogTitle>
+          <DialogDescription>
+            {setupContractId
+              ? `Set up ${getTemplateContractById(setupContractId)?.title ?? 'this automated message'}. Setting up this template does not turn the rule on.`
+              : editingId
                 ? 'Save your changes to send the template back to Meta for review.'
                 : 'Build a WhatsApp template, then submit it to Meta for approval.'}
-            </DialogDescription>
-          </DialogHeader>
+          </DialogDescription>
+        </DialogHeader>
 
+        {setupContractId && (loading || loadError || !accountId) ? (
+          <div className="space-y-4">
+            {loadError || (!loading && !accountId) ? (
+              <Alert variant="destructive">
+                <AlertTitle>Template couldn’t load</AlertTitle>
+                <AlertDescription>
+                  {loadError || 'Select a branch to set up this template.'}
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <p role="status" className="text-muted-foreground text-sm">
+                Loading the required template…
+              </p>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onSetupClose?.(false)}>
+                Cancel
+              </Button>
+              {loadError ? (
+                <Button onClick={() => setReloadNonce((value) => value + 1)}>
+                  Try again
+                </Button>
+              ) : null}
+            </DialogFooter>
+          </div>
+        ) : setupReadOnly && setupTemplate ? (
+          <div className="space-y-4">
+            <Alert>
+              <AlertCircle />
+              <AlertTitle>
+                {
+                  resolveTemplateStatusDisplay(
+                    setupTemplate.status ?? 'DRAFT',
+                    setupTemplate.provider_missing_since
+                  ).label
+                }
+              </AlertTitle>
+              <AlertDescription>
+                {setupTemplate.status === 'PENDING'
+                  ? `${setupTemplate.name} has already been submitted to Meta. Once it is approved and synced, you can enable this rule.`
+                  : `${setupTemplate.name} already exists and cannot be edited in its current status. Check its status in Meta WhatsApp Manager, then sync templates.`}
+              </AlertDescription>
+            </Alert>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => onSetupClose?.(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
           <form className="grid gap-4" onSubmit={handleSubmit}>
             {contractLocked ? (
               <Alert>
@@ -1563,7 +1403,10 @@ export function TemplateManager() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setDialogOpen(false)}
+                onClick={() => {
+                  setDialogOpen(false);
+                  onSetupClose?.(false);
+                }}
               >
                 Cancel
               </Button>
@@ -1586,8 +1429,288 @@ export function TemplateManager() {
               </GatedButton>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+
+  if (setupContractId) return editorDialog;
+
+  return (
+    <section className="animate-in fade-in-50 space-y-4 duration-200">
+      <SettingsPanelHead
+        title="Message templates"
+        description="Create WhatsApp templates, submit them to Meta, or sync ones created elsewhere."
+        action={
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <GatedButton
+              onClick={openCreate}
+              canAct={canEditSettings}
+              gateReason="create message templates"
+            >
+              <Plus />
+              New template
+            </GatedButton>
+            <GatedButton
+              variant="outline"
+              onClick={() => setPresetPickerOpen(true)}
+              canAct={canEditSettings}
+              gateReason="create message templates"
+            >
+              <LayoutTemplate />
+              Use preset
+            </GatedButton>
+            <GatedButton
+              variant="outline"
+              onClick={handleSyncFromMeta}
+              disabled={syncing || loading || !accountId}
+              canAct={canEditSettings}
+              gateReason="sync message templates from Meta"
+              title="Pull templates from your Meta WhatsApp Business Account"
+            >
+              <RefreshCw className={syncing ? 'animate-spin' : undefined} />
+              {syncing ? 'Syncing…' : 'Sync from Meta'}
+            </GatedButton>
+          </div>
+        }
+      />
+
+      {focusedContract ? (
+        <Alert>
+          <AlertTitle>{focusedContract.title}</AlertTitle>
+          <AlertDescription>
+            <p>
+              This automated message needs the exact{' '}
+              <span className="font-medium">
+                {focusedContract.payload.name}
+              </span>{' '}
+              contract. Use its feature preset or sync its approved provider
+              template here.
+            </p>
+            {safeReturnTo ? (
+              <Button
+                variant="link"
+                size="sm"
+                className="px-0"
+                onClick={() => router.replace(safeReturnTo)}
+              >
+                Return to automated messages
+              </Button>
+            ) : null}
+            {focusedPreset ? (
+              <GatedButton
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                canAct={canEditSettings}
+                gateReason={
+                  focusedTemplate
+                    ? 'edit this message template'
+                    : 'create this message template'
+                }
+                onClick={() => {
+                  if (focusedTemplate) openEdit(focusedTemplate);
+                  else applyPreset(focusedPreset);
+                }}
+              >
+                {focusedTemplate
+                  ? `Open ${focusedContract.payload.name}`
+                  : `Use ${focusedContract.title} preset`}
+              </GatedButton>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {!canEditSettings ? (
+        <Alert>
+          <AlertTitle>Read-only</AlertTitle>
+          <AlertDescription>
+            Only admins and owners can create, sync, edit, or delete templates.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {loading ? (
+        <div
+          className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 className="size-4 animate-spin" />
+          Loading templates…
+        </div>
+      ) : loadError ? (
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Templates couldn&apos;t load</AlertTitle>
+          <AlertDescription>
+            <p>{loadError}</p>
+            <Button
+              variant="destructive"
+              size="sm"
+              className="mt-3"
+              onClick={() => setReloadNonce((nonce) => nonce + 1)}
+            >
+              Try again
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : templates.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <p className="text-foreground font-medium">No templates yet</p>
+            <p className="text-muted-foreground mt-1 max-w-sm text-sm">
+              Use a gym preset or create a template from scratch, then submit it
+              to Meta for approval.
+            </p>
+            <GatedButton
+              className="mt-4"
+              onClick={() => setPresetPickerOpen(true)}
+              canAct={canEditSettings}
+              gateReason="create message templates"
+            >
+              <LayoutTemplate />
+              Use a preset
+            </GatedButton>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {templates.map((template) => {
+            const statusKey = template.status || 'DRAFT';
+            const status = resolveTemplateStatusDisplay(
+              statusKey,
+              template.provider_missing_since
+            );
+            return (
+              <Card key={template.id}>
+                <CardContent className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 space-y-2">
+                      <h3 className="text-foreground truncate font-medium">
+                        {template.name}
+                      </h3>
+                      <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
+                        <Badge
+                          variant={
+                            categoryVariants[template.category] || 'neutral'
+                          }
+                        >
+                          {template.category}
+                        </Badge>
+                        <Badge
+                          variant={
+                            template.provider_missing_since
+                              ? 'danger'
+                              : statusVariant(statusKey)
+                          }
+                        >
+                          {status.label}
+                        </Badge>
+                        {template.language && (
+                          <span className="uppercase">{template.language}</span>
+                        )}
+                        {template.quality_score && (
+                          <Badge
+                            variant={qualityVariant(template.quality_score)}
+                            title="Meta quality score"
+                          >
+                            Quality: {template.quality_score.toLowerCase()}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {statusKey === 'APPROVED' && (
+                        <GatedButton
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(template)}
+                          title="Editing sends the template back to Meta for review"
+                          aria-label="Edit template"
+                          canAct={canEditSettings}
+                          gateReason="edit message templates"
+                        >
+                          <Pencil />
+                          Edit
+                        </GatedButton>
+                      )}
+                      {(statusKey === 'REJECTED' || statusKey === 'PAUSED') && (
+                        <GatedButton
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEdit(template)}
+                          title="Edit and resubmit this template to Meta"
+                          aria-label="Edit and resubmit template"
+                          canAct={canEditSettings}
+                          gateReason="edit message templates"
+                        >
+                          <RotateCcw />
+                          Resubmit
+                        </GatedButton>
+                      )}
+                      <GatedButton
+                        variant="destructive-ghost"
+                        size="icon"
+                        onClick={() => setTemplateToDelete(template)}
+                        disabled={deletingId === template.id}
+                        canAct={canEditSettings}
+                        gateReason="delete message templates"
+                        aria-label={
+                          template.meta_template_id &&
+                          !template.provider_missing_since
+                            ? 'Delete template from Meta and locally'
+                            : 'Delete template locally'
+                        }
+                        title={
+                          template.meta_template_id &&
+                          !template.provider_missing_since
+                            ? 'Delete from Meta and UsefulDesk'
+                            : 'Delete from UsefulDesk'
+                        }
+                      >
+                        {deletingId === template.id ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Trash2 />
+                        )}
+                      </GatedButton>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground line-clamp-2 text-sm">
+                    {template.body_text}
+                  </p>
+                  {template.footer_text && (
+                    <p className="text-muted-foreground text-xs italic">
+                      {template.footer_text}
+                    </p>
+                  )}
+                  {template.provider_missing_since ? (
+                    <Alert variant="destructive">
+                      <AlertCircle />
+                      <AlertDescription>
+                        This template was not returned by Meta during the last
+                        complete sync. Re-create it in Meta or delete this local
+                        record.
+                      </AlertDescription>
+                    </Alert>
+                  ) : template.rejection_reason || template.submission_error ? (
+                    <Alert variant="destructive">
+                      <AlertCircle />
+                      <AlertDescription>
+                        {template.rejection_reason || template.submission_error}
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {editorDialog}
 
       {/* Preset gallery — ready-made gym templates. Selecting one drops
           its copy into the create form for the gym to customise + submit.

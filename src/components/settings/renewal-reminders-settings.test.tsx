@@ -32,6 +32,21 @@ vi.mock('@/components/settings/automated-message-activity', () => ({
   AutomatedMessageActivity: () => <p>Activity content</p>,
 }));
 
+vi.mock('@/components/settings/template-manager', () => ({
+  TemplateManager: ({
+    setupContractId,
+    onSetupClose,
+  }: {
+    setupContractId: string;
+    onSetupClose: (submitted: boolean) => void;
+  }) => (
+    <div role="dialog" aria-label="Required template">
+      <p>{setupContractId}</p>
+      <button onClick={() => onSetupClose(false)}>Cancel template setup</button>
+    </div>
+  ),
+}));
+
 const rules = [
   {
     id: 'membership_renewal',
@@ -223,6 +238,35 @@ describe('Automated messages catalogue', () => {
     fireEvent.click(toggle);
     expect(await screen.findByText('This template needs setup')).toBeTruthy();
     expect(screen.getByText('Off')).toBeTruthy();
+  });
+
+  it('opens the exact required template in place and preserves the rule draft and Off preference', async () => {
+    mockFetch();
+    render(<RenewalRemindersSettings />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    fireEvent.click(screen.getByRole('button', { name: '14 days' }));
+    fireEvent.click(screen.getByLabelText('Membership renewal automation'));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Set up required template' })
+    );
+    expect(
+      within(
+        screen.getByRole('dialog', { name: 'Required template' })
+      ).getByText('membership_renewal')
+    ).toBeTruthy();
+    expect(window.location.search).toBe('?tab=reminders');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Cancel template setup' })
+    );
+    expect(
+      screen
+        .getByRole('button', { name: '14 days' })
+        .getAttribute('aria-pressed')
+    ).toBe('true');
+    expect(screen.getByText('Off')).toBeTruthy();
+    expect(
+      vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')
+    ).toBe(false);
   });
 
   it('keeps a failed configuration draft and hides every template link', async () => {
