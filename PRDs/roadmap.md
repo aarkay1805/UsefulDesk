@@ -11,6 +11,9 @@ Templates, with exact-contract focus and a return to the originating rule.
 The blocked-toggle setup CTA opens the required template editor directly over
 the rule, preserving drafts; an existing matching template opens for editing
 or displays its pending approval status without offering another submission.
+Locked setup presents one editable language choice, a filled member-facing
+WhatsApp preview, optional provider details, and a sticky footer that explains
+approval and the later rule-activation step in plain language.
 Other links that leave the rule page still require saving or cancelling drafts. Previews
 use sample values and send nothing. Configure expands the selected rule inside
 its own catalogue row; one row is open at a time and drafts survive collapse.

@@ -73,15 +73,23 @@ describe('TemplateManager gym preset library', () => {
         onSetupClose={close}
       />
     );
-    const name = await screen.findByLabelText('Template name');
-    expect(name).toHaveProperty('value', 'gym_membership_renewal');
-    expect(name).toHaveProperty('disabled', true);
-    expect(screen.getByRole('heading', { name: 'New template' })).toBeTruthy();
+    const language = await screen.findByLabelText('Message language');
+    expect(language.textContent).toContain('English (US)');
+    expect(
+      screen.getByRole('heading', { name: 'Set up WhatsApp message' })
+    ).toBeTruthy();
     expect(
       screen.queryByRole('heading', { name: 'Message templates' })
     ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Use preset' })).toBeNull();
-    expect(screen.getByLabelText('Language')).toHaveProperty('value', 'en_US');
+    expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
+    expect(screen.getByText('What members will see')).toBeTruthy();
+    const submit = screen.getByRole('button', {
+      name: 'Send to Meta for approval',
+    });
+    expect(submit.closest('[data-slot="dialog-footer"]')?.className).toContain(
+      'sticky'
+    );
     expect(window.location.search).toBe(
       '?tab=reminders&rule=membership_renewal'
     );
@@ -142,7 +150,7 @@ describe('TemplateManager gym preset library', () => {
     expect(
       await screen.findByText(/has already been submitted to Meta/)
     ).toBeTruthy();
-    expect(screen.queryByLabelText('Template name')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Save and resubmit' })
     ).toBeNull();
@@ -162,7 +170,7 @@ describe('TemplateManager gym preset library', () => {
       />
     );
     expect(await screen.findByText('Template lookup failed')).toBeTruthy();
-    expect(screen.queryByLabelText('Template name')).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Submit for approval' })
     ).toBeNull();
@@ -184,11 +192,9 @@ describe('TemplateManager gym preset library', () => {
         name: 'Use Membership renewal preset',
       })
     );
-    expect(screen.getByLabelText('Template name')).toHaveProperty(
-      'disabled',
-      true
-    );
-    expect(screen.getByText(/feature contract is locked/i)).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
+    expect(screen.getByText('Message details are ready')).toBeTruthy();
+    expect(screen.getByText('What members will see')).toBeTruthy();
   });
 
   it('groups all twenty-three contracts and explains operational requirements', async () => {
@@ -259,18 +265,15 @@ describe('TemplateManager gym preset library', () => {
       within(card as HTMLElement).getByRole('button', { name: 'Use preset' })
     );
 
-    expect(screen.getByLabelText('Template name')).toHaveProperty(
-      'disabled',
-      true
-    );
-    expect(screen.getByLabelText('Header')).toHaveProperty('disabled', true);
-    const sample = screen.getByLabelText('Public document URL');
+    expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Header' })).toBeNull();
+    const sample = screen.getByLabelText('Sample PDF link for Meta');
     expect(sample).toHaveProperty('disabled', false);
     expect(sample).toHaveProperty('required', true);
     expect(sample).toHaveProperty('value', '');
   });
 
-  it('locks a feature contract while leaving language editable', async () => {
+  it('shows a simple review while leaving only the language editable', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);
     await user.click(
@@ -285,20 +288,15 @@ describe('TemplateManager gym preset library', () => {
       within(card as HTMLElement).getByRole('button', { name: 'Use preset' })
     );
 
+    expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Body text' })).toBeNull();
     expect(
-      screen.getByLabelText('Template name').hasAttribute('disabled')
-    ).toBe(true);
-    expect(screen.getByLabelText('Body text').hasAttribute('disabled')).toBe(
-      true
-    );
+      screen.queryByRole('textbox', { name: 'Footer (optional)' })
+    ).toBeNull();
     expect(
-      screen.getByLabelText('Footer (optional)').hasAttribute('disabled')
-    ).toBe(true);
-    expect(screen.getByLabelText('Language').hasAttribute('disabled')).toBe(
-      false
-    );
-    expect(
-      screen.getByText(/UsefulDesk feature contract is locked/)
-    ).toBeTruthy();
+      screen.getByLabelText('Message language').hasAttribute('disabled')
+    ).toBe(false);
+    expect(screen.getByText('Message details are ready')).toBeTruthy();
+    expect(screen.getByText('See setup details')).toBeTruthy();
   });
 });

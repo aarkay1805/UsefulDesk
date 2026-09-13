@@ -53,6 +53,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import type {
   MessageTemplate,
   TemplateButton,
@@ -156,6 +162,71 @@ function previewSegments(preset: TemplatePreset): PreviewSegment[] {
   return segments;
 }
 
+function TemplateMessagePreview({
+  preset,
+  placement = 'card',
+}: {
+  preset: TemplatePreset;
+  placement?: 'card' | 'dialog';
+}) {
+  const buttons = preset.fields.buttons ?? [];
+  const footerText = preset.fields.footer_text;
+
+  return (
+    <div
+      data-slot="template-message-preview"
+      className={
+        placement === 'dialog'
+          ? 'bg-chat-canvas relative flex flex-col items-start overflow-hidden rounded-xl px-3 py-4'
+          : 'bg-chat-canvas relative flex flex-1 flex-col items-start overflow-hidden px-3 py-3'
+      }
+    >
+      <div
+        aria-hidden
+        className="chat-doodle pointer-events-none absolute inset-0"
+      />
+      <div
+        className={`bg-chat-bubble-in text-foreground relative w-fit rounded-lg rounded-tl-none p-1 shadow-[var(--chat-bubble-shadow)] ${placement === 'dialog' ? 'max-w-[92%]' : 'max-w-[88%]'}`}
+      >
+        <BubbleTail side="left" />
+        <p className="px-1.5 py-0.5 text-sm break-words whitespace-pre-wrap">
+          <span className="sr-only">
+            Sample message. Filled-in details:{' '}
+            {preset.parameterLabels.join(', ')}.{' '}
+          </span>
+          {previewSegments(preset).map((segment, i) =>
+            segment.kind === 'slot' ? (
+              <span key={i} title={segment.label} className="font-medium">
+                {segment.value}
+              </span>
+            ) : (
+              <span key={i}>{segment.value}</span>
+            )
+          )}
+        </p>
+        {footerText && (
+          <p className="text-chat-meta px-1.5 pt-1 pb-0.5 text-[11px] leading-[1.45]">
+            {footerText}
+          </p>
+        )}
+        {buttons.length > 0 && (
+          <div className="mt-1 -mr-1 -mb-1 -ml-1 overflow-hidden rounded-b-lg">
+            <span className="sr-only">Reply buttons: </span>
+            {buttons.map((button, i) => (
+              <div
+                key={i}
+                className="border-foreground/10 text-primary-text border-t px-2 py-1.5 text-center text-sm font-medium"
+              >
+                {button.text}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const categoryVariants: Record<string, TemplateBadgeVariant> = {
   Marketing: 'violet',
   Utility: 'info',
@@ -189,9 +260,6 @@ function PresetCard({
   canAct: boolean;
   onUse: (preset: TemplatePreset) => void;
 }) {
-  const buttons = preset.fields.buttons ?? [];
-  const footerText = preset.fields.footer_text;
-
   return (
     <Card data-slot="preset" size="sm">
       <CardHeader className="min-h-0">
@@ -215,55 +283,7 @@ function PresetCard({
           take it. Matching the header's `px-3` puts the bubble body on the
           title's left edge and leaves the tail to hang into the gutter the
           way it does in the thread. */}
-      <div className="bg-chat-canvas relative flex flex-1 flex-col items-start overflow-hidden px-3 py-3">
-        <div
-          aria-hidden
-          className="chat-doodle pointer-events-none absolute inset-0"
-        />
-        {/* Received side, not sent: the gym is previewing what lands on the
-            member's phone, and quick replies only exist to be tapped by the
-            person receiving them. Same 4px bubble padding as the inbox, so
-            the full-bleed button rows stay concentric with the corner. */}
-        <div className="bg-chat-bubble-in text-foreground relative w-fit max-w-[88%] rounded-lg rounded-tl-none p-1 shadow-[var(--chat-bubble-shadow)]">
-          <BubbleTail side="left" />
-          <p className="px-1.5 py-0.5 text-sm break-words whitespace-pre-wrap">
-            <span className="sr-only">
-              Sample message. Filled-in details:{' '}
-              {preset.parameterLabels.join(', ')}.{' '}
-            </span>
-            {/* Weight, not colour, marks the filled slots. Muting the
-                literal text to make the samples pop inverted the emphasis —
-                a message you are judging has to read at full contrast. */}
-            {previewSegments(preset).map((segment, i) =>
-              segment.kind === 'slot' ? (
-                <span key={i} title={segment.label} className="font-medium">
-                  {segment.value}
-                </span>
-              ) : (
-                <span key={i}>{segment.value}</span>
-              )
-            )}
-          </p>
-          {footerText && (
-            <p className="text-chat-meta px-1.5 pt-1 pb-0.5 text-[11px] leading-[1.45]">
-              {footerText}
-            </p>
-          )}
-          {buttons.length > 0 && (
-            <div className="mt-1 -mr-1 -mb-1 -ml-1 overflow-hidden rounded-b-lg">
-              <span className="sr-only">Reply buttons: </span>
-              {buttons.map((button, i) => (
-                <div
-                  key={i}
-                  className="border-foreground/10 text-primary-text border-t px-2 py-1.5 text-center text-sm font-medium"
-                >
-                  {button.text}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+      <TemplateMessagePreview preset={preset} />
 
       <CardFooter className="items-end gap-3">
         <p className="text-muted-foreground min-w-0 flex-1 text-xs leading-[1.5]">
@@ -337,25 +357,28 @@ const emptyForm: TemplateFormData = {
   buttons: [],
 };
 
-const COMMON_LANGUAGE_CODES = [
-  'en_US',
-  'en_GB',
-  'en',
-  'es',
-  'es_ES',
-  'es_MX',
-  'fr',
-  'fr_FR',
-  'de',
-  'it',
-  'pt_BR',
-  'pt_PT',
-  'nl',
-  'pl',
-  'ru',
-  'tr',
-  'lt',
-];
+const LANGUAGE_OPTIONS = [
+  { value: 'en_US', label: 'English (US)' },
+  { value: 'en_GB', label: 'English (UK)' },
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'es_ES', label: 'Spanish (Spain)' },
+  { value: 'es_MX', label: 'Spanish (Mexico)' },
+  { value: 'fr', label: 'French' },
+  { value: 'fr_FR', label: 'French (France)' },
+  { value: 'de', label: 'German' },
+  { value: 'it', label: 'Italian' },
+  { value: 'pt_BR', label: 'Portuguese (Brazil)' },
+  { value: 'pt_PT', label: 'Portuguese (Portugal)' },
+  { value: 'nl', label: 'Dutch' },
+  { value: 'pl', label: 'Polish' },
+  { value: 'ru', label: 'Russian' },
+  { value: 'tr', label: 'Turkish' },
+  { value: 'lt', label: 'Lithuanian' },
+] as const;
+
+const COMMON_LANGUAGE_CODES = LANGUAGE_OPTIONS.map((option) => option.value);
+const OTHER_LANGUAGE_VALUE = '__other__';
 
 function emptyButton(type: TemplateButton['type']): TemplateButton {
   switch (type) {
@@ -477,6 +500,16 @@ export function TemplateManager({
   // Feature-backed presets are exact application contracts. Lock every
   // provider component while creating one; language remains selectable.
   const [contractLocked, setContractLocked] = useState(false);
+  const lockedPreset = contractLocked
+    ? (TEMPLATE_PRESETS.find(
+        (preset) => preset.wired && preset.fields.name === form.name
+      ) ?? null)
+    : null;
+  const languageSelectValue = LANGUAGE_OPTIONS.some(
+    (option) => option.value === form.language
+  )
+    ? form.language
+    : OTHER_LANGUAGE_VALUE;
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Template selected for the confirm-delete dialog. The destructive
   // action goes through this two-step so a slip on the trash icon
@@ -889,14 +922,16 @@ export function TemplateManager({
         <DialogHeader>
           <DialogTitle size="lg">
             {setupReadOnly
-              ? 'Required template'
+              ? 'WhatsApp message status'
               : editingId
                 ? 'Edit template'
-                : 'New template'}
+                : setupContractId
+                  ? 'Set up WhatsApp message'
+                  : 'New template'}
           </DialogTitle>
           <DialogDescription>
             {setupContractId
-              ? `Set up ${getTemplateContractById(setupContractId)?.title ?? 'this automated message'}. Setting up this template does not turn the rule on.`
+              ? `Set up the message for ${getTemplateContractById(setupContractId)?.title ?? 'this reminder'}. This step does not turn on the reminder.`
               : editingId
                 ? 'Save your changes to send the template back to Meta for review.'
                 : 'Build a WhatsApp template, then submit it to Meta for approval.'}
@@ -954,19 +989,186 @@ export function TemplateManager({
           </div>
         ) : (
           <form className="grid gap-4" onSubmit={handleSubmit}>
-            {contractLocked ? (
-              <Alert>
-                <AlertCircle />
-                <AlertTitle>UsefulDesk feature contract is locked</AlertTitle>
-                <AlertDescription>
-                  Name, category, copy, parameter order, footer, and buttons
-                  must stay exact so the matching UsefulDesk action can use this
-                  template. You can choose the provider language before
-                  submission.
-                </AlertDescription>
-              </Alert>
+            {contractLocked && lockedPreset ? (
+              <div className="space-y-5">
+                <Alert>
+                  <AlertCircle />
+                  <AlertTitle>Message details are ready</AlertTitle>
+                  <AlertDescription>
+                    UsefulDesk has filled in the words and buttons. This keeps
+                    the reminder working. Choose the language, check the
+                    message, and send it to Meta.
+                  </AlertDescription>
+                </Alert>
+
+                <div className="space-y-2">
+                  <Label htmlFor="locked-template-language">
+                    Message language
+                  </Label>
+                  <Select
+                    value={languageSelectValue}
+                    onValueChange={(value) => {
+                      if (!value) return;
+                      setForm({
+                        ...form,
+                        language: value === OTHER_LANGUAGE_VALUE ? '' : value,
+                      });
+                    }}
+                  >
+                    <SelectTrigger
+                      id="locked-template-language"
+                      className="w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LANGUAGE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value={OTHER_LANGUAGE_VALUE}>
+                        Other language
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {languageSelectValue === OTHER_LANGUAGE_VALUE ? (
+                    <Input
+                      id="locked-template-language-code"
+                      aria-label="Meta language code"
+                      placeholder="Example: hi"
+                      value={form.language}
+                      onChange={(event) =>
+                        setForm({ ...form, language: event.target.value })
+                      }
+                      required
+                    />
+                  ) : null}
+                  <p className="text-muted-foreground text-xs leading-relaxed">
+                    Choose the language used in this message. If it is not in
+                    the list, choose Other language.
+                  </p>
+                </div>
+
+                {headerNeedsMedia ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="locked-template-header-media">
+                      {form.header_format === 'document'
+                        ? 'Sample PDF link for Meta'
+                        : `Sample ${form.header_format} link for Meta`}
+                    </Label>
+                    {form.header_format === 'image' ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          ref={headerFileRef}
+                          type="file"
+                          accept="image/jpeg,image/png"
+                          className="hidden"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            if (file) void handleHeaderImageFile(file);
+                            event.target.value = '';
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          loading={uploadingHeader}
+                          onClick={() => headerFileRef.current?.click()}
+                        >
+                          <Upload />
+                          Upload image
+                        </Button>
+                        <span className="text-muted-foreground text-xs">
+                          JPEG or PNG, up to 5 MB
+                        </span>
+                      </div>
+                    ) : null}
+                    <Input
+                      id="locked-template-header-media"
+                      type="url"
+                      placeholder="https://…"
+                      value={form.header_media_url}
+                      onChange={(event) =>
+                        setForm({
+                          ...form,
+                          header_media_url: event.target.value,
+                        })
+                      }
+                      required
+                    />
+                    <p className="text-muted-foreground text-xs leading-relaxed">
+                      Paste a public HTTPS link. Meta uses this file only to
+                      check the message.
+                    </p>
+                  </div>
+                ) : null}
+
+                <section
+                  aria-labelledby="template-member-preview-title"
+                  className="space-y-2"
+                >
+                  <div>
+                    <h3
+                      id="template-member-preview-title"
+                      className="text-sm font-medium"
+                    >
+                      What members will see
+                    </h3>
+                    <p className="text-muted-foreground text-xs">
+                      The bold parts will change for each member.
+                    </p>
+                  </div>
+                  <TemplateMessagePreview
+                    preset={lockedPreset}
+                    placement="dialog"
+                  />
+                </section>
+
+                <Accordion>
+                  <AccordionItem value="setup-details">
+                    <AccordionTrigger>See setup details</AccordionTrigger>
+                    <AccordionContent className="px-1 pt-2">
+                      <dl className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <dt className="text-muted-foreground text-xs">
+                            Template name
+                          </dt>
+                          <dd>
+                            <code className="break-all">{form.name}</code>
+                          </dd>
+                        </div>
+                        <div className="space-y-1">
+                          <dt className="text-muted-foreground text-xs">
+                            Message type
+                          </dt>
+                          <dd>{form.category}</dd>
+                        </div>
+                        <div className="space-y-1">
+                          <dt className="text-muted-foreground text-xs">
+                            Header
+                          </dt>
+                          <dd>
+                            {form.header_format === 'none'
+                              ? 'No header'
+                              : form.header_format.charAt(0).toUpperCase() +
+                                form.header_format.slice(1)}
+                          </dd>
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <dt className="text-muted-foreground text-xs">
+                            Used for
+                          </dt>
+                          <dd>{lockedPreset.blurb}</dd>
+                        </div>
+                      </dl>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
             ) : null}
-            {form.category === 'Authentication' && (
+            {!contractLocked && form.category === 'Authentication' && (
               <Alert>
                 <AlertCircle />
                 <AlertTitle>
@@ -978,7 +1180,7 @@ export function TemplateManager({
               </Alert>
             )}
 
-            <div className="space-y-4">
+            <div className="space-y-4" hidden={contractLocked}>
               <div className="space-y-2">
                 <Label htmlFor="template-name">Template name</Label>
                 <Input
@@ -1035,7 +1237,7 @@ export function TemplateManager({
                     onChange={(e) =>
                       setForm({ ...form, language: e.target.value })
                     }
-                    disabled={editingId !== null}
+                    disabled={editingId !== null || contractLocked}
                     required
                   />
                   <datalist id="template-language-codes">
@@ -1115,7 +1317,10 @@ export function TemplateManager({
                           value={form.header_sample}
                           disabled={contractLocked}
                           onChange={(e) =>
-                            setForm({ ...form, header_sample: e.target.value })
+                            setForm({
+                              ...form,
+                              header_sample: e.target.value,
+                            })
                           }
                           required
                         />
@@ -1169,6 +1374,7 @@ export function TemplateManager({
                       onChange={(e) =>
                         setForm({ ...form, header_media_url: e.target.value })
                       }
+                      disabled={contractLocked}
                       required
                     />
                     {form.header_format === 'image' &&
@@ -1399,34 +1605,42 @@ export function TemplateManager({
               </div>
             </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setDialogOpen(false);
-                  onSetupClose?.(false);
-                }}
-              >
-                Cancel
-              </Button>
-              <GatedButton
-                type="submit"
-                disabled={submitting || form.category === 'Authentication'}
-                canAct={canEditSettings}
-                gateReason="submit message templates"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin" />
-                    {editingId ? 'Saving…' : 'Submitting…'}
-                  </>
-                ) : editingId ? (
-                  'Save and resubmit'
+            <DialogFooter className="sticky -bottom-4 z-10">
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                {contractLocked ? (
+                  <p className="text-muted-foreground text-xs leading-relaxed sm:max-w-xs">
+                    Meta will check this message. After it is approved, come
+                    back here and turn on the reminder.
+                  </p>
                 ) : (
-                  'Submit for approval'
+                  <span />
                 )}
-              </GatedButton>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setDialogOpen(false);
+                      onSetupClose?.(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <GatedButton
+                    type="submit"
+                    loading={submitting}
+                    disabled={form.category === 'Authentication'}
+                    canAct={canEditSettings}
+                    gateReason="submit message templates"
+                  >
+                    {editingId
+                      ? 'Save and resubmit'
+                      : contractLocked
+                        ? 'Send to Meta for approval'
+                        : 'Submit for approval'}
+                  </GatedButton>
+                </div>
+              </div>
             </DialogFooter>
           </form>
         )}

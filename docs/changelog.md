@@ -14,7 +14,10 @@ preset. A branch-scoped lookup opens an existing matching template instead of
 creating a duplicate; pending templates show status without resubmission and
 lookup failures offer retry. Closing returns to the
 expanded rule with drafts intact, and submission refreshes readiness without
-enabling the rule. The gallery still uses the same editor.
+enabling the rule. The locked setup state now asks only for message language,
+shows the filled WhatsApp message instead of disabled technical fields, keeps
+provider details behind a disclosure, and holds plain-language next steps and
+actions in a sticky footer. The gallery still uses the same editor and preview.
 
 ## 2026-09-12 — Reminder configuration expands inside its row
 
