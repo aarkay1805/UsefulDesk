@@ -3,23 +3,56 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Loader2,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AutomatedMessageActivity } from '@/components/settings/automated-message-activity';
 import { BubbleTail } from '@/components/inbox/message-bubble';
 import { PageHeaderTabs } from '@/components/layout/page-header-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Chip, ChipGroup } from '@/components/ui/chip';
 import { Collapse } from '@/components/ui/collapse';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ResolvableAction } from '@/components/ui/resolvable-action';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/use-auth';
 import {
   BRANCH_HEADER,
@@ -32,6 +65,7 @@ import {
   REMINDER_RULE_GROUPS,
   REMINDER_RULES,
   type ReminderRule,
+  type ReminderRuleGroup,
   type ReminderRuleId,
   type ReminderRulePatch,
 } from '@/lib/reminders/rules';
@@ -53,13 +87,6 @@ type RuleRow = ReminderRule & {
   };
 };
 
-const GROUP_COPY = {
-  renewals: 'Before and after a membership or service ends.',
-  collections: 'Amounts that are due, overdue, or awaiting payment.',
-  retention: 'Member moments where a timely message can bring them back.',
-  confirmations: 'Receipts after a completed payment.',
-} as const;
-
 const LIFECYCLE_RULE_IDS = new Set<ReminderRuleId>([
   'invoice_collection',
   'promise_to_pay',
@@ -74,9 +101,16 @@ const LIFECYCLE_RULE_IDS = new Set<ReminderRuleId>([
 
 const RULE_DETAILS: Record<
   ReminderRuleId,
-  { timing: string; eligibility: string; stops: string; staff: string }
+  {
+    meaning: string;
+    timing: string;
+    eligibility: string;
+    stops: string;
+    staff: string;
+  }
 > = {
   membership_renewal: {
+    meaning: 'Reminds a member before their current membership ends.',
     timing: 'Before a current membership ends.',
     eligibility:
       'Manually renewed, recurring active memberships with an upcoming end date and a member phone number.',
@@ -84,6 +118,8 @@ const RULE_DETAILS: Record<
     staff: 'Handle renewal replies and follow up with members who need help.',
   },
   service_renewal: {
+    meaning:
+      'Reminds a member before a paid service, such as personal training, ends.',
     timing: 'Before a current paid service ends.',
     eligibility:
       'Current services with an upcoming end date, current price, and a member phone number.',
@@ -92,6 +128,7 @@ const RULE_DETAILS: Record<
     staff: 'Handle service renewal replies and pricing questions.',
   },
   membership_post_expiry: {
+    meaning: 'Follows up after a membership ends and has not been renewed.',
     timing: 'On days 1, 3, and 7 after membership expiry.',
     eligibility: 'Expired memberships that have not changed since expiry.',
     stops:
@@ -100,6 +137,7 @@ const RULE_DETAILS: Record<
       'An accepted day-7 reminder creates or links one branch-owner follow-up when there is no reply.',
   },
   service_post_expiry: {
+    meaning: 'Follows up after a paid service ends and has not been renewed.',
     timing: 'On days 1, 3, and 7 after service expiry.',
     eligibility: 'Expired paid services that have not changed since expiry.',
     stops: 'The service renews, is held, replaced, or the member replies.',
@@ -107,6 +145,8 @@ const RULE_DETAILS: Record<
       'An accepted day-7 reminder creates or links one branch-owner follow-up when there is no reply.',
   },
   invoice_collection: {
+    meaning:
+      'Reminds a member before an invoice is due and again while money is still unpaid.',
     timing: 'Before due dates and on opted-in overdue milestones.',
     eligibility:
       'Open invoices with a due amount and a member phone number. Invoices without a due date use their issued date for both due and overdue milestones.',
@@ -115,7 +155,9 @@ const RULE_DETAILS: Record<
       'Resolve payment questions and record payments received outside the system.',
   },
   joining_installments: {
-    timing: '7, 3, 1, and 0 days before each recorded installment due date.',
+    meaning:
+      'Reminds a member when part of their joining payment is due. Their payment plan sets the dates.',
+    timing: '7, 3, and 1 days before, and on the payment due date.',
     eligibility:
       'A membership transaction with an unpaid installment and a member phone number.',
     stops:
@@ -124,20 +166,25 @@ const RULE_DETAILS: Record<
       'Follow up on unpaid installments and update the transaction when payment arrives.',
   },
   promise_to_pay: {
-    timing: '1 day before, on, and 1 day after a recorded promise due date.',
+    meaning: 'Reminds a member about the date they promised to make a payment.',
+    timing: '1 day before, on the due date, and 1 day after.',
     eligibility:
       'An open payment commitment with a due date and member phone number.',
     stops: 'The promise is fulfilled, cancelled, or its due date changes.',
     staff: 'Contact members whose promise has passed without payment.',
   },
   payment_link_follow_up: {
-    timing: '1 and 3 days after the payment link was accepted by the provider.',
+    meaning:
+      'Follows up after a payment link was sent but the payment is not complete.',
+    timing: '1 and 3 days after the payment link was sent.',
     eligibility: 'An active unpaid payment link with a member phone number.',
     stops: 'The payment link is paid, expired, cancelled, or replaced.',
     staff: 'Resolve failed payment attempts or issue a new link.',
   },
   autopay_recovery: {
-    timing: 'When AutoPay reports a retry or a terminal recovery outcome.',
+    meaning:
+      'Tells a member when an AutoPay payment needs another try or has failed.',
+    timing: 'When AutoPay will try again or has stopped trying.',
     eligibility:
       'An AutoPay collection event with a matching member phone number.',
     stops:
@@ -146,6 +193,8 @@ const RULE_DETAILS: Record<
       'Review terminal failures and help the member choose the next payment step.',
   },
   session_pack: {
+    meaning:
+      'Warns a member when only a few sessions are left or the pack is empty.',
     timing: 'At 2 or fewer sessions remaining, and again at 0.',
     eligibility:
       'A current session pack with 2 or fewer sessions remaining, including 0.',
@@ -153,6 +202,8 @@ const RULE_DETAILS: Record<
     staff: 'Reply with suitable pack options when the member asks.',
   },
   freeze_return: {
+    meaning:
+      'Reminds a member before they plan to return from a frozen membership.',
     timing:
       'One day before the planned return; staff follow-up is due on the return day.',
     eligibility: 'A frozen membership with an unchanged planned return date.',
@@ -161,7 +212,9 @@ const RULE_DETAILS: Record<
     staff: 'Confirm the member’s next step before the planned return.',
   },
   membership_win_back: {
-    timing: '14, 30, and 60 days after expiry, after the short sequence.',
+    meaning:
+      'Invites a former member to renew after their membership has been expired for some time.',
+    timing: '14, 30, and 60 days after expiry, after the first follow-ups end.',
     eligibility:
       'An unchanged expired membership that reaches the win-back milestone.',
     stops: 'A renewal, replacement cycle, hold, freeze, promise, or reply.',
@@ -169,14 +222,18 @@ const RULE_DETAILS: Record<
       'Handle replies manually; use current pricing without inventing offers.',
   },
   service_win_back: {
-    timing: '14, 30, and 60 days after expiry, after the short sequence.',
+    meaning:
+      'Invites a former member to buy a paid service again after it has been expired for some time.',
+    timing: '14, 30, and 60 days after expiry, after the first follow-ups end.',
     eligibility:
       'An unchanged expired paid service that reaches the win-back milestone.',
     stops: 'A renewal, replacement service, hold, promise, or reply.',
     staff: 'Handle replies using the current service price.',
   },
   payment_confirmation: {
-    timing: 'After a committed payment recorded after this rule was activated.',
+    meaning: 'Sends a receipt after a payment is recorded as complete.',
+    timing:
+      'After a completed payment is recorded. Older payments are not included.',
     eligibility: 'A completed payment with a member phone number.',
     stops:
       'The payment is reversed or no longer qualifies for a receipt notification.',
@@ -261,63 +318,243 @@ function previewValue(label: string, fmt: ReturnType<typeof useLocale>['fmt']) {
   return 'Rahul';
 }
 
+function timingFields(rule: RuleRow) {
+  return rule.fields.filter(
+    (field) => field.key !== 'enabled' && field.type !== 'boolean'
+  );
+}
+
+function timingChipLabel(fieldKey: string, day: number) {
+  if (day === 0) {
+    return fieldKey === 'daysBefore' ? 'On the day' : 'On the due date';
+  }
+  const days = `${day} day${day === 1 ? '' : 's'}`;
+  if (fieldKey === 'overdueDays') return `${days} overdue`;
+  if (fieldKey === 'beforeDueDays') return `${days} before due`;
+  return `${days} before`;
+}
+
+function timingGroupLabel(fieldKey: string) {
+  return fieldKey === 'overdueDays'
+    ? 'After payment is due'
+    : 'Before payment is due';
+}
+
+function missedReminderLabel(days: number) {
+  if (days === 0) return 'If a reminder is missed, do not send it';
+  return `If a reminder is missed, send within ${days} day${days === 1 ? '' : 's'}`;
+}
+
 function TimingControls({
   rule,
   draft,
   onChange,
   disabled,
+  formatTime,
 }: {
   rule: RuleRow;
   draft: ReminderRulePatch;
   onChange: (patch: ReminderRulePatch) => void;
   disabled: boolean;
+  formatTime: (hour: number, minute?: string) => string;
 }) {
-  const controls = rule.fields.filter(
-    (field) => field.key !== 'enabled' && field.type !== 'boolean'
+  const controls = timingFields(rule);
+  if (!controls.length) return null;
+  const dayControls = controls.filter(
+    (field) => field.type === 'integer-array'
   );
-  if (!controls.length)
-    return (
-      <p className="text-muted-foreground text-sm">
-        <span className="text-foreground font-medium">When:</span>{' '}
-        {RULE_DETAILS[rule.id].timing}
-      </p>
-    );
+  const catchUpControl = controls.find((field) => field.key === 'catchUpDays');
+  const windowStartControl = controls.find(
+    (field) => field.key === 'sendWindowStart'
+  );
+  const windowEndControl = controls.find(
+    (field) => field.key === 'sendWindowEnd'
+  );
+  const otherNumberControls = controls.filter(
+    (field) =>
+      field.type === 'integer' &&
+      !['catchUpDays', 'sendWindowStart', 'sendWindowEnd'].includes(field.key)
+  );
+  const currentValue = (field: (typeof controls)[number]) =>
+    draft[field.key] ?? rule.settings[field.key] ?? field.defaultValue;
+  const windowStart = windowStartControl
+    ? Number(currentValue(windowStartControl))
+    : null;
+  const windowEnd = windowEndControl
+    ? Number(currentValue(windowEndControl))
+    : null;
+  const selectedDayCount = dayControls.reduce(
+    (count, field) => count + (currentValue(field) as number[]).length,
+    0
+  );
+  const hours = Array.from({ length: 24 }, (_, hour) => hour);
   return (
-    <div className="space-y-4">
-      {controls.map((field) => {
-        const value =
-          draft[field.key] ?? rule.settings[field.key] ?? field.defaultValue;
-        if (field.type === 'integer-array') {
-          const choices = Array.from(
-            new Set([0, 1, 2, 3, 7, 14, 30, ...(value as number[])])
-          ).filter(
-            (day) => day >= (field.min ?? 0) && day <= (field.max ?? 365)
-          );
-          return (
-            <div className="space-y-2" key={field.key}>
-              <Label>{field.label}</Label>
-              <ChipGroup<string>
-                selectionMode="multiple"
-                value={(value as number[]).map(String)}
-                onValueChange={(values) =>
-                  onChange({
-                    ...draft,
-                    [field.key]: values.map(Number).sort((a, b) => b - a),
-                  })
-                }
-                aria-label={`${rule.title} ${field.label}`}
-              >
-                {choices.map((day) => (
-                  <Chip key={day} value={String(day)} disabled={disabled}>
-                    {day === 0
-                      ? 'On the day'
-                      : `${day} day${day === 1 ? '' : 's'}`}
-                  </Chip>
+    <div className="space-y-3">
+      {dayControls.length ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={disabled}
+                aria-label={`${rule.title} reminder days, ${selectedDayCount} selected`}
+              />
+            }
+          >
+            Reminder days
+            <span className="text-muted-foreground">
+              · {selectedDayCount} selected
+            </span>
+            <ChevronDown className="text-muted-foreground size-4" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-60">
+            {dayControls.map((field) => {
+              const selectedDays = currentValue(field) as number[];
+              const commonChoices =
+                field.key === 'overdueDays'
+                  ? [1, 2, 3, 7, 14, 30]
+                  : [0, 1, 2, 3, 7, 14, 30];
+              const choices = Array.from(
+                new Set([...commonChoices, ...selectedDays])
+              ).filter(
+                (day) => day >= (field.min ?? 0) && day <= (field.max ?? 365)
+              );
+              return (
+                <DropdownMenuGroup key={field.key}>
+                  {dayControls.length > 1 ? (
+                    <DropdownMenuLabel>
+                      {timingGroupLabel(field.key)}
+                    </DropdownMenuLabel>
+                  ) : null}
+                  {choices.map((day) => {
+                    const selected = selectedDays.includes(day);
+                    return (
+                      <DropdownMenuCheckboxItem
+                        key={day}
+                        checked={selected}
+                        closeOnClick={false}
+                        onCheckedChange={(checked) =>
+                          onChange({
+                            ...draft,
+                            [field.key]: (checked
+                              ? [...selectedDays, day]
+                              : selectedDays.filter(
+                                  (selectedDay) => selectedDay !== day
+                                )
+                            ).sort((a, b) => b - a),
+                          })
+                        }
+                      >
+                        {timingChipLabel(field.key, day)}
+                      </DropdownMenuCheckboxItem>
+                    );
+                  })}
+                </DropdownMenuGroup>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+      {catchUpControl ? (
+        <Select
+          value={String(Number(currentValue(catchUpControl)))}
+          onValueChange={(value) => {
+            if (value == null) return;
+            onChange({
+              ...draft,
+              [catchUpControl.key]: Number(value),
+            });
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger
+            size="sm"
+            className="min-w-56"
+            aria-label={`${rule.title} missed reminder setting`}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="start">
+            {Array.from(
+              { length: (catchUpControl.max ?? 14) + 1 },
+              (_, days) => (
+                <SelectItem key={days} value={String(days)}>
+                  {missedReminderLabel(days)}
+                </SelectItem>
+              )
+            )}
+          </SelectContent>
+        </Select>
+      ) : null}
+      {windowStartControl &&
+      windowEndControl &&
+      windowStart !== null &&
+      windowEnd !== null ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span>Send messages from</span>
+          <Select
+            value={String(windowStart)}
+            onValueChange={(value) => {
+              if (value == null) return;
+              onChange({
+                ...draft,
+                [windowStartControl.key]: Number(value),
+              });
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger
+              size="sm"
+              className="min-w-28"
+              aria-label={`${rule.title} start sending at`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {hours
+                .filter((hour) => hour <= windowEnd)
+                .map((hour) => (
+                  <SelectItem key={hour} value={String(hour)}>
+                    {formatTime(hour)}
+                  </SelectItem>
                 ))}
-              </ChipGroup>
-            </div>
-          );
-        }
+            </SelectContent>
+          </Select>
+          <span>to</span>
+          <Select
+            value={String(windowEnd)}
+            onValueChange={(value) => {
+              if (value == null) return;
+              onChange({
+                ...draft,
+                [windowEndControl.key]: Number(value),
+              });
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger
+              size="sm"
+              className="min-w-28"
+              aria-label={`${rule.title} stop sending after`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {hours
+                .filter((hour) => hour >= windowStart)
+                .map((hour) => (
+                  <SelectItem key={hour} value={String(hour)}>
+                    {formatTime(hour, '59')}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <span>in this branch.</span>
+        </div>
+      ) : null}
+      {otherNumberControls.map((field) => {
+        const value = currentValue(field);
         return (
           <div className="max-w-xs space-y-2" key={field.key}>
             <Label htmlFor={`${rule.id}-${field.key}`}>{field.label}</Label>
@@ -382,87 +619,98 @@ function RuleDetail({
     }
   };
   const usesLifecycleWindow = LIFECYCLE_RULE_IDS.has(rule.id);
+  const hasTimingControls = timingFields(rule).length > 0;
+  const hasDayChoices = timingFields(rule).some(
+    (field) => field.type === 'integer-array'
+  );
   return (
-    <div className="space-y-5 pt-5" data-testid={`rule-detail-${rule.id}`}>
-      <div className="space-y-1 text-sm">
-        <p className="font-medium">Who qualifies</p>
-        <p className="text-muted-foreground max-w-2xl">
-          {RULE_DETAILS[rule.id].eligibility}
-        </p>
-      </div>
-      {rule.id === 'joining_installments' ? (
-        <Alert>
-          <AlertTitle>Managed schedule</AlertTitle>
-          <AlertDescription>
-            Joining installments follow the membership payment schedule. They
-            are not an independent toggle. Inspect a member’s Billing details
-            for their recorded payment schedule.
-          </AlertDescription>
-          {!hasUnsavedChanges ? (
-            <Button
-              nativeButton={false}
-              render={<Link href={branchHref('/members', browserBranchId())} />}
-              variant="link"
-              size="sm"
-            >
-              Open members
-            </Button>
-          ) : null}
-        </Alert>
-      ) : null}
-      <div className="space-y-1 text-sm">
-        <p className="font-medium">When it sends</p>
-        <p className="text-muted-foreground">{timingSummary(rule)}</p>
+    <div className="space-y-4 pt-4" data-testid={`rule-detail-${rule.id}`}>
+      <section className="space-y-3" aria-label="When this message is sent">
+        {hasDayChoices ? (
+          <h3 className="text-sm font-semibold">Choose when to send</h3>
+        ) : hasTimingControls ? (
+          <p className="text-sm font-medium">{timingSummary(rule)}</p>
+        ) : (
+          <div className="max-w-2xl space-y-1">
+            <p className="text-sm font-medium">
+              {rule.id === 'joining_installments'
+                ? 'Sent 7, 3, and 1 days before each payment is due, and again on the due date.'
+                : timingSummary(rule)}
+            </p>
+            {rule.id === 'joining_installments' ? (
+              <p className="text-muted-foreground text-sm leading-5">
+                The member’s payment plan sets these dates.
+              </p>
+            ) : null}
+          </div>
+        )}
+        <TimingControls
+          rule={rule}
+          draft={draft}
+          onChange={onDraftChange}
+          disabled={!canEdit || saving}
+          formatTime={localTime}
+        />
         {[
           'membership_renewal',
           'service_renewal',
           'joining_installments',
         ].includes(rule.id) ? (
-          <p className="text-muted-foreground">
-            From {localTime(9)} in this branch’s timezone.
+          <p className="text-muted-foreground max-w-2xl text-sm leading-5">
+            UsefulDesk can send this message after {localTime(9)} in this
+            branch.
           </p>
         ) : null}
-      </div>
-      {rule.id === 'autopay_recovery' ? (
-        <Alert>
-          <AlertTitle>AutoPay retry update</AlertTitle>
-          <AlertDescription>
-            Retry updates explain the next provider attempt and do not ask for
-            manual payment or use the collection daily budget. Terminal failure
-            messages request payment only after eligibility checks and reserve
-            the shared collection daily budget.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      {usesLifecycleWindow && lifecycleWindow ? (
-        <Alert>
-          <AlertTitle>Lifecycle send window</AlertTitle>
-          <AlertDescription>
-            This rule uses the shared account-local window of{' '}
-            {localTime(lifecycleWindow.start)} through{' '}
-            {localTime(lifecycleWindow.end, '59')}, configured under Invoice
-            collection.
-          </AlertDescription>
-          {rule.id === 'invoice_collection' ? null : !dirty ? (
-            <Button variant="link" size="sm" onClick={onOpenInvoiceCollection}>
-              Open Invoice collection timing
-            </Button>
-          ) : (
-            <p className="text-muted-foreground mt-2 text-xs">
-              Save or cancel this rule’s changes before opening Invoice
-              collection timing.
+        {usesLifecycleWindow &&
+        lifecycleWindow &&
+        rule.id !== 'invoice_collection' ? (
+          <div className="space-y-1 text-sm">
+            <p className="text-muted-foreground">
+              UsefulDesk can send this message from{' '}
+              {localTime(lifecycleWindow.start)} to{' '}
+              {localTime(lifecycleWindow.end, '59')} in this branch.
             </p>
-          )}
-        </Alert>
-      ) : null}
-      <TimingControls
-        rule={rule}
-        draft={draft}
-        onChange={onDraftChange}
-        disabled={!canEdit || saving}
-      />
-      <div className="space-y-2">
-        <Label>Sample message</Label>
+            {!dirty ? (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={onOpenInvoiceCollection}
+              >
+                Change sending hours
+              </Button>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                Save or cancel these changes before changing the sending hours.
+              </p>
+            )}
+          </div>
+        ) : null}
+        {rule.id === 'joining_installments' && !hasUnsavedChanges ? (
+          <Button
+            nativeButton={false}
+            render={<Link href={branchHref('/members', browserBranchId())} />}
+            variant="link"
+            size="sm"
+          >
+            View member payment plans
+          </Button>
+        ) : null}
+      </section>
+      <section
+        className="space-y-2"
+        aria-labelledby={`message-preview-${rule.id}`}
+      >
+        <div className="space-y-1">
+          <h3
+            className="text-sm font-semibold"
+            id={`message-preview-${rule.id}`}
+          >
+            Message members receive
+          </h3>
+          <p className="text-muted-foreground text-xs">
+            Preview only. No message is sent.
+          </p>
+        </div>
         {rule.templateContracts.map((contractId) => {
           const contract = getTemplateContractById(contractId);
           const message = contract?.payload.body_text.replace(
@@ -513,53 +761,88 @@ function RuleDetail({
                   className={buttonVariants({ variant: 'link', size: 'sm' })}
                   href={ruleHref(rule, contractId)}
                 >
-                  Open {contract?.payload.name ?? 'template'}
+                  {rule.templateContracts.length > 1
+                    ? `View ${contract?.title ?? 'message template'}`
+                    : 'View message template'}
                 </Link>
               ) : null}
             </div>
           );
         })}
-        <p className="text-muted-foreground text-xs">
-          Preview only. It never sends a message.
-        </p>
-      </div>
-      <div className="space-y-1 text-sm">
-        <p>
-          <span className="font-medium">Stops when:</span>{' '}
-          {RULE_DETAILS[rule.id].stops}
-        </p>
-        <p>
-          <span className="font-medium">Staff follow-up:</span>{' '}
-          {RULE_DETAILS[rule.id].staff}
-        </p>
         {hasUnsavedChanges ? (
           <p className="text-muted-foreground text-xs">
-            Save or cancel unsaved rule changes before opening template setup.
+            Save or cancel your changes before opening the message template.
           </p>
         ) : null}
-      </div>
-      <div className="flex justify-end gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          disabled={!dirty || saving}
-          onClick={() => onDraftChange({})}
-        >
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          loading={saving}
-          disabled={!dirty || !canEdit}
-          onClick={save}
-        >
-          Save changes
-        </Button>
-      </div>
-      {!rule.readiness.ready ? (
-        <p className="text-muted-foreground text-xs">
-          Saving configuration never turns this rule on.
-        </p>
+      </section>
+      <Accordion>
+        <AccordionItem value={`how-${rule.id}`}>
+          <AccordionTrigger>About this message</AccordionTrigger>
+          <AccordionContent className="px-1 pt-2">
+            <dl className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1">
+                <dt className="text-sm font-semibold">
+                  Who receives this message
+                </dt>
+                <dd className="text-muted-foreground text-sm leading-5">
+                  {RULE_DETAILS[rule.id].eligibility}
+                </dd>
+              </div>
+              <div className="space-y-1">
+                <dt className="text-sm font-semibold">When it stops</dt>
+                <dd className="text-muted-foreground text-sm leading-5">
+                  {RULE_DETAILS[rule.id].stops}
+                </dd>
+              </div>
+              <div className="space-y-1">
+                <dt className="text-sm font-semibold">What staff should do</dt>
+                <dd className="text-muted-foreground text-sm leading-5">
+                  {RULE_DETAILS[rule.id].staff}
+                </dd>
+              </div>
+              {rule.id === 'autopay_recovery' ? (
+                <div className="space-y-1 sm:col-span-3">
+                  <dt className="text-sm font-semibold">
+                    How AutoPay retries work
+                  </dt>
+                  <dd className="text-muted-foreground max-w-3xl text-sm leading-5">
+                    A retry message tells the member when AutoPay will try
+                    again. It does not ask them to pay another way. A final
+                    failure message may ask for payment after UsefulDesk checks
+                    the account.
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+      {hasTimingControls ? (
+        <div className="space-y-2">
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={!dirty || saving}
+              onClick={() => onDraftChange({})}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              loading={saving}
+              disabled={!dirty || !canEdit}
+              onClick={save}
+            >
+              Save changes
+            </Button>
+          </div>
+          {!rule.readiness.ready ? (
+            <p className="text-muted-foreground text-right text-xs">
+              Saving these settings does not turn on this message.
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -588,6 +871,7 @@ function RuleRow({
   const enabled = isEnabled(rule);
   const currentStatus = status(rule);
   const canToggle = rule.fields.some((field) => field.key === 'enabled');
+  const hasEditableSettings = timingFields(rule).length > 0;
   const blocker =
     !enabled && !rule.readiness.ready
       ? {
@@ -639,10 +923,34 @@ function RuleRow({
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-48 flex-1">
-          <p className="font-medium" id={`rule-title-${rule.id}`}>
-            {rule.title}
-          </p>
-          <p className="text-muted-foreground text-sm">{timingSummary(rule)}</p>
+          <div className="flex items-center gap-1">
+            <p className="font-medium" id={`rule-title-${rule.id}`}>
+              {rule.title}
+            </p>
+            <Tooltip>
+              <TooltipTrigger
+                delay={350}
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={`About ${rule.title}`}
+                  />
+                }
+              >
+                <Info aria-hidden="true" />
+              </TooltipTrigger>
+              <TooltipContent className="max-w-64 text-pretty">
+                {RULE_DETAILS[rule.id].meaning}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          {!expanded ? (
+            <p className="text-muted-foreground text-sm">
+              {timingSummary(rule)}
+            </p>
+          ) : null}
         </div>
         {rule.id === 'joining_installments' ? (
           <Badge variant="neutral">Managed</Badge>
@@ -687,7 +995,7 @@ function RuleRow({
             aria-expanded={expanded}
             aria-controls={`rule-panel-${rule.id}`}
           >
-            {expanded ? 'Close' : 'Configure'}
+            {expanded ? 'Close' : hasEditableSettings ? 'Configure' : 'View'}
             {expanded ? <ChevronUp /> : <ChevronDown />}
           </Button>
         </div>
@@ -715,7 +1023,7 @@ export function RenewalRemindersSettings() {
     contractId: TemplateContractId;
     scope: string;
   } | null>(null);
-  const [group, setGroup] = useState<keyof typeof GROUP_COPY>('renewals');
+  const [group, setGroup] = useState<ReminderRuleGroup>('renewals');
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [selectedId, setSelectedId] = useState<ReminderRuleId | null>(null);
   const [drafts, setDrafts] = useState<Record<string, ReminderRulePatch>>({});
@@ -885,7 +1193,7 @@ export function RenewalRemindersSettings() {
             value={[activeGroup]}
             onValueChange={(value) => {
               if (!value[0]) return;
-              setGroup(value[0] as keyof typeof GROUP_COPY);
+              setGroup(value[0] as ReminderRuleGroup);
               setSelectedId(null);
               setDismissedLinkedRule(linkedRuleId);
             }}
@@ -897,59 +1205,58 @@ export function RenewalRemindersSettings() {
               </Chip>
             ))}
           </ChipGroup>
-          <p className="text-muted-foreground text-sm">
-            {GROUP_COPY[activeGroup]}
-          </p>
-          <Card>
-            <CardContent>
-              {visible.map((rule) => (
-                <RuleRow
-                  key={rule.id}
-                  rule={rule}
-                  canEdit={canEditSettings}
-                  hasDraft={hasUnsavedChanges}
-                  expanded={selected?.id === rule.id}
-                  onOpen={() => {
-                    if (selected?.id === rule.id) {
-                      setSelectedId(null);
-                      setDismissedLinkedRule(linkedRuleId);
-                    } else {
+          <TooltipProvider>
+            <Card>
+              <CardContent>
+                {visible.map((rule) => (
+                  <RuleRow
+                    key={rule.id}
+                    rule={rule}
+                    canEdit={canEditSettings}
+                    hasDraft={hasUnsavedChanges}
+                    expanded={selected?.id === rule.id}
+                    onOpen={() => {
+                      if (selected?.id === rule.id) {
+                        setSelectedId(null);
+                        setDismissedLinkedRule(linkedRuleId);
+                      } else {
+                        setSelectedId(rule.id);
+                        setGroup(rule.group);
+                        setDismissedLinkedRule(null);
+                      }
+                    }}
+                    onSetupTemplate={(contractId) => {
                       setSelectedId(rule.id);
                       setGroup(rule.group);
                       setDismissedLinkedRule(null);
-                    }
-                  }}
-                  onSetupTemplate={(contractId) => {
-                    setSelectedId(rule.id);
-                    setGroup(rule.group);
-                    setDismissedLinkedRule(null);
-                    setTemplateSetup({ contractId, scope: draftScope });
-                  }}
-                  onSave={save}
-                >
-                  <RuleDetail
-                    rule={rule}
-                    canEdit={canEditSettings}
-                    draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
-                    onDraftChange={(patch) =>
-                      setDrafts((current) => ({
-                        ...current,
-                        [`${draftScope}:${rule.id}`]: patch,
-                      }))
-                    }
-                    onSave={save}
-                    lifecycleWindow={lifecycleWindow}
-                    hasUnsavedChanges={hasUnsavedChanges}
-                    onOpenInvoiceCollection={() => {
-                      setSelectedId('invoice_collection');
-                      setGroup('collections');
-                      setDismissedLinkedRule(null);
+                      setTemplateSetup({ contractId, scope: draftScope });
                     }}
-                  />
-                </RuleRow>
-              ))}
-            </CardContent>
-          </Card>
+                    onSave={save}
+                  >
+                    <RuleDetail
+                      rule={rule}
+                      canEdit={canEditSettings}
+                      draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
+                      onDraftChange={(patch) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [`${draftScope}:${rule.id}`]: patch,
+                        }))
+                      }
+                      onSave={save}
+                      lifecycleWindow={lifecycleWindow}
+                      hasUnsavedChanges={hasUnsavedChanges}
+                      onOpenInvoiceCollection={() => {
+                        setSelectedId('invoice_collection');
+                        setGroup('collections');
+                        setDismissedLinkedRule(null);
+                      }}
+                    />
+                  </RuleRow>
+                ))}
+              </CardContent>
+            </Card>
+          </TooltipProvider>
         </TabsContent>
         <TabsContent value="activity">
           <AutomatedMessageActivity

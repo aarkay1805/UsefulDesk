@@ -6,17 +6,29 @@ Settings → **Automated messages** preserves `?tab=reminders` and existing
 settings permissions. Rules groups the 14 existing behaviors into Renewals,
 Collections, Retention, and Confirmations. Per-rule configuration saves while
 off; activation requires the connected branch and every exact approved/synced
-template. Existing On intent survives lost readiness. Template setup remains in
-Templates, with exact-contract focus and a return to the originating rule.
+template. Existing On intent survives lost readiness. Each rule name has a
+plain-language info tooltip; the group filters do not repeat another summary
+line. Template setup remains in Templates, with exact-contract focus and a
+return to the originating rule.
 The blocked-toggle setup CTA opens the required template editor directly over
 the rule, preserving drafts; an existing matching template opens for editing
 or displays its pending approval status without offering another submission.
-Locked setup presents one editable language choice, a filled member-facing
-WhatsApp preview, optional provider details, and a sticky footer that explains
-approval and the later rule-activation step in plain language.
+Locked setup presents a filled member-facing WhatsApp preview with no editable
+contract fields, its provider details directly below, and a sticky footer that
+explains approval and the later rule-activation step in plain language. It
+submits the exact English language contract the rule expects.
 Other links that leave the rule page still require saving or cancelling drafts. Previews
 use sample values and send nothing. Configure expands the selected rule inside
 its own catalogue row; one row is open at a time and drafts survive collapse.
+The open row asks users to choose send days only when they can change them;
+managed rules state their timing directly. The preview is labelled “Message
+members receive.” Eligibility, stop rules, and staff guidance sit under “About
+this message”; rules with no editable settings use View and omit disabled form
+actions. Each timing chip states whether it is on, before, or after the due date
+without a separate “Days before” label. Missed-day handling is one plain choice,
+and the two raw send-window fields are one formatted branch-time instruction.
+Reminder-day choices use one multi-select dropdown with a compact selected
+count; invoice options are grouped by before-due and after-due timing.
 
 Activity reads the lifecycle queue and all three legacy reminder ledgers with
 branch-scoped member identity, rule/outcome/local-date filters, bounded keyset

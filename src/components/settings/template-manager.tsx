@@ -53,12 +53,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import type {
   MessageTemplate,
   TemplateButton,
@@ -357,28 +351,25 @@ const emptyForm: TemplateFormData = {
   buttons: [],
 };
 
-const LANGUAGE_OPTIONS = [
-  { value: 'en_US', label: 'English (US)' },
-  { value: 'en_GB', label: 'English (UK)' },
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'es_ES', label: 'Spanish (Spain)' },
-  { value: 'es_MX', label: 'Spanish (Mexico)' },
-  { value: 'fr', label: 'French' },
-  { value: 'fr_FR', label: 'French (France)' },
-  { value: 'de', label: 'German' },
-  { value: 'it', label: 'Italian' },
-  { value: 'pt_BR', label: 'Portuguese (Brazil)' },
-  { value: 'pt_PT', label: 'Portuguese (Portugal)' },
-  { value: 'nl', label: 'Dutch' },
-  { value: 'pl', label: 'Polish' },
-  { value: 'ru', label: 'Russian' },
-  { value: 'tr', label: 'Turkish' },
-  { value: 'lt', label: 'Lithuanian' },
+const COMMON_LANGUAGE_CODES = [
+  'en_US',
+  'en_GB',
+  'en',
+  'es',
+  'es_ES',
+  'es_MX',
+  'fr',
+  'fr_FR',
+  'de',
+  'it',
+  'pt_BR',
+  'pt_PT',
+  'nl',
+  'pl',
+  'ru',
+  'tr',
+  'lt',
 ] as const;
-
-const COMMON_LANGUAGE_CODES = LANGUAGE_OPTIONS.map((option) => option.value);
-const OTHER_LANGUAGE_VALUE = '__other__';
 
 function emptyButton(type: TemplateButton['type']): TemplateButton {
   switch (type) {
@@ -498,18 +489,16 @@ export function TemplateManager({
   // Preset gallery — pick a ready-made gym template to pre-fill the form.
   const [presetPickerOpen, setPresetPickerOpen] = useState(false);
   // Feature-backed presets are exact application contracts. Lock every
-  // provider component while creating one; language remains selectable.
+  // provider component while creating one, including its language.
   const [contractLocked, setContractLocked] = useState(false);
   const lockedPreset = contractLocked
     ? (TEMPLATE_PRESETS.find(
         (preset) => preset.wired && preset.fields.name === form.name
       ) ?? null)
     : null;
-  const languageSelectValue = LANGUAGE_OPTIONS.some(
-    (option) => option.value === form.language
-  )
-    ? form.language
-    : OTHER_LANGUAGE_VALUE;
+  const lockedContractLanguage = lockedPreset
+    ? getTemplateContractById(lockedPreset.id)?.payload.language
+    : null;
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Template selected for the confirm-delete dialog. The destructive
   // action goes through this two-step so a slip on the trash icon
@@ -627,7 +616,7 @@ export function TemplateManager({
     return {
       name: form.name.trim(),
       category: form.category,
-      language: form.language.trim() || 'en_US',
+      language: lockedContractLanguage ?? (form.language.trim() || 'en_US'),
       header_type:
         form.header_format === 'none' ? undefined : form.header_format,
       header_content:
@@ -991,65 +980,6 @@ export function TemplateManager({
           <form className="grid gap-4" onSubmit={handleSubmit}>
             {contractLocked && lockedPreset ? (
               <div className="space-y-5">
-                <Alert>
-                  <AlertCircle />
-                  <AlertTitle>Message details are ready</AlertTitle>
-                  <AlertDescription>
-                    UsefulDesk has filled in the words and buttons. This keeps
-                    the reminder working. Choose the language, check the
-                    message, and send it to Meta.
-                  </AlertDescription>
-                </Alert>
-
-                <div className="space-y-2">
-                  <Label htmlFor="locked-template-language">
-                    Message language
-                  </Label>
-                  <Select
-                    value={languageSelectValue}
-                    onValueChange={(value) => {
-                      if (!value) return;
-                      setForm({
-                        ...form,
-                        language: value === OTHER_LANGUAGE_VALUE ? '' : value,
-                      });
-                    }}
-                  >
-                    <SelectTrigger
-                      id="locked-template-language"
-                      className="w-full"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LANGUAGE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value={OTHER_LANGUAGE_VALUE}>
-                        Other language
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {languageSelectValue === OTHER_LANGUAGE_VALUE ? (
-                    <Input
-                      id="locked-template-language-code"
-                      aria-label="Meta language code"
-                      placeholder="Example: hi"
-                      value={form.language}
-                      onChange={(event) =>
-                        setForm({ ...form, language: event.target.value })
-                      }
-                      required
-                    />
-                  ) : null}
-                  <p className="text-muted-foreground text-xs leading-relaxed">
-                    Choose the language used in this message. If it is not in
-                    the list, choose Other language.
-                  </p>
-                </div>
-
                 {headerNeedsMedia ? (
                   <div className="space-y-2">
                     <Label htmlFor="locked-template-header-media">
@@ -1105,67 +1035,40 @@ export function TemplateManager({
                   </div>
                 ) : null}
 
-                <section
-                  aria-labelledby="template-member-preview-title"
-                  className="space-y-2"
-                >
-                  <div>
-                    <h3
-                      id="template-member-preview-title"
-                      className="text-sm font-medium"
-                    >
-                      What members will see
-                    </h3>
-                    <p className="text-muted-foreground text-xs">
-                      The bold parts will change for each member.
-                    </p>
-                  </div>
-                  <TemplateMessagePreview
-                    preset={lockedPreset}
-                    placement="dialog"
-                  />
-                </section>
+                <TemplateMessagePreview
+                  preset={lockedPreset}
+                  placement="dialog"
+                />
 
-                <Accordion>
-                  <AccordionItem value="setup-details">
-                    <AccordionTrigger>See setup details</AccordionTrigger>
-                    <AccordionContent className="px-1 pt-2">
-                      <dl className="grid gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <dt className="text-muted-foreground text-xs">
-                            Template name
-                          </dt>
-                          <dd>
-                            <code className="break-all">{form.name}</code>
-                          </dd>
-                        </div>
-                        <div className="space-y-1">
-                          <dt className="text-muted-foreground text-xs">
-                            Message type
-                          </dt>
-                          <dd>{form.category}</dd>
-                        </div>
-                        <div className="space-y-1">
-                          <dt className="text-muted-foreground text-xs">
-                            Header
-                          </dt>
-                          <dd>
-                            {form.header_format === 'none'
-                              ? 'No header'
-                              : form.header_format.charAt(0).toUpperCase() +
-                                form.header_format.slice(1)}
-                          </dd>
-                        </div>
-                        <div className="space-y-1 sm:col-span-2">
-                          <dt className="text-muted-foreground text-xs">
-                            Used for
-                          </dt>
-                          <dd>{lockedPreset.blurb}</dd>
-                        </div>
-                      </dl>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                <dl className="grid gap-3 border-t pt-4 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <dt className="text-muted-foreground text-xs">
+                      Template name
+                    </dt>
+                    <dd>
+                      <code className="break-all">{form.name}</code>
+                    </dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-muted-foreground text-xs">
+                      Message type
+                    </dt>
+                    <dd>{form.category}</dd>
+                  </div>
+                  <div className="space-y-1">
+                    <dt className="text-muted-foreground text-xs">Header</dt>
+                    <dd>
+                      {form.header_format === 'none'
+                        ? 'No header'
+                        : form.header_format.charAt(0).toUpperCase() +
+                          form.header_format.slice(1)}
+                    </dd>
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <dt className="text-muted-foreground text-xs">Used for</dt>
+                    <dd>{lockedPreset.blurb}</dd>
+                  </div>
+                </dl>
               </div>
             ) : null}
             {!contractLocked && form.category === 'Authentication' && (

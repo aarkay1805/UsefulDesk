@@ -73,8 +73,7 @@ describe('TemplateManager gym preset library', () => {
         onSetupClose={close}
       />
     );
-    const language = await screen.findByLabelText('Message language');
-    expect(language.textContent).toContain('English (US)');
+    await screen.findByText('gym_membership_renewal');
     expect(
       screen.getByRole('heading', { name: 'Set up WhatsApp message' })
     ).toBeTruthy();
@@ -83,7 +82,14 @@ describe('TemplateManager gym preset library', () => {
     ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Use preset' })).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
-    expect(screen.getByText('What members will see')).toBeTruthy();
+    expect(
+      screen.queryByRole('combobox', { name: 'Message language' })
+    ).toBeNull();
+    expect(screen.queryByText('What members will see')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'See setup details' })
+    ).toBeNull();
+    expect(screen.getByText('Used for')).toBeTruthy();
     const submit = screen.getByRole('button', {
       name: 'Send to Meta for approval',
     });
@@ -193,8 +199,10 @@ describe('TemplateManager gym preset library', () => {
       })
     );
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
-    expect(screen.getByText('Message details are ready')).toBeTruthy();
-    expect(screen.getByText('What members will see')).toBeTruthy();
+    expect(screen.queryByText('What members will see')).toBeNull();
+    expect(
+      screen.getAllByText('gym_membership_renewal').length
+    ).toBeGreaterThan(0);
   });
 
   it('groups all twenty-three contracts and explains operational requirements', async () => {
@@ -273,7 +281,7 @@ describe('TemplateManager gym preset library', () => {
     expect(sample).toHaveProperty('value', '');
   });
 
-  it('shows a simple review while leaving only the language editable', async () => {
+  it('shows a simple review without editable contract fields', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);
     await user.click(
@@ -294,9 +302,12 @@ describe('TemplateManager gym preset library', () => {
       screen.queryByRole('textbox', { name: 'Footer (optional)' })
     ).toBeNull();
     expect(
-      screen.getByLabelText('Message language').hasAttribute('disabled')
-    ).toBe(false);
-    expect(screen.getByText('Message details are ready')).toBeTruthy();
-    expect(screen.getByText('See setup details')).toBeTruthy();
+      screen.queryByRole('combobox', { name: 'Message language' })
+    ).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'See setup details' })
+    ).toBeNull();
+    expect(screen.getByText('gym_membership_renewal')).toBeTruthy();
+    expect(screen.getByText('Used for')).toBeTruthy();
   });
 });

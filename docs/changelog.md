@@ -14,16 +14,35 @@ preset. A branch-scoped lookup opens an existing matching template instead of
 creating a duplicate; pending templates show status without resubmission and
 lookup failures offer retry. Closing returns to the
 expanded rule with drafts intact, and submission refreshes readiness without
-enabling the rule. The locked setup state now asks only for message language,
-shows the filled WhatsApp message instead of disabled technical fields, keeps
-provider details behind a disclosure, and holds plain-language next steps and
-actions in a sticky footer. The gallery still uses the same editor and preview.
+enabling the rule. The locked setup state now shows the filled WhatsApp message
+instead of editable technical fields, fixes the provider language to the exact
+English contract the rule uses, shows the provider details directly below the
+preview, and holds plain-language next steps and actions in a sticky footer. The
+gallery still uses the same editor and preview.
+The rule catalogue removes the repeated group description below its filters and
+uses the shared tooltip on every rule name to explain that message in one plain
+sentence.
 
 ## 2026-09-12 — Reminder configuration expands inside its row
 
 `renewal-reminders-settings.tsx` uses the shared `Collapse` to reveal a rule’s
 settings inside its own catalogue row. Configure/Close toggles that row; opening
 another closes the previous one while retaining drafts and template deep links.
+The open row now asks users to choose send days only when there are settings to
+edit. Managed rules state their timing directly without a redundant Schedule
+heading. “Message members receive” labels the preview, and eligibility, stop
+rules, and staff guidance use instructional labels under “About this message.”
+Save/Cancel appear only when there are settings to edit; rules with no editable
+settings use View, and template links hide provider names. Timing choices carry
+their full meaning inside each chip—such as “On the day” and “3 days before”—so
+they do not depend on a conflicting “Days before” label. The remaining invoice
+controls replace Catch-up days and raw start/end-hour fields with a missed-day
+choice and one plain “Send messages from … to …” instruction using formatted
+branch times. Fixed schedules are stated directly instead of being presented as
+editable timing, and the overdue row no longer repeats the due-date choice.
+Long day lists now live in one shared checkbox dropdown. Its closed trigger
+shows only the selected count; invoice choices are grouped into before-due and
+after-due sections when opened.
 
 ## 2026-09-12 — Automated messages has scoped rules and actionable history
 
