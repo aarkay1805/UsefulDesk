@@ -28,6 +28,21 @@ provider acceptance, a fresh same-phone distinct-enquiry case, the remaining
 destructive recovery drills, and the 24-hour post-activation observation remain
 unverified and are not claimed complete.
 
+## 2026-09-16 — Automated messages rule detail reads as the row's child
+
+`RuleDetail` in `renewal-reminders-settings.tsx` now renders inside a
+`bg-card-2 rounded-2xl` tile under the rule title. Section headings and
+detail terms use a 12px muted caption, so nothing inside out-ranks the 14px
+medium rule title (they were 14px semibold before). "More sending options" and
+"See message and details" are items in one `Accordion multiple`, so the master
+draws the divider between them. `DeliveryControls` is split out and renders
+inline only for rules without day choices. The preview bubble sits directly on
+the tile with no `bg-chat-canvas` box around it. Its `ml-2` keeps the tail inside
+the clipping accordion panel, and the `figure` is capped at `30.5rem`. The sample
+note and template link sit in its `figcaption`. Gotcha: `AccordionContent` adds `mb-4` to
+every `<p>` that is not a last child, so structured text inside it uses
+`<div>`/`<span>`. Dev harness: `/preview/automated-messages?rule=<id>`.
+
 ## 2026-09-13 — Reminder strategy is visible before editing
 
 `renewal-reminders-settings.tsx` now states each editable schedule in one plain

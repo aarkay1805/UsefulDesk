@@ -24,7 +24,9 @@ The open row states its reminder strategy in one plain sentence, while one
 “Change reminder days” multi-select contains the long choice list. Managed
 rules state their fixed timing directly. Sending options, sample messages, and
 rule details stay closed until requested; the sample and rule details share one
-disclosure, and Save/Cancel appear only after a change. Rules with two message
+disclosure, and Save/Cancel appear only after a change. The open rule's
+settings sit in one nested tile under its title, with small muted captions and
+both disclosures in one divided list. Rules with two message
 contracts use purpose-labelled tabs and show one example at a time. Rules with
 no editable settings use View and omit form actions. An unready rule offers one
 Set up action instead of a status badge plus disabled switch; managed rules omit

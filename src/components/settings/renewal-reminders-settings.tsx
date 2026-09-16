@@ -44,6 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -387,7 +388,30 @@ function previewTabLabel(contractId: TemplateContractId) {
   return getTemplateContractById(contractId)?.title ?? 'Message';
 }
 
-function TimingControls({
+// An open rule's settings are the row's children: a nested tile under the
+// rule title, with 12px muted captions naming each group so nothing inside
+// out-ranks the 14px medium title it belongs to.
+const DETAIL_CAPTION = 'text-muted-foreground text-xs font-medium';
+
+type TimingField = RuleRow['fields'][number];
+
+function currentTimingValue(
+  rule: RuleRow,
+  draft: ReminderRulePatch,
+  field: TimingField
+) {
+  return draft[field.key] ?? rule.settings[field.key] ?? field.defaultValue;
+}
+
+function hasDeliveryFields(rule: RuleRow) {
+  const keys = timingFields(rule).map((field) => field.key);
+  return (
+    keys.includes('catchUpDays') ||
+    (keys.includes('sendWindowStart') && keys.includes('sendWindowEnd'))
+  );
+}
+
+function DeliveryControls({
   rule,
   draft,
   onChange,
@@ -401,10 +425,6 @@ function TimingControls({
   formatTime: (hour: number, minute?: string) => string;
 }) {
   const controls = timingFields(rule);
-  if (!controls.length) return null;
-  const dayControls = controls.filter(
-    (field) => field.type === 'integer-array'
-  );
   const catchUpControl = controls.find((field) => field.key === 'catchUpDays');
   const windowStartControl = controls.find(
     (field) => field.key === 'sendWindowStart'
@@ -412,46 +432,20 @@ function TimingControls({
   const windowEndControl = controls.find(
     (field) => field.key === 'sendWindowEnd'
   );
-  const otherNumberControls = controls.filter(
-    (field) =>
-      field.type === 'integer' &&
-      !['catchUpDays', 'sendWindowStart', 'sendWindowEnd'].includes(field.key)
-  );
-  const currentValue = (field: (typeof controls)[number]) =>
-    draft[field.key] ?? rule.settings[field.key] ?? field.defaultValue;
   const windowStart = windowStartControl
-    ? Number(currentValue(windowStartControl))
+    ? Number(currentTimingValue(rule, draft, windowStartControl))
     : null;
   const windowEnd = windowEndControl
-    ? Number(currentValue(windowEndControl))
+    ? Number(currentTimingValue(rule, draft, windowEndControl))
     : null;
-  const selectedDayCount = dayControls.reduce(
-    (count, field) => count + (currentValue(field) as number[]).length,
-    0
-  );
-  const beforeDayControl = dayControls.find(
-    (field) => field.key !== 'overdueDays'
-  );
-  const afterDayControl = dayControls.find(
-    (field) => field.key === 'overdueDays'
-  );
-  const beforeDays = beforeDayControl
-    ? (currentValue(beforeDayControl) as number[])
-    : [];
-  const afterDays = afterDayControl
-    ? (currentValue(afterDayControl) as number[])
-    : [];
-  const scheduleText = beforeDayControl
-    ? reminderScheduleText(rule, beforeDays, afterDays)
-    : null;
-  const hasDeliverySettings =
-    Boolean(catchUpControl) || Boolean(windowStartControl && windowEndControl);
   const hours = Array.from({ length: 24 }, (_, hour) => hour);
-  const deliveryControls = (
+  return (
     <div className="space-y-3">
       {catchUpControl ? (
         <Select
-          value={String(Number(currentValue(catchUpControl)))}
+          value={String(
+            Number(currentTimingValue(rule, draft, catchUpControl))
+          )}
           onValueChange={(value) => {
             if (value == null) return;
             onChange({
@@ -463,7 +457,7 @@ function TimingControls({
         >
           <SelectTrigger
             size="sm"
-            className="max-w-full min-w-72"
+            className="w-full sm:w-auto sm:min-w-72"
             aria-label={`${rule.title} delayed reminder setting`}
           >
             <SelectValue />
@@ -548,11 +542,59 @@ function TimingControls({
       ) : null}
     </div>
   );
+}
+
+function TimingControls({
+  rule,
+  draft,
+  onChange,
+  disabled,
+  formatTime,
+}: {
+  rule: RuleRow;
+  draft: ReminderRulePatch;
+  onChange: (patch: ReminderRulePatch) => void;
+  disabled: boolean;
+  formatTime: (hour: number, minute?: string) => string;
+}) {
+  const controls = timingFields(rule);
+  if (!controls.length) return null;
+  const dayControls = controls.filter(
+    (field) => field.type === 'integer-array'
+  );
+  const otherNumberControls = controls.filter(
+    (field) =>
+      field.type === 'integer' &&
+      !['catchUpDays', 'sendWindowStart', 'sendWindowEnd'].includes(field.key)
+  );
+  const currentValue = (field: TimingField) =>
+    currentTimingValue(rule, draft, field);
+  const selectedDayCount = dayControls.reduce(
+    (count, field) => count + (currentValue(field) as number[]).length,
+    0
+  );
+  const beforeDayControl = dayControls.find(
+    (field) => field.key !== 'overdueDays'
+  );
+  const afterDayControl = dayControls.find(
+    (field) => field.key === 'overdueDays'
+  );
+  const beforeDays = beforeDayControl
+    ? (currentValue(beforeDayControl) as number[])
+    : [];
+  const afterDays = afterDayControl
+    ? (currentValue(afterDayControl) as number[])
+    : [];
+  const scheduleText = beforeDayControl
+    ? reminderScheduleText(rule, beforeDays, afterDays)
+    : null;
   return (
     <div className="space-y-3">
       {dayControls.length ? (
         <div className="space-y-3">
-          <p className="max-w-2xl text-sm leading-6">{scheduleText}</p>
+          <div className="max-w-2xl text-sm leading-5 text-pretty">
+            {scheduleText}
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger
               render={
@@ -615,20 +657,16 @@ function TimingControls({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      ) : null}
-      {hasDeliverySettings ? (
-        dayControls.length ? (
-          <Accordion>
-            <AccordionItem value={`delivery-${rule.id}`}>
-              <AccordionTrigger>More sending options</AccordionTrigger>
-              <AccordionContent className="px-1 pt-2">
-                {deliveryControls}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        ) : (
-          deliveryControls
-        )
+      ) : hasDeliveryFields(rule) ? (
+        // Without day choices there is nothing to tuck the sending options
+        // behind, so they sit directly under the rule's timing.
+        <DeliveryControls
+          rule={rule}
+          draft={draft}
+          onChange={onChange}
+          disabled={disabled}
+          formatTime={formatTime}
+        />
       ) : null}
       {otherNumberControls.map((field) => {
         const value = currentValue(field);
@@ -674,18 +712,16 @@ function RuleMessagePreview({
       )
   );
   return (
-    <div className="bg-chat-canvas relative overflow-hidden rounded-lg p-3">
-      <div
-        aria-hidden
-        className="chat-doodle pointer-events-none absolute inset-0"
-      />
-      <div className="bg-chat-bubble-in text-foreground relative w-fit max-w-[88%] rounded-lg rounded-tl-none p-2 text-sm whitespace-pre-wrap shadow-[var(--chat-bubble-shadow)]">
+    <figure className="max-w-[30.5rem] space-y-2">
+      {/* The bubble sits straight on the detail tile. ml-2 keeps its 8px tail
+          inside the accordion panel, which clips anything past its edge. */}
+      <div className="bg-chat-bubble-in text-foreground relative ml-2 w-fit max-w-[calc(100%-0.5rem)] rounded-lg rounded-tl-none p-2 text-sm whitespace-pre-wrap shadow-[var(--chat-bubble-shadow)]">
         <BubbleTail side="left" />
         {message}
         {contract?.payload.footer_text ? (
-          <p className="text-muted-foreground mt-2 text-xs">
+          <div className="text-muted-foreground mt-2 text-xs">
             {contract.payload.footer_text}
-          </p>
+          </div>
         ) : null}
         {contract?.payload.buttons?.length ? (
           <div className="mt-2 flex flex-wrap gap-1">
@@ -702,15 +738,29 @@ function RuleMessagePreview({
           </div>
         ) : null}
       </div>
-      {!hasUnsavedChanges ? (
-        <Link
-          className={buttonVariants({ variant: 'link', size: 'sm' })}
-          href={ruleHref(rule, contractId)}
-        >
-          View message template
-        </Link>
-      ) : null}
-    </div>
+      <figcaption className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1">
+        <span className="text-muted-foreground mr-auto text-xs">
+          <span>This is only a sample.</span>
+          {hasUnsavedChanges ? (
+            <>
+              {' '}
+              <span>
+                Save or cancel your changes before opening the message template.
+              </span>
+            </>
+          ) : null}
+        </span>
+        {!hasUnsavedChanges ? (
+          <Link
+            data-slot="button"
+            className={buttonVariants({ variant: 'link', size: 'sm' })}
+            href={ruleHref(rule, contractId)}
+          >
+            View message template
+          </Link>
+        ) : null}
+      </figcaption>
+    </figure>
   );
 }
 
@@ -761,29 +811,52 @@ function RuleDetail({
   const hasDayChoices = timingFields(rule).some(
     (field) => field.type === 'integer-array'
   );
+  const sendingOptionsCollapsed = hasDayChoices && hasDeliveryFields(rule);
+  const sendsAfterNine = [
+    'membership_renewal',
+    'service_renewal',
+    'joining_installments',
+  ].includes(rule.id);
+  const showsLifecycleWindow =
+    usesLifecycleWindow && rule.id !== 'invoice_collection';
+  const showsFooter = hasTimingControls && dirty;
   return (
-    <div className="space-y-4 pt-4" data-testid={`rule-detail-${rule.id}`}>
-      <section className="space-y-3" aria-label="When this message is sent">
-        {hasDayChoices ? (
-          <h3 className="text-sm font-semibold">
-            When will members get reminders?
+    <div
+      className="bg-card-2 mt-3 rounded-2xl px-4 pt-4 pb-1"
+      data-testid={`rule-detail-${rule.id}`}
+    >
+      <section className="space-y-3" aria-labelledby={`rule-when-${rule.id}`}>
+        <div className="max-w-2xl space-y-1">
+          <h3 className={DETAIL_CAPTION} id={`rule-when-${rule.id}`}>
+            {hasDayChoices
+              ? 'When will members get reminders?'
+              : 'When this message is sent'}
           </h3>
-        ) : hasTimingControls ? (
-          <p className="text-sm font-medium">{timingSummary(rule)}</p>
-        ) : (
-          <div className="max-w-2xl space-y-1">
-            <p className="text-sm font-medium">
+          {hasDayChoices ? null : (
+            <div className="text-sm leading-5 text-pretty">
               {rule.id === 'joining_installments'
                 ? 'Sent 7, 3, and 1 days before each payment is due, and again on the due date.'
                 : timingSummary(rule)}
-            </p>
-            {rule.id === 'joining_installments' ? (
-              <p className="text-muted-foreground text-sm leading-5">
-                The member’s payment plan sets these dates.
-              </p>
-            ) : null}
-          </div>
-        )}
+            </div>
+          )}
+          {rule.id === 'joining_installments' ? (
+            <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
+              <span>The member’s payment plan sets these dates.</span>
+              {!hasUnsavedChanges ? (
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link href={branchHref('/members', browserBranchId())} />
+                  }
+                  variant="link"
+                  size="sm"
+                >
+                  View member payment plans
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
         <TimingControls
           rule={rule}
           draft={draft}
@@ -791,24 +864,26 @@ function RuleDetail({
           disabled={!canEdit || saving}
           formatTime={localTime}
         />
-        {rule.id === 'joining_installments' && !hasUnsavedChanges ? (
-          <Button
-            nativeButton={false}
-            render={<Link href={branchHref('/members', browserBranchId())} />}
-            variant="link"
-            size="sm"
-          >
-            View member payment plans
-          </Button>
-        ) : null}
       </section>
-      <Accordion>
+      <Separator className="mt-4" />
+      <Accordion multiple>
+        {sendingOptionsCollapsed ? (
+          <AccordionItem value={`delivery-${rule.id}`}>
+            <AccordionTrigger>More sending options</AccordionTrigger>
+            <AccordionContent className="px-1">
+              <DeliveryControls
+                rule={rule}
+                draft={draft}
+                onChange={onDraftChange}
+                disabled={!canEdit || saving}
+                formatTime={localTime}
+              />
+            </AccordionContent>
+          </AccordionItem>
+        ) : null}
         <AccordionItem value={`details-${rule.id}`}>
           <AccordionTrigger>See message and details</AccordionTrigger>
-          <AccordionContent className="space-y-2 px-1 pt-2">
-            <p className="text-muted-foreground text-xs">
-              This is only a sample.
-            </p>
+          <AccordionContent className="space-y-5 px-1">
             {rule.templateContracts.length > 1 ? (
               <Tabs defaultValue={rule.templateContracts[0]}>
                 <TabsList aria-label={`${rule.title} message preview`}>
@@ -837,36 +912,29 @@ function RuleDetail({
                 hasUnsavedChanges={hasUnsavedChanges}
               />
             )}
-            {hasUnsavedChanges ? (
-              <p className="text-muted-foreground text-xs">
-                Save or cancel your changes before opening the message template.
-              </p>
-            ) : null}
-            <dl className="mt-5 grid gap-4 sm:grid-cols-3">
+            <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
               <div className="space-y-1">
-                <dt className="text-sm font-semibold">Who gets it</dt>
-                <dd className="text-muted-foreground text-sm leading-5">
+                <dt className={DETAIL_CAPTION}>Who gets it</dt>
+                <dd className="text-sm leading-5 text-pretty">
                   {RULE_DETAILS[rule.id].eligibility}
                 </dd>
               </div>
               <div className="space-y-1">
-                <dt className="text-sm font-semibold">When it stops</dt>
-                <dd className="text-muted-foreground text-sm leading-5">
+                <dt className={DETAIL_CAPTION}>When it stops</dt>
+                <dd className="text-sm leading-5 text-pretty">
                   {RULE_DETAILS[rule.id].stops}
                 </dd>
               </div>
               <div className="space-y-1">
-                <dt className="text-sm font-semibold">What staff should do</dt>
-                <dd className="text-muted-foreground text-sm leading-5">
+                <dt className={DETAIL_CAPTION}>What staff should do</dt>
+                <dd className="text-sm leading-5 text-pretty">
                   {RULE_DETAILS[rule.id].staff}
                 </dd>
               </div>
               {rule.id === 'autopay_recovery' ? (
                 <div className="space-y-1 sm:col-span-3">
-                  <dt className="text-sm font-semibold">
-                    How AutoPay retries work
-                  </dt>
-                  <dd className="text-muted-foreground max-w-3xl text-sm leading-5">
+                  <dt className={DETAIL_CAPTION}>How AutoPay retries work</dt>
+                  <dd className="max-w-3xl text-sm leading-5 text-pretty">
                     A retry message tells the member when AutoPay will try
                     again. It does not ask them to pay another way. A final
                     failure message may ask for payment after UsefulDesk checks
@@ -875,58 +943,63 @@ function RuleDetail({
                 </div>
               ) : null}
             </dl>
-            {[
-              'membership_renewal',
-              'service_renewal',
-              'joining_installments',
-            ].includes(rule.id) ? (
-              <p className="text-muted-foreground mt-4 max-w-2xl text-sm leading-5">
+            {sendsAfterNine ? (
+              <div className="text-muted-foreground max-w-2xl text-sm leading-5">
                 UsefulDesk can send this message after {localTime(9)} in this
                 branch.
-              </p>
+              </div>
             ) : null}
-            {usesLifecycleWindow &&
-            lifecycleWindow &&
-            rule.id !== 'invoice_collection' ? (
-              <div className="mt-4 space-y-1 text-sm">
-                <p className="text-muted-foreground">
-                  UsefulDesk can send this message from{' '}
-                  {localTime(lifecycleWindow.start)} to{' '}
-                  {localTime(lifecycleWindow.end, '59')} in this branch.
-                </p>
-                {!dirty ? (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={onOpenInvoiceCollection}
-                  >
-                    Change sending hours
-                  </Button>
-                ) : (
-                  <p className="text-muted-foreground text-xs">
+            {showsLifecycleWindow && lifecycleWindow ? (
+              <div className="space-y-1">
+                <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
+                  <span>
+                    UsefulDesk can send this message from{' '}
+                    {localTime(lifecycleWindow.start)} to{' '}
+                    {localTime(lifecycleWindow.end, '59')} in this branch.
+                  </span>
+                  {!dirty ? (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={onOpenInvoiceCollection}
+                    >
+                      Change sending hours
+                    </Button>
+                  ) : null}
+                </div>
+                {dirty ? (
+                  <div className="text-muted-foreground text-xs">
                     Save or cancel these changes before changing the sending
                     hours.
-                  </p>
-                )}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-      {hasTimingControls && dirty ? (
-        <div className="flex justify-end gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={saving}
-            onClick={() => onDraftChange({})}
-          >
-            Cancel
-          </Button>
-          <Button size="sm" loading={saving} disabled={!canEdit} onClick={save}>
-            Save settings
-          </Button>
-        </div>
+      {showsFooter ? (
+        <>
+          <Separator />
+          <div className="flex justify-end gap-2 py-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={saving}
+              onClick={() => onDraftChange({})}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              loading={saving}
+              disabled={!canEdit}
+              onClick={save}
+            >
+              Save settings
+            </Button>
+          </div>
+        </>
       ) : null}
     </div>
   );

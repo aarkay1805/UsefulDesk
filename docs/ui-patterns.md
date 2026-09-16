@@ -166,6 +166,11 @@ inside the container's normal gutters (16px on phones, 24px in desktop dialog
 panes). Full-width report tables use an external `mx-4` on the trigger to preserve
 their 16px column alignment and keep the tint inset. Do not override the master's
 hover fill or corner radius at a call site; disabled triggers keep no hover fill.
+`AccordionContent` gives every non-last `<p>` a 16px bottom margin for prose, and
+that margin beats `space-y-*`. Structured text inside a panel (captions, notes,
+label/value pairs) uses `<div>` or `<span>`, never `<p>`. Several accordion
+disclosures under one heading go in one `Accordion` root, so the master draws the
+dividers between them.
 
 ## Pending button actions
 
