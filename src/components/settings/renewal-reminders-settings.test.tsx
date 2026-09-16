@@ -10,6 +10,8 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const authState = vi.hoisted(() => ({ canEditSettings: true }));
+
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -18,7 +20,7 @@ vi.mock('next/navigation', () => ({
 }));
 vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => ({
-    canEditSettings: true,
+    canEditSettings: authState.canEditSettings,
     locale: { timeZone: 'Asia/Kolkata' },
     fmt: {
       today: () => '2026-09-12',
@@ -93,6 +95,7 @@ const { RenewalRemindersSettings } =
   await import('./renewal-reminders-settings');
 
 beforeEach(() => {
+  authState.canEditSettings = true;
   window.history.replaceState({}, '', '/settings?tab=reminders');
   vi.stubGlobal(
     'ResizeObserver',
@@ -427,6 +430,17 @@ describe('Automated messages catalogue', () => {
     expect(screen.queryByLabelText('Membership renewal automation')).toBeNull();
   });
 
+  it('keeps template setup unavailable without settings edit permission', async () => {
+    authState.canEditSettings = false;
+    mockFetch();
+    render(<RenewalRemindersSettings />);
+
+    const setup = await screen.findByRole('button', { name: 'Set up' });
+    expect(setup).toHaveProperty('disabled', true);
+    fireEvent.click(setup);
+    expect(screen.queryByText('This template needs setup')).toBeNull();
+  });
+
   it('opens the exact required template in place and preserves the rule draft and Off preference', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
@@ -484,9 +498,11 @@ describe('Automated messages catalogue', () => {
       screen.queryByRole('link', { name: 'View message template' })
     ).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
-    expect(
-      await screen.findByRole('button', { name: 'Save settings' })
-    ).not.toHaveProperty('disabled', true);
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Save settings' })
+      ).not.toHaveProperty('disabled', true)
+    );
     expect(screen.getByText(/Save or cancel your changes/i)).toBeTruthy();
   });
 

@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-09-16 — Automated message setup respects settings permission
+
+The unready-rule **Set up** action in `renewal-reminders-settings.tsx` now stays
+disabled for users without settings edit permission, matching the rule switches
+and preventing entry into a setup flow they cannot complete. The catalogue test
+covers the read-only state, and the automated-messages runbook now uses the
+current **Set up** and **Save settings** labels.
+The failed-save regression test now waits for the rejected request to clear its
+saving state, removing the CI-only race while preserving the draft assertion.
+
 ## 2026-09-16 — Meta Lead Ads connections available to every account
 
 Enabled the approved `NEXT_PUBLIC_META_LEADS_CONFIG_ID` in Vercel Production and

@@ -1117,6 +1117,7 @@ function RuleRow({
           {needsSetup ? (
             <ResolvableAction
               blocker={blocker}
+              disabled={!canEdit || saving}
               onAction={toggle}
               trigger={
                 <Button size="sm" variant="outline">

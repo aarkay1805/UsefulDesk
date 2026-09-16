@@ -9,12 +9,14 @@ rules under Renewals, Collections, Retention, and Confirmations.
 1. Choose a rule and **Configure** to expand its own row and inspect who qualifies, its timing, sample
    message, stopping conditions, and staff follow-up behavior. **Close** collapses
    it; opening another rule closes the previous one without discarding drafts.
-2. **Save changes** writes only that rule’s changed fields. Configuration can
+2. **Save settings** writes only that rule’s changed fields. Configuration can
    be saved while Off and never activates a schedule. **Cancel** restores the
    saved values. Unsaved changes survive group/detail navigation within this
    page and are isolated by account/branch; they are not persisted across reloads.
-3. When a blocked toggle offers **Set up required template**, it opens the
-   required prefilled template modal over the rule. The branch’s existing
+3. When an unready rule offers **Set up**, open it and choose
+   **Set up required template** to open the required prefilled template modal
+   over the rule. The Set up action is unavailable without settings edit
+   permission. The branch’s existing
    template opens for editing if eligible; pending templates show their approval
    status without another submission action. Cancel/close returns to
    the same expanded rule with unsaved edits intact. Submitting remains an

@@ -10,8 +10,9 @@ template. Existing On intent survives lost readiness. Each rule name has a
 plain-language info tooltip; the group filters do not repeat another summary
 line. Template setup remains in Templates, with exact-contract focus and a
 return to the originating rule.
-The blocked-toggle setup CTA opens the required template editor directly over
-the rule, preserving drafts; an existing matching template opens for editing
+The Set up action opens the required template editor directly over the rule,
+preserving drafts; it remains disabled without settings edit permission. An
+existing matching template opens for editing
 or displays its pending approval status without offering another submission.
 Locked setup presents a filled member-facing WhatsApp preview with no editable
 contract fields, its provider details directly below, and a sticky footer that
@@ -24,7 +25,7 @@ The open row states its reminder strategy in one plain sentence, while one
 “Change reminder days” multi-select contains the long choice list. Managed
 rules state their fixed timing directly. Sending options, sample messages, and
 rule details stay closed until requested; the sample and rule details share one
-disclosure, and Save/Cancel appear only after a change. The open rule's
+disclosure, and Save settings/Cancel appear only after a change. The open rule's
 settings sit in one nested tile under its title, with small muted captions and
 both disclosures in one divided list. Rules with two message
 contracts use purpose-labelled tabs and show one example at a time. Rules with
