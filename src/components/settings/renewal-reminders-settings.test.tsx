@@ -167,20 +167,28 @@ describe('Automated messages catalogue', () => {
     render(<RenewalRemindersSettings />);
     fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
     expect(
-      screen.getByRole('heading', { name: 'Choose when to send' })
+      screen.getByRole('heading', {
+        name: 'When will members get reminders?',
+      })
     ).toBeTruthy();
     expect(
-      screen.getByRole('heading', { name: 'Message members receive' })
+      screen.getByText(
+        'Members get reminders 7, 3, and 1 days before the membership ends.'
+      )
     ).toBeTruthy();
-    expect(screen.getByText(/Preview only. No message is sent./i)).toBeTruthy();
+    expect(screen.queryByText('This is only a sample.')).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See message and details' })
+    );
+    expect(screen.getByText('This is only a sample.')).toBeTruthy();
     expect(screen.queryByText('Days before')).toBeNull();
     toggleReminderDay(
       screen.getByRole('button', {
-        name: /Membership renewal reminder days/i,
+        name: /Membership renewal change reminder days/i,
       }),
       '14 days before'
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
     const calls = (fetch as ReturnType<typeof vi.fn>).mock.calls;
     expect(
       calls.some(([, init]) => (init as RequestInit)?.method === 'PATCH')
@@ -278,8 +286,18 @@ describe('Automated messages catalogue', () => {
     expect(
       await screen.findByTestId('rule-detail-invoice_collection')
     ).toBeTruthy();
+    expect(
+      screen.getByRole('heading', {
+        name: 'When will members get reminders?',
+      })
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Members get reminders 3 and 1 days before payment is due, on the due date, and 1, 3, 7, and 14 days after payment is due.'
+      )
+    ).toBeTruthy();
     const reminderDays = screen.getByRole('button', {
-      name: 'Invoice collection reminder days, 7 selected',
+      name: 'Invoice collection change reminder days, 7 selected',
     });
     expect(
       screen.queryByRole('menuitemcheckbox', { name: 'On the due date' })
@@ -288,12 +306,23 @@ describe('Automated messages catalogue', () => {
     expect(
       screen.getAllByRole('menuitemcheckbox', { name: 'On the due date' })
     ).toHaveLength(1);
-    expect(screen.getByText('Before payment is due')).toBeTruthy();
-    expect(screen.getByText('After payment is due')).toBeTruthy();
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(
+      screen.queryByRole('tab', { name: 'Before or on due date' })
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See message and details' })
+    );
+    expect(
+      screen.getByRole('tab', { name: 'Before or on due date' })
+    ).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'After due date' })).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'More sending options' })
+    );
+    expect(
       screen.getByRole('combobox', {
-        name: 'Invoice collection missed reminder setting',
+        name: 'Invoice collection delayed reminder setting',
       })
     ).toBeTruthy();
     expect(
@@ -350,7 +379,7 @@ describe('Automated messages catalogue', () => {
     ).toBe('true');
     toggleReminderDay(
       within(membershipRow).getByRole('button', {
-        name: /Membership renewal reminder days/i,
+        name: /Membership renewal change reminder days/i,
       }),
       '14 days before'
     );
@@ -369,7 +398,7 @@ describe('Automated messages catalogue', () => {
       within(membershipRow).getByRole('button', { name: 'Configure' })
     );
     const reminderDays = within(membershipRow).getByRole('button', {
-      name: /Membership renewal reminder days/i,
+      name: /Membership renewal change reminder days/i,
     });
     fireEvent.click(reminderDays);
     expect(
@@ -389,15 +418,13 @@ describe('Automated messages catalogue', () => {
     ).toBe(false);
   });
 
-  it('blocks activation for missing setup while preserving the saved Off state', async () => {
+  it('offers one setup action when a rule is not ready', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
-    const toggle = await screen.findByLabelText(
-      'Membership renewal automation'
-    );
-    fireEvent.click(toggle);
+    const setup = await screen.findByRole('button', { name: 'Set up' });
+    fireEvent.click(setup);
     expect(await screen.findByText('This template needs setup')).toBeTruthy();
-    expect(screen.getByText('Off')).toBeTruthy();
+    expect(screen.queryByLabelText('Membership renewal automation')).toBeNull();
   });
 
   it('opens the exact required template in place and preserves the rule draft and Off preference', async () => {
@@ -406,11 +433,11 @@ describe('Automated messages catalogue', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
     toggleReminderDay(
       screen.getByRole('button', {
-        name: /Membership renewal reminder days/i,
+        name: /Membership renewal change reminder days/i,
       }),
       '14 days before'
     );
-    fireEvent.click(screen.getByLabelText('Membership renewal automation'));
+    fireEvent.click(screen.getByRole('button', { name: 'Set up' }));
     fireEvent.click(
       await screen.findByRole('button', { name: 'Set up required template' })
     );
@@ -424,7 +451,7 @@ describe('Automated messages catalogue', () => {
       screen.getByRole('button', { name: 'Cancel template setup' })
     );
     const reminderDays = screen.getByRole('button', {
-      name: /Membership renewal reminder days/i,
+      name: /Membership renewal change reminder days/i,
     });
     fireEvent.click(reminderDays);
     expect(
@@ -433,7 +460,8 @@ describe('Automated messages catalogue', () => {
         .getAttribute('aria-checked')
     ).toBe('true');
     fireEvent.keyDown(document, { key: 'Escape' });
-    expect(screen.getByText('Off')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Set up' })).toBeTruthy();
+    expect(screen.queryByLabelText('Membership renewal automation')).toBeNull();
     expect(
       vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')
     ).toBe(false);
@@ -445,16 +473,19 @@ describe('Automated messages catalogue', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
     toggleReminderDay(
       screen.getByRole('button', {
-        name: /Membership renewal reminder days/i,
+        name: /Membership renewal change reminder days/i,
       }),
       '14 days before'
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See message and details' })
     );
     expect(
       screen.queryByRole('link', { name: 'View message template' })
     ).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
     expect(
-      await screen.findByRole('button', { name: 'Save changes' })
+      await screen.findByRole('button', { name: 'Save settings' })
     ).not.toHaveProperty('disabled', true);
     expect(screen.getByText(/Save or cancel your changes/i)).toBeTruthy();
   });
@@ -465,24 +496,28 @@ describe('Automated messages catalogue', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
     toggleReminderDay(
       screen.getByRole('button', {
-        name: /Membership renewal reminder days/i,
+        name: /Membership renewal change reminder days/i,
       }),
       '14 days before'
     );
     fireEvent.click(screen.getByRole('button', { name: 'Collections' }));
     fireEvent.click(screen.getByRole('button', { name: 'View' }));
     expect(screen.getByTestId('rule-detail-joining_installments')).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See message and details' })
+    );
     expect(
       screen.queryByRole('link', { name: 'View message template' })
     ).toBeNull();
     expect(screen.getByText(/Save or cancel your changes/)).toBeTruthy();
   });
 
-  it('shows joining installments as managed rather than an independent toggle', async () => {
+  it('shows joining installments without an independent toggle or extra status', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
     fireEvent.click(await screen.findByRole('button', { name: 'Collections' }));
-    expect(await screen.findByText('Managed')).toBeTruthy();
+    expect(await screen.findByText('Joining installments')).toBeTruthy();
+    expect(screen.queryByText('Managed')).toBeNull();
     expect(
       screen.queryByRole('switch', { name: 'Joining installments automation' })
     ).toBeNull();
@@ -512,9 +547,9 @@ describe('Automated messages catalogue', () => {
     ).toBeTruthy();
     expect(screen.getByText(/payment plan sets these dates/i)).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'About this message' })
+      screen.getByRole('button', { name: 'See message and details' })
     ).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save settings' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     await waitFor(() =>
       expect(

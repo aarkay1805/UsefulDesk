@@ -6,6 +6,39 @@
 
 ---
 
+## 2026-09-16 — Meta Lead Ads connections available to every account
+
+Enabled the approved `NEXT_PUBLIC_META_LEADS_CONFIG_ID` in Vercel Production and
+rebuilt the previously active reviewed source deployment as
+`dpl_Dd8gAhX51pco13J1pmNq134ppF1j` at 21:30:46 IST. Every Production alias now
+resolves to that Ready deployment, and an ordinary owner account exposes the
+existing role-gated **Connect Facebook Page** action without connecting a customer
+Page. Preview and Development configuration were not changed; rollback remains
+clearing the Production value and rebuilding.
+
+Before activation, a fresh post-approval Facebook submission through Meta's
+official testing tool processed on attempt one into the dedicated review tenant:
+one unassigned `received_via='meta'` / `source='facebook'` contact, one enquiry
+note, no conversation or message, and no active automation. A correctly signed
+replay returned HTTP 200 without incrementing the event attempt or duplicating the
+contact or note. The focused Meta gate passed (16 files, 84 tests), the review Page
+was healthy with no attention incident, and two recent scheduled recovery runs
+returned `failed: 0`. No application code or schema changed. Instagram-origin
+provider acceptance, a fresh same-phone distinct-enquiry case, the remaining
+destructive recovery drills, and the 24-hour post-activation observation remain
+unverified and are not claimed complete.
+
+## 2026-09-13 — Reminder strategy is visible before editing
+
+`renewal-reminders-settings.tsx` now states each editable schedule in one plain
+sentence and keeps one “Change reminder days” menu for the long list. Sending
+options stay closed until requested; the sample and rule details share one
+disclosure, and Save/Cancel appear only after a change. Multi-message rules show
+one preview at a time in purpose-labelled tabs. An unready rule now offers one
+Set up action instead of a status badge plus disabled switch, and managed rules
+drop their redundant status. Invoice rules retain due-date language because
+they also cover non-renewal invoices.
+
 ## 2026-09-12 — Required template setup opens directly from a rule
 
 The blocked-toggle CTA in `renewal-reminders-settings.tsx` opens the existing

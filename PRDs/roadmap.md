@@ -20,15 +20,17 @@ submits the exact English language contract the rule expects.
 Other links that leave the rule page still require saving or cancelling drafts. Previews
 use sample values and send nothing. Configure expands the selected rule inside
 its own catalogue row; one row is open at a time and drafts survive collapse.
-The open row asks users to choose send days only when they can change them;
-managed rules state their timing directly. The preview is labelled “Message
-members receive.” Eligibility, stop rules, and staff guidance sit under “About
-this message”; rules with no editable settings use View and omit disabled form
-actions. Each timing chip states whether it is on, before, or after the due date
-without a separate “Days before” label. Missed-day handling is one plain choice,
-and the two raw send-window fields are one formatted branch-time instruction.
-Reminder-day choices use one multi-select dropdown with a compact selected
-count; invoice options are grouped by before-due and after-due timing.
+The open row states its reminder strategy in one plain sentence, while one
+“Change reminder days” multi-select contains the long choice list. Managed
+rules state their fixed timing directly. Sending options, sample messages, and
+rule details stay closed until requested; the sample and rule details share one
+disclosure, and Save/Cancel appear only after a change. Rules with two message
+contracts use purpose-labelled tabs and show one example at a time. Rules with
+no editable settings use View and omit form actions. An unready rule offers one
+Set up action instead of a status badge plus disabled switch; managed rules omit
+that redundant status. Saving configuration no longer needs a separate
+activation warning. Invoice collection retains due-date language because it
+also covers service and merchandise invoices.
 
 Activity reads the lifecycle queue and all three legacy reminder ledgers with
 branch-scoped member identity, rule/outcome/local-date filters, bounded keyset
@@ -165,7 +167,6 @@ rollback harness exercises created-task replay, an edited return date, and a
 disabled schedule while rolling every synthetic row back. No template
 submission/approval, setting activation, message, provider operation, payment,
 deployment, or live delivery occurred.
-
 
 > Status reconciliation — 2026-09-09: use the current release summaries and
 > explicit closeouts below over older engineering entries. Historical single-account
@@ -1133,9 +1134,12 @@ Engineering maintenance: **the complete Members import wizard now clarifies acti
 
 Member import follow-up: a valid Phone + Service mapping can now reach preview in a branch with no membership plans; the service-aware candidate model, not a stale plan-count gate, decides whether rows need resolution.
 
+**Meta Lead Ads rollout (shipped):**
+
+- **Meta lead ads: the self-healing implementation, additive Production migrations, owned recovery route, and 15-minute scheduler are live and verified.** Production records `20260822100000_meta_lead_ads_self_healing.sql` and `20260822100001_index_meta_page_config_user_id.sql` as connector-applied versions `20260822093418` and `20260822093424`; deployment commit `e13098e` serves the route, and repeated scheduled runs are healthy with zero configured Pages or queued Meta events. Business Verification, Meta Tech Provider approval, and the WhatsApp Embedded Signup review for `whatsapp_business_messaging`, `whatsapp_business_management`, and `business_management` are complete; their four renewal allowed-use certifications are also complete in the current submission. The **Capture & manage ad leads with Marketing API** use case is attached to the live Meta app and draft `1914379289558468` is scoped to `pages_show_list`, `pages_manage_metadata`, `leads_retrieval`, plus Meta-required `pages_manage_ads`, `pages_read_engagement`, and `ads_management`; unused `ads_read` and Marketing API Access Tier requests are excluded. All six permission descriptions/agreements, the data-handling assessment, and reviewer instructions are complete; the reviewer copy retains the existing test credentials, covers both integrations, and correctly keeps consumer Facebook Login marked **No** because UsefulDesk uses Facebook Login for Business only to authorize selected business assets. The separate **UsefulDesk Lead Ads** Facebook Login for Business configuration (`1039026725782445`) uses the General/user-token flow and exactly those six scopes; it neither enables Facebook sign-in to UsefulDesk nor changes the WhatsApp configuration. Disposable Page **UsefulDesk Lead Ads Test** (Page asset ID `1300231026509095`; profile URL ID `61593607592072`) exists with no public content, contact data, branding, WhatsApp link, or invited audience. Its active review-only Instant Form **UsefulDesk Lead Ads Test Form** (`2157208975142771`) collects full name, phone number, and email, points to `https://usefulmade.com/useful-desk/privacy`, and is not attached to an ad or campaign. Production now exposes the approved non-secret Lead Ads configuration to every account; the former review-account fallback remains only as rollback-safe reviewer access if the global value is cleared. The disposable Page is connected and its Page-level plus app-level `leadgen` subscriptions are healthy; Meta's official test tool confirms user lead permission, Lead Access Manager, Page administration, and clean app diagnostics. The optional `has_lead_access` diagnostic is unavailable for this Page and correctly remains unstamped. The app callback uses the stable Production endpoint, and its handshake plus signed sample succeed. Fresh dummy and custom synthetic deliveries processed in Production; the post-approval 2026-09-16 Facebook canary created one unassigned Meta lead and one enquiry note on its first attempt, and an authenticated replay remained exactly once. The same product walkthrough screencast is saved on all six permission requests, and successful API tests cover every required scope. **Approval verified in the live Meta dashboard on 2026-09-08:** submission `1914379289558468`, submitted September 2, 2026 at 00:27 IST, is **Submission approved**. All six Lead Ads permissions above are Approved; `business_management`, `whatsapp_business_management`, `whatsapp_business_messaging`, and `public_profile` are Renewed. Global availability shipped on 2026-09-16 through Production deployment `dpl_Dd8gAhX51pco13J1pmNq134ppF1j`; Instagram-origin provider acceptance and the 24-hour post-activation checkpoint remain explicitly unverified.
+
 **Left:**
 
-- **Meta lead ads: the self-healing implementation, additive Production migrations, owned recovery route, and 15-minute scheduler are live and verified.** Production records `20260822100000_meta_lead_ads_self_healing.sql` and `20260822100001_index_meta_page_config_user_id.sql` as connector-applied versions `20260822093418` and `20260822093424`; deployment commit `e13098e` serves the route, and repeated scheduled runs are healthy with zero configured Pages or queued Meta events. Business Verification, Meta Tech Provider approval, and the WhatsApp Embedded Signup review for `whatsapp_business_messaging`, `whatsapp_business_management`, and `business_management` are complete; their four renewal allowed-use certifications are also complete in the current submission. The **Capture & manage ad leads with Marketing API** use case is attached to the live Meta app and draft `1914379289558468` is scoped to `pages_show_list`, `pages_manage_metadata`, `leads_retrieval`, plus Meta-required `pages_manage_ads`, `pages_read_engagement`, and `ads_management`; unused `ads_read` and Marketing API Access Tier requests are excluded. All six permission descriptions/agreements, the data-handling assessment, and reviewer instructions are complete; the reviewer copy retains the existing test credentials, covers both integrations, and correctly keeps consumer Facebook Login marked **No** because UsefulDesk uses Facebook Login for Business only to authorize selected business assets. The separate **UsefulDesk Lead Ads** Facebook Login for Business configuration (`1039026725782445`) uses the General/user-token flow and exactly those six scopes; it neither enables Facebook sign-in to UsefulDesk nor changes the WhatsApp configuration. Disposable Page **UsefulDesk Lead Ads Test** (Page asset ID `1300231026509095`; profile URL ID `61593607592072`) exists with no public content, contact data, branding, WhatsApp link, or invited audience. Its active review-only Instant Form **UsefulDesk Lead Ads Test Form** (`2157208975142771`) collects full name, phone number, and email, points to `https://usefulmade.com/useful-desk/privacy`, and is not attached to an ad or campaign. The dedicated review account alone receives the non-secret Lead Ads configuration ID on the production domain; normal customer accounts remain dark while the global Production environment gate stays unset. The disposable Page is connected and its Page-level plus app-level `leadgen` subscriptions are healthy; Meta's official test tool confirms user lead permission, Lead Access Manager, Page administration, and clean app diagnostics. The optional `has_lead_access` diagnostic is unavailable for this Page and correctly remains unstamped. The app callback uses the stable Production endpoint, and its handshake plus signed sample succeed. Fresh dummy and custom synthetic deliveries both processed in Production; the dummy placeholder completed safely as phone-less, while the custom lead created one unassigned Meta lead and one enquiry note. The same product walkthrough screencast is saved on all six permission requests, and successful API tests cover every required scope; Meta warns usage counters can take up to 24 hours to update. **Approval verified in the live Meta dashboard on 2026-09-08:** submission `1914379289558468`, submitted September 2, 2026 at 00:27 IST, is **Submission approved**. All six Lead Ads permissions above are Approved; `business_management`, `whatsapp_business_management`, `whatsapp_business_messaging`, and `public_profile` are Renewed. The dashboard does not establish the approval date. App Review is complete; remaining work is disposable Facebook/Instagram acceptance, a separately authorized production canary, and global activation after passing evidence. The production environment gate has not been rechecked during this approval-only inspection; its last recorded state is unset. See the [remaining implementation and rollout plan](#meta-lead-ads-post-approval-implementation-plan).
 - Booking.
 - `received_via='automation'` remains a **reserved, unwired slot** (a future "create contact" automation step) — set it on that insert and the Leads "Received By" column lights up automatically. See `src/lib/leads/attributes.ts` (`autoReceivedLabel`).
 
@@ -1427,6 +1431,23 @@ claimed or failed; the GitHub backup's 23:05 IST run reported the same aggregate
 The focused regression gate passed (16 files, 84 tests). All owned recovery and
 Page-health RPCs remain service-role-only, with no browser-role execute grant.
 
+**2026-09-16 activation result:** the owner authorized a global rollout after a
+fresh provider Facebook canary on the existing disposable Page and form. The
+review account had zero active automations; the synthetic submission processed
+once, created one tenant-correct unassigned contact with `source='facebook'` and
+`received_via='meta'`, wrote one enquiry note, and created no conversation or
+message. A correctly signed replay returned HTTP 200 without changing the event's
+single attempt, contact count, or note count. The focused gate passed again (16
+files, 84 tests). Production-only `NEXT_PUBLIC_META_LEADS_CONFIG_ID` was set to the
+approved configuration and active source deployment `dpl_HFqYxf6gzb8gQpfxsfgSdKMDaRbQ`
+(main `a0dcbc5d6ae48005a605df8e684efba639de083a`) was rebuilt as
+`dpl_Dd8gAhX51pco13J1pmNq134ppF1j` at 21:30:46 IST. The new deployment is Ready,
+owns every Production alias, and an ordinary owner account shows the existing
+role-gated **Connect Facebook Page** action without connecting another Page.
+Instagram-origin provider acceptance, a fresh same-phone distinct-enquiry case,
+the remaining destructive recovery drills, and the 24-hour post-activation
+checkpoint remain unverified and must not be represented as complete.
+
 **Execution constraints:** follow `AGENTS.md`; use the executing-plans skill for
 execution. Keep auto-captured leads unassigned with immutable `received_via='meta'`.
 A repeat enquiry creates a new note; replay of the same provider event does not.
@@ -1479,10 +1500,10 @@ form `2157208975142771`; verify their current ownership and environment first.
       whether the review account's automations could send messages before creating
       leads; use an isolated no-send test setup. Confirm the associated Instagram
       professional account. Missing Instagram assets block Instagram acceptance only.
-- [ ] Connect the approved Page through Settings and inspect safe health results.
+- [x] Connect the approved Page through Settings and inspect safe health results.
       Confirm subscription verification; preserve an unavailable `has_lead_access`
       diagnostic as unverified instead of fabricating a passed timestamp.
-- [ ] Deliver a Facebook test lead through the provider and prove correct account,
+- [x] Deliver a Facebook test lead through the provider and prove correct account,
       normalized phone, Facebook attribution, `received_via='meta'`, no assignee, one
       enquiry note, and exactly-once creation-trigger bookkeeping.
 - [ ] Deliver an Instagram-origin lead and prove Instagram attribution and the same
@@ -1534,11 +1555,11 @@ any code correction has regression and full application verification evidence.
 **Boundary:** existing review-account availability fallback; connect/health/webhook
 routes above. No global flag change belongs in this task.
 
-- [ ] Present the passing disposable acceptance record and identify the exact
+- [x] Present the passing disposable acceptance record and identify the exact
       production branch, Page, Meta owner, and synthetic lead data for authorization.
       Current planning authorization is not authorization to connect customer assets
       or trigger customer messaging.
-- [ ] Prefer the existing review branch for a production canary if suitable and
+- [x] Prefer the existing review branch for a production canary if suitable and
       authorized. If a different branch is required, first define a narrowly scoped
       availability change in `src/lib/meta/lead-ads-availability.ts` and its test;
       do not use the global config to simulate a limited release.
@@ -1558,18 +1579,18 @@ keeping general customer connections unavailable.
 **Docs:** this roadmap, `docs/changelog.md`, and operational changes, if any, in
 `docs/automations-and-cron.md`.
 
-- [ ] Present the concrete passing canary evidence and intended global activation
+- [x] Present the concrete passing canary evidence and intended global activation
       for owner authorization, as required by the existing rollout scope.
-- [ ] Set the approved configuration ID `1039026725782445` in the Production scope
+- [x] Set the approved configuration ID `1039026725782445` in the Production scope
       and redeploy the reviewed commit; the public build-time value requires a new
       build. Preserve separate Preview/Test settings.
-- [ ] Verify production aliases resolve to the reviewed deployment. In an ordinary
+- [x] Verify production aliases resolve to the reviewed deployment. In an ordinary
       branch, verify the connection UI becomes available with existing role gates;
       do not connect additional customer Pages as part of this smoke check.
 - [ ] Observe the first two successful scheduled recovery runs after activation.
       Keep a 24-hour observation checkpoint for growing event backlog, repeated health
       errors, or permission failures; arrange a monitor only if requested.
-- [ ] Update this plan's checkboxes, move Lead Ads out of Phase 2's Left list, and
+- [x] Update this plan's checkboxes, move Lead Ads out of Phase 2's Left list, and
       record release SHA, activation time, safe acceptance evidence, and residual
       limitations in the changelog. Do not mark Instagram accepted without its result.
 
