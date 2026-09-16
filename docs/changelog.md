@@ -36,7 +36,12 @@ detail terms use a 12px muted caption, so nothing inside out-ranks the 14px
 medium rule title (they were 14px semibold before). "More sending options" and
 "See message and details" are items in one `Accordion multiple`, so the master
 draws the divider between them. `DeliveryControls` is split out and renders
-inline only for rules without day choices. The preview bubble sits directly on
+inline only for rules without day choices. Its retry control reads as a
+sentence like the sending-hours row: "If UsefulDesk cannot send on time, it can
+still send within [the same day | N days]". Zero keeps same-day sending and
+only drops a reminder once its scheduled day has passed (`selectDueMilestone`),
+so never label it as "don't send". The preview
+bubble sits directly on
 the tile with no `bg-chat-canvas` box around it. Its `ml-2` keeps the tail inside
 the clipping accordion panel, and the `figure` is capped at `30.5rem`. The sample
 note and template link sit in its `figcaption`. Gotcha: `AccordionContent` adds `mb-4` to

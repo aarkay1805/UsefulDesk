@@ -332,10 +332,9 @@ function timingGroupLabel(fieldKey: string) {
     : 'Before payment is due';
 }
 
-function missedReminderLabel(days: number) {
-  if (days === 0)
-    return 'If UsefulDesk cannot send on time, do not send it later';
-  return `If UsefulDesk cannot send on time, try again for ${days} day${days === 1 ? '' : 's'}`;
+function lateSendLabel(days: number) {
+  if (days === 0) return 'the same day';
+  return `${days} day${days === 1 ? '' : 's'}`;
 }
 
 function numberList(values: number[]) {
@@ -442,37 +441,42 @@ function DeliveryControls({
   return (
     <div className="space-y-3">
       {catchUpControl ? (
-        <Select
-          value={String(
-            Number(currentTimingValue(rule, draft, catchUpControl))
-          )}
-          onValueChange={(value) => {
-            if (value == null) return;
-            onChange({
-              ...draft,
-              [catchUpControl.key]: Number(value),
-            });
-          }}
-          disabled={disabled}
-        >
-          <SelectTrigger
-            size="sm"
-            className="w-full sm:w-auto sm:min-w-72"
-            aria-label={`${rule.title} delayed reminder setting`}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="start">
-            {Array.from(
-              { length: (catchUpControl.max ?? 14) + 1 },
-              (_, days) => (
-                <SelectItem key={days} value={String(days)}>
-                  {missedReminderLabel(days)}
-                </SelectItem>
-              )
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span>
+            If UsefulDesk cannot send on time, it can still send within
+          </span>
+          <Select
+            value={String(
+              Number(currentTimingValue(rule, draft, catchUpControl))
             )}
-          </SelectContent>
-        </Select>
+            onValueChange={(value) => {
+              if (value == null) return;
+              onChange({
+                ...draft,
+                [catchUpControl.key]: Number(value),
+              });
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger
+              size="sm"
+              className="min-w-28"
+              aria-label={`${rule.title} delayed reminder setting`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Array.from(
+                { length: (catchUpControl.max ?? 14) + 1 },
+                (_, days) => (
+                  <SelectItem key={days} value={String(days)}>
+                    {lateSendLabel(days)}
+                  </SelectItem>
+                )
+              )}
+            </SelectContent>
+          </Select>
+        </div>
       ) : null}
       {windowStartControl &&
       windowEndControl &&

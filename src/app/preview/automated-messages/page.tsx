@@ -23,6 +23,8 @@ const RULES: ReminderRuleResponse[] = REMINDER_RULES.map((rule, index) => ({
   settings: {
     ...ruleSettingsFromRow(rule, null),
     ...(index % 3 === 0 ? { enabled: true } : {}),
+    // One rule sends late only on its own day, to show the zero wording.
+    ...(rule.id === 'membership_post_expiry' ? { catchUpDays: 0 } : {}),
   },
   readiness:
     index % 4 === 1
