@@ -68,6 +68,21 @@ export async function engineSendTemplate(
 type SendInput =
   (SendTextArgs & { kind: 'text' }) | (SendTemplateArgs & { kind: 'template' });
 
+/**
+ * Meta returned a message id, but UsefulDesk could not persist the inbox row.
+ * Callers must retain this id as accepted provider evidence and must not retry
+ * the send automatically.
+ */
+export class MetaAcceptedPersistenceError extends Error {
+  readonly whatsappMessageId: string;
+
+  constructor(whatsappMessageId: string, persistenceMessage: string) {
+    super(`sent to Meta but DB insert failed: ${persistenceMessage}`);
+    this.name = 'MetaAcceptedPersistenceError';
+    this.whatsappMessageId = whatsappMessageId;
+  }
+}
+
 async function sendViaMeta(
   input: SendInput
 ): Promise<{ whatsapp_message_id: string }> {
@@ -217,9 +232,7 @@ async function sendViaMeta(
     status: 'sent',
   });
   if (msgErr) {
-    // Meta already has the message; record the DB error but don't pretend
-    // the send failed. The engine wraps this in a log line.
-    throw new Error(`sent to Meta but DB insert failed: ${msgErr.message}`);
+    throw new MetaAcceptedPersistenceError(waMessageId, msgErr.message);
   }
 
   await db

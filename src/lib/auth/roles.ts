@@ -90,6 +90,25 @@ export function canEditSettings(role: AccountRole): boolean {
   return hasMinRole(role, 'admin');
 }
 
+/**
+ * Every member: read the Automated messages rule catalogue — each rule's
+ * saved settings and template readiness. Changing a rule stays
+ * `canEditSettings`. Mirrors the member-level SELECT policies on
+ * renewal_reminder_settings (033), message_templates, and whatsapp_config (017).
+ */
+export function canViewAutomatedMessageRules(role: AccountRole): boolean {
+  return hasMinRole(role, 'viewer');
+}
+
+/**
+ * Owner / admin: read automated-message history and scheduled-reminder
+ * readiness. Mirrors the explicit is_account_member(…, 'admin') predicate in
+ * the automated_message_activity view (20260912104000).
+ */
+export function canViewAutomatedMessageActivity(role: AccountRole): boolean {
+  return hasMinRole(role, 'admin');
+}
+
 /** Owner / admin: save the account's immutable invoice identity profile. */
 export function canManageInvoiceProfile(role: AccountRole): boolean {
   return hasMinRole(role, 'admin');

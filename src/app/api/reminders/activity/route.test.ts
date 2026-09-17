@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 
 const h = vi.hoisted(() => ({
-  requireSettingsAccess: vi.fn(),
+  requireAutomatedMessageActivityAccess: vi.fn(),
   calls: [] as unknown[][],
   rows: [] as unknown[],
 }));
 
 vi.mock('@/lib/auth/account', () => ({
-  requireSettingsAccess: h.requireSettingsAccess,
+  requireAutomatedMessageActivityAccess:
+    h.requireAutomatedMessageActivityAccess,
   toErrorResponse: (error: unknown) =>
     Response.json(
       { error: error instanceof Error ? error.message : 'failed' },
@@ -60,7 +61,7 @@ describe('GET /api/reminders/activity', () => {
   beforeEach(() => {
     h.calls = [];
     h.rows = [];
-    h.requireSettingsAccess.mockResolvedValue({
+    h.requireAutomatedMessageActivityAccess.mockResolvedValue({
       accountId: 'account-1',
       supabase: db(),
     });
@@ -131,8 +132,10 @@ describe('GET /api/reminders/activity', () => {
     ).toBe(true);
   });
 
-  it('uses the settings boundary before querying activity', async () => {
-    h.requireSettingsAccess.mockRejectedValueOnce(new Error('denied'));
+  it('uses the admin-only activity boundary before querying activity', async () => {
+    h.requireAutomatedMessageActivityAccess.mockRejectedValueOnce(
+      new Error('denied')
+    );
     const response = await GET(
       new NextRequest('https://desk.test/api/reminders/activity')
     );

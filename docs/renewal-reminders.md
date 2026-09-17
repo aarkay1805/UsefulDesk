@@ -1,9 +1,11 @@
 # Automated messages — operator runbook
 
-Settings → **Automated messages** retains the `?tab=reminders` URL and existing
-admin/owner settings permission. **Rules** groups the existing behaviours into
-**Renewals**, **Collections**, **Retention**, and **Confirmations**. **Activity**
-is the read-only operational record. **Templates** remains the single place to
+Settings → **Automated messages** retains the `?tab=reminders` URL. **Rules**
+groups the existing behaviours into **Renewals**, **Collections**,
+**Retention**, and **Confirmations**; every branch member can read them, and
+changing one needs admin/owner settings permission. **Activity** is the
+read-only operational record, limited to admins and owners (access table:
+`docs/automated-messages.md`). **Templates** remains the single place to
 create, submit, and synchronize templates; each rule links to its exact contract.
 
 Rule summaries distinguish the saved **On/Off** preference from current
@@ -30,12 +32,12 @@ default Utility lifecycle. It has its own exact contracts and operational
 rules in [invoice collection reminders](invoice-collection-reminders.md); do
 not substitute a renewal template for a debt reminder.
 
-| Feature            | Exact template           | Category  | Body parameters                                            |
-| ------------------ | ------------------------ | --------- | ---------------------------------------------------------- |
-| Membership renewal | `gym_membership_renewal` | Marketing | member name, plan name, end date, current renewal price    |
-| Service renewal    | `gym_service_renewal`    | Marketing | member name, service name, end date, current renewal price |
-| Expired membership | `gym_membership_post_expiry` | Marketing | member name, plan name, end date, current renewal price |
-| Expired service | `gym_service_post_expiry` | Marketing | member name, service name, end date, current renewal price |
+| Feature            | Exact template               | Category  | Body parameters                                            |
+| ------------------ | ---------------------------- | --------- | ---------------------------------------------------------- |
+| Membership renewal | `gym_membership_renewal`     | Marketing | member name, plan name, end date, current renewal price    |
+| Service renewal    | `gym_service_renewal`        | Marketing | member name, service name, end date, current renewal price |
+| Expired membership | `gym_membership_post_expiry` | Marketing | member name, plan name, end date, current renewal price    |
+| Expired service    | `gym_service_post_expiry`    | Marketing | member name, service name, end date, current renewal price |
 
 These categories are intentional. An ending membership or service is an
 existing relationship, but asking the member to buy its next term promotes a
@@ -102,7 +104,8 @@ readiness** result for membership, service, and joining-installment workers. It
 contains only aggregate eligibility counts and setup reasons: **Off**,
 **Blocked**, **Waiting**, **Nothing due**, or **Eligible now**. It never claims a reminder,
 opens a conversation, exposes member data, or invokes Meta. A blocked row gives
-the first recovery action; an empty cohort is healthy, not an error.
+the first recovery action (**Review rule**, which opens that rule in Rules);
+an empty cohort is healthy, not an error.
 
 ## How scheduled sends work
 
@@ -114,13 +117,26 @@ redundant GitHub workflow calls it at :47. For each enabled account the route:
 3. finds eligible active recurring memberships or renewable services ending at
    a configured offset;
 4. claims the `(subject, end_date, days_before)` ledger key before sending;
-5. sends at most 200 messages per invocation and releases failed claims so a
-   later run can retry.
+5. immediately before Meta can receive the request, re-reads the enabled
+   schedule and exact membership cycle or service, including status, expiry,
+   AutoPay mode, active catalogue option, phone, and current renewal rate;
+6. persists the provider-attempt boundary only after that recheck, then sends
+   at most 200 messages per invocation with the fresh subject and price facts;
+7. retries only failures known to have happened before that boundary. A
+   transport error after it remains **Ambiguous**, while a returned `wamid`
+   remains **Accepted** even if local inbox persistence fails. Neither outcome
+   is submitted again automatically.
 
 Membership and service schedules are independently configurable in Settings →
 Automated messages. Service candidates also require an active catalogue option
 and current fixed or trainer-specific rate. A reminder never renews a service
 or changes its dates.
+
+Joining-installment reminders use the same final boundary: the exact promise,
+current collectible invoice balance, refund-review state, and any open
+collection commitment are re-read before the attempt is recorded. A payment or
+new hold skips the stale candidate, and a partial payment reduces the amount in
+the message to the current collectible balance.
 
 Manual member/service **Remind** actions use the same readiness, localized
 parameter order, and outbound send boundary as the cron. Consent and opt-out
@@ -285,6 +301,7 @@ mutation, or cleanup is authorized by this runbook alone.
 | Approved but blocked                       | Sync Templates and compare the provider-owned category/components to the exact contract. Do not invent an alias or silently switch categories. |
 | Not on Meta                                | The last complete sync did not return this provider-backed row. Re-create it in Meta or delete the retained local record.                      |
 | `sent: 0` with expiring rows               | Check Scheduled reminder readiness, account-local offset/date, current service rate, phone, and claim ledger.                                  |
+| `503` with aggregate JSON                  | Inspect `failed`, `ambiguous`, service counters, and `notes`; healthy accounts/batches may still have completed during the same run.           |
 | Provider request accepted but later failed | A `wamid` is not delivery evidence; inspect status webhooks and the exact provider failure.                                                    |
 
 ## Ops
@@ -296,6 +313,9 @@ mutation, or cleanup is authorized by this runbook alone.
 - Active production cadence: database-owned aggregator at **:41** and the
   redundant GitHub workflow at **:47** every hour. The old :30 wording is
   retired; the worker's account-local 09:00 gate still controls eligibility.
+- Scheduler health: operational query/claim/completion failures and unresolved
+  provider ambiguity return `503` with the complete aggregate body. Setup
+  blocks, empty cohorts, and final eligibility changes remain healthy `200`.
 - Domain: `desk.usefulmade.com`.
 
 ## Historical provider evidence

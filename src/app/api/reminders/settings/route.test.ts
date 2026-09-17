@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { REMINDER_RULES } from '@/lib/reminders/rules';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 const h = vi.hoisted(() => ({
+  requireAutomatedMessageRulesAccess: vi.fn(),
   requireSettingsAccess: vi.fn(),
   settings: {
     account_id: 'account-1',
@@ -19,6 +21,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/auth/account', () => ({
+  requireAutomatedMessageRulesAccess: h.requireAutomatedMessageRulesAccess,
   requireSettingsAccess: h.requireSettingsAccess,
   toErrorResponse: (error: unknown) =>
     Response.json(
@@ -62,29 +65,76 @@ function db() {
   return { from };
 }
 
-import { PATCH } from './route';
+import { GET, PATCH } from './route';
 
-describe('PATCH /api/reminders/settings', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    h.settings = {
-      account_id: 'account-1',
-      enabled: true,
-      days_before: [7, 3, 1],
-      service_enabled: true,
-      service_days_before: [7, 3, 1],
-      invoice_collection_send_window_start: 9,
-      invoice_collection_send_window_end: 19,
-    };
-    h.whatsapp = { status: 'disconnected' };
-    h.templates = [];
-    h.updates = [];
-    h.requireSettingsAccess.mockResolvedValue({
-      accountId: 'account-1',
-      supabase: db(),
+beforeEach(() => {
+  vi.clearAllMocks();
+  h.settings = {
+    account_id: 'account-1',
+    enabled: true,
+    days_before: [7, 3, 1],
+    service_enabled: true,
+    service_days_before: [7, 3, 1],
+    invoice_collection_send_window_start: 9,
+    invoice_collection_send_window_end: 19,
+  };
+  h.whatsapp = { status: 'disconnected' };
+  h.templates = [];
+  h.updates = [];
+  // A viewer-level context: the read capability always resolves here, so
+  // every PATCH test also proves that reading is not enough to write.
+  h.requireAutomatedMessageRulesAccess.mockResolvedValue({
+    accountId: 'account-1',
+    role: 'viewer',
+    supabase: db(),
+  });
+  h.requireSettingsAccess.mockResolvedValue({
+    accountId: 'account-1',
+    supabase: db(),
+  });
+});
+
+describe('GET /api/reminders/settings', () => {
+  it('serves the read-only catalogue to a member without settings access', async () => {
+    h.requireSettingsAccess.mockRejectedValue(
+      new Error('This action requires settings access')
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.whatsappConnected).toBe(false);
+    expect(body.rules).toHaveLength(REMINDER_RULES.length);
+    expect(
+      body.rules.find(
+        (rule: { id: string }) => rule.id === 'membership_renewal'
+      )
+    ).toMatchObject({
+      settings: { enabled: true, daysBefore: [7, 3, 1] },
+      readiness: { ready: false, code: 'whatsapp_not_connected' },
     });
+    expect(h.requireAutomatedMessageRulesAccess).toHaveBeenCalledOnce();
+    expect(h.requireSettingsAccess).not.toHaveBeenCalled();
+    expect(h.updates).toEqual([]);
   });
 
+  it('fails closed without falling back to another context when read access is denied', async () => {
+    h.requireAutomatedMessageRulesAccess.mockRejectedValue(
+      new Error('You do not have access to this branch')
+    );
+
+    const response = await GET();
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: 'You do not have access to this branch',
+    });
+    expect(h.requireSettingsAccess).not.toHaveBeenCalled();
+  });
+});
+
+describe('PATCH /api/reminders/settings', () => {
   it('writes only the selected rule’s columns and permits config saves for an already-on blocked rule', async () => {
     const response = await PATCH(
       new Request('http://localhost/api/reminders/settings', {

@@ -9,10 +9,12 @@ import {
   REMINDER_SEND_HOUR_LOCAL,
   RENEWAL_TEMPLATE_NAME,
   RENEWAL_TEMPLATE_NAMES,
+  normalizeDaysBefore,
   selectRenewalTemplate,
   targetEndDates,
 } from '@/lib/memberships/renewal-reminders';
 import { isRenewalChaseable } from '@/lib/memberships/pricing';
+import { runLegacyReminderDelivery } from '@/lib/reminders/legacy-delivery';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 
@@ -31,8 +33,8 @@ import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
  * Dedupe is claim-first against the UNIQUE(membership_id, end_date,
  * days_before) index: we INSERT a log row BEFORE sending, so a
  * conflict means "already handled" and two overlapping cron runs can't
- * double-message. If the send then fails, the claim is deleted so a
- * later run retries.
+ * double-message. The claim becomes non-retryable immediately before the
+ * provider request; only a failure known to precede that boundary releases it.
  */
 
 // A hard ceiling on sends per invocation — a backstop against a
@@ -48,12 +50,22 @@ class ReminderSetupBlockedError extends Error {
   }
 }
 
+class ReminderEligibilityChangedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ReminderEligibilityChangedError';
+  }
+}
+
 /** Shape of a membership row hydrated for a reminder (to-one embeds). */
 interface ReminderCandidate {
   id: string;
   contact_id: string;
+  start_date: string;
   fee_amount: number;
   end_date: string;
+  status?: string;
+  collection_mode?: string;
   contact: { id: string; name: string | null; phone: string | null } | null;
   plan: { name: string | null; plan_type: string | null } | null;
 }
@@ -77,11 +89,14 @@ export async function GET(request: Request) {
     accounts_skipped: 0,
     accounts_before_send_hour: 0,
     accepted: 0,
+    ambiguous: 0,
     sent: 0,
     failed: 0,
     skipped_already_sent: 0,
+    skipped_ineligible: 0,
     service_sent: 0,
     service_failed: 0,
+    service_ambiguous: 0,
     service_blocked: 0,
   };
   const notes: string[] = [];
@@ -94,9 +109,10 @@ export async function GET(request: Request) {
     .eq('enabled', true);
 
   if (settingsErr) {
-    return NextResponse.json({ error: settingsErr.message }, { status: 500 });
+    summary.failed++;
+    notes.push(`renewal settings query failed — ${settingsErr.message}`);
   }
-  for (const s of settingsRows ?? []) {
+  for (const s of settingsErr ? [] : (settingsRows ?? [])) {
     if (summary.sent >= MAX_SENDS_PER_RUN) {
       notes.push(
         'hit MAX_SENDS_PER_RUN — remaining accounts deferred to next run'
@@ -117,26 +133,37 @@ export async function GET(request: Request) {
     // WhatsApp must be connected AND the renewal template approved.
     // Under the service-role client we must scope every lookup by
     // account_id ourselves (no RLS to lean on).
-    const [{ data: config }, { data: templates }, { data: account }] =
-      await Promise.all([
-        admin
-          .from('whatsapp_config')
-          .select('status')
-          .eq('account_id', accountId)
-          .maybeSingle(),
-        admin
-          .from('message_templates')
-          .select('*')
-          .eq('account_id', accountId)
-          .in('name', [...RENEWAL_TEMPLATE_NAMES]),
-        admin
-          .from('accounts')
-          .select(
-            'owner_user_id, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system'
-          )
-          .eq('id', accountId)
-          .maybeSingle(),
-      ]);
+    const [configResult, templatesResult, accountResult] = await Promise.all([
+      admin
+        .from('whatsapp_config')
+        .select('status')
+        .eq('account_id', accountId)
+        .maybeSingle(),
+      admin
+        .from('message_templates')
+        .select('*')
+        .eq('account_id', accountId)
+        .in('name', [...RENEWAL_TEMPLATE_NAMES]),
+      admin
+        .from('accounts')
+        .select(
+          'owner_user_id, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system'
+        )
+        .eq('id', accountId)
+        .maybeSingle(),
+    ]);
+    const readinessError =
+      configResult.error ?? templatesResult.error ?? accountResult.error;
+    if (readinessError) {
+      summary.failed++;
+      notes.push(
+        `account ${accountId}: readiness query failed — ${readinessError.message}`
+      );
+      continue;
+    }
+    const config = configResult.data;
+    const templates = templatesResult.data;
+    const account = accountResult.data;
 
     const templateReadiness = evaluateTemplateReadiness(
       templates,
@@ -196,7 +223,7 @@ export async function GET(request: Request) {
       const { data, error: mErr } = await admin
         .from('memberships')
         .select(
-          'id, contact_id, fee_amount, end_date, contact:contacts(id, name, phone), plan:membership_plans(name, plan_type)'
+          'id, contact_id, start_date, fee_amount, end_date, contact:contacts(id, name, phone), plan:membership_plans(name, plan_type)'
         )
         .eq('account_id', accountId)
         .eq('status', 'active')
@@ -204,6 +231,7 @@ export async function GET(request: Request) {
         .eq('end_date', target.endDate);
 
       if (mErr) {
+        summary.failed++;
         notes.push(`account ${accountId}: query failed — ${mErr.message}`);
         continue;
       }
@@ -224,84 +252,220 @@ export async function GET(request: Request) {
         const phone = m.contact?.phone?.trim();
         if (!phone) continue; // no way to reach them — skip silently
 
-        // Claim-first dedupe. Insert the log row BEFORE sending; a
-        // conflict (ignoreDuplicates → empty return) means another run,
-        // or an earlier offset today, already handled this exact
-        // (membership, expiry, offset).
-        const { data: claim, error: claimErr } = await admin
-          .from('renewal_reminders_sent')
-          .upsert(
-            {
-              account_id: accountId,
-              membership_id: m.id as string,
-              contact_id: m.contact_id as string,
-              end_date: target.endDate,
-              days_before: target.daysBefore,
-            },
-            {
-              onConflict: 'membership_id,end_date,days_before',
-              ignoreDuplicates: true,
-            }
-          )
-          .select('id')
-          .maybeSingle();
-
-        if (claimErr) {
-          notes.push(
-            `account ${accountId}: claim failed — ${claimErr.message}`
-          );
-          continue;
-        }
-        if (!claim) {
-          // Conflict — already sent (or being sent). Not an error.
-          summary.skipped_already_sent++;
-          continue;
-        }
-
         try {
-          const conversationId = await findOrCreateConversation(
-            admin,
-            accountId,
-            ownerUserId,
-            m.contact_id as string
+          const result = await runLegacyReminderDelivery(
+            {
+              async claim() {
+                const { data: claim, error } = await admin
+                  .from('renewal_reminders_sent')
+                  .upsert(
+                    {
+                      account_id: accountId,
+                      membership_id: m.id as string,
+                      contact_id: m.contact_id as string,
+                      end_date: target.endDate,
+                      days_before: target.daysBefore,
+                      delivery_state: 'claimed',
+                      provider_attempted_at: null,
+                      last_error: null,
+                    },
+                    {
+                      onConflict: 'membership_id,end_date,days_before',
+                      ignoreDuplicates: true,
+                    }
+                  )
+                  .select('id')
+                  .maybeSingle();
+                if (error) throw error;
+                return claim ? { id: claim.id as string } : null;
+              },
+              async markProviderAttempt(claim) {
+                const { data, error } = await admin
+                  .from('renewal_reminders_sent')
+                  .update({
+                    delivery_state: 'attempting',
+                    provider_attempted_at: new Date().toISOString(),
+                  })
+                  .eq('id', claim.id)
+                  .eq('delivery_state', 'claimed')
+                  .select('id')
+                  .maybeSingle();
+                if (error || !data) {
+                  throw new Error(error?.message ?? 'reminder claim was lost');
+                }
+              },
+              async accept(claim, providerMessageId) {
+                const { data, error } = await admin
+                  .from('renewal_reminders_sent')
+                  .update({
+                    delivery_state: 'accepted',
+                    wa_message_id: providerMessageId,
+                    last_error: null,
+                  })
+                  .eq('id', claim.id)
+                  .in('delivery_state', ['attempting', 'accepted'])
+                  .select('id')
+                  .maybeSingle();
+                if (error || !data) {
+                  throw new Error(
+                    error?.message ?? 'accepted reminder was not persisted'
+                  );
+                }
+              },
+              async retainAmbiguous(claim, details) {
+                const { data, error } = await admin
+                  .from('renewal_reminders_sent')
+                  .update({
+                    delivery_state: details.providerMessageId
+                      ? 'accepted'
+                      : 'ambiguous',
+                    wa_message_id: details.providerMessageId,
+                    last_error: details.error.slice(0, 1000),
+                  })
+                  .eq('id', claim.id)
+                  .eq('delivery_state', 'attempting')
+                  .select('id')
+                  .maybeSingle();
+                if (error || !data) {
+                  throw new Error(
+                    error?.message ?? 'ambiguous reminder was not retained'
+                  );
+                }
+              },
+              async releasePreProvider(claim) {
+                const { data, error } = await admin
+                  .from('renewal_reminders_sent')
+                  .delete()
+                  .eq('id', claim.id)
+                  .eq('delivery_state', 'claimed')
+                  .select('id')
+                  .maybeSingle();
+                if (error || !data) {
+                  throw new Error(
+                    error?.message ??
+                      'retryable reminder claim was not released'
+                  );
+                }
+              },
+            },
+            async (markProviderAttempt) => {
+              const conversationId = await findOrCreateConversation(
+                admin,
+                accountId,
+                ownerUserId,
+                m.contact_id as string
+              );
+              const params = [
+                m.contact?.name?.trim() || 'there',
+                m.plan?.name || 'membership',
+                fmt.date(target.endDate),
+                fmt.money(m.fee_amount),
+              ];
+              return engineSendTemplate({
+                beforeSend: async () => {
+                  const [settingsResult, membershipResult] = await Promise.all([
+                    admin
+                      .from('renewal_reminder_settings')
+                      .select('enabled, days_before')
+                      .eq('account_id', accountId)
+                      .maybeSingle(),
+                    admin
+                      .from('memberships')
+                      .select(
+                        'id, contact_id, start_date, fee_amount, end_date, status, collection_mode, contact:contacts(id, name, phone), plan:membership_plans(name, plan_type)'
+                      )
+                      .eq('account_id', accountId)
+                      .eq('id', m.id)
+                      .maybeSingle(),
+                  ]);
+                  if (settingsResult.error) throw settingsResult.error;
+                  if (membershipResult.error) throw membershipResult.error;
+
+                  const current =
+                    membershipResult.data as unknown as ReminderCandidate | null;
+                  const currentTargetStillScheduled = targetEndDates(
+                    settingsResult.data?.days_before,
+                    todayInTz(cfg.timeZone)
+                  ).some(
+                    (scheduled) =>
+                      scheduled.daysBefore === target.daysBefore &&
+                      scheduled.endDate === target.endDate
+                  );
+                  if (
+                    !settingsResult.data?.enabled ||
+                    !currentTargetStillScheduled
+                  ) {
+                    throw new ReminderEligibilityChangedError(
+                      'membership reminder rule or schedule changed'
+                    );
+                  }
+                  if (
+                    !current ||
+                    current.id !== m.id ||
+                    current.contact_id !== m.contact_id ||
+                    current.start_date !== m.start_date ||
+                    current.end_date !== target.endDate ||
+                    current.status !== 'active' ||
+                    current.collection_mode !== 'manual' ||
+                    !isRenewalChaseable(current.plan) ||
+                    !current.contact?.phone?.trim()
+                  ) {
+                    throw new ReminderEligibilityChangedError(
+                      'membership cycle is no longer reminder-eligible'
+                    );
+                  }
+
+                  params[0] = current.contact.name?.trim() || 'there';
+                  params[1] = current.plan?.name || 'membership';
+                  params[2] = fmt.date(current.end_date);
+                  params[3] = fmt.money(Number(current.fee_amount));
+                  await markProviderAttempt();
+                },
+                accountId,
+                userId: ownerUserId,
+                conversationId,
+                contactId: m.contact_id as string,
+                templateName: template.name ?? RENEWAL_TEMPLATE_NAME,
+                language,
+                params,
+              });
+            }
           );
 
-          // {{3}} expiry as the gym writes dates ("11 Jul 2026", not
-          // raw ISO), {{4}} fee in its currency + grouping (₹1,00,000).
-          const params = [
-            m.contact?.name?.trim() || 'there',
-            m.plan?.name || 'membership',
-            fmt.date(target.endDate),
-            fmt.money(m.fee_amount),
-          ];
-
-          const { whatsapp_message_id } = await engineSendTemplate({
-            accountId,
-            userId: ownerUserId,
-            conversationId,
-            contactId: m.contact_id as string,
-            templateName: template.name ?? RENEWAL_TEMPLATE_NAME,
-            language,
-            params,
-          });
-
-          // Stamp the claim row with the real Meta id now the send landed.
-          await admin
-            .from('renewal_reminders_sent')
-            .update({ wa_message_id: whatsapp_message_id })
-            .eq('id', claim.id as string);
-
-          summary.sent++;
-          summary.accepted++;
+          if (result.outcome === 'duplicate') {
+            summary.skipped_already_sent++;
+          } else if (result.outcome === 'accepted') {
+            summary.sent++;
+            summary.accepted++;
+            if (result.warning) {
+              summary.failed++;
+              notes.push(
+                `account ${accountId} membership ${m.id}: provider accepted; local persistence needs review — ${result.warning}`
+              );
+            }
+          } else if (result.outcome === 'ambiguous') {
+            summary.ambiguous++;
+            summary.failed++;
+            notes.push(
+              `account ${accountId} membership ${m.id}: provider outcome unknown — ${result.error}`
+            );
+          } else {
+            if (result.cause instanceof ReminderEligibilityChangedError) {
+              summary.skipped_ineligible++;
+              notes.push(
+                `account ${accountId} membership ${m.id}: skipped — ${result.error}`
+              );
+            } else {
+              summary.failed++;
+              notes.push(
+                `account ${accountId} membership ${m.id}: pre-provider failure; safe to retry — ${result.error}`
+              );
+            }
+          }
         } catch (err) {
-          // Roll the claim back so a later run retries this member.
-          await admin
-            .from('renewal_reminders_sent')
-            .delete()
-            .eq('id', claim.id as string);
           summary.failed++;
           notes.push(
-            `account ${accountId} membership ${m.id}: send failed — ${
+            `account ${accountId} membership ${m.id}: delivery state update failed — ${
               err instanceof Error ? err.message : String(err)
             }`
           );
@@ -311,14 +475,16 @@ export async function GET(request: Request) {
   }
 
   // Services use their own schedule and claim ledger. The RPC atomically
-  // claims only due rows with a current sellable rate; failed claims are
-  // reopened on a later run, while sent rows are permanently deduped.
+  // claims only due rows with a current sellable rate. Only failures recorded
+  // before the provider boundary reopen; sent and ambiguous rows stay deduped.
   if (summary.sent < MAX_SENDS_PER_RUN) {
     const { data: serviceCandidates, error: serviceClaimError } =
       await admin.rpc('claim_service_renewal_reminders', {
         p_limit: MAX_SENDS_PER_RUN - summary.sent,
       });
     if (serviceClaimError) {
+      summary.service_failed++;
+      summary.failed++;
       notes.push(
         `service reminder claim failed — ${serviceClaimError.message}`
       );
@@ -326,123 +492,306 @@ export async function GET(request: Request) {
       for (const candidate of (serviceCandidates ??
         []) as ServiceReminderCandidate[]) {
         try {
-          const [{ data: config }, { data: template }, { data: account }] =
-            await Promise.all([
-              admin
-                .from('whatsapp_config')
-                .select('status')
-                .eq('account_id', candidate.account_id)
-                .maybeSingle(),
-              admin
-                .from('message_templates')
-                .select('*')
-                .eq('account_id', candidate.account_id)
-                .eq('name', SERVICE_TEMPLATE_NAME)
-                .eq('language', 'en_US')
-                .maybeSingle(),
-              admin
-                .from('accounts')
-                .select(
-                  'owner_user_id, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system'
-                )
-                .eq('id', candidate.account_id)
-                .single(),
-            ]);
-          const templateReadiness = evaluateTemplateReadiness(
-            template ? [template] : [],
-            'service_renewal',
-            'en_US'
+          const result = await runLegacyReminderDelivery(
+            {
+              async claim() {
+                return {
+                  memberServiceId: candidate.id,
+                  endDate: candidate.end_date,
+                  daysBefore: candidate.days_until_expiry,
+                };
+              },
+              async markProviderAttempt(claim) {
+                const { data, error } = await admin
+                  .from('service_renewal_reminders_sent')
+                  .update({
+                    status: 'attempting',
+                    provider_attempted_at: new Date().toISOString(),
+                  })
+                  .eq('member_service_id', claim.memberServiceId)
+                  .eq('end_date', claim.endDate)
+                  .eq('days_before', claim.daysBefore)
+                  .eq('status', 'claimed')
+                  .select('id')
+                  .maybeSingle();
+                if (error || !data) {
+                  throw new Error(
+                    error?.message ?? 'service reminder claim was lost'
+                  );
+                }
+              },
+              async accept(claim, providerMessageId) {
+                const { data, error } = await admin
+                  .from('service_renewal_reminders_sent')
+                  .update({
+                    status: 'sent',
+                    sent_at: new Date().toISOString(),
+                    wa_message_id: providerMessageId,
+                    last_error: null,
+                  })
+                  .eq('member_service_id', claim.memberServiceId)
+                  .eq('end_date', claim.endDate)
+                  .eq('days_before', claim.daysBefore)
+                  .in('status', ['attempting', 'sent'])
+                  .select('id')
+                  .maybeSingle();
+                if (error || !data) {
+                  throw new Error(
+                    error?.message ??
+                      'accepted service reminder was not persisted'
+                  );
+                }
+              },
+              async retainAmbiguous(claim, details) {
+                const { data, error } = await admin
+                  .from('service_renewal_reminders_sent')
+                  .update({
+                    status: details.providerMessageId ? 'sent' : 'ambiguous',
+                    sent_at: details.providerMessageId
+                      ? new Date().toISOString()
+                      : null,
+                    wa_message_id: details.providerMessageId,
+                    last_error: details.error.slice(0, 1000),
+                  })
+                  .eq('member_service_id', claim.memberServiceId)
+                  .eq('end_date', claim.endDate)
+                  .eq('days_before', claim.daysBefore)
+                  .eq('status', 'attempting')
+                  .select('id')
+                  .maybeSingle();
+                if (error || !data) {
+                  throw new Error(
+                    error?.message ??
+                      'ambiguous service reminder was not retained'
+                  );
+                }
+              },
+              async releasePreProvider(claim, errorMessage) {
+                const { data, error } = await admin
+                  .from('service_renewal_reminders_sent')
+                  .update({
+                    status: 'failed',
+                    provider_attempted_at: null,
+                    last_error: errorMessage.slice(0, 1000),
+                  })
+                  .eq('member_service_id', claim.memberServiceId)
+                  .eq('end_date', claim.endDate)
+                  .eq('days_before', claim.daysBefore)
+                  .eq('status', 'claimed')
+                  .select('id')
+                  .maybeSingle();
+                if (error || !data) {
+                  throw new Error(
+                    error?.message ??
+                      'retryable service reminder was not released'
+                  );
+                }
+              },
+            },
+            async (markProviderAttempt) => {
+              const [configResult, templateResult, accountResult] =
+                await Promise.all([
+                  admin
+                    .from('whatsapp_config')
+                    .select('status')
+                    .eq('account_id', candidate.account_id)
+                    .maybeSingle(),
+                  admin
+                    .from('message_templates')
+                    .select('*')
+                    .eq('account_id', candidate.account_id)
+                    .eq('name', SERVICE_TEMPLATE_NAME)
+                    .eq('language', 'en_US')
+                    .maybeSingle(),
+                  admin
+                    .from('accounts')
+                    .select(
+                      'owner_user_id, default_currency, country_code, locale, timezone, date_order, time_format, week_start, phone_country_code, measurement_system'
+                    )
+                    .eq('id', candidate.account_id)
+                    .single(),
+                ]);
+              const readinessError =
+                configResult.error ??
+                templateResult.error ??
+                accountResult.error;
+              if (readinessError) {
+                throw new Error(
+                  `service readiness query failed — ${readinessError.message}`
+                );
+              }
+              const config = configResult.data;
+              const template = templateResult.data;
+              const account = accountResult.data;
+              const templateReadiness = evaluateTemplateReadiness(
+                template ? [template] : [],
+                'service_renewal',
+                'en_US'
+              );
+              if (!config || config.status !== 'connected') {
+                throw new ReminderSetupBlockedError(
+                  'setup required: connect WhatsApp'
+                );
+              }
+              if (!templateReadiness.ready) {
+                throw new ReminderSetupBlockedError(
+                  `setup required: ${templateReadiness.message}`
+                );
+              }
+              if (!account) {
+                throw new ReminderSetupBlockedError(
+                  'setup required: account not found'
+                );
+              }
+              if (!candidate.phone) {
+                throw new ReminderSetupBlockedError(
+                  'member has no phone number'
+                );
+              }
+              const fmt = buildFormatters(resolveAccountLocale(account));
+              const conversationId = await findOrCreateConversation(
+                admin,
+                candidate.account_id,
+                account.owner_user_id,
+                candidate.contact_id
+              );
+              const params = [
+                candidate.member_name?.trim() || 'there',
+                candidate.item_name_snapshot,
+                fmt.date(candidate.end_date),
+                fmt.money(Number(candidate.current_renewal_price)),
+              ];
+              return engineSendTemplate({
+                beforeSend: async () => {
+                  const { data, error } = await admin
+                    .from('service_renewal_queue')
+                    .select(
+                      'id, account_id, contact_id, status, member_name, phone, item_name_snapshot, end_date, days_until_expiry, service_enabled, service_days_before, current_renewal_price, item_is_active, option_is_active'
+                    )
+                    .eq('account_id', candidate.account_id)
+                    .eq('id', candidate.id)
+                    .maybeSingle();
+                  if (error) throw error;
+                  const current =
+                    data as unknown as ServiceReminderCandidate | null;
+                  if (
+                    !current ||
+                    current.id !== candidate.id ||
+                    current.account_id !== candidate.account_id ||
+                    current.contact_id !== candidate.contact_id ||
+                    current.status !== 'active' ||
+                    current.end_date !== candidate.end_date ||
+                    current.days_until_expiry !== candidate.days_until_expiry ||
+                    !current.service_enabled ||
+                    !normalizeDaysBefore(current.service_days_before).includes(
+                      candidate.days_until_expiry
+                    ) ||
+                    current.current_renewal_price === null ||
+                    !current.item_is_active ||
+                    !current.option_is_active ||
+                    !current.phone?.trim()
+                  ) {
+                    throw new ReminderEligibilityChangedError(
+                      'service is no longer reminder-eligible'
+                    );
+                  }
+
+                  params[0] = current.member_name?.trim() || 'there';
+                  params[1] = current.item_name_snapshot;
+                  params[2] = fmt.date(current.end_date);
+                  params[3] = fmt.money(Number(current.current_renewal_price));
+                  await markProviderAttempt();
+                },
+                accountId: candidate.account_id,
+                userId: account.owner_user_id,
+                conversationId,
+                contactId: candidate.contact_id,
+                templateName: SERVICE_TEMPLATE_NAME,
+                language: templateReadiness.row.language ?? 'en_US',
+                params,
+              });
+            }
           );
-          if (!config || config.status !== 'connected') {
-            throw new ReminderSetupBlockedError(
-              'setup required: connect WhatsApp'
+
+          if (result.outcome === 'accepted') {
+            summary.service_sent++;
+            summary.sent++;
+            summary.accepted++;
+            if (result.warning) {
+              summary.service_failed++;
+              summary.failed++;
+              notes.push(
+                `account ${candidate.account_id} service ${candidate.id}: provider accepted; local persistence needs review — ${result.warning}`
+              );
+            }
+          } else if (result.outcome === 'ambiguous') {
+            summary.service_ambiguous++;
+            summary.ambiguous++;
+            summary.service_failed++;
+            summary.failed++;
+            notes.push(
+              `account ${candidate.account_id} service ${candidate.id}: provider outcome unknown — ${result.error}`
+            );
+          } else if (result.outcome === 'retryable_failure') {
+            const eligibilityChanged =
+              result.cause instanceof ReminderEligibilityChangedError;
+            const blocked = result.cause instanceof ReminderSetupBlockedError;
+            if (eligibilityChanged) {
+              summary.skipped_ineligible++;
+            } else if (blocked) {
+              summary.service_blocked++;
+            } else {
+              summary.service_failed++;
+              summary.failed++;
+            }
+            notes.push(
+              `account ${candidate.account_id} service ${candidate.id}: ${
+                eligibilityChanged
+                  ? 'skipped — '
+                  : blocked
+                    ? 'blocked — '
+                    : 'pre-provider failure; safe to retry — '
+              }${result.error}`
             );
           }
-          if (!templateReadiness.ready) {
-            throw new ReminderSetupBlockedError(
-              `setup required: ${templateReadiness.message}`
-            );
-          }
-          if (!account) {
-            throw new ReminderSetupBlockedError(
-              'setup required: account not found'
-            );
-          }
-          if (!candidate.phone) {
-            throw new ReminderSetupBlockedError('member has no phone number');
-          }
-          const fmt = buildFormatters(resolveAccountLocale(account));
-          const conversationId = await findOrCreateConversation(
-            admin,
-            candidate.account_id,
-            account.owner_user_id,
-            candidate.contact_id
-          );
-          const params = [
-            candidate.member_name?.trim() || 'there',
-            candidate.item_name_snapshot,
-            fmt.date(candidate.end_date),
-            fmt.money(candidate.current_renewal_price),
-          ];
-          const { whatsapp_message_id } = await engineSendTemplate({
-            accountId: candidate.account_id,
-            userId: account.owner_user_id,
-            conversationId,
-            contactId: candidate.contact_id,
-            templateName: SERVICE_TEMPLATE_NAME,
-            language: templateReadiness.row.language ?? 'en_US',
-            params,
-          });
-          await admin.rpc('finish_service_renewal_reminder', {
-            p_member_service_id: candidate.id,
-            p_end_date: candidate.end_date,
-            p_days_before: candidate.days_until_expiry,
-            p_succeeded: true,
-            p_wa_message_id: whatsapp_message_id,
-            p_error: null,
-          });
-          summary.service_sent++;
-          summary.sent++;
-          summary.accepted++;
         } catch (error) {
-          await admin.rpc('finish_service_renewal_reminder', {
-            p_member_service_id: candidate.id,
-            p_end_date: candidate.end_date,
-            p_days_before: candidate.days_until_expiry,
-            p_succeeded: false,
-            p_wa_message_id: null,
-            p_error: error instanceof Error ? error.message : String(error),
-          });
-          const blocked = error instanceof ReminderSetupBlockedError;
-          if (blocked) {
+          if (error instanceof ReminderSetupBlockedError) {
             summary.service_blocked++;
           } else {
             summary.service_failed++;
             summary.failed++;
           }
           notes.push(
-            `account ${candidate.account_id} service ${candidate.id}: ${
-              blocked ? 'blocked — ' : ''
-            }${error instanceof Error ? error.message : String(error)}`
+            `account ${candidate.account_id} service ${candidate.id}: delivery state update failed — ${
+              error instanceof Error ? error.message : String(error)
+            }`
           );
         }
       }
     }
   }
 
-  return NextResponse.json({ ...summary, notes });
+  return NextResponse.json(
+    { ...summary, notes },
+    { status: summary.failed > 0 || summary.ambiguous > 0 ? 503 : 200 }
+  );
 }
 
 interface ServiceReminderCandidate {
   id: string;
   account_id: string;
   contact_id: string;
+  status?: string;
   member_name: string | null;
   phone: string | null;
   item_name_snapshot: string;
   end_date: string;
   days_until_expiry: number;
-  current_renewal_price: number;
+  service_enabled?: boolean;
+  service_days_before?: number[] | null;
+  current_renewal_price: number | null;
+  item_is_active?: boolean;
+  option_is_active?: boolean;
 }
 
 type Admin = ReturnType<typeof supabaseAdmin>;
@@ -460,12 +809,16 @@ async function findOrCreateConversation(
   userId: string,
   contactId: string
 ): Promise<string> {
-  const { data: existing } = await admin
+  const { data: existing, error: existingError } = await admin
     .from('conversations')
     .select('id')
     .eq('account_id', accountId)
     .eq('contact_id', contactId)
     .maybeSingle();
+
+  if (existingError) {
+    throw new Error(`could not read conversation: ${existingError.message}`);
+  }
 
   if (existing) return existing.id as string;
 

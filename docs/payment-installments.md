@@ -6,7 +6,19 @@ Add member and lead conversion can collect the first invoice either in full or a
 - 40% remains on the same invoice and is due 28 account-local calendar days later.
 - WhatsApp reminders are attempted 7, 3, 1, and 0 days before that deadline, after 09:00 in the account timezone.
 
-`perform_join_checkout` creates the membership, combined immutable invoice, first payment, proportional line allocations, and `membership_installment_plans` row in one idempotent transaction. The generic `invoice_balances` view remains the source of truth for the outstanding balance, so later manual payments automatically stop reminders once the invoice is settled. `installment_reminders_sent` is a claim-first dedupe ledger; a failed send releases its claim for retry. Standalone sales may accept any partial payment or remain due, but do not create this scheduled 60/40 promise.
+`perform_join_checkout` creates the membership, combined immutable invoice,
+first payment, proportional line allocations, and
+`membership_installment_plans` row in one idempotent transaction. The generic
+`invoice_balances` view remains the source of truth for the outstanding balance.
+Immediately before Meta can receive a reminder, the worker re-reads the exact
+installment promise, collectible invoice balance, refund-review state, and open
+collection commitments. A later payment or hold therefore stops the stale
+candidate; a partial payment reduces the reminder amount to the current
+collectible balance. `installment_reminders_sent` is a claim-first dedupe
+ledger. Only failures known to occur before the provider-attempt boundary
+release the claim; accepted and ambiguous outcomes remain deduped. Standalone
+sales may accept any partial payment or remain due, but do not create this
+scheduled 60/40 promise.
 
 ## WhatsApp prerequisite
 
@@ -59,3 +71,7 @@ curl -sS \
 The response reports scanned schedules, sent messages, skipped claims, failures, and setup notes.
 `accepted` means Meta accepted a request; it is not delivered/read evidence.
 Webhook delivery status remains authoritative.
+Operational query/claim/completion failures and unresolved provider ambiguity
+return `503` without dropping that aggregate body, so both schedulers surface
+the run as failed. Missing setup, an empty cohort, a settled/held invoice, or
+another final eligibility change remains a healthy `200` skip.

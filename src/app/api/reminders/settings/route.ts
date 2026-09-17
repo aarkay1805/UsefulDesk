@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 
-import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
+import {
+  requireAutomatedMessageRulesAccess,
+  requireSettingsAccess,
+  toErrorResponse,
+  type AccountContext,
+} from '@/lib/auth/account';
 import {
   getReminderRule,
   parseReminderRulePatch,
@@ -69,7 +74,7 @@ function serialiseRule(
 }
 
 async function loadReadinessData(
-  db: Awaited<ReturnType<typeof requireSettingsAccess>>['supabase'],
+  db: AccountContext['supabase'],
   accountId: string
 ) {
   const names = Array.from(
@@ -95,9 +100,10 @@ async function loadReadinessData(
   };
 }
 
+// Every member may read the catalogue; only PATCH needs settings access.
 export async function GET() {
   try {
-    const ctx = await requireSettingsAccess();
+    const ctx = await requireAutomatedMessageRulesAccess();
     const [settingsResult, readiness] = await Promise.all([
       ctx.supabase
         .from('renewal_reminder_settings')

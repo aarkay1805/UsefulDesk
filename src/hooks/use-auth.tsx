@@ -129,6 +129,53 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/** The role-derived half of the context, shared by every provider. */
+function roleState(role: AccountRole | null) {
+  return {
+    accountRole: role,
+    isOwner: role === 'owner',
+    isAdmin: role === 'admin',
+    isAgent: role === 'agent',
+    isViewer: role === 'viewer',
+    canManageMembers: role ? canManageMembersFor(role) : false,
+    canEditSettings: role ? canEditSettingsFor(role) : false,
+    canSendMessages: role ? canSendMessagesFor(role) : false,
+  };
+}
+
+/**
+ * Least-privileged value for components rendered outside a provider.
+ * Account state collapses to null, so every `canX` boolean is false and UI
+ * gates fail closed.
+ */
+function signedOutAuthValue(): AuthContextValue {
+  return {
+    user: null,
+    profile: null,
+    loading: false,
+    profileLoading: false,
+    signOut: async () => {
+      // Fallback sign-out still needs to discard the current app tree.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.href = '/login';
+    },
+    refreshProfile: async () => {},
+    account: null,
+    accountStatus: 'loading',
+    accountStatusDetail: null,
+    branches: [],
+    organizationId: null,
+    isOrganizationOwner: false,
+    branchAccessError: null,
+    switchBranch: async () => {},
+    defaultCurrency: DEFAULT_CURRENCY,
+    locale: DEFAULT_ACCOUNT_LOCALE,
+    fmt: DEFAULT_FORMATTERS,
+    accountId: null,
+    ...roleState(null),
+  };
+}
+
 /**
  * AuthProvider — wrap this around the dashboard layout.
  * A normal dashboard request starts from the server-validated user and
@@ -343,20 +390,13 @@ export function AuthProvider({
   // every consumer render. Cheap regardless, but the memo also gives
   // each derived value a stable identity for React.memo / useEffect
   // dependencies downstream.
-  const derived = useMemo(() => {
-    const role = profile?.account_role ?? null;
-    return {
-      accountRole: role,
+  const derived = useMemo(
+    () => ({
       accountId: profile?.account_id ?? null,
-      isOwner: role === 'owner',
-      isAdmin: role === 'admin',
-      isAgent: role === 'agent',
-      isViewer: role === 'viewer',
-      canManageMembers: role ? canManageMembersFor(role) : false,
-      canEditSettings: role ? canEditSettingsFor(role) : false,
-      canSendMessages: role ? canSendMessagesFor(role) : false,
-    };
-  }, [profile?.account_role, profile?.account_id]);
+      ...roleState(profile?.account_role ?? null),
+    }),
+    [profile?.account_role, profile?.account_id]
+  );
 
   // One resolved locale + formatter set for the whole tree. Recomputed
   // only when the account row identity changes (fetch / refreshProfile
@@ -407,48 +447,34 @@ export function AuthProvider({
 }
 
 /**
+ * Dev-harness only. `/preview/*` pages render outside the dashboard's
+ * AuthProvider, where every capability is false. This gives a harness the
+ * same signed-out value with one role's capabilities, so it can show both the
+ * editable and read-only states. It creates no session and grants nothing on
+ * the server, and a production build ignores the role.
+ */
+export function PreviewAuthProvider({
+  role,
+  children,
+}: {
+  role: AccountRole | null;
+  children: ReactNode;
+}) {
+  const previewRole = process.env.NODE_ENV === 'production' ? null : role;
+  const value = useMemo(
+    () => ({ ...signedOutAuthValue(), ...roleState(previewRole) }),
+    [previewRole]
+  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+/**
  * useAuth — read the shared auth state from context.
  * Must be used inside an <AuthProvider>.
  */
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
-  if (!ctx) {
-    // Fallback for components rendered outside the provider (shouldn't
-    // happen in normal flow, but don't crash the page). Account state
-    // collapses to least-privileged null — every `canX` boolean is
-    // false so UI gates fail closed.
-    return {
-      user: null,
-      profile: null,
-      loading: false,
-      profileLoading: false,
-      signOut: async () => {
-        // Fallback sign-out still needs to discard the current app tree.
-        // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-        window.location.href = '/login';
-      },
-      refreshProfile: async () => {},
-      account: null,
-      accountStatus: 'loading',
-      accountStatusDetail: null,
-      branches: [],
-      organizationId: null,
-      isOrganizationOwner: false,
-      branchAccessError: null,
-      switchBranch: async () => {},
-      defaultCurrency: DEFAULT_CURRENCY,
-      locale: DEFAULT_ACCOUNT_LOCALE,
-      fmt: DEFAULT_FORMATTERS,
-      accountId: null,
-      accountRole: null,
-      isOwner: false,
-      isAdmin: false,
-      isAgent: false,
-      isViewer: false,
-      canManageMembers: false,
-      canEditSettings: false,
-      canSendMessages: false,
-    };
-  }
-  return ctx;
+  // Fallback for components rendered outside the provider (shouldn't happen
+  // in normal flow, but don't crash the page).
+  return ctx ?? signedOutAuthValue();
 }

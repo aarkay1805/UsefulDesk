@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 const h = vi.hoisted(() => ({
-  requireSettingsAccess: vi.fn(),
+  requireAutomatedMessageActivityAccess: vi.fn(),
   tables: new Map<string, unknown[]>(),
   settings: {
     enabled: true,
@@ -18,7 +18,8 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/auth/account', () => ({
-  requireSettingsAccess: h.requireSettingsAccess,
+  requireAutomatedMessageActivityAccess:
+    h.requireAutomatedMessageActivityAccess,
   toErrorResponse: (error: unknown) =>
     Response.json(
       { error: error instanceof Error ? error.message : 'Request failed' },
@@ -83,7 +84,7 @@ describe('GET /api/reminders/readiness', () => {
     h.account = { timezone: 'Asia/Kolkata' };
     h.hour = 10;
     h.calls = [];
-    h.requireSettingsAccess.mockResolvedValue({
+    h.requireAutomatedMessageActivityAccess.mockResolvedValue({
       accountId: 'account-1',
       supabase: createDb(),
     });
@@ -103,7 +104,7 @@ describe('GET /api/reminders/readiness', () => {
         }),
       ])
     );
-    expect(h.requireSettingsAccess).toHaveBeenCalledOnce();
+    expect(h.requireAutomatedMessageActivityAccess).toHaveBeenCalledOnce();
   });
 
   it('reports a configured, ready worker with no candidates as healthy empty work', async () => {
@@ -258,12 +259,15 @@ describe('GET /api/reminders/readiness', () => {
     });
   });
 
-  it('enforces the settings authorization boundary before querying diagnostic data', async () => {
-    h.requireSettingsAccess.mockRejectedValue(new Error('Insufficient role'));
+  it('enforces the admin-only activity boundary before querying diagnostic data', async () => {
+    h.requireAutomatedMessageActivityAccess.mockRejectedValue(
+      new Error('Insufficient role')
+    );
 
     const response = await GET();
 
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: 'Insufficient role' });
+    expect(h.calls).toHaveLength(0);
   });
 });

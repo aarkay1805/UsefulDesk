@@ -2,8 +2,11 @@
 
 ## Shipped in code — Automated messages catalogue and activity (2026-09-12)
 
-Settings → **Automated messages** preserves `?tab=reminders` and existing
-settings permissions. Rules groups the 14 existing behaviors into Renewals,
+Settings → **Automated messages** preserves `?tab=reminders`. Every branch
+member can read Rules; only admins and owners can change a rule or open
+Activity. Agents and viewers get a read-only catalogue and an Activity
+permission notice instead of a load error with a retry that could never
+succeed. Rules groups the 14 existing behaviors into Renewals,
 Collections, Retention, and Confirmations. Per-rule configuration saves while
 off; activation requires the connected branch and every exact approved/synced
 template. Existing On intent survives lost readiness. Each rule name has a
@@ -11,7 +14,8 @@ plain-language info tooltip; the group filters do not repeat another summary
 line. Template setup remains in Templates, with exact-contract focus and a
 return to the originating rule.
 The Set up action opens the required template editor directly over the rule,
-preserving drafts; it remains disabled without settings edit permission. An
+preserving drafts. Without settings access, Set up, the switch, and Change
+reminder days explain that an admin or owner must make the change. An
 existing matching template opens for editing
 or displays its pending approval status without offering another submission.
 Locked setup presents a filled member-facing WhatsApp preview with no editable
@@ -29,19 +33,57 @@ disclosure, and Save settings/Cancel appear only after a change. The open rule's
 settings sit in one nested tile under its title, with small muted captions and
 both disclosures in one divided list. Rules with two message
 contracts use purpose-labelled tabs and show one example at a time. Rules with
-no editable settings use View and omit form actions. An unready rule offers one
+no editable settings, and every rule for members without settings access, use
+View and omit form actions. An unready rule offers one
 Set up action instead of a status badge plus disabled switch; managed rules omit
 that redundant status. Saving configuration no longer needs a separate
 activation warning. Invoice collection retains due-date language because it
 also covers service and merchandise invoices.
 
-Activity reads the lifecycle queue and all three legacy reminder ledgers with
-branch-scoped member identity, rule/outcome/local-date filters, bounded keyset
-pages, and relevant member/invoice/conversation links. It separates accepted
-from confirmed delivery/read, pauses, waiting, blockers, failures, and unknown
-legacy outcomes. The three current schedule diagnostics are explicitly scoped;
-empty history is not proof of no eligible work. Historical failed legacy
-claims that were deleted cannot be reconstructed.
+Activity opens with Scheduled reminder readiness for the three scheduled
+workers (a blocked row links to its rule), then Message history: the lifecycle
+queue and all three legacy reminder ledgers with branch-scoped member identity,
+grouped rule/outcome filters, a valid local-date range, Clear filters, bounded
+keyset pages, and relevant conversation/invoice/follow-up/member links. It
+separates accepted from confirmed delivery/read, pauses, waiting, blockers,
+failures, and unknown legacy outcomes, and names each record's date for its
+rule. History fits its panel at every width (fixed-track table from a 48rem
+container, record list below). Empty history is not proof of no eligible work.
+Historical failed legacy claims that were deleted cannot be reconstructed.
+
+The legacy membership, renewable-service, and joining-installment workers now
+share a durable provider-attempt boundary. A caught failure before Meta remains
+retryable; after the boundary, an unknown transport outcome is retained as
+ambiguous and a returned provider id is retained as accepted even if local
+message persistence fails. A second run cannot resubmit either outcome.
+`20260917131500_legacy_reminder_provider_attempts.sql` carries the additive
+ledger states, conservative service recovery, and truthful Activity mapping.
+The code and regression coverage are complete; the migration is applied and
+read back in production as connector version `20260917074105`, including its
+columns, checks, service-only claim grant, authenticated/anon denial, and
+Activity permissions. No live message, schedule change, deployment, or provider
+operation was performed.
+
+Those workers also revalidate immediately before that provider boundary.
+Membership sends require the still-enabled exact offset and unchanged active,
+manual, renewal-chaseable cycle; service sends require the current enabled
+offset, subject expiry/status, active item/option, and current fixed or trainer
+rate. Joining-installment sends re-read the exact promise, collectible invoice
+balance, refund-review state, and commitments. Stale candidates release only a
+pre-provider claim, while valid sends use fresh names and prices. Focused worker
+tests cover disabling a rule, switching a membership to AutoPay, disabling a
+service schedule, settling an invoice, fresh membership/service rates, and a
+reduced installment balance.
+
+Legacy reminder operational health is now scheduler-visible. Renewal and
+joining-installment routes keep their full aggregate diagnostic body but return
+`503` for query/claim/completion failures and unresolved provider ambiguity;
+healthy empty runs, setup blocks, and final eligibility changes remain `200`.
+The database aggregator propagates that status. The redundant GitHub workflow
+attempts renewal, installment, and lifecycle workers independently with
+`always()`, while any failed step still leaves the overall run red. Regression
+tests cover partial batch continuation and scheduler propagation without
+invoking a live worker.
 
 The activation guard and security-invoker activity-view migrations are applied
 and read back. A rollback-only guard check rejects unready activation while

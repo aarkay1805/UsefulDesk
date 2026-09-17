@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
-import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
+import {
+  requireAutomatedMessageActivityAccess,
+  toErrorResponse,
+} from '@/lib/auth/account';
 import { dayStartInTz } from '@/lib/locale/format';
 import { REMINDER_RULES } from '@/lib/reminders/rules';
 import {
@@ -18,7 +21,7 @@ export const runtime = 'nodejs';
  * The SQL view applies each requested filter before its keyset page. */
 export async function GET(request: NextRequest) {
   try {
-    const ctx = await requireSettingsAccess();
+    const ctx = await requireAutomatedMessageActivityAccess();
     const params = request.nextUrl.searchParams;
     const ruleId = params.get('rule');
     const outcome = parseActivityOutcome(params.get('outcome'));

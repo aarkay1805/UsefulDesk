@@ -40,14 +40,22 @@ interface CapturedWrites {
   conversation: Record<string, unknown> | null;
 }
 
-function automationDb(row: MessageTemplate, captured?: CapturedWrites) {
+function automationDb(
+  row: MessageTemplate,
+  captured?: CapturedWrites,
+  messageInsertError?: string
+) {
   return {
     from(table: string) {
       if (table === 'messages') {
         return {
           insert: (payload: Record<string, unknown>) => {
             if (captured) captured.message = payload;
-            return Promise.resolve({ error: null });
+            return Promise.resolve({
+              error: messageInsertError
+                ? { message: messageInsertError }
+                : null,
+            });
           },
         };
       }
@@ -134,6 +142,31 @@ describe('engineSendTemplate', () => {
     expect(h.sendTemplateMessage).toHaveBeenCalledOnce();
   });
 
+  it('uses parameter facts refreshed by the final beforeSend check', async () => {
+    const params = ['Asha', 'Gold', '20 Sep 2026', '₹1,000'];
+    h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.fresh' });
+
+    await engineSendTemplate({
+      beforeSend: async () => {
+        params[1] = 'Gold Plus';
+        params[3] = '₹1,250';
+      },
+      accountId: 'account-1',
+      userId: 'user-1',
+      conversationId: 'conversation-1',
+      contactId: 'contact-1',
+      templateName: 'gym_membership_renewal',
+      language: 'en_US',
+      params,
+    });
+
+    expect(h.sendTemplateMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        params: ['Asha', 'Gold Plus', '20 Sep 2026', '₹1,250'],
+      })
+    );
+  });
+
   it('persists the rendered body so the inbox shows what the automation sent', async () => {
     const captured: CapturedWrites = { message: null, conversation: null };
     h.db = automationDb(membershipRow(), captured);
@@ -155,6 +188,32 @@ describe('engineSendTemplate', () => {
     expect(text).not.toContain('{{');
     // The conversation list showed a literal "[template:…]" placeholder.
     expect(captured.conversation?.last_message_text).toBe(text);
+  });
+
+  it('preserves the provider id when Meta accepted but the local message insert failed', async () => {
+    h.db = automationDb(
+      membershipRow(),
+      undefined,
+      'messages insert unavailable'
+    );
+    h.sendTemplateMessage.mockResolvedValueOnce({
+      messageId: 'wamid.accepted',
+    });
+
+    await expect(
+      engineSendTemplate({
+        accountId: 'account-1',
+        userId: 'user-1',
+        conversationId: 'conversation-1',
+        contactId: 'contact-1',
+        templateName: 'gym_membership_renewal',
+        language: 'en_US',
+        params: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
+      })
+    ).rejects.toMatchObject({
+      name: 'MetaAcceptedPersistenceError',
+      whatsappMessageId: 'wamid.accepted',
+    });
   });
 
   it('keeps a media header URL on the automated send row', async () => {

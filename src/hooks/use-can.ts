@@ -9,6 +9,7 @@ import {
   canManageOrganization,
   canSendMessages,
   canTransferOwnership,
+  canViewAutomatedMessageActivity,
   canViewOnly,
 } from '@/lib/auth/roles';
 
@@ -23,6 +24,7 @@ export type CanAction =
   | 'edit-settings'
   | 'send-messages'
   | 'view-only'
+  | 'view-automated-message-activity'
   | 'archive-branch'
   | 'manage-organization'
   | 'delete-organization'
@@ -61,6 +63,8 @@ export function useCan(action: CanAction): boolean {
       return canSendMessages(accountRole);
     case 'view-only':
       return canViewOnly(accountRole);
+    case 'view-automated-message-activity':
+      return canViewAutomatedMessageActivity(accountRole);
     case 'archive-branch':
       return canArchiveBranch(accountRole);
     case 'transfer-ownership':

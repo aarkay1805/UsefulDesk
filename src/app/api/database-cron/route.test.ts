@@ -72,9 +72,17 @@ describe('GET /api/database-cron', () => {
     }
   });
 
-  it('returns 503 when any delegated route fails', async () => {
+  it('propagates a worker operational 503 with its aggregate diagnostics', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
-      Response.json({ error: 'failed' }, { status: 503 })
+      Response.json(
+        {
+          accepted: 1,
+          ambiguous: 0,
+          failed: 1,
+          notes: ['local completion needs review'],
+        },
+        { status: 503 }
+      )
     );
 
     const response = await GET(request('renewals'));
@@ -85,6 +93,18 @@ describe('GET /api/database-cron', () => {
       group: 'renewals',
       dispatched: 3,
       failed: 1,
+    });
+    expect(fetch).toHaveBeenCalledTimes(3);
+    expect(body.results[0]).toMatchObject({
+      path: '/api/renewals/cron',
+      status: 503,
+      ok: false,
+      body: {
+        accepted: 1,
+        ambiguous: 0,
+        failed: 1,
+        notes: ['local completion needs review'],
+      },
     });
   });
 

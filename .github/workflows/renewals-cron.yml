@@ -39,11 +39,13 @@ jobs:
             -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
             https://desk.usefulmade.com/api/renewals/cron
       - name: Trigger installment reminders
+        if: ${{ always() }}
         run: |
           curl --fail --silent --show-error \
             -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \
             https://desk.usefulmade.com/api/payment-installments/cron
       - name: Trigger invoice lifecycle reminders
+        if: ${{ always() }}
         run: |
           curl --fail --silent --show-error \
             -H "x-cron-secret: ${{ secrets.AUTOMATION_CRON_SECRET }}" \

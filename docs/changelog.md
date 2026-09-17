@@ -6,6 +6,101 @@
 
 ---
 
+## 2026-09-17 — Reminder worker failures now fail both schedulers visibly
+
+The legacy renewal and joining-installment routes now return `503` with their
+complete aggregate JSON whenever an operational query, claim, provider attempt,
+or local completion fails, or when a provider outcome remains ambiguous.
+Readiness/setup blocks, empty cohorts, and final eligibility changes remain
+healthy `200` outcomes. Membership and service batches continue independently,
+including when the membership settings scan fails. The database cron aggregator
+therefore propagates these worker failures instead of recording a healthy
+dispatch. The redundant GitHub workflow now uses `always()` for its second and
+third worker steps, so one red worker does not prevent the other independent
+workers from running while the overall job still fails. Route-level regression
+coverage verifies success, partial continuation, query/claim failure, accepted
+requests with local completion warnings, unresolved ambiguity, and aggregator
+propagation. No live worker, message, schedule change, or deployment was run.
+
+## 2026-09-17 — Scheduled reminders revalidate at the provider edge
+
+The membership and renewable-service workers now re-read the enabled schedule
+and exact current subject immediately before recording the Meta attempt.
+Renewed, frozen, cancelled, AutoPay, rescheduled, inactive-option, or
+rate-less rows are skipped without sending; still-eligible rows use the fresh
+name, plan/service, expiry, and price. The joining-installment worker now does
+the same for the exact promise, current collectible invoice balance,
+refund-review state, and collection commitments, so a payment or hold that
+lands after selection cannot race a stale amount to Meta. Eligibility failures
+release only claims that have not crossed the provider boundary; the durable
+accepted/ambiguous behavior remains unchanged. Worker regression tests cover
+rule, membership, service, and invoice changes plus valid fresh-price sends.
+
+## 2026-09-17 — Legacy reminder retries stop at the Meta boundary
+
+Membership renewal, renewable-service, and joining-installment workers now use
+`legacy-delivery.ts` to persist `attempting` before Meta can receive a request.
+Only failures before that callback release/reopen a claim. Unknown transport
+outcomes remain `ambiguous`; when Meta returned a `wamid` but the local
+`messages` insert or ledger completion failed, `MetaAcceptedPersistenceError`
+preserves that provider id and the ledger remains accepted. Migration
+`20260917131500_legacy_reminder_provider_attempts.sql` adds the legacy ledger
+states, prevents service claim recovery after a provider attempt, and makes
+Activity report accepted versus ambiguous evidence instead of a generic
+unconfirmed row. Regression coverage runs the shared worker twice for known
+acceptance, unknown transport outcome, and a safe pre-provider retry. The
+migration was applied through the approved connector as production version
+`20260917074105` and read back: all columns/checks are present, service claims
+can reopen only `failed` rows with no provider-attempt timestamp, service-role
+keeps its claim grant, authenticated/anon cannot execute it, and the Activity
+view keeps authenticated read/anon denial. No schedule, provider send, or
+deployment was performed.
+
+## 2026-09-17 — Every member can read automated messages; Activity stays admin-only
+
+Agents and viewers opening Settings → Automated messages saw "Automated
+messages couldn’t load" with a **Try again** that could never succeed. The
+2026-09-12 move to `GET /api/reminders/settings` had put the catalogue behind
+`requireSettingsAccess`, although the tables it reads are member-readable
+(033/017) and the panel already had a Read-only state. That GET now uses
+`requireAutomatedMessageRulesAccess` (`canViewAutomatedMessageRules`, every
+member); PATCH keeps `requireSettingsAccess`. The activity and readiness routes
+use `requireAutomatedMessageActivityAccess`
+(`canViewAutomatedMessageActivity`, admin+), which mirrors the view's explicit
+admin predicate, so no migration was needed. In `renewal-reminders-settings.tsx`,
+non-admins get **View** rows and `EDIT_PERMISSION_BLOCKER` on the switch,
+**Set up**, and **Change reminder days**. This replaces the 2026-09-16
+disabled Set up. The Activity tab stays visible but shows **Admin access
+required** without mounting `AutomatedMessageActivity`
+(`useCan('view-automated-message-activity')`). A 401/403 load offers no retry.
+Gotcha: a blocked `Switch` needs an explicit `role="switch"` (ui-patterns →
+Resolvable actions). `/preview/automated-messages` now renders as an owner
+through the dev-only `PreviewAuthProvider` in `use-auth.tsx`;
+`?role=agent|viewer` shows the read-only state, and owner saves update
+in-memory fixtures.
+
+## 2026-09-16 — Automated messages Activity is readable at every width
+
+`automated-message-activity.tsx` now leads with **Scheduled reminder readiness**
+(one aligned row per schedule, runbook state names, and **Review rule** on a
+blocked row), then **Message history**. History no longer overflows its panel:
+at a 1440px window the old six-column table measured 1190px in an 892px panel,
+squeezing Reason into 6–7 wrapped lines. An `@container/activity` switch now
+renders a fixed-track table (outcome and its explanation share the flexible
+column; 4 fixed-slot icon links with tooltips) from 48rem and a spelled-out
+record list below it. The "Anchor" line became a per-rule date label
+(`RULE_DATE_LABEL`, verified against each worker's `effective_due_on`),
+**Setup blocked** became **Blocked** (it also covers a missing phone), and
+**Attempting** became **Sending**. Filters group rules like the Rules chips and
+outcomes by what the owner does next, keep the date range valid, and offer
+**Clear filters**; empty, filtered-empty, server-error, and load-more-error
+states are distinct, and a 5xx shows retry copy instead of "Internal server
+error". The Rules/Activity `Tabs` root now portals into the app bar, which is
+what restores the active underline (see ui-patterns → Page chrome). Links are
+real anchors styled with `buttonVariants`, so they announce as links.
+`/preview/automated-messages` serves Activity fixtures, with
+`?activity=empty|error|loading` and `?readiness=error|loading`.
+
 ## 2026-09-16 — Automated message setup respects settings permission
 
 The unready-rule **Set up** action in `renewal-reminders-settings.tsx` now stays

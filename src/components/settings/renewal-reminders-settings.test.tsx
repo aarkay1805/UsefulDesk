@@ -10,7 +10,9 @@ import {
 } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const authState = vi.hoisted(() => ({ canEditSettings: true }));
+const authState = vi.hoisted(() => ({
+  role: 'owner' as 'owner' | 'admin' | 'agent' | 'viewer',
+}));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('next/navigation', () => ({
@@ -18,18 +20,29 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/settings',
   useSearchParams: () => new URLSearchParams(window.location.search),
 }));
-vi.mock('@/hooks/use-auth', () => ({
-  useAuth: () => ({
-    canEditSettings: authState.canEditSettings,
-    locale: { timeZone: 'Asia/Kolkata' },
-    fmt: {
-      today: () => '2026-09-12',
-      time: (value: Date) => value.toISOString(),
-      date: (value: string) => value,
-      money: (value: number) => `₹${value}`,
-    },
-  }),
-}));
+vi.mock('@/hooks/use-auth', async () => {
+  // Capabilities come from the real predicates, so `useCan` and the
+  // `canEditSettings` flag agree for every role the tests pick.
+  const { canEditSettings } =
+    await vi.importActual<typeof import('@/lib/auth/roles')>(
+      '@/lib/auth/roles'
+    );
+  return {
+    useAuth: () => ({
+      accountRole: authState.role,
+      profileLoading: false,
+      isOrganizationOwner: false,
+      canEditSettings: canEditSettings(authState.role),
+      locale: { timeZone: 'Asia/Kolkata' },
+      fmt: {
+        today: () => '2026-09-12',
+        time: (value: Date) => value.toISOString(),
+        date: (value: string) => value,
+        money: (value: number) => `₹${value}`,
+      },
+    }),
+  };
+});
 vi.mock('@/components/settings/automated-message-activity', () => ({
   AutomatedMessageActivity: () => <p>Activity content</p>,
 }));
@@ -95,7 +108,7 @@ const { RenewalRemindersSettings } =
   await import('./renewal-reminders-settings');
 
 beforeEach(() => {
-  authState.canEditSettings = true;
+  authState.role = 'owner';
   window.history.replaceState({}, '', '/settings?tab=reminders');
   vi.stubGlobal(
     'ResizeObserver',
@@ -430,15 +443,32 @@ describe('Automated messages catalogue', () => {
     expect(screen.queryByLabelText('Membership renewal automation')).toBeNull();
   });
 
-  it('keeps template setup unavailable without settings edit permission', async () => {
-    authState.canEditSettings = false;
+  it('explains the permission instead of opening template setup without settings access', async () => {
+    authState.role = 'agent';
     mockFetch();
     render(<RenewalRemindersSettings />);
 
     const setup = await screen.findByRole('button', { name: 'Set up' });
-    expect(setup).toHaveProperty('disabled', true);
+    // Gated, not dead: still focusable, and pressing it explains why.
+    expect(setup).toHaveProperty('disabled', false);
+    expect(setup.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(setup);
+    expect(
+      await screen.findByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Only an admin or owner can change automated messages.')
+    ).toBeTruthy();
     expect(screen.queryByText('This template needs setup')).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Set up required template' })
+    ).toBeNull();
+    expect(
+      screen.queryByRole('dialog', { name: 'Required template' })
+    ).toBeNull();
+    expect(
+      vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')
+    ).toBe(false);
   });
 
   it('opens the exact required template in place and preserves the rule draft and Off preference', async () => {
@@ -572,5 +602,150 @@ describe('Automated messages catalogue', () => {
         screen.queryByTestId('rule-detail-joining_installments')
       ).toBeNull()
     );
+  });
+});
+
+describe('Automated messages access', () => {
+  const readyRule = {
+    ...rules[0],
+    settings: { enabled: true, daysBefore: [7, 3, 1] },
+    readiness: { ready: true, code: 'ready' },
+  };
+
+  function mockCatalogue(catalogue: readonly unknown[]) {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockImplementation(() =>
+          Promise.resolve(
+            new Response(JSON.stringify({ rules: catalogue }), { status: 200 })
+          )
+        )
+    );
+  }
+
+  function mountHeaderTabs() {
+    const slot = document.createElement('div');
+    slot.id = 'page-header-tabs';
+    document.body.appendChild(slot);
+  }
+
+  function patched() {
+    return vi
+      .mocked(fetch)
+      .mock.calls.some(([, init]) => init?.method === 'PATCH');
+  }
+
+  it.each(['agent', 'viewer'] as const)(
+    'shows an %s the rules read-only instead of a load error',
+    async (role) => {
+      authState.role = role;
+      mockCatalogue([readyRule, rules[1]]);
+      render(<RenewalRemindersSettings />);
+
+      expect(await screen.findByText('Membership renewal')).toBeTruthy();
+      expect(screen.getByText('Read-only')).toBeTruthy();
+      expect(screen.queryByText('Automated messages couldn’t load')).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+
+      const toggle = screen.getByRole('switch', {
+        name: 'Membership renewal automation',
+      });
+      expect(toggle.getAttribute('aria-readonly')).toBe('true');
+      expect(toggle.getAttribute('aria-checked')).toBe('true');
+      fireEvent.click(toggle);
+      expect(
+        await screen.findByRole('dialog', { name: 'Admin access required' })
+      ).toBeTruthy();
+      expect(toggle.getAttribute('aria-checked')).toBe('true');
+      expect(patched()).toBe(false);
+    }
+  );
+
+  it('opens a read-only rule with View and explains the day picker instead of opening it', async () => {
+    authState.role = 'viewer';
+    mockCatalogue([readyRule]);
+    render(<RenewalRemindersSettings />);
+
+    expect(await screen.findByRole('button', { name: 'View' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    expect(
+      screen.getByText(
+        'Members get reminders 7, 3, and 1 days before the membership ends.'
+      )
+    ).toBeTruthy();
+    const reminderDays = screen.getByRole('button', {
+      name: 'Membership renewal change reminder days, 3 selected',
+    });
+    expect(reminderDays).toHaveProperty('disabled', false);
+    fireEvent.click(reminderDays);
+    expect(
+      await screen.findByRole('dialog', { name: 'Admin access required' })
+    ).toBeTruthy();
+    expect(screen.queryByRole('menuitemcheckbox')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save settings' })).toBeNull();
+    expect(patched()).toBe(false);
+  });
+
+  it('keeps Activity visible to non-admins but shows a permission state instead of mounting it', async () => {
+    authState.role = 'agent';
+    mockCatalogue([readyRule]);
+    mountHeaderTabs();
+    render(<RenewalRemindersSettings />);
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
+    expect(await screen.findByText('Admin access required')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Only admins and owners can view scheduled reminder readiness and message history.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByText('Activity content')).toBeNull();
+    expect(screen.queryByText('Read-only')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Rules' }));
+    expect(await screen.findByText('Read-only')).toBeTruthy();
+  });
+
+  it('shows admins the activity history', async () => {
+    authState.role = 'admin';
+    mockCatalogue([readyRule]);
+    mountHeaderTabs();
+    render(<RenewalRemindersSettings />);
+
+    expect(screen.queryByText('Read-only')).toBeNull();
+    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
+    expect(await screen.findByText('Activity content')).toBeTruthy();
+    expect(screen.queryByText('Admin access required')).toBeNull();
+  });
+
+  it('offers no retry when the server denies access, but keeps it for other failures', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'This branch is archived' }), {
+          status: 403,
+        })
+      )
+    );
+    render(<RenewalRemindersSettings />);
+    expect(await screen.findByText('This branch is archived')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    cleanup();
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Temporarily unavailable' }), {
+          status: 503,
+        })
+      )
+    );
+    render(<RenewalRemindersSettings />);
+    expect(await screen.findByText('Temporarily unavailable')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 });

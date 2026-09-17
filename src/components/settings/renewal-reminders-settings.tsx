@@ -36,7 +36,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ResolvableAction } from '@/components/ui/resolvable-action';
+import {
+  ResolvableAction,
+  type ActionBlocker,
+} from '@/components/ui/resolvable-action';
 import {
   Select,
   SelectContent,
@@ -54,6 +57,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/hooks/use-auth';
+import { useCan } from '@/hooks/use-can';
 import {
   BRANCH_HEADER,
   browserBranchId,
@@ -76,6 +80,18 @@ import {
 import { TemplateManager } from './template-manager';
 import { useLocale } from '@/hooks/use-locale';
 import { SettingsPanelHead } from './settings-panel-head';
+
+/** The app-bar tab recipe from Members, on the documented type ramp. */
+const HEADER_TAB_CLASS =
+  'flex-none px-0.5 pb-2 text-sm group-data-horizontal/tabs:after:bottom-0';
+
+// Every member can read the rules. For anyone without settings access,
+// permission is the first blocker on each change action, so pressing one
+// explains why instead of opening a flow they cannot finish.
+const EDIT_PERMISSION_BLOCKER: ActionBlocker = {
+  title: 'Admin access required',
+  description: 'Only an admin or owner can change automated messages.',
+};
 
 type RuleRow = ReminderRule & {
   settings: Record<string, unknown>;
@@ -553,12 +569,14 @@ function TimingControls({
   draft,
   onChange,
   disabled,
+  blocker,
   formatTime,
 }: {
   rule: RuleRow;
   draft: ReminderRulePatch;
   onChange: (patch: ReminderRulePatch) => void;
   disabled: boolean;
+  blocker: ActionBlocker | null;
   formatTime: (hour: number, minute?: string) => string;
 }) {
   const controls = timingFields(rule);
@@ -592,6 +610,13 @@ function TimingControls({
   const scheduleText = beforeDayControl
     ? reminderScheduleText(rule, beforeDays, afterDays)
     : null;
+  const reminderDaysLabel = `${rule.title} change reminder days, ${selectedDayCount} selected`;
+  const reminderDaysTrigger = (
+    <>
+      Change reminder days
+      <ChevronDown className="text-muted-foreground size-4" />
+    </>
+  );
   return (
     <div className="space-y-3">
       {dayControls.length ? (
@@ -599,67 +624,82 @@ function TimingControls({
           <div className="max-w-2xl text-sm leading-5 text-pretty">
             {scheduleText}
           </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              render={
+          {blocker ? (
+            <ResolvableAction
+              blocker={blocker}
+              trigger={
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={disabled}
-                  aria-label={`${rule.title} change reminder days, ${selectedDayCount} selected`}
-                />
+                  aria-label={reminderDaysLabel}
+                >
+                  {reminderDaysTrigger}
+                </Button>
               }
-            >
-              Change reminder days
-              <ChevronDown className="text-muted-foreground size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-60">
-              {dayControls.map((field) => {
-                const selectedDays = currentValue(field) as number[];
-                const commonChoices =
-                  field.key === 'overdueDays'
-                    ? [1, 2, 3, 7, 14, 30]
-                    : [0, 1, 2, 3, 7, 14, 30];
-                const choices = Array.from(
-                  new Set([...commonChoices, ...selectedDays])
-                ).filter(
-                  (day) => day >= (field.min ?? 0) && day <= (field.max ?? 365)
-                );
-                return (
-                  <DropdownMenuGroup key={field.key}>
-                    {dayControls.length > 1 ? (
-                      <DropdownMenuLabel>
-                        {timingGroupLabel(field.key)}
-                      </DropdownMenuLabel>
-                    ) : null}
-                    {choices.map((day) => {
-                      const selected = selectedDays.includes(day);
-                      return (
-                        <DropdownMenuCheckboxItem
-                          key={day}
-                          checked={selected}
-                          closeOnClick={false}
-                          onCheckedChange={(checked) =>
-                            onChange({
-                              ...draft,
-                              [field.key]: (checked
-                                ? [...selectedDays, day]
-                                : selectedDays.filter(
-                                    (selectedDay) => selectedDay !== day
-                                  )
-                              ).sort((a, b) => b - a),
-                            })
-                          }
-                        >
-                          {timingChipLabel(field.key, day)}
-                        </DropdownMenuCheckboxItem>
-                      );
-                    })}
-                  </DropdownMenuGroup>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            />
+          ) : (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={disabled}
+                    aria-label={reminderDaysLabel}
+                  />
+                }
+              >
+                {reminderDaysTrigger}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="min-w-60">
+                {dayControls.map((field) => {
+                  const selectedDays = currentValue(field) as number[];
+                  const commonChoices =
+                    field.key === 'overdueDays'
+                      ? [1, 2, 3, 7, 14, 30]
+                      : [0, 1, 2, 3, 7, 14, 30];
+                  const choices = Array.from(
+                    new Set([...commonChoices, ...selectedDays])
+                  ).filter(
+                    (day) =>
+                      day >= (field.min ?? 0) && day <= (field.max ?? 365)
+                  );
+                  return (
+                    <DropdownMenuGroup key={field.key}>
+                      {dayControls.length > 1 ? (
+                        <DropdownMenuLabel>
+                          {timingGroupLabel(field.key)}
+                        </DropdownMenuLabel>
+                      ) : null}
+                      {choices.map((day) => {
+                        const selected = selectedDays.includes(day);
+                        return (
+                          <DropdownMenuCheckboxItem
+                            key={day}
+                            checked={selected}
+                            closeOnClick={false}
+                            onCheckedChange={(checked) =>
+                              onChange({
+                                ...draft,
+                                [field.key]: (checked
+                                  ? [...selectedDays, day]
+                                  : selectedDays.filter(
+                                      (selectedDay) => selectedDay !== day
+                                    )
+                                ).sort((a, b) => b - a),
+                              })
+                            }
+                          >
+                            {timingChipLabel(field.key, day)}
+                          </DropdownMenuCheckboxItem>
+                        );
+                      })}
+                    </DropdownMenuGroup>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       ) : hasDeliveryFields(rule) ? (
         // Without day choices there is nothing to tuck the sending options
@@ -866,6 +906,7 @@ function RuleDetail({
           draft={draft}
           onChange={onDraftChange}
           disabled={!canEdit || saving}
+          blocker={canEdit ? null : EDIT_PERMISSION_BLOCKER}
           formatTime={localTime}
         />
       </section>
@@ -1033,7 +1074,7 @@ function RuleRow({
   const canToggle = rule.fields.some((field) => field.key === 'enabled');
   const needsSetup = canToggle && !enabled && !rule.readiness.ready;
   const hasEditableSettings = timingFields(rule).length > 0;
-  const blocker =
+  const readinessBlocker: ActionBlocker | null =
     !enabled && !rule.readiness.ready
       ? {
           title:
@@ -1067,6 +1108,7 @@ function RuleRow({
               }),
         }
       : null;
+  const blocker = canEdit ? readinessBlocker : EDIT_PERMISSION_BLOCKER;
   const toggle = async () => {
     setSaving(true);
     try {
@@ -1117,7 +1159,7 @@ function RuleRow({
           {needsSetup ? (
             <ResolvableAction
               blocker={blocker}
-              disabled={!canEdit || saving}
+              disabled={saving}
               onAction={toggle}
               trigger={
                 <Button size="sm" variant="outline">
@@ -1140,8 +1182,12 @@ function RuleRow({
                 onAction={toggle}
                 trigger={
                   <Switch
+                    // A blocked trigger renders as a popover trigger, whose
+                    // role="button" would otherwise replace the switch role.
+                    role="switch"
                     checked={enabled}
-                    disabled={!canEdit || saving}
+                    readOnly={!canEdit}
+                    disabled={saving}
                     aria-busy={saving}
                     aria-label={`${rule.title} automation`}
                   />
@@ -1164,7 +1210,11 @@ function RuleRow({
             aria-expanded={expanded}
             aria-controls={`rule-panel-${rule.id}`}
           >
-            {expanded ? 'Close' : hasEditableSettings ? 'Configure' : 'View'}
+            {expanded
+              ? 'Close'
+              : hasEditableSettings && canEdit
+                ? 'Configure'
+                : 'View'}
             {expanded ? <ChevronUp /> : <ChevronDown />}
           </Button>
         </div>
@@ -1184,6 +1234,7 @@ function RuleRow({
 
 export function RenewalRemindersSettings() {
   const { canEditSettings, accountId } = useAuth();
+  const canViewActivity = useCan('view-automated-message-activity');
   const searchParams = useSearchParams();
   const branchParam = searchParams.get('branch');
   const draftScope = `${accountId ?? 'anonymous'}:${branchParam ?? 'primary'}`;
@@ -1204,7 +1255,10 @@ export function RenewalRemindersSettings() {
       key.startsWith(`${draftScope}:`) && Object.keys(patch).length > 0
   );
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    canRetry: boolean;
+  } | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   useEffect(() => {
     let cancelled = false;
@@ -1218,17 +1272,26 @@ export function RenewalRemindersSettings() {
           headers: branchId ? { [BRANCH_HEADER]: branchId } : undefined,
         });
         const data = await response.json();
-        if (!response.ok)
-          throw new Error(data?.error || 'Automated messages couldn’t load.');
+        if (!response.ok) {
+          // Retrying cannot change an access decision, so 401/403 offer no
+          // Try again.
+          if (!cancelled)
+            setError({
+              message: data?.error || 'Automated messages couldn’t load.',
+              canRetry: response.status !== 401 && response.status !== 403,
+            });
+          return;
+        }
         if (!cancelled) setRules(data.rules ?? []);
       } catch (loadError) {
         if (!cancelled)
-          setError(
-            getErrorMessage(
+          setError({
+            message: getErrorMessage(
               loadError,
               'Automated messages couldn’t load. Try again.'
-            )
-          );
+            ),
+            canRetry: true,
+          });
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -1322,112 +1385,128 @@ export function RenewalRemindersSettings() {
           <AlertCircle />
           <AlertTitle>Automated messages couldn’t load</AlertTitle>
           <AlertDescription>
-            <p>{error}</p>
-            <Button
-              className="mt-3"
-              size="sm"
-              variant="destructive"
-              onClick={() => setReloadNonce((value) => value + 1)}
-            >
-              Try again
-            </Button>
+            <p>{error.message}</p>
+            {error.canRetry ? (
+              <Button
+                className="mt-3"
+                size="sm"
+                variant="destructive"
+                onClick={() => setReloadNonce((value) => value + 1)}
+              >
+                Try again
+              </Button>
+            ) : null}
           </AlertDescription>
         </Alert>
       </section>
     );
   return (
-    <Tabs value={view} onValueChange={setView}>
+    <>
+      {/* The Tabs root portals with its triggers, as on Leads, Members, and
+          Business: the active underline is styled from the root, so a root
+          left in the page drew no underline in the app bar. */}
       <PageHeaderTabs>
-        <TabsList variant="line" aria-label="Automated messages">
-          <TabsTrigger value="rules">Rules</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
+        <Tabs value={view} onValueChange={setView} className="pt-2 pb-0">
+          <TabsList
+            variant="line"
+            aria-label="Automated messages"
+            className="h-auto gap-5 p-0"
+          >
+            <TabsTrigger value="rules" className={HEADER_TAB_CLASS}>
+              Rules
+            </TabsTrigger>
+            <TabsTrigger value="activity" className={HEADER_TAB_CLASS}>
+              Activity
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </PageHeaderTabs>
       <section className="max-w-5xl space-y-4">
         <SettingsPanelHead
           title="Automated messages"
           description="Choose which member events can send an approved WhatsApp message."
         />
-        {!canEditSettings ? (
-          <Alert>
-            <AlertTitle>Read-only</AlertTitle>
-            <AlertDescription>
-              Only admins and owners can change automated messages.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        <TabsContent value="rules" className="space-y-4">
-          <ChipGroup<string>
-            selectionMode="single"
-            value={[activeGroup]}
-            onValueChange={(value) => {
-              if (!value[0]) return;
-              setGroup(value[0] as ReminderRuleGroup);
-              setSelectedId(null);
-              setDismissedLinkedRule(linkedRuleId);
-            }}
-            aria-label="Message group"
-          >
-            {REMINDER_RULE_GROUPS.map((entry) => (
-              <Chip key={entry} value={entry}>
-                {entry[0].toUpperCase() + entry.slice(1)}
-              </Chip>
-            ))}
-          </ChipGroup>
-          <TooltipProvider>
-            <Card>
-              <CardContent>
-                {visible.map((rule) => (
-                  <RuleRow
-                    key={rule.id}
-                    rule={rule}
-                    canEdit={canEditSettings}
-                    hasDraft={hasUnsavedChanges}
-                    expanded={selected?.id === rule.id}
-                    onOpen={() => {
-                      if (selected?.id === rule.id) {
-                        setSelectedId(null);
-                        setDismissedLinkedRule(linkedRuleId);
-                      } else {
+        {view === 'rules' ? (
+          <div className="space-y-4 text-sm">
+            {!canEditSettings ? (
+              <Alert>
+                <AlertTitle>Read-only</AlertTitle>
+                <AlertDescription>
+                  Only admins and owners can change automated messages.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <ChipGroup<string>
+              selectionMode="single"
+              value={[activeGroup]}
+              onValueChange={(value) => {
+                if (!value[0]) return;
+                setGroup(value[0] as ReminderRuleGroup);
+                setSelectedId(null);
+                setDismissedLinkedRule(linkedRuleId);
+              }}
+              aria-label="Message group"
+            >
+              {REMINDER_RULE_GROUPS.map((entry) => (
+                <Chip key={entry} value={entry}>
+                  {entry[0].toUpperCase() + entry.slice(1)}
+                </Chip>
+              ))}
+            </ChipGroup>
+            <TooltipProvider>
+              <Card>
+                <CardContent>
+                  {visible.map((rule) => (
+                    <RuleRow
+                      key={rule.id}
+                      rule={rule}
+                      canEdit={canEditSettings}
+                      hasDraft={hasUnsavedChanges}
+                      expanded={selected?.id === rule.id}
+                      onOpen={() => {
+                        if (selected?.id === rule.id) {
+                          setSelectedId(null);
+                          setDismissedLinkedRule(linkedRuleId);
+                        } else {
+                          setSelectedId(rule.id);
+                          setGroup(rule.group);
+                          setDismissedLinkedRule(null);
+                        }
+                      }}
+                      onSetupTemplate={(contractId) => {
                         setSelectedId(rule.id);
                         setGroup(rule.group);
                         setDismissedLinkedRule(null);
-                      }
-                    }}
-                    onSetupTemplate={(contractId) => {
-                      setSelectedId(rule.id);
-                      setGroup(rule.group);
-                      setDismissedLinkedRule(null);
-                      setTemplateSetup({ contractId, scope: draftScope });
-                    }}
-                    onSave={save}
-                  >
-                    <RuleDetail
-                      rule={rule}
-                      canEdit={canEditSettings}
-                      draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
-                      onDraftChange={(patch) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [`${draftScope}:${rule.id}`]: patch,
-                        }))
-                      }
-                      onSave={save}
-                      lifecycleWindow={lifecycleWindow}
-                      hasUnsavedChanges={hasUnsavedChanges}
-                      onOpenInvoiceCollection={() => {
-                        setSelectedId('invoice_collection');
-                        setGroup('collections');
-                        setDismissedLinkedRule(null);
+                        setTemplateSetup({ contractId, scope: draftScope });
                       }}
-                    />
-                  </RuleRow>
-                ))}
-              </CardContent>
-            </Card>
-          </TooltipProvider>
-        </TabsContent>
-        <TabsContent value="activity">
+                      onSave={save}
+                    >
+                      <RuleDetail
+                        rule={rule}
+                        canEdit={canEditSettings}
+                        draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
+                        onDraftChange={(patch) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [`${draftScope}:${rule.id}`]: patch,
+                          }))
+                        }
+                        onSave={save}
+                        lifecycleWindow={lifecycleWindow}
+                        hasUnsavedChanges={hasUnsavedChanges}
+                        onOpenInvoiceCollection={() => {
+                          setSelectedId('invoice_collection');
+                          setGroup('collections');
+                          setDismissedLinkedRule(null);
+                        }}
+                      />
+                    </RuleRow>
+                  ))}
+                </CardContent>
+              </Card>
+            </TooltipProvider>
+          </div>
+        ) : canViewActivity ? (
           <AutomatedMessageActivity
             onReviewRule={(id) => {
               const rule = rules.find((item) => item.id === id);
@@ -1438,7 +1517,17 @@ export function RenewalRemindersSettings() {
               setView('rules');
             }}
           />
-        </TabsContent>
+        ) : (
+          // The tab stays visible (gate, don't hide), but its history is
+          // admin-only in the database, so nothing is requested here.
+          <Alert>
+            <AlertTitle>Admin access required</AlertTitle>
+            <AlertDescription>
+              Only admins and owners can view scheduled reminder readiness and
+              message history.
+            </AlertDescription>
+          </Alert>
+        )}
       </section>
       {templateSetup?.scope === draftScope ? (
         <TemplateManager
@@ -1450,6 +1539,6 @@ export function RenewalRemindersSettings() {
           }}
         />
       ) : null}
-    </Tabs>
+    </>
   );
 }

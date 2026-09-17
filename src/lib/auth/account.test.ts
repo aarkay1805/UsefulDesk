@@ -72,6 +72,8 @@ vi.mock('next/headers', () => ({
 
 const {
   getCurrentAccount,
+  requireAutomatedMessageActivityAccess,
+  requireAutomatedMessageRulesAccess,
   requireOperationalAccess,
   requireSettingsAccess,
   UnauthorizedError,
@@ -318,6 +320,34 @@ describe('capability guards', () => {
     await expect(requireSettingsAccess()).resolves.toMatchObject({
       role: 'admin',
     });
+  });
+
+  it('lets a viewer read the automated message rules without settings access', async () => {
+    createClient.mockReturnValue(accountClient('viewer'));
+    await expect(requireAutomatedMessageRulesAccess()).resolves.toMatchObject({
+      accountId: 'acct-1',
+      role: 'viewer',
+    });
+
+    createClient.mockReturnValue(accountClient('viewer'));
+    await expect(requireSettingsAccess()).rejects.toMatchObject({
+      status: 403,
+    });
+  });
+
+  it('keeps automated message activity admin-only', async () => {
+    createClient.mockReturnValue(accountClient('agent'));
+    await expect(requireAutomatedMessageActivityAccess()).rejects.toMatchObject(
+      {
+        status: 403,
+        message: 'This action requires automated message activity access',
+      }
+    );
+
+    createClient.mockReturnValue(accountClient('admin'));
+    await expect(
+      requireAutomatedMessageActivityAccess()
+    ).resolves.toMatchObject({ role: 'admin' });
   });
 });
 

@@ -32,6 +32,8 @@ import {
   canConfigurePaymentGateway,
   canDownloadInvoiceDocuments,
   canEditSettings,
+  canViewAutomatedMessageActivity,
+  canViewAutomatedMessageRules,
   canEditAuthoredContent,
   canCompleteBranchSetup,
   canClearConversationUnread,
@@ -138,6 +140,20 @@ describe('capability predicates', () => {
     expect(canEditSettings('admin')).toBe(true);
     expect(canEditSettings('agent')).toBe(false);
     expect(canEditSettings('viewer')).toBe(false);
+  });
+
+  it('automated messages: every member reads rules, admin+ reads activity', () => {
+    for (const role of ACCOUNT_ROLES) {
+      expect(canViewAutomatedMessageRules(role)).toBe(true);
+    }
+    // Reading the catalogue never implies changing it.
+    expect(canEditSettings('agent')).toBe(false);
+    expect(canEditSettings('viewer')).toBe(false);
+
+    expect(canViewAutomatedMessageActivity('owner')).toBe(true);
+    expect(canViewAutomatedMessageActivity('admin')).toBe(true);
+    expect(canViewAutomatedMessageActivity('agent')).toBe(false);
+    expect(canViewAutomatedMessageActivity('viewer')).toBe(false);
   });
 
   it('invoice document capabilities mirror their access tiers', () => {

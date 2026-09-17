@@ -1,8 +1,32 @@
 # Automated messages operator runbook
 
-Settings → **Automated messages** uses the existing `?tab=reminders` URL and
-settings authorization for the selected branch. It exposes the 14 existing
-rules under Renewals, Collections, Retention, and Confirmations.
+Settings → **Automated messages** uses the existing `?tab=reminders` URL for the
+selected branch. It exposes the 14 existing rules under Renewals, Collections,
+Retention, and Confirmations.
+
+## Who can see and change what
+
+| Surface                                               | Owner / admin | Agent / viewer                          |
+| ----------------------------------------------------- | ------------- | --------------------------------------- |
+| **Rules** — `GET /api/reminders/settings`             | Read          | Read                                    |
+| Rule changes — `PATCH /api/reminders/settings`        | Change        | Refused (403)                           |
+| **Activity** — `/api/reminders/activity`, `readiness` | Read          | Permission notice; nothing is requested |
+
+- Reading the catalogue is `canViewAutomatedMessageRules` (every member). It
+  mirrors the member-level SELECT policies on `renewal_reminder_settings`
+  (033), `message_templates`, and `whatsapp_config` (017), so it needed no
+  RLS change. Changing a rule stays `requireSettingsAccess`.
+- Activity is `canViewAutomatedMessageActivity` (admin+). It mirrors the
+  explicit `is_account_member(…, 'admin')` predicate in the
+  `automated_message_activity` view, so opening Activity to agents needs a
+  migration for that view as well as the predicate change.
+- Without settings access, Rules shows **Read-only** and rows open with
+  **View**. The switch, **Set up**, and **Change reminder days** stay
+  focusable, and each opens an **Admin access required** explanation instead
+  of acting. Sending-hour fields stay disabled. The Activity tab stays visible
+  and shows **Admin access required** in place of the history.
+- A 401/403 while loading Rules shows the server's reason without **Try
+  again**; retrying cannot change an access decision.
 
 ## Configure and activate
 
@@ -15,8 +39,8 @@ rules under Renewals, Collections, Retention, and Confirmations.
    page and are isolated by account/branch; they are not persisted across reloads.
 3. When an unready rule offers **Set up**, open it and choose
    **Set up required template** to open the required prefilled template modal
-   over the rule. The Set up action is unavailable without settings edit
-   permission. The branch’s existing
+   over the rule. Without settings access, Set up explains that an admin or
+   owner must do this and never opens the setup flow. The branch’s existing
    template opens for editing if eligible; pending templates show their approval
    status without another submission action. Cancel/close returns to
    the same expanded rule with unsaved edits intact. Submitting remains an
@@ -43,27 +67,34 @@ confirmations are separate from renewal promises and recovery requests.
 Activity unions durable lifecycle jobs with membership-renewal,
 service-renewal, and installment ledgers. Filters run in the database before
 30-record pages, ordered by recorded time and unique activity ID. Date filters
-use the selected account’s timezone. The API and security-invoker view enforce
-selected-branch/settings access.
+use the selected account’s timezone. The API and security-invoker view limit
+Activity to the selected branch's admins and owners.
 
 **Recorded** is the available message/job/ledger timestamp, not necessarily a
-delivery-receipt timestamp. **Anchor** is the subject’s due/expiry/event date,
-not a promised send time. **Next attempt** appears when the queue retains one.
-Waiting and paused rows are distinct from setup blockers, stopped sequences,
-failed attempts, and unknown provider outcomes. Accepted means the provider
+delivery-receipt timestamp. The date under each rule is the subject’s own date,
+named for that rule — **Expiry** (renewal, post-expiry, win-back, and session
+pack), **Due date** (invoice collection and joining installments), **Promised
+date**, **Link sent**, **Return date**, **Payment date**, or **AutoPay failed** —
+never a promised send time. **Next attempt** appears when the queue retains one.
+Waiting, Paused, and Sending rows are distinct from Blocked sends (missing
+setup or a missing member detail such as a phone number), stopped sequences,
+failed attempts, and unknown provider outcomes; the Outcome filter groups them
+as Needs attention, Not sent yet, Sent, and Other. Accepted means the provider
 accepted a send; Delivered/Read require retained evidence. Staff escalation
 outcomes are described separately from the customer-message status.
 
-Member and invoice actions open their existing details; Conversation opens
-the recorded contact conversation. View profile opens the contact profile
-where existing follow-up work lives; it is not a claim that the newest open
-task was created by this specific reminder.
+Wide layouts show a fixed-order icon set per row — Conversation, Invoice,
+Follow-up, Member — with tooltips and accessible names; narrow layouts spell
+the same links out. Member and invoice links open their existing details, and
+Conversation opens the recorded contact conversation. Follow-up opens the
+contact profile over the Follow-ups queue; it is not a claim that the newest
+open task was created by this specific reminder.
 
-The three current schedule checks cover membership, service, and joining
-installments only. Nothing due is a current diagnostic result, while an empty
-activity table means no matching retained records. Failed legacy claims that
-were deleted cannot be reconstructed. Activity is a view of retained current
-job/outcome state, not a complete immutable timeline of every retry.
+**Scheduled reminder readiness**, above the history, covers membership,
+service, and joining installments only. **Nothing due** is a current result,
+while an empty history means no matching retained records. Failed legacy
+claims that were deleted cannot be reconstructed. History shows each record’s
+latest job/outcome state, not a complete immutable timeline of every retry.
 
 ## Implementation and verification
 

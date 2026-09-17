@@ -43,6 +43,8 @@ import {
   canConfigurePaymentGateway,
   canEditSettings,
   canSendMessages,
+  canViewAutomatedMessageActivity,
+  canViewAutomatedMessageRules,
   hasMinRole,
   isAccountRole,
   type AccountRole,
@@ -320,6 +322,29 @@ export async function requireSettingsAccess(): Promise<AccountContext> {
   const ctx = await getCurrentAccount();
   if (!canEditSettings(ctx.role)) {
     throw new ForbiddenError('This action requires settings access');
+  }
+  return ctx;
+}
+
+/**
+ * Require read access to the Automated messages rule catalogue. Changing a
+ * rule still goes through `requireSettingsAccess`.
+ */
+export async function requireAutomatedMessageRulesAccess(): Promise<AccountContext> {
+  const ctx = await getCurrentAccount();
+  if (!canViewAutomatedMessageRules(ctx.role)) {
+    throw new ForbiddenError('This action requires automated message access');
+  }
+  return ctx;
+}
+
+/** Require read access to automated-message history and schedule readiness. */
+export async function requireAutomatedMessageActivityAccess(): Promise<AccountContext> {
+  const ctx = await getCurrentAccount();
+  if (!canViewAutomatedMessageActivity(ctx.role)) {
+    throw new ForbiddenError(
+      'This action requires automated message activity access'
+    );
   }
   return ctx;
 }

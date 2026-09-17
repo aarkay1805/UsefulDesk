@@ -95,7 +95,9 @@ kept as a redundant execution path and the existing alert surface:
 - [`.github/workflows/renewals-cron.yml`](../.github/workflows/renewals-cron.yml)
   — renewal, payment-installment, and disabled-by-default lifecycle collection/retention reminders, hourly at :47. Accounts
   live in different timezones (migration 055); each route sends only
-  after 09:00 local, and its sent ledger prevents duplicate messages.
+  after 09:00 local, and its sent ledger prevents duplicate messages. Its later
+  steps use `always()`, so a failed worker does not suppress the other
+  independent workers; any failed step still leaves the overall run red.
 
 The independent
 [`production-health` workflow](../.github/workflows/production-health.yml)
@@ -136,6 +138,14 @@ scan does not create a payment, allocate an invoice, or renew a membership.
 Only an existing `charge_sequence_mismatch` whose `paid_count` is now exactly
 next is replayed automatically, inside the same database transaction as its
 ledger write.
+
+The renewal, joining-installment, and lifecycle reminder routes keep aggregate
+diagnostic JSON on both healthy and failed runs. Operational query, claim,
+provider-attempt, local-completion, or unresolved-ambiguity outcomes return
+`503`; readiness/setup skips, empty cohorts, and final eligibility changes
+remain healthy `200` outcomes. The database aggregator counts the non-2xx
+worker response and returns its own `503`, while the GitHub workflow's
+`curl --fail` makes that worker step red.
 
 The Razorpay recovery route keeps phase failures isolated so later phases can
 still run, but returns `503` with the complete aggregate JSON when any phase's
@@ -189,6 +199,8 @@ curl -sS -H "x-cron-secret: <SECRET>" https://desk.usefulmade.com/api/members/im
 
 `401` → secret mismatch (Vercel env vs repo secret). `503` with
 `cron not configured` → env var not set in Vercel or not redeployed since.
+`503` with a renewal/installment aggregate → inspect `failed`, `ambiguous`,
+and the matching `notes`; other accounts/batches may still have completed.
 `503` with a Razorpay aggregate result → inspect its nonzero `failed` counter
 and matching `notes` entry.
 

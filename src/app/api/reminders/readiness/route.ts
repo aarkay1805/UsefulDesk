@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
+import {
+  requireAutomatedMessageActivityAccess,
+  toErrorResponse,
+} from '@/lib/auth/account';
 import { hourInTz, todayInTz } from '@/lib/locale/format';
 import {
   diagnoseReminder,
@@ -112,13 +115,14 @@ function templateDiagnostic(
 }
 
 /**
- * Settings-only, no-PII diagnostic for existing reminder workers. This never
- * claims work, creates a conversation, or calls a provider; it repeats the
- * current candidate filters only to make setup and empty cohorts observable.
+ * Admin/owner-only, no-PII diagnostic for existing reminder workers, shown on
+ * the Activity tab. This never claims work, creates a conversation, or calls a
+ * provider; it repeats the current candidate filters only to make setup and
+ * empty cohorts observable.
  */
 export async function GET() {
   try {
-    const ctx = await requireSettingsAccess();
+    const ctx = await requireAutomatedMessageActivityAccess();
     const db = ctx.supabase;
 
     const [settingsResult, configResult, templatesResult, accountResult] =
