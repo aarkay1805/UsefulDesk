@@ -12,6 +12,15 @@ export const REMINDER_RULE_GROUPS = [
 
 export type ReminderRuleGroup = (typeof REMINDER_RULE_GROUPS)[number];
 
+/** Owner-facing group names: the Rules section headings and the Activity
+ *  rule filter's option groups. */
+export const REMINDER_RULE_GROUP_LABELS: Record<ReminderRuleGroup, string> = {
+  renewals: 'Renewals',
+  collections: 'Collections',
+  retention: 'Retention',
+  confirmations: 'Confirmations',
+};
+
 export type ReminderRuleField = {
   key: string;
   column: string;

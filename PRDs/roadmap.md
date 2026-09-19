@@ -6,13 +6,15 @@ Settings → **Automated messages** preserves `?tab=reminders`. Every branch
 member can read Rules; only admins and owners can change a rule or open
 Activity. Agents and viewers get a read-only catalogue and an Activity
 permission notice instead of a load error with a retry that could never
-succeed. Rules groups the 14 existing behaviors into Renewals,
-Collections, Retention, and Confirmations. Per-rule configuration saves while
-off; activation requires the connected branch and every exact approved/synced
-template. Existing On intent survives lost readiness. Each rule name has a
-plain-language info tooltip; the group filters do not repeat another summary
-line. Template setup remains in Templates, with exact-contract focus and a
-return to the originating rule.
+succeed. The Rules and Activity tabs sit under the panel heading, not in the
+app bar. Rules shows the 14 existing behaviors in Renewals, Collections,
+Retention, and Confirmations sections on one page, and scrolls to a rule opened
+from Activity, from Change sending hours, or by link. Per-rule configuration
+saves while off; activation requires the connected branch and every exact
+approved/synced template. Existing On intent survives lost readiness. Each rule
+name has a plain-language info tooltip; the group sections do not repeat
+another summary line. Template setup remains in Templates, with exact-contract
+focus and a return to the originating rule.
 The Set up action opens the required template editor directly over the rule,
 preserving drafts. Without settings access, Set up, the switch, and Change
 reminder days explain that an admin or owner must make the change. An

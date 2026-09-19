@@ -44,7 +44,18 @@ vi.mock('@/hooks/use-auth', async () => {
   };
 });
 vi.mock('@/components/settings/automated-message-activity', () => ({
-  AutomatedMessageActivity: () => <p>Activity content</p>,
+  AutomatedMessageActivity: ({
+    onReviewRule,
+  }: {
+    onReviewRule?: (id: string) => void;
+  }) => (
+    <div>
+      <p>Activity content</p>
+      <button onClick={() => onReviewRule?.('joining_installments')}>
+        Review joining installments
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('@/components/settings/template-manager', () => ({
@@ -104,8 +115,77 @@ const rules = [
   },
 ] as const;
 
+const invoiceCollectionRule = {
+  id: 'invoice_collection',
+  group: 'collections',
+  title: 'Invoice collection',
+  templateContracts: ['invoice_due', 'invoice_overdue'],
+  configurable: true,
+  fields: [
+    {
+      key: 'enabled',
+      type: 'boolean',
+      label: 'Enabled',
+      defaultValue: false,
+    },
+    {
+      key: 'beforeDueDays',
+      type: 'integer-array',
+      label: 'Days before due',
+      defaultValue: [3, 1, 0],
+      min: 0,
+      max: 365,
+    },
+    {
+      key: 'overdueDays',
+      type: 'integer-array',
+      label: 'Days overdue',
+      defaultValue: [1, 3, 7, 14],
+      min: 0,
+      max: 365,
+    },
+    {
+      key: 'catchUpDays',
+      type: 'integer',
+      label: 'Catch-up days',
+      defaultValue: 2,
+      min: 0,
+      max: 14,
+    },
+    {
+      key: 'sendWindowStart',
+      type: 'integer',
+      label: 'Send window start',
+      defaultValue: 9,
+      min: 0,
+      max: 23,
+    },
+    {
+      key: 'sendWindowEnd',
+      type: 'integer',
+      label: 'Send window end',
+      defaultValue: 19,
+      min: 0,
+      max: 23,
+    },
+  ],
+  settings: {
+    enabled: false,
+    beforeDueDays: [3, 1, 0],
+    overdueDays: [1, 3, 7, 14],
+    catchUpDays: 2,
+    sendWindowStart: 9,
+    sendWindowEnd: 19,
+  },
+  readiness: { ready: false, code: 'template_missing' },
+} as const;
+
 const { RenewalRemindersSettings } =
   await import('./renewal-reminders-settings');
+
+/** The rows `scrollIntoView` was called on, in call order. */
+let scrolled: Element[] = [];
+const scrollIntoView = vi.fn();
 
 beforeEach(() => {
   authState.role = 'owner';
@@ -118,11 +198,23 @@ beforeEach(() => {
       disconnect() {}
     }
   );
+  scrolled = [];
+  scrollIntoView.mockReset();
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value(this: HTMLElement, options?: ScrollIntoViewOptions) {
+      scrolled.push(this);
+      scrollIntoView(options);
+    },
+  });
+  window.matchMedia = vi.fn().mockReturnValue({ matches: false });
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  delete (HTMLElement.prototype as { scrollIntoView?: unknown }).scrollIntoView;
+  delete (window as { matchMedia?: unknown }).matchMedia;
   document.getElementById('page-header-tabs')?.remove();
 });
 
@@ -163,7 +255,46 @@ function toggleReminderDay(trigger: HTMLElement, label: string) {
 }
 
 describe('Automated messages catalogue', () => {
-  it('removes group labels and explains each rule with an info tooltip', async () => {
+  it('shows each message group as its own section instead of filter chips', async () => {
+    mockFetch();
+    render(<RenewalRemindersSettings />);
+
+    const renewals = await screen.findByRole('region', { name: 'Renewals' });
+    const collections = screen.getByRole('region', { name: 'Collections' });
+    expect(within(renewals).getByText('Membership renewal')).toBeTruthy();
+    expect(within(renewals).queryByText('Joining installments')).toBeNull();
+    expect(within(collections).getByText('Joining installments')).toBeTruthy();
+    // A group with no rules gets no empty section.
+    expect(screen.queryByRole('region', { name: 'Retention' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Renewals' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Collections' })).toBeNull();
+  });
+
+  it('puts the Rules and Activity tabs under the panel heading, not in the app bar', async () => {
+    mockFetch();
+    const slot = document.createElement('div');
+    slot.id = 'page-header-tabs';
+    document.body.appendChild(slot);
+    render(<RenewalRemindersSettings />);
+
+    // The tabs hold their place while the rules load.
+    const tabs = screen.getByRole('tablist', { name: 'Automated messages' });
+    expect(screen.getByText('Loading automated messages…')).toBeTruthy();
+    const heading = screen.getByRole('heading', {
+      level: 2,
+      name: 'Automated messages',
+    });
+    expect(
+      heading.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    expect(await screen.findByText('Membership renewal')).toBeTruthy();
+    expect(slot.childElementCount).toBe(0);
+    expect(
+      screen.getByRole('tab', { name: 'Rules' }).getAttribute('aria-selected')
+    ).toBe('true');
+  });
+
+  it('explains each rule with an info tooltip instead of a group description', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
 
@@ -177,11 +308,12 @@ describe('Automated messages catalogue', () => {
 
   it('keeps timing configurable while a rule is off, and preview does not send', async () => {
     mockFetch();
-    const slot = document.createElement('div');
-    slot.id = 'page-header-tabs';
-    document.body.appendChild(slot);
     render(<RenewalRemindersSettings />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Configure Membership renewal',
+      })
+    );
     expect(
       screen.getByRole('heading', {
         name: 'When will members get reminders?',
@@ -224,74 +356,7 @@ describe('Automated messages catalogue', () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          rules: [
-            rules[0],
-            {
-              id: 'invoice_collection',
-              group: 'collections',
-              title: 'Invoice collection',
-              templateContracts: ['invoice_due', 'invoice_overdue'],
-              configurable: true,
-              fields: [
-                {
-                  key: 'enabled',
-                  type: 'boolean',
-                  label: 'Enabled',
-                  defaultValue: false,
-                },
-                {
-                  key: 'beforeDueDays',
-                  type: 'integer-array',
-                  label: 'Days before due',
-                  defaultValue: [3, 1, 0],
-                  min: 0,
-                  max: 365,
-                },
-                {
-                  key: 'overdueDays',
-                  type: 'integer-array',
-                  label: 'Days overdue',
-                  defaultValue: [1, 3, 7, 14],
-                  min: 0,
-                  max: 365,
-                },
-                {
-                  key: 'catchUpDays',
-                  type: 'integer',
-                  label: 'Catch-up days',
-                  defaultValue: 2,
-                  min: 0,
-                  max: 14,
-                },
-                {
-                  key: 'sendWindowStart',
-                  type: 'integer',
-                  label: 'Send window start',
-                  defaultValue: 9,
-                  min: 0,
-                  max: 23,
-                },
-                {
-                  key: 'sendWindowEnd',
-                  type: 'integer',
-                  label: 'Send window end',
-                  defaultValue: 19,
-                  min: 0,
-                  max: 23,
-                },
-              ],
-              settings: {
-                enabled: false,
-                beforeDueDays: [3, 1, 0],
-                overdueDays: [1, 3, 7, 14],
-                catchUpDays: 2,
-                sendWindowStart: 9,
-                sendWindowEnd: 19,
-              },
-              readiness: { ready: false, code: 'template_missing' },
-            },
-            rules[1],
-          ],
+          rules: [rules[0], invoiceCollectionRule, rules[1]],
         }),
         { status: 200 }
       )
@@ -357,6 +422,57 @@ describe('Automated messages catalogue', () => {
     expect(screen.queryByText('Send window end')).toBeNull();
   });
 
+  it('opens invoice collection from Change sending hours and scrolls to it once the open row has closed', async () => {
+    mockFetch();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          rules: [
+            invoiceCollectionRule,
+            {
+              id: 'promise_to_pay',
+              group: 'collections',
+              title: 'Promise to pay',
+              templateContracts: ['payment_promise_reminder'],
+              configurable: true,
+              fields: [],
+              settings: {},
+              readiness: { ready: true, code: 'ready' },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+    render(<RenewalRemindersSettings />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'View Promise to pay' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See message and details' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change sending hours' })
+    );
+
+    const invoiceRow = screen.getByTestId('rule-row-invoice_collection');
+    expect(
+      within(invoiceRow).getByTestId('rule-detail-invoice_collection')
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(
+      within(invoiceRow).getByRole('button', {
+        name: 'Close Invoice collection',
+      })
+    );
+    // The scroll waits for the Promise to pay row to finish closing.
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    await waitFor(() => expect(scrolled).toEqual([invoiceRow]));
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      block: 'start',
+      behavior: 'smooth',
+    });
+  });
+
   it('expands the clicked row in place, closes its sibling, and retains collapsed drafts', async () => {
     mockFetch();
     vi.mocked(fetch).mockResolvedValueOnce(
@@ -381,7 +497,7 @@ describe('Automated messages catalogue', () => {
     );
     const serviceRow = screen.getByTestId('rule-row-service_renewal');
     const configureMembership = within(membershipRow).getByRole('button', {
-      name: 'Configure',
+      name: 'Configure Membership renewal',
     });
     expect(configureMembership.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(configureMembership);
@@ -390,7 +506,7 @@ describe('Automated messages catalogue', () => {
     ).toBeTruthy();
     expect(
       within(membershipRow)
-        .getByRole('button', { name: 'Close' })
+        .getByRole('button', { name: 'Close Membership renewal' })
         .getAttribute('aria-expanded')
     ).toBe('true');
     toggleReminderDay(
@@ -400,7 +516,9 @@ describe('Automated messages catalogue', () => {
       '14 days before'
     );
     fireEvent.click(
-      within(serviceRow).getByRole('button', { name: 'Configure' })
+      within(serviceRow).getByRole('button', {
+        name: 'Configure Service renewal',
+      })
     );
     expect(
       within(serviceRow).getByTestId('rule-detail-service_renewal')
@@ -411,7 +529,9 @@ describe('Automated messages catalogue', () => {
       ).toBeNull()
     );
     fireEvent.click(
-      within(membershipRow).getByRole('button', { name: 'Configure' })
+      within(membershipRow).getByRole('button', {
+        name: 'Configure Membership renewal',
+      })
     );
     const reminderDays = within(membershipRow).getByRole('button', {
       name: /Membership renewal change reminder days/i,
@@ -424,7 +544,9 @@ describe('Automated messages catalogue', () => {
     ).toBe('true');
     fireEvent.keyDown(document, { key: 'Escape' });
     fireEvent.click(
-      within(membershipRow).getByRole('button', { name: 'Close' })
+      within(membershipRow).getByRole('button', {
+        name: 'Close Membership renewal',
+      })
     );
     await waitFor(() =>
       expect(screen.queryByTestId('rule-detail-membership_renewal')).toBeNull()
@@ -474,7 +596,11 @@ describe('Automated messages catalogue', () => {
   it('opens the exact required template in place and preserves the rule draft and Off preference', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Configure Membership renewal',
+      })
+    );
     toggleReminderDay(
       screen.getByRole('button', {
         name: /Membership renewal change reminder days/i,
@@ -514,7 +640,11 @@ describe('Automated messages catalogue', () => {
   it('keeps a failed configuration draft and hides every template link', async () => {
     mockFetch(true);
     render(<RenewalRemindersSettings />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Configure Membership renewal',
+      })
+    );
     toggleReminderDay(
       screen.getByRole('button', {
         name: /Membership renewal change reminder days/i,
@@ -539,30 +669,45 @@ describe('Automated messages catalogue', () => {
   it('protects a draft when opening another rule’s template setup', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Configure' }));
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Configure Membership renewal',
+      })
+    );
     toggleReminderDay(
       screen.getByRole('button', {
         name: /Membership renewal change reminder days/i,
       }),
       '14 days before'
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Collections' }));
-    fireEvent.click(screen.getByRole('button', { name: 'View' }));
-    expect(screen.getByTestId('rule-detail-joining_installments')).toBeTruthy();
     fireEvent.click(
-      screen.getByRole('button', { name: 'See message and details' })
+      screen.getByRole('button', { name: 'View Joining installments' })
+    );
+    // Both rows share the page now, and the closing one is still animating.
+    const joiningRow = screen.getByTestId('rule-row-joining_installments');
+    expect(
+      within(joiningRow).getByTestId('rule-detail-joining_installments')
+    ).toBeTruthy();
+    fireEvent.click(
+      within(joiningRow).getByRole('button', {
+        name: 'See message and details',
+      })
     );
     expect(
       screen.queryByRole('link', { name: 'View message template' })
     ).toBeNull();
-    expect(screen.getByText(/Save or cancel your changes/)).toBeTruthy();
+    expect(
+      within(joiningRow).getByText(/Save or cancel your changes/)
+    ).toBeTruthy();
   });
 
   it('shows joining installments without an independent toggle or extra status', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Collections' }));
-    expect(await screen.findByText('Joining installments')).toBeTruthy();
+    const collections = await screen.findByRole('region', {
+      name: 'Collections',
+    });
+    expect(within(collections).getByText('Joining installments')).toBeTruthy();
     expect(screen.queryByText('Managed')).toBeNull();
     expect(
       screen.queryByRole('switch', { name: 'Joining installments automation' })
@@ -580,11 +725,16 @@ describe('Automated messages catalogue', () => {
     expect(
       await screen.findByTestId('rule-detail-joining_installments')
     ).toBeTruthy();
-    expect(
-      screen
-        .getByRole('button', { name: 'Collections' })
-        .getAttribute('aria-pressed')
-    ).toBe('true');
+    const linkedRow = within(
+      screen.getByRole('region', { name: 'Collections' })
+    ).getByTestId('rule-row-joining_installments');
+    // A deep link lands on its rule without moving focus.
+    await waitFor(() => expect(scrolled).toEqual([linkedRow]));
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      block: 'start',
+      behavior: 'auto',
+    });
+    expect(document.activeElement).toBe(document.body);
     expect(screen.queryByRole('heading', { name: 'Schedule' })).toBeNull();
     expect(
       screen.getByText(
@@ -596,7 +746,9 @@ describe('Automated messages catalogue', () => {
       screen.getByRole('button', { name: 'See message and details' })
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save settings' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close Joining installments' })
+    );
     await waitFor(() =>
       expect(
         screen.queryByTestId('rule-detail-joining_installments')
@@ -623,12 +775,6 @@ describe('Automated messages access', () => {
           )
         )
     );
-  }
-
-  function mountHeaderTabs() {
-    const slot = document.createElement('div');
-    slot.id = 'page-header-tabs';
-    document.body.appendChild(slot);
   }
 
   function patched() {
@@ -668,9 +814,15 @@ describe('Automated messages access', () => {
     mockCatalogue([readyRule]);
     render(<RenewalRemindersSettings />);
 
-    expect(await screen.findByRole('button', { name: 'View' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Configure' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'View' }));
+    expect(
+      await screen.findByRole('button', { name: 'View Membership renewal' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Configure Membership renewal' })
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'View Membership renewal' })
+    );
     expect(
       screen.getByText(
         'Members get reminders 7, 3, and 1 days before the membership ends.'
@@ -692,7 +844,6 @@ describe('Automated messages access', () => {
   it('keeps Activity visible to non-admins but shows a permission state instead of mounting it', async () => {
     authState.role = 'agent';
     mockCatalogue([readyRule]);
-    mountHeaderTabs();
     render(<RenewalRemindersSettings />);
 
     fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
@@ -713,13 +864,62 @@ describe('Automated messages access', () => {
   it('shows admins the activity history', async () => {
     authState.role = 'admin';
     mockCatalogue([readyRule]);
-    mountHeaderTabs();
     render(<RenewalRemindersSettings />);
 
     expect(screen.queryByText('Read-only')).toBeNull();
     fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
     expect(await screen.findByText('Activity content')).toBeTruthy();
     expect(screen.queryByText('Admin access required')).toBeNull();
+  });
+
+  it('reviews a rule from Activity by opening it on Rules, focusing it, and scrolling to it', async () => {
+    authState.role = 'admin';
+    mockCatalogue([readyRule, rules[1]]);
+    render(<RenewalRemindersSettings />);
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Review joining installments' })
+    );
+
+    expect(
+      screen.getByRole('tab', { name: 'Rules' }).getAttribute('aria-selected')
+    ).toBe('true');
+    const row = screen.getByTestId('rule-row-joining_installments');
+    expect(
+      within(row).getByTestId('rule-detail-joining_installments')
+    ).toBeTruthy();
+    expect(document.activeElement).toBe(
+      within(row).getByRole('button', { name: 'Close Joining installments' })
+    );
+    await waitFor(() => expect(scrolled).toEqual([row]));
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      block: 'start',
+      behavior: 'smooth',
+    });
+    expect(screen.queryByText('Activity content')).toBeNull();
+  });
+
+  it('jumps instead of animating the scroll when reduced motion is on', async () => {
+    authState.role = 'admin';
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+    mockCatalogue([readyRule, rules[1]]);
+    render(<RenewalRemindersSettings />);
+
+    fireEvent.click(await screen.findByRole('tab', { name: 'Activity' }));
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Review joining installments' })
+    );
+
+    await waitFor(() =>
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: 'start',
+        behavior: 'auto',
+      })
+    );
+    expect(window.matchMedia).toHaveBeenCalledWith(
+      '(prefers-reduced-motion: reduce)'
+    );
   });
 
   it('offers no retry when the server denies access, but keeps it for other failures', async () => {

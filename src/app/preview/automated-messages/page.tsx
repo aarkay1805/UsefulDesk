@@ -3,7 +3,6 @@
 import { Suspense } from 'react';
 import { notFound, useSearchParams } from 'next/navigation';
 
-import { PAGE_HEADER_TABS_SLOT_ID } from '@/components/layout/page-header-actions';
 import { RenewalRemindersSettings } from '@/components/settings/renewal-reminders-settings';
 import { PreviewAuthProvider } from '@/hooks/use-auth';
 import { isAccountRole } from '@/lib/auth/roles';
@@ -21,7 +20,8 @@ import {
 // readiness states (ready, template missing, WhatsApp missing). It renders as
 // an owner; `?role=agent|viewer` shows the read-only rules and the Activity
 // permission state. Saves apply to the in-memory fixtures and an unready
-// activation is refused, as the API does. Open a group with `?rule=<id>`.
+// activation is refused, as the API does. Open and scroll to a rule with
+// `?rule=<id>`.
 //
 // The Activity tab reads fixture history and schedule checks. Force its other
 // states with `?activity=empty|error|loading` and `?readiness=error|loading`.
@@ -362,14 +362,6 @@ export default function AutomatedMessagesPreviewPage() {
 
   return (
     <div className="bg-background min-h-screen">
-      {/* Stands in for the app bar's tab row so the panel's Rules/Activity
-          tabs have somewhere to portal. */}
-      <header className="border-border border-b">
-        <div
-          id={PAGE_HEADER_TABS_SLOT_ID}
-          className="-mb-px overflow-x-auto px-4 empty:hidden lg:px-6"
-        />
-      </header>
       <div className="p-4 sm:p-6">
         <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[236px_minmax(0,1fr)] lg:items-start">
           <div aria-hidden className="hidden lg:block" />

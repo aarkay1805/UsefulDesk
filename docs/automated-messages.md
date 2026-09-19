@@ -1,8 +1,10 @@
 # Automated messages operator runbook
 
 Settings → **Automated messages** uses the existing `?tab=reminders` URL for the
-selected branch. It exposes the 14 existing rules under Renewals, Collections,
-Retention, and Confirmations.
+selected branch. Its **Rules** and **Activity** tabs sit under the panel
+heading. Rules lists the 14 existing rules in Renewals, Collections, Retention,
+and Confirmations sections. Opening a rule from **Review rule**, **Change
+sending hours**, or a `?rule=<id>` link scrolls to it.
 
 ## Who can see and change what
 
@@ -35,7 +37,7 @@ Retention, and Confirmations.
    it; opening another rule closes the previous one without discarding drafts.
 2. **Save settings** writes only that rule’s changed fields. Configuration can
    be saved while Off and never activates a schedule. **Cancel** restores the
-   saved values. Unsaved changes survive group/detail navigation within this
+   saved values. Unsaved changes survive tab/detail navigation within this
    page and are isolated by account/branch; they are not persisted across reloads.
 3. When an unready rule offers **Set up**, open it and choose
    **Set up required template** to open the required prefilled template modal

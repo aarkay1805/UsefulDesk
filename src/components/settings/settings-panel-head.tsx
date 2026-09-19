@@ -42,3 +42,31 @@ export function SettingsPanelHead({
     </div>
   );
 }
+
+/**
+ * Heading for one section inside a settings panel — the level under
+ * `SettingsPanelHead`. It sits outside the card it names, so pair it with
+ * the card in a `space-y-3` section labelled by `id`.
+ */
+export function SettingsSectionHead({
+  id,
+  title,
+  description,
+}: {
+  id: string;
+  title: string;
+  description?: ReactNode;
+}) {
+  return (
+    <div>
+      <h3 id={id} className="text-foreground text-sm font-semibold">
+        {title}
+      </h3>
+      {description ? (
+        <p className="text-muted-foreground mt-1 max-w-[62ch] text-sm">
+          {description}
+        </p>
+      ) : null}
+    </div>
+  );
+}

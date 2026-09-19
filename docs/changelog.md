@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-09-17 — Automated messages: tabs under the heading, one section per group
+
+In `renewal-reminders-settings.tsx`, the Rules/Activity tabs no longer portal
+into the app bar. That tab row belongs to Settings, which already navigates
+with the rail. The same line tabs now sit under `SettingsPanelHead` and stay in
+place while the rules load. The four group Chips are gone. Rules now shows one
+`SettingsSectionHead` and card per group, in `REMINDER_RULE_GROUPS` order, and
+skips empty groups. `REMINDER_RULE_GROUP_LABELS` (`rules.ts`) names the groups
+for both the sections and the Activity rule filter. `SettingsSectionHead`
+(`settings-panel-head.tsx`) replaces the Activity view's local heading. Rows use
+Activity's card rhythm. Each Configure/View/Close toggle names its rule,
+because all 14 are on one page. The rule-detail caption is now `h4`.
+
+A rule can now be far down the page. **Review rule**, **Change sending hours**,
+`?rule=` links, and every catalogue reload scroll the open row into view
+(`RuleReveal`). The first two also move focus to the row's toggle and animate
+the scroll unless reduced motion is on.
+
+Gotchas: the reveal waits until the row stops moving. A row closing above it,
+or the Activity panel unmounting a frame late, would otherwise leave a fixed
+delay short on a busy page. Time it with `performance.now()`: jsdom's
+animation-frame timestamp uses another clock and hung the loop in the full
+suite. The preview harness no longer has a stand-in app-bar tab row.
+
 ## 2026-09-17 — Reminder worker failures now fail both schedulers visibly
 
 The legacy renewal and joining-installment routes now return `503` with their

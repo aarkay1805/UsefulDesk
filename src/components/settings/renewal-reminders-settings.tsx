@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertCircle,
@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 
 import { AutomatedMessageActivity } from '@/components/settings/automated-message-activity';
 import { BubbleTail } from '@/components/inbox/message-bubble';
-import { PageHeaderTabs } from '@/components/layout/page-header-actions';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
   Accordion,
@@ -24,7 +23,6 @@ import {
 } from '@/components/ui/accordion';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Chip, ChipGroup } from '@/components/ui/chip';
 import { Collapse } from '@/components/ui/collapse';
 import {
   DropdownMenu,
@@ -66,10 +64,10 @@ import {
 import { getErrorMessage } from '@/lib/errors';
 import { timeInTzToUtc } from '@/lib/locale/format';
 import {
+  REMINDER_RULE_GROUP_LABELS,
   REMINDER_RULE_GROUPS,
   REMINDER_RULES,
   type ReminderRule,
-  type ReminderRuleGroup,
   type ReminderRuleId,
   type ReminderRulePatch,
 } from '@/lib/reminders/rules';
@@ -79,11 +77,28 @@ import {
 } from '@/lib/whatsapp/template-contracts';
 import { TemplateManager } from './template-manager';
 import { useLocale } from '@/hooks/use-locale';
-import { SettingsPanelHead } from './settings-panel-head';
+import { SettingsPanelHead, SettingsSectionHead } from './settings-panel-head';
 
-/** The app-bar tab recipe from Members, on the documented type ramp. */
-const HEADER_TAB_CLASS =
+/** The line-tab recipe the app bar uses on Members, on the documented type
+ *  ramp. The panel's own divider stands in for the app bar's. */
+const TAB_TRIGGER_CLASS =
   'flex-none px-0.5 pb-2 text-sm group-data-horizontal/tabs:after:bottom-0';
+
+/** How long a rule row takes to open or close. */
+const ROW_COLLAPSE_SECONDS = 0.28;
+
+/**
+ * A request to scroll the open rule into view once it has rendered. Every
+ * group is on one page, so a rule opened from elsewhere can be far below.
+ */
+type RuleReveal = {
+  /** Opened from another control (Review rule, Change sending hours): focus
+   *  moves to the rule and the scroll animates. A reload only restores the
+   *  position. */
+  navigate: boolean;
+  /** The previously open row is still closing and can move this one. */
+  afterCollapse: boolean;
+};
 
 // Every member can read the rules. For anyone without settings access,
 // permission is the first blocker on each change action, so pressing one
@@ -871,11 +886,12 @@ function RuleDetail({
     >
       <section className="space-y-3" aria-labelledby={`rule-when-${rule.id}`}>
         <div className="max-w-2xl space-y-1">
-          <h3 className={DETAIL_CAPTION} id={`rule-when-${rule.id}`}>
+          {/* h4: the group heading above this row is the h3. */}
+          <h4 className={DETAIL_CAPTION} id={`rule-when-${rule.id}`}>
             {hasDayChoices
               ? 'When will members get reminders?'
               : 'When this message is sent'}
-          </h3>
+          </h4>
           {hasDayChoices ? null : (
             <div className="text-sm leading-5 text-pretty">
               {rule.id === 'joining_installments'
@@ -1119,10 +1135,18 @@ function RuleRow({
       setSaving(false);
     }
   };
+  const openLabel = expanded
+    ? 'Close'
+    : hasEditableSettings && canEdit
+      ? 'Configure'
+      : 'View';
   return (
+    // The card's padding frames the first and last rows, as on Activity.
+    // A revealed first row keeps its group heading in view.
     <div
-      className="border-border border-b py-3 last:border-b-0"
+      className="border-border scroll-mt-4 border-b py-3 first:scroll-mt-16 first:pt-0 last:border-b-0 last:pb-0"
       data-testid={`rule-row-${rule.id}`}
+      data-expanded={expanded || undefined}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-48 flex-1">
@@ -1207,19 +1231,17 @@ function RuleRow({
             variant="outline"
             onClick={onOpen}
             id={`rule-configure-${rule.id}`}
+            // Every rule is on one page, so each toggle names its rule.
+            aria-label={`${openLabel} ${rule.title}`}
             aria-expanded={expanded}
             aria-controls={`rule-panel-${rule.id}`}
           >
-            {expanded
-              ? 'Close'
-              : hasEditableSettings && canEdit
-                ? 'Configure'
-                : 'View'}
+            {openLabel}
             {expanded ? <ChevronUp /> : <ChevronDown />}
           </Button>
         </div>
       </div>
-      <Collapse open={expanded}>
+      <Collapse open={expanded} duration={ROW_COLLAPSE_SECONDS}>
         <div
           id={`rule-panel-${rule.id}`}
           role="region"
@@ -1243,9 +1265,10 @@ export function RenewalRemindersSettings() {
     contractId: TemplateContractId;
     scope: string;
   } | null>(null);
-  const [group, setGroup] = useState<ReminderRuleGroup>('renewals');
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [selectedId, setSelectedId] = useState<ReminderRuleId | null>(null);
+  const rulesRef = useRef<HTMLDivElement>(null);
+  const [reveal, setReveal] = useState<RuleReveal | null>(null);
   const [drafts, setDrafts] = useState<Record<string, ReminderRulePatch>>({});
   const [dismissedLinkedRule, setDismissedLinkedRule] = useState<string | null>(
     null
@@ -1282,7 +1305,12 @@ export function RenewalRemindersSettings() {
             });
           return;
         }
-        if (!cancelled) setRules(data.rules ?? []);
+        if (!cancelled) {
+          setRules(data.rules ?? []);
+          // The loading state replaced the whole list and dropped the
+          // scroll position, so return to the open or linked rule.
+          setReveal({ navigate: false, afterCollapse: false });
+        }
       } catch (loadError) {
         if (!cancelled)
           setError({
@@ -1300,6 +1328,42 @@ export function RenewalRemindersSettings() {
       cancelled = true;
     };
   }, [branchParam, reloadNonce]);
+  useEffect(() => {
+    if (!reveal) return;
+    const row = rulesRef.current?.querySelector<HTMLElement>('[data-expanded]');
+    if (!row) return;
+    if (reveal.navigate) {
+      row
+        .querySelector<HTMLElement>('[aria-controls^="rule-panel-"]')
+        ?.focus({ preventScroll: true });
+    }
+    // Scroll once the row stops moving. The Activity panel unmounts a frame
+    // after the switch, and a row closing above this one moves it until its
+    // Collapse ends, which can take longer than its duration on a busy page.
+    const start = performance.now();
+    const minWait = reveal.afterCollapse ? ROW_COLLAPSE_SECONDS * 1000 : 0;
+    let lastTop = Number.NaN;
+    let frame = 0;
+    const step = () => {
+      const top = row.getBoundingClientRect().top;
+      const elapsed = performance.now() - start;
+      if ((elapsed >= minWait && top === lastTop) || elapsed > 2000) {
+        row.scrollIntoView({
+          block: 'start',
+          behavior:
+            reveal.navigate &&
+            !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+              ? 'smooth'
+              : 'auto',
+        });
+        return;
+      }
+      lastTop = top;
+      frame = window.requestAnimationFrame(step);
+    };
+    frame = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(frame);
+  }, [reveal]);
   const queryRuleId = searchParams.get('rule');
   const linkedRuleId = REMINDER_RULES.some((rule) => rule.id === queryRuleId)
     ? (queryRuleId as ReminderRuleId)
@@ -1316,14 +1380,25 @@ export function RenewalRemindersSettings() {
         end: Number(invoiceCollection.settings.sendWindowEnd ?? 19),
       }
     : null;
-  const activeGroup =
-    !selectedId && linkedRuleId && dismissedLinkedRule !== linkedRuleId
-      ? (selected?.group ?? group)
-      : group;
-  const visible = useMemo(
-    () => rules.filter((rule) => rule.group === activeGroup),
-    [activeGroup, rules]
+  const sections = useMemo(
+    () =>
+      REMINDER_RULE_GROUPS.map((group) => ({
+        group,
+        rules: rules.filter((rule) => rule.group === group),
+      })).filter((section) => section.rules.length > 0),
+    [rules]
   );
+  /** Opens a rule from a control outside its row and scrolls to it. */
+  const goToRule = (ruleId: ReminderRuleId) => {
+    setReveal({
+      navigate: true,
+      afterCollapse:
+        view === 'rules' && activeRuleId !== null && activeRuleId !== ruleId,
+    });
+    setSelectedId(ruleId);
+    setDismissedLinkedRule(null);
+    setView('rules');
+  };
   const save = async (ruleId: ReminderRuleId, patch: ReminderRulePatch) => {
     try {
       const branchId = browserBranchId();
@@ -1358,176 +1433,155 @@ export function RenewalRemindersSettings() {
       throw saveError;
     }
   };
-  if (loading)
-    return (
-      <section className="max-w-5xl">
-        <SettingsPanelHead
-          title="Automated messages"
-          description="Manage the messages UsefulDesk can send for member events."
-        />
-        <div
-          className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
-          role="status"
-        >
-          <Loader2 className="size-4 animate-spin" />
-          Loading automated messages…
-        </div>
-      </section>
-    );
-  if (error)
-    return (
-      <section className="max-w-5xl">
-        <SettingsPanelHead
-          title="Automated messages"
-          description="Manage the messages UsefulDesk can send for member events."
-        />
-        <Alert variant="destructive">
-          <AlertCircle />
-          <AlertTitle>Automated messages couldn’t load</AlertTitle>
+  const rulesContent = loading ? (
+    <div
+      className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
+      role="status"
+    >
+      <Loader2 className="size-4 animate-spin" />
+      Loading automated messages…
+    </div>
+  ) : error ? (
+    <Alert variant="destructive">
+      <AlertCircle />
+      <AlertTitle>Automated messages couldn’t load</AlertTitle>
+      <AlertDescription>
+        <p>{error.message}</p>
+        {error.canRetry ? (
+          <Button
+            className="mt-3"
+            size="sm"
+            variant="destructive"
+            onClick={() => setReloadNonce((value) => value + 1)}
+          >
+            Try again
+          </Button>
+        ) : null}
+      </AlertDescription>
+    </Alert>
+  ) : (
+    <div ref={rulesRef} className="space-y-8">
+      {!canEditSettings ? (
+        <Alert>
+          <AlertTitle>Read-only</AlertTitle>
           <AlertDescription>
-            <p>{error.message}</p>
-            {error.canRetry ? (
-              <Button
-                className="mt-3"
-                size="sm"
-                variant="destructive"
-                onClick={() => setReloadNonce((value) => value + 1)}
-              >
-                Try again
-              </Button>
-            ) : null}
+            Only admins and owners can change automated messages.
           </AlertDescription>
         </Alert>
-      </section>
-    );
+      ) : null}
+      <TooltipProvider>
+        {sections.map((section) => (
+          <section
+            key={section.group}
+            aria-labelledby={`rule-group-${section.group}`}
+            className="space-y-3"
+          >
+            <SettingsSectionHead
+              id={`rule-group-${section.group}`}
+              title={REMINDER_RULE_GROUP_LABELS[section.group]}
+            />
+            <Card>
+              <CardContent>
+                {section.rules.map((rule) => (
+                  <RuleRow
+                    key={rule.id}
+                    rule={rule}
+                    canEdit={canEditSettings}
+                    hasDraft={hasUnsavedChanges}
+                    expanded={selected?.id === rule.id}
+                    onOpen={() => {
+                      if (selected?.id === rule.id) {
+                        setSelectedId(null);
+                        setDismissedLinkedRule(linkedRuleId);
+                      } else {
+                        setSelectedId(rule.id);
+                        setDismissedLinkedRule(null);
+                      }
+                    }}
+                    onSetupTemplate={(contractId) => {
+                      setSelectedId(rule.id);
+                      setDismissedLinkedRule(null);
+                      setTemplateSetup({ contractId, scope: draftScope });
+                    }}
+                    onSave={save}
+                  >
+                    <RuleDetail
+                      rule={rule}
+                      canEdit={canEditSettings}
+                      draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
+                      onDraftChange={(patch) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [`${draftScope}:${rule.id}`]: patch,
+                        }))
+                      }
+                      onSave={save}
+                      lifecycleWindow={lifecycleWindow}
+                      hasUnsavedChanges={hasUnsavedChanges}
+                      onOpenInvoiceCollection={() =>
+                        goToRule('invoice_collection')
+                      }
+                    />
+                  </RuleRow>
+                ))}
+              </CardContent>
+            </Card>
+          </section>
+        ))}
+      </TooltipProvider>
+    </div>
+  );
   return (
     <>
-      {/* The Tabs root portals with its triggers, as on Leads, Members, and
-          Business: the active underline is styled from the root, so a root
-          left in the page drew no underline in the app bar. */}
-      <PageHeaderTabs>
-        <Tabs value={view} onValueChange={setView} className="pt-2 pb-0">
-          <TabsList
-            variant="line"
-            aria-label="Automated messages"
-            className="h-auto gap-5 p-0"
-          >
-            <TabsTrigger value="rules" className={HEADER_TAB_CLASS}>
-              Rules
-            </TabsTrigger>
-            <TabsTrigger value="activity" className={HEADER_TAB_CLASS}>
-              Activity
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </PageHeaderTabs>
-      <section className="max-w-5xl space-y-4">
+      <section className="max-w-5xl">
         <SettingsPanelHead
           title="Automated messages"
           description="Choose which member events can send an approved WhatsApp message."
         />
-        {view === 'rules' ? (
-          <div className="space-y-4 text-sm">
-            {!canEditSettings ? (
+        {/* Rules and Activity are this panel's views, so their tabs sit under
+            its heading. The app bar's tab row belongs to Settings, whose own
+            navigation is the rail. */}
+        <Tabs value={view} onValueChange={setView}>
+          {/* The panel's divider plays the app bar's: -mb-px seats the active
+              underline on it. */}
+          <div className="border-border border-b">
+            <TabsList
+              variant="line"
+              aria-label="Automated messages"
+              className="-mb-px h-auto gap-5 p-0"
+            >
+              <TabsTrigger value="rules" className={TAB_TRIGGER_CLASS}>
+                Rules
+              </TabsTrigger>
+              <TabsTrigger value="activity" className={TAB_TRIGGER_CLASS}>
+                Activity
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="rules" className="mt-4">
+            {rulesContent}
+          </TabsContent>
+          <TabsContent value="activity" className="mt-4">
+            {canViewActivity ? (
+              <AutomatedMessageActivity
+                onReviewRule={(id) => {
+                  const rule = REMINDER_RULES.find((item) => item.id === id);
+                  if (rule) goToRule(rule.id);
+                }}
+              />
+            ) : (
+              // The tab stays visible (gate, don't hide), but its history is
+              // admin-only in the database, so nothing is requested here.
               <Alert>
-                <AlertTitle>Read-only</AlertTitle>
+                <AlertTitle>Admin access required</AlertTitle>
                 <AlertDescription>
-                  Only admins and owners can change automated messages.
+                  Only admins and owners can view scheduled reminder readiness
+                  and message history.
                 </AlertDescription>
               </Alert>
-            ) : null}
-            <ChipGroup<string>
-              selectionMode="single"
-              value={[activeGroup]}
-              onValueChange={(value) => {
-                if (!value[0]) return;
-                setGroup(value[0] as ReminderRuleGroup);
-                setSelectedId(null);
-                setDismissedLinkedRule(linkedRuleId);
-              }}
-              aria-label="Message group"
-            >
-              {REMINDER_RULE_GROUPS.map((entry) => (
-                <Chip key={entry} value={entry}>
-                  {entry[0].toUpperCase() + entry.slice(1)}
-                </Chip>
-              ))}
-            </ChipGroup>
-            <TooltipProvider>
-              <Card>
-                <CardContent>
-                  {visible.map((rule) => (
-                    <RuleRow
-                      key={rule.id}
-                      rule={rule}
-                      canEdit={canEditSettings}
-                      hasDraft={hasUnsavedChanges}
-                      expanded={selected?.id === rule.id}
-                      onOpen={() => {
-                        if (selected?.id === rule.id) {
-                          setSelectedId(null);
-                          setDismissedLinkedRule(linkedRuleId);
-                        } else {
-                          setSelectedId(rule.id);
-                          setGroup(rule.group);
-                          setDismissedLinkedRule(null);
-                        }
-                      }}
-                      onSetupTemplate={(contractId) => {
-                        setSelectedId(rule.id);
-                        setGroup(rule.group);
-                        setDismissedLinkedRule(null);
-                        setTemplateSetup({ contractId, scope: draftScope });
-                      }}
-                      onSave={save}
-                    >
-                      <RuleDetail
-                        rule={rule}
-                        canEdit={canEditSettings}
-                        draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
-                        onDraftChange={(patch) =>
-                          setDrafts((current) => ({
-                            ...current,
-                            [`${draftScope}:${rule.id}`]: patch,
-                          }))
-                        }
-                        onSave={save}
-                        lifecycleWindow={lifecycleWindow}
-                        hasUnsavedChanges={hasUnsavedChanges}
-                        onOpenInvoiceCollection={() => {
-                          setSelectedId('invoice_collection');
-                          setGroup('collections');
-                          setDismissedLinkedRule(null);
-                        }}
-                      />
-                    </RuleRow>
-                  ))}
-                </CardContent>
-              </Card>
-            </TooltipProvider>
-          </div>
-        ) : canViewActivity ? (
-          <AutomatedMessageActivity
-            onReviewRule={(id) => {
-              const rule = rules.find((item) => item.id === id);
-              if (!rule) return;
-              setSelectedId(rule.id);
-              setGroup(rule.group);
-              setDismissedLinkedRule(null);
-              setView('rules');
-            }}
-          />
-        ) : (
-          // The tab stays visible (gate, don't hide), but its history is
-          // admin-only in the database, so nothing is requested here.
-          <Alert>
-            <AlertTitle>Admin access required</AlertTitle>
-            <AlertDescription>
-              Only admins and owners can view scheduled reminder readiness and
-              message history.
-            </AlertDescription>
-          </Alert>
-        )}
+            )}
+          </TabsContent>
+        </Tabs>
       </section>
       {templateSetup?.scope === draftScope ? (
         <TemplateManager

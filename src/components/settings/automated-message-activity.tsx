@@ -65,11 +65,13 @@ import {
   type AutomatedMessageActivityRow,
 } from '@/lib/reminders/activity';
 import {
+  REMINDER_RULE_GROUP_LABELS,
   REMINDER_RULE_GROUPS,
   REMINDER_RULES,
   type ReminderRuleId,
 } from '@/lib/reminders/rules';
 import { cn } from '@/lib/utils';
+import { SettingsSectionHead } from './settings-panel-head';
 
 type BadgeVariant = 'neutral' | 'info' | 'success' | 'warning' | 'danger';
 type ReviewRule = (id: string) => void;
@@ -194,10 +196,6 @@ function ruleTitle(id: string) {
   return RULE_TITLE.get(id) ?? id;
 }
 
-function groupLabel(group: string) {
-  return group[0].toUpperCase() + group.slice(1);
-}
-
 function ruleHref(ruleId: string, accountId: string | null) {
   return branchHref(`/settings?tab=reminders&rule=${ruleId}`, accountId);
 }
@@ -235,27 +233,6 @@ export function AutomatedMessageActivity({
     <div className="@container/activity space-y-8">
       <ScheduleReadiness accountId={accountId} onReviewRule={onReviewRule} />
       <MessageHistory accountId={accountId} onReviewRule={onReviewRule} />
-    </div>
-  );
-}
-
-function SectionHeading({
-  id,
-  title,
-  description,
-}: {
-  id: string;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div>
-      <h3 id={id} className="text-foreground text-sm font-semibold">
-        {title}
-      </h3>
-      <p className="text-muted-foreground mt-1 max-w-[62ch] text-sm">
-        {description}
-      </p>
     </div>
   );
 }
@@ -301,7 +278,7 @@ function ScheduleReadiness({
       aria-labelledby="automated-message-readiness-heading"
       className="space-y-3"
     >
-      <SectionHeading
+      <SettingsSectionHead
         id="automated-message-readiness-heading"
         title="Scheduled reminder readiness"
         description="A live check of whether these scheduled reminders can send right now."
@@ -519,7 +496,7 @@ function MessageHistory({
       aria-labelledby="automated-message-history-heading"
       className="space-y-3"
     >
-      <SectionHeading
+      <SettingsSectionHead
         id="automated-message-history-heading"
         title="Message history"
         description="Messages from every rule with their latest outcome, newest first."
@@ -541,7 +518,7 @@ function MessageHistory({
               <SelectItem value={ALL}>All rules</SelectItem>
               {REMINDER_RULE_GROUPS.map((group) => (
                 <SelectGroup key={group}>
-                  <SelectLabel>{groupLabel(group)}</SelectLabel>
+                  <SelectLabel>{REMINDER_RULE_GROUP_LABELS[group]}</SelectLabel>
                   {REMINDER_RULES.filter((item) => item.group === group).map(
                     (item) => (
                       <SelectItem key={item.id} value={item.id}>
