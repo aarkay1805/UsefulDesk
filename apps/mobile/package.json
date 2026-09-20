@@ -5,7 +5,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.19",
     "@gorhom/bottom-sheet": "^5.2.14",
-    "@supabase/supabase-js": "2.116.0",
+    "@supabase/supabase-js": "2.107.0",
     "expo": "~57.0.24",
     "expo-application": "~57.0.3",
     "expo-audio": "~57.0.5",
@@ -53,7 +53,7 @@
     "eslint-config-expo": "~57.0.0",
     "jest": "~29.7.0",
     "jest-expo": "~57.0.5",
-    "react-test-renderer": "19.3.0",
+    "react-test-renderer": "19.2.3",
     "typescript": "~6.0.3"
   },
   "scripts": {
