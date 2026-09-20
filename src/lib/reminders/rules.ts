@@ -16,9 +16,25 @@ export type ReminderRuleGroup = (typeof REMINDER_RULE_GROUPS)[number];
  *  rule filter's option groups. */
 export const REMINDER_RULE_GROUP_LABELS: Record<ReminderRuleGroup, string> = {
   renewals: 'Renewals',
-  collections: 'Collections',
-  retention: 'Retention',
+  collections: 'Payment reminders',
+  retention: 'Keep members coming back',
   confirmations: 'Confirmations',
+};
+
+export type ReminderScheduleCapability =
+  | 'editable-date-offsets'
+  | 'fixed-date-offsets'
+  | 'session-count'
+  | 'event-driven'
+  | 'checkout-managed';
+
+export type ReminderRuleSchedule = {
+  capability: ReminderScheduleCapability;
+  /** Fallback and fixed timing copy. Editable schedules replace this with the
+   * saved day selection in the settings UI. */
+  timing: string;
+  explanation: string;
+  anchorNote?: string;
 };
 
 export type ReminderRuleField = {
@@ -36,6 +52,11 @@ export type ReminderRule = {
   id: ReminderRuleId;
   group: ReminderRuleGroup;
   title: string;
+  purpose: string;
+  schedule: ReminderRuleSchedule;
+  eligibility: string;
+  stops: string;
+  staff: string;
   templateContracts: readonly TemplateContractId[];
   fields: readonly ReminderRuleField[];
   /** The worker has no account-level switch yet, so do not present a fake one. */
@@ -107,6 +128,16 @@ export const REMINDER_RULES = [
     id: 'membership_renewal',
     group: 'renewals',
     title: 'Membership renewal',
+    purpose: 'Reminds members before their current membership ends.',
+    schedule: {
+      capability: 'editable-date-offsets',
+      timing: 'Before the membership ends.',
+      explanation: 'Choose one or more reminder days.',
+    },
+    eligibility:
+      'Members with an active membership paid manually rather than by AutoPay, an upcoming expiry, and a phone number.',
+    stops: 'The membership is renewed, cancelled, or its end date changes.',
+    staff: 'Handle renewal replies and follow up with members who need help.',
     templateContracts: ['membership_renewal'],
     fields: [booleanField('enabled'), reminderDays('days_before')],
     configurable: true,
@@ -115,6 +146,18 @@ export const REMINDER_RULES = [
     id: 'service_renewal',
     group: 'renewals',
     title: 'Service renewal',
+    purpose:
+      'Reminds members before a paid service, such as personal training, ends.',
+    schedule: {
+      capability: 'editable-date-offsets',
+      timing: 'Before the service ends.',
+      explanation: 'Choose one or more reminder days.',
+    },
+    eligibility:
+      'Members with a current service, an upcoming expiry, a current price, and a phone number.',
+    stops:
+      'The service is renewed, cancelled, archived, or its end date changes.',
+    staff: 'Handle service renewal replies and pricing questions.',
     templateContracts: ['service_renewal'],
     fields: [
       booleanField('service_enabled'),
@@ -126,6 +169,17 @@ export const REMINDER_RULES = [
     id: 'membership_post_expiry',
     group: 'renewals',
     title: 'Expired membership follow-up',
+    purpose: 'Follows up after a membership ends without being renewed.',
+    schedule: {
+      capability: 'fixed-date-offsets',
+      timing: '1, 3 and 7 days after membership expiry.',
+      explanation: 'These reminder days are fixed.',
+    },
+    eligibility: 'Members whose expired membership has not changed.',
+    stops:
+      'The membership renews, is held, frozen, replaced, or the member replies.',
+    staff:
+      'If there is no reply, UsefulDesk adds a follow-up for the branch owner after WhatsApp accepts the final reminder. It uses an existing follow-up if one is already open.',
     templateContracts: ['membership_post_expiry'],
     fields: [
       booleanField('membership_post_expiry_enabled'),
@@ -137,6 +191,16 @@ export const REMINDER_RULES = [
     id: 'service_post_expiry',
     group: 'renewals',
     title: 'Expired service follow-up',
+    purpose: 'Follows up after a paid service ends without being renewed.',
+    schedule: {
+      capability: 'fixed-date-offsets',
+      timing: '1, 3 and 7 days after service expiry.',
+      explanation: 'These reminder days are fixed.',
+    },
+    eligibility: 'Members whose expired paid service has not changed.',
+    stops: 'The service renews, is held, replaced, or the member replies.',
+    staff:
+      'If there is no reply, UsefulDesk adds a follow-up for the branch owner after WhatsApp accepts the final reminder. It uses an existing follow-up if one is already open.',
     templateContracts: ['service_post_expiry'],
     fields: [
       booleanField('service_post_expiry_enabled'),
@@ -147,7 +211,20 @@ export const REMINDER_RULES = [
   {
     id: 'invoice_collection',
     group: 'collections',
-    title: 'Invoice collection',
+    title: 'Unpaid invoice reminders',
+    purpose:
+      'Reminds members before an invoice is due and while money is still unpaid.',
+    schedule: {
+      capability: 'editable-date-offsets',
+      timing: 'Before, on, and after the invoice due date.',
+      explanation: 'Choose one or more reminder days.',
+      anchorNote:
+        'If an invoice has no separate due date, UsefulDesk uses its issue date. That means a newly issued invoice cannot receive an earlier reminder.',
+    },
+    eligibility: 'Members with an open invoice balance and a phone number.',
+    stops: 'The invoice is paid, voided, or its balance or due date changes.',
+    staff:
+      'Answer payment questions and record payments received outside UsefulDesk.',
     templateContracts: ['invoice_due', 'invoice_overdue'],
     fields: [
       booleanField('invoice_collection_enabled'),
@@ -178,7 +255,21 @@ export const REMINDER_RULES = [
   {
     id: 'joining_installments',
     group: 'collections',
-    title: 'Joining installments',
+    title: 'Installment reminders',
+    purpose: 'Reminds members when part of their joining payment is due.',
+    schedule: {
+      capability: 'checkout-managed',
+      timing:
+        '7, 3 and 1 days before each installment is due, and again on the due date.',
+      explanation:
+        'These reminder days are fixed. Each due date comes from the member’s joining payment plan.',
+    },
+    eligibility:
+      'Members with an unpaid joining installment and a phone number.',
+    stops:
+      'The installment is paid, cancelled, or its payment schedule changes.',
+    staff:
+      'Follow up on unpaid installments and record the payment when it arrives.',
     templateContracts: ['installment_reminder'],
     fields: [],
     configurable: false,
@@ -186,7 +277,17 @@ export const REMINDER_RULES = [
   {
     id: 'promise_to_pay',
     group: 'collections',
-    title: 'Promise to pay',
+    title: 'Promised payment reminder',
+    purpose: 'Reminds members about the date they promised to pay.',
+    schedule: {
+      capability: 'fixed-date-offsets',
+      timing: '1 day before, on, and 1 day after the promised payment date.',
+      explanation: 'These reminder days are fixed.',
+    },
+    eligibility:
+      'Members with an open payment promise, a promised date, and a phone number.',
+    stops: 'The promise is fulfilled, cancelled, or its date changes.',
+    staff: 'Contact members whose promised date has passed without payment.',
     templateContracts: ['payment_promise_reminder'],
     fields: [booleanField('promise_to_pay_reminders_enabled')],
     configurable: true,
@@ -195,6 +296,17 @@ export const REMINDER_RULES = [
     id: 'payment_link_follow_up',
     group: 'collections',
     title: 'Payment link follow-up',
+    purpose:
+      'Follows up after a payment link is sent but payment is not complete.',
+    schedule: {
+      capability: 'fixed-date-offsets',
+      timing: '1 and 3 days after WhatsApp accepts the payment-link message.',
+      explanation: 'These follow-up days are fixed.',
+    },
+    eligibility:
+      'Members with an active unpaid payment link and a phone number.',
+    stops: 'The payment link is paid, expired, cancelled, or replaced.',
+    staff: 'Help with failed payment attempts or send a new link when needed.',
     templateContracts: ['payment_link'],
     fields: [booleanField('payment_link_follow_up_enabled')],
     configurable: true,
@@ -202,7 +314,20 @@ export const REMINDER_RULES = [
   {
     id: 'autopay_recovery',
     group: 'collections',
-    title: 'AutoPay recovery',
+    title: 'AutoPay payment problems',
+    purpose: 'Tells members when AutoPay will try again or has stopped trying.',
+    schedule: {
+      capability: 'event-driven',
+      timing: 'After Razorpay records a retry or final failure.',
+      explanation:
+        'UsefulDesk sends this when Razorpay reports the payment result, not on a day schedule.',
+    },
+    eligibility:
+      'Members whose AutoPay payment will be tried again or has failed for good, and who have a phone number.',
+    stops:
+      'The payment succeeds, AutoPay is ready to collect again, or Razorpay reports a different result.',
+    staff:
+      'Review final failures and help the member choose the next payment step.',
     templateContracts: [
       'autopay_recovery_pending',
       'autopay_recovery_terminal',
@@ -214,6 +339,18 @@ export const REMINDER_RULES = [
     id: 'session_pack',
     group: 'retention',
     title: 'Session pack reminders',
+    purpose:
+      'Warns members when only a few sessions remain or their pack is empty.',
+    schedule: {
+      capability: 'session-count',
+      timing: 'At 2 or fewer sessions remaining, and again at 0.',
+      explanation:
+        'This message is triggered by sessions remaining, not a day schedule.',
+    },
+    eligibility:
+      'Members with a current session pack and 2 or fewer sessions remaining.',
+    stops: 'The member buys a new pack or the current pack balance changes.',
+    staff: 'Reply with suitable pack options when the member asks.',
     templateContracts: ['session_pack_low', 'session_pack_exhausted'],
     fields: [booleanField('session_pack_reminders_enabled')],
     configurable: true,
@@ -221,7 +358,20 @@ export const REMINDER_RULES = [
   {
     id: 'freeze_return',
     group: 'retention',
-    title: 'Planned return',
+    title: 'Return after a membership pause',
+    purpose:
+      'Reminds members before they plan to return from a paused membership.',
+    schedule: {
+      capability: 'fixed-date-offsets',
+      timing:
+        '1 day before the planned return; staff follow-up is due on the return day.',
+      explanation: 'This reminder timing is fixed.',
+    },
+    eligibility:
+      'Members with a paused membership and an unchanged planned return date.',
+    stops:
+      'The member returns, the planned date changes, or the membership is cancelled.',
+    staff: 'Confirm the member’s next step before the planned return.',
     templateContracts: ['freeze_return'],
     fields: [booleanField('freeze_return_reminders_enabled')],
     configurable: true,
@@ -229,7 +379,20 @@ export const REMINDER_RULES = [
   {
     id: 'membership_win_back',
     group: 'retention',
-    title: 'Membership win-back',
+    title: 'Invite expired members back',
+    purpose:
+      'Invites former members to renew after their membership has been expired for some time.',
+    schedule: {
+      capability: 'fixed-date-offsets',
+      timing:
+        '14, 30 and 60 days after expiry, after the first follow-ups end.',
+      explanation: 'These reminder days are fixed.',
+    },
+    eligibility:
+      'Former members whose expired membership still has not changed.',
+    stops:
+      'The member renews, starts another membership, puts renewal on hold or pause, promises to pay, or replies.',
+    staff: 'Handle replies using the current membership price.',
     templateContracts: ['membership_win_back'],
     fields: [booleanField('membership_win_back_enabled')],
     configurable: true,
@@ -237,7 +400,20 @@ export const REMINDER_RULES = [
   {
     id: 'service_win_back',
     group: 'retention',
-    title: 'Service win-back',
+    title: 'Invite members to renew a service',
+    purpose:
+      'Invites members to buy a paid service again after it has been expired for some time.',
+    schedule: {
+      capability: 'fixed-date-offsets',
+      timing:
+        '14, 30 and 60 days after expiry, after the first follow-ups end.',
+      explanation: 'These reminder days are fixed.',
+    },
+    eligibility:
+      'Members whose expired paid service still has not changed and has a current price.',
+    stops:
+      'The member renews, starts another service, puts renewal on hold, promises to pay, or replies.',
+    staff: 'Handle replies using the current service price.',
     templateContracts: ['service_win_back'],
     fields: [booleanField('service_win_back_enabled')],
     configurable: true,
@@ -246,6 +422,17 @@ export const REMINDER_RULES = [
     id: 'payment_confirmation',
     group: 'confirmations',
     title: 'Payment confirmation',
+    purpose: 'Sends a receipt after a payment is recorded as complete.',
+    schedule: {
+      capability: 'event-driven',
+      timing: 'After a new completed payment is recorded.',
+      explanation:
+        'This message is triggered by a recorded payment, not a day schedule. Older payments are not included.',
+    },
+    eligibility: 'Members with a newly completed payment and a phone number.',
+    stops:
+      'The payment is reversed or no longer qualifies for a receipt notification.',
+    staff: 'Investigate receipt questions or payment reversals.',
     templateContracts: ['payment_confirmation'],
     fields: [booleanField('payment_confirmations_enabled')],
     configurable: true,

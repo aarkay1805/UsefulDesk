@@ -1,5 +1,28 @@
 # Roadmap
 
+## Shipped in code — Automated messages rule clarity (2026-09-20)
+
+Settings → **Automated messages** now uses the shared rule catalogue for the
+**Messages** / **Message history** tabs, owner-facing group names, message
+names, purpose, eligibility, stopping conditions, staff action, and explicit
+schedule capability. Rows use one **Details** / **Hide details** action and
+show purpose → schedule → **Message preview** in reading order. Editable day
+sets explain multi-selection and enforce the six-day limit; fixed, event-driven,
+session-count, and checkout-managed schedules explain why no day picker exists.
+Delayed-send allowance is separate from the scheduled days, and schedule edits
+show adjacent **Unsaved changes**, **Save changes**, and **Cancel** controls.
+
+Setup readiness is independent of whether a rule has an enable switch. Available
+setup uses an enabled, rule-named **Set up message** action; activation remains
+readiness-gated and approval still does not turn a message on. Installment
+reminders show **Managed by payment plan**, their approval state, and a truthful
+**Find a member** destination. Generic invoice copy states that invoices without
+a separate due date use the issue date, so a newly issued invoice cannot receive
+an earlier reminder. This changes presentation only: fixed worker timing,
+permission checks, activation behavior, no-backfill behavior, and duplicate-send
+guards remain unchanged. No template was submitted, schedule enabled, customer
+message sent, or deployment performed.
+
 ## Shipped in code — Automated messages catalogue and activity (2026-09-12)
 
 Settings → **Automated messages** preserves `?tab=reminders`. Every branch

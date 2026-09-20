@@ -1,9 +1,10 @@
 # Automated messages — operator runbook
 
-Settings → **Automated messages** retains the `?tab=reminders` URL. **Rules**
-groups the existing behaviours into **Renewals**, **Collections**,
-**Retention**, and **Confirmations**; every branch member can read them, and
-changing one needs admin/owner settings permission. **Activity** is the
+Settings → **Automated messages** retains the `?tab=reminders` URL. **Messages**
+groups the existing behaviours into **Renewals**, **Payment reminders**,
+**Keep members coming back**, and **Confirmations**; every branch member can
+read them, and changing one needs admin/owner settings permission. **Message
+history** is the
 read-only operational record, limited to admins and owners (access table:
 `docs/automated-messages.md`). **Templates** remains the single place to
 create, submit, and synchronize templates; each rule links to its exact contract.
@@ -16,7 +17,8 @@ activation leaves the rule off; later approval cannot silently activate it.
 An already-enabled rule that loses readiness retains **On + Blocked** until
 setup is restored or the operator turns it off.
 
-Joining installments are **managed by checkout**, with their fixed 7/3/1/0-day
+Installment reminders are **managed by the payment plan**, with their fixed
+7/3/1/0-day
 schedule. They do not have an independent account switch. Overdue-installment
 collection follows the invoice-collection opt-in. The lifecycle send window is
 shared by collection, post-expiry, and retention rules. Transaction confirmations
@@ -99,12 +101,12 @@ Meta returning a `wamid` means the request was accepted, not delivered.
 Delivery-status webhooks remain authoritative for sent, delivered, read, and
 failed outcomes.
 
-Settings → Automated messages → Activity also shows a read-only **Scheduled reminder
+Settings → Automated messages → Message history also shows a read-only **Scheduled reminder
 readiness** result for membership, service, and joining-installment workers. It
 contains only aggregate eligibility counts and setup reasons: **Off**,
 **Blocked**, **Waiting**, **Nothing due**, or **Eligible now**. It never claims a reminder,
 opens a conversation, exposes member data, or invokes Meta. A blocked row gives
-the first recovery action (**Review rule**, which opens that rule in Rules);
+the first recovery action (**Review rule**, which opens that message in Messages);
 an empty cohort is healthy, not an error.
 
 ## How scheduled sends work
@@ -232,7 +234,7 @@ until their exact Utility contracts have been synced as Approved. Payment-link
 follow-up begins only from a recorded provider-accepted `gym_payment_link`
 send, not link creation, and never creates or replaces a provider link.
 
-### Payment confirmations and failed AutoPay recovery
+### Payment confirmations and AutoPay payment problems
 
 The same lifecycle worker also consumes committed transaction facts. An
 `AFTER INSERT` ledger trigger creates a confirmation job keyed by the exact
@@ -287,7 +289,7 @@ mutation, or cleanup is authorized by this runbook alone.
    parameters, body, footer, and buttons, then submit it for Meta review.
 3. After Meta review, select **Sync from Meta**. The reminder remains blocked
    until the exact row is Approved and the sync reports no component change.
-4. Return to Automated messages → Rules and confirm the feature reads Ready. A provider
+4. Return to Automated messages → Messages and confirm the feature reads Ready. A provider
    request being accepted is still not delivery evidence; wait for the delivery
    webhook after separately authorized testing.
 

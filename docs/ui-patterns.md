@@ -109,7 +109,7 @@ tailwind-merge only dedupes utilities of the **same variant**. So an override of
 - Because the divider is on the whole header, a filled tab row pushes the divider **below** the tabs — nav reads as part of the header.
 - Tabs = `ui/tabs.tsx` **`variant="line"`** (underline), controlled (`value`/`onValueChange`). Not a pill segment bar.
 - **Portal the whole `Tabs` root, not just its list.** The trigger underline is styled from the root (`group/tabs`), so a root left wrapping the page draws no active underline in the app bar. Render the page's views conditionally from the same `value`, and copy the header recipe from `/members` (`pt-2 pb-0` root, `h-auto gap-5 p-0` list, `flex-none px-0.5 pb-2 text-sm group-data-horizontal/tabs:after:bottom-0` triggers). Leads and Business still set a 15px trigger that is off the DESIGN.md type ramp; do not copy it.
-- **A Settings panel's views are not page chrome.** The app bar's tab row belongs to the route, and Settings' own sub-navigation is the rail, so a panel's Rules/Activity strip up there read as navigation for all of Settings. A panel with several views renders `Tabs` directly under its `SettingsPanelHead`: the same line triggers in a `border-b` wrapper whose `TabsList` takes `-mb-px` (the wrapper's divider plays the header's), and `TabsContent` views with `mt-4`, which unmount while hidden. Keep the tab row in place while the panel loads. Canonical: Automated messages.
+- **A Settings panel's views are not page chrome.** The app bar's tab row belongs to the route, and Settings' own sub-navigation is the rail, so a panel's Messages/Message history strip up there read as navigation for all of Settings. A panel with several views renders `Tabs` directly under its `SettingsPanelHead`: the same line triggers in a `border-b` wrapper whose `TabsList` takes `-mb-px` (the wrapper's divider plays the header's), and `TabsContent` views with `mt-4`, which unmount while hidden. Keep the tab row in place while the panel loads. Canonical: Automated messages.
 - **Line variant's active tab is `--primary`** (label + underline) — not `foreground`, which ignored the account's accent theme. Master change in `ui/tabs.tsx`, so every line-tab surface moved together. The default/pill variant is untouched.
 - An overflow-capable tab strip must **keep the lit tab in view** — a scrollspy nav (member sheet) centres the active tab on change, else mobile lights an off-screen tab.
 - Canonical: `/leads` (actions), `/members` (actions + line tabs).
@@ -118,7 +118,7 @@ tailwind-merge only dedupes utilities of the **same variant**. So an override of
 
 **One heading level, and one queue per section.** The shell owns the page title; inside the page, a section heading names exactly one queue. A grouping heading that only introduces the sections beneath it — the dashboard's former **Work to do** and **The full picture** — is a level that adds a heading without adding meaning, and a card holding two differently-named queues is the same fault one level down. Delete the wrapper and give each queue its own section.
 
-- **Settings panels use `SettingsSectionHead`** (`settings/settings-panel-head.tsx`), the `h3` under `SettingsPanelHead`, with the same outside-the-card rule: heading and card in a `space-y-3` section labelled by the heading, sections `space-y-8` apart. Automated messages uses it for both its Rules groups and its Activity sections, so the two views cannot drift. A group with no rows renders no section, and a group heading replaces a group filter: all of Rules' groups are on one page instead of behind Chips.
+- **Settings panels use `SettingsSectionHead`** (`settings/settings-panel-head.tsx`), the `h3` under `SettingsPanelHead`, with the same outside-the-card rule: heading and card in a `space-y-3` section labelled by the heading, sections `space-y-8` apart. Automated messages uses it for both its Messages groups and its Message history sections, so the two views cannot drift. A group with no rows renders no section, and a group heading replaces a group filter: all message groups are on one page instead of behind Chips.
 - **Name a section by the action, not by who it is about.** The dashboard split follow-ups into a Lead work queue and a Member work queue; an owner clearing follow-ups wants one list in due order, not two lists to reconcile. Audience is a filter (`Chip`), not a section boundary.
 - **The heading is always outside the card; the card holds content and controls only.** Every block uses `DashboardSection` (`components/dashboard/dashboard-section.tsx`) and there is **no `CardTitle` anywhere on the dashboard**. A card keeps a `CardHeader` only when something acts on its content — filter Chips, a range `Toolbar`, a source `Select` — and drops the header entirely when it has none. A header whose only job is to repeat the heading above it is the level this rule deletes.
 - Controls in that header are **left-aligned and content-sized**: put them in a `flex flex-wrap items-center gap-2` header rather than a `CardAction`, which `justify-self-end`s a lone control and stretches a bounded `Toolbar` across the whole card.
@@ -366,6 +366,22 @@ Visible product vocabulary is a shared interface contract. The same data concept
 - The verb for a note is **add**, everywhere: the quick action **Add a note**, the composer CTA **Add note** / **Add note & follow-up**, the bulk **Add note**, and the toast **Note added**. Do not mix in “create” for notes; **Create follow-up** stays the standalone dialog's own verb.
 - Internal field keys may differ, but user-facing labels must not. A new synonym requires explicit product agreement and an update to this vocabulary before implementation.
 - When adding or reviewing a table, compare every shared column and sort/filter label with the closest existing table before writing code.
+
+### Automated messages terminology
+
+The shared catalogue in `src/lib/reminders/rules.ts` owns every message-group
+and message name used by both Settings views. The view tabs are **Messages** and
+**Message history**. The group labels are **Renewals**, **Payment reminders**,
+**Keep members coming back**, and **Confirmations**.
+
+Use these exact message names: **Unpaid invoice reminders**, **Installment
+reminders**, **Promised payment reminder**, **AutoPay payment problems**,
+**Return after a membership pause**, **Invite expired members back**, and
+**Invite members to renew a service**. A row disclosure is always **Details** /
+**Hide details**; its nested customer-copy disclosure is **Message preview**.
+Do not reintroduce Rules, Activity, Collections, Retention, Invoice collection,
+Joining installments, Promise to pay, AutoPay recovery, Planned return,
+Membership win-back, or Service win-back as labels for these concepts.
 
 ### Column header
 

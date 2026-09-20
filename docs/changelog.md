@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-09-20 — Automated messages explain timing, setup, and unsaved changes
+
+`rules.ts` now owns the plain-language catalogue used by both Automated messages
+views, including Messages/Message history vocabulary and explicit editable,
+fixed, session-count, event-driven, and checkout-managed schedule capability.
+`renewal-reminders-settings.tsx` uses consistent Details/Hide details actions,
+purpose-first rows, chronological schedules, fixed-day and delayed-send
+explanations, six-day multi-select validation, adjacent Save changes/Cancel,
+visible dirty state, enabled context-named setup, and readiness for managed
+installments. Fixed worker timing, permissions, readiness-gated activation,
+no-backfill behavior, and duplicate-send behavior are unchanged. No template,
+schedule, message, deployment, or provider state changed.
+
 ## 2026-09-20 — Production product-access enforcement activated
 
 The staged rollout switch is active in Production. A guarded privileged update
