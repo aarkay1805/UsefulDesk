@@ -778,6 +778,20 @@ describe('Automated messages catalogue', () => {
   it('reports real unsaved state and clears it when a rule value is restored', async () => {
     const onUnsavedChangesChange = vi.fn();
     mockFetch();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          rules: [
+            {
+              ...rules[0],
+              settings: { enabled: false, daysBefore: [1, 3, 7] },
+            },
+            rules[1],
+          ],
+        }),
+        { status: 200 }
+      )
+    );
     render(
       <RenewalRemindersSettings
         onUnsavedChangesChange={onUnsavedChangesChange}
@@ -792,11 +806,11 @@ describe('Automated messages catalogue', () => {
       name: /Membership renewal change reminder days/i,
     });
 
-    toggleReminderDay(reminderDays, '14 days before');
+    toggleReminderDay(reminderDays, '3 days before');
     expect(onUnsavedChangesChange).toHaveBeenLastCalledWith(true);
     expect(screen.getByText('Unsaved changes')).toBeTruthy();
 
-    toggleReminderDay(reminderDays, '14 days before');
+    toggleReminderDay(reminderDays, '3 days before');
     expect(onUnsavedChangesChange).toHaveBeenLastCalledWith(false);
     expect(screen.queryByText('Unsaved changes')).toBeNull();
   });

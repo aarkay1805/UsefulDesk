@@ -126,7 +126,7 @@ function settingValuesEqual(left: unknown, right: unknown) {
   if (Array.isArray(left) && Array.isArray(right))
     return (
       left.length === right.length &&
-      left.every((value, index) => value === right[index])
+      left.every((value) => right.includes(value))
     );
   return left === right;
 }
