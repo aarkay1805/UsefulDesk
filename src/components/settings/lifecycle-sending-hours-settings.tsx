@@ -16,7 +16,11 @@ import {
 import { useLocale } from '@/hooks/use-locale';
 import { getErrorMessage } from '@/lib/errors';
 import { timeInTzToUtc } from '@/lib/locale/format';
-import type { ReminderRulePatch } from '@/lib/reminders/rules';
+import {
+  REMINDER_RULES,
+  type ReminderRuleId,
+  type ReminderRulePatch,
+} from '@/lib/reminders/rules';
 import { SettingsSectionHead } from './settings-panel-head';
 
 export type LifecycleSendingHours = {
@@ -29,17 +33,21 @@ export type LifecycleSendingHoursDraft = {
   end?: number;
 };
 
-const LIFECYCLE_MESSAGE_TYPES = [
-  'Unpaid invoice reminders',
-  'Expired membership follow-up',
-  'Expired service follow-up',
-  'Promised payment reminder',
-  'Payment link follow-up',
-  'Session pack reminders',
-  'Return after a membership pause',
-  'Invite expired members back',
-  'Invite members to renew a service',
-] as const;
+export const LIFECYCLE_SENDING_HOURS_RULE_IDS = [
+  'invoice_collection',
+  'membership_post_expiry',
+  'service_post_expiry',
+  'promise_to_pay',
+  'payment_link_follow_up',
+  'session_pack',
+  'freeze_return',
+  'membership_win_back',
+  'service_win_back',
+] as const satisfies readonly ReminderRuleId[];
+
+const LIFECYCLE_MESSAGE_TYPES = LIFECYCLE_SENDING_HOURS_RULE_IDS.map(
+  (id) => REMINDER_RULES.find((rule) => rule.id === id)?.title
+).filter((title): title is string => Boolean(title));
 
 type LifecycleSendingHoursSettingsProps = {
   scopeKey: string;
@@ -114,13 +122,13 @@ export const LifecycleSendingHoursSettings = forwardRef<
       <SettingsSectionHead
         id="lifecycle-sending-hours-title"
         title="Sending hours"
-        description="Choose when lifecycle reminders may reach members in this branch."
+        description="Choose when the messages listed below can be sent."
       />
       <Card>
         <CardContent className="space-y-5">
           <div className="space-y-2">
             <div className="text-sm font-medium">
-              Messages that share this window
+              Messages that share these sending hours
             </div>
             <ul className="text-muted-foreground grid list-disc gap-x-8 gap-y-1 pl-5 text-sm sm:grid-cols-2">
               {LIFECYCLE_MESSAGE_TYPES.map((messageType) => (
@@ -195,11 +203,12 @@ export const LifecycleSendingHoursSettings = forwardRef<
           <div className="text-muted-foreground max-w-3xl space-y-1 text-sm leading-5">
             <p>
               Membership renewal, service renewal, and installment reminders
-              still start after {localTime(9)}. They do not use this window.
+              still start after {localTime(9)}. They do not use these sending
+              hours.
             </p>
             <p>
-              Payment confirmations and AutoPay updates send from their recorded
-              events. They do not use this window.
+              Payment confirmations and AutoPay updates send when the payment
+              status changes. They do not use these sending hours.
             </p>
           </div>
 
@@ -211,7 +220,13 @@ export const LifecycleSendingHoursSettings = forwardRef<
           ) : null}
         </CardContent>
         {dirty ? (
-          <CardFooter className="justify-end gap-2">
+          <CardFooter className="gap-2">
+            <span
+              className="text-amber-foreground mr-auto text-sm"
+              role="status"
+            >
+              Unsaved changes
+            </span>
             <Button
               size="sm"
               variant="outline"

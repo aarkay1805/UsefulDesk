@@ -116,15 +116,24 @@ describe('Lifecycle sending hours', () => {
       'Invite members to renew a service',
     ]);
     expect(
+      screen.getByText('Choose when the messages listed below can be sent.')
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Messages that share these sending hours')
+    ).toBeTruthy();
+    expect(
       screen.getByText(
         /Membership renewal, service renewal, and installment reminders still start after/i
       )
     ).toBeTruthy();
     expect(
       screen.getByText(
-        /Payment confirmations and AutoPay updates send from their recorded events/i
+        /Payment confirmations and AutoPay updates send when the payment status changes/i
       )
     ).toBeTruthy();
+    expect(screen.queryByText(/lifecycle reminders/i)).toBeNull();
+    expect(screen.queryByText(/recorded events/i)).toBeNull();
+    expect(screen.queryByText(/this window/i)).toBeNull();
   });
 
   it('keeps cancel and save local to the hours draft', async () => {
@@ -133,6 +142,7 @@ describe('Lifecycle sending hours', () => {
 
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
     await chooseStart('10:00 am');
+    expect(screen.getByRole('status').textContent).toBe('Unsaved changes');
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
