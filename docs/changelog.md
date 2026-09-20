@@ -6,16 +6,61 @@
 
 ---
 
+## 2026-09-20 — Production product-access enforcement activated
+
+The staged rollout switch is active in Production. A guarded privileged update
+rechecked the complete 11-organization access roster, VBF's unchanged version-4
+trial deadline (`2026-09-20T18:41:32.676609Z`), empty Rajat Kashyap/VBF protected
+queues, 120/120 successful 24-hour cron runs, 30/30 HTTP 200 worker responses, and
+the clean current READY deployment before changing only
+`private.product_access_settings.enforcement_enabled` at 13:02:42 IST. Independent
+verification found all ten complimentary organizations allowed, VBF allowed only
+under its unchanged active trial, zero denied organizations, and no new access audit
+or support request. The owner-authorized Android substitute then cold-launched the
+installed build-2 APK on the API 36 ARM64 emulator and restored the complimentary
+Rajat Kashyap Inbox with no crash match. The first operations and renewal cron runs
+after activation succeeded with HTTP 200 worker responses, and the current web
+deployment had no post-activation 4xx/5xx or error/fatal log. No entitlement,
+subscription, message, support, payment, or provider action occurred; rollback was
+not required. Durable evidence is in `docs/product-access.md` and
+`docs/mobile/internal-testing.md`.
+
+## 2026-09-20 — Standalone mobile Preview build 2 distributed
+
+Fresh iOS and Android Preview binaries now ship version 0.1.0 / build 2 from
+base revision `271553cc`. Expo SDK 57 dependencies and the shared lockfile were
+realigned to the current recommended patches, root overrides keep the native
+graph deduplicated, and app config includes the required splash-screen/web
+browser plugins plus explicit platform build numbers. Clean install, Expo
+Doctor 21/21, mobile lint/typecheck and 72 suites / 802 tests, both native
+exports, and the full root gate (458 files / 3,447 tests and the Next production
+build) pass. EAS builds `3c4684ca-1169-4a8c-86df-5fb6009849cd` (iOS) and
+`e352e5d4-ecbd-4b44-8afd-f21b2928b97e` (Android) finished with the existing
+signing. The iOS binary passed local signature inspection, installed on the
+registered iPhone Air, and cold-launched without Metro into the restored Inbox.
+Production product-access acceptance on that binary also passed Preview/build and
+backend diagnostics, normal access with enforcement disabled, reversible branch
+switching, and sign-out reachability; the blocked support surface was not
+manufactured through an entitlement mutation.
+The signed Android APK passed manifest/signature inspection, installed on an API
+36 ARM64 emulator, and cold-launched without Metro. After manual sign-in, a cold
+restart restored Inbox; Diagnostics confirmed Preview/build 2, Production hosts,
+Rajat Kashyap, Owner, and Ready, while Account exposed branch choices and sign-out
+without invoking them. The accessible product-access path passed under disabled
+enforcement; the blocked support surface and unavailable physical-device pass remain
+separate. Durable evidence is in `docs/mobile/internal-testing.md`.
+
 ## 2026-09-20 — Production platform-admin action acceptance passed
 
 The MFA-protected production `/platform-admin` flow completed an audited VBF
 suspend/restore round-trip. Database verification found the expected immutable
 `suspend` and `restore` records, access version 2→4, no suspended state after
 restore, and the original 21 September 2026 00:11 IST trial deadline unchanged.
-Global enforcement remained disabled, rollout bypass kept effective access
+At that checkpoint, global enforcement remained disabled, rollout bypass kept effective access
 available, VBF had no active broadcast/automation/flow work to retire, recent
 database worker responses stayed HTTP 200, and Vercel reported no runtime errors.
-Native distribution/device acceptance and global activation remain pending.
+Accessible build-2 iOS product-access acceptance had passed; Android, the blocked
+support surface, and global activation were still pending at that checkpoint.
 
 ## 2026-09-17 — Automated messages: tabs under the heading, one section per group
 

@@ -162,3 +162,121 @@ This is development evidence, not acceptance of the standalone build 1 APK or
 IPA. The new media modules require an iOS rebuild, and the remaining tester
 release gates above still apply. See [media-ui-benchmark.md](media-ui-benchmark.md)
 for the WhatsApp comparison, file metadata limitation, and exact scope.
+
+## Fresh Preview build 2 — 2026-09-20
+
+Fresh standalone Preview binaries were built from `main` at EAS-reported base
+revision `271553cc7dfe2b5233c89ba3a720c7a452891dd8`. The uploaded archive also
+contained the release-preparation working-tree changes: Expo SDK 57 patch
+alignment and native dependency overrides, the required splash-screen and web
+browser config plugins, the build-number increment, and the matching workspace
+contract expectation. The release remains version 0.1.0; iOS `buildNumber` and
+Android `versionCode` are both 2.
+
+| Check                 | Evidence/status                                                                                                                                                                                                                                                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clean install         | Pass: final dependency graph reproduced with `npm ci`                                                                                                                                                                                                                                                                         |
+| Expo SDK health       | Pass: Expo Doctor 21/21 after patch alignment and native dependency deduplication                                                                                                                                                                                                                                             |
+| Mobile gate           | Pass: lint, typecheck, 72 suites / 802 tests                                                                                                                                                                                                                                                                                  |
+| Native bundle exports | Pass: iOS 2,624 modules / 23 assets / 6.5 MB bundle; Android 2,719 modules / 27 assets / 6.8 MB bundle                                                                                                                                                                                                                        |
+| Root gate             | Pass: lint (0 errors, 3 existing lead-page warnings), typecheck, 458 files / 3,447 tests, and the Next production build                                                                                                                                                                                                       |
+| Preview configuration | Existing EAS project confirmed; all four required Preview variable names were present without printing values; the profile override retained `EXPO_PUBLIC_APP_ENV=preview`                                                                                                                                                    |
+| iOS signing           | Existing remote distribution certificate and active ad hoc profile were accepted; the registered iPhone Air was included                                                                                                                                                                                                      |
+| iOS build             | `3c4684ca-1169-4a8c-86df-5fb6009849cd`: finished, version 0.1.0 / build 2; downloaded app passed strict deep code-sign verification                                                                                                                                                                                           |
+| Android build         | `e352e5d4-ecbd-4b44-8afd-f21b2928b97e`: finished, version 0.1.0 / build 2; APK manifest matched the expected package and signature verification passed with one v2 signer                                                                                                                                                     |
+| iPhone installation   | Pass: installed on the registered, paired iPhone Air; device inventory confirmed version 0.1.0 / build 2                                                                                                                                                                                                                      |
+| iPhone cold launch    | Pass: Metro port 8081 had no listener; the installed app launched, remained running, and restored the authenticated Inbox                                                                                                                                                                                                     |
+| Android installation  | Pass on emulator: exact cached build-2 APK installed on a local API 36 Google Play ARM64 Pixel 7 AVD; package inventory confirmed version 0.1.0 / build 2 and SHA-256 `2397780481abcc50081c97b1a7461e53f9281fc3e3411fdaeb006570fe5cedda`                                                                                      |
+| Android cold launch   | Pass on emulator: with no Metro listener, Android reported `LaunchState: COLD`; the standalone process stayed foregrounded and rendered the native sign-in surface with no crash-buffer match                                                                                                                                 |
+| Android access flow   | Pass for the accessible emulator path: after manual sign-in, a cold restart restored Inbox; Diagnostics confirmed Preview/build 2, Production hosts, Rajat Kashyap, Owner, and Ready; Account exposed branch choices and sign-out. The blocked support surface remained unavailable without a forbidden access-state mutation |
+
+No signed artifact URL, environment value, certificate material, or credential
+was recorded. No message, provider/payment path, SaaS enforcement setting, or
+trial state was exercised. Build success plus the iPhone launch is not full
+device acceptance: Android branch/viewer actions, media/reaction/realtime, push,
+blocked-access recovery, and accessibility matrices remain explicitly unverified
+on build 2.
+
+The production Android product-access attempt on 20 September 2026 used a local
+API 36 Google Play ARM64 Pixel 7 AVD because the physical device was unavailable.
+The exact cached build-2 APK installed and cold-launched without Metro into the
+native sign-in surface. After the user manually authenticated, a force-stop and
+cold launch restored the stored session directly to the normal Inbox. No trial or
+access-recovery banner appeared, matching the same-day read-only Production
+evidence that enforcement was disabled and Rajat Kashyap was complimentary and
+allowed. Diagnostics confirmed Preview environment and push channel, version 0.1.0
+/ build 2, the intended Production API/Supabase hosts, Rajat Kashyap branch and
+organization, Owner role, and Ready status. Account exposed the current branch,
+alternative branch selectors, Diagnostics, and sign-out; none of the destructive
+controls was invoked. The Contact support action exists only on the blocked-access
+surface, which could not be reached from this allowed account without a forbidden
+entitlement/enforcement mutation and remains covered by automated tests rather than
+production emulator interaction. Result: pass for the accessible Android build-2
+product-access path. For the guarded Production activation, the owner accepted this
+exact emulator path as the Android substitute because the physical device is
+permanently broken.
+No support request, sign-out, branch switch, message, provider/payment action,
+subscription or trial mutation, or enforcement change was performed.
+
+The corresponding iOS product-access attempt used the paired, registered iPhone
+Air and the installed version 0.1.0 / build 2. Device inventory and the installed
+executable path identify EAS build `3c4684ca-1169-4a8c-86df-5fb6009849cd`.
+After the owner unlocked the device, a foreground terminate-and-launch passed with
+no Metro listener and the standalone process remained alive. The authenticated
+Rajat Kashyap Inbox restored and mounted normal operational content without an
+access-recovery interstitial or trial banner, as expected for its complimentary
+entitlement while enforcement is disabled.
+
+In-app Diagnostics confirmed Preview environment and push channel, version 0.1.0 /
+build 2, `desk.usefulmade.com`, the intended Production Supabase host, Rajat
+Kashyap branch and organization, Owner role, and Ready status. The Account screen
+exposed the alternative branch choices and sign-out action. A reversible Rajat
+Kashyap -> Panchkula switch mounted Panchkula's empty Inbox and marked it current;
+switching back restored the original Rajat Kashyap Inbox. Sign-out was not invoked
+to preserve the authenticated tester session. The support recovery surface is not
+reachable from this allowed account, and no entitlement or enforcement state was
+changed to manufacture a blocked state.
+
+A read-only Production database check at 11:54 IST confirmed enforcement disabled,
+the 14-day policy, ten complimentary organizations, one active trial, and no
+expired or suspended organizations. The previously restored Rajat Kashyap
+organization was complimentary, unsuspended, and allowed. VBF remained the sole
+trial, unsuspended at access version 4, ending 21 September 2026 at 00:11 IST;
+the disabled rollout switch continued to allow it. Four focused native suites
+covering auth restoration, the product-access service/gate, and Account boundaries
+passed 20 tests. Result: pass for the accessible iOS build-2 product-access path;
+the unavailable blocked-access support surface remains covered by automated tests,
+not production device interaction. No support request, message, provider/payment
+action, subscription/trial mutation, enforcement change, or sign-out was performed.
+
+## Production product-access activation — 2026-09-20
+
+The guarded preflight found enforcement disabled, 11/11 organizations with access
+rows, ten complimentary organizations, no suspended or expired organization, and
+VBF as the only active trial. All Rajat Kashyap organizations were complimentary,
+unsuspended, and allowed. VBF remained unsuspended at version 4 and its stored
+deadline stayed `2026-09-20T18:41:32.676609Z` (21 September 2026 00:11 IST).
+Rajat Kashyap and VBF had zero active broadcast, recipient, automation, or flow
+work. Database runtime evidence showed 120/120 successful cron runs and 30/30 HTTP
+200 worker responses over the prior 24 hours, no queued HTTP requests, and the
+current READY web deployment had 53 HTTP 200s with no error/fatal logs.
+
+At `2026-09-20T07:32:42.127637Z`, one atomic privileged database operation
+rechecked those facts and changed only the global enforcement boolean from false
+to true. The independent read found all ten complimentary organizations still
+allowed and VBF allowed only through its unchanged active trial; there were zero
+denied organizations, queue changes, new access audits, or support requests. No
+subscription or entitlement row changed.
+
+After activation, the installed version 0.1.0 / build 2 Android app was force-stopped
+and launched on the accepted API 36 ARM64 emulator. Android reported
+`LaunchState: COLD`; the existing authenticated complimentary Rajat Kashyap session
+restored directly to the normal Inbox, live conversation rows rendered, the process
+remained foregrounded, and the post-launch log scan found no app or React Native
+crash match. Diagnostics again showed Preview/build 2, the Production API and
+Supabase hosts, Rajat Kashyap branch and organization, Owner, and Ready. No branch
+switch, sign-out, message, support request, payment, or provider action was invoked.
+The first post-activation operations and renewal cron runs both succeeded with HTTP
+200 worker responses; the current web deployment showed 14 HTTP 200s and no 4xx,
+5xx, error, or fatal log after activation. Activation remained in place; rollback
+was not needed.

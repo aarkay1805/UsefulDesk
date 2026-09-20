@@ -272,7 +272,7 @@ Organization access details open in a responsive side drawer, keeping the organi
 
 Authenticator setup recovery is fixed locally: QR payloads render safely, retries clear unfinished registrations from this screen, and verified authenticators remain intact.
 
-Organization-wide 14-day verified-owner trials, complimentary access for existing customers, web/native expiry-support gates, and minimal MFA-protected, audited platform-admin access controls are implemented. Database migrations and initial admin/support configuration are applied; enforcement remains disabled. The web release includes the admin panel and access gates; the administrator completed local authenticator setup and verified the organization list. Production admin-action acceptance passed on 20 September 2026 through an audited VBF suspend/restore round-trip without changing its trial deadline; native client distribution/device acceptance and trial rollout activation remain pending. Ten organizations retain complimentary access, while VBF remains the explicitly authorized trial pilot ending 21 September 2026 at 00:11 IST. Checkout, automated SaaS billing, cancellation scheduling, and the broader admin dashboard are deferred. Scope: [trial access MVP](trial-access-mvp.md); operations: [product access](../docs/product-access.md).
+Organization-wide 14-day verified-owner trials, complimentary access for existing customers, web/native expiry-support gates, and minimal MFA-protected, audited platform-admin access controls are implemented and enforced in Production. The guarded activation on 20 September 2026 changed only the global switch after the complete access roster, protected queues, database workers, and current web runtime passed preflight; the first operations and renewal scheduler cycles also passed after activation. All ten complimentary organizations remain allowed; VBF remains the sole trial, unsuspended and allowed only until its unchanged 21 September 2026 00:11 IST deadline. Build-2 iOS acceptance passed on the physical iPhone, and the owner accepted the API 36 ARM64 emulator path as the Android substitute because the physical device is permanently broken; the post-activation Android cold launch restored the complimentary Rajat Kashyap Inbox normally. The blocked-access support surface remains automated-test evidence rather than a manufactured Production denial. Checkout, automated SaaS billing, cancellation scheduling, and the broader admin dashboard are deferred. Scope: [trial access MVP](trial-access-mvp.md); operations: [product access](../docs/product-access.md).
 
 ## ✅ Phase 1 — the renewal wedge
 
@@ -298,13 +298,13 @@ bubbles. The rebuilt Android development client passed photo opening, audio,
 inline/fullscreen video, and light/dark large-text inspection; mobile lint,
 typecheck, and 70 suites / 791 tests pass. The WhatsApp comparison and remaining
 filename persistence, waveform/scrubbing, and Android photo zoom gaps are in
-`docs/mobile/media-ui-benchmark.md`. iOS native rebuild/acceptance and a new
-standalone tester build remain pending; v0.1.0/build 1 lacks this UI.
+`docs/mobile/media-ui-benchmark.md`. The later standalone build 2 contains this UI;
+its device media matrix remains open, while historical v0.1.0/build 1 lacks it.
 The subsequent native-player teardown correction passes lint/typecheck and
 151 focused media/conversation tests, including the reproduced disposal race.
 
-Mobile release readiness: **internal tester distribution is now the first
-release target.** `apps/mobile/eas.json` has a standalone `preview` profile
+Mobile release readiness, build-1 checkpoint: **internal tester distribution is
+the first release target.** `apps/mobile/eas.json` has a standalone `preview` profile
 (Android APK and iOS internal distribution), and the existing EAS project has
 the four public Preview environment settings. SDK 57 patch dependencies are
 aligned and clean-install Expo Doctor passes 21/21; mobile lint/typecheck and
@@ -321,6 +321,26 @@ recorded as promoted on 2026-09-08. Live reaction retesting remains pending.
 Android document/image/video/audio delivery passed on build 1;
 iOS media, attachment opening/playback, Preview push, and remaining device gates
 still block release sign-off.
+
+A fresh standalone Preview release now exists as version 0.1.0 / build 2 from
+base revision `271553cc`. Clean install, Expo Doctor 21/21, mobile lint,
+typecheck, 72 suites / 802 tests, both platform exports, and the full root gate
+pass. EAS builds `3c4684ca-1169-4a8c-86df-5fb6009849cd` (iOS) and
+`e352e5d4-ecbd-4b44-8afd-f21b2928b97e` (Android) finished with the existing
+signing. Build 2 is installed and cold-launched without Metro on the registered
+iPhone Air, with the authenticated Inbox restored. Its product-access path also
+passed Production diagnostics, normal access under the disabled rollout switch,
+a reversible branch switch, and sign-out reachability without invoking sign-out.
+The exact Android APK is signed, its manifest is correct, and it installed and
+cold-launched without Metro on an API 36 ARM64 emulator. After manual sign-in, a
+cold restart restored the Inbox; Diagnostics confirmed Preview/build 2, Production
+hosts, Rajat Kashyap, Owner, and Ready, while Account exposed branch choices and
+sign-out without invoking them. The accessible product-access path passed under
+disabled enforcement; the blocked support surface remains unavailable, while the
+owner accepted this exact emulator path as the Android substitute because the
+physical device is permanently broken. No provider path was exercised, and the
+build-2 push, accessibility, media, reaction, realtime, Android workflow, and
+blocked-access support matrix remains open in `docs/mobile/internal-testing.md`.
 
 Engineering maintenance: **native Inbox refreshes retain the loaded conversation
 range across live events, manual refresh, foreground, and reconnect.** Bounded

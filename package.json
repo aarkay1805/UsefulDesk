@@ -118,6 +118,15 @@
     "vitest": "^4.1.9"
   },
   "overrides": {
+    "expo": "57.0.24",
+    "expo-constants": "57.0.19",
+    "expo-font": "57.0.4",
+    "@expo/fingerprint": "0.20.13",
+    "expo-asset": "57.0.18",
+    "expo-file-system": "57.0.7",
+    "expo-keep-awake": "57.0.2",
+    "expo-modules-core": "57.0.18",
+    "expo-modules-jsi": "57.1.0",
     "postcss": "^8.5.26",
     "ip-address": "^10.5.0",
     "fast-uri": "^3.1.5",

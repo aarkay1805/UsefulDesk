@@ -64,10 +64,10 @@ Release configuration: both migrations are applied and all 11 existing organizat
 have access records. Ten retain complimentary access; VBF is the explicitly authorized
 14-day trial pilot ending 21 September 2026 at 00:11 IST. One explicitly authorized
 initial administrator and the provided WhatsApp support number are configured.
-**Enforcement is disabled.**
+**Enforcement was activated in Production on 20 September 2026 at 13:02:42 IST.**
 The web/server release includes `/platform-admin`, the customer gate, and outbound
-enforcement. The native gate is implemented in source; distributing an updated
-mobile build and native device acceptance remain pending.
+enforcement. The native gate is distributed in standalone Preview build 2 and the
+guarded accessible-device acceptance is complete.
 
 1. Verify the web release at `https://desk.usefulmade.com/platform-admin` using
    the authorized administrator login and authenticator.
@@ -76,11 +76,13 @@ mobile build and native device acceptance remain pending.
    2026: VBF was suspended and immediately restored through `/platform-admin`, both
    immutable audit entries were verified, its version advanced from 2 to 4, its trial
    deadline stayed exact, and rollout bypass kept operational access available.
-   Distribute/test the updated native client before enabling enforcement.
-3. Enable `private.product_access_settings.enforcement_enabled` through a privileged
-   Supabase operation after confirming the intended rollout date. The ten existing
-   complimentary records retain access, VBF remains the authorized trial pilot, and
-   new organizations then get verified-owner trials.
+   The updated native client was then distributed and tested before enforcement
+   was enabled.
+3. Completed on 20 September 2026: enabled
+   `private.product_access_settings.enforcement_enabled` through a guarded privileged
+   Supabase operation. The ten existing complimentary records retained access, VBF
+   remained the authorized trial pilot, and new organizations now get verified-owner
+   trials.
 4. Observe access-denied errors and setup failures. Disabling the switch is the
    emergency access rollback; it does not erase trial/audit records or resume retired
    queues. Do not drop the schema while this application version is deployed.
@@ -96,4 +98,54 @@ Web/server checks: Vitest, TypeScript, ESLint, and a production Next build. Nati
 checks: gate/service/auth/account tests, scoped ESLint, and native TypeScript. The
 administrator completed local authenticator enrollment and confirmed the real
 organization list. The production admin-action round-trip passed without extending
-the trial. Native-device acceptance remains separate from automated tests.
+the trial. Android build 2 installed and cold-launched without Metro on a local
+API 36 ARM64 emulator on 20 September 2026. After manual authentication, a cold
+restart restored Inbox and normal access with no trial/recovery banner, matching
+the complimentary allowed account during the pre-activation, disabled-enforcement
+checkpoint. Diagnostics confirmed Preview, version 0.1.0 / build 2, the intended
+Production hosts, Rajat Kashyap
+organization, Owner role, and Ready status. Account exposed alternate branch choices
+and sign-out without invoking either. The blocked Contact support surface could not
+be reached without a forbidden access-state mutation and remains covered by focused
+tests. The accessible emulator path passed and was explicitly accepted for this
+activation as the Android substitute because the physical device is permanently
+broken.
+
+The build-2 iOS acceptance on the same date passed on the paired iPhone Air after
+the owner unlocked it. With no Metro listener, a foreground terminate-and-launch of
+EAS build `3c4684ca-1169-4a8c-86df-5fb6009849cd` restored the authenticated Rajat
+Kashyap Inbox and normal operational access. Diagnostics confirmed Preview,
+version 0.1.0 / build 2, the intended Production hosts, Rajat Kashyap organization,
+Owner role, and Ready status. A reversible switch to Panchkula mounted its Inbox
+and switching back restored the original branch. Account exposed sign-out, but it
+was not invoked. Production read-only evidence showed enforcement disabled, Rajat
+Kashyap complimentary and allowed, and VBF as the sole active trial ending 21
+September 2026 at 00:11 IST. The blocked-access support surface was intentionally
+not manufactured through an entitlement or enforcement mutation and remains
+covered by the focused automated native tests rather than production device use.
+
+The guarded Production activation preflight at 13:00 IST re-read all 11 access
+rows: ten were complimentary, VBF was the sole active trial, none were suspended
+or expired, all Rajat Kashyap organizations were complimentary and allowed, and
+VBF remained unsuspended at version 4 with the unchanged database deadline
+`2026-09-20T18:41:32.676609Z`. Rajat Kashyap and VBF had zero active
+broadcasts, pending recipients, automation executions, or flow runs. The prior
+24 hours had 120/120 successful cron runs and 30/30 HTTP 200 worker responses,
+with no queued HTTP work; the current READY Vercel deployment had 53 HTTP 200s
+and no error/fatal logs.
+
+One atomic privileged update rechecked those invariants and changed only
+`private.product_access_settings.enforcement_enabled` from false to true at
+`2026-09-20T07:32:42.127637Z`. Independent verification found enforcement active,
+all ten complimentary organizations allowed, VBF allowed only by its unchanged
+active trial, zero denied access rows, unchanged protected queues, and no new
+access audit or support-request row. The exact build-2 Android APK then cold-launched
+on the accepted API 36 ARM64 emulator, restored the authenticated complimentary
+Rajat Kashyap session directly to Inbox, rendered normal conversations, and produced
+no app/React Native crash match. Diagnostics again confirmed Preview/build 2, the
+Production API and Supabase hosts, Rajat Kashyap organization, Owner, and Ready.
+The first post-activation operations and renewal cron runs both succeeded and their
+two database HTTP responses were 200; the current web deployment accumulated 14
+HTTP 200s, no 4xx/5xx response, and no error/fatal log after activation. No trial,
+subscription, message, support, payment, or provider action was performed, and
+rollback was not required.

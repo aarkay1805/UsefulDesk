@@ -13,10 +13,12 @@ const config: UsefulDeskExpoConfig = {
   newArchEnabled: true,
   ios: {
     bundleIdentifier: 'com.usefulmade.usefuldesk.agent',
+    buildNumber: '2',
     infoPlist: { ITSAppUsesNonExemptEncryption: false },
   },
   android: {
     package: 'com.usefulmade.usefuldesk.agent',
+    versionCode: 2,
     googleServicesFile: './google-services.json',
     predictiveBackGestureEnabled: true,
   },
@@ -24,6 +26,8 @@ const config: UsefulDeskExpoConfig = {
     'expo-router',
     'expo-notifications',
     'expo-secure-store',
+    'expo-splash-screen',
+    'expo-web-browser',
     'expo-font',
     'expo-image',
     'expo-video',
