@@ -20,6 +20,12 @@ import {
   type TableSkeletonColumn,
 } from '@/components/table/table-skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -103,7 +109,11 @@ const OUTCOMES: Record<
   waiting: { label: 'Waiting', variant: 'neutral', group: 'pending' },
   paused: { label: 'Paused', variant: 'warning', group: 'pending' },
   attempting: { label: 'Sending', variant: 'info', group: 'pending' },
-  accepted: { label: 'Accepted', variant: 'info', group: 'sent' },
+  accepted: {
+    label: 'Accepted by WhatsApp',
+    variant: 'info',
+    group: 'sent',
+  },
   delivered: { label: 'Delivered', variant: 'success', group: 'sent' },
   read: { label: 'Read', variant: 'success', group: 'sent' },
   // Blocked also covers member details such as a missing phone number, so it
@@ -151,7 +161,7 @@ const DIAGNOSTIC_STATE: Record<
   ReminderDiagnosticState,
   { label: string; variant: BadgeVariant }
 > = {
-  ready: { label: 'Eligible now', variant: 'info' },
+  ready: { label: 'Can send now', variant: 'info' },
   deferred: { label: 'Waiting', variant: 'neutral' },
   no_eligible: { label: 'Nothing due', variant: 'neutral' },
   blocked: { label: 'Blocked', variant: 'warning' },
@@ -165,9 +175,9 @@ const HISTORY_COLUMNS = [
     headClassName: 'pl-0',
     cellClassName: 'pl-0',
   },
-  { label: 'Rule', variant: 'stacked' },
+  { label: 'Message', variant: 'stacked' },
   { label: 'Recorded', variant: 'stacked' },
-  { label: 'Outcome', variant: 'badge' },
+  { label: 'Status', variant: 'badge' },
   {
     label: 'Actions',
     variant: 'actions',
@@ -280,8 +290,8 @@ function ScheduleReadiness({
     >
       <SettingsSectionHead
         id="automated-message-readiness-heading"
-        title="Scheduled reminder readiness"
-        description="A live check of whether these scheduled reminders can send right now."
+        title="Renewal and installment checks"
+        description="Checks membership renewals, service renewals, and installment reminders only."
       />
       <Card>
         <CardContent>
@@ -371,7 +381,7 @@ function ReadinessRow({
             '-ml-2.5 self-start @xl/activity:ml-0'
           )}
         >
-          Review rule
+          Review message
         </Link>
       ) : null}
     </li>
@@ -499,13 +509,13 @@ function MessageHistory({
       <SettingsSectionHead
         id="automated-message-history-heading"
         title="Message history"
-        description="Messages from every rule with their latest outcome, newest first."
+        description="Automated messages and their latest status, newest first."
       />
 
       <div className="grid grid-cols-2 gap-3 @2xl/activity:flex @2xl/activity:flex-wrap @2xl/activity:items-end">
         <div className="col-span-2 grid gap-1.5 @2xl/activity:w-56">
           <Label htmlFor="automated-message-rule" size="sm">
-            Rule
+            Message
           </Label>
           <Select
             value={rule}
@@ -515,7 +525,7 @@ function MessageHistory({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All rules</SelectItem>
+              <SelectItem value={ALL}>All messages</SelectItem>
               {REMINDER_RULE_GROUPS.map((group) => (
                 <SelectGroup key={group}>
                   <SelectLabel>{REMINDER_RULE_GROUP_LABELS[group]}</SelectLabel>
@@ -533,7 +543,7 @@ function MessageHistory({
         </div>
         <div className="col-span-2 grid gap-1.5 @2xl/activity:w-36">
           <Label htmlFor="automated-message-outcome" size="sm">
-            Outcome
+            Status
           </Label>
           <Select
             value={outcome}
@@ -543,7 +553,7 @@ function MessageHistory({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All outcomes</SelectItem>
+              <SelectItem value={ALL}>All statuses</SelectItem>
               {OUTCOME_GROUPS.map((group) => (
                 <SelectGroup key={group.id}>
                   <SelectLabel>{group.label}</SelectLabel>
@@ -623,8 +633,8 @@ function MessageHistory({
           }
           hint={
             filtered
-              ? 'Try a different rule, outcome, or date range.'
-              : 'Messages appear here once a rule queues or sends one. Readiness above shows what can send now.'
+              ? 'Try a different message, status, or date range.'
+              : 'Messages appear here once a message type queues or sends one. The checks above cover renewals and installments only.'
           }
         />
       ) : (
@@ -672,16 +682,17 @@ type RowLink = {
   href: string | null;
 };
 
-/** Fixed order, so icon actions stay in the same column on every row. */
+/** Relevant destinations for this history record. */
 function rowLinks(
   row: AutomatedMessageActivityRow,
   accountId: string | null
 ): RowLink[] {
+  const contactName = row.contact_name?.trim() || 'this member';
   return [
     {
       key: 'conversation',
-      label: 'Conversation',
-      action: 'Open conversation',
+      label: 'Open chat',
+      action: `Open chat with ${contactName}`,
       icon: MessageCircle,
       href: row.conversation_id
         ? branchHref(`/inbox?c=${row.conversation_id}`, accountId)
@@ -690,7 +701,7 @@ function rowLinks(
     {
       key: 'invoice',
       label: 'Invoice',
-      action: 'Open invoice',
+      action: `View invoice for ${contactName}`,
       icon: ReceiptText,
       href: row.invoice_id
         ? branchHref(
@@ -704,7 +715,7 @@ function rowLinks(
       // have created; it opens the profile where that work lives.
       key: 'follow-up',
       label: 'Follow-up',
-      action: 'Open follow-up',
+      action: `View follow-up for ${contactName}`,
       icon: ListTodo,
       href: row.follow_up_id
         ? branchHref(
@@ -715,8 +726,8 @@ function rowLinks(
     },
     {
       key: 'member',
-      label: 'Member',
-      action: 'Open member',
+      label: 'View member',
+      action: `View member ${contactName}`,
       icon: UserRound,
       href: memberHref(row, accountId),
     },
@@ -767,6 +778,44 @@ function OutcomeBadge({
     outcome
   ] ?? { label: outcome, variant: 'neutral' };
   return <Badge variant={presentation.variant}>{presentation.label}</Badge>;
+}
+
+function ActivityExplanation({
+  row,
+  className,
+}: {
+  row: AutomatedMessageActivityRow;
+  className?: string;
+}) {
+  const hasProviderDetails = Boolean(
+    row.provider_error_title || row.provider_error_detail
+  );
+  return (
+    <div className={className}>
+      <p className="text-muted-foreground text-pretty">{activityReason(row)}</p>
+      {hasProviderDetails ? (
+        <Accordion className="mt-1">
+          <AccordionItem value="provider-details">
+            <AccordionTrigger>Provider details</AccordionTrigger>
+            <AccordionContent>
+              {row.provider_error_title ? (
+                <p className="break-words">
+                  <span className="font-medium">Title:</span>{' '}
+                  {row.provider_error_title}
+                </p>
+              ) : null}
+              {row.provider_error_detail ? (
+                <p className="break-words">
+                  <span className="font-medium">Detail:</span>{' '}
+                  {row.provider_error_detail}
+                </p>
+              ) : null}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      ) : null}
+    </div>
+  );
 }
 
 /** Narrow containers: one self-contained record per row, actions spelled out
@@ -843,9 +892,7 @@ function HistoryList({
                 </span>
               </p>
             </div>
-            <p className="text-muted-foreground mt-2 text-pretty">
-              {activityReason(row)}
-            </p>
+            <ActivityExplanation row={row} className="mt-2" />
             {row.next_attempt_at ? (
               <p className="text-muted-foreground mt-0.5 text-xs tabular-nums">
                 Next attempt: {fmt.dateTime(row.next_attempt_at)}
@@ -858,6 +905,7 @@ function HistoryList({
                   <Link
                     key={link.key}
                     href={link.href!}
+                    aria-label={link.action}
                     data-slot="button"
                     className={buttonVariants({ variant: 'ghost', size: 'sm' })}
                   >
@@ -900,7 +948,7 @@ function HistoryTable({
             <col className="w-48" />
             <col className="w-28" />
             <col />
-            <col className="w-32" />
+            <col className="w-44" />
           </colgroup>
           <TableHeader>
             <TableRow interactive={false}>
@@ -967,9 +1015,7 @@ function HistoryTable({
                     </TableCell>
                     <TableCell className="whitespace-normal">
                       <OutcomeBadge outcome={row.outcome} />
-                      <p className="text-muted-foreground mt-1 text-xs text-pretty">
-                        {activityReason(row)}
-                      </p>
+                      <ActivityExplanation row={row} className="mt-1 text-xs" />
                       {row.next_attempt_at ? (
                         <p className="text-muted-foreground mt-0.5 text-xs tabular-nums">
                           Next attempt: {fmt.dateTime(row.next_attempt_at)}
@@ -977,39 +1023,30 @@ function HistoryTable({
                       ) : null}
                     </TableCell>
                     <TableCell className="pr-0">
-                      <div className="flex justify-end gap-0.5">
-                        {rowLinks(row, accountId).map((link) => {
-                          if (!link.href)
-                            return (
-                              <span
-                                key={link.key}
-                                aria-hidden="true"
-                                className="size-7 shrink-0"
-                              />
-                            );
-                          const Icon = link.icon;
-                          return (
+                      <div className="flex flex-wrap justify-end gap-0.5">
+                        {rowLinks(row, accountId)
+                          .filter((link) => link.href)
+                          .map((link) => (
                             <Tooltip key={link.key}>
                               <TooltipTrigger
                                 delay={350}
                                 render={
                                   <Link
-                                    href={link.href}
+                                    href={link.href!}
                                     aria-label={link.action}
                                     data-slot="button"
                                     className={buttonVariants({
                                       variant: 'ghost',
-                                      size: 'icon-sm',
+                                      size: 'xs',
                                     })}
                                   />
                                 }
                               >
-                                <Icon aria-hidden="true" />
+                                {link.label}
                               </TooltipTrigger>
                               <TooltipContent>{link.action}</TooltipContent>
                             </Tooltip>
-                          );
-                        })}
+                          ))}
                       </div>
                     </TableCell>
                   </TableRow>

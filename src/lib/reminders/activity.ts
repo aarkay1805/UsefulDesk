@@ -114,7 +114,7 @@ const reasonLabels: Record<string, string> = {
   waiting_for_send_window: 'Waiting for the scheduled send window.',
   missing_phone: 'The member has no phone number.',
   whatsapp_not_connected: 'WhatsApp is not connected for this branch.',
-  provider_delivery_failed: 'WhatsApp reported that delivery failed.',
+  provider_delivery_failed: 'WhatsApp could not deliver this message.',
   lease_expired_before_outcome:
     'A provider attempt needs review before another send.',
   lease_expired_before_provider:
@@ -156,9 +156,17 @@ export function activityReason(
   >
 ): string {
   if (row.provider_error_title || row.provider_error_detail) {
-    return [row.provider_error_title, row.provider_error_detail]
+    const providerDiagnostic = [
+      row.provider_error_title,
+      row.provider_error_detail,
+    ]
       .filter(Boolean)
-      .join(' — ');
+      .join(' ')
+      .toLowerCase();
+    if (providerDiagnostic.includes('ecosystem engagement')) {
+      return 'WhatsApp limited this reminder based on engagement. Sending it again now may not work.';
+    }
+    return 'WhatsApp could not deliver this message.';
   }
   if (row.reason_code && reasonLabels[row.reason_code])
     return reasonLabels[row.reason_code];

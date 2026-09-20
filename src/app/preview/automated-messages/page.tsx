@@ -50,7 +50,7 @@ const DIAGNOSTICS = [
   {
     kind: 'membership_renewal',
     state: 'ready',
-    reason: '3 unclaimed reminders can send now.',
+    reason: '3 reminders can send now.',
   },
   {
     kind: 'service_renewal',
@@ -60,7 +60,7 @@ const DIAGNOSTICS = [
   {
     kind: 'installment_reminder',
     state: 'no_eligible',
-    reason: 'No eligible reminders are due right now.',
+    reason: 'No new reminders are due right now.',
   },
 ];
 

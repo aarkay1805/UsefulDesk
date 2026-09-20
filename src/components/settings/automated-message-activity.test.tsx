@@ -110,29 +110,44 @@ describe('AutomatedMessageActivity', () => {
         'x-usefuldesk-account-id': '123e4567-e89b-42d3-a456-426614174000',
       },
     });
-    // The table names its icon links; the narrow list spells them out.
-    expect(
-      screen
-        .getByRole('link', { name: 'Open conversation' })
-        .getAttribute('href')
-    ).toContain('/inbox?c=conversation-1');
-    const invoice = screen.getByRole('link', { name: 'Open invoice' });
-    expect(invoice.getAttribute('href')).toContain(
+    const chats = screen.getAllByRole('link', {
+      name: 'Open chat with Asha',
+    });
+    expect(chats).toHaveLength(2);
+    expect(chats[0].textContent).toContain('Open chat');
+    expect(chats[0].getAttribute('href')).toContain('/inbox?c=conversation-1');
+    const invoices = screen.getAllByRole('link', {
+      name: 'View invoice for Asha',
+    });
+    expect(invoices).toHaveLength(2);
+    expect(invoices[0].getAttribute('href')).toContain(
       '/finance?view=invoices&invoice=invoice-1'
     );
-    expect(invoice.getAttribute('href')).toContain(
+    expect(invoices[0].getAttribute('href')).toContain(
       'branch=123e4567-e89b-42d3-a456-426614174000'
     );
+    expect(invoices[1].getAttribute('href')).toBe(
+      invoices[0].getAttribute('href')
+    );
     expect(
-      screen.getByRole('link', { name: 'Invoice' }).getAttribute('href')
-    ).toBe(invoice.getAttribute('href'));
-    expect(
-      screen.getByRole('link', { name: 'Open follow-up' }).getAttribute('href')
+      screen
+        .getAllByRole('link', { name: 'View follow-up for Asha' })[0]
+        .getAttribute('href')
     ).toContain('/members?contact=contact-1&view=followups');
+    const members = screen.getAllByRole('link', {
+      name: 'View member Asha',
+    });
+    expect(members).toHaveLength(2);
+    expect(members[0].textContent).toContain('View member');
 
     const readiness = screen.getByRole('region', {
-      name: 'Scheduled reminder readiness',
+      name: 'Renewal and installment checks',
     });
+    expect(
+      within(readiness).getByText(
+        'Checks membership renewals, service renewals, and installment reminders only.'
+      )
+    ).toBeTruthy();
     expect(
       within(readiness).getByText('No eligible reminders are due right now.')
     ).toBeTruthy();
@@ -150,22 +165,61 @@ describe('AutomatedMessageActivity', () => {
     expect(screen.getByText('at 2026-09-12T10:00:00.000Z')).toBeTruthy();
     expect(screen.getByText('Recorded 2026-09-12T10:00:00.000Z')).toBeTruthy();
     expect(screen.queryByText(/Anchor/)).toBeNull();
-    expect(screen.getAllByText('Accepted')).toHaveLength(2);
+    expect(screen.getAllByText('Accepted by WhatsApp')).toHaveLength(2);
+    expect(screen.getAllByText('Message')).toHaveLength(2);
+    expect(screen.getAllByText('Status')).toHaveLength(2);
+    expect(screen.getByLabelText('Message')).toBeTruthy();
+    expect(screen.getByLabelText('Status')).toBeTruthy();
+  });
+
+  it('shows one plain failure reason and retains original provider diagnostics behind a disclosure', async () => {
+    respond({
+      body: {
+        items: [
+          {
+            ...activityRow,
+            outcome: 'failed',
+            job_state: 'failed',
+            reason_code: 'provider_delivery_failed',
+            provider_error_title: 'Message undeliverable',
+            provider_error_detail: 'Message Undeliverable.',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+    render(<AutomatedMessageActivity />);
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByText('WhatsApp could not deliver this message.')
+      ).toHaveLength(2)
+    );
+    expect(screen.queryByText('Message Undeliverable.')).toBeNull();
+
+    const disclosures = screen.getAllByRole('button', {
+      name: 'Provider details',
+    });
+    fireEvent.click(disclosures[0]);
+    expect(await screen.findByText('Message Undeliverable.')).toBeTruthy();
+    expect(screen.getByText('Message undeliverable')).toBeTruthy();
   });
 
   it('offers the rule as the next step for a blocked schedule', async () => {
     const onReviewRule = vi.fn();
     render(<AutomatedMessageActivity onReviewRule={onReviewRule} />);
-    const review = await screen.findByRole('link', { name: 'Review rule' });
+    const review = await screen.findByRole('link', {
+      name: 'Review message',
+    });
     expect(review.getAttribute('href')).toContain(
       '/settings?tab=reminders&rule=joining_installments'
     );
     fireEvent.click(review);
     expect(onReviewRule).toHaveBeenCalledWith('joining_installments');
     // Only the blocked schedule carries a recovery link.
-    expect(screen.getAllByRole('link', { name: 'Review rule' })).toHaveLength(
-      1
-    );
+    expect(
+      screen.getAllByRole('link', { name: 'Review message' })
+    ).toHaveLength(1);
   });
 
   it('keeps an empty history neutral about eligibility', async () => {
@@ -173,7 +227,7 @@ describe('AutomatedMessageActivity', () => {
     render(<AutomatedMessageActivity />);
     expect(await screen.findByText('No messages recorded yet')).toBeTruthy();
     expect(
-      screen.getByText(/Readiness above shows what can send now/)
+      screen.getByText(/checks above cover renewals and installments only/i)
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });

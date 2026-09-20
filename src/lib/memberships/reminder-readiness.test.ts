@@ -85,4 +85,47 @@ describe('diagnoseReminder', () => {
       })
     ).toMatchObject({ state: 'deferred', pendingCount: 0, deferredCount: 1 });
   });
+
+  it('describes ready and already-handled work without worker jargon', () => {
+    expect(
+      diagnoseReminder({
+        kind: 'membership_renewal',
+        enabled: true,
+        whatsappConnected: true,
+        template: readyTemplate,
+        dateMatchedCount: 3,
+        pendingCount: 3,
+        blockedCount: 0,
+        deferredCount: 0,
+      }).reason
+    ).toBe('3 reminders can send now.');
+
+    expect(
+      diagnoseReminder({
+        kind: 'membership_renewal',
+        enabled: true,
+        whatsappConnected: true,
+        template: readyTemplate,
+        dateMatchedCount: 3,
+        pendingCount: 0,
+        blockedCount: 0,
+        deferredCount: 0,
+      }).reason
+    ).toBe('No new reminders are due right now.');
+
+    expect(
+      diagnoseReminder({
+        kind: 'membership_renewal',
+        enabled: true,
+        whatsappConnected: true,
+        template: readyTemplate,
+        dateMatchedCount: 2,
+        pendingCount: 0,
+        blockedCount: 2,
+        deferredCount: 0,
+      }).reason
+    ).toBe(
+      '2 reminders cannot send because the members have no contact phone number.'
+    );
+  });
 });
