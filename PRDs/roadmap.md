@@ -6,8 +6,11 @@ Settings → **Automated messages** preserves `?tab=reminders`. Every branch
 member can read Rules; only admins and owners can change a rule or open
 Activity. Agents and viewers get a read-only catalogue and an Activity
 permission notice instead of a load error with a retry that could never
-succeed. The Rules and Activity tabs sit under the panel heading, not in the
-app bar. Rules shows the 14 existing behaviors in Renewals, Collections,
+succeed. At narrow widths, the horizontal Settings rail immediately brings a
+deep-linked section into view, keeps later selections visible without moving
+keyboard focus, and respects reduced-motion preferences. The Rules and Activity
+tabs sit under the panel heading, not in the app bar. Rules shows the 14 existing
+behaviors in Renewals, Collections,
 Retention, and Confirmations sections on one page, and scrolls to a rule opened
 from Activity, from Change sending hours, or by link. Per-rule configuration
 saves while off; activation requires the connected branch and every exact
