@@ -7,13 +7,17 @@ GitHub Actions in `aarkay1805/UsefulDesk`. Never paste credentials, tokens,
 member data, webhook bodies, or the private backup identity into an incident
 note or command output.
 
+Paid-pilot provider readiness is tracked in `docs/production-readiness.md`;
+commercial quote, settlement, access, renewal, cancellation, and refund handling
+are in `docs/commercial-operations.md`.
+
 ## Ownership
 
 - **Primary incident and rollback owner:** Rajat Kashyap.
 - **Alert destination:** the repository's GitHub Actions failures, GitHub
-  notification inbox, and the primary owner's enabled Actions email/mobile
-  notifications. Delivery is not considered live until the owner completes the
-  verification in **Alerts** below.
+  notification inbox, and any separately verified owner channel. GitHub inbox
+  failure delivery was verified on 30 August 2026; email/mobile delivery has not
+  been proven and must not be represented as active paging.
 - **Decision boundary:** the owner decides whether to roll back, disable a
   feature, send a provider canary, restore data, or change a production
   provider setting. An operator may investigate read-only without that extra
@@ -97,7 +101,7 @@ scheduler creates the recovery point. It cannot report while GitHub's scheduler
 itself is completely silent; closing that final gap requires an external
 monitoring provider and a separate alert-delivery decision.
 
-One-time alert delivery verification (manual gate):
+Alert delivery verification procedure:
 
 1. In GitHub, watch `aarkay1805/UsefulDesk` and enable Actions notifications in
    the primary owner's notification settings (web plus email or mobile).
@@ -109,8 +113,10 @@ One-time alert delivery verification (manual gate):
 4. Record only the date, delivery channel, recipient role, and successful test
    run id in `GATES.md`; do not record addresses, phone numbers, or secrets.
 
-Until that delivery test is complete, the repository contains monitoring but
-does not have a verified paging channel.
+The GitHub inbox path passed this procedure on 30 August 2026 and is recorded in
+`GATES.md`. Repeat it after notification ownership or settings change. Email and
+mobile remain unverified; the repository also has no independent external
+watchdog for a total GitHub scheduler outage.
 
 ## Triage and containment
 

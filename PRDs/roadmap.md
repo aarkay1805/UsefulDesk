@@ -1,5 +1,25 @@
 # Roadmap
 
+## Operations-ready in code — founder-led paid pilots (2026-09-20)
+
+The commercial operating path is now explicit in
+`docs/commercial-operations.md`: quote the approved founding offer, independently
+verify settled funds, activate an exact manual term through the audited
+MFA-protected platform admin, renew only after settlement, let end-of-term
+cancellations expire naturally, and keep refunds separate from gym-member money
+movement. `docs/production-readiness.md` is the provider gate and
+`npm run audit:production-env` is the value-redacting environment-policy check.
+
+The paid-pilot gate remains closed on external owner actions. Vercel Hobby must
+be upgraded before commercial use; Supabase plan/capacity, custom Auth SMTP,
+current database Cron evidence, and two protected Vercel values require
+authenticated provider verification. Those actions name the owner, evidence,
+cost, and deadline in the readiness record. Public lead capture remains
+deliberately unavailable while Turnstile keys are absent. Automated SaaS
+checkout, recurring subscription billing, scheduled cancellation, tax invoicing,
+and customer self-service remain deferred; the first pilots use the documented
+manual commercial ledger and access workflow.
+
 ## Shipped in code — Automated messages rule clarity (2026-09-20)
 
 Settings → **Automated messages** now uses the shared rule catalogue for the

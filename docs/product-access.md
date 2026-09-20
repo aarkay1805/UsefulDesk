@@ -36,6 +36,11 @@ The database locks the access row and appends the before/after audit atomically.
 Restore removes suspension only: it does not extend an expired term. No action
 charges money, refunds a payment, or cancels a gym-member mandate.
 
+For a paid pilot, the commercial ledger and settled-funds check are separate
+prerequisites. Follow `docs/commercial-operations.md`; do not activate or extend
+a paid manual term until `docs/production-readiness.md` is open and settlement
+has been independently verified.
+
 The support snapshot provides WhatsApp/email contacts. A scoped, deduplicated
 support-request RPC is a fallback; internal requests can be read through the
 MFA-protected `platform_admin_support_requests` RPC. The first UI uses the configured

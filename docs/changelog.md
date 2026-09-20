@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-09-20 — Paid-pilot operations and provider gate made executable
+
+`docs/commercial-operations.md` now owns founder-led quoting, settlement
+verification, manual access activation, renewal, cancellation/refund, support,
+and audit evidence. `docs/production-readiness.md` records the read-only live
+infrastructure audit and exact owner actions; Vercel Hobby is a commercial-use
+blocker, while Supabase plan/usage, Auth SMTP, database Cron, and protected
+environment values require authenticated owner verification. The value-redacting
+`scripts/production-env-readiness.mjs` makes the production environment policy
+repeatable without printing secrets. No plan was purchased, provider setting
+changed, payment moved, access term activated, or customer message sent.
+
 ## 2026-09-20 — Member-import reliability accepted in Production
 
 Production serves the reliability runtime from `main`, and Supabase records the

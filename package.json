@@ -55,6 +55,7 @@
     "mobile:typecheck": "npm run typecheck --workspace @usefuldesk/mobile",
     "mobile:verify": "npm run verify --workspace @usefuldesk/mobile",
     "verify": "npm run lint && npm run typecheck && npm test && npm run build",
+    "audit:production-env": "node scripts/production-env-readiness.mjs",
     "accept:razorpay": "node scripts/razorpay-provider-acceptance.mjs",
     "accept:razorpay-refunds": "node scripts/razorpay-refund-provider-preflight.mjs",
     "migrate:payment-receipts": "node --env-file=.env.local scripts/migrate-payment-receipts.mjs"
