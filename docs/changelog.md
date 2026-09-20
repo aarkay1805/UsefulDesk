@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-09-20 — Automated message setup separates approval from activation
+
+The reminder-specific flow in `template-manager.tsx` now leads with the exact
+member-facing preview and gives missing, pending, rejected, approved, and
+provider-sync-required messages one clear next action. **Submit for WhatsApp
+approval** replaces provider jargon; template name, category, header, language,
+status, and review details live under **Technical details**. The canonical
+contract stays locked for initial submission and resubmission. Approval and
+activation remain separate: setup never turns on a rule, and tests cover that
+only the template approval endpoint is called.
+
 ## 2026-09-20 — Marketing templates stop promising automatic suppression
 
 Canonical Marketing contracts in `template-contracts.ts` now omit the
