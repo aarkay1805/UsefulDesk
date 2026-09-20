@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-09-20 — Production platform-admin action acceptance passed
+
+The MFA-protected production `/platform-admin` flow completed an audited VBF
+suspend/restore round-trip. Database verification found the expected immutable
+`suspend` and `restore` records, access version 2→4, no suspended state after
+restore, and the original 21 September 2026 00:11 IST trial deadline unchanged.
+Global enforcement remained disabled, rollout bypass kept effective access
+available, VBF had no active broadcast/automation/flow work to retire, recent
+database worker responses stayed HTTP 200, and Vercel reported no runtime errors.
+Native distribution/device acceptance and global activation remain pending.
+
 ## 2026-09-17 — Automated messages: tabs under the heading, one section per group
 
 In `renewal-reminders-settings.tsx`, the Rules/Activity tabs no longer portal

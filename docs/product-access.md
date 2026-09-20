@@ -60,9 +60,11 @@ request already accepted cannot be recalled; this is not a provider cancellation
 
 ## Rollout and verification
 
-Release configuration: both migrations are applied, all 11 existing organizations
-have complimentary records, one explicitly authorized initial administrator and the
-provided WhatsApp support number are configured. **Enforcement is disabled.**
+Release configuration: both migrations are applied and all 11 existing organizations
+have access records. Ten retain complimentary access; VBF is the explicitly authorized
+14-day trial pilot ending 21 September 2026 at 00:11 IST. One explicitly authorized
+initial administrator and the provided WhatsApp support number are configured.
+**Enforcement is disabled.**
 The web/server release includes `/platform-admin`, the customer gate, and outbound
 enforcement. The native gate is implemented in source; distributing an updated
 mobile build and native device acceptance remain pending.
@@ -70,11 +72,15 @@ mobile build and native device acceptance remain pending.
 1. Verify the web release at `https://desk.usefulmade.com/platform-admin` using
    the authorized administrator login and authenticator.
 2. Authenticator enrollment and the organization list were accepted locally by
-   the administrator. Verify the production admin flow and distribute/test the
-   updated native client before enabling enforcement.
+   the administrator. Production MFA/admin-action acceptance passed on 20 September
+   2026: VBF was suspended and immediately restored through `/platform-admin`, both
+   immutable audit entries were verified, its version advanced from 2 to 4, its trial
+   deadline stayed exact, and rollout bypass kept operational access available.
+   Distribute/test the updated native client before enabling enforcement.
 3. Enable `private.product_access_settings.enforcement_enabled` through a privileged
-   Supabase operation after confirming the intended rollout date. Existing records
-   remain complimentary; new organizations then get verified-owner trials.
+   Supabase operation after confirming the intended rollout date. The ten existing
+   complimentary records retain access, VBF remains the authorized trial pilot, and
+   new organizations then get verified-owner trials.
 4. Observe access-denied errors and setup failures. Disabling the switch is the
    emergency access rollback; it does not erase trial/audit records or resume retired
    queues. Do not drop the schema while this application version is deployed.
@@ -89,5 +95,5 @@ transaction assertions ran against the migrated project with no retained test ro
 Web/server checks: Vitest, TypeScript, ESLint, and a production Next build. Native
 checks: gate/service/auth/account tests, scoped ESLint, and native TypeScript. The
 administrator completed local authenticator enrollment and confirmed the real
-organization list. Production admin-action and native-device acceptance are separate
-from automated tests.
+organization list. The production admin-action round-trip passed without extending
+the trial. Native-device acceptance remains separate from automated tests.
