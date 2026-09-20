@@ -353,7 +353,12 @@ counts on desktop and phones, search across closed sections, a selected-row insp
 reconciliation and grouped mapping, readable notices, editable pricing facts,
 excluded-row CSV recovery, and responsive list/detail navigation. The existing
 wizard and resumable draft remain in use. The worksheet is included in `ca502ec`,
-recorded as promoted on 2026-09-08; live import acceptance is still unrecorded.
+recorded as promoted on 2026-09-08. The reliability runtime is also active in
+Production, its authoritative database migration is recorded, and the complete
+rollback-only import acceptance passed in the Meta App Review Demo Gym tenant on
+2026-09-20 with zero retained fixtures or outbound side effects. A genuine
+customer-file import remains a customer-owned migration event rather than a
+technical launch gate.
 The Resolve issues heading states the blocking next action,
 while source-file metadata stays with the saved-draft controls in the footer.
 See `design-qa.md` for visual and interaction evidence.
@@ -1509,17 +1514,42 @@ RPC then overlapped successfully: the RPC waited for the same account/request lo
 and rejected a missing job after release, without fixture writes. Exact successful
 replay passed separately in the rollback script. Two simultaneous successful
 submissions sharing committed fixtures were not run; this record does not claim
-that broader test. Production migration, deployment, live customer imports,
-messages and money movement remain unperformed.
+that broader test.
+
+**Production acceptance — passed (2026-09-20):** the canonical alias served READY
+deployment `dpl_3W6ZdX3jtXDJW9NJnoiohAUYWB2k` from current `main` commit
+`92ccac89`, which contains the reliability implementation. Production Supabase
+`fwqthstqrkrwtaehefks` was `ACTIVE_HEALTHY` and already recorded the approved-tool
+migration `20260910163353_member_import_reliability`, the authoritative apply of
+`20260909120000_member_import_reliability.sql`; no migration was reapplied. Live
+schema inspection verified both job/hash columns, the partial job index, RLS on
+drafts/runs/Storage, the author-private draft and Storage policies, fixed empty
+function search paths, authenticated access only to the checked wrapper/draft save,
+and service-only access to the unchecked writer, cleanup, and run table. The sole
+import-specific advisor warning remains the intentional authenticated
+[SECURITY DEFINER wrapper](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable),
+whose actor/account/job checks passed the acceptance below.
+
+The full `supabase/tests/member_import_reliability.sql` suite then passed through
+the approved SQL tool with its fixture selector pinned to the explicitly internal
+Meta App Review Demo Gym tenant. It covered the due import and exact replay,
+changed replay rejection, missing/expired/wrong-author jobs, same-branch draft
+privacy, stale contacts, one-paise and configured-price rejection, cross-branch
+isolation, cancellation decisions, mixed 150 / 75 allocation, grant scope, and
+replay after catalogue mutation. `ROLLBACK` removed every synthetic write; explicit
+post-checks found zero fixture drafts, contacts, plans, services, memberships,
+payments, messages, or automation logs. `/login` returned HTTP 200 and the active
+deployment stayed READY. No customer payload was used, no message was sent, and no
+money or provider state moved. A genuine customer-file import now depends only on
+the customer's file and migration timing; it is not a remaining reliability gate.
 
 ## Optional / open
 
-- Member import reliability release: local verification, independent reviews and
-  approved Test rollback acceptance are complete. Production migration/deployment
-  and live acceptance require a separately authorized release. The successful
-  simultaneous duplicate test remains outside the rollback-only acceptance scope;
-  serialization and successful replay were verified separately. Arbitrary ERP joins,
-  ledger inference, merchandise and numbered service families remain deferred.
+- Member import follow-ups, not launch gates: a genuine customer-file import awaits
+  the customer's file and migration window. Two simultaneous successful submissions
+  sharing committed fixtures remain outside rollback-only acceptance; advisory-lock
+  serialization and exact successful replay are verified separately. Arbitrary ERP
+  joins, ledger inference, merchandise, and numbered service families remain deferred.
 - Richer Razorpay `payment.failed` handling — an immediate "auto-pay failed, pay manually" nudge instead of waiting for `subscription.halted` → manual.
 - One-click "Connect Razorpay" via OAuth: **Technology Partner onboarding, isolated Stages 1–4, owner-controlled Stage 5 Live acceptance, the real gym-owner connection-readiness pilot and ₹40 delivery/settlement, pinned-readiness recovery, Stage 6 OAuth-only retirement, and the database-owned multi-account rollout gate are complete and live in Production.** The owner-controlled account remains permanently enabled and exactly bound; VBF is the sole unbound G12 first-bind canary, with no credential or active OAuth state. VBF's Razorpay owner may now complete Live consent; then the established no-money readiness, isolation, and zero-queue checks close G12. The VBF authorization does not include a Payment Link, message, transaction, refund, or money movement. Manual keys, legacy per-account ingress, environment account/merchant pins, and in-place client-secret rotation are not rollout options. Exact evidence lives in `docs/razorpay-operations.md`.
 - Auto-generating / charging _future_ invoices (a billing cron — overlaps AutoPay) · persisting the Upcoming projection.

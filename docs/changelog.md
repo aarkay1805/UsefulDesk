@@ -6,6 +6,23 @@
 
 ---
 
+## 2026-09-20 — Member-import reliability accepted in Production
+
+Production serves the reliability runtime from `main`, and Supabase records the
+connector-applied authoritative migration
+`20260910163353_member_import_reliability` for
+`20260909120000_member_import_reliability.sql`. A structural audit verified the
+job/hash columns, partial job index, RLS, author-private draft and Storage
+policies, wrapper/unchecked function split, fixed search paths, and intended
+authenticated/service-only grants. The full rollback-only database acceptance
+passed in Meta App Review Demo Gym, including exact/changed replay, recovery,
+author/branch isolation, paise equations, current-price checks, cancellation
+write-off, and mixed membership/service allocation. Post-checks found zero
+fixture records, messages, or automation logs. No customer file was imported,
+no message was sent, and no money or provider state moved. Key evidence:
+`supabase/tests/member_import_reliability.sql`; the remaining genuine-file run
+is a customer-owned migration event, not a Production reliability gate.
+
 ## 2026-09-20 — Automated messages distilled to timing and action
 
 The Messages catalogue now leads each collapsed rule with its timing instead of
