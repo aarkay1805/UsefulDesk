@@ -676,7 +676,7 @@ type RowLink = {
   key: string;
   /** Visible label where the action is spelled out. */
   label: string;
-  /** Accessible name and tooltip where the action is an icon. */
+  /** Contextual accessible name and tooltip for the action. */
   action: string;
   icon: LucideIcon;
   href: string | null;
@@ -834,7 +834,7 @@ function HistoryList({
   const { fmt } = useLocale();
   if (loading) {
     return (
-      <ul aria-busy="true" className="@3xl/activity:hidden">
+      <ul aria-busy="true" className="@4xl/activity:hidden">
         <li className="sr-only" role="status">
           Loading message history
         </li>
@@ -856,7 +856,7 @@ function HistoryList({
     );
   }
   return (
-    <ul className="@3xl/activity:hidden">
+    <ul className="@4xl/activity:hidden">
       {rows.map((row) => {
         const dateLine = scheduledLine(row, fmt);
         const links = rowLinks(row, accountId).filter((link) => link.href);
@@ -937,7 +937,7 @@ function HistoryTable({
 }) {
   const { fmt } = useLocale();
   return (
-    <div className="hidden @3xl/activity:block">
+    <div className="hidden @4xl/activity:block">
       <TooltipProvider>
         <Table className="table-fixed" aria-busy={loading || undefined}>
           <TableCaption className="sr-only">
@@ -948,7 +948,7 @@ function HistoryTable({
             <col className="w-48" />
             <col className="w-28" />
             <col />
-            <col className="w-44" />
+            <col className="w-52" />
           </colgroup>
           <TableHeader>
             <TableRow interactive={false}>
@@ -1037,7 +1037,7 @@ function HistoryTable({
                                     data-slot="button"
                                     className={buttonVariants({
                                       variant: 'ghost',
-                                      size: 'xs',
+                                      size: 'sm',
                                     })}
                                   />
                                 }

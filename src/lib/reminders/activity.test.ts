@@ -37,27 +37,6 @@ describe('automated message activity semantics', () => {
     expect(activityReason(row)).toBe(
       'WhatsApp accepted the message; delivery has not been confirmed.'
     );
-    expect(
-      activityReason({
-        ...row,
-        outcome: 'blocked',
-        reason_code: 'provider_sync_required',
-      })
-    ).toContain('Sync');
-    expect(
-      activityReason({
-        ...row,
-        outcome: 'blocked',
-        reason_code: 'wrong_category',
-      })
-    ).toContain('category');
-    expect(
-      activityReason({
-        ...row,
-        outcome: 'unconfirmed',
-        reason_code: 'legacy_claim_unconfirmed',
-      })
-    ).toContain('no provider outcome');
   });
 
   it('translates provider delivery failures without exposing or guessing the cause', () => {
@@ -67,7 +46,9 @@ describe('automated message activity semantics', () => {
         outcome: 'failed',
         reason_code: 'provider_delivery_failed',
       })
-    ).toBe('WhatsApp could not deliver this message.');
+    ).toBe(
+      'WhatsApp could not deliver this message. Check the member’s phone number, then open the chat for details.'
+    );
 
     expect(
       activityReason({
@@ -77,7 +58,9 @@ describe('automated message activity semantics', () => {
         provider_error_title: 'Message undeliverable',
         provider_error_detail: 'Message Undeliverable.',
       })
-    ).toBe('WhatsApp could not deliver this message.');
+    ).toBe(
+      'WhatsApp could not deliver this message. Check the member’s phone number, then open the chat for details.'
+    );
 
     expect(
       activityReason({
@@ -90,8 +73,209 @@ describe('automated message activity semantics', () => {
           'In order to maintain a healthy ecosystem engagement, the message failed to be delivered.',
       })
     ).toBe(
-      'WhatsApp limited this reminder based on engagement. Sending it again now may not work.'
+      'WhatsApp limited this reminder based on engagement. Open the chat before contacting the member another way.'
     );
+  });
+
+  it.each([
+    ['missing', 'Set up this WhatsApp message before it can send.'],
+    [
+      'pending',
+      'This WhatsApp message is waiting for approval. Check its setup for the latest status.',
+    ],
+    [
+      'rejected',
+      'This WhatsApp message was not approved. Review its setup before using it.',
+    ],
+    [
+      'paused',
+      'WhatsApp paused this message. Review its setup before using it.',
+    ],
+    [
+      'disabled',
+      'WhatsApp disabled this message. Review its setup before using it.',
+    ],
+    ['not_approved', 'Get this WhatsApp message approved before it can send.'],
+    [
+      'wrong_category',
+      'This WhatsApp message no longer matches the required setup. Review its setup before using it.',
+    ],
+    [
+      'wrong_parameter_format',
+      'This WhatsApp message no longer matches the required setup. Review its setup before using it.',
+    ],
+    [
+      'parameter_drift',
+      'This WhatsApp message no longer matches the required setup. Review its setup before using it.',
+    ],
+    [
+      'component_drift',
+      'This WhatsApp message no longer matches the required setup. Review its setup before using it.',
+    ],
+    [
+      'provider_sync_required',
+      'Check this WhatsApp message’s latest approval status before it can send.',
+    ],
+  ])('translates the %s setup state', (reasonCode, expected) => {
+    expect(
+      activityReason({
+        ...row,
+        outcome: 'blocked',
+        reason_code: reasonCode,
+      })
+    ).toBe(expected);
+  });
+
+  it.each([
+    [
+      'daily_coordination_unavailable',
+      'UsefulDesk couldn’t safely schedule this message. It will check again automatically.',
+    ],
+    [
+      'reply_history_unavailable',
+      'UsefulDesk couldn’t check recent replies. Open the chat before sending anything manually.',
+    ],
+    [
+      'manual_fallback_needs_staff_review',
+      'Review the invoice and AutoPay result before asking the member to pay another way.',
+    ],
+    [
+      'provider_outcome_unknown',
+      'WhatsApp did not confirm what happened. Open the chat before sending anything again.',
+    ],
+    [
+      'outside_send_window',
+      'Waiting until this branch’s automated sending window opens.',
+    ],
+    ['waiting_for_send_window', 'Waiting until the scheduled sending time.'],
+    [
+      'missing_phone',
+      'Check the member’s phone number before this message can send.',
+    ],
+    [
+      'whatsapp_not_connected',
+      'Connect WhatsApp for this branch before this message can send.',
+    ],
+    [
+      'lease_expired_before_outcome',
+      'WhatsApp did not confirm what happened. Open the chat before sending anything again.',
+    ],
+    [
+      'lease_expired_before_provider',
+      'This message did not reach WhatsApp. UsefulDesk will check again automatically if it is still due.',
+    ],
+    [
+      'legacy_claim_unconfirmed',
+      'There is no saved WhatsApp status for this older reminder. Open the chat if you need to confirm what happened.',
+    ],
+    [
+      'post_expiry_subject_changed',
+      'Stopped because the membership or service details changed.',
+    ],
+    [
+      'post_expiry_no_longer_active',
+      'Stopped because this message was turned off or replaced.',
+    ],
+    ['invoice_hold_open', 'Paused while this invoice is on hold.'],
+    [
+      'invoice_commitment_or_hold_open',
+      'Paused while a payment promise or invoice hold is active.',
+    ],
+    [
+      'provider_request_failed',
+      'This message did not reach WhatsApp. UsefulDesk will check again automatically if it is still due.',
+    ],
+    ['customer_replied', 'Stopped because the member replied.'],
+    [
+      'daily_contact_budget',
+      'Waiting because the member already received another automated message today.',
+    ],
+    [
+      'superseded_or_expired_milestone',
+      'Stopped because a newer reminder now applies.',
+    ],
+    [
+      'invoice_no_longer_collectible',
+      'Stopped because this invoice no longer needs collection.',
+    ],
+    [
+      'template_not_ready',
+      'Get this WhatsApp message approved before it can send.',
+    ],
+    [
+      'payment_confirmations_disabled_or_regenerated',
+      'Stopped because this message was turned off or replaced.',
+    ],
+    [
+      'autopay_recovery_disabled_or_regenerated',
+      'Stopped because this message was turned off or replaced.',
+    ],
+  ])('translates the %s activity reason', (reasonCode, expected) => {
+    expect(activityReason({ ...row, reason_code: reasonCode })).toBe(expected);
+  });
+
+  it.each([
+    [
+      'created',
+      'A staff follow-up was created because no reply was recorded. Open the member to review it.',
+    ],
+    [
+      'existing',
+      'A staff follow-up is already open. Open the member to review it.',
+    ],
+    [
+      'owner_unavailable',
+      'No available staff member could be assigned. Open the member to assign the follow-up.',
+    ],
+    ['replied', 'The member replied, so no staff follow-up was created.'],
+    [
+      'stopped',
+      'The staff follow-up was closed because this message no longer applies.',
+    ],
+  ] as const)(
+    'translates the %s follow-up state',
+    (escalationState, expected) => {
+      expect(
+        activityReason({
+          ...row,
+          reason_code: null,
+          escalation_state: escalationState,
+        })
+      ).toBe(expected);
+    }
+  );
+
+  it.each([
+    [
+      'failed',
+      'WhatsApp could not deliver this message. Check the member’s phone number, then open the chat for details.',
+    ],
+    [
+      'blocked',
+      'This message needs setup or a member detail before it can send. Review the message and member.',
+    ],
+    ['stopped', 'This message no longer applies to this member.'],
+    [
+      'ambiguous',
+      'WhatsApp did not confirm what happened. Open the chat before sending anything again.',
+    ],
+    ['attempting', 'UsefulDesk is sending this message.'],
+    ['waiting', 'Waiting until the scheduled sending time.'],
+    ['paused', 'Paused until the current hold or payment promise is resolved.'],
+    [
+      'unconfirmed',
+      'There is no saved WhatsApp status for this older reminder. Open the chat if you need to confirm what happened.',
+    ],
+  ] as const)('uses a plain fallback for %s', (outcome, expected) => {
+    expect(
+      activityReason({
+        ...row,
+        outcome,
+        reason_code: null,
+        provider_error_title: null,
+        provider_error_detail: null,
+      })
+    ).toBe(expected);
   });
 
   it('only accepts a strict opaque keyset cursor', () => {
