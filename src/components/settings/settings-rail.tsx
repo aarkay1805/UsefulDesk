@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 
 import { cn } from '@/lib/utils';
 import {
@@ -14,6 +14,7 @@ import {
 // no auto-scroll needed). Mirrors the Tailwind `lg:` breakpoint that
 // drives the row→column switch in the markup below — keep the two in sync.
 const RAIL_DESKTOP_MIN_PX = 1024;
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 /**
  * The settings left rail — grouped, vertical on desktop and a
@@ -31,17 +32,27 @@ export function SettingsRail({
   hints?: Partial<Record<SettingsSection, ReactNode>>;
 }) {
   const activeRef = useRef<HTMLButtonElement>(null);
+  const previousActiveRef = useRef<SettingsSection | null>(null);
 
-  // When horizontal (mobile), keep the active chip in view. On desktop
-  // the rail is a static column, so skip.
-  useEffect(() => {
+  // Position a deep link before paint, then animate later section changes when
+  // motion is allowed. Scrolling never moves focus: native button focus stays
+  // with the control that initiated the navigation.
+  useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
+
+    const previousActive = previousActiveRef.current;
+    previousActiveRef.current = active;
+
+    // Avoid repeating the initial positioning when Strict Mode replays effects.
+    if (previousActive === active) return;
     if (window.matchMedia(`(min-width: ${RAIL_DESKTOP_MIN_PX}px)`).matches)
       return;
+
+    const reduceMotion = window.matchMedia(REDUCED_MOTION_QUERY).matches;
     activeRef.current?.scrollIntoView({
       inline: 'center',
       block: 'nearest',
-      behavior: 'smooth',
+      behavior: previousActive === null || reduceMotion ? 'auto' : 'smooth',
     });
   }, [active]);
 

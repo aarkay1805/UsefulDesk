@@ -6,6 +6,14 @@
 
 ---
 
+## 2026-09-20 — Settings keeps the selected section visible on small screens
+
+The horizontal Settings rail now positions a deep-linked section before paint
+and keeps later selections centred on narrow screens. Later changes animate only
+when reduced motion is not requested, and scrolling never moves keyboard focus.
+Regression coverage lives beside `settings-rail.tsx`; the desktop rail remains
+static.
+
 ## 2026-09-20 — Production product-access enforcement activated
 
 The staged rollout switch is active in Production. A guarded privileged update
