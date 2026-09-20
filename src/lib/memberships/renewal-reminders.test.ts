@@ -63,12 +63,8 @@ describe('isRenewalTemplateReady', () => {
         category: 'Marketing',
         parameter_format: 'POSITIONAL',
         body_text:
-          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
-        footer_text: 'Tap Unsubscribe to stop promotional messages.',
-        buttons: [
-          { type: 'QUICK_REPLY', text: 'Renew membership' },
-          { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-        ],
+          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
+        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
       })
     ).toBe(true);
     expect(
@@ -96,12 +92,8 @@ describe('isRenewalTemplateReady', () => {
       category: 'Marketing',
       parameter_format: 'POSITIONAL',
       body_text:
-        'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
-      footer_text: 'Tap Unsubscribe to stop promotional messages.',
-      buttons: [
-        { type: 'QUICK_REPLY' as const, text: 'Renew membership' },
-        { type: 'QUICK_REPLY' as const, text: 'Unsubscribe' },
-      ],
+        'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
+      buttons: [{ type: 'QUICK_REPLY' as const, text: 'Renew membership' }],
     };
 
     expect(

@@ -99,6 +99,17 @@ outcome measurement remain future work in the
 [approved benchmark](automated-messages-benchmark.md). Operator and validation
 notes: [Automated messages runbook](../docs/automated-messages.md).
 
+The canonical Marketing interactions now keep only one affirmative customer
+reply (`Renew membership`, `Renew service`, `Ask about packs`, or
+`I'm interested`) and make no automatic-suppression promise. Exact application
+readiness and the forward activation-guard migration reject the previous
+Unsubscribe footer/button shape; legacy inbound opt-out audit recording remains
+unchanged and still does not gate outbound sends. The eight automated templates
+and two manual Marketing gallery presets require corrected provider content and
+Meta review/sync before the new contracts can be ready. This change did not
+submit, sync, activate, deploy, or send anything, and its migration remains to
+be applied through the approved Supabase migration path.
+
 ## Shipped in code — renewal and collection reminder lifecycle (2026-09-10)
 
 Authorized for sequential implementation in six GPT-5.6 Terra tasks directly on

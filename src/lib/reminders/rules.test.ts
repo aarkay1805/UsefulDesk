@@ -12,6 +12,13 @@ import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 const migration = readFileSync(
   resolve(
     process.cwd(),
+    'supabase/migrations/20260920120000_truthful_marketing_template_contracts.sql'
+  ),
+  'utf8'
+);
+const activationMigration = readFileSync(
+  resolve(
+    process.cwd(),
     'supabase/migrations/20260912103000_reminder_rule_activation_readiness.sql'
   ),
   'utf8'
@@ -92,12 +99,14 @@ describe('reminder activation SQL contract', () => {
   });
 
   it('blocks only activation edges and leaves lifecycle generation triggers in place', () => {
-    expect(migration).toContain('NOT COALESCE(OLD.enabled, FALSE)');
-    expect(migration).toContain('BEFORE INSERT OR UPDATE');
-    expect(migration).toContain('trg_reminder_rule_activation_readiness');
-    expect(migration).toContain(
+    expect(activationMigration).toContain('NOT COALESCE(OLD.enabled, FALSE)');
+    expect(activationMigration).toContain('BEFORE INSERT OR UPDATE');
+    expect(activationMigration).toContain(
+      'trg_reminder_rule_activation_readiness'
+    );
+    expect(activationMigration).toContain(
       'Reminder rule membership_renewal cannot be enabled'
     );
-    expect(migration).toContain('reminder_template_buttons_match');
+    expect(activationMigration).toContain('reminder_template_buttons_match');
   });
 });

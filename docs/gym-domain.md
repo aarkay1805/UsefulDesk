@@ -13,7 +13,9 @@ consent nor opt-out history blocks outbound sends. The exact ten-template
 registry, provider payloads, categories, and parameter order live only in
 `src/lib/whatsapp/template-contracts.ts`. Feature sends require the exact
 Approved/synced provider row; submission and a returned message id do not prove
-approval or delivery.
+approval or delivery. Canonical Marketing payloads keep only an affirmative
+reply action and never promise that an opt-out automatically suppresses future
+sends; legacy inbound opt-out commands remain audit history.
 
 ---
 
@@ -147,12 +149,12 @@ The `memberships` row stays the current-cycle pointer (its start/end/fee mirror 
 
 ### Lifecycle — who creates/moves a period
 
-| Op                                          | Path                                                                                                                            |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| membership created (any of 5 paths)         | `AFTER INSERT` trigger `create_initial_membership_period` → **zero TS needed**                                                  |
-| renew / convert                             | `POST /api/member-checkouts` → `perform_member_checkout`; `renew_membership_transaction` is an internal implementation detail   |
-| mid-cycle plan swap / upgrade               | RPC `change_membership_plan` (`061`)                                                                                            |
-| edit cycle / unfreeze / cancel / reactivate | RPCs `edit_membership_cycle` / `unfreeze_membership` / `set_membership_cancellation` (`058`) — thin TS wrappers in `periods.ts` |
+| Op                                          | Path                                                                                                                                                                                |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| membership created (any of 5 paths)         | `AFTER INSERT` trigger `create_initial_membership_period` → **zero TS needed**                                                                                                      |
+| renew / convert                             | `POST /api/member-checkouts` → `perform_member_checkout`; `renew_membership_transaction` is an internal implementation detail                                                       |
+| mid-cycle plan swap / upgrade               | RPC `change_membership_plan` (`061`)                                                                                                                                                |
+| edit cycle / unfreeze / cancel / reactivate | RPCs `edit_membership_cycle` / `unfreeze_membership` / `set_membership_cancellation` (`058`) — thin TS wrappers in `periods.ts`                                                     |
 | freeze                                      | the one remaining direct membership write — still chains `.select('id')`; an optional explicit `planned_return_on` and branch-valid `planned_return_owner_id` may be stored with it |
 
 A trigger can't tell a renewal from an edit from an unfreeze — hence the RPCs, each ONE transaction. Lifecycle RPCs raise **real errors** (no silent-RLS ambiguity). Direct `authenticated` execution of the legacy `renew_membership_transaction` RPC is revoked; new UI must enter through the canonical checkout boundary so price, offers, credit, add-ons, and collection stay database-authoritative.

@@ -48,35 +48,39 @@ future purchase. Neither template is a Utility account update.
 `gym_membership_renewal` body:
 
 > Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price
-> of {{4}} will continue your membership. Use the buttons below to respond.
+> of {{4}} will continue your membership. Use the button below to respond.
 
-Buttons: `Renew membership`, `Unsubscribe`.
+Button: `Renew membership`.
 
 `gym_service_renewal` body:
 
 > Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of
-> {{4}} will continue this service. Use the buttons below to respond.
+> {{4}} will continue this service. Use the button below to respond.
 
-Buttons: `Renew service`, `Unsubscribe`.
+Button: `Renew service`.
 
 `gym_membership_post_expiry` body:
 
 > Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current
-> price of {{4}}. Use the buttons below and our team will help.
+> price of {{4}}. Use the button below and our team will help.
 
-Buttons: `Renew membership`, `Unsubscribe`.
+Button: `Renew membership`.
 
 `gym_service_post_expiry` body:
 
 > Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current
-> price of {{4}}. Use the buttons below and our team will help.
+> price of {{4}}. Use the button below and our team will help.
 
-Buttons: `Renew service`, `Unsubscribe`.
+Button: `Renew service`.
 
-Both use the footer `Tap Unsubscribe to stop promotional messages.` and
-POSITIONAL parameters. Dates and money are rendered with the account locale.
-The exact payloads live in `src/lib/whatsapp/template-contracts.ts`; do not
-restate or edit them at a sender.
+These exact Marketing contracts have no footer and keep only the affirmative
+reply action. UsefulDesk still records legacy inbound opt-out commands and old
+`Unsubscribe` quick replies as audit history, but that history does not suppress
+outbound sends; customer-facing contracts therefore do not promise that it
+does. All use POSITIONAL parameters. Dates and money are rendered with the
+account locale. The exact payloads live in
+`src/lib/whatsapp/template-contracts.ts`; do not restate or edit them at a
+sender.
 
 ## Readiness and provider review
 
@@ -90,6 +94,16 @@ POSITIONAL format, exact body/footer/buttons and parameter order, and no pending
 provider-component sync marker. A merely submitted or **Pending** row is not
 ready. **Rejected**, **Paused**, **Disabled**, reclassified, or drifted rows are
 not ready and retain their exact provider state for an operator to inspect.
+Provider rows approved with the earlier `Unsubscribe` footer/button shape are
+component drift and must be corrected, reviewed again where Meta requires it,
+and synced before UsefulDesk treats them as ready. The affected automated
+contracts are `gym_membership_renewal`, `gym_service_renewal`,
+`gym_membership_post_expiry`, `gym_service_post_expiry`,
+`gym_session_pack_low`, `gym_session_pack_used`,
+`gym_membership_win_back`, and `gym_service_win_back`. The manual gallery
+presets `gym_win_back` and `gym_festival_offer` follow the same honest
+single-reply contract. UsefulDesk does not submit or modify provider templates
+automatically as part of this code change.
 After a complete provider snapshot, a previously synced row that Meta no longer
 returns is retained as **Not on Meta** and disabled. A pagination-capped sync
 does not infer absence. If Meta returns the row again, the next complete sync
