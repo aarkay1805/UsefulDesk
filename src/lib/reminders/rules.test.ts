@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getReminderRule,
   parseReminderRulePatch,
+  REMINDER_RULE_GROUP_LABELS,
   REMINDER_RULES,
 } from './rules';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
@@ -48,6 +49,35 @@ describe('reminder rule catalogue', () => {
     });
     expect(
       parseReminderRulePatch(rule, { serviceEnabled: true })
+    ).toMatchObject({ ok: false });
+  });
+
+  it('keeps the owner-facing vocabulary and timing capability in one shared catalogue', () => {
+    expect(REMINDER_RULE_GROUP_LABELS).toMatchObject({
+      collections: 'Payment reminders',
+      retention: 'Keep members coming back',
+    });
+    expect(getReminderRule('invoice_collection')).toMatchObject({
+      title: 'Unpaid invoice reminders',
+      schedule: { capability: 'editable-date-offsets' },
+    });
+    expect(getReminderRule('joining_installments')).toMatchObject({
+      title: 'Installment reminders',
+      configurable: false,
+      schedule: { capability: 'checkout-managed' },
+    });
+    expect(getReminderRule('autopay_recovery')).toMatchObject({
+      title: 'AutoPay payment problems',
+      schedule: { capability: 'event-driven' },
+    });
+  });
+
+  it('rejects a reminder-day selection above the documented maximum', () => {
+    const rule = getReminderRule('membership_renewal')!;
+    expect(
+      parseReminderRulePatch(rule, {
+        daysBefore: [30, 14, 7, 3, 2, 1, 0],
+      })
     ).toMatchObject({ ok: false });
   });
 });
