@@ -14,6 +14,7 @@ import {
 // no auto-scroll needed). Mirrors the Tailwind `lg:` breakpoint that
 // drives the row→column switch in the markup below — keep the two in sync.
 const RAIL_DESKTOP_MIN_PX = 1024;
+const RAIL_DESKTOP_QUERY = `(min-width: ${RAIL_DESKTOP_MIN_PX}px)`;
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 /**
@@ -40,20 +41,32 @@ export function SettingsRail({
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
 
+    const desktopMedia = window.matchMedia(RAIL_DESKTOP_QUERY);
     const previousActive = previousActiveRef.current;
     previousActiveRef.current = active;
 
-    // Avoid repeating the initial positioning when Strict Mode replays effects.
-    if (previousActive === active) return;
-    if (window.matchMedia(`(min-width: ${RAIL_DESKTOP_MIN_PX}px)`).matches)
-      return;
+    const positionActive = (behavior: ScrollBehavior) => {
+      activeRef.current?.scrollIntoView({
+        inline: 'center',
+        block: 'nearest',
+        behavior,
+      });
+    };
 
-    const reduceMotion = window.matchMedia(REDUCED_MOTION_QUERY).matches;
-    activeRef.current?.scrollIntoView({
-      inline: 'center',
-      block: 'nearest',
-      behavior: previousActive === null || reduceMotion ? 'auto' : 'smooth',
-    });
+    // Avoid repeating the initial positioning when Strict Mode replays effects.
+    if (previousActive !== active && !desktopMedia.matches) {
+      const reduceMotion = window.matchMedia(REDUCED_MOTION_QUERY).matches;
+      positionActive(
+        previousActive === null || reduceMotion ? 'auto' : 'smooth'
+      );
+    }
+
+    const handleBreakpointChange = (event: MediaQueryListEvent) => {
+      if (!event.matches) positionActive('auto');
+    };
+    desktopMedia.addEventListener('change', handleBreakpointChange);
+    return () =>
+      desktopMedia.removeEventListener('change', handleBreakpointChange);
   }, [active]);
 
   return (

@@ -9,7 +9,11 @@ import { SettingsRail } from './settings-rail';
 
 describe('WhatsApp settings branding', () => {
   beforeEach(() => {
-    window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
   });
 
   afterEach(cleanup);
