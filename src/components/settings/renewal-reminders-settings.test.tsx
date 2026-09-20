@@ -80,11 +80,7 @@ const rules = [
   {
     ...getReminderRule('membership_renewal')!,
     settings: { enabled: false, daysBefore: [7, 3, 1] },
-    readiness: {
-      ready: false,
-      code: 'template_missing',
-      message: 'Create the exact template.',
-    },
+    readiness: { ready: true, code: 'ready' },
   },
   {
     ...getReminderRule('joining_installments')!,
@@ -92,6 +88,15 @@ const rules = [
     readiness: { ready: true, code: 'ready' },
   },
 ] as const;
+
+const unreadyMembershipRule = {
+  ...rules[0],
+  readiness: {
+    ready: false,
+    code: 'template_missing',
+    message: 'Create the exact template.',
+  },
+} as const;
 
 const invoiceCollectionRule = {
   ...getReminderRule('invoice_collection')!,
@@ -103,7 +108,7 @@ const invoiceCollectionRule = {
     sendWindowStart: 9,
     sendWindowEnd: 19,
   },
-  readiness: { ready: false, code: 'template_missing' },
+  readiness: { ready: true, code: 'ready' },
 } as const;
 
 const { RenewalRemindersSettings } =
@@ -604,11 +609,7 @@ describe('Automated messages catalogue', () => {
             {
               ...getReminderRule('service_renewal')!,
               settings: { enabled: false, daysBefore: [7, 3, 1] },
-              readiness: {
-                ready: false,
-                code: 'template_missing',
-                message: 'Create the exact template.',
-              },
+              readiness: { ready: true, code: 'ready' },
             },
           ],
         }),
@@ -681,14 +682,17 @@ describe('Automated messages catalogue', () => {
   });
 
   it.each([false, true])(
-    'offers setup and Configure without a switch when a template is unready (enabled: %s)',
+    'offers only setup when a template is unready (enabled: %s)',
     async (enabled) => {
       mockFetch();
       vi.mocked(fetch).mockResolvedValueOnce(
         new Response(
           JSON.stringify({
             rules: [
-              { ...rules[0], settings: { ...rules[0].settings, enabled } },
+              {
+                ...unreadyMembershipRule,
+                settings: { ...unreadyMembershipRule.settings, enabled },
+              },
             ],
           })
         )
@@ -697,18 +701,14 @@ describe('Automated messages catalogue', () => {
       const row = await screen.findByTestId('rule-row-membership_renewal');
       expect(within(row).queryByRole('switch')).toBeNull();
       expect(within(row).queryByText(/^(On|Off|Blocked)$/)).toBeNull();
-      const configure = within(row).getByRole('button', {
-        name: 'Configure Membership renewal',
-      });
-      fireEvent.click(configure);
-      expect(within(row).getByText('Create the exact template.')).toBeTruthy();
       expect(
-        within(row)
-          .getByRole('button', {
-            name: 'Hide configuration Membership renewal',
-          })
-          .getAttribute('aria-expanded')
-      ).toBe('true');
+        within(row).queryByRole('button', {
+          name: 'Configure Membership renewal',
+        })
+      ).toBeNull();
+      expect(
+        within(row).queryByTestId('rule-detail-membership_renewal')
+      ).toBeNull();
       fireEvent.click(
         within(row).getByRole('button', {
           name: 'Set up Membership renewal message',
@@ -729,9 +729,7 @@ describe('Automated messages catalogue', () => {
     }
   );
 
-  it('keeps WhatsApp setup reachable and protects unsaved configuration without rendering a switch', async () => {
-    const confirm = vi.fn().mockReturnValue(false);
-    vi.stubGlobal('confirm', confirm);
+  it('keeps WhatsApp setup reachable without exposing configuration or a switch', async () => {
     mockFetch();
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(
@@ -757,25 +755,14 @@ describe('Automated messages catalogue', () => {
       name: 'Set up Membership renewal message',
     });
     expect(setup.getAttribute('href')).toContain('tab=whatsapp');
-    fireEvent.click(
-      within(row).getByRole('button', { name: 'Configure Membership renewal' })
-    );
     expect(
-      within(row).getByText(
-        'Connect this branch to WhatsApp before it can send.'
-      )
-    ).toBeTruthy();
-    toggleReminderDay(
-      within(row).getByRole('button', {
-        name: /Membership renewal change reminder days/i,
-      }),
-      '14 days before'
-    );
-    expect(fireEvent.click(setup)).toBe(false);
-    expect(confirm).toHaveBeenCalledWith(
-      'You have unsaved automated-message changes. Leave without saving them?'
-    );
-    expect(within(row).getByText('Unsaved changes')).toBeTruthy();
+      within(row).queryByRole('button', {
+        name: 'Configure Membership renewal',
+      })
+    ).toBeNull();
+    expect(
+      within(row).queryByTestId('rule-detail-membership_renewal')
+    ).toBeNull();
     expect(
       vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')
     ).toBe(false);
@@ -847,10 +834,15 @@ describe('Automated messages catalogue', () => {
   );
 
   it.each(['agent', 'viewer'] as const)(
-    'explains setup permission for %s while keeping Configure available',
+    'explains setup permission for %s without exposing Configure',
     async (role) => {
       authState.role = role;
       mockFetch();
+      vi.mocked(fetch).mockResolvedValueOnce(
+        new Response(JSON.stringify({ rules: [unreadyMembershipRule] }), {
+          status: 200,
+        })
+      );
       render(<RenewalRemindersSettings />);
 
       const setup = await screen.findByRole('button', {
@@ -859,10 +851,9 @@ describe('Automated messages catalogue', () => {
       expect(
         screen.queryByRole('switch', { name: 'Membership renewal automation' })
       ).toBeNull();
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Configure Membership renewal' })
-      );
-      expect(screen.getByTestId('rule-detail-membership_renewal')).toBeTruthy();
+      expect(
+        screen.queryByRole('button', { name: 'Configure Membership renewal' })
+      ).toBeNull();
       // Gated, not dead: still focusable, and pressing it explains why.
       expect(setup).toHaveProperty('disabled', false);
       expect(setup.getAttribute('aria-disabled')).toBe('true');
@@ -885,22 +876,16 @@ describe('Automated messages catalogue', () => {
     }
   );
 
-  it('opens the exact required template in place and preserves the rule draft and Off preference', async () => {
+  it('opens the exact required template in place before configuration is available', async () => {
     mockFetch();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(JSON.stringify({ rules: [unreadyMembershipRule] }), {
+        status: 200,
+      })
+    );
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
-      })
-    );
-    toggleReminderDay(
-      screen.getByRole('button', {
-        name: /Membership renewal change reminder days/i,
-      }),
-      '14 days before'
-    );
-    fireEvent.click(
-      screen.getByRole('button', {
         name: 'Set up Membership renewal message',
       })
     );
@@ -913,21 +898,14 @@ describe('Automated messages catalogue', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Cancel template setup' })
     );
-    const reminderDays = screen.getByRole('button', {
-      name: /Membership renewal change reminder days/i,
-    });
-    fireEvent.click(reminderDays);
-    expect(
-      screen
-        .getByRole('menuitemcheckbox', { name: '14 days before' })
-        .getAttribute('aria-checked')
-    ).toBe('true');
-    fireEvent.keyDown(document, { key: 'Escape' });
     expect(
       screen.getByRole('button', {
         name: 'Set up Membership renewal message',
       })
     ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Configure Membership renewal' })
+    ).toBeNull();
     expect(
       screen.queryByRole('switch', { name: 'Membership renewal automation' })
     ).toBeNull();
@@ -1033,7 +1011,21 @@ describe('Automated messages catalogue', () => {
   });
 
   it('protects a draft when opening another rule’s template setup', async () => {
+    const installmentNeedsSetup = {
+      ...rules[1],
+      readiness: {
+        ready: false,
+        code: 'template_missing',
+        templateContractId: 'installment_reminder',
+      },
+    };
     mockFetch();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ rules: [rules[0], installmentNeedsSetup] }),
+        { status: 200 }
+      )
+    );
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
@@ -1047,19 +1039,35 @@ describe('Automated messages catalogue', () => {
       '14 days before'
     );
     fireEvent.click(
-      screen.getByRole('button', { name: 'Configure Installment reminders' })
+      screen.getByRole('button', {
+        name: 'Set up Installment reminders message',
+      })
     );
-    // Both rows share the page now, and the closing one is still animating.
-    const joiningRow = screen.getByTestId('rule-row-joining_installments');
     expect(
-      within(joiningRow).getByTestId('rule-detail-joining_installments')
+      within(
+        await screen.findByRole('dialog', { name: 'Required template' })
+      ).getByText('installment_reminder')
     ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Cancel template setup' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Configure Membership renewal' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Membership renewal change reminder days/i,
+      })
+    );
     expect(
-      screen.queryByRole('link', { name: 'View message template' })
-    ).toBeNull();
+      screen
+        .getByRole('menuitemcheckbox', { name: '14 days before' })
+        .getAttribute('aria-checked')
+    ).toBe('true');
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(
-      within(joiningRow).getByText(/Save or cancel your changes/)
-    ).toBeTruthy();
+      vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === 'PATCH')
+    ).toBe(false);
   });
 
   it('shows installments as payment-plan managed without an independent toggle', async () => {
@@ -1101,10 +1109,10 @@ describe('Automated messages catalogue', () => {
     expect(within(row).getByText('Message needs approval')).toBeTruthy();
     expect(within(row).queryByRole('switch')).toBeNull();
     expect(
-      within(row).getByRole('button', {
+      within(row).queryByRole('button', {
         name: 'Configure Installment reminders',
       })
-    ).toBeTruthy();
+    ).toBeNull();
     fireEvent.click(
       within(row).getByRole('button', {
         name: 'Set up Installment reminders message',

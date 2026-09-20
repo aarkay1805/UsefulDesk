@@ -9,10 +9,11 @@
 ## 2026-09-20 — Automated message rows lead with setup until ready
 
 `renewal-reminders-settings.tsx` omits On/Off switches until message readiness
-is complete and labels rule disclosure **Configure / Hide configuration**.
-Setup stays reachable with permission explanations; Configure preserves the
-readiness reason and drafts. Installments stay payment-plan managed without a
-switch. Setup and configuration navigation never PATCH rule activation.
+is complete and now omits **Configure** at the same boundary, leaving one clear
+**Set up message** action. Once ready, the row reveals both the switch and the
+**Configure / Hide configuration** disclosure. Setup stays reachable with
+permission explanations, and installments stay payment-plan managed without a
+switch. Setup navigation never PATCHes rule activation.
 
 ## 2026-09-20 — Lifecycle sending hours moved to branch-level settings
 

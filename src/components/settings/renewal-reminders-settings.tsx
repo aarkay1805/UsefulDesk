@@ -893,6 +893,7 @@ function RuleRow({
   const enabled = isEnabled(rule);
   const canToggle = rule.fields.some((field) => field.key === 'enabled');
   const needsSetup = !rule.readiness.ready;
+  const configurationExpanded = expanded && !needsSetup;
   const setupContractId =
     rule.readiness.templateContractId ?? rule.templateContracts[0];
   const toggle = async () => {
@@ -905,7 +906,7 @@ function RuleRow({
       setSaving(false);
     }
   };
-  const openLabel = expanded ? 'Hide configuration' : 'Configure';
+  const openLabel = configurationExpanded ? 'Hide configuration' : 'Configure';
   const setupLabel = `Set up ${rule.title} message`;
   const setupButton = (
     <Button size="sm" variant="outline" aria-label={setupLabel}>
@@ -942,7 +943,7 @@ function RuleRow({
     <div
       className="border-border scroll-mt-4 border-b py-3 first:scroll-mt-16 first:pt-0 last:border-b-0 last:pb-0"
       data-testid={`rule-row-${rule.id}`}
-      data-expanded={expanded || undefined}
+      data-expanded={configurationExpanded || undefined}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="min-w-48 flex-1">
@@ -952,7 +953,7 @@ function RuleRow({
           <p className="text-muted-foreground text-sm text-pretty">
             {rule.purpose}
           </p>
-          {!expanded ? (
+          {!configurationExpanded ? (
             <p className="text-muted-foreground text-sm">
               {timingSummary(rule)}
             </p>
@@ -1005,22 +1006,24 @@ function RuleRow({
               ) : null}
             </>
           ) : null}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onOpen}
-            id={`rule-configure-${rule.id}`}
-            // Every rule is on one page, so each toggle names its rule.
-            aria-label={`${openLabel} ${rule.title}`}
-            aria-expanded={expanded}
-            aria-controls={`rule-panel-${rule.id}`}
-          >
-            {openLabel}
-            {expanded ? <ChevronUp /> : <ChevronDown />}
-          </Button>
+          {!needsSetup ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onOpen}
+              id={`rule-configure-${rule.id}`}
+              // Every rule is on one page, so each toggle names its rule.
+              aria-label={`${openLabel} ${rule.title}`}
+              aria-expanded={configurationExpanded}
+              aria-controls={`rule-panel-${rule.id}`}
+            >
+              {openLabel}
+              {configurationExpanded ? <ChevronUp /> : <ChevronDown />}
+            </Button>
+          ) : null}
         </div>
       </div>
-      <Collapse open={expanded} duration={ROW_COLLAPSE_SECONDS}>
+      <Collapse open={configurationExpanded} duration={ROW_COLLAPSE_SECONDS}>
         <div
           id={`rule-panel-${rule.id}`}
           role="region"

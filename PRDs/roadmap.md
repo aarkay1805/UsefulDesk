@@ -14,9 +14,9 @@ show adjacent **Unsaved changes**, **Save changes**, and **Cancel** controls.
 
 Setup readiness is independent of whether a rule has an enable switch. Available
 setup uses an enabled, rule-named **Set up message** action; activation remains
-available only after message readiness is complete; unready rows omit the
-switch and keep setup plus Configure available. Approval still does not turn a
-message on. Installment reminders show **Managed by payment plan**, their approval state, and a truthful
+available only after message readiness is complete; unready rows show only the
+setup action, while ready rows reveal both Configure and the switch. Approval
+still does not turn a message on. Installment reminders show **Managed by payment plan**, their approval state, and a truthful
 **Find a member** destination. Generic invoice copy states that invoices without
 a separate due date use the issue date, so a newly issued invoice cannot receive
 an earlier reminder. This changes presentation only: fixed worker timing,

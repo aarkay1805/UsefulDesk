@@ -378,8 +378,9 @@ Use these exact message names: **Unpaid invoice reminders**, **Installment
 reminders**, **Promised payment reminder**, **AutoPay payment problems**,
 **Return after a membership pause**, **Invite expired members back**, and
 **Invite members to renew a service**. A row disclosure is always **Configure** /
-**Hide configuration**. Until message readiness is complete, show setup and
-configuration without an On/Off switch. Once open, **Message preview** is a
+**Hide configuration**. Until message readiness is complete, show only the
+setup action—configuration and the On/Off switch do not apply yet. Once ready,
+show both Configure and the switch. Once open, **Message preview** is a
 directly visible heading and sample—not another disclosure. Keep purpose → schedule → preview → who gets
 it / when it stops / staff action in reading order; only secondary sending
 exceptions belong in an accordion.
