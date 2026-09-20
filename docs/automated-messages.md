@@ -1,48 +1,48 @@
 # Automated messages operator runbook
 
 Settings → **Automated messages** uses the existing `?tab=reminders` URL for the
-selected branch. Its **Rules** and **Activity** tabs sit under the panel
-heading. Rules lists the 14 existing rules in Renewals, Collections, Retention,
-and Confirmations sections. Opening a rule from **Review rule**, **Change
-sending hours**, or a `?rule=<id>` link keeps the destination in view. Review
+selected branch. Its **Messages** and **Message history** tabs sit under the panel
+heading. Messages lists the 14 existing messages in Renewals, Payment reminders,
+Keep members coming back, and Confirmations sections. Opening a message from
+**Review message**, **Change sending hours**, or a `?rule=<id>` link keeps the destination in view. Review
 and `?rule=` open the rule; Change sending hours focuses the branch-level
 Sending hours editor instead.
 
 ## Who can see and change what
 
-| Surface                                               | Owner / admin | Agent / viewer                          |
-| ----------------------------------------------------- | ------------- | --------------------------------------- |
-| **Rules** — `GET /api/reminders/settings`             | Read          | Read                                    |
-| Rule changes — `PATCH /api/reminders/settings`        | Change        | Refused (403)                           |
-| **Activity** — `/api/reminders/activity`, `readiness` | Read          | Permission notice; nothing is requested |
+| Surface                                        | Owner / admin | Agent / viewer                          |
+| ---------------------------------------------- | ------------- | --------------------------------------- |
+| **Messages** — `GET /api/reminders/settings`   | Read          | Read                                    |
+| Rule changes — `PATCH /api/reminders/settings` | Change        | Refused (403)                           |
+| **Message history** — activity/readiness APIs  | Read          | Permission notice; nothing is requested |
 
 - Reading the catalogue is `canViewAutomatedMessageRules` (every member). It
   mirrors the member-level SELECT policies on `renewal_reminder_settings`
   (033), `message_templates`, and `whatsapp_config` (017), so it needed no
   RLS change. Changing a rule stays `requireSettingsAccess`.
-- Activity is `canViewAutomatedMessageActivity` (admin+). It mirrors the
+- Message history is `canViewAutomatedMessageActivity` (admin+). It mirrors the
   explicit `is_account_member(…, 'admin')` predicate in the
-  `automated_message_activity` view, so opening Activity to agents needs a
+  `automated_message_activity` view, so opening Message history to agents needs a
   migration for that view as well as the predicate change.
-- Without settings access, Rules shows **Read-only** and rows open with
-  **View**. The switch, **Set up**, and **Change reminder days** stay
+- Without settings access, Messages shows **Read-only** and rows open with
+  **Details**. The switch, **Set up message**, and **Change reminder days** stay
   focusable, and each opens an **Admin access required** explanation instead
-  of acting. Sending-hour fields stay disabled. The Activity tab stays visible
+  of acting. Sending-hour fields stay disabled. The Message history tab stays visible
   and shows **Admin access required** in place of the history.
-- A 401/403 while loading Rules shows the server's reason without **Try
+- A 401/403 while loading Messages shows the server's reason without **Try
   again**; retrying cannot change an access decision.
 
-## Configure and activate
+## Review and activate
 
-1. Choose a rule and **Configure** to expand its own row and inspect who qualifies, its timing, sample
-   message, stopping conditions, and staff follow-up behavior. **Close** collapses
+1. Choose a message and **Details** to expand its own row and inspect who qualifies, its timing, sample
+   message, stopping conditions, and staff follow-up behavior. **Hide details** collapses
    it; opening another rule closes the previous one without discarding drafts.
-2. **Save settings** writes only that rule’s changed fields. Configuration can
+2. **Save changes** writes only that rule’s changed fields. Configuration can
    be saved while Off and never activates a schedule. **Cancel** restores the
    saved values. Unsaved changes survive tab/detail navigation within this
    page and are isolated by account/branch; they are not persisted across reloads.
-3. When an unready rule offers **Set up**, open it and choose
-   **Set up required template** to open the required prefilled template modal
+3. When an unready rule offers **Set up message**, open it to review the
+   required prefilled template
    over the rule. Without settings access, Set up explains that an admin or
    owner must do this and never opens the setup flow. The branch’s existing
    template opens for editing if eligible; pending templates show their approval
@@ -56,11 +56,11 @@ Sending hours editor instead.
    both reject a new enablement that lacks prerequisites. Already-On rules
    retain their preference when readiness is lost and show **Blocked**.
 
-Joining installments use the recorded joining-payment schedule (7/3/1/0 days)
+Installment reminders use the recorded joining-payment schedule (7/3/1/0 days)
 and have no independent account toggle. Overdue installment jobs belong to
-Invoice collection. Collection, post-expiry, and retention rules share the
-branch-level Sending hours window, whose existing storage fields remain under
-Invoice collection and whose ending hour is inclusive. The editor names every
+Unpaid invoice reminders. Unpaid invoice, post-expiry, and retention messages
+share the branch-level Sending hours, whose existing storage fields remain under
+the internal invoice-collection rule and whose ending hour is inclusive. The editor names every
 rule in scope and keeps its draft/save/cancel state separate from per-rule
 changes. Transaction
 confirmations and AutoPay event updates are processed from their recorded
@@ -73,13 +73,13 @@ Membership renewal, service renewal, and joining-installment workers retain
 their separate after-09:00 account-local gate. Changing Sending hours does not
 alter those schedules, activate any rule, or backfill prior milestones.
 
-## Read Activity accurately
+## Read Message history accurately
 
-Activity unions durable lifecycle jobs with membership-renewal,
+Message history unions durable lifecycle jobs with membership-renewal,
 service-renewal, and installment ledgers. Filters run in the database before
 30-record pages, ordered by recorded time and unique activity ID. Date filters
 use the selected account’s timezone. The API and security-invoker view limit
-Activity to the selected branch's admins and owners.
+Message history to the selected branch's admins and owners.
 
 **Recorded** is the available message/job/ledger timestamp, not necessarily a
 delivery-receipt timestamp. The date under each rule is the subject’s own date,
@@ -140,9 +140,9 @@ Verification on 12 September 2026:
 - Authenticated local browser checks covered the rule catalogue, saved On/Off
   states, configuration while Off, unsaved edits surviving group changes,
   Cancel restoring saved values, exact locked preset opening without
-  submission, return to the same rule, Activity’s retained delivered record,
-  Accepted filtering and its neutral empty state, and Activity → rule detail.
-- Read-back returned zero Activity rows for an unrelated authenticated identity.
+  submission, return to the same rule, Message history’s retained delivered record,
+  Accepted filtering and its neutral empty state, and Message history → message detail.
+- Read-back returned zero message-history rows for an unrelated authenticated identity.
   The real owner’s browser loaded its branch history successfully. Production
   settings read-back remained membership On, service On, newer lifecycle Off.
 
