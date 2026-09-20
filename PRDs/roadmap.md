@@ -65,11 +65,12 @@ local-date range, Clear filters, bounded keyset pages, and contextual text links
 to the conversation, invoice, follow-up, and member. It separates Accepted by
 WhatsApp from confirmed delivery/read, pauses, waiting, blockers, failures, and
 unknown legacy outcomes, and names each record's date for its message type.
-Known provider failures have one plain reason; original provider diagnostics
-remain under disclosure. History fits its panel at every width (fixed-track
-table in wide containers, record list below). Empty history is not proof of
-no eligible work, and a nothing-due check does not hide historical failures.
-Historical failed legacy claims that were deleted cannot be reconstructed.
+Stored setup, retry, follow-up, failure, and unknown-status reasons use plain,
+cautious guidance; original provider diagnostics remain under disclosure.
+History fits its panel at every width (fixed-track table in wide containers,
+record list below). Empty history is not proof of no eligible work, and a
+nothing-due check does not hide historical failures. Historical failed legacy
+claims that were deleted cannot be reconstructed.
 
 The legacy membership, renewable-service, and joining-installment workers now
 share a durable provider-attempt boundary. A caught failure before Meta remains

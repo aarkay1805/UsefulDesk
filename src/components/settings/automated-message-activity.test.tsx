@@ -192,7 +192,9 @@ describe('AutomatedMessageActivity', () => {
 
     await waitFor(() =>
       expect(
-        screen.getAllByText('WhatsApp could not deliver this message.')
+        screen.getAllByText(
+          'WhatsApp could not deliver this message. Check the member’s phone number, then open the chat for details.'
+        )
       ).toHaveLength(2)
     );
     expect(screen.queryByText('Message Undeliverable.')).toBeNull();

@@ -80,69 +80,74 @@ const templateReasonLabels: Record<
   Exclude<TemplateReadinessCode, 'ready'>,
   string
 > = {
-  missing:
-    'Create the required template in Templates using this rule’s locked preset.',
-  pending: 'The required template is awaiting Meta approval.',
-  rejected: 'Meta rejected the required template. Review it in Templates.',
-  paused:
-    'Meta paused the required template. Review its provider status in Templates.',
-  disabled: 'Meta disabled the required template. Review it in Templates.',
-  not_approved: 'The required template is not approved for sending.',
+  missing: 'Set up this WhatsApp message before it can send.',
+  pending:
+    'This WhatsApp message is waiting for approval. Check its setup for the latest status.',
+  rejected:
+    'This WhatsApp message was not approved. Review its setup before using it.',
+  paused: 'WhatsApp paused this message. Review its setup before using it.',
+  disabled: 'WhatsApp disabled this message. Review its setup before using it.',
+  not_approved: 'Get this WhatsApp message approved before it can send.',
   wrong_category:
-    'The template category does not match this rule. Open its exact preset in Templates.',
+    'This WhatsApp message no longer matches the required setup. Review its setup before using it.',
   wrong_parameter_format:
-    'This rule requires a POSITIONAL template. Review its exact preset in Templates.',
+    'This WhatsApp message no longer matches the required setup. Review its setup before using it.',
   parameter_drift:
-    'The template variables differ from this rule’s contract. Review its exact preset in Templates.',
+    'This WhatsApp message no longer matches the required setup. Review its setup before using it.',
   component_drift:
-    'The template content or buttons differ from this rule’s contract. Review its exact preset in Templates.',
+    'This WhatsApp message no longer matches the required setup. Review its setup before using it.',
   provider_sync_required:
-    'Sync the approved template from Meta before this rule can send.',
+    'Check this WhatsApp message’s latest approval status before it can send.',
 };
+
+const DELIVERY_FAILURE_REASON =
+  'WhatsApp could not deliver this message. Check the member’s phone number, then open the chat for details.';
+const UNKNOWN_OUTCOME_REASON =
+  'WhatsApp did not confirm what happened. Open the chat before sending anything again.';
+const BEFORE_WHATSAPP_RETRY_REASON =
+  'This message did not reach WhatsApp. UsefulDesk will check again automatically if it is still due.';
+const OLDER_STATUS_REASON =
+  'There is no saved WhatsApp status for this older reminder. Open the chat if you need to confirm what happened.';
+const MESSAGE_REPLACED_REASON =
+  'Stopped because this message was turned off or replaced.';
 
 const reasonLabels: Record<string, string> = {
   ...templateReasonLabels,
   daily_coordination_unavailable:
-    'The message coordination check is temporarily unavailable; a retry is scheduled.',
+    'UsefulDesk couldn’t safely schedule this message. It will check again automatically.',
   reply_history_unavailable:
-    'Reply history could not be checked. Review the conversation before retrying.',
+    'UsefulDesk couldn’t check recent replies. Open the chat before sending anything manually.',
   manual_fallback_needs_staff_review:
-    'Review this invoice and AutoPay outcome before requesting manual payment.',
-  provider_outcome_unknown:
-    'The provider outcome is unknown. Review the conversation before any resend.',
-  outside_send_window: 'Waiting for this branch’s send window.',
-  waiting_for_send_window: 'Waiting for the scheduled send window.',
-  missing_phone: 'The member has no phone number.',
-  whatsapp_not_connected: 'WhatsApp is not connected for this branch.',
-  provider_delivery_failed: 'WhatsApp could not deliver this message.',
-  lease_expired_before_outcome:
-    'A provider attempt needs review before another send.',
-  lease_expired_before_provider:
-    'The worker stopped before a provider attempt; it can be retried.',
-  legacy_claim_unconfirmed:
-    'A legacy claim was recorded, but no provider outcome was retained.',
+    'Review the invoice and AutoPay result before asking the member to pay another way.',
+  provider_outcome_unknown: UNKNOWN_OUTCOME_REASON,
+  outside_send_window:
+    'Waiting until this branch’s automated sending window opens.',
+  waiting_for_send_window: 'Waiting until the scheduled sending time.',
+  missing_phone:
+    'Check the member’s phone number before this message can send.',
+  whatsapp_not_connected:
+    'Connect WhatsApp for this branch before this message can send.',
+  provider_delivery_failed: DELIVERY_FAILURE_REASON,
+  lease_expired_before_outcome: UNKNOWN_OUTCOME_REASON,
+  lease_expired_before_provider: BEFORE_WHATSAPP_RETRY_REASON,
+  legacy_claim_unconfirmed: OLDER_STATUS_REASON,
   post_expiry_subject_changed:
-    'Stopped because the membership or service changed.',
-  post_expiry_no_longer_active:
-    'Stopped because this rule was paused or replaced.',
-  invoice_hold_open: 'Paused while an invoice hold is open.',
+    'Stopped because the membership or service details changed.',
+  post_expiry_no_longer_active: MESSAGE_REPLACED_REASON,
+  invoice_hold_open: 'Paused while this invoice is on hold.',
   invoice_commitment_or_hold_open:
-    'Paused while a payment promise or hold is open.',
-  provider_request_failed:
-    'The provider request failed and will be retried if eligible.',
+    'Paused while a payment promise or invoice hold is active.',
+  provider_request_failed: BEFORE_WHATSAPP_RETRY_REASON,
   customer_replied: 'Stopped because the member replied.',
   daily_contact_budget:
-    'Waiting because another customer message already has today’s contact slot.',
+    'Waiting because the member already received another automated message today.',
   superseded_or_expired_milestone:
-    'Stopped because a newer milestone replaced this one.',
+    'Stopped because a newer reminder now applies.',
   invoice_no_longer_collectible:
-    'Stopped because the invoice is no longer collectible.',
-  template_not_ready:
-    'Sending is blocked until the required WhatsApp template is ready.',
-  payment_confirmations_disabled_or_regenerated:
-    'Stopped because this rule was paused or replaced.',
-  autopay_recovery_disabled_or_regenerated:
-    'Stopped because this rule was paused or replaced.',
+    'Stopped because this invoice no longer needs collection.',
+  template_not_ready: templateReasonLabels.not_approved,
+  payment_confirmations_disabled_or_regenerated: MESSAGE_REPLACED_REASON,
+  autopay_recovery_disabled_or_regenerated: MESSAGE_REPLACED_REASON,
 };
 
 export function activityReason(
@@ -164,22 +169,22 @@ export function activityReason(
       .join(' ')
       .toLowerCase();
     if (providerDiagnostic.includes('ecosystem engagement')) {
-      return 'WhatsApp limited this reminder based on engagement. Sending it again now may not work.';
+      return 'WhatsApp limited this reminder based on engagement. Open the chat before contacting the member another way.';
     }
-    return 'WhatsApp could not deliver this message.';
+    return DELIVERY_FAILURE_REASON;
   }
   if (row.reason_code && reasonLabels[row.reason_code])
     return reasonLabels[row.reason_code];
   if (row.escalation_state === 'created')
-    return 'A staff follow-up was created after the unanswered sequence.';
+    return 'A staff follow-up was created because no reply was recorded. Open the member to review it.';
   if (row.escalation_state === 'existing')
-    return 'An existing staff follow-up already owns the next action.';
+    return 'A staff follow-up is already open. Open the member to review it.';
   if (row.escalation_state === 'owner_unavailable')
-    return 'A staff follow-up could not be assigned because the owner is unavailable.';
+    return 'No available staff member could be assigned. Open the member to assign the follow-up.';
   if (row.escalation_state === 'replied')
     return 'The member replied, so no staff follow-up was created.';
   if (row.escalation_state === 'stopped')
-    return 'The staff follow-up was stopped because the sequence no longer applies.';
+    return 'The staff follow-up was closed because this message no longer applies.';
   switch (row.outcome) {
     case 'read':
       return 'The member read this WhatsApp message.';
@@ -188,21 +193,21 @@ export function activityReason(
     case 'accepted':
       return 'WhatsApp accepted the message; delivery has not been confirmed.';
     case 'failed':
-      return 'The message could not be delivered.';
+      return DELIVERY_FAILURE_REASON;
     case 'blocked':
-      return 'Sending is blocked until the required setup or member detail is fixed.';
+      return 'This message needs setup or a member detail before it can send. Review the message and member.';
     case 'stopped':
-      return 'The sequence no longer applies to this member.';
+      return 'This message no longer applies to this member.';
     case 'ambiguous':
-      return 'The provider outcome is unknown and needs review.';
+      return UNKNOWN_OUTCOME_REASON;
     case 'attempting':
-      return 'A provider attempt is in progress.';
+      return 'UsefulDesk is sending this message.';
     case 'waiting':
-      return 'Waiting for its next scheduled attempt.';
+      return 'Waiting until the scheduled sending time.';
     case 'paused':
-      return 'Paused until the current hold or promise is resolved.';
+      return 'Paused until the current hold or payment promise is resolved.';
     case 'unconfirmed':
-      return 'A legacy reminder claim has no retained provider outcome.';
+      return OLDER_STATUS_REASON;
   }
 }
 

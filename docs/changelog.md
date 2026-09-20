@@ -25,7 +25,9 @@ delivery diagnostics into one plain reason, keeps the original provider title
 and detail behind Provider details, and distinguishes Accepted by WhatsApp from
 Delivered. History uses Message/Status terminology and contextual text actions;
 the readiness section explicitly covers only renewal and installment workers and
-no longer exposes claimed/date-matched worker jargon. Scheduling, delivery,
+no longer exposes claimed/date-matched worker jargon. Stored setup, retry,
+follow-up, and unknown-status reasons also use cautious owner-facing guidance;
+technical reason codes remain unchanged. Scheduling, delivery,
 branch scope, and historical records are unchanged. Key code:
 `src/components/settings/automated-message-activity.tsx`,
 `src/lib/reminders/activity.ts`, and
