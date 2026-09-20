@@ -3,6 +3,12 @@
 import { forwardRef, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -129,21 +135,10 @@ export const LifecycleSendingHoursSettings = forwardRef<
       <SettingsSectionHead
         id="lifecycle-sending-hours-title"
         title="Sending hours"
-        description="Choose when the messages listed below can be sent."
+        description="Set the daily window for follow-ups and collection messages."
       />
       <Card>
-        <CardContent className="space-y-5">
-          <div className="space-y-2">
-            <div className="text-sm font-medium">
-              Messages that share these sending hours
-            </div>
-            <ul className="text-muted-foreground grid list-disc gap-x-8 gap-y-1 pl-5 text-sm sm:grid-cols-2">
-              {LIFECYCLE_MESSAGE_TYPES.map((messageType) => (
-                <li key={messageType}>{messageType}</li>
-              ))}
-            </ul>
-          </div>
-
+        <CardContent className="space-y-4">
           <div className="grid max-w-xl gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="lifecycle-send-window-start">
@@ -207,17 +202,28 @@ export const LifecycleSendingHoursSettings = forwardRef<
             </div>
           </div>
 
-          <div className="text-muted-foreground max-w-3xl space-y-1 text-sm leading-5">
-            <p>
-              Membership renewal, service renewal, and installment reminders
-              still start after {localTime(9)}. They do not use these sending
-              hours.
-            </p>
-            <p>
-              Payment confirmations and AutoPay updates send when the payment
-              status changes. They do not use these sending hours.
-            </p>
-          </div>
+          <Accordion>
+            <AccordionItem value="sending-hours-scope">
+              <AccordionTrigger>
+                Which messages use these hours?
+              </AccordionTrigger>
+              <AccordionContent className="px-1">
+                <div className="text-muted-foreground max-w-3xl space-y-2 text-sm leading-5">
+                  <ul className="grid list-disc gap-x-8 gap-y-1 pl-5 sm:grid-cols-2">
+                    {LIFECYCLE_MESSAGE_TYPES.map((messageType) => (
+                      <li key={messageType}>{messageType}</li>
+                    ))}
+                  </ul>
+                  <p>
+                    Membership renewal, service renewal, and installment
+                    reminders still start after {localTime(9)}. Payment
+                    confirmations and AutoPay updates send when their payment
+                    status changes.
+                  </p>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
 
           {error ? (
             <Alert variant="destructive">

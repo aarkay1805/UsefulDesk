@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-09-20 — Automated messages distilled to timing and action
+
+The Messages catalogue now leads each collapsed rule with its timing instead of
+repeating a purpose line. Branch Sending hours keeps the two controls visible
+while moving its long scope and exception list into one disclosure, and expanded
+rules keep timing plus the sample message primary while placing eligibility,
+stopping, and staff guidance behind **Eligibility and follow-up**. Behavior,
+permissions, schedules, activation, and message delivery are unchanged. Key
+code: `renewal-reminders-settings.tsx` and
+`lifecycle-sending-hours-settings.tsx`.
+
 ## 2026-09-20 — Automated message rows lead with setup until ready
 
 `renewal-reminders-settings.tsx` omits On/Off switches until message readiness

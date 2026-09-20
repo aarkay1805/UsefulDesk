@@ -233,17 +233,19 @@ describe('Automated messages catalogue', () => {
     ).toBe('true');
   });
 
-  it('shows each rule purpose directly without a redundant info disclosure', async () => {
+  it('leads collapsed rules with their timing instead of a second purpose line', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
 
     expect(
       await screen.findByText(
-        'Reminds members before their current membership ends.'
+        'Members get reminders 7, 3 and 1 days before the membership ends.'
       )
     ).toBeTruthy();
     expect(
-      screen.queryByText('Before and after a membership or service ends.')
+      screen.queryByText(
+        'Reminds members before their current membership ends.'
+      )
     ).toBeNull();
   });
 
@@ -257,7 +259,7 @@ describe('Automated messages catalogue', () => {
     );
     expect(
       screen.getByRole('heading', {
-        name: 'Send reminders',
+        name: 'Timing',
       })
     ).toBeTruthy();
     expect(
@@ -272,9 +274,13 @@ describe('Automated messages catalogue', () => {
     expect(
       screen.queryByRole('button', { name: 'Message preview' })
     ).toBeNull();
+    expect(screen.queryByText('Who gets it')).toBeNull();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Eligibility and follow-up' })
+    );
     expect(screen.getByText('Who gets it')).toBeTruthy();
     expect(screen.getByText('When it stops')).toBeTruthy();
-    expect(screen.getByText('What staff should do')).toBeTruthy();
+    expect(screen.getByText('Staff follow-up')).toBeTruthy();
     expect(screen.queryByText('Days before')).toBeNull();
     toggleReminderDay(
       screen.getByRole('button', {
@@ -382,7 +388,7 @@ describe('Automated messages catalogue', () => {
     ).toBeTruthy();
     expect(
       screen.getByRole('heading', {
-        name: 'Send reminders',
+        name: 'Timing',
       })
     ).toBeTruthy();
     expect(
@@ -437,6 +443,11 @@ describe('Automated messages catalogue', () => {
         name: 'Stop sending after',
       })
     ).toBeTruthy();
+    fireEvent.click(
+      within(sendingHours).getByRole('button', {
+        name: 'Which messages use these hours?',
+      })
+    );
     expect(
       within(sendingHours).getByText('Unpaid invoice reminders')
     ).toBeTruthy();
@@ -450,7 +461,7 @@ describe('Automated messages catalogue', () => {
     ).toBeTruthy();
     expect(
       within(sendingHours).getByText(
-        /Payment confirmations and AutoPay updates send when the payment status changes/i
+        /Payment confirmations and AutoPay updates send when their payment status changes/i
       )
     ).toBeTruthy();
     expect(screen.queryByText('Catch-up days')).toBeNull();

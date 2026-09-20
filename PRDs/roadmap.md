@@ -5,8 +5,12 @@
 Settings → **Automated messages** now uses the shared rule catalogue for the
 **Messages** / **Message history** tabs, owner-facing group names, message
 names, purpose, eligibility, stopping conditions, staff action, and explicit
-schedule capability. Rows use one **Configure** / **Hide configuration** action and
-show purpose → schedule → **Message preview** in reading order. Editable day
+schedule capability. Rows use one **Configure** / **Hide configuration** action,
+lead with the saved schedule at rest, and remove the redundant purpose line from
+the collapsed list. Timing and the **Message preview** remain primary in the
+expanded rule;
+eligibility, stopping conditions, and staff guidance use one secondary
+**Eligibility and follow-up** disclosure. Editable day
 sets explain multi-selection and enforce the six-day limit; fixed, event-driven,
 session-count, and checkout-managed schedules explain why no day picker exists.
 Delayed-send allowance is separate from the scheduled days, and schedule edits
@@ -26,6 +30,11 @@ message sent, or deployment performed.
 
 Still deferred: changing the fixed worker schedules and introducing universal
 sending hours for renewal, installment, confirmation, or AutoPay messages.
+
+The branch-level **Sending hours** editor keeps its two controls visible and
+moves the exact in-scope message list plus timing exceptions into a single
+**Which messages use these hours?** disclosure. This is a presentation-only
+distillation; scope and persistence are unchanged.
 
 ## Shipped in code — Automated messages catalogue and activity (2026-09-12)
 

@@ -25,7 +25,7 @@ Sending hours editor instead.
   `automated_message_activity` view, so opening Message history to agents needs a
   migration for that view as well as the predicate change.
 - Without settings access, Messages shows **Read-only** and rows open with
-  **Details**. The switch, **Set up message**, and **Change reminder days** stay
+  **Configure**. The switch, **Set up message**, and **Change reminder days** stay
   focusable, and each opens an **Admin access required** explanation instead
   of acting. Sending-hour fields stay disabled. The Message history tab stays visible
   and shows **Admin access required** in place of the history.
@@ -34,9 +34,11 @@ Sending hours editor instead.
 
 ## Review and activate
 
-1. Choose a message and **Details** to expand its own row and inspect who qualifies, its timing, sample
-   message, stopping conditions, and staff follow-up behavior. **Hide details** collapses
-   it; opening another rule closes the previous one without discarding drafts.
+1. Each collapsed row leads with its saved timing. Choose **Configure** to expand
+   its own row; timing and the sample message remain visible, while
+   **Eligibility and follow-up** reveals who qualifies, stopping conditions, and
+   staff behavior. **Hide configuration** collapses it; opening another rule
+   closes the previous one without discarding drafts.
 2. **Save changes** writes only that rule’s changed fields. Configuration can
    be saved while Off and never activates a schedule. **Cancel** restores the
    saved values. Unsaved changes survive tab/detail navigation within this
@@ -60,8 +62,9 @@ Installment reminders use the recorded joining-payment schedule (7/3/1/0 days)
 and have no independent account toggle. Overdue installment jobs belong to
 Unpaid invoice reminders. Unpaid invoice, post-expiry, and retention messages
 share the branch-level Sending hours, whose existing storage fields remain under
-the internal invoice-collection rule and whose ending hour is inclusive. The editor names every
-rule in scope and keeps its draft/save/cancel state separate from per-rule
+the internal invoice-collection rule and whose ending hour is inclusive. The
+editor keeps its exact scope and timing exceptions behind **Which messages use
+these hours?** and keeps its draft/save/cancel state separate from per-rule
 changes. Transaction
 confirmations and AutoPay event updates are processed from their recorded
 events and do not use that window. AutoPay retry messages are

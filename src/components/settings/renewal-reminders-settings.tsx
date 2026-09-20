@@ -702,7 +702,7 @@ function RuleDetail({
       <section className="space-y-3" aria-labelledby={`rule-when-${rule.id}`}>
         <div className="max-w-2xl space-y-1">
           <h5 className={DETAIL_CAPTION} id={`rule-when-${rule.id}`}>
-            Send reminders
+            Timing
           </h5>
           {hasDayChoices ? null : (
             <div className="text-sm leading-5 text-pretty">
@@ -745,6 +745,24 @@ function RuleDetail({
           disabled={!canEdit || saving}
           blocker={canEdit ? null : EDIT_PERMISSION_BLOCKER}
         />
+        {sendsAfterNine ? (
+          <div className="text-muted-foreground max-w-2xl text-sm leading-5">
+            UsefulDesk can send this message after {localTime(9)} in this
+            branch.
+          </div>
+        ) : null}
+        {showsLifecycleWindow && lifecycleWindow ? (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
+            <span>
+              Uses this branch’s Sending hours:{' '}
+              {localTime(lifecycleWindow.start)}–
+              {localTime(lifecycleWindow.end, '59')}.
+            </span>
+            <Button variant="link" size="sm" onClick={onOpenSendingHours}>
+              Change sending hours
+            </Button>
+          </div>
+        ) : null}
         {sendingOptionsCollapsed ? (
           <Accordion>
             <AccordionItem value={`delivery-${rule.id}`}>
@@ -823,50 +841,44 @@ function RuleDetail({
             hasUnsavedChanges={hasUnsavedChanges}
           />
         )}
-        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
-          <div className="space-y-1">
-            <dt className={DETAIL_CAPTION}>Who gets it</dt>
-            <dd className="text-sm leading-5 text-pretty">
-              {rule.eligibility}
-            </dd>
-          </div>
-          <div className="space-y-1">
-            <dt className={DETAIL_CAPTION}>When it stops</dt>
-            <dd className="text-sm leading-5 text-pretty">{rule.stops}</dd>
-          </div>
-          <div className="space-y-1">
-            <dt className={DETAIL_CAPTION}>What staff should do</dt>
-            <dd className="text-sm leading-5 text-pretty">{rule.staff}</dd>
-          </div>
-          {rule.id === 'autopay_recovery' ? (
-            <div className="space-y-1 sm:col-span-3">
-              <dt className={DETAIL_CAPTION}>How AutoPay retries work</dt>
-              <dd className="max-w-3xl text-sm leading-5 text-pretty">
-                A retry message tells the member when AutoPay will try again. It
-                does not ask them to pay another way. A final failure message
-                may ask for payment after UsefulDesk checks the account.
-              </dd>
-            </div>
-          ) : null}
-        </dl>
-        {sendsAfterNine ? (
-          <div className="text-muted-foreground max-w-2xl text-sm leading-5">
-            UsefulDesk can send this message after {localTime(9)} in this
-            branch.
-          </div>
-        ) : null}
-        {showsLifecycleWindow && lifecycleWindow ? (
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
-            <span>
-              This message uses this branch’s Sending hours: from{' '}
-              {localTime(lifecycleWindow.start)} to{' '}
-              {localTime(lifecycleWindow.end, '59')}.
-            </span>
-            <Button variant="link" size="sm" onClick={onOpenSendingHours}>
-              Change sending hours
-            </Button>
-          </div>
-        ) : null}
+        <Accordion>
+          <AccordionItem value={`operation-${rule.id}`}>
+            <AccordionTrigger>Eligibility and follow-up</AccordionTrigger>
+            <AccordionContent className="px-1">
+              <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <dt className={DETAIL_CAPTION}>Who gets it</dt>
+                  <dd className="text-sm leading-5 text-pretty">
+                    {rule.eligibility}
+                  </dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className={DETAIL_CAPTION}>When it stops</dt>
+                  <dd className="text-sm leading-5 text-pretty">
+                    {rule.stops}
+                  </dd>
+                </div>
+                <div className="space-y-1">
+                  <dt className={DETAIL_CAPTION}>Staff follow-up</dt>
+                  <dd className="text-sm leading-5 text-pretty">
+                    {rule.staff}
+                  </dd>
+                </div>
+                {rule.id === 'autopay_recovery' ? (
+                  <div className="space-y-1 sm:col-span-3">
+                    <dt className={DETAIL_CAPTION}>How AutoPay retries work</dt>
+                    <dd className="max-w-3xl text-sm leading-5 text-pretty">
+                      A retry message tells the member when AutoPay will try
+                      again. It does not ask them to pay another way. A final
+                      failure message may ask for payment after UsefulDesk
+                      checks the account.
+                    </dd>
+                  </div>
+                ) : null}
+              </dl>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
       </section>
     </div>
   );
@@ -950,11 +962,8 @@ function RuleRow({
           <h4 className="font-medium" id={`rule-title-${rule.id}`}>
             {rule.title}
           </h4>
-          <p className="text-muted-foreground text-sm text-pretty">
-            {rule.purpose}
-          </p>
           {!configurationExpanded ? (
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-sm text-pretty">
               {timingSummary(rule)}
             </p>
           ) : null}

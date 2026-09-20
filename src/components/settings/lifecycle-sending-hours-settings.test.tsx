@@ -94,7 +94,7 @@ async function chooseStart(label: string) {
 }
 
 describe('Lifecycle sending hours', () => {
-  it('names every lifecycle rule in scope and calls out the workers outside it', () => {
+  it('keeps exact scope available behind one concise disclosure', () => {
     render(
       <ScopeHarness
         scopeKey="branch-a"
@@ -102,6 +102,17 @@ describe('Lifecycle sending hours', () => {
       />
     );
 
+    expect(
+      screen.getByText(
+        'Set the daily window for follow-ups and collection messages.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Which messages use these hours?',
+      })
+    );
     expect(
       screen.getAllByRole('listitem').map((item) => item.textContent)
     ).toEqual([
@@ -116,19 +127,13 @@ describe('Lifecycle sending hours', () => {
       'Invite members to renew a service',
     ]);
     expect(
-      screen.getByText('Choose when the messages listed below can be sent.')
-    ).toBeTruthy();
-    expect(
-      screen.getByText('Messages that share these sending hours')
-    ).toBeTruthy();
-    expect(
       screen.getByText(
         /Membership renewal, service renewal, and installment reminders still start after/i
       )
     ).toBeTruthy();
     expect(
       screen.getByText(
-        /Payment confirmations and AutoPay updates send when the payment status changes/i
+        /Payment confirmations and AutoPay updates send when their payment status changes/i
       )
     ).toBeTruthy();
     expect(screen.queryByText(/lifecycle reminders/i)).toBeNull();
