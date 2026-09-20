@@ -42,7 +42,6 @@ describe('evaluateTemplateReadiness', () => {
     const row = membershipRow({
       buttons: [
         { text: 'Renew membership', type: 'QUICK_REPLY' },
-        { text: 'Unsubscribe', type: 'QUICK_REPLY' },
       ],
     });
 
@@ -115,10 +114,7 @@ describe('evaluateTemplateReadiness', () => {
       membershipRow({ footer_text: 'Different footer' }),
       membershipRow({ header_type: 'text', header_content: 'Promotion' }),
       membershipRow({
-        buttons: [
-          { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-          { type: 'QUICK_REPLY', text: 'Renew membership' },
-        ],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Different reply' }],
       }),
     ]) {
       expect(
@@ -126,6 +122,56 @@ describe('evaluateTemplateReadiness', () => {
       ).toMatchObject({ ready: false, code: 'component_drift' });
     }
   });
+
+  it.each([
+    'membership_renewal',
+    'service_renewal',
+    'membership_post_expiry',
+    'service_post_expiry',
+    'session_pack_low',
+    'session_pack_exhausted',
+    'membership_win_back',
+    'service_win_back',
+    'win_back',
+    'festival_offer',
+  ] as const)(
+    'rejects the prior unsubscribe-promising %s payload as component drift',
+    (contractId) => {
+      const payload = TEMPLATE_CONTRACTS[contractId].payload;
+      const previousBodies: Partial<Record<typeof contractId, string>> = {
+        membership_renewal:
+          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
+        service_renewal:
+          'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the buttons below to respond.',
+        membership_post_expiry:
+          'Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current price of {{4}}. Use the buttons below and our team will help.',
+        service_post_expiry:
+          'Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current price of {{4}}. Use the buttons below and our team will help.',
+      };
+
+      expect(
+        evaluateTemplateReadiness(
+          [
+            {
+              name: payload.name,
+              language: payload.language,
+              status: 'APPROVED',
+              category: payload.category,
+              parameter_format: 'POSITIONAL',
+              body_text: previousBodies[contractId] ?? payload.body_text,
+              footer_text: 'Tap Unsubscribe to stop promotional messages.',
+              buttons: [
+                ...(payload.buttons ?? []),
+                { type: 'QUICK_REPLY' as const, text: 'Unsubscribe' },
+              ],
+            },
+          ],
+          contractId,
+          'en_US'
+        )
+      ).toMatchObject({ ready: false, code: 'component_drift' });
+    }
+  );
 
   it('blocks a provider-owned component update until full sync completes', () => {
     expect(

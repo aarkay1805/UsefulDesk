@@ -44,10 +44,8 @@ export interface TemplateContract {
   payload: TemplatePayload;
 }
 
-const MARKETING_FOOTER = 'Tap Unsubscribe to stop promotional messages.';
 const INTERESTED_BUTTONS = [
   { type: 'QUICK_REPLY' as const, text: "I'm interested" },
-  { type: 'QUICK_REPLY' as const, text: 'Unsubscribe' },
 ];
 
 export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
@@ -75,15 +73,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
+          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
         sample_values: {
           body: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
         },
-        footer_text: MARKETING_FOOTER,
-        buttons: [
-          { type: 'QUICK_REPLY', text: 'Renew membership' },
-          { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-        ],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
       },
     },
     service_renewal: {
@@ -109,15 +103,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the buttons below to respond.',
+          'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the button below to respond.',
         sample_values: {
           body: ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
         },
-        footer_text: MARKETING_FOOTER,
-        buttons: [
-          { type: 'QUICK_REPLY', text: 'Renew service' },
-          { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-        ],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
       },
     },
     membership_post_expiry: {
@@ -135,13 +125,9 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         name: 'gym_membership_post_expiry',
         category: 'Marketing',
         language: 'en_US',
-        body_text: 'Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current price of {{4}}. Use the buttons below and our team will help.',
+        body_text: 'Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current price of {{4}}. Use the button below and our team will help.',
         sample_values: { body: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'] },
-        footer_text: MARKETING_FOOTER,
-        buttons: [
-          { type: 'QUICK_REPLY', text: 'Renew membership' },
-          { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-        ],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
       },
     },
     service_post_expiry: {
@@ -159,13 +145,9 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         name: 'gym_service_post_expiry',
         category: 'Marketing',
         language: 'en_US',
-        body_text: 'Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current price of {{4}}. Use the buttons below and our team will help.',
+        body_text: 'Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current price of {{4}}. Use the button below and our team will help.',
         sample_values: { body: ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'] },
-        footer_text: MARKETING_FOOTER,
-        buttons: [
-          { type: 'QUICK_REPLY', text: 'Renew service' },
-          { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-        ],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
       },
     },
     session_pack_low: {
@@ -178,8 +160,8 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       payload: {
         name: 'gym_session_pack_low', category: 'Marketing', language: 'en_US',
         body_text: 'Hi {{1}}, your {{2}} has {{3}} sessions remaining. Reply here if you would like help choosing your next pack.',
-        sample_values: { body: ['Rahul', '10-session pack', '2'] }, footer_text: MARKETING_FOOTER,
-        buttons: [{ type: 'QUICK_REPLY', text: 'Ask about packs' }, { type: 'QUICK_REPLY', text: 'Unsubscribe' }],
+        sample_values: { body: ['Rahul', '10-session pack', '2'] },
+        buttons: [{ type: 'QUICK_REPLY', text: 'Ask about packs' }],
       },
     },
     session_pack_exhausted: {
@@ -192,8 +174,8 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       payload: {
         name: 'gym_session_pack_used', category: 'Marketing', language: 'en_US',
         body_text: 'Hi {{1}}, all sessions in your {{2}} have been used. Reply here if you would like help with your next pack.',
-        sample_values: { body: ['Rahul', '10-session pack'] }, footer_text: MARKETING_FOOTER,
-        buttons: [{ type: 'QUICK_REPLY', text: 'Ask about packs' }, { type: 'QUICK_REPLY', text: 'Unsubscribe' }],
+        sample_values: { body: ['Rahul', '10-session pack'] },
+        buttons: [{ type: 'QUICK_REPLY', text: 'Ask about packs' }],
       },
     },
     freeze_return: {
@@ -219,8 +201,8 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       payload: {
         name: 'gym_membership_win_back', category: 'Marketing', language: 'en_US',
         body_text: 'Hi {{1}}, you can restart your {{2}} membership. Reply here if you would like help renewing.',
-        sample_values: { body: ['Rahul', 'Quarterly'] }, footer_text: MARKETING_FOOTER,
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }, { type: 'QUICK_REPLY', text: 'Unsubscribe' }],
+        sample_values: { body: ['Rahul', 'Quarterly'] },
+        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
       },
     },
     service_win_back: {
@@ -233,8 +215,8 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       payload: {
         name: 'gym_service_win_back', category: 'Marketing', language: 'en_US',
         body_text: 'Hi {{1}}, you can renew your {{2}} service at the current price of {{3}}. Reply here if you would like help.',
-        sample_values: { body: ['Rahul', 'Personal Training', '₹4,500'] }, footer_text: MARKETING_FOOTER,
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }, { type: 'QUICK_REPLY', text: 'Unsubscribe' }],
+        sample_values: { body: ['Rahul', 'Personal Training', '₹4,500'] },
+        buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
       },
     },
     installment_reminder: {
@@ -569,9 +551,8 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your membership at {{2}} ended on {{3}}. If you would like to return, use the buttons below and the gym team will help you choose a membership.',
+          'Hi {{1}}, your membership at {{2}} ended on {{3}}. If you would like to return, use the button below and the gym team will help you choose a membership.',
         sample_values: { body: ['Rahul', 'FitZone Gym', '20 Jun 2026'] },
-        footer_text: MARKETING_FOOTER,
         buttons: INTERESTED_BUTTONS,
       },
     },
@@ -599,11 +580,10 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, {{2}} offer from {{3}}: {{4}} off annual memberships until {{5}}. Use the buttons below if you would like details.',
+          'Hi {{1}}, {{2}} offer from {{3}}: {{4}} off annual memberships until {{5}}. Use the button below if you would like details.',
         sample_values: {
           body: ['Rahul', 'Diwali', 'FitZone Gym', '20%', '10 Nov 2026'],
         },
-        footer_text: MARKETING_FOOTER,
         buttons: INTERESTED_BUTTONS,
       },
     },

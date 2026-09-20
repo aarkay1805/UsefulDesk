@@ -13,7 +13,9 @@ consent nor opt-out history blocks outbound sends. The exact ten-template
 registry, provider payloads, categories, and parameter order live only in
 `src/lib/whatsapp/template-contracts.ts`. Feature sends require the exact
 Approved/synced provider row; submission and a returned message id do not prove
-approval or delivery.
+approval or delivery. Canonical Marketing payloads keep only an affirmative
+reply action and never promise that an opt-out automatically suppresses future
+sends; legacy inbound opt-out commands remain audit history.
 
 ---
 

@@ -8,8 +8,6 @@ import {
   getTemplateContractById,
 } from './template-contracts';
 
-const marketingFooter = 'Tap Unsubscribe to stop promotional messages.';
-
 const expected = [
   {
     id: 'membership_renewal',
@@ -26,12 +24,8 @@ const expected = [
       'Current renewal price',
     ],
     samples: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
-    body: 'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
-    footer: marketingFooter,
-    buttons: [
-      { type: 'QUICK_REPLY', text: 'Renew membership' },
-      { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-    ],
+    body: 'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
+    buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
   },
   {
     id: 'service_renewal',
@@ -48,12 +42,8 @@ const expected = [
       'Current renewal price',
     ],
     samples: ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
-    body: 'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the buttons below to respond.',
-    footer: marketingFooter,
-    buttons: [
-      { type: 'QUICK_REPLY', text: 'Renew service' },
-      { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-    ],
+    body: 'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the button below to respond.',
+    buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
   },
   {
     id: 'installment_reminder',
@@ -256,12 +246,8 @@ const expected = [
       'Previous membership end date',
     ],
     samples: ['Rahul', 'FitZone Gym', '20 Jun 2026'],
-    body: 'Hi {{1}}, your membership at {{2}} ended on {{3}}. If you would like to return, use the buttons below and the gym team will help you choose a membership.',
-    footer: marketingFooter,
-    buttons: [
-      { type: 'QUICK_REPLY', text: "I'm interested" },
-      { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-    ],
+    body: 'Hi {{1}}, your membership at {{2}} ended on {{3}}. If you would like to return, use the button below and the gym team will help you choose a membership.',
+    buttons: [{ type: 'QUICK_REPLY', text: "I'm interested" }],
   },
   {
     id: 'festival_offer',
@@ -279,12 +265,8 @@ const expected = [
       'Offer end date',
     ],
     samples: ['Rahul', 'Diwali', 'FitZone Gym', '20%', '10 Nov 2026'],
-    body: 'Hi {{1}}, {{2}} offer from {{3}}: {{4}} off annual memberships until {{5}}. Use the buttons below if you would like details.',
-    footer: marketingFooter,
-    buttons: [
-      { type: 'QUICK_REPLY', text: "I'm interested" },
-      { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-    ],
+    body: 'Hi {{1}}, {{2}} offer from {{3}}: {{4}} off annual memberships until {{5}}. Use the button below if you would like details.',
+    buttons: [{ type: 'QUICK_REPLY', text: "I'm interested" }],
   },
 ] as const;
 
@@ -326,6 +308,31 @@ describe('gym WhatsApp template contracts', () => {
     }
   });
 
+  it('keeps every Marketing contract on an affirmative reply without promising suppression', () => {
+    const expectedReply = {
+      membership_renewal: 'Renew membership',
+      service_renewal: 'Renew service',
+      membership_post_expiry: 'Renew membership',
+      service_post_expiry: 'Renew service',
+      session_pack_low: 'Ask about packs',
+      session_pack_exhausted: 'Ask about packs',
+      membership_win_back: 'Renew membership',
+      service_win_back: 'Renew service',
+      win_back: "I'm interested",
+      festival_offer: "I'm interested",
+    } as const;
+
+    for (const [id, reply] of Object.entries(expectedReply)) {
+      const contract = getTemplateContractById(id);
+      expect(contract?.category).toBe('Marketing');
+      expect(contract?.payload.footer_text).toBeUndefined();
+      expect(contract?.payload.buttons).toEqual([
+        { type: 'QUICK_REPLY', text: reply },
+      ]);
+      expect(JSON.stringify(contract?.payload)).not.toMatch(/unsubscribe/i);
+    }
+  });
+
   it('builds the exact Meta payload for membership renewal', () => {
     const contract = getTemplateContractById('membership_renewal');
     expect(contract).toBeDefined();
@@ -337,21 +344,14 @@ describe('gym WhatsApp template contracts', () => {
       components: [
         {
           type: 'BODY',
-          text: 'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
+          text: 'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
           example: {
             body_text: [['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999']],
           },
         },
         {
-          type: 'FOOTER',
-          text: 'Tap Unsubscribe to stop promotional messages.',
-        },
-        {
           type: 'BUTTONS',
-          buttons: [
-            { type: 'QUICK_REPLY', text: 'Renew membership' },
-            { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-          ],
+          buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
         },
       ],
     });
@@ -368,7 +368,7 @@ describe('gym WhatsApp template contracts', () => {
       components: [
         {
           type: 'BODY',
-          text: 'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the buttons below to respond.',
+          text: 'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the button below to respond.',
           example: {
             body_text: [
               ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
@@ -376,15 +376,8 @@ describe('gym WhatsApp template contracts', () => {
           },
         },
         {
-          type: 'FOOTER',
-          text: 'Tap Unsubscribe to stop promotional messages.',
-        },
-        {
           type: 'BUTTONS',
-          buttons: [
-            { type: 'QUICK_REPLY', text: 'Renew service' },
-            { type: 'QUICK_REPLY', text: 'Unsubscribe' },
-          ],
+          buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
         },
       ],
     });
@@ -393,12 +386,12 @@ describe('gym WhatsApp template contracts', () => {
   it('defines exact Marketing contracts for the two post-expiry sequences', () => {
     expect(TEMPLATE_CONTRACTS.membership_post_expiry.payload).toMatchObject({
       name: 'gym_membership_post_expiry', category: 'Marketing', language: 'en_US',
-      body_text: 'Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current price of {{4}}. Use the buttons below and our team will help.',
+      body_text: 'Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current price of {{4}}. Use the button below and our team will help.',
       sample_values: { body: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'] },
     });
     expect(TEMPLATE_CONTRACTS.service_post_expiry.payload).toMatchObject({
       name: 'gym_service_post_expiry', category: 'Marketing', language: 'en_US',
-      body_text: 'Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current price of {{4}}. Use the buttons below and our team will help.',
+      body_text: 'Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current price of {{4}}. Use the button below and our team will help.',
       sample_values: { body: ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'] },
     });
     expect(TEMPLATE_CONTRACTS.membership_post_expiry.consentScope).toBe('whatsapp_marketing');

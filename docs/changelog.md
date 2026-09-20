@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-09-20 — Marketing templates stop promising automatic suppression
+
+Canonical Marketing contracts in `template-contracts.ts` now omit the
+unsupported Unsubscribe footer and quick reply while retaining one useful
+renewal, service, session-pack, or interest reply. Exact readiness rejects the
+old provider-approved shape, and
+`20260920120000_truthful_marketing_template_contracts.sql` aligns direct rule
+activation with the eight automated contracts. Legacy inbound opt-out handling
+still records audit history and does not gate sends. No provider template was
+edited, submitted, synced, or used to send; the migration is committed but not
+applied by this change.
+
 ## 2026-09-20 — Production product-access enforcement activated
 
 The staged rollout switch is active in Production. A guarded privileged update
