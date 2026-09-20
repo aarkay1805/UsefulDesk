@@ -15,15 +15,15 @@ approved/synced template. Existing On intent survives lost readiness. Each rule
 name has a plain-language info tooltip; the group sections do not repeat
 another summary line. Template setup remains in Templates, with exact-contract
 focus and a return to the originating rule.
-The Set up action opens the required template editor directly over the rule,
-preserving drafts. Without settings access, Set up, the switch, and Change
-reminder days explain that an admin or owner must make the change. An
-existing matching template opens for editing
-or displays its pending approval status without offering another submission.
-Locked setup presents a filled member-facing WhatsApp preview with no editable
-contract fields, its provider details directly below, and a sticky footer that
-explains approval and the later rule-activation step in plain language. It
-submits the exact English language contract the rule expects.
+The Set up action opens the required message directly over the rule. Without
+settings access, Set up, the switch, and Change reminder days explain that an
+admin or owner must make the change. Setup leads with the filled member-facing
+WhatsApp preview and keeps the exact English contract locked. Missing, pending,
+rejected, approved, and provider-sync-needed states each explain one next
+action; template metadata and provider review details stay under Technical
+details. **Submit for WhatsApp approval** requests review only. Approval never
+turns on a rule, and an approved/synced message returns the operator to Messages
+for that separate decision.
 Other links that leave the rule page still require saving or cancelling drafts. Previews
 use sample values and send nothing. Configure expands the selected rule inside
 its own catalogue row; one row is open at a time and drafts survive collapse.
