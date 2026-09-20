@@ -9,9 +9,10 @@ permission notice instead of a load error with a retry that could never
 succeed. The Rules and Activity tabs sit under the panel heading, not in the
 app bar. Rules shows the 14 existing behaviors in Renewals, Collections,
 Retention, and Confirmations sections on one page, and scrolls to a rule opened
-from Activity, from Change sending hours, or by link. Per-rule configuration
-saves while off; activation requires the connected branch and every exact
-approved/synced template. Existing On intent survives lost readiness. Each rule
+from Activity or by link. **Change sending hours** instead focuses the dedicated
+branch-level editor. Per-rule configuration saves while off; activation requires
+the connected branch and every exact approved/synced template. Existing On
+intent survives lost readiness. Each rule
 name has a plain-language info tooltip; the group sections do not repeat
 another summary line. Template setup remains in Templates, with exact-contract
 focus and a return to the originating rule.
@@ -41,6 +42,17 @@ Set up action instead of a status badge plus disabled switch; managed rules omit
 that redundant status. Saving configuration no longer needs a separate
 activation warning. Invoice collection retains due-date language because it
 also covers service and merchandise invoices.
+
+The branch-level **Sending hours** section owns the existing lifecycle window
+that Invoice collection previously exposed inside its rule. It explicitly
+names the invoice, post-expiry, promise/link follow-up, and retention messages
+that share the window; every applicable rule links back to it. Its draft,
+save/cancel, error, branch-switch, focus, and reduced-motion behavior are
+independent from rule configuration. Storage and authorization remain the
+existing Invoice collection fields and admin/owner settings boundary.
+Membership and service renewal plus installment workers still use their
+after-09:00 gate, while payment confirmations and AutoPay event updates remain
+outside this window. No activation or scheduler policy changed.
 
 Activity opens with Scheduled reminder readiness for the three scheduled
 workers (a blocked row links to its rule), then Message history: the lifecycle

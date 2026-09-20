@@ -13,6 +13,10 @@ import {
 import { toast } from 'sonner';
 
 import { AutomatedMessageActivity } from '@/components/settings/automated-message-activity';
+import {
+  LifecycleSendingHoursSettings,
+  type LifecycleSendingHoursDraft,
+} from '@/components/settings/lifecycle-sending-hours-settings';
 import { BubbleTail } from '@/components/inbox/message-bubble';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
@@ -343,7 +347,11 @@ function previewValue(label: string, fmt: ReturnType<typeof useLocale>['fmt']) {
 
 function timingFields(rule: RuleRow) {
   return rule.fields.filter(
-    (field) => field.key !== 'enabled' && field.type !== 'boolean'
+    (field) =>
+      field.key !== 'enabled' &&
+      field.type !== 'boolean' &&
+      field.key !== 'sendWindowStart' &&
+      field.key !== 'sendWindowEnd'
   );
 }
 
@@ -435,10 +443,7 @@ function currentTimingValue(
 
 function hasDeliveryFields(rule: RuleRow) {
   const keys = timingFields(rule).map((field) => field.key);
-  return (
-    keys.includes('catchUpDays') ||
-    (keys.includes('sendWindowStart') && keys.includes('sendWindowEnd'))
-  );
+  return keys.includes('catchUpDays');
 }
 
 function DeliveryControls({
@@ -446,29 +451,14 @@ function DeliveryControls({
   draft,
   onChange,
   disabled,
-  formatTime,
 }: {
   rule: RuleRow;
   draft: ReminderRulePatch;
   onChange: (patch: ReminderRulePatch) => void;
   disabled: boolean;
-  formatTime: (hour: number, minute?: string) => string;
 }) {
   const controls = timingFields(rule);
   const catchUpControl = controls.find((field) => field.key === 'catchUpDays');
-  const windowStartControl = controls.find(
-    (field) => field.key === 'sendWindowStart'
-  );
-  const windowEndControl = controls.find(
-    (field) => field.key === 'sendWindowEnd'
-  );
-  const windowStart = windowStartControl
-    ? Number(currentTimingValue(rule, draft, windowStartControl))
-    : null;
-  const windowEnd = windowEndControl
-    ? Number(currentTimingValue(rule, draft, windowEndControl))
-    : null;
-  const hours = Array.from({ length: 24 }, (_, hour) => hour);
   return (
     <div className="space-y-3">
       {catchUpControl ? (
@@ -509,72 +499,6 @@ function DeliveryControls({
           </Select>
         </div>
       ) : null}
-      {windowStartControl &&
-      windowEndControl &&
-      windowStart !== null &&
-      windowEnd !== null ? (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span>Send messages from</span>
-          <Select
-            value={String(windowStart)}
-            onValueChange={(value) => {
-              if (value == null) return;
-              onChange({
-                ...draft,
-                [windowStartControl.key]: Number(value),
-              });
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger
-              size="sm"
-              className="min-w-28"
-              aria-label={`${rule.title} start sending at`}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {hours
-                .filter((hour) => hour <= windowEnd)
-                .map((hour) => (
-                  <SelectItem key={hour} value={String(hour)}>
-                    {formatTime(hour)}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          <span>to</span>
-          <Select
-            value={String(windowEnd)}
-            onValueChange={(value) => {
-              if (value == null) return;
-              onChange({
-                ...draft,
-                [windowEndControl.key]: Number(value),
-              });
-            }}
-            disabled={disabled}
-          >
-            <SelectTrigger
-              size="sm"
-              className="min-w-28"
-              aria-label={`${rule.title} stop sending after`}
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {hours
-                .filter((hour) => hour >= windowStart)
-                .map((hour) => (
-                  <SelectItem key={hour} value={String(hour)}>
-                    {formatTime(hour, '59')}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          <span>in this branch.</span>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -585,14 +509,12 @@ function TimingControls({
   onChange,
   disabled,
   blocker,
-  formatTime,
 }: {
   rule: RuleRow;
   draft: ReminderRulePatch;
   onChange: (patch: ReminderRulePatch) => void;
   disabled: boolean;
   blocker: ActionBlocker | null;
-  formatTime: (hour: number, minute?: string) => string;
 }) {
   const controls = timingFields(rule);
   if (!controls.length) return null;
@@ -724,7 +646,6 @@ function TimingControls({
           draft={draft}
           onChange={onChange}
           disabled={disabled}
-          formatTime={formatTime}
         />
       ) : null}
       {otherNumberControls.map((field) => {
@@ -831,7 +752,7 @@ function RuleDetail({
   onSave,
   lifecycleWindow,
   hasUnsavedChanges,
-  onOpenInvoiceCollection,
+  onOpenSendingHours,
 }: {
   rule: RuleRow;
   canEdit: boolean;
@@ -840,7 +761,7 @@ function RuleDetail({
   onSave: (id: ReminderRuleId, patch: ReminderRulePatch) => Promise<void>;
   lifecycleWindow: { start: number; end: number } | null;
   hasUnsavedChanges: boolean;
-  onOpenInvoiceCollection: () => void;
+  onOpenSendingHours: () => void;
 }) {
   const { fmt, locale } = useLocale();
   const localTime = (hour: number, minute = '00') => {
@@ -876,8 +797,7 @@ function RuleDetail({
     'service_renewal',
     'joining_installments',
   ].includes(rule.id);
-  const showsLifecycleWindow =
-    usesLifecycleWindow && rule.id !== 'invoice_collection';
+  const showsLifecycleWindow = usesLifecycleWindow;
   const showsFooter = hasTimingControls && dirty;
   return (
     <div
@@ -923,7 +843,6 @@ function RuleDetail({
           onChange={onDraftChange}
           disabled={!canEdit || saving}
           blocker={canEdit ? null : EDIT_PERMISSION_BLOCKER}
-          formatTime={localTime}
         />
       </section>
       <Separator className="mt-4" />
@@ -937,7 +856,6 @@ function RuleDetail({
                 draft={draft}
                 onChange={onDraftChange}
                 disabled={!canEdit || saving}
-                formatTime={localTime}
               />
             </AccordionContent>
           </AccordionItem>
@@ -1014,26 +932,14 @@ function RuleDetail({
               <div className="space-y-1">
                 <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
                   <span>
-                    UsefulDesk can send this message from{' '}
+                    This message uses this branch’s Sending hours: from{' '}
                     {localTime(lifecycleWindow.start)} to{' '}
-                    {localTime(lifecycleWindow.end, '59')} in this branch.
+                    {localTime(lifecycleWindow.end, '59')}.
                   </span>
-                  {!dirty ? (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={onOpenInvoiceCollection}
-                    >
-                      Change sending hours
-                    </Button>
-                  ) : null}
+                  <Button variant="link" size="sm" onClick={onOpenSendingHours}>
+                    Change sending hours
+                  </Button>
                 </div>
-                {dirty ? (
-                  <div className="text-muted-foreground text-xs">
-                    Save or cancel these changes before changing the sending
-                    hours.
-                  </div>
-                ) : null}
               </div>
             ) : null}
           </AccordionContent>
@@ -1268,15 +1174,23 @@ export function RenewalRemindersSettings() {
   const [rules, setRules] = useState<RuleRow[]>([]);
   const [selectedId, setSelectedId] = useState<ReminderRuleId | null>(null);
   const rulesRef = useRef<HTMLDivElement>(null);
+  const sendingHoursRef = useRef<HTMLElement>(null);
   const [reveal, setReveal] = useState<RuleReveal | null>(null);
+  const [sendingHoursReveal, setSendingHoursReveal] = useState(0);
   const [drafts, setDrafts] = useState<Record<string, ReminderRulePatch>>({});
+  const [sendingHoursDrafts, setSendingHoursDrafts] = useState<
+    Record<string, LifecycleSendingHoursDraft>
+  >({});
   const [dismissedLinkedRule, setDismissedLinkedRule] = useState<string | null>(
     null
   );
-  const hasUnsavedChanges = Object.entries(drafts).some(
+  const hasUnsavedRuleChanges = Object.entries(drafts).some(
     ([key, patch]) =>
       key.startsWith(`${draftScope}:`) && Object.keys(patch).length > 0
   );
+  const sendingHoursDraft = sendingHoursDrafts[draftScope] ?? {};
+  const hasUnsavedChanges =
+    hasUnsavedRuleChanges || Object.keys(sendingHoursDraft).length > 0;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{
     message: string;
@@ -1364,6 +1278,22 @@ export function RenewalRemindersSettings() {
     frame = window.requestAnimationFrame(step);
     return () => window.cancelAnimationFrame(frame);
   }, [reveal]);
+  useEffect(() => {
+    if (!sendingHoursReveal || view !== 'rules' || loading) return;
+    const editor = sendingHoursRef.current;
+    if (!editor) return;
+    (
+      editor.querySelector<HTMLElement>(
+        '[aria-label="Start sending at"]:not(:disabled)'
+      ) ?? editor
+    ).focus({ preventScroll: true });
+    editor.scrollIntoView({
+      block: 'start',
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 'auto'
+        : 'smooth',
+    });
+  }, [loading, sendingHoursReveal, view]);
   const queryRuleId = searchParams.get('rule');
   const linkedRuleId = REMINDER_RULES.some((rule) => rule.id === queryRuleId)
     ? (queryRuleId as ReminderRuleId)
@@ -1376,8 +1306,16 @@ export function RenewalRemindersSettings() {
   );
   const lifecycleWindow = invoiceCollection
     ? {
-        start: Number(invoiceCollection.settings.sendWindowStart ?? 9),
-        end: Number(invoiceCollection.settings.sendWindowEnd ?? 19),
+        start: Number(
+          sendingHoursDraft.start ??
+            invoiceCollection.settings.sendWindowStart ??
+            9
+        ),
+        end: Number(
+          sendingHoursDraft.end ??
+            invoiceCollection.settings.sendWindowEnd ??
+            19
+        ),
       }
     : null;
   const sections = useMemo(
@@ -1398,6 +1336,10 @@ export function RenewalRemindersSettings() {
     setSelectedId(ruleId);
     setDismissedLinkedRule(null);
     setView('rules');
+  };
+  const goToSendingHours = () => {
+    setView('rules');
+    setSendingHoursReveal((current) => current + 1);
   };
   const save = async (ruleId: ReminderRuleId, patch: ReminderRulePatch) => {
     try {
@@ -1469,6 +1411,25 @@ export function RenewalRemindersSettings() {
           </AlertDescription>
         </Alert>
       ) : null}
+      {invoiceCollection && lifecycleWindow ? (
+        <LifecycleSendingHoursSettings
+          ref={sendingHoursRef}
+          scopeKey={draftScope}
+          value={{
+            start: Number(invoiceCollection.settings.sendWindowStart ?? 9),
+            end: Number(invoiceCollection.settings.sendWindowEnd ?? 19),
+          }}
+          draft={sendingHoursDraft}
+          canEdit={canEditSettings}
+          onDraftChange={(draft) =>
+            setSendingHoursDrafts((current) => ({
+              ...current,
+              [draftScope]: draft,
+            }))
+          }
+          onSave={(patch) => save('invoice_collection', patch)}
+        />
+      ) : null}
       <TooltipProvider>
         {sections.map((section) => (
           <section
@@ -1518,9 +1479,7 @@ export function RenewalRemindersSettings() {
                       onSave={save}
                       lifecycleWindow={lifecycleWindow}
                       hasUnsavedChanges={hasUnsavedChanges}
-                      onOpenInvoiceCollection={() =>
-                        goToRule('invoice_collection')
-                      }
+                      onOpenSendingHours={goToSendingHours}
                     />
                   </RuleRow>
                 ))}
