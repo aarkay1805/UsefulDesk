@@ -70,7 +70,7 @@ export const LifecycleSendingHoursSettings = forwardRef<
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const start = draft.start ?? value.start;
   const end = draft.end ?? value.end;
-  const dirty = draft.start !== undefined || draft.end !== undefined;
+  const dirty = start !== value.start || end !== value.end;
   const saving = savingScope === scopeKey;
   const error = errors[scopeKey];
   const hours = Array.from({ length: 24 }, (_, hour) => hour);
@@ -84,7 +84,14 @@ export const LifecycleSendingHoursSettings = forwardRef<
   };
   const changeDraft = (next: LifecycleSendingHoursDraft) => {
     setErrors((current) => ({ ...current, [scopeKey]: undefined }));
-    onDraftChange(next);
+    onDraftChange({
+      ...(next.start !== undefined && next.start !== value.start
+        ? { start: next.start }
+        : {}),
+      ...(next.end !== undefined && next.end !== value.end
+        ? { end: next.end }
+        : {}),
+    });
   };
   const cancel = () => {
     setErrors((current) => ({ ...current, [scopeKey]: undefined }));

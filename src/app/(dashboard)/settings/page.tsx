@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -32,6 +32,8 @@ export default function SettingsPage() {
   const searchParams = useSearchParams();
   const { locale } = useAuth();
   const { mode } = useTheme();
+  const [hasUnsavedReminderChanges, setHasUnsavedReminderChanges] =
+    useState(false);
 
   // The URL (`?tab=`) is the single source of truth for the active
   // section — deep-linkable, and it keeps the existing links in the
@@ -40,6 +42,15 @@ export default function SettingsPage() {
   const section = resolveSection(searchParams.get('tab'));
 
   const go = (next: SettingsSection) => {
+    if (
+      section === 'reminders' &&
+      next !== 'reminders' &&
+      hasUnsavedReminderChanges &&
+      !window.confirm(
+        'You have unsaved automated-message changes. Leave without saving them?'
+      )
+    )
+      return;
     const params = new URLSearchParams(searchParams.toString());
     params.set('tab', next);
     router.replace(`/settings?${params.toString()}`, { scroll: false });
@@ -67,7 +78,11 @@ export default function SettingsPage() {
     fields: <FieldsAndTagsPanel />,
     plans: <PlansSettings />,
     'products-services': <ProductsServicesSettings />,
-    reminders: <RenewalRemindersSettings />,
+    reminders: (
+      <RenewalRemindersSettings
+        onUnsavedChangesChange={setHasUnsavedReminderChanges}
+      />
+    ),
     deals: <DealsSettings />,
     localization: <LocalizationSettings />,
     organization: <OrganizationSettings />,

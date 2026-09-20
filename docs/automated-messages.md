@@ -84,25 +84,24 @@ Message history to the selected branch's admins and owners.
 **Recorded** is the available message/job/ledger timestamp, not necessarily a
 delivery-receipt timestamp. The date under each rule is the subject’s own date,
 named for that rule — **Expiry** (renewal, post-expiry, win-back, and session
-pack), **Due date** (invoice collection and joining installments), **Promised
+pack), **Due date** (unpaid invoice and installment reminders), **Promised
 date**, **Link sent**, **Return date**, **Payment date**, or **AutoPay failed** —
 never a promised send time. **Next attempt** appears when the queue retains one.
 Waiting, Paused, and Sending rows are distinct from Blocked sends (missing
 setup or a missing member detail such as a phone number), stopped sequences,
-failed attempts, and unknown provider outcomes; the Outcome filter groups them
+failed attempts, and unknown provider outcomes; the Status filter groups them
 as Needs attention, Not sent yet, Sent, and Other. Accepted means the provider
 accepted a send; Delivered/Read require retained evidence. Staff escalation
 outcomes are described separately from the customer-message status.
 
-Wide layouts show a fixed-order icon set per row — Conversation, Invoice,
-Follow-up, Member — with tooltips and accessible names; narrow layouts spell
-the same links out. Member and invoice links open their existing details, and
-Conversation opens the recorded contact conversation. Follow-up opens the
+Every layout shows contextual text links in a fixed order — Open chat, Invoice,
+Follow-up, View member. Member and invoice links open their existing details,
+and Open chat opens the recorded contact conversation. Follow-up opens the
 contact profile over the Follow-ups queue; it is not a claim that the newest
 open task was created by this specific reminder.
 
-**Scheduled reminder readiness**, above the history, covers membership,
-service, and joining installments only. **Nothing due** is a current result,
+**Renewal and installment checks**, above the history, covers membership,
+service, and installment reminders only. **Nothing due** is a current result,
 while an empty history means no matching retained records. Failed legacy
 claims that were deleted cannot be reconstructed. History shows each record’s
 latest job/outcome state, not a complete immutable timeline of every retry.

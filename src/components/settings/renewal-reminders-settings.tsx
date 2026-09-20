@@ -101,6 +101,9 @@ const EDIT_PERMISSION_BLOCKER: ActionBlocker = {
   description: 'Only an admin or owner can change automated messages.',
 };
 
+const UNSAVED_CHANGES_MESSAGE =
+  'You have unsaved automated-message changes. Leave without saving them?';
+
 type RuleRow = ReminderRule & {
   settings: Record<string, unknown>;
   readiness: {
@@ -117,6 +120,23 @@ const LIFECYCLE_RULE_IDS = new Set<ReminderRuleId>(
 
 function isEnabled(rule: RuleRow) {
   return rule.settings.enabled === true;
+}
+
+function settingValuesEqual(left: unknown, right: unknown) {
+  if (Array.isArray(left) && Array.isArray(right))
+    return (
+      left.length === right.length &&
+      left.every((value, index) => value === right[index])
+    );
+  return left === right;
+}
+
+function normalizeRulePatch(rule: RuleRow, patch: ReminderRulePatch) {
+  return Object.fromEntries(
+    Object.entries(patch).filter(
+      ([key, value]) => !settingValuesEqual(value, rule.settings[key])
+    )
+  ) as ReminderRulePatch;
 }
 
 function timingSummary(rule: RuleRow) {
@@ -929,20 +949,7 @@ function RuleRow({
     rule.readiness.code === 'whatsapp_not_connected' ? (
       <Button
         nativeButton={false}
-        render={
-          <Link
-            href={setupHref(rule)}
-            onClick={(event) => {
-              if (
-                hasDraft &&
-                !window.confirm(
-                  'You have unsaved automated-message changes. Leave without saving them?'
-                )
-              )
-                event.preventDefault();
-            }}
-          />
-        }
+        render={<Link href={setupHref(rule)} />}
         size="sm"
         variant="outline"
         aria-label={setupLabel}
@@ -1063,7 +1070,11 @@ function RuleRow({
   );
 }
 
-export function RenewalRemindersSettings() {
+export function RenewalRemindersSettings({
+  onUnsavedChangesChange,
+}: {
+  onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
+} = {}) {
   const { canEditSettings, accountId } = useAuth();
   const canViewActivity = useCan('view-automated-message-activity');
   const searchParams = useSearchParams();
@@ -1101,6 +1112,13 @@ export function RenewalRemindersSettings() {
   } | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   useEffect(() => {
+    onUnsavedChangesChange?.(hasUnsavedChanges);
+  }, [hasUnsavedChanges, onUnsavedChangesChange]);
+  useEffect(
+    () => () => onUnsavedChangesChange?.(false),
+    [onUnsavedChangesChange]
+  );
+  useEffect(() => {
     if (!hasUnsavedChanges) return;
     const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -1108,6 +1126,33 @@ export function RenewalRemindersSettings() {
     };
     window.addEventListener('beforeunload', warnBeforeLeaving);
     return () => window.removeEventListener('beforeunload', warnBeforeLeaving);
+  }, [hasUnsavedChanges]);
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const warnBeforeLinkNavigation = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const link = target.closest<HTMLAnchorElement>('a[href]');
+      if (!link || link.target === '_blank' || link.hasAttribute('download'))
+        return;
+      const destination = new URL(link.href, window.location.href);
+      if (destination.href === window.location.href) return;
+      if (window.confirm(UNSAVED_CHANGES_MESSAGE)) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    document.addEventListener('click', warnBeforeLinkNavigation, true);
+    return () =>
+      document.removeEventListener('click', warnBeforeLinkNavigation, true);
   }, [hasUnsavedChanges]);
   useEffect(() => {
     let cancelled = false;
@@ -1381,12 +1426,14 @@ export function RenewalRemindersSettings() {
                     rule={rule}
                     canEdit={canEditSettings}
                     draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
-                    onDraftChange={(patch) =>
+                    onDraftChange={(patch) => {
+                      const key = `${draftScope}:${rule.id}`;
+                      const normalized = normalizeRulePatch(rule, patch);
                       setDrafts((current) => ({
                         ...current,
-                        [`${draftScope}:${rule.id}`]: patch,
-                      }))
-                    }
+                        [key]: normalized,
+                      }));
+                    }}
                     onSave={save}
                     lifecycleWindow={lifecycleWindow}
                     hasUnsavedChanges={hasUnsavedChanges}

@@ -775,6 +775,62 @@ describe('Automated messages catalogue', () => {
     ).toBe(false);
   });
 
+  it('reports real unsaved state and clears it when a rule value is restored', async () => {
+    const onUnsavedChangesChange = vi.fn();
+    mockFetch();
+    render(
+      <RenewalRemindersSettings
+        onUnsavedChangesChange={onUnsavedChangesChange}
+      />
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Details Membership renewal',
+      })
+    );
+    const reminderDays = screen.getByRole('button', {
+      name: /Membership renewal change reminder days/i,
+    });
+
+    toggleReminderDay(reminderDays, '14 days before');
+    expect(onUnsavedChangesChange).toHaveBeenLastCalledWith(true);
+    expect(screen.getByText('Unsaved changes')).toBeTruthy();
+
+    toggleReminderDay(reminderDays, '14 days before');
+    expect(onUnsavedChangesChange).toHaveBeenLastCalledWith(false);
+    expect(screen.queryByText('Unsaved changes')).toBeNull();
+  });
+
+  it('guards link navigation outside Settings while a draft is unsaved', async () => {
+    const confirm = vi.fn().mockReturnValue(false);
+    vi.stubGlobal('confirm', confirm);
+    mockFetch();
+    render(
+      <>
+        <RenewalRemindersSettings />
+        <a href="/dashboard">Dashboard</a>
+      </>
+    );
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Details Membership renewal',
+      })
+    );
+    toggleReminderDay(
+      screen.getByRole('button', {
+        name: /Membership renewal change reminder days/i,
+      }),
+      '14 days before'
+    );
+
+    expect(
+      fireEvent.click(screen.getByRole('link', { name: 'Dashboard' }))
+    ).toBe(false);
+    expect(confirm).toHaveBeenCalledWith(
+      'You have unsaved automated-message changes. Leave without saving them?'
+    );
+  });
+
   it('keeps a failed configuration draft and hides every template link', async () => {
     mockFetch(true);
     render(<RenewalRemindersSettings />);

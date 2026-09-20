@@ -144,6 +144,11 @@ describe('Lifecycle sending hours', () => {
     await chooseStart('10:00 am');
     expect(screen.getByRole('status').textContent).toBe('Unsaved changes');
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();
+    await chooseStart('9:00 am');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+
+    await chooseStart('10:00 am');
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
     expect(
