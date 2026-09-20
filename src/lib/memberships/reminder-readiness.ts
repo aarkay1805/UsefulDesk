@@ -108,7 +108,7 @@ export function diagnoseReminder(
       pendingCount: 0,
       blockedCount: 0,
       deferredCount: 0,
-      reason: 'No eligible reminders are due right now.',
+      reason: 'No new reminders are due right now.',
       templateContract,
     };
   }
@@ -121,7 +121,7 @@ export function diagnoseReminder(
       pendingCount: input.pendingCount,
       blockedCount: input.blockedCount,
       deferredCount: input.deferredCount,
-      reason: `${input.deferredCount} reminder${input.deferredCount === 1 ? '' : 's'} will be eligible after the 9:00 AM local send window opens.`,
+      reason: `${input.deferredCount} reminder${input.deferredCount === 1 ? '' : 's'} will be ready after the 9:00 AM local send window opens.`,
       templateContract,
     };
   }
@@ -134,7 +134,7 @@ export function diagnoseReminder(
       pendingCount: input.pendingCount,
       blockedCount: input.blockedCount,
       deferredCount: 0,
-      reason: `${input.pendingCount} unclaimed reminder${input.pendingCount === 1 ? '' : 's'} can send now.`,
+      reason: `${input.pendingCount} reminder${input.pendingCount === 1 ? '' : 's'} can send now.`,
       templateContract,
     };
   }
@@ -147,7 +147,7 @@ export function diagnoseReminder(
       pendingCount: 0,
       blockedCount: input.blockedCount,
       deferredCount: 0,
-      reason: `${input.blockedCount} date-matched reminder${input.blockedCount === 1 ? '' : 's'} need${input.blockedCount === 1 ? 's' : ''} a contact phone number.`,
+      reason: `${input.blockedCount} reminder${input.blockedCount === 1 ? '' : 's'} cannot send because ${input.blockedCount === 1 ? 'the member has' : 'the members have'} no contact phone number.`,
       templateContract,
     };
   }
@@ -159,7 +159,7 @@ export function diagnoseReminder(
     pendingCount: 0,
     blockedCount: 0,
     deferredCount: 0,
-    reason: 'All date-matched reminders are already claimed or sent.',
+    reason: 'No new reminders are due right now.',
     templateContract,
   };
 }

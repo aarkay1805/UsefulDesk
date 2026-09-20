@@ -34,7 +34,9 @@ const row: AutomatedMessageActivityRow = {
 
 describe('automated message activity semantics', () => {
   it('does not turn provider acceptance into delivery', () => {
-    expect(activityReason(row)).toContain('accepted');
+    expect(activityReason(row)).toBe(
+      'WhatsApp accepted the message; delivery has not been confirmed.'
+    );
     expect(
       activityReason({
         ...row,
@@ -56,6 +58,40 @@ describe('automated message activity semantics', () => {
         reason_code: 'legacy_claim_unconfirmed',
       })
     ).toContain('no provider outcome');
+  });
+
+  it('translates provider delivery failures without exposing or guessing the cause', () => {
+    expect(
+      activityReason({
+        ...row,
+        outcome: 'failed',
+        reason_code: 'provider_delivery_failed',
+      })
+    ).toBe('WhatsApp could not deliver this message.');
+
+    expect(
+      activityReason({
+        ...row,
+        outcome: 'failed',
+        reason_code: 'provider_delivery_failed',
+        provider_error_title: 'Message undeliverable',
+        provider_error_detail: 'Message Undeliverable.',
+      })
+    ).toBe('WhatsApp could not deliver this message.');
+
+    expect(
+      activityReason({
+        ...row,
+        outcome: 'failed',
+        reason_code: 'provider_delivery_failed',
+        provider_error_title:
+          'This message was not delivered to maintain healthy ecosystem engagement.',
+        provider_error_detail:
+          'In order to maintain a healthy ecosystem engagement, the message failed to be delivered.',
+      })
+    ).toBe(
+      'WhatsApp limited this reminder based on engagement. Sending it again now may not work.'
+    );
   });
 
   it('only accepts a strict opaque keyset cursor', () => {

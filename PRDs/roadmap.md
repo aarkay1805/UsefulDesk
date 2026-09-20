@@ -42,15 +42,18 @@ that redundant status. Saving configuration no longer needs a separate
 activation warning. Invoice collection retains due-date language because it
 also covers service and merchandise invoices.
 
-Activity opens with Scheduled reminder readiness for the three scheduled
-workers (a blocked row links to its rule), then Message history: the lifecycle
-queue and all three legacy reminder ledgers with branch-scoped member identity,
-grouped rule/outcome filters, a valid local-date range, Clear filters, bounded
-keyset pages, and relevant conversation/invoice/follow-up/member links. It
-separates accepted from confirmed delivery/read, pauses, waiting, blockers,
-failures, and unknown legacy outcomes, and names each record's date for its
-rule. History fits its panel at every width (fixed-track table from a 48rem
-container, record list below). Empty history is not proof of no eligible work.
+Activity opens with Renewal and installment checks, explicitly limited to the
+three existing scheduled workers (a blocked row links to its message), then
+Message history: the lifecycle queue and all three legacy reminder ledgers with
+branch-scoped member identity, grouped message/status filters, a valid
+local-date range, Clear filters, bounded keyset pages, and contextual text links
+to the conversation, invoice, follow-up, and member. It separates Accepted by
+WhatsApp from confirmed delivery/read, pauses, waiting, blockers, failures, and
+unknown legacy outcomes, and names each record's date for its message type.
+Known provider failures have one plain reason; original provider diagnostics
+remain under disclosure. History fits its panel at every width (fixed-track
+table in wide containers, record list below). Empty history is not proof of
+no eligible work, and a nothing-due check does not hide historical failures.
 Historical failed legacy claims that were deleted cannot be reconstructed.
 
 The legacy membership, renewable-service, and joining-installment workers now

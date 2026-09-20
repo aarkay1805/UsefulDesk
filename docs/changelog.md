@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-09-20 — Automated message activity explains failures and check scope
+
+Settings → Automated messages → Activity now translates retained WhatsApp
+delivery diagnostics into one plain reason, keeps the original provider title
+and detail behind Provider details, and distinguishes Accepted by WhatsApp from
+Delivered. History uses Message/Status terminology and contextual text actions;
+the readiness section explicitly covers only renewal and installment workers and
+no longer exposes claimed/date-matched worker jargon. Scheduling, delivery,
+branch scope, and historical records are unchanged. Key code:
+`src/components/settings/automated-message-activity.tsx`,
+`src/lib/reminders/activity.ts`, and
+`src/lib/memberships/reminder-readiness.ts`.
+
 ## 2026-09-20 — Production product-access enforcement activated
 
 The staged rollout switch is active in Production. A guarded privileged update
