@@ -40,9 +40,12 @@ member-facing preview and gives missing, pending, rejected, approved, and
 provider-sync-required messages one clear next action. **Submit for WhatsApp
 approval** replaces provider jargon; template name, category, header, language,
 status, and review details live under **Technical details**. The canonical
-contract stays locked for initial submission and resubmission. Approval and
-activation remain separate: setup never turns on a rule, and tests cover that
-only the template approval endpoint is called.
+contract stays locked for initial submission and resubmission. Approved copy or
+parameter drift now updates and resubmits the exact contract instead of looping
+on Sync; immutable category mismatches and provider-missing rows route to
+Templates for review. Approval and activation remain separate: setup never
+turns on a rule, and tests cover that only the template approval endpoint is
+called.
 
 ## 2026-09-20 — Marketing templates stop promising automatic suppression
 

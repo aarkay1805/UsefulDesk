@@ -48,9 +48,12 @@ admin or owner must make the change. Setup leads with the filled member-facing
 WhatsApp preview and keeps the exact English contract locked. Missing, pending,
 rejected, approved, and provider-sync-needed states each explain one next
 action; template metadata and provider review details stay under Technical
-details. **Submit for WhatsApp approval** requests review only. Approval never
-turns on a rule, and an approved/synced message returns the operator to Messages
-for that separate decision.
+details. Approved copy or parameter drift resubmits the locked exact contract;
+immutable category mismatches and provider-missing rows route to Templates for
+review instead of repeating a sync that cannot repair them. **Submit for
+WhatsApp approval** requests review only. Approval never turns on a rule, and an
+approved/synced message returns the operator to Messages for that separate
+decision.
 Other links that leave the rule page still require saving or cancelling drafts. Previews
 use sample values and send nothing. Configure expands the selected rule inside
 its own catalogue row; one row is open at a time and drafts survive collapse.

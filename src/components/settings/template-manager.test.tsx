@@ -9,13 +9,18 @@ const setupState = vi.hoisted(() => ({
   rows: [] as unknown[],
   error: null as { message: string } | null,
 }));
+const toastState = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+}));
+const navigationState = vi.hoisted(() => ({ replace: vi.fn() }));
 
 vi.mock('sonner', () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
+  toast: toastState,
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ replace: vi.fn() }),
+  useRouter: () => navigationState,
   useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
@@ -66,6 +71,7 @@ function membershipTemplate(
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   setupState.rows = [];
   setupState.error = null;
   vi.stubGlobal('fetch', vi.fn());
@@ -136,9 +142,7 @@ describe('TemplateManager gym preset library', () => {
       />
     );
     expect(await screen.findByText('Approved for WhatsApp')).toBeTruthy();
-    expect(
-      screen.getByText(/Return to Messages to turn it on when you are ready/)
-    ).toBeTruthy();
+    expect(screen.getByText(/Return to Messages to continue/)).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Return to Messages' })
     ).toBeTruthy();
@@ -157,9 +161,7 @@ describe('TemplateManager gym preset library', () => {
     expect(
       await screen.findByText('Waiting for WhatsApp approval')
     ).toBeTruthy();
-    expect(
-      screen.getByText(/Approval does not turn on the message/)
-    ).toBeTruthy();
+    expect(screen.getByText(/When WhatsApp finishes its review/)).toBeTruthy();
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Save and resubmit' })
@@ -220,17 +222,87 @@ describe('TemplateManager gym preset library', () => {
     expect(
       await screen.findByText('Approval status needs syncing')
     ).toBeTruthy();
-    expect(
-      screen.getByText(
-        /cannot confirm that this approved message still matches/
-      )
-    ).toBeTruthy();
+    expect(screen.getByText(/WhatsApp changed this message/)).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Sync approval status' })
     ).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: /submit.*approval/i })
     ).toBeNull();
+  });
+
+  it('repairs an approved message whose exact contract copy has drifted', async () => {
+    const close = vi.fn();
+    const user = userEvent.setup();
+    setupState.rows = [
+      membershipTemplate({
+        body_text:
+          'Hi {{1}}, your {{2}} membership ends on {{3}}. Reply to renew.',
+      }),
+    ];
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, dry_run: false }),
+    } as Response);
+    render(
+      <TemplateManager
+        setupContractId="membership_renewal"
+        onSetupClose={close}
+      />
+    );
+
+    expect(await screen.findByText('Message needs updating')).toBeTruthy();
+    const repair = screen.getByRole('button', {
+      name: 'Update and resubmit for WhatsApp approval',
+    });
+    expect(
+      screen.queryByRole('button', { name: 'Sync approval status' })
+    ).toBeNull();
+
+    await user.click(repair);
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/whatsapp/templates/membership-template',
+      expect.objectContaining({ method: 'PATCH' })
+    );
+    const request = vi.mocked(fetch).mock.calls[0]?.[1];
+    expect(JSON.parse(String(request?.body))).toEqual(
+      expect.objectContaining(membershipContract.payload)
+    );
+    expect(close).toHaveBeenCalledWith(true);
+  });
+
+  it('routes an approved category mismatch to Templates instead of looping sync', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/settings?tab=reminders&rule=membership_renewal'
+    );
+    const close = vi.fn();
+    const user = userEvent.setup();
+    setupState.rows = [membershipTemplate({ category: 'Utility' })];
+    render(
+      <TemplateManager
+        setupContractId="membership_renewal"
+        onSetupClose={close}
+      />
+    );
+
+    expect(
+      await screen.findByText('Message category needs replacing')
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Sync approval status' })
+    ).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Open Templates' }));
+
+    expect(navigationState.replace).toHaveBeenCalledWith(
+      '/settings?tab=templates&contract=membership_renewal&rule=membership_renewal'
+    );
+    expect(close).toHaveBeenCalledWith(false);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('submits only the approval request and leaves activation to Messages', async () => {
@@ -261,6 +333,9 @@ describe('TemplateManager gym preset library', () => {
     const request = vi.mocked(fetch).mock.calls[0]?.[1];
     expect(JSON.parse(String(request?.body))).toEqual(
       expect.objectContaining(membershipContract.payload)
+    );
+    expect(toastState.success).toHaveBeenCalledWith(
+      'Submitted for WhatsApp approval. Submitting does not turn on this message.'
     );
     expect(close).toHaveBeenCalledWith(true);
   });
