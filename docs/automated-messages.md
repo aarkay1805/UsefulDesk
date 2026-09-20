@@ -4,7 +4,9 @@ Settings → **Automated messages** uses the existing `?tab=reminders` URL for t
 selected branch. Its **Rules** and **Activity** tabs sit under the panel
 heading. Rules lists the 14 existing rules in Renewals, Collections, Retention,
 and Confirmations sections. Opening a rule from **Review rule**, **Change
-sending hours**, or a `?rule=<id>` link scrolls to it.
+sending hours**, or a `?rule=<id>` link keeps the destination in view. Review
+and `?rule=` open the rule; Change sending hours focuses the branch-level
+Sending hours editor instead.
 
 ## Who can see and change what
 
@@ -56,13 +58,20 @@ sending hours**, or a `?rule=<id>` link scrolls to it.
 
 Joining installments use the recorded joining-payment schedule (7/3/1/0 days)
 and have no independent account toggle. Overdue installment jobs belong to
-Invoice collection. Collection, post-expiry, and retention rules share Invoice collection’s
-account-local send window, whose ending hour is inclusive. Transaction
+Invoice collection. Collection, post-expiry, and retention rules share the
+branch-level Sending hours window, whose existing storage fields remain under
+Invoice collection and whose ending hour is inclusive. The editor names every
+rule in scope and keeps its draft/save/cancel state separate from per-rule
+changes. Transaction
 confirmations and AutoPay event updates are processed from their recorded
 events and do not use that window. AutoPay retry messages are
 informational and exempt from the collection daily budget; terminal collection
 messages recheck the exact balance and reserve that budget. Payment
 confirmations are separate from renewal promises and recovery requests.
+
+Membership renewal, service renewal, and joining-installment workers retain
+their separate after-09:00 account-local gate. Changing Sending hours does not
+alter those schedules, activate any rule, or backfill prior milestones.
 
 ## Read Activity accurately
 

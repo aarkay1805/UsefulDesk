@@ -8,6 +8,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const authState = vi.hoisted(() => ({
@@ -346,7 +347,7 @@ describe('Automated messages catalogue', () => {
     ).toBe(false);
   });
 
-  it('turns invoice timing fields into plain scheduling instructions', async () => {
+  it('keeps invoice-specific timing in the rule and moves shared hours to the branch section', async () => {
     window.history.replaceState(
       {},
       '',
@@ -398,8 +399,11 @@ describe('Automated messages catalogue', () => {
       screen.getByRole('tab', { name: 'Before or on due date' })
     ).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'After due date' })).toBeTruthy();
+    const invoiceDetail = screen.getByTestId('rule-detail-invoice_collection');
     fireEvent.click(
-      screen.getByRole('button', { name: 'More sending options' })
+      within(invoiceDetail).getByRole('button', {
+        name: 'More sending options',
+      })
     );
     expect(
       screen.getByRole('combobox', {
@@ -407,22 +411,98 @@ describe('Automated messages catalogue', () => {
       })
     ).toBeTruthy();
     expect(
-      screen.getByRole('combobox', {
-        name: 'Invoice collection start sending at',
+      within(invoiceDetail).queryByRole('combobox', {
+        name: /start sending at/i,
+      })
+    ).toBeNull();
+    const sendingHours = screen.getByTestId('lifecycle-sending-hours');
+    expect(
+      within(sendingHours).getByRole('combobox', {
+        name: 'Start sending at',
       })
     ).toBeTruthy();
     expect(
-      screen.getByRole('combobox', {
-        name: 'Invoice collection stop sending after',
+      within(sendingHours).getByRole('combobox', {
+        name: 'Stop sending after',
       })
     ).toBeTruthy();
-    expect(screen.getByText('Send messages from')).toBeTruthy();
+    expect(
+      within(sendingHours).getByText('Unpaid invoice reminders')
+    ).toBeTruthy();
+    expect(
+      within(sendingHours).getByText('Invite members to renew a service')
+    ).toBeTruthy();
+    expect(
+      within(sendingHours).getByText(
+        /Membership renewal, service renewal, and installment reminders still start after/i
+      )
+    ).toBeTruthy();
+    expect(
+      within(sendingHours).getByText(
+        /Payment confirmations and AutoPay updates send from their recorded events/i
+      )
+    ).toBeTruthy();
     expect(screen.queryByText('Catch-up days')).toBeNull();
     expect(screen.queryByText('Send window start')).toBeNull();
     expect(screen.queryByText('Send window end')).toBeNull();
   });
 
-  it('opens invoice collection from Change sending hours and scrolls to it once the open row has closed', async () => {
+  it('saves only the existing lifecycle-window fields without changing activation', async () => {
+    const apiFetch = vi
+      .fn()
+      .mockImplementation((_url: string, init?: RequestInit) => {
+        if (init?.method === 'PATCH') {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                rule: {
+                  ...invoiceCollectionRule,
+                  settings: {
+                    ...invoiceCollectionRule.settings,
+                    sendWindowStart: 10,
+                  },
+                },
+              }),
+              { status: 200 }
+            )
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify({ rules: [invoiceCollectionRule] }), {
+            status: 200,
+          })
+        );
+      });
+    vi.stubGlobal('fetch', apiFetch);
+    render(<RenewalRemindersSettings />);
+
+    const user = userEvent.setup();
+    const sendingHours = await screen.findByTestId('lifecycle-sending-hours');
+    await user.click(
+      within(sendingHours).getByRole('combobox', {
+        name: 'Start sending at',
+      })
+    );
+    await user.click((await screen.findAllByRole('option'))[10]);
+    await user.click(
+      within(sendingHours).getByRole('button', { name: 'Save changes' })
+    );
+
+    await waitFor(() =>
+      expect(
+        apiFetch.mock.calls.some(([, init]) => init?.method === 'PATCH')
+      ).toBe(true)
+    );
+    const patchCall = apiFetch.mock.calls.find(
+      ([, init]) => init?.method === 'PATCH'
+    );
+    expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual({
+      ruleId: 'invoice_collection',
+      patch: { sendWindowStart: 10, sendWindowEnd: 19 },
+    });
+  });
+
+  it('focuses and scrolls directly to Sending hours without opening Invoice collection', async () => {
     mockFetch();
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(
@@ -456,21 +536,68 @@ describe('Automated messages catalogue', () => {
     );
 
     const invoiceRow = screen.getByTestId('rule-row-invoice_collection');
+    const sendingHours = screen.getByTestId('lifecycle-sending-hours');
     expect(
-      within(invoiceRow).getByTestId('rule-detail-invoice_collection')
-    ).toBeTruthy();
+      within(invoiceRow).queryByTestId('rule-detail-invoice_collection')
+    ).toBeNull();
     expect(document.activeElement).toBe(
-      within(invoiceRow).getByRole('button', {
-        name: 'Close Invoice collection',
+      within(sendingHours).getByRole('combobox', {
+        name: 'Start sending at',
       })
     );
-    // The scroll waits for the Promise to pay row to finish closing.
-    expect(scrollIntoView).not.toHaveBeenCalled();
-    await waitFor(() => expect(scrolled).toEqual([invoiceRow]));
+    await waitFor(() => expect(scrolled).toEqual([sendingHours]));
     expect(scrollIntoView).toHaveBeenCalledWith({
       block: 'start',
       behavior: 'smooth',
     });
+  });
+
+  it('jumps to Sending hours when reduced motion is requested', async () => {
+    window.matchMedia = vi.fn().mockReturnValue({ matches: true });
+    mockFetch();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          rules: [
+            invoiceCollectionRule,
+            {
+              id: 'promise_to_pay',
+              group: 'collections',
+              title: 'Promise to pay',
+              templateContracts: ['payment_promise_reminder'],
+              configurable: true,
+              fields: [],
+              settings: {},
+              readiness: { ready: true, code: 'ready' },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+    render(<RenewalRemindersSettings />);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'View Promise to pay' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'See message and details' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Change sending hours' })
+    );
+
+    await waitFor(() =>
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: 'start',
+        behavior: 'auto',
+      })
+    );
+    expect(document.activeElement).toBe(
+      within(screen.getByTestId('lifecycle-sending-hours')).getByRole(
+        'combobox',
+        { name: 'Start sending at' }
+      )
+    );
   });
 
   it('expands the clicked row in place, closes its sibling, and retains collapsed drafts', async () => {
@@ -838,6 +965,26 @@ describe('Automated messages access', () => {
     ).toBeTruthy();
     expect(screen.queryByRole('menuitemcheckbox')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save settings' })).toBeNull();
+    expect(patched()).toBe(false);
+  });
+
+  it('keeps branch Sending hours visible but read-only without settings access', async () => {
+    authState.role = 'viewer';
+    mockCatalogue([invoiceCollectionRule]);
+    render(<RenewalRemindersSettings />);
+
+    const sendingHours = await screen.findByTestId('lifecycle-sending-hours');
+    expect(
+      within(sendingHours).getByRole('combobox', { name: 'Start sending at' })
+    ).toHaveProperty('disabled', true);
+    expect(
+      within(sendingHours).getByRole('combobox', {
+        name: 'Stop sending after',
+      })
+    ).toHaveProperty('disabled', true);
+    expect(
+      within(sendingHours).queryByRole('button', { name: 'Save changes' })
+    ).toBeNull();
     expect(patched()).toBe(false);
   });
 

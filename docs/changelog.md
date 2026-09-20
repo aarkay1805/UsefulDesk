@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-09-20 — Lifecycle sending hours moved to branch-level settings
+
+Settings → Automated messages now has one branch-level **Sending hours** editor
+(`lifecycle-sending-hours-settings.tsx`) for invoice collection, post-expiry,
+promise/link follow-up, and retention messages. Rule details link directly to
+that editor with reduced-motion-aware focus/scroll; Invoice collection no
+longer duplicates the controls. Drafts, errors, save, and cancel stay separate
+and branch-scoped, while persistence still uses only the existing
+`invoice_collection_send_window_start/end` fields and settings permission gate.
+Renewal, installment, confirmation, and AutoPay timing did not change; no rule
+was activated and no customer message was sent.
+
 ## 2026-09-20 — Automated message activity explains failures and check scope
 
 Settings → Automated messages → Activity now translates retained WhatsApp

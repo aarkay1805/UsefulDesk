@@ -19,8 +19,9 @@ setup is restored or the operator turns it off.
 Joining installments are **managed by checkout**, with their fixed 7/3/1/0-day
 schedule. They do not have an independent account switch. Overdue-installment
 collection follows the invoice-collection opt-in. The lifecycle send window is
-shared by collection, post-expiry, and retention rules. Transaction confirmations
-and AutoPay updates run from their recorded events without this window;
+edited once in the branch-level **Sending hours** section and is shared by
+collection, post-expiry, and retention rules. Transaction confirmations and
+AutoPay updates run from their recorded events without this window;
 membership, service, and pre-due installment workers retain their after-09:00 gate.
 
 UsefulDesk has two renewal reminder contracts. Both promote a future purchase,
