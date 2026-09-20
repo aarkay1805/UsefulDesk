@@ -377,9 +377,10 @@ and message name used by both Settings views. The view tabs are **Messages** and
 Use these exact message names: **Unpaid invoice reminders**, **Installment
 reminders**, **Promised payment reminder**, **AutoPay payment problems**,
 **Return after a membership pause**, **Invite expired members back**, and
-**Invite members to renew a service**. A row disclosure is always **Details** /
-**Hide details**. Once open, **Message preview** is a directly visible heading
-and sample—not another disclosure. Keep purpose → schedule → preview → who gets
+**Invite members to renew a service**. A row disclosure is always **Configure** /
+**Hide configuration**. Until message readiness is complete, show setup and
+configuration without an On/Off switch. Once open, **Message preview** is a
+directly visible heading and sample—not another disclosure. Keep purpose → schedule → preview → who gets
 it / when it stops / staff action in reading order; only secondary sending
 exceptions belong in an accordion.
 Do not reintroduce Rules, Activity, Collections, Retention, Invoice collection,

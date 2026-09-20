@@ -5,7 +5,7 @@
 Settings → **Automated messages** now uses the shared rule catalogue for the
 **Messages** / **Message history** tabs, owner-facing group names, message
 names, purpose, eligibility, stopping conditions, staff action, and explicit
-schedule capability. Rows use one **Details** / **Hide details** action and
+schedule capability. Rows use one **Configure** / **Hide configuration** action and
 show purpose → schedule → **Message preview** in reading order. Editable day
 sets explain multi-selection and enforce the six-day limit; fixed, event-driven,
 session-count, and checkout-managed schedules explain why no day picker exists.
@@ -14,8 +14,9 @@ show adjacent **Unsaved changes**, **Save changes**, and **Cancel** controls.
 
 Setup readiness is independent of whether a rule has an enable switch. Available
 setup uses an enabled, rule-named **Set up message** action; activation remains
-readiness-gated and approval still does not turn a message on. Installment
-reminders show **Managed by payment plan**, their approval state, and a truthful
+available only after message readiness is complete; unready rows omit the
+switch and keep setup plus Configure available. Approval still does not turn a
+message on. Installment reminders show **Managed by payment plan**, their approval state, and a truthful
 **Find a member** destination. Generic invoice copy states that invoices without
 a separate due date use the issue date, so a newly issued invoice cannot receive
 an earlier reminder. This changes presentation only: fixed worker timing,
@@ -57,7 +58,7 @@ WhatsApp approval** requests review only. Approval never turns on a rule, and an
 approved/synced message returns the operator to Messages for that separate
 decision.
 Other links that leave the rule page still require saving or cancelling drafts. Previews
-use sample values and send nothing. Details expands the selected rule inside
+use sample values and send nothing. Configure expands the selected rule inside
 its own catalogue row; one row is open at a time and drafts survive collapse.
 The open row states its reminder strategy in one plain sentence, while one
 “Change reminder days” multi-select contains the long choice list. Managed

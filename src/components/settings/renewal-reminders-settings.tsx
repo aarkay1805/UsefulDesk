@@ -875,7 +875,6 @@ function RuleDetail({
 function RuleRow({
   rule,
   canEdit,
-  hasDraft,
   expanded,
   children,
   onOpen,
@@ -884,7 +883,6 @@ function RuleRow({
 }: {
   rule: RuleRow;
   canEdit: boolean;
-  hasDraft: boolean;
   expanded: boolean;
   children: ReactNode;
   onOpen: () => void;
@@ -897,37 +895,6 @@ function RuleRow({
   const needsSetup = !rule.readiness.ready;
   const setupContractId =
     rule.readiness.templateContractId ?? rule.templateContracts[0];
-  const readinessBlocker: ActionBlocker | null =
-    !enabled && !rule.readiness.ready
-      ? {
-          title:
-            rule.readiness.code === 'whatsapp_not_connected'
-              ? 'WhatsApp isn’t connected'
-              : 'This template needs setup',
-          description:
-            rule.readiness.message ??
-            'Connect WhatsApp and approve the exact template before it can send.',
-          ...(rule.readiness.code === 'whatsapp_not_connected'
-            ? hasDraft
-              ? {
-                  description:
-                    'Save or cancel unsaved rule changes before opening WhatsApp settings.',
-                }
-              : {
-                  resolution: {
-                    label: 'Open WhatsApp settings',
-                    href: setupHref(rule),
-                  },
-                }
-            : {
-                resolution: {
-                  label: 'Set up message',
-                  onResolve: () => onSetupTemplate(setupContractId),
-                },
-              }),
-        }
-      : null;
-  const blocker = canEdit ? readinessBlocker : EDIT_PERMISSION_BLOCKER;
   const toggle = async () => {
     setSaving(true);
     try {
@@ -938,7 +905,7 @@ function RuleRow({
       setSaving(false);
     }
   };
-  const openLabel = expanded ? 'Hide details' : 'Details';
+  const openLabel = expanded ? 'Hide configuration' : 'Configure';
   const setupLabel = `Set up ${rule.title} message`;
   const setupButton = (
     <Button size="sm" variant="outline" aria-label={setupLabel}>
@@ -991,7 +958,7 @@ function RuleRow({
             </p>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {needsSetup ? (
             <span className="text-muted-foreground text-sm">
               {rule.readiness.code === 'whatsapp_not_connected'
@@ -1007,17 +974,13 @@ function RuleRow({
             </span>
           ) : null}
           {needsSetup ? setupAction : null}
-          {canToggle ? (
+          {canToggle && !needsSetup ? (
             <>
               <span className="text-muted-foreground text-sm">
-                {enabled && !rule.readiness.ready
-                  ? 'Blocked'
-                  : enabled
-                    ? 'On'
-                    : 'Off'}
+                {enabled ? 'On' : 'Off'}
               </span>
               <ResolvableAction
-                blocker={blocker}
+                blocker={canEdit ? null : EDIT_PERMISSION_BLOCKER}
                 triggerNativeButton={false}
                 onAction={toggle}
                 trigger={
@@ -1063,6 +1026,12 @@ function RuleRow({
           role="region"
           aria-labelledby={`rule-title-${rule.id}`}
         >
+          {needsSetup ? (
+            <p className="text-muted-foreground mt-3 text-sm">
+              {rule.readiness.message ??
+                'Connect WhatsApp and approve the exact template before it can send.'}
+            </p>
+          ) : null}
           {children}
         </div>
       </Collapse>
@@ -1404,7 +1373,6 @@ export function RenewalRemindersSettings({
                   key={rule.id}
                   rule={rule}
                   canEdit={canEditSettings}
-                  hasDraft={hasUnsavedChanges}
                   expanded={selected?.id === rule.id}
                   onOpen={() => {
                     if (selected?.id === rule.id) {
