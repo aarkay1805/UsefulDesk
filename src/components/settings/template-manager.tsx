@@ -427,7 +427,7 @@ function formFromTemplate(template: MessageTemplate): TemplateFormData {
   };
 }
 
-type SetupAction = 'submit' | 'resubmit' | 'sync' | 'return';
+type SetupAction = 'submit' | 'resubmit' | 'sync' | 'review' | 'return';
 
 interface SetupStateCopy {
   action: SetupAction;
@@ -456,7 +456,7 @@ function resolveSetupStateCopy(
       action: 'resubmit',
       title: 'WhatsApp did not approve this message',
       description:
-        'Review the reason in Technical details, then resubmit the required message. Resubmitting does not turn it on.',
+        'Review the reason in Technical details, then resubmit the required message for a new review.',
       destructive: true,
     };
   }
@@ -466,7 +466,7 @@ function resolveSetupStateCopy(
       action: 'resubmit',
       title: 'WhatsApp paused this message',
       description:
-        'Resubmit the required message for WhatsApp review. Resubmitting does not turn it on.',
+        'Resubmit the required message to start a new WhatsApp review.',
     };
   }
 
@@ -478,20 +478,59 @@ function resolveSetupStateCopy(
           ? 'Waiting for WhatsApp approval'
           : 'WhatsApp is reviewing the appeal',
       description:
-        'Approval does not turn on the message. When WhatsApp finishes its review, sync the approval status here.',
+        'When WhatsApp finishes its review, sync the approval status here.',
+    };
+  }
+
+  if (template.provider_missing_since) {
+    return {
+      action: 'review',
+      title: 'Message not found on WhatsApp',
+      description:
+        'The latest complete sync could not find this message. Open Templates to review or replace it.',
+      destructive: true,
+    };
+  }
+
+  if (status === 'APPROVED' && readinessCode === 'ready') {
+    return {
+      action: 'return',
+      title: 'Approved for WhatsApp',
+      description:
+        'This message matches the required version. Return to Messages to continue.',
     };
   }
 
   if (
     status === 'APPROVED' &&
-    readinessCode === 'ready' &&
-    !template.provider_missing_since
+    ['component_drift', 'parameter_drift', 'wrong_parameter_format'].includes(
+      readinessCode
+    )
   ) {
     return {
-      action: 'return',
-      title: 'Approved for WhatsApp',
+      action: 'resubmit',
+      title: 'Message needs updating',
       description:
-        'This message is approved and synced. Return to Messages to turn it on when you are ready.',
+        'The approved message does not match the version this feature requires. Update it to the exact version and resubmit it for review.',
+    };
+  }
+
+  if (status === 'APPROVED' && readinessCode === 'wrong_category') {
+    return {
+      action: 'review',
+      title: 'Message category needs replacing',
+      description:
+        'WhatsApp approved this message under a different category. An approved category cannot be changed, so open Templates to review its replacement.',
+      destructive: true,
+    };
+  }
+
+  if (status === 'APPROVED' && readinessCode === 'provider_sync_required') {
+    return {
+      action: 'sync',
+      title: 'Approval status needs syncing',
+      description:
+        'WhatsApp changed this message. Sync its latest approval status and wording before it can send.',
     };
   }
 
@@ -508,9 +547,8 @@ function resolveSetupStateCopy(
   return {
     action: 'sync',
     title: 'Approval status needs syncing',
-    description: template.provider_missing_since
-      ? 'UsefulDesk could not find this message in the latest complete WhatsApp sync. Sync again to confirm its current status before turning it on.'
-      : 'UsefulDesk cannot confirm that this approved message still matches the required version. Sync its latest WhatsApp status before turning it on.',
+    description:
+      'UsefulDesk cannot confirm this message’s current WhatsApp status. Sync its latest status before continuing.',
   };
 }
 
@@ -548,6 +586,25 @@ export function TemplateManager({
           return `/settings?${params.toString()}`;
         })()
       : null;
+  const focusedTemplatesUrl = focusedContract
+    ? (() => {
+        const params = new URLSearchParams({
+          tab: 'templates',
+          contract: focusedContract.id,
+        });
+        if (
+          focusedRule &&
+          (
+            focusedRule.templateContracts as readonly TemplateContractId[]
+          ).includes(focusedContract.id)
+        ) {
+          params.set('rule', focusedRule.id);
+        }
+        const branchId = browserBranchId();
+        if (branchId) params.set('branch', branchId);
+        return `/settings?${params.toString()}`;
+      })()
+    : null;
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -794,7 +851,7 @@ export function TemplateManager({
         setupContractId
           ? data.dry_run
             ? 'Message saved for testing. No WhatsApp approval request was sent.'
-            : 'Submitted for WhatsApp approval. The message remains off until you turn it on in Messages.'
+            : 'Submitted for WhatsApp approval. Submitting does not turn on this message.'
           : data.dry_run
             ? isEdit
               ? 'Template updated (dry-run — no Meta call)'
@@ -875,6 +932,13 @@ export function TemplateManager({
     } finally {
       setSyncing(false);
     }
+  }
+
+  function openFocusedTemplates() {
+    if (!focusedTemplatesUrl) return;
+    setDialogOpen(false);
+    onSetupClose?.(false);
+    router.replace(focusedTemplatesUrl);
   }
 
   async function confirmDelete() {
@@ -1032,7 +1096,7 @@ export function TemplateManager({
           </DialogTitle>
           <DialogDescription>
             {setupContractId
-              ? `${getTemplateContractById(setupContractId)?.title ?? 'This automated message'} uses the message below. WhatsApp approval and turning it on are separate steps.`
+              ? `${getTemplateContractById(setupContractId)?.title ?? 'This automated message'} uses the message below. Review its approval status before continuing.`
               : editingId
                 ? 'Save your changes to send the template back to Meta for review.'
                 : 'Build a WhatsApp template, then submit it to Meta for approval.'}
@@ -1155,6 +1219,15 @@ export function TemplateManager({
                       </dt>
                       <dd>{form.category}</dd>
                     </div>
+                    {setupTemplate &&
+                    setupTemplate.category !== form.category ? (
+                      <div className="space-y-1">
+                        <dt className="text-muted-foreground text-xs">
+                          WhatsApp category
+                        </dt>
+                        <dd>{setupTemplate.category}</dd>
+                      </div>
+                    ) : null}
                     <div className="space-y-1">
                       <dt className="text-muted-foreground text-xs">Header</dt>
                       <dd>
@@ -1214,7 +1287,16 @@ export function TemplateManager({
                   >
                     Cancel
                   </Button>
-                  {setupState.action === 'sync' ? (
+                  {setupState.action === 'review' ? (
+                    <GatedButton
+                      type="button"
+                      canAct={canEditSettings}
+                      gateReason="review this message in Templates"
+                      onClick={openFocusedTemplates}
+                    >
+                      Open Templates
+                    </GatedButton>
+                  ) : setupState.action === 'sync' ? (
                     <GatedButton
                       type="button"
                       loading={syncing}
@@ -1232,7 +1314,9 @@ export function TemplateManager({
                       gateReason="submit this message for WhatsApp approval"
                     >
                       {setupState.action === 'resubmit'
-                        ? 'Resubmit for WhatsApp approval'
+                        ? setupTemplate?.status === 'APPROVED'
+                          ? 'Update and resubmit for WhatsApp approval'
+                          : 'Resubmit for WhatsApp approval'
                         : 'Submit for WhatsApp approval'}
                     </GatedButton>
                   )}
@@ -1776,8 +1860,8 @@ export function TemplateManager({
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {contractLocked ? (
                   <p className="text-muted-foreground text-xs leading-relaxed sm:max-w-xs">
-                    Meta will check this message. After it is approved, come
-                    back here and turn on the reminder.
+                    Meta will check this message. After it is approved and
+                    synced, return to Messages to continue setup.
                   </p>
                 ) : (
                   <span />
