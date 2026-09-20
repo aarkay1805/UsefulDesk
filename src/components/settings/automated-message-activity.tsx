@@ -797,18 +797,18 @@ function ActivityExplanation({
         <Accordion className="mt-1">
           <AccordionItem value="provider-details">
             <AccordionTrigger>Provider details</AccordionTrigger>
-            <AccordionContent>
+            <AccordionContent className="space-y-1">
               {row.provider_error_title ? (
-                <p className="break-words">
+                <div className="break-words">
                   <span className="font-medium">Title:</span>{' '}
                   {row.provider_error_title}
-                </p>
+                </div>
               ) : null}
               {row.provider_error_detail ? (
-                <p className="break-words">
+                <div className="break-words">
                   <span className="font-medium">Detail:</span>{' '}
                   {row.provider_error_detail}
-                </p>
+                </div>
               ) : null}
             </AccordionContent>
           </AccordionItem>

@@ -77,6 +77,32 @@ describe('automated message activity semantics', () => {
     );
   });
 
+  it('keeps an unknown provider outcome uncertain even when diagnostics were retained', () => {
+    expect(
+      activityReason({
+        ...row,
+        outcome: 'ambiguous',
+        reason_code: 'provider_outcome_unknown',
+        provider_error_title: 'Message undeliverable',
+        provider_error_detail: 'The request ended before status was confirmed.',
+      })
+    ).toBe(
+      'WhatsApp did not confirm what happened. Open the chat before sending anything again.'
+    );
+
+    expect(
+      activityReason({
+        ...row,
+        outcome: 'unconfirmed',
+        reason_code: 'legacy_claim_unconfirmed',
+        provider_error_title: 'Message undeliverable',
+        provider_error_detail: 'No final status was saved.',
+      })
+    ).toBe(
+      'There is no saved WhatsApp status for this older reminder. Open the chat if you need to confirm what happened.'
+    );
+  });
+
   it.each([
     ['missing', 'Set up this WhatsApp message before it can send.'],
     [
@@ -143,10 +169,7 @@ describe('automated message activity semantics', () => {
       'provider_outcome_unknown',
       'WhatsApp did not confirm what happened. Open the chat before sending anything again.',
     ],
-    [
-      'outside_send_window',
-      'Waiting until this branch’s automated sending window opens.',
-    ],
+    ['outside_send_window', 'Waiting until this branch’s sending hours begin.'],
     ['waiting_for_send_window', 'Waiting until the scheduled sending time.'],
     [
       'missing_phone',
@@ -188,7 +211,7 @@ describe('automated message activity semantics', () => {
     ['customer_replied', 'Stopped because the member replied.'],
     [
       'daily_contact_budget',
-      'Waiting because the member already received another automated message today.',
+      'Waiting because another automated message is already scheduled or sent to this member today.',
     ],
     [
       'superseded_or_expired_milestone',

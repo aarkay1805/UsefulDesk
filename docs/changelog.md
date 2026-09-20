@@ -20,7 +20,7 @@ was activated and no customer message was sent.
 
 ## 2026-09-20 — Automated message activity explains failures and check scope
 
-Settings → Automated messages → Activity now translates retained WhatsApp
+Settings → Automated messages → Message history now translates retained WhatsApp
 delivery diagnostics into one plain reason, keeps the original provider title
 and detail behind Provider details, and distinguishes Accepted by WhatsApp from
 Delivered. History uses Message/Status terminology and contextual text actions;
@@ -73,7 +73,8 @@ static.
 views, including Messages/Message history vocabulary and explicit editable,
 fixed, session-count, event-driven, and checkout-managed schedule capability.
 `renewal-reminders-settings.tsx` uses consistent Details/Hide details actions,
-purpose-first rows, chronological schedules, fixed-day and delayed-send
+purpose-first rows, chronological schedules, a directly visible message preview,
+fixed-day and delayed-send
 explanations, six-day multi-select validation, adjacent Save changes/Cancel,
 visible dirty state, enabled context-named setup, and readiness for managed
 installments. Fixed worker timing, permissions, readiness-gated activation,

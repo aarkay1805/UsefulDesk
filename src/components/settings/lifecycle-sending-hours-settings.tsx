@@ -46,8 +46,8 @@ export const LIFECYCLE_SENDING_HOURS_RULE_IDS = [
 ] as const satisfies readonly ReminderRuleId[];
 
 const LIFECYCLE_MESSAGE_TYPES = LIFECYCLE_SENDING_HOURS_RULE_IDS.map(
-  (id) => REMINDER_RULES.find((rule) => rule.id === id)?.title
-).filter((title): title is string => Boolean(title));
+  (id) => REMINDER_RULES.find((rule) => rule.id === id)!.title
+);
 
 type LifecycleSendingHoursSettingsProps = {
   scopeKey: string;

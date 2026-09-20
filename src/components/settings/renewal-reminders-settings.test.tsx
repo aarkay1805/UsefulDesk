@@ -260,9 +260,16 @@ describe('Automated messages catalogue', () => {
         'Members get reminders 7, 3 and 1 days before the membership ends.'
       )
     ).toBeTruthy();
-    expect(screen.queryByText('This is only a sample.')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Message preview' }));
     expect(screen.getByText('This is only a sample.')).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'Message preview' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Message preview' })
+    ).toBeNull();
+    expect(screen.getByText('Who gets it')).toBeTruthy();
+    expect(screen.getByText('When it stops')).toBeTruthy();
+    expect(screen.getByText('What staff should do')).toBeTruthy();
     expect(screen.queryByText('Days before')).toBeNull();
     toggleReminderDay(
       screen.getByRole('button', {
@@ -395,10 +402,6 @@ describe('Automated messages catalogue', () => {
     ).toHaveLength(1);
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(
-      screen.queryByRole('tab', { name: 'Before or on due date' })
-    ).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Message preview' }));
-    expect(
       screen.getByRole('tab', { name: 'Before or on due date' })
     ).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'After due date' })).toBeTruthy();
@@ -528,7 +531,6 @@ describe('Automated messages catalogue', () => {
         name: 'Details Promised payment reminder',
       })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Message preview' }));
     fireEvent.click(
       screen.getByRole('button', { name: 'Change sending hours' })
     );
@@ -574,7 +576,6 @@ describe('Automated messages catalogue', () => {
         name: 'Details Promised payment reminder',
       })
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Message preview' }));
     fireEvent.click(
       screen.getByRole('button', { name: 'Change sending hours' })
     );
@@ -788,7 +789,6 @@ describe('Automated messages catalogue', () => {
       }),
       '14 days before'
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Message preview' }));
     expect(
       screen.queryByRole('link', { name: 'View message template' })
     ).toBeNull();
@@ -823,11 +823,6 @@ describe('Automated messages catalogue', () => {
     expect(
       within(joiningRow).getByTestId('rule-detail-joining_installments')
     ).toBeTruthy();
-    fireEvent.click(
-      within(joiningRow).getByRole('button', {
-        name: 'Message preview',
-      })
-    );
     expect(
       screen.queryByRole('link', { name: 'View message template' })
     ).toBeNull();
@@ -919,7 +914,7 @@ describe('Automated messages catalogue', () => {
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Find a member' })).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Message preview' })
+      screen.getByRole('heading', { name: 'Message preview' })
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
     fireEvent.click(

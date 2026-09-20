@@ -674,7 +674,6 @@ function RuleDetail({
     'joining_installments',
   ].includes(rule.id);
   const showsLifecycleWindow = usesLifecycleWindow;
-  const showsFooter = hasTimingControls && dirty;
   return (
     <div
       className="bg-card-2 mt-3 rounded-2xl px-4 pt-4 pb-1"
@@ -726,6 +725,21 @@ function RuleDetail({
           disabled={!canEdit || saving}
           blocker={canEdit ? null : EDIT_PERMISSION_BLOCKER}
         />
+        {sendingOptionsCollapsed ? (
+          <Accordion>
+            <AccordionItem value={`delivery-${rule.id}`}>
+              <AccordionTrigger>More sending options</AccordionTrigger>
+              <AccordionContent className="px-1">
+                <DeliveryControls
+                  rule={rule}
+                  draft={draft}
+                  onChange={onDraftChange}
+                  disabled={!canEdit || saving}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        ) : null}
         {hasTimingControls && dirty ? (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             <span
@@ -754,101 +768,86 @@ function RuleDetail({
         ) : null}
       </section>
       <Separator className="mt-4" />
-      <Accordion multiple>
-        {sendingOptionsCollapsed ? (
-          <AccordionItem value={`delivery-${rule.id}`}>
-            <AccordionTrigger>More sending options</AccordionTrigger>
-            <AccordionContent className="px-1">
-              <DeliveryControls
-                rule={rule}
-                draft={draft}
-                onChange={onDraftChange}
-                disabled={!canEdit || saving}
-              />
-            </AccordionContent>
-          </AccordionItem>
+      <section
+        className="space-y-5 py-4"
+        aria-labelledby={`rule-preview-${rule.id}`}
+      >
+        <h5 className={DETAIL_CAPTION} id={`rule-preview-${rule.id}`}>
+          Message preview
+        </h5>
+        {rule.templateContracts.length > 1 ? (
+          <Tabs defaultValue={rule.templateContracts[0]}>
+            <TabsList aria-label={`${rule.title} message preview`}>
+              {rule.templateContracts.map((contractId) => (
+                <TabsTrigger key={contractId} value={contractId}>
+                  {previewTabLabel(contractId)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {rule.templateContracts.map((contractId) => (
+              <TabsContent key={contractId} value={contractId}>
+                <RuleMessagePreview
+                  rule={rule}
+                  contractId={contractId}
+                  fmt={fmt}
+                  hasUnsavedChanges={hasUnsavedChanges}
+                />
+              </TabsContent>
+            ))}
+          </Tabs>
+        ) : (
+          <RuleMessagePreview
+            rule={rule}
+            contractId={rule.templateContracts[0]}
+            fmt={fmt}
+            hasUnsavedChanges={hasUnsavedChanges}
+          />
+        )}
+        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+          <div className="space-y-1">
+            <dt className={DETAIL_CAPTION}>Who gets it</dt>
+            <dd className="text-sm leading-5 text-pretty">
+              {rule.eligibility}
+            </dd>
+          </div>
+          <div className="space-y-1">
+            <dt className={DETAIL_CAPTION}>When it stops</dt>
+            <dd className="text-sm leading-5 text-pretty">{rule.stops}</dd>
+          </div>
+          <div className="space-y-1">
+            <dt className={DETAIL_CAPTION}>What staff should do</dt>
+            <dd className="text-sm leading-5 text-pretty">{rule.staff}</dd>
+          </div>
+          {rule.id === 'autopay_recovery' ? (
+            <div className="space-y-1 sm:col-span-3">
+              <dt className={DETAIL_CAPTION}>How AutoPay retries work</dt>
+              <dd className="max-w-3xl text-sm leading-5 text-pretty">
+                A retry message tells the member when AutoPay will try again. It
+                does not ask them to pay another way. A final failure message
+                may ask for payment after UsefulDesk checks the account.
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+        {sendsAfterNine ? (
+          <div className="text-muted-foreground max-w-2xl text-sm leading-5">
+            UsefulDesk can send this message after {localTime(9)} in this
+            branch.
+          </div>
         ) : null}
-        <AccordionItem value={`details-${rule.id}`}>
-          <AccordionTrigger>Message preview</AccordionTrigger>
-          <AccordionContent className="space-y-5 px-1">
-            {rule.templateContracts.length > 1 ? (
-              <Tabs defaultValue={rule.templateContracts[0]}>
-                <TabsList aria-label={`${rule.title} message preview`}>
-                  {rule.templateContracts.map((contractId) => (
-                    <TabsTrigger key={contractId} value={contractId}>
-                      {previewTabLabel(contractId)}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-                {rule.templateContracts.map((contractId) => (
-                  <TabsContent key={contractId} value={contractId}>
-                    <RuleMessagePreview
-                      rule={rule}
-                      contractId={contractId}
-                      fmt={fmt}
-                      hasUnsavedChanges={hasUnsavedChanges}
-                    />
-                  </TabsContent>
-                ))}
-              </Tabs>
-            ) : (
-              <RuleMessagePreview
-                rule={rule}
-                contractId={rule.templateContracts[0]}
-                fmt={fmt}
-                hasUnsavedChanges={hasUnsavedChanges}
-              />
-            )}
-            <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
-              <div className="space-y-1">
-                <dt className={DETAIL_CAPTION}>Who gets it</dt>
-                <dd className="text-sm leading-5 text-pretty">
-                  {rule.eligibility}
-                </dd>
-              </div>
-              <div className="space-y-1">
-                <dt className={DETAIL_CAPTION}>When it stops</dt>
-                <dd className="text-sm leading-5 text-pretty">{rule.stops}</dd>
-              </div>
-              <div className="space-y-1">
-                <dt className={DETAIL_CAPTION}>What staff should do</dt>
-                <dd className="text-sm leading-5 text-pretty">{rule.staff}</dd>
-              </div>
-              {rule.id === 'autopay_recovery' ? (
-                <div className="space-y-1 sm:col-span-3">
-                  <dt className={DETAIL_CAPTION}>How AutoPay retries work</dt>
-                  <dd className="max-w-3xl text-sm leading-5 text-pretty">
-                    A retry message tells the member when AutoPay will try
-                    again. It does not ask them to pay another way. A final
-                    failure message may ask for payment after UsefulDesk checks
-                    the account.
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-            {sendsAfterNine ? (
-              <div className="text-muted-foreground max-w-2xl text-sm leading-5">
-                UsefulDesk can send this message after {localTime(9)} in this
-                branch.
-              </div>
-            ) : null}
-            {showsLifecycleWindow && lifecycleWindow ? (
-              <div className="space-y-1">
-                <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
-                  <span>
-                    This message uses this branch’s Sending hours: from{' '}
-                    {localTime(lifecycleWindow.start)} to{' '}
-                    {localTime(lifecycleWindow.end, '59')}.
-                  </span>
-                  <Button variant="link" size="sm" onClick={onOpenSendingHours}>
-                    Change sending hours
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+        {showsLifecycleWindow && lifecycleWindow ? (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
+            <span>
+              This message uses this branch’s Sending hours: from{' '}
+              {localTime(lifecycleWindow.start)} to{' '}
+              {localTime(lifecycleWindow.end, '59')}.
+            </span>
+            <Button variant="link" size="sm" onClick={onOpenSendingHours}>
+              Change sending hours
+            </Button>
+          </div>
+        ) : null}
+      </section>
     </div>
   );
 }
@@ -1408,7 +1407,7 @@ export function RenewalRemindersSettings() {
           title="Automated messages"
           description="Choose which WhatsApp messages to send automatically."
         />
-        {/* Rules and Activity are this panel's views, so their tabs sit under
+        {/* Messages and Message history are this panel's views, so their tabs sit under
             its heading. The app bar's tab row belongs to Settings, whose own
             navigation is the rail. */}
         <Tabs value={view} onValueChange={setView}>

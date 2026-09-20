@@ -10,8 +10,8 @@ read-only operational record, limited to admins and owners (access table:
 create, submit, and synchronize templates; each rule links to its exact contract.
 
 Rule summaries distinguish the saved **On/Off** preference from current
-readiness. Configure a rule while it is off, inspect its sample message, and
-save only that rule's changes. A preview sends nothing. A new activation requires
+readiness. Open **Details** while a rule is off, inspect its directly visible
+sample message, and save only that rule's changes. A preview sends nothing. A new activation requires
 connected WhatsApp and the relevant exact Approved/synced templates. A failed
 activation leaves the rule off; later approval cannot silently activate it.
 An already-enabled rule that loses readiness retains **On + Blocked** until
@@ -20,10 +20,10 @@ setup is restored or the operator turns it off.
 Installment reminders are **managed by the payment plan**, with their fixed
 7/3/1/0-day
 schedule. They do not have an independent account switch. Overdue-installment
-collection follows the invoice-collection opt-in. The lifecycle send window is
-edited once in the branch-level **Sending hours** section and is shared by
+collection follows the invoice-collection opt-in. Shared lifecycle sending hours are
+edited once in the branch-level **Sending hours** section and are used by
 collection, post-expiry, and retention rules. Transaction confirmations and
-AutoPay updates run from their recorded events without this window;
+AutoPay updates send when payment status changes and do not use those hours;
 membership, service, and pre-due installment workers retain their after-09:00 gate.
 
 UsefulDesk has two renewal reminder contracts. Both promote a future purchase,

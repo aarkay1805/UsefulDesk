@@ -23,24 +23,26 @@ permission checks, activation behavior, no-backfill behavior, and duplicate-send
 guards remain unchanged. No template was submitted, schedule enabled, customer
 message sent, or deployment performed.
 
+Still deferred: changing the fixed worker schedules and introducing universal
+sending hours for renewal, installment, confirmation, or AutoPay messages.
+
 ## Shipped in code — Automated messages catalogue and activity (2026-09-12)
 
 Settings → **Automated messages** preserves `?tab=reminders`. Every branch
-member can read Rules; only admins and owners can change a rule or open
-Activity. Agents and viewers get a read-only catalogue and an Activity
+member can read Messages; only admins and owners can change a rule or open
+Message history. Agents and viewers get a read-only catalogue and a history
 permission notice instead of a load error with a retry that could never
 succeed. At narrow widths, the horizontal Settings rail immediately brings a
 deep-linked section into view, keeps later selections visible without moving
-keyboard focus, and respects reduced-motion preferences. The Rules and Activity
-tabs sit under the panel heading, not in the app bar. Rules shows the 14 existing
-behaviors in Renewals, Collections,
-Retention, and Confirmations sections on one page, and scrolls to a rule opened
-from Activity or by link. **Change sending hours** instead focuses the dedicated
+keyboard focus, and respects reduced-motion preferences. The Messages and
+Message history tabs sit under the panel heading, not in the app bar. Messages
+shows the 14 existing behaviors in Renewals, Payment reminders, Keep members
+coming back, and Confirmations sections on one page, and scrolls to a rule opened
+from Message history or by link. **Change sending hours** instead focuses the dedicated
 branch-level editor. Per-rule configuration saves while off; activation requires
 the connected branch and every exact approved/synced template. Existing On
-intent survives lost readiness. Each rule
-name has a plain-language info tooltip; the group sections do not repeat
-another summary line. Template setup remains in Templates, with exact-contract
+intent survives lost readiness. Each row states its purpose directly; group
+sections do not repeat another summary line. Template setup remains in Templates, with exact-contract
 focus and a return to the originating rule.
 The Set up action opens the required message directly over the rule. Without
 settings access, Set up, the switch, and Change reminder days explain that an
@@ -55,35 +57,34 @@ WhatsApp approval** requests review only. Approval never turns on a rule, and an
 approved/synced message returns the operator to Messages for that separate
 decision.
 Other links that leave the rule page still require saving or cancelling drafts. Previews
-use sample values and send nothing. Configure expands the selected rule inside
+use sample values and send nothing. Details expands the selected rule inside
 its own catalogue row; one row is open at a time and drafts survive collapse.
 The open row states its reminder strategy in one plain sentence, while one
 “Change reminder days” multi-select contains the long choice list. Managed
-rules state their fixed timing directly. Sending options, sample messages, and
-rule details stay closed until requested; the sample and rule details share one
-disclosure, and Save settings/Cancel appear only after a change. The open rule's
-settings sit in one nested tile under its title, with small muted captions and
-both disclosures in one divided list. Rules with two message
+rules state their fixed timing directly. The sample message and who/stops/staff
+facts appear immediately after the schedule; only secondary sending options stay
+collapsed. Save changes/Cancel appear only after a change. The open rule's
+settings sit in one nested tile under its title with small muted captions. Rules with two message
 contracts use purpose-labelled tabs and show one example at a time. Rules with
-no editable settings, and every rule for members without settings access, use
-View and omit form actions. An unready rule offers one
-Set up action instead of a status badge plus disabled switch; managed rules omit
-that redundant status. Saving configuration no longer needs a separate
+no editable settings, and every rule for members without settings access, omit
+form actions. An unready rule offers one
+Set up action alongside its truthful readiness state; payment-plan-managed
+installments retain their managed status without a switch. Saving configuration no longer needs a separate
 activation warning. Invoice collection retains due-date language because it
 also covers service and merchandise invoices.
 
-The branch-level **Sending hours** section owns the existing lifecycle window
+The branch-level **Sending hours** section owns the existing lifecycle timing
 that Invoice collection previously exposed inside its rule. It explicitly
 names the invoice, post-expiry, promise/link follow-up, and retention messages
-that share the window; every applicable rule links back to it. Its draft,
+that share those sending hours; every applicable rule links back to it. Its draft,
 save/cancel, error, branch-switch, focus, and reduced-motion behavior are
 independent from rule configuration. Storage and authorization remain the
 existing Invoice collection fields and admin/owner settings boundary.
 Membership and service renewal plus installment workers still use their
-after-09:00 gate, while payment confirmations and AutoPay event updates remain
-outside this window. No activation or scheduler policy changed.
+after-09:00 gate, while payment confirmations and AutoPay updates send when the
+payment status changes and do not use those hours. No activation or scheduler policy changed.
 
-Activity opens with Renewal and installment checks, explicitly limited to the
+Message history opens with Renewal and installment checks, explicitly limited to the
 three existing scheduled workers (a blocked row links to its message), then
 Message history: the lifecycle queue and all three legacy reminder ledgers with
 branch-scoped member identity, grouped message/status filters, a valid

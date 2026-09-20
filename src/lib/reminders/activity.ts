@@ -120,8 +120,7 @@ const reasonLabels: Record<string, string> = {
   manual_fallback_needs_staff_review:
     'Review the invoice and AutoPay result before asking the member to pay another way.',
   provider_outcome_unknown: UNKNOWN_OUTCOME_REASON,
-  outside_send_window:
-    'Waiting until this branch’s automated sending window opens.',
+  outside_send_window: 'Waiting until this branch’s sending hours begin.',
   waiting_for_send_window: 'Waiting until the scheduled sending time.',
   missing_phone:
     'Check the member’s phone number before this message can send.',
@@ -140,7 +139,7 @@ const reasonLabels: Record<string, string> = {
   provider_request_failed: BEFORE_WHATSAPP_RETRY_REASON,
   customer_replied: 'Stopped because the member replied.',
   daily_contact_budget:
-    'Waiting because the member already received another automated message today.',
+    'Waiting because another automated message is already scheduled or sent to this member today.',
   superseded_or_expired_milestone:
     'Stopped because a newer reminder now applies.',
   invoice_no_longer_collectible:
@@ -160,6 +159,10 @@ export function activityReason(
     | 'escalation_state'
   >
 ): string {
+  // Retained provider diagnostics may describe a suspected failure, but these
+  // outcomes explicitly mean UsefulDesk never received a conclusive status.
+  if (row.outcome === 'ambiguous') return UNKNOWN_OUTCOME_REASON;
+  if (row.outcome === 'unconfirmed') return OLDER_STATUS_REASON;
   if (row.provider_error_title || row.provider_error_detail) {
     const providerDiagnostic = [
       row.provider_error_title,
@@ -198,16 +201,12 @@ export function activityReason(
       return 'This message needs setup or a member detail before it can send. Review the message and member.';
     case 'stopped':
       return 'This message no longer applies to this member.';
-    case 'ambiguous':
-      return UNKNOWN_OUTCOME_REASON;
     case 'attempting':
       return 'UsefulDesk is sending this message.';
     case 'waiting':
       return 'Waiting until the scheduled sending time.';
     case 'paused':
       return 'Paused until the current hold or payment promise is resolved.';
-    case 'unconfirmed':
-      return OLDER_STATUS_REASON;
   }
 }
 
