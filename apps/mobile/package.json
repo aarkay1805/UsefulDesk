@@ -5,7 +5,7 @@
   "dependencies": {
     "@expo/ui": "~57.0.19",
     "@gorhom/bottom-sheet": "^5.2.14",
-    "@supabase/supabase-js": "2.107.0",
+    "@supabase/supabase-js": "2.116.0",
     "expo": "~57.0.24",
     "expo-application": "~57.0.3",
     "expo-audio": "~57.0.5",
