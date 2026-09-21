@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-09-21 — Genuine VBF trial expiry accepted in Production
+
+VBF's version-4 trial expired at its unchanged database deadline with enforcement
+enabled and no suspension or entitlement mutation. The real owner session rendered
+only the configured support/recovery gate after a cold reload, and a protected
+dashboard GET returned `product_access_required`; the WhatsApp support link was
+not opened and no support request was created. MFA recovery remains available
+behind the existing verified authenticator and private platform-admin grant, with
+no access action taken. Before/after read-back found zero protected queue work and
+zero outbound, reminder, lifecycle, push, broadcast, automation, or flow attempt to
+retire or replay. The database acceptance and full repository verification passed.
+`docs/product-access.md` holds the evidence. The READY `92ccac89` Production
+runtime also reconciles the reminder-lifecycle Steps 1–6 as deployed application
+code; all new schedules remain off and no live provider acceptance occurred.
+
 ## 2026-09-20 — Paid-pilot operations and provider gate made executable
 
 `docs/commercial-operations.md` now owns founder-led quoting, settlement

@@ -154,3 +154,48 @@ two database HTTP responses were 200; the current web deployment accumulated 14
 HTTP 200s, no 4xx/5xx response, and no error/fatal log after activation. No trial,
 subscription, message, support, payment, or provider action was performed, and
 rollback was not required.
+
+### Genuine VBF expiry acceptance — 21 September 2026
+
+The database clock was beyond VBF's authoritative
+`2026-09-20T18:41:32.676609Z` deadline before acceptance began. Production then
+reported the unchanged version-4 trial as `expired`, unsuspended, and denied while
+global enforcement remained enabled. The other ten organizations remained on
+their existing complimentary terms; no access term was extended, activated, or
+otherwise changed.
+
+The real authenticated VBF owner session moved from the operational Settings page
+to the support-only gate. A completed cold reload showed the same gate with the
+configured WhatsApp contact, branch switching, recheck, and sign-out, and no
+operational navigation or content. The WhatsApp link was inspected but not opened;
+no message or support request was sent. A protected read-only
+`GET /api/dashboard/actions` reload returned `product_access_required` before any
+dashboard read. Its temporary display of the previous body while Safari was still
+loading was not a server authorization failure; the completed no-store response
+was the denial.
+
+The recovery surface remains independently available at `/platform-admin`: the
+authorized administrator's current AAL1 session stops at the authenticator
+challenge, and Production has exactly one private platform administrator and one
+verified TOTP factor with no unfinished factor. The earlier same-day AAL2
+suspend/restore round-trip already proved the audited recovery action path without
+moving the deadline; no code was entered and no VBF action was attempted during
+expiry acceptance. Read-back after the web and API checks still found version 4,
+the exact original deadline, four existing access audits, and zero support
+requests.
+
+VBF had zero active broadcasts, pending recipients, automation executions, or
+flow runs before and after expiry. Post-expiry read-back also found zero outbound
+message rows, legacy renewal/service/installment provider attempts, lifecycle or
+push attempts, broadcast-recipient attempts, automation logs, and flow runs. No
+old work existed to retire or replay. The rollback-only database acceptance passed
+its real-role RLS, exact-expiry, MFA, stale-version, support-dedupe, and non-empty
+queue-retirement assertions, and the focused product-access tests plus the full
+lint/typecheck/test/build gate passed.
+
+The accepted application runtime was READY Production deployment
+`dpl_3W6ZdX3jtXDJW9NJnoiohAUYWB2k` at `92ccac89`, then equal to `main`, on
+`desk.usefulmade.com`. That deployment also contains reminder-lifecycle Steps 1–6;
+their schedules remain disabled and no template submission, live delivery,
+payment, or provider operation was accepted by this check. Checkout and a
+commercial decision to grant a new term remain deliberately out of scope.

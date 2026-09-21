@@ -166,8 +166,8 @@ invoking a live worker.
 The activation guard and security-invoker activity-view migrations are applied
 and read back. A rollback-only guard check rejects unready activation while
 preserving configuration. Existing membership/service settings remain on;
-all newer lifecycle schedules remain off. Application deployment and live
-provider delivery remain separate, unperformed steps. Owner usability and
+all newer lifecycle schedules remain off. The application is deployed; live
+provider delivery remains a separate, unperformed step. Owner usability and
 outcome measurement remain future work in the
 [approved benchmark](automated-messages-benchmark.md). Operator and validation
 notes: [Automated messages runbook](../docs/automated-messages.md).
@@ -180,8 +180,8 @@ Unsubscribe footer/button shape; legacy inbound opt-out audit recording remains
 unchanged and still does not gate outbound sends. The eight automated templates
 and two manual Marketing gallery presets require corrected provider content and
 Meta review/sync before the new contracts can be ready. This change did not
-submit, sync, activate, deploy, or send anything, and its migration remains to
-be applied through the approved Supabase migration path.
+submit, sync, activate, or send anything. Its application code is deployed, while
+the migration remains to be applied through the approved Supabase migration path.
 
 ## Shipped in code — renewal and collection reminder lifecycle (2026-09-10)
 
@@ -195,7 +195,13 @@ The acceptance contracts and execution status live in
 New schedules default off; implementation, applied schema, provider readiness,
 deployment, and proven live delivery are separate completion states.
 
-Step 1 complete (not deployed): existing renewal and installment readiness now
+Status reconciliation — 21 September 2026: READY Production deployment
+`dpl_3W6ZdX3jtXDJW9NJnoiohAUYWB2k` served `main` at `92ccac89` and contains the
+application work for Steps 1–6. This closes the older application-undeployed
+statements below only; every new schedule remains disabled, and no template,
+provider delivery, payment operation, or live customer acceptance was performed.
+
+Step 1 is complete and deployed: existing renewal and installment readiness now
 has a settings-authorized, read-only aggregate diagnostic that distinguishes
 date-matched, sendable, missing-phone, deferred, and already-handled work.
 Installments retain the authoritative open, positive, non-refund-review invoice
@@ -205,8 +211,8 @@ No schema migration, template submission, message, payment action, or live
 delivery acceptance occurred; the exact installment template and an authorized
 staff-controlled recipient remain prerequisites.
 
-Step 2 implementation is complete; its additive database schema is applied,
-but the application change is not deployed: durable, branch-isolated generic
+Step 2 implementation is complete and deployed; its additive database schema is
+applied. Durable, branch-isolated generic
 invoice and overdue-installment collection now shares the lifecycle queue,
 account-local scheduling, exact Utility setup contracts, and existing renewal
 cron paths. Generic invoices use their account-local issued date as the
@@ -227,7 +233,7 @@ Step 3 implementation is complete; its three additive production migrations
 `20260911007000_prioritize_debt_over_post_expiry.sql`, and
 `20260911008000_harden_post_expiry_activation_guard.sql`, and
 `20260911009000_revalidate_post_expiry_escalations.sql`) are applied and read
-back, but the application change is not deployed. The existing durable
+back, and the application change is deployed. The existing durable
 lifecycle queue now supports separate disabled-by-default expiry+1/+3/+7
 membership and renewable-service Marketing sequences. Eligibility is derived
 from current dates and state, rechecked before provider submission, and stops on
@@ -250,11 +256,11 @@ generic and legacy installment collection; a broken promise preserves the
 one-open-follow-up invariant. Link follow-up uses only a recorded accepted
 WhatsApp send and current active exact-balance link, while expiry creates a
 staff replacement action instead of a provider link. Both schedules are off;
-no template submission, message, link creation, payment operation, deployment,
+no template submission, message, link creation, payment operation,
 or live delivery occurred. The no-send harness is
 `supabase/tests/invoice_commitment_lifecycle_rollback.sql`.
 
-Step 5 implementation is complete and remains undeployed. Forward-only
+Step 5 implementation is complete and deployed. Forward-only
 production migrations `20260911010200_autopay_recovery_and_payment_confirmations.sql`,
 `20260911010300_repair_payment_confirmation_trigger.sql`, and
 `20260911010400_supersede_autopay_recovery_on_manual_settlement.sql`, and
@@ -274,11 +280,11 @@ membership renewal; retry notices never request a manual payment, while
 terminal recovery rechecks the exact signed cycle, balance, hold,
 healthy-mandate, and shared daily-cap state. Production read-back shows zero
 enabled Step 5 schedules.
-No template submission, provider message, charge, refund, link action, deploy,
+No template submission, provider message, charge, refund, link action,
 or live delivery occurred. Provider prerequisites remain approved/synced exact
 Utility contracts and an authorized recipient/action for any live test.
 
-Step 6 implementation is complete and remains undeployed. Applied migrations
+Step 6 implementation is complete and deployed. Applied migrations
 `20260911010900_retention_reminder_lifecycle.sql` through
 `20260911011100_freeze_return_disable_precedence.sql` add independently disabled
 session-pack, planned-return, membership win-back, and service win-back settings,
@@ -359,7 +365,7 @@ Organization access details open in a responsive side drawer, keeping the organi
 
 Authenticator setup recovery is fixed locally: QR payloads render safely, retries clear unfinished registrations from this screen, and verified authenticators remain intact.
 
-Organization-wide 14-day verified-owner trials, complimentary access for existing customers, web/native expiry-support gates, and minimal MFA-protected, audited platform-admin access controls are implemented and enforced in Production. The guarded activation on 20 September 2026 changed only the global switch after the complete access roster, protected queues, database workers, and current web runtime passed preflight; the first operations and renewal scheduler cycles also passed after activation. All ten complimentary organizations remain allowed; VBF remains the sole trial, unsuspended and allowed only until its unchanged 21 September 2026 00:11 IST deadline. Build-2 iOS acceptance passed on the physical iPhone, and the owner accepted the API 36 ARM64 emulator path as the Android substitute because the physical device is permanently broken; the post-activation Android cold launch restored the complimentary Rajat Kashyap Inbox normally. The blocked-access support surface remains automated-test evidence rather than a manufactured Production denial. Checkout, automated SaaS billing, cancellation scheduling, and the broader admin dashboard are deferred. Scope: [trial access MVP](trial-access-mvp.md); operations: [product access](../docs/product-access.md).
+Organization-wide 14-day verified-owner trials, complimentary access for existing customers, web/native expiry-support gates, and minimal MFA-protected, audited platform-admin access controls are implemented and enforced in Production. The guarded activation on 20 September 2026 changed only the global switch after the complete access roster, protected queues, database workers, and current web runtime passed preflight; the first operations and renewal scheduler cycles also passed after activation. All ten complimentary organizations remain allowed. VBF's sole trial genuinely expired at its unchanged 21 September 2026 00:11 IST database deadline: Production denied it without a suspension or version change, its authenticated owner session rendered only the configured support/recovery surface, and a protected dashboard GET returned `product_access_required`. The support link was not opened, no request was created, and zero protected queue or outbound work replayed. The existing MFA platform-admin recovery boundary remains available without a VBF entitlement change. Build-2 iOS acceptance passed on the physical iPhone, and the owner accepted the API 36 ARM64 emulator path as the Android substitute because the physical device is permanently broken; the post-activation Android cold launch restored the complimentary Rajat Kashyap Inbox normally. Checkout, automated SaaS billing, cancellation scheduling, and the broader admin dashboard are deferred. Scope: [trial access MVP](trial-access-mvp.md); operations: [product access](../docs/product-access.md).
 
 ## ✅ Phase 1 — the renewal wedge
 
