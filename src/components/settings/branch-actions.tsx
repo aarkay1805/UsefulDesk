@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import {
   Archive,
-  Loader2,
   MoreHorizontal,
+  Pencil,
   RotateCcw,
   Trash2,
 } from 'lucide-react';
@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { useAuth, type BranchAccount } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { branchHref } from '@/lib/auth/branch-context';
-import { canManageBranchLifecycle } from '@/lib/auth/roles';
+import { canManageBranchLifecycle, canRenameBranch } from '@/lib/auth/roles';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,7 +33,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type BranchAction = 'archive' | 'restore' | 'delete';
+type BranchAction = 'rename' | 'archive' | 'restore' | 'delete';
 
 interface BranchActionsProps {
   branch: BranchAccount;
@@ -43,24 +43,33 @@ interface BranchActionsProps {
 export function BranchActions({ branch, selected }: BranchActionsProps) {
   const { branches } = useAuth();
   const canManageOrganization = useCan('manage-organization');
-  const canManageBranch =
+  const canManageLifecycle =
     canManageOrganization &&
     canManageBranchLifecycle(
       branch.is_organization_owner ? 'owner' : null,
       branch.role
     );
+  const canRename = canRenameBranch(branch.role);
   const [action, setAction] = useState<BranchAction | null>(null);
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
 
-  if (!canManageBranch) return null;
+  if (!canRename && !canManageLifecycle) return null;
 
   const archived = branch.branch_status === 'archived';
   const requiresName = action === 'archive' || action === 'delete';
-  const confirmed = !requiresName || typed === branch.account_name;
+  const renameName = typed.trim();
+  const renameNameLength = Array.from(renameName).length;
+  const renameTooLong = action === 'rename' && renameNameLength > 80;
+  const confirmed =
+    action === 'rename'
+      ? renameNameLength > 0 &&
+        renameNameLength <= 80 &&
+        renameName !== branch.account_name
+      : !requiresName || typed === branch.account_name;
 
   function openAction(nextAction: BranchAction) {
-    setTyped('');
+    setTyped(nextAction === 'rename' ? branch.account_name : '');
     setAction(nextAction);
   }
 
@@ -84,10 +93,12 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
           body: JSON.stringify(
             deleting
               ? { confirm: typed }
-              : {
-                  action,
-                  ...(action === 'archive' ? { confirm: typed } : {}),
-                }
+              : action === 'rename'
+                ? { action, name: renameName }
+                : {
+                    action,
+                    ...(action === 'archive' ? { confirm: typed } : {}),
+                  }
           ),
         }
       );
@@ -104,6 +115,7 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
 
       if (action === 'archive') toast.success('Branch archived');
       if (action === 'restore') toast.success('Branch restored');
+      if (action === 'rename') toast.success('Branch renamed');
       if (action === 'delete') {
         if (payload.warningCount) {
           toast.warning(
@@ -137,17 +149,21 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
   }
 
   const title =
-    action === 'archive'
-      ? `Archive ${branch.account_name}?`
-      : action === 'restore'
-        ? `Restore ${branch.account_name}?`
-        : `Delete ${branch.account_name}?`;
+    action === 'rename'
+      ? `Rename ${branch.account_name}`
+      : action === 'archive'
+        ? `Archive ${branch.account_name}?`
+        : action === 'restore'
+          ? `Restore ${branch.account_name}?`
+          : `Delete ${branch.account_name}?`;
   const description =
-    action === 'archive'
-      ? 'This branch becomes unavailable for operational work. Its contacts, messages, memberships, payments, and finance history are retained.'
-      : action === 'restore'
-        ? 'This branch becomes active again. Review its connections and readiness before resuming operational work.'
-        : 'This permanently deletes the branch, including its contacts, conversations, memberships, payments, integrations, audit-linked data, and stored media. This cannot be undone.';
+    action === 'rename'
+      ? 'Update the name shown in the branch selector and across UsefulDesk. This does not change the branch’s data or settings.'
+      : action === 'archive'
+        ? 'This branch becomes unavailable for operational work. Its contacts, messages, memberships, payments, and finance history are retained.'
+        : action === 'restore'
+          ? 'This branch becomes active again. Review its connections and readiness before resuming operational work.'
+          : 'This permanently deletes the branch, including its contacts, conversations, memberships, payments, integrations, audit-linked data, and stored media. This cannot be undone.';
 
   return (
     <>
@@ -164,25 +180,37 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
           <MoreHorizontal className="size-4" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-40">
-          {archived ? (
-            <DropdownMenuItem onClick={() => openAction('restore')}>
-              <RotateCcw className="size-4" />
-              Restore branch
+          {canRename ? (
+            <DropdownMenuItem onClick={() => openAction('rename')}>
+              <Pencil className="size-4" />
+              Rename branch
             </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem onClick={() => openAction('archive')}>
-              <Archive className="size-4" />
-              Archive branch
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => openAction('delete')}
-          >
-            <Trash2 className="size-4" />
-            Delete branch
-          </DropdownMenuItem>
+          ) : null}
+          {canManageLifecycle ? (
+            archived ? (
+              <DropdownMenuItem onClick={() => openAction('restore')}>
+                <RotateCcw className="size-4" />
+                Restore branch
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={() => openAction('archive')}>
+                <Archive className="size-4" />
+                Archive branch
+              </DropdownMenuItem>
+            )
+          ) : null}
+          {canManageLifecycle ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => openAction('delete')}
+              >
+                <Trash2 className="size-4" />
+                Delete branch
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -193,19 +221,38 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
 
-          {requiresName ? (
+          {action === 'rename' || requiresName ? (
             <div className="space-y-2">
               <Label htmlFor={`branch-${action}-confirm`}>
-                Type {branch.account_name} to confirm
+                {action === 'rename'
+                  ? 'Branch name'
+                  : `Type ${branch.account_name} to confirm`}
               </Label>
               <Input
                 id={`branch-${action}-confirm`}
                 value={typed}
                 onChange={(event) => setTyped(event.target.value)}
                 autoComplete="off"
-                placeholder={branch.account_name}
+                placeholder={
+                  action === 'rename'
+                    ? 'Enter a branch name'
+                    : branch.account_name
+                }
+                aria-invalid={renameTooLong || undefined}
+                aria-describedby={
+                  renameTooLong ? 'branch-rename-error' : undefined
+                }
                 disabled={busy}
               />
+              {renameTooLong ? (
+                <p
+                  id="branch-rename-error"
+                  role="alert"
+                  className="text-destructive text-xs"
+                >
+                  Branch name must be 80 characters or fewer.
+                </p>
+              ) : null}
             </div>
           ) : null}
 
@@ -217,14 +264,10 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
               variant={action === 'delete' ? 'destructive' : 'default'}
               onClick={handleAction}
               disabled={!confirmed || busy}
+              loading={busy}
             >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {busy
-                ? action === 'restore'
-                  ? 'Restoring…'
-                  : action === 'archive'
-                    ? 'Archiving…'
-                    : 'Deleting…'
+              {action === 'rename'
+                ? 'Save name'
                 : action === 'restore'
                   ? 'Restore branch'
                   : action === 'archive'

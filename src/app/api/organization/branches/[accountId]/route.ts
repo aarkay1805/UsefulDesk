@@ -12,7 +12,12 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account';
 import { isBranchAccountId } from '@/lib/auth/branch-context';
-import { canManageBranchLifecycle, type AccountRole } from '@/lib/auth/roles';
+import { requireSameOriginRequest } from '@/lib/auth/csrf';
+import {
+  canManageBranchLifecycle,
+  canRenameBranch,
+  type AccountRole,
+} from '@/lib/auth/roles';
 import {
   checkRateLimit,
   rateLimitResponse,
@@ -101,15 +106,8 @@ async function resolveTarget(accountId: string): Promise<{
   const target = ((data ?? []) as BranchRow[]).find(
     (branch) => branch.account_id === accountId
   );
-  const organizationRole = target?.is_organization_owner ? 'owner' : null;
-  if (
-    !target ||
-    target.organization_id !== ctx.account.organizationId ||
-    !canManageBranchLifecycle(organizationRole, target.role)
-  ) {
-    throw new ForbiddenError(
-      'Only an organization owner who owns the branch can manage it'
-    );
+  if (!target || target.organization_id !== ctx.account.organizationId) {
+    throw new ForbiddenError('You do not have access to this branch');
   }
 
   return { ctx, target };
@@ -134,6 +132,7 @@ export async function PATCH(
   { params }: { params: Promise<{ accountId: string }> }
 ) {
   try {
+    requireSameOriginRequest(request);
     const { accountId } = await params;
     const { ctx, target } = await resolveTarget(accountId);
     const limit = checkRateLimit(
@@ -145,12 +144,47 @@ export async function PATCH(
     const body = (await request.json().catch(() => null)) as {
       action?: unknown;
       confirm?: unknown;
+      name?: unknown;
     } | null;
     const action = body?.action;
-    if (action !== 'archive' && action !== 'restore') {
+    if (action !== 'archive' && action !== 'restore' && action !== 'rename') {
       return NextResponse.json(
-        { error: "'action' must be archive or restore" },
+        { error: "'action' must be archive, restore, or rename" },
         { status: 400 }
+      );
+    }
+
+    if (action === 'rename') {
+      if (!canRenameBranch(target.role)) {
+        throw new ForbiddenError('Only the branch owner can rename it');
+      }
+      const name = typeof body?.name === 'string' ? body.name.trim() : '';
+      if (!name || Array.from(name).length > 80) {
+        return NextResponse.json(
+          { error: 'Branch name must be 1 to 80 characters' },
+          { status: 400 }
+        );
+      }
+
+      const { data, error } = await ctx.supabase.rpc('rename_branch', {
+        p_account_id: accountId,
+        p_name: name,
+      });
+      if (error) {
+        return rpcErrorToResponse(error, 'Failed to rename the branch.');
+      }
+
+      return NextResponse.json({
+        success: true,
+        action,
+        name: typeof data === 'string' ? data : name,
+      });
+    }
+
+    const organizationRole = target.is_organization_owner ? 'owner' : null;
+    if (!canManageBranchLifecycle(organizationRole, target.role)) {
+      throw new ForbiddenError(
+        'Only an organization owner who owns the branch can manage it'
       );
     }
 

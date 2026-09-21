@@ -431,6 +431,11 @@ export function canArchiveBranch(role: AccountRole): boolean {
   return role === 'owner';
 }
 
+/** Branch owner: rename a branch they own, including retained history. */
+export function canRenameBranch(role: AccountRole): boolean {
+  return role === 'owner';
+}
+
 /** Platform authority is separate from customer roles and requires verified MFA. */
 export function canManagePlatformAccess(
   isPlatformAdmin: boolean,

@@ -9,7 +9,7 @@ vi.mock('@/lib/webhooks/ssrf', () => ({
   isDeliverableUrl: vi.fn(async () => true),
 }));
 
-import { ensureImageHeaderHandle } from './template-header-handle';
+import { ensureTemplateHeaderHandle } from './template-header-handle';
 import { uploadResumableMedia } from './meta-api';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import type { TemplatePayload } from './template-validators';
@@ -42,7 +42,7 @@ function imgResponse(
   } as unknown as Response;
 }
 
-describe('ensureImageHeaderHandle', () => {
+describe('ensureTemplateHeaderHandle', () => {
   beforeEach(() => {
     vi.mocked(uploadResumableMedia).mockClear();
     vi.mocked(isDeliverableUrl).mockReset();
@@ -55,21 +55,21 @@ describe('ensureImageHeaderHandle', () => {
 
   it('is a no-op for non-image headers', async () => {
     const p = payload({ header_type: 'text', header_content: 'Hi' });
-    await ensureImageHeaderHandle(p, 'tok');
+    await ensureTemplateHeaderHandle(p, 'tok');
     expect(uploadResumableMedia).not.toHaveBeenCalled();
     expect(p.header_handle).toBeUndefined();
   });
 
   it('is a no-op when a handle already exists', async () => {
     const p = payload({ header_handle: 'existing' });
-    await ensureImageHeaderHandle(p, 'tok');
+    await ensureTemplateHeaderHandle(p, 'tok');
     expect(uploadResumableMedia).not.toHaveBeenCalled();
     expect(p.header_handle).toBe('existing');
   });
 
   it('throws an actionable error when META_APP_ID is unset', async () => {
     const p = payload();
-    await expect(ensureImageHeaderHandle(p, 'tok')).rejects.toThrow(
+    await expect(ensureTemplateHeaderHandle(p, 'tok')).rejects.toThrow(
       /META_APP_ID/
     );
   });
@@ -81,8 +81,31 @@ describe('ensureImageHeaderHandle', () => {
       vi.fn(async () => imgResponse('image/jpeg', 2048))
     );
     const p = payload();
-    await ensureImageHeaderHandle(p, 'tok');
+    await ensureTemplateHeaderHandle(p, 'tok');
     expect(uploadResumableMedia).toHaveBeenCalledOnce();
+    expect(p.header_handle).toBe('HANDLE123');
+  });
+
+  it('uploads a PDF sample for a document header as a resumable handle', async () => {
+    vi.stubEnv('META_APP_ID', 'app-1');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => imgResponse('application/pdf', 4096))
+    );
+    const p = payload({
+      header_type: 'document',
+      header_media_url: 'https://x.test/sample.pdf',
+    });
+
+    await ensureTemplateHeaderHandle(p, 'tok');
+
+    expect(uploadResumableMedia).toHaveBeenCalledWith({
+      appId: 'app-1',
+      accessToken: 'tok',
+      fileName: 'header.pdf',
+      mimeType: 'application/pdf',
+      bytes: expect.any(Uint8Array),
+    });
     expect(p.header_handle).toBe('HANDLE123');
   });
 
@@ -92,7 +115,7 @@ describe('ensureImageHeaderHandle', () => {
       'fetch',
       vi.fn(async () => imgResponse('text/html'))
     );
-    await expect(ensureImageHeaderHandle(payload(), 'tok')).rejects.toThrow(
+    await expect(ensureTemplateHeaderHandle(payload(), 'tok')).rejects.toThrow(
       /JPEG or PNG/
     );
   });
@@ -103,7 +126,7 @@ describe('ensureImageHeaderHandle', () => {
       'fetch',
       vi.fn(async () => imgResponse('image/png', 6 * 1024 * 1024))
     );
-    await expect(ensureImageHeaderHandle(payload(), 'tok')).rejects.toThrow(
+    await expect(ensureTemplateHeaderHandle(payload(), 'tok')).rejects.toThrow(
       /5 MB/
     );
   });
@@ -115,7 +138,7 @@ describe('ensureImageHeaderHandle', () => {
     vi.stubGlobal('fetch', fetchSpy);
 
     await expect(
-      ensureImageHeaderHandle(
+      ensureTemplateHeaderHandle(
         payload({
           header_media_url: 'http://169.254.169.254/latest/meta-data/',
         }),
@@ -134,7 +157,7 @@ describe('ensureImageHeaderHandle', () => {
     );
     vi.stubGlobal('fetch', fetchSpy);
 
-    await expect(ensureImageHeaderHandle(payload(), 'tok')).rejects.toThrow(
+    await expect(ensureTemplateHeaderHandle(payload(), 'tok')).rejects.toThrow(
       /returned 302/
     );
     expect(fetchSpy).toHaveBeenCalledWith(
@@ -152,7 +175,7 @@ describe('ensureImageHeaderHandle', () => {
     });
     vi.stubGlobal('fetch', fetchSpy);
 
-    await expect(ensureImageHeaderHandle(payload(), 'tok')).rejects.toThrow(
+    await expect(ensureTemplateHeaderHandle(payload(), 'tok')).rejects.toThrow(
       'Could not fetch the header image URL. Make sure it is publicly reachable.'
     );
     expect(uploadResumableMedia).not.toHaveBeenCalled();

@@ -20,6 +20,17 @@ checkout, recurring subscription billing, scheduled cancellation, tax invoicing,
 and customer self-service remain deferred; the first pilots use the documented
 manual commercial ledger and access workflow.
 
+## Shipped — Owner-controlled branch names (2026-09-21)
+
+Branch owners can rename any branch they own from **Settings → Organization &
+branches**, including non-selected and archived branches. Rename permission is
+branch-specific and remains separate from the stricter organization-owner
+lifecycle controls for archive, restore, and permanent deletion. Names are
+trimmed and limited to 80 characters, every change is recorded in the
+organization audit log, and the refreshed branch selector and account chrome
+use the new name. The audited `rename_branch` boundary is live in Production as
+connector migration `20260921170355`; anonymous execution remains denied.
+
 ## Shipped in code — Automated messages rule clarity (2026-09-20)
 
 Settings → **Automated messages** now uses the shared rule catalogue for the

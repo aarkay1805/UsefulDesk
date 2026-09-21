@@ -48,6 +48,7 @@ import {
   canDeleteOrganization,
   canManageBranchLifecycle,
   canManageOrganization,
+  canRenameBranch,
   canViewConsolidatedReports,
   canViewOnly,
   hasMinRole,
@@ -476,6 +477,13 @@ describe('capability predicates', () => {
     expect(canArchiveBranch('admin')).toBe(false);
     expect(canArchiveBranch('agent')).toBe(false);
     expect(canArchiveBranch('viewer')).toBe(false);
+  });
+
+  it('canRenameBranch: branch owner only', () => {
+    expect(canRenameBranch('owner')).toBe(true);
+    expect(canRenameBranch('admin')).toBe(false);
+    expect(canRenameBranch('agent')).toBe(false);
+    expect(canRenameBranch('viewer')).toBe(false);
   });
 
   it('organization management and consolidated reports are org-owner only', () => {

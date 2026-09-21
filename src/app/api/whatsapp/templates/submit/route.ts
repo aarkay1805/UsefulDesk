@@ -8,7 +8,7 @@ import {
   type TemplatePayload,
 } from '@/lib/whatsapp/template-validators';
 import { buildMetaTemplatePayload } from '@/lib/whatsapp/template-components';
-import { ensureImageHeaderHandle } from '@/lib/whatsapp/template-header-handle';
+import { ensureTemplateHeaderHandle } from '@/lib/whatsapp/template-header-handle';
 import { normalizeStatus } from '@/lib/whatsapp/template-status-normalize';
 import { resolveSubmittedTemplateCategory } from '@/lib/whatsapp/template-lifecycle-policy';
 import type { MessageTemplate } from '@/types';
@@ -170,7 +170,7 @@ export async function POST(request: Request) {
       // building the payload. Surfaces a 400 with an actionable message
       // (missing META_APP_ID, unreachable URL, wrong type/size).
       try {
-        await ensureImageHeaderHandle(payload, accessToken);
+        await ensureTemplateHeaderHandle(payload, accessToken);
       } catch (e) {
         return NextResponse.json(
           {

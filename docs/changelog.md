@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-09-21 — Branch owners can rename their branches
+
+Settings → Organization & branches now gives an owner of each branch a **Rename
+branch** action, including for non-selected and archived branches. The
+owner-authorized `rename_branch` RPC trims and validates the name, records the
+old and new values in the organization audit log, and keeps archive/restore/delete
+behind their existing organization-owner boundary. Production migration
+`20260921170355` is applied; anonymous execution is denied. Key code:
+`src/components/settings/branch-actions.tsx`,
+`src/app/api/organization/branches/[accountId]/route.ts`, and
+`supabase/migrations/20260921170213_branch_owner_rename.sql`.
+
 ## 2026-09-21 — Genuine VBF trial expiry accepted in Production
 
 VBF's version-4 trial expired at its unchanged database deadline with enforcement

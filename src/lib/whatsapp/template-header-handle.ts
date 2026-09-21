@@ -4,26 +4,27 @@ import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 
 /**
  * Meta requires an `example.header_handle` (from the Resumable Upload
- * API) to create/edit a template with an IMAGE header — a plain public
- * URL is not accepted at creation time. This helper turns the template's
+ * API) to create/edit a template with an IMAGE or DOCUMENT header — a plain
+ * public URL is not accepted at creation time. This helper turns the template's
  * `header_media_url` (whether the user uploaded a file or pasted a link)
  * into a handle and writes it onto the payload, so both the upload path
  * and the legacy URL path actually succeed.
  *
- * No-op unless the header is an image that has a URL but no handle yet.
- * Image-only for now (the #230 scope); video/document handles can follow
- * the same shape.
+ * No-op unless the header is an image/document with a URL but no handle yet.
+ * Video samples remain outside the current product contract.
  */
 
 // Meta's image-header sample limits.
 const IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
+const DOCUMENT_MAX_BYTES = 100 * 1024 * 1024;
+const ALLOWED_DOCUMENT_TYPES = ['application/pdf'];
 
-export async function ensureImageHeaderHandle(
+export async function ensureTemplateHeaderHandle(
   payload: TemplatePayload,
   accessToken: string
 ): Promise<void> {
-  if (payload.header_type !== 'image') return;
+  if (!['image', 'document'].includes(payload.header_type ?? '')) return;
   if (payload.header_handle) return; // already have one
   if (!payload.header_media_url) return; // validator already requires url-or-handle
 
@@ -63,24 +64,40 @@ export async function ensureImageHeaderHandle(
     .split(';')[0]
     .trim()
     .toLowerCase();
-  if (contentType && !ALLOWED_IMAGE_TYPES.includes(contentType)) {
-    throw new Error(`Header image must be JPEG or PNG (got ${contentType}).`);
+  const isDocument = payload.header_type === 'document';
+  const allowedTypes = isDocument
+    ? ALLOWED_DOCUMENT_TYPES
+    : ALLOWED_IMAGE_TYPES;
+  if (contentType && !allowedTypes.includes(contentType)) {
+    throw new Error(
+      isDocument
+        ? `Header document must be a PDF (got ${contentType}).`
+        : `Header image must be JPEG or PNG (got ${contentType}).`
+    );
   }
 
   const bytes = new Uint8Array(await res.arrayBuffer());
   if (bytes.byteLength === 0) {
     throw new Error('Header image is empty.');
   }
-  if (bytes.byteLength > IMAGE_MAX_BYTES) {
+  const maxBytes = isDocument ? DOCUMENT_MAX_BYTES : IMAGE_MAX_BYTES;
+  const maxMegabytes = maxBytes / 1024 / 1024;
+  if (bytes.byteLength > maxBytes) {
     throw new Error(
-      `Header image is ${(bytes.byteLength / 1024 / 1024).toFixed(1)} MB — Meta's limit is 5 MB.`
+      `Header ${isDocument ? 'document' : 'image'} is ${(bytes.byteLength / 1024 / 1024).toFixed(1)} MB — Meta's limit is ${maxMegabytes} MB.`
     );
   }
 
-  const mimeType = ALLOWED_IMAGE_TYPES.includes(contentType)
+  const mimeType = allowedTypes.includes(contentType)
     ? contentType
-    : 'image/jpeg';
-  const fileName = mimeType === 'image/png' ? 'header.png' : 'header.jpg';
+    : isDocument
+      ? 'application/pdf'
+      : 'image/jpeg';
+  const fileName = isDocument
+    ? 'header.pdf'
+    : mimeType === 'image/png'
+      ? 'header.png'
+      : 'header.jpg';
 
   const { handle } = await uploadResumableMedia({
     appId,
