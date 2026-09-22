@@ -1,6 +1,7 @@
 import type { MessageTemplate, TemplateButton } from '@/types';
 import {
   getTemplateContractById,
+  type TemplateContract,
   type TemplateContractId,
 } from './template-contracts';
 import { extractVariableIndices } from './template-validators';
@@ -111,6 +112,41 @@ function sameButtons(
   });
 }
 
+/**
+ * Compare the local/provider snapshot with the immutable UsefulDesk contract.
+ * Status is deliberately excluded: callers use this both for APPROVED rows and
+ * for exact PENDING rows that Meta is already reviewing.
+ */
+export function templateMatchesContract(
+  row: TemplateReadinessRow,
+  contract: TemplateContract
+): boolean {
+  const expected = contract.payload;
+  if (
+    row.name !== expected.name ||
+    (row.language ?? 'en_US') !== expected.language ||
+    row.category !== expected.category ||
+    row.parameter_format !== 'POSITIONAL' ||
+    row.provider_components_sync_required_at
+  ) {
+    return false;
+  }
+
+  const expectedVariables = extractVariableIndices(expected.body_text);
+  const actualVariables = extractVariableIndices(row.body_text ?? '');
+  if (JSON.stringify(actualVariables) !== JSON.stringify(expectedVariables)) {
+    return false;
+  }
+
+  return (
+    (row.header_type ?? null) === (expected.header_type ?? null) &&
+    (row.header_content ?? null) === (expected.header_content ?? null) &&
+    row.body_text === expected.body_text &&
+    (row.footer_text ?? null) === (expected.footer_text ?? null) &&
+    sameButtons(row.buttons, expected.buttons)
+  );
+}
+
 export function evaluateTemplateReadiness<T extends TemplateReadinessRow>(
   rows: readonly T[] | null | undefined,
   contractId: TemplateContractId,
@@ -151,15 +187,7 @@ export function evaluateTemplateReadiness<T extends TemplateReadinessRow>(
     return failure('parameter_drift', expected.name, row);
   }
 
-  const headerMatches =
-    (row.header_type ?? null) === (expected.header_type ?? null) &&
-    (row.header_content ?? null) === (expected.header_content ?? null);
-  if (
-    !headerMatches ||
-    row.body_text !== expected.body_text ||
-    (row.footer_text ?? null) !== (expected.footer_text ?? null) ||
-    !sameButtons(row.buttons, expected.buttons)
-  ) {
+  if (!templateMatchesContract(row, contract)) {
     return failure('component_drift', expected.name, row);
   }
 

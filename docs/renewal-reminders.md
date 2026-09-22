@@ -118,8 +118,17 @@ contracts are `gym_membership_renewal`, `gym_service_renewal`,
 `gym_session_pack_low`, `gym_session_pack_used`,
 `gym_membership_win_back`, and `gym_service_win_back`. The manual gallery
 preset `gym_festival_offer` follows the same honest single-reply contract.
-UsefulDesk does not submit or modify provider templates
-automatically as part of this code change.
+Admins and owners can use **Submit all required templates** in Settings →
+Templates to process the canonical contracts referenced by automated-message
+rules. One browser action starts one server-side sequential workflow; Meta still
+receives and reviews one request per template. UsefulDesk skips only exact
+Approved or exact Pending rows, repairs editable outdated rows through the same
+single-template lifecycle, continues after individual failures, and reports the
+full per-template result. A repeat run reads current account state again, so
+exact Pending rows are not submitted twice. A Pending row with outdated copy
+cannot be edited while Meta is reviewing it and is reported for retry after the
+review. The existing single-template submit and **Sync from Meta** actions remain
+available.
 After a complete provider snapshot, a previously synced row that Meta no longer
 returns is retained as **Not on Meta** and disabled. A pagination-capped sync
 does not infer absence. If Meta returns the row again, the next complete sync
@@ -315,10 +324,12 @@ mutation, or cleanup is authorized by this runbook alone.
 
 ### Missing-template recovery
 
-1. In Settings → Templates, locate the exact feature contract rather than a
-   retired or similarly named template.
-2. Create or correct the contract using the displayed category, POSITIONAL
-   parameters, body, footer, and buttons, then submit it for Meta review.
+1. In Settings → Templates, use **Submit all required templates** to submit or
+   repair every canonical automated-message contract, or locate one exact
+   feature contract when only that message needs attention. Meta reviews and
+   approves each template separately.
+2. Inspect the aggregate and resolve each named failure. Outdated Pending rows
+   must finish Meta review before they can be edited and resubmitted.
 3. After Meta review, select **Sync from Meta**. The reminder remains blocked
    until the exact row is Approved and the sync reports no component change.
 4. Return to Automated messages → Messages and confirm the feature reads Ready. A provider

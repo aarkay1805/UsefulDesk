@@ -1,5 +1,19 @@
 # Roadmap
 
+## Built in code — One-click required WhatsApp template submission (2026-09-22)
+
+Admins and owners can now process all 19 canonical templates used by automated
+message rules from Settings → Templates. One browser request starts a sequential,
+account/WABA-scoped server workflow; Meta still receives, reviews, and approves
+each template separately. Exact Approved or Pending rows are skipped, missing
+rows are created, editable outdated rows use the shared resubmission lifecycle,
+and blocked or provider-rejected items remain visible as individual failures in
+a partial-success aggregate. A repeat run reloads current server state, and the
+screen performs one post-run Meta sync while retaining the existing single-submit
+and manual-sync paths. Implementation and tests are complete; no live provider
+submission, automation activation, customer message, deployment, or pull request
+was performed.
+
 ## Built in code — Gym name at signup (2026-09-22)
 
 Email signup supplies separate personal and business names. Google signup names

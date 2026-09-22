@@ -6,6 +6,22 @@
 
 ---
 
+## 2026-09-22 — One-click required WhatsApp template submission (built in code)
+
+Settings → Templates now lets admins and owners submit every canonical template
+used by automated-message rules in one action while Meta still reviews each
+template separately. The account-scoped server workflow reads fresh readiness,
+skips exact Approved/Pending rows, creates missing rows, repairs provider-editable
+drift sequentially, and returns partial-success aggregates with per-template
+errors. It then syncs the local catalogue; single submit and manual sync remain.
+Shared create/edit primitives keep bulk and single-template lifecycle behavior
+aligned. Key code: `src/lib/whatsapp/required-template-submission.ts`,
+`src/lib/whatsapp/template-submission-server.ts`,
+`src/app/api/whatsapp/templates/submit-required/route.ts`, and
+`src/components/settings/template-manager.tsx`. No provider template was
+submitted, message sent, automation enabled, deployment made, or pull request
+opened during implementation.
+
 ## 2026-09-22 — Gym identity at signup (built in code)
 
 Email signup now separates Full name from Gym name; Google signup completes its

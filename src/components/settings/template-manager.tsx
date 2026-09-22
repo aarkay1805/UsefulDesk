@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Upload,
   LayoutTemplate,
+  Send,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import {
@@ -85,6 +86,7 @@ import { REMINDER_RULES } from '@/lib/reminders/rules';
 import { browserBranchId } from '@/lib/auth/branch-context';
 import { getErrorMessage } from '@/lib/errors';
 import { invalidateApprovedMessageTemplates } from '@/components/inbox/use-approved-message-templates';
+import type { RequiredTemplateSubmissionSummary } from '@/lib/whatsapp/required-template-submission';
 
 const CATEGORIES = ['Marketing', 'Utility', 'Authentication'] as const;
 type HeaderFormat = 'none' | 'text' | 'image' | 'video' | 'document';
@@ -621,6 +623,10 @@ export function TemplateManager({
     : null;
   const [dialogOpen, setDialogOpen] = useState(Boolean(setupContractId));
   const [submitting, setSubmitting] = useState(false);
+  const [submittingRequired, setSubmittingRequired] = useState(false);
+  const submittingRequiredRef = useRef(false);
+  const [requiredSubmissionSummary, setRequiredSubmissionSummary] =
+    useState<RequiredTemplateSubmissionSummary | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [form, setForm] = useState<TemplateFormData>(emptyForm);
   // Non-null when the dialog is editing an existing row — switches the
@@ -881,56 +887,115 @@ export function TemplateManager({
     }
   }
 
-  async function handleSyncFromMeta() {
-    if (!accountId || !canEditSettings) return;
-    setSyncing(true);
-    try {
-      const res = await fetch('/api/whatsapp/templates/sync', {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || `Sync failed (HTTP ${res.status})`);
-      }
+  async function syncTemplatesFromMeta(announceSuccess: boolean) {
+    const res = await fetch('/api/whatsapp/templates/sync', {
+      method: 'POST',
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error || `Sync failed (HTTP ${res.status})`);
+    }
+    if (announceSuccess) {
       toast.success(
         `Synced ${data.total} template${data.total === 1 ? '' : 's'} from Meta` +
           (data.inserted || data.updated
             ? ` (${data.inserted} new, ${data.updated} updated)`
             : '')
       );
-      if (Array.isArray(data.errors) && data.errors.length > 0) {
-        const preview = data.errors
-          .slice(0, 3)
-          .map(
-            (e: { name: string; language: string; message: string }) =>
-              `${e.name} (${e.language})`
-          );
-        const suffix =
-          data.errors.length > 3 ? `, +${data.errors.length - 3} more` : '';
-        toast.error(`Failed to sync: ${preview.join(', ')}${suffix}`);
-      }
-      if (data.truncated) {
-        // Use error (not warning) so the message survives long
-        // enough to read — sonner's `warning` auto-dismisses on
-        // the same short timer as `success`.
-        toast.error(
-          'Synced the first 2000 templates only — your account has more. Sync again to continue, or contact support if this persists.',
-          { duration: 10000 }
+    }
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      const preview = data.errors
+        .slice(0, 3)
+        .map(
+          (e: { name: string; language: string; message: string }) =>
+            `${e.name} (${e.language})`
         );
-      }
-      if (Number(data.newly_missing) > 0) {
-        toast.error(
-          `${data.newly_missing} local template${data.newly_missing === 1 ? ' is' : 's are'} no longer present on Meta. They were disabled and kept for review.`,
-          { duration: 10000 }
-        );
-      }
-      setReloadNonce((nonce) => nonce + 1);
-      invalidateApprovedMessageTemplates(accountId);
+      const suffix =
+        data.errors.length > 3 ? `, +${data.errors.length - 3} more` : '';
+      toast.error(`Failed to sync: ${preview.join(', ')}${suffix}`);
+    }
+    if (data.truncated) {
+      toast.error(
+        'Synced the first 2000 templates only — your account has more. Sync again to continue, or contact support if this persists.',
+        { duration: 10000 }
+      );
+    }
+    if (Number(data.newly_missing) > 0) {
+      toast.error(
+        `${data.newly_missing} local template${data.newly_missing === 1 ? ' is' : 's are'} no longer present on Meta. They were disabled and kept for review.`,
+        { duration: 10000 }
+      );
+    }
+    setReloadNonce((nonce) => nonce + 1);
+    if (accountId) invalidateApprovedMessageTemplates(accountId);
+  }
+
+  async function handleSyncFromMeta() {
+    if (!accountId || !canEditSettings) return;
+    setSyncing(true);
+    try {
+      await syncTemplatesFromMeta(true);
     } catch (err) {
       console.error('Template sync error:', err);
       toast.error(getErrorMessage(err, 'Failed to sync templates'));
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleSubmitRequiredTemplates() {
+    if (!accountId || !canEditSettings || submittingRequiredRef.current) {
+      return;
+    }
+    submittingRequiredRef.current = true;
+    setSubmittingRequired(true);
+    setRequiredSubmissionSummary(null);
+    try {
+      const response = await fetch('/api/whatsapp/templates/submit-required', {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data?.error || `Submission failed (HTTP ${response.status})`
+        );
+      }
+      const summary = data as RequiredTemplateSubmissionSummary;
+      setRequiredSubmissionSummary(summary);
+      if (summary.failed > 0) {
+        toast.error(
+          `Submitted ${summary.submitted}; ${summary.failed} template${summary.failed === 1 ? '' : 's'} need attention.`,
+          { duration: 10000 }
+        );
+      } else if (summary.submitted > 0) {
+        toast.success(
+          `Submitted ${summary.submitted} template${summary.submitted === 1 ? '' : 's'} for individual Meta review.`
+        );
+      } else {
+        toast.success('All required templates are already ready or pending.');
+      }
+
+      try {
+        await syncTemplatesFromMeta(false);
+      } catch (syncError) {
+        console.error('Post-submission template sync error:', syncError);
+        toast.error(
+          getErrorMessage(
+            syncError,
+            'Templates were processed, but their latest Meta status could not be synced'
+          ),
+          { duration: 10000 }
+        );
+        setReloadNonce((nonce) => nonce + 1);
+      }
+    } catch (error) {
+      console.error('Required template submission error:', error);
+      toast.error(
+        getErrorMessage(error, 'Failed to submit required templates')
+      );
+    } finally {
+      submittingRequiredRef.current = false;
+      setSubmittingRequired(false);
     }
   }
 
@@ -1909,6 +1974,17 @@ export function TemplateManager({
         action={
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <GatedButton
+              onClick={handleSubmitRequiredTemplates}
+              loading={submittingRequired}
+              disabled={loading || syncing || !accountId}
+              canAct={canEditSettings}
+              gateReason="submit required message templates"
+            >
+              <Send />
+              Submit all required templates
+            </GatedButton>
+            <GatedButton
+              variant="outline"
               onClick={openCreate}
               canAct={canEditSettings}
               gateReason="create message templates"
@@ -1928,17 +2004,56 @@ export function TemplateManager({
             <GatedButton
               variant="outline"
               onClick={handleSyncFromMeta}
-              disabled={syncing || loading || !accountId}
+              loading={syncing}
+              disabled={submittingRequired || loading || !accountId}
               canAct={canEditSettings}
               gateReason="sync message templates from Meta"
               title="Pull templates from your Meta WhatsApp Business Account"
             >
-              <RefreshCw className={syncing ? 'animate-spin' : undefined} />
-              {syncing ? 'Syncing…' : 'Sync from Meta'}
+              <RefreshCw />
+              Sync from Meta
             </GatedButton>
           </div>
         }
       />
+
+      <p className="text-muted-foreground text-sm">
+        One click submits every required template. Meta reviews and approves
+        each template separately.
+      </p>
+
+      {requiredSubmissionSummary ? (
+        <Alert
+          variant={
+            requiredSubmissionSummary.failed > 0 ? 'destructive' : 'default'
+          }
+        >
+          <AlertTitle>
+            {requiredSubmissionSummary.failed > 0
+              ? 'Some templates need attention'
+              : 'Required templates processed'}
+          </AlertTitle>
+          <AlertDescription>
+            <p>
+              Submitted {requiredSubmissionSummary.submitted} · Already ready or
+              pending {requiredSubmissionSummary.already_ready_or_pending} ·
+              Failed {requiredSubmissionSummary.failed} · Total{' '}
+              {requiredSubmissionSummary.total}
+            </p>
+            {requiredSubmissionSummary.failed > 0 ? (
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                {requiredSubmissionSummary.results
+                  .filter((result) => result.outcome === 'failed')
+                  .map((result) => (
+                    <li key={result.contract_id}>
+                      {result.name} — {result.error ?? 'Submission failed.'}
+                    </li>
+                  ))}
+              </ul>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {focusedContract ? (
         <Alert>

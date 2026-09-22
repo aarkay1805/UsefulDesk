@@ -84,6 +84,79 @@ afterEach(() => {
 });
 
 describe('TemplateManager gym preset library', () => {
+  it('submits all required templates once, syncs, and shows the aggregate with individual failures', async () => {
+    const user = userEvent.setup();
+    let resolveSubmission!: (value: Response) => void;
+    const submission = new Promise<Response>((resolve) => {
+      resolveSubmission = resolve;
+    });
+    vi.mocked(fetch)
+      .mockReturnValueOnce(submission)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          total: 19,
+          inserted: 0,
+          updated: 2,
+          errors: [],
+          truncated: false,
+          newly_missing: 0,
+        }),
+      } as Response);
+
+    render(<TemplateManager />);
+
+    expect(
+      await screen.findByText(
+        'One click submits every required template. Meta reviews and approves each template separately.'
+      )
+    ).toBeTruthy();
+    const submitAll = screen.getByRole('button', {
+      name: 'Submit all required templates',
+    });
+
+    await user.dblClick(submitAll);
+
+    expect(submitAll.getAttribute('aria-busy')).toBe('true');
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/whatsapp/templates/submit-required',
+      { method: 'POST' }
+    );
+
+    resolveSubmission({
+      ok: true,
+      json: async () => ({
+        success: true,
+        total: 19,
+        submitted: 2,
+        already_ready_or_pending: 16,
+        failed: 1,
+        results: [
+          {
+            contract_id: 'invoice_overdue',
+            name: 'gym_invoice_overdue',
+            outcome: 'failed',
+            error: 'Meta rejected copy',
+          },
+        ],
+      }),
+    } as Response);
+
+    expect(
+      await screen.findByText(
+        'Submitted 2 · Already ready or pending 16 · Failed 1 · Total 19'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText('gym_invoice_overdue — Meta rejected copy')
+    ).toBeTruthy();
+    expect(fetch).toHaveBeenNthCalledWith(2, '/api/whatsapp/templates/sync', {
+      method: 'POST',
+    });
+    expect(submitAll.getAttribute('aria-busy')).toBeNull();
+  });
+
   it('opens the required new-template modal directly without a gallery or provider call', async () => {
     window.history.replaceState(
       {},
