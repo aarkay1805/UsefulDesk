@@ -5,6 +5,7 @@ const h = vi.hoisted(() => ({
   getUser: vi.fn(),
   loadBootstrap: vi.fn(),
   requireProductAccess: vi.fn(),
+  cacheEpoch: 0,
 }));
 
 vi.mock('react', async (importOriginal) => {
@@ -13,7 +14,12 @@ vi.mock('react', async (importOriginal) => {
     ...actual,
     cache: <T extends (...args: never[]) => unknown>(loader: T) => {
       let result: ReturnType<T> | undefined;
+      let epoch = -1;
       return ((...args: Parameters<T>) => {
+        if (epoch !== h.cacheEpoch) {
+          epoch = h.cacheEpoch;
+          result = undefined;
+        }
         result ??= loader(...args) as ReturnType<T>;
         return result;
       }) as T;
@@ -94,11 +100,15 @@ const bootstrap = {
   branches: [],
   branchAccessError: null,
   accountStatusDetail: null,
+  organizationNameSetupState: 'complete' as const,
+  branchAccessStatus: 'ready' as const,
 };
 
 describe('dashboard request context', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.createClient.mockReset();
+    h.cacheEpoch += 1;
     h.getUser.mockResolvedValue({
       data: { user: { id: 'user-1' } },
       error: null,
@@ -151,6 +161,29 @@ describe('dashboard request context', () => {
       })
     ).toThrow('Could not load selected branch context');
   });
+
+  it.each(['pending', 'unavailable'] as const)(
+    'does not create dashboard account context while name setup is %s',
+    async (organizationNameSetupState) => {
+      h.loadBootstrap.mockResolvedValue({
+        ...bootstrap,
+        organizationNameSetupState,
+        branchAccessError:
+          organizationNameSetupState === 'unavailable'
+            ? 'Could not verify your gym setup. Please retry.'
+            : null,
+      });
+
+      const context = await getDashboardRequestContext();
+
+      expect(context.account).toBeNull();
+      expect(h.createClient).toHaveBeenCalledTimes(1);
+      expect(h.requireProductAccess).not.toHaveBeenCalled();
+      expect(() => requireDashboardAccountContext(context)).toThrow(
+        'Could not load selected branch context'
+      );
+    }
+  );
 });
 
 vi.mock('@/lib/platform-access/server', async (importOriginal) => ({

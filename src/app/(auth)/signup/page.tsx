@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { normalizeSignupFullName } from '@/lib/auth/signup';
+import { GYM_NAME_ERROR, normalizeGymName } from '@/lib/auth/gym-name';
 import {
   invitationJoinPath,
   normalizeInvitationToken,
@@ -55,6 +56,8 @@ function SignupPageInner() {
   const inviteToken = normalizeInvitationToken(searchParams.get('invite'));
 
   const [fullName, setFullName] = useState('');
+  const [gymName, setGymName] = useState('');
+  const [gymNameError, setGymNameError] = useState<string | null>(null);
   const [country, setCountry] = useState('IN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -72,6 +75,12 @@ function SignupPageInner() {
     const trimmedFullName = normalizeSignupFullName(fullName);
     if (!trimmedFullName) {
       setError('Enter your full name');
+      return;
+    }
+
+    const normalizedGymName = inviteToken ? null : normalizeGymName(gymName);
+    if (!inviteToken && !normalizedGymName) {
+      setGymNameError(GYM_NAME_ERROR);
       return;
     }
 
@@ -108,6 +117,7 @@ function SignupPageInner() {
       options: {
         data: {
           full_name: trimmedFullName,
+          ...(normalizedGymName ? { gym_name: normalizedGymName } : {}),
           ...toAccountColumns(presetFor(country)),
         },
         emailRedirectTo,
@@ -179,12 +189,50 @@ function SignupPageInner() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {!inviteToken ? (
+            <div className="mb-4 flex flex-col gap-2">
+              <Label htmlFor="gymName">Gym name</Label>
+              <Input
+                id="gymName"
+                name="gymName"
+                form="email-signup"
+                type="text"
+                autoComplete="organization"
+                value={gymName}
+                onChange={(event) => {
+                  setGymName(event.target.value);
+                  if (gymNameError) setGymNameError(null);
+                }}
+                aria-invalid={gymNameError ? true : undefined}
+                aria-describedby="gym-name-help gym-name-error"
+                onInvalid={(event) => {
+                  event.preventDefault();
+                  setGymNameError(GYM_NAME_ERROR);
+                }}
+                required
+              />
+              <p id="gym-name-help" className="text-muted-foreground text-xs">
+                Used as your legal entity and first branch.
+              </p>
+              {gymNameError ? (
+                <p id="gym-name-error" className="text-red-foreground text-xs">
+                  {gymNameError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
           <GoogleAuthButton
             inviteToken={inviteToken}
             onErrorChange={setError}
+            {...(!inviteToken ? { gymName } : {})}
           />
 
-          <form onSubmit={handleSignup} className="flex flex-col gap-4">
+          <form
+            id="email-signup"
+            onSubmit={handleSignup}
+            className="flex flex-col gap-4"
+          >
             {error && (
               <div className="text-red-foreground rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm">
                 {error}

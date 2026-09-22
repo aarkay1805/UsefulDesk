@@ -19,6 +19,13 @@ vi.mock('./dashboard-shell', () => ({
   DashboardShell: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+vi.mock('@/components/auth/complete-signup-access-error', () => ({
+  CompleteSignupAccessError: (props: Record<string, unknown>) => ({
+    type: 'complete-signup-access-error',
+    props,
+  }),
+}));
+
 vi.mock('@/lib/auth/dashboard-request-context', () => ({
   getDashboardRequestContext: authState.getContext,
 }));
@@ -48,6 +55,8 @@ describe('dashboard server layout authentication backstop', () => {
       branches: [],
       branchAccessError: null,
       accountStatusDetail: null,
+      organizationNameSetupState: 'complete',
+      branchAccessStatus: 'ready',
     };
     authState.getContext.mockResolvedValue({
       user: authState.user,
@@ -75,6 +84,8 @@ describe('dashboard server layout authentication backstop', () => {
         branches: [],
         branchAccessError: null,
         accountStatusDetail: null,
+        organizationNameSetupState: 'complete',
+        branchAccessStatus: 'ready',
       },
       account: {
         accountId: 'branch-1',
@@ -89,6 +100,80 @@ describe('dashboard server layout authentication backstop', () => {
       accountId: 'branch-1',
       organizationId: 'org-1',
       snapshot: productAccess,
+    });
+  });
+
+  it('redirects a pending selected organization before rendering the shell', async () => {
+    authState.getContext.mockResolvedValue({
+      user: { id: 'user-1' },
+      bootstrap: {
+        profile: { account_id: 'branch-1' },
+        account: { id: 'branch-1' },
+        branches: [],
+        branchAccessError: null,
+        accountStatusDetail: null,
+        organizationNameSetupState: 'pending',
+        branchAccessStatus: 'ready',
+      },
+      account: null,
+    });
+
+    await expect(
+      DashboardLayout({ children: 'protected content' })
+    ).rejects.toThrow('redirect:/complete-signup?branch=branch-1');
+    expect(redirectMock).toHaveBeenCalledWith(
+      '/complete-signup?branch=branch-1'
+    );
+  });
+
+  it('renders a full-route retry before the shell when setup state is unavailable', async () => {
+    authState.getContext.mockResolvedValue({
+      user: { id: 'user-1' },
+      bootstrap: {
+        profile: { account_id: 'branch-1' },
+        account: null,
+        branches: [],
+        branchAccessError: 'Could not verify your gym setup. Please retry.',
+        accountStatusDetail: 'missing completion state',
+        organizationNameSetupState: 'unavailable',
+        branchAccessStatus: 'ready',
+      },
+      account: null,
+    });
+
+    const result = await DashboardLayout({ children: 'protected content' });
+
+    expect(result.props).toMatchObject({ retryCurrent: true });
+  });
+
+  it('offers an accessible branch when the requested selection is forbidden', async () => {
+    authState.getContext.mockResolvedValue({
+      user: { id: 'user-1' },
+      bootstrap: {
+        profile: { account_id: null },
+        account: null,
+        branches: [
+          {
+            account_id: 'branch-2',
+            account_name: 'Accessible Gym',
+            branch_status: 'active',
+          },
+        ],
+        branchAccessError: 'You do not have access to this branch.',
+        accountStatusDetail: 'not in memberships',
+        organizationNameSetupState: 'unavailable',
+        branchAccessStatus: 'forbidden',
+      },
+      account: null,
+    });
+
+    const result = await DashboardLayout({ children: 'protected content' });
+
+    expect(result.props).toMatchObject({
+      message: 'You do not have access to this branch.',
+      retryHref: '/dashboard?branch=branch-2',
+      retryCurrent: false,
+      actionLabel: 'Open Accessible Gym',
     });
   });
 });

@@ -32,7 +32,12 @@ export interface DashboardRequestContext {
   account: DashboardAuthorizedAccount | null;
 }
 
-async function loadDashboardRequestContext(): Promise<DashboardRequestContext> {
+export interface DashboardAuthRequestContext {
+  user: User;
+  bootstrap: DashboardAuthBootstrap;
+}
+
+async function loadDashboardAuthRequestContext(): Promise<DashboardAuthRequestContext> {
   const sessionClient = await createClient();
   const {
     data: { user },
@@ -51,6 +56,17 @@ async function loadDashboardRequestContext(): Promise<DashboardRequestContext> {
     )
   );
 
+  return { user, bootstrap };
+}
+
+/** Authenticated, membership-authorized bootstrap shared with completion. */
+export const getDashboardAuthRequestContext = cache(
+  loadDashboardAuthRequestContext
+);
+
+async function loadDashboardRequestContext(): Promise<DashboardRequestContext> {
+  const { user, bootstrap } = await getDashboardAuthRequestContext();
+
   const accountRow = bootstrap.account;
   const profile = bootstrap.profile;
   const selectedAccountId = profile?.account_id;
@@ -60,7 +76,8 @@ async function loadDashboardRequestContext(): Promise<DashboardRequestContext> {
     accountRow !== null &&
     selectedAccountId === accountRow.id &&
     isAccountRole(selectedRole) &&
-    accountRow.branch_status !== 'archived';
+    accountRow.branch_status !== 'archived' &&
+    bootstrap.organizationNameSetupState === 'complete';
 
   if (!isAuthorizedSelection || !accountRow || !selectedRole) {
     return { user, bootstrap, account: null };

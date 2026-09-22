@@ -6,6 +6,31 @@
 
 ---
 
+## 2026-09-22 — Gym identity at signup (built in code)
+
+Email signup now separates Full name from Gym name; Google signup completes its
+provisional business identity before dashboard navigation, with branch-preserving
+recovery at `/complete-signup`. Invitation signup skips naming. The completion
+RPC permits completed no-ops for every branch role and requires both owners for
+pending mutations; bootstrap reads setup state through `my_branch_accounts`,
+preserving owner-only organization SELECT RLS. Names use matching JavaScript
+whitespace trimming and 1–80 Unicode code-point limits. Key code:
+`src/lib/auth/gym-name.ts`, `src/components/auth/complete-signup-form.tsx`,
+`src/app/api/auth/complete-signup/route.ts`, and
+`supabase/migrations/20260921231000_gym_name_signup.sql`.
+Production connector migration `20260921184441` is applied; all three existing
+organizations were backfilled without renaming. Its one-time backfill must not
+be rerun as an unconditional update. The rollback verification probe at
+`scripts/verify-gym-name-signup-rollback.sql` passed, including role grants,
+provisioning, atomic completion, and idempotent retries; no probe users remain.
+Application rollout is pending. Product-entitlement enforcement on the completion
+API remains unchanged.
+Verification: 472 test files / 3,646 tests, typecheck, and production build passed;
+lint passed with three existing leads-page warnings. Desktop and
+375px mobile signup validation, invitation field omission, and unauthenticated
+completion redirects passed browser checks. Authenticated completion is covered
+by rendered tests and the database probe; live Google signup was not exercised.
+
 ## 2026-09-21 — Branch owners can rename their branches
 
 Settings → Organization & branches now gives an owner of each branch a **Rename

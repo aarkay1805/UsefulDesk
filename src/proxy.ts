@@ -22,7 +22,8 @@ export async function proxy(request: NextRequest) {
   // and independently verifies membership in this explicit branch via RLS.
   if (!isNativeWhatsAppRequest) requestHeaders.delete(BRANCH_HEADER);
   if (
-    isDashboardPath(request.nextUrl.pathname) &&
+    (isDashboardPath(request.nextUrl.pathname) ||
+      request.nextUrl.pathname === '/complete-signup') &&
     request.nextUrl.searchParams.has(BRANCH_QUERY_PARAM)
   ) {
     const branch = request.nextUrl.searchParams.get(BRANCH_QUERY_PARAM);
