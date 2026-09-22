@@ -38,6 +38,7 @@ type Account = {
   week_start: number;
   phone_country_code: string;
   measurement_system: string;
+  legalBusinessName: string | null;
 };
 type Finish = (
   state: string,
@@ -710,8 +711,13 @@ async function ensureRetentionBeforeSend(
               counts.get(member.id) ?? 0
             )
           ),
+          account.legalBusinessName!,
         ]
-      : [contactName, member.plan.name || 'session pack'];
+      : [
+          contactName,
+          member.plan.name || 'session pack',
+          account.legalBusinessName!,
+        ];
   } else if (job.kind === 'freeze_return') {
     const member = await currentMember(admin, job);
     if (
@@ -774,6 +780,7 @@ async function ensureRetentionBeforeSend(
       return [
         member.contact?.name?.trim() || 'there',
         member.plan?.name || 'membership',
+        account.legalBusinessName!,
       ];
     }
     const service = subject as Service;
@@ -781,6 +788,7 @@ async function ensureRetentionBeforeSend(
       service.member_name?.trim() || 'there',
       service.item_name_snapshot,
       buildFormatters(locale).money(Number(service.current_renewal_price)),
+      account.legalBusinessName!,
     ];
   }
 }
@@ -871,8 +879,17 @@ export async function processRetentionJob(input: {
           : 'session_pack_exhausted';
       params =
         job.kind === 'session_pack_low'
-          ? [contactName, member.plan.name || 'session pack', String(remaining)]
-          : [contactName, member.plan.name || 'session pack'];
+          ? [
+              contactName,
+              member.plan.name || 'session pack',
+              String(remaining),
+              account.legalBusinessName!,
+            ]
+          : [
+              contactName,
+              member.plan.name || 'session pack',
+              account.legalBusinessName!,
+            ];
     } else if (job.kind === 'freeze_return') {
       const member = await currentMember(admin, job);
       if (
@@ -922,6 +939,7 @@ export async function processRetentionJob(input: {
       params = [
         contactName,
         buildFormatters(locale).date(job.effective_due_on),
+        account.legalBusinessName!,
       ];
     } else {
       const membership = job.kind === 'membership_win_back';
@@ -978,7 +996,11 @@ export async function processRetentionJob(input: {
         contactName = member.contact?.name?.trim() || contactName;
         phone = member.contact?.phone?.trim() || null;
         templateId = 'membership_win_back';
-        params = [contactName, member.plan?.name || 'membership'];
+        params = [
+          contactName,
+          member.plan?.name || 'membership',
+          account.legalBusinessName!,
+        ];
       } else {
         const service = subject as Service;
         contactName = service.member_name?.trim() || contactName;
@@ -988,6 +1010,7 @@ export async function processRetentionJob(input: {
           contactName,
           service.item_name_snapshot,
           buildFormatters(locale).money(Number(service.current_renewal_price)),
+          account.legalBusinessName!,
         ];
       }
     }

@@ -17,6 +17,7 @@ import { isRenewalChaseable } from '@/lib/memberships/pricing';
 import { runLegacyReminderDelivery } from '@/lib/reminders/legacy-delivery';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
+import { loadLegalBusinessName } from '@/lib/whatsapp/legal-business-name';
 
 /**
  * Auto renewal reminders — the scheduled half of the renewal wedge.
@@ -164,6 +165,10 @@ export async function GET(request: Request) {
     const config = configResult.data;
     const templates = templatesResult.data;
     const account = accountResult.data;
+    const legalIdentity = await loadLegalBusinessName(
+      admin as unknown as Parameters<typeof loadLegalBusinessName>[0],
+      accountId
+    );
 
     const templateReadiness = evaluateTemplateReadiness(
       templates,
@@ -172,7 +177,13 @@ export async function GET(request: Request) {
     );
     const template = selectRenewalTemplate(templates);
 
-    if (!config || config.status !== 'connected' || !template || !account) {
+    if (
+      !config ||
+      config.status !== 'connected' ||
+      !template ||
+      !account ||
+      !legalIdentity.ok
+    ) {
       summary.accounts_skipped++;
       if (!config || config.status !== 'connected') {
         notes.push(`account ${accountId}: blocked: connect WhatsApp`);
@@ -186,6 +197,9 @@ export async function GET(request: Request) {
         notes.push(
           `account ${accountId}: blocked: account locale is unavailable`
         );
+      }
+      if (!legalIdentity.ok) {
+        notes.push(`account ${accountId}: blocked: ${legalIdentity.code}`);
       }
       continue;
     }
@@ -360,6 +374,7 @@ export async function GET(request: Request) {
                 m.plan?.name || 'membership',
                 fmt.date(target.endDate),
                 fmt.money(m.fee_amount),
+                legalIdentity.name,
               ];
               return engineSendTemplate({
                 beforeSend: async () => {
@@ -623,6 +638,10 @@ export async function GET(request: Request) {
               const config = configResult.data;
               const template = templateResult.data;
               const account = accountResult.data;
+              const legalIdentity = await loadLegalBusinessName(
+                admin as unknown as Parameters<typeof loadLegalBusinessName>[0],
+                candidate.account_id
+              );
               const templateReadiness = evaluateTemplateReadiness(
                 template ? [template] : [],
                 'service_renewal',
@@ -643,6 +662,11 @@ export async function GET(request: Request) {
                   'setup required: account not found'
                 );
               }
+              if (!legalIdentity.ok) {
+                throw new ReminderSetupBlockedError(
+                  `setup required: ${legalIdentity.code}`
+                );
+              }
               if (!candidate.phone) {
                 throw new ReminderSetupBlockedError(
                   'member has no phone number'
@@ -660,6 +684,7 @@ export async function GET(request: Request) {
                 candidate.item_name_snapshot,
                 fmt.date(candidate.end_date),
                 fmt.money(Number(candidate.current_renewal_price)),
+                legalIdentity.name,
               ];
               return engineSendTemplate({
                 beforeSend: async () => {

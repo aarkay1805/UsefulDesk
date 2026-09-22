@@ -20,6 +20,28 @@ checkout, recurring subscription billing, scheduled cancellation, tax invoicing,
 and customer self-service remain deferred; the first pilots use the documented
 manual commercial ledger and access workflow.
 
+## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
+
+UsefulDesk now has one direct-cutover contract library for wired gym messages.
+Every feature body ends with the branch's canonical legal-business identity;
+missing identity blocks manual and automated sends with a structured setup
+reason. Renewal, collection, retention, installment, confirmation, AutoPay,
+invoice-document, and payment-link paths use the same resolver and exact
+readiness rules. Renewal buttons use **Help me renew**. Promise reminders are
+split into upcoming and missed-date contracts, and renewal payments use a
+separate confirmation that alone includes the new membership end date.
+
+The Payment Link contract keeps the provider URL out of message copy and sends
+only a validated Razorpay path suffix to the exact
+`https://rzp.io/{{1}}` button. Duplicate/unsafe presets (`gym_payment_due`,
+`gym_payment_receipt`, `gym_membership_activation`, generic `gym_win_back`, and
+the old combined promise reminder) are no longer offered or accepted as feature
+readiness. Migration
+`20260921230000_whatsapp_template_audit_cutover.sql` updates exact database
+readiness and activation checks; it remains unapplied pending the approved
+migration workflow. No provider template was submitted, automation enabled,
+message sent, deployment made, or pull request opened.
+
 ## Shipped — Owner-controlled branch names (2026-09-21)
 
 Branch owners can rename any branch they own from **Settings → Organization &

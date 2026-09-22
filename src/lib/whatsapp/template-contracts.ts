@@ -6,8 +6,10 @@ export type TemplateContractId =
   | 'installment_reminder'
   | 'invoice_due'
   | 'invoice_overdue'
-  | 'payment_promise_reminder'
+  | 'payment_promise_upcoming'
+  | 'payment_promise_missed'
   | 'payment_confirmation'
+  | 'payment_membership_renewal_confirmation'
   | 'autopay_recovery_pending'
   | 'autopay_recovery_terminal'
   | 'membership_post_expiry'
@@ -19,10 +21,6 @@ export type TemplateContractId =
   | 'service_win_back'
   | 'payment_link'
   | 'invoice_document'
-  | 'payment_due'
-  | 'payment_receipt'
-  | 'membership_activation'
-  | 'win_back'
   | 'festival_offer';
 
 export type TemplateConsentScope =
@@ -67,17 +65,24 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Plan name',
         'Membership end date',
         'Current renewal price',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_membership_renewal',
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
+          'Hi {{1}}, your {{2}} membership ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
+          body: [
+            'Rahul',
+            'Quarterly',
+            '20 Sep 2026',
+            '₹3,999',
+            'FitZone Wellness Private Limited',
+          ],
         },
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Help me renew' }],
       },
     },
     service_renewal: {
@@ -97,17 +102,24 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Service name',
         'Service end date',
         'Current renewal price',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_service_renewal',
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the button below to respond.',
+          'Hi {{1}}, your {{2}} service ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
+          body: [
+            'Rahul',
+            'Personal Training',
+            '20 Sep 2026',
+            '₹4,500',
+            'FitZone Wellness Private Limited',
+          ],
         },
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Help me renew' }],
       },
     },
     membership_post_expiry: {
@@ -127,17 +139,24 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Plan name',
         'Membership end date',
         'Current renewal price',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_membership_post_expiry',
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current price of {{4}}. Use the button below and our team will help.',
+          'Hi {{1}}, your {{2}} membership ended on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
+          body: [
+            'Rahul',
+            'Quarterly',
+            '20 Sep 2026',
+            '₹3,999',
+            'FitZone Wellness Private Limited',
+          ],
         },
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Help me renew' }],
       },
     },
     service_post_expiry: {
@@ -157,17 +176,24 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Service name',
         'Service end date',
         'Current renewal price',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_service_post_expiry',
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current price of {{4}}. Use the button below and our team will help.',
+          'Hi {{1}}, your {{2}} service ended on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
+          body: [
+            'Rahul',
+            'Personal Training',
+            '20 Sep 2026',
+            '₹4,500',
+            'FitZone Wellness Private Limited',
+          ],
         },
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
+        buttons: [{ type: 'QUICK_REPLY', text: 'Help me renew' }],
       },
     },
     session_pack_low: {
@@ -182,14 +208,26 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
       wired: true,
-      parameterLabels: ['Member name', 'Plan name', 'Sessions remaining'],
+      parameterLabels: [
+        'Member name',
+        'Plan name',
+        'Sessions remaining',
+        'Legal business name',
+      ],
       payload: {
         name: 'gym_session_pack_low',
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} has {{3}} sessions remaining. Reply here if you would like help choosing your next pack.',
-        sample_values: { body: ['Rahul', '10-session pack', '2'] },
+          'Hi {{1}}, your {{2}} has {{3}} sessions remaining. Reply using the button if you would like help with your next pack. This message is from {{4}}.',
+        sample_values: {
+          body: [
+            'Rahul',
+            '10-session pack',
+            '2',
+            'FitZone Wellness Private Limited',
+          ],
+        },
         buttons: [{ type: 'QUICK_REPLY', text: 'Ask about packs' }],
       },
     },
@@ -205,14 +243,20 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
       wired: true,
-      parameterLabels: ['Member name', 'Plan name'],
+      parameterLabels: ['Member name', 'Plan name', 'Legal business name'],
       payload: {
         name: 'gym_session_pack_used',
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, all sessions in your {{2}} have been used. Reply here if you would like help with your next pack.',
-        sample_values: { body: ['Rahul', '10-session pack'] },
+          'Hi {{1}}, all sessions in your {{2}} have been used. Reply using the button if you would like help with your next pack. This message is from {{3}}.',
+        sample_values: {
+          body: [
+            'Rahul',
+            '10-session pack',
+            'FitZone Wellness Private Limited',
+          ],
+        },
         buttons: [{ type: 'QUICK_REPLY', text: 'Ask about packs' }],
       },
     },
@@ -229,14 +273,20 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
       wired: true,
-      parameterLabels: ['Member name', 'Planned return date'],
+      parameterLabels: [
+        'Member name',
+        'Planned return date',
+        'Legal business name',
+      ],
       payload: {
         name: 'gym_membership_return_reminder',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your planned return date is {{2}}. Reply here if you would like to discuss your next step with the gym.',
-        sample_values: { body: ['Rahul', '20 Sep 2026'] },
+          'Hi {{1}}, your planned return date is {{2}}. Reply here if you need to update it. This message is from {{3}}.',
+        sample_values: {
+          body: ['Rahul', '20 Sep 2026', 'FitZone Wellness Private Limited'],
+        },
       },
     },
     membership_win_back: {
@@ -252,15 +302,17 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
       wired: true,
-      parameterLabels: ['Member name', 'Plan name'],
+      parameterLabels: ['Member name', 'Plan name', 'Legal business name'],
       payload: {
         name: 'gym_membership_win_back',
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, you can restart your {{2}} membership. Reply here if you would like help renewing.',
-        sample_values: { body: ['Rahul', 'Quarterly'] },
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
+          'Hi {{1}}, you can restart your {{2}} membership. Reply using the button if you would like help renewing. This message is from {{3}}.',
+        sample_values: {
+          body: ['Rahul', 'Quarterly', 'FitZone Wellness Private Limited'],
+        },
+        buttons: [{ type: 'QUICK_REPLY', text: 'Help me renew' }],
       },
     },
     service_win_back: {
@@ -276,15 +328,27 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
       wired: true,
-      parameterLabels: ['Member name', 'Service name', 'Current renewal price'],
+      parameterLabels: [
+        'Member name',
+        'Service name',
+        'Current renewal price',
+        'Legal business name',
+      ],
       payload: {
         name: 'gym_service_win_back',
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, you can renew your {{2}} service at the current price of {{3}}. Reply here if you would like help.',
-        sample_values: { body: ['Rahul', 'Personal Training', '₹4,500'] },
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
+          'Hi {{1}}, you can renew your {{2}} service at the current price of {{3}}. Reply using the button if you would like help renewing. This message is from {{4}}.',
+        sample_values: {
+          body: [
+            'Rahul',
+            'Personal Training',
+            '₹4,500',
+            'FitZone Wellness Private Limited',
+          ],
+        },
+        buttons: [{ type: 'QUICK_REPLY', text: 'Help me renew' }],
       },
     },
     installment_reminder: {
@@ -304,15 +368,22 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Remaining installment amount',
         'Plan name',
         'Installment due date',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_installment_reminder',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, this is a reminder for your existing {{3}} membership: the remaining installment of {{2}} is due on {{4}}. Reply if you need help with this payment.',
+          'Hi {{1}}, the remaining installment of {{2}} for your {{3}} membership is due on {{4}}. Reply if you need help with this payment. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', '₹1,600', 'Quarterly', '20 Sep 2026'],
+          body: [
+            'Rahul',
+            '₹1,600',
+            'Quarterly',
+            '20 Sep 2026',
+            'FitZone Wellness Private Limited',
+          ],
         },
       },
     },
@@ -333,15 +404,22 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Invoice reference',
         'Remaining amount',
         'Due date',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_invoice_due',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, invoice {{2}} has a remaining balance of {{3}} due on {{4}}. Reply here if you need help with this payment.',
+          'Hi {{1}}, invoice {{2}} has a remaining balance of {{3}} due on {{4}}. Reply if you need help with this payment. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', 'INV-1024', '₹2,700', '20 Sep 2026'],
+          body: [
+            'Rahul',
+            'INV-1024',
+            '₹2,700',
+            '20 Sep 2026',
+            'FitZone Wellness Private Limited',
+          ],
         },
       },
     },
@@ -363,21 +441,28 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Invoice reference',
         'Remaining amount',
         'Due date',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_invoice_overdue',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, invoice {{2}} still has a remaining balance of {{3}} from {{4}}. Reply here if you need help with this payment.',
+          'Hi {{1}}, invoice {{2}} still has a remaining balance of {{3}} that was due on {{4}}. Reply if you need help with this payment. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', 'INV-1024', '₹2,700', '20 Sep 2026'],
+          body: [
+            'Rahul',
+            'INV-1024',
+            '₹2,700',
+            '20 Sep 2026',
+            'FitZone Wellness Private Limited',
+          ],
         },
       },
     },
-    payment_promise_reminder: {
-      id: 'payment_promise_reminder',
-      title: 'Payment promise reminder',
+    payment_promise_upcoming: {
+      id: 'payment_promise_upcoming',
+      title: 'Upcoming promised payment',
       blurb:
         'Remind a customer about the exact amount and date they committed to pay.',
       purpose:
@@ -393,15 +478,59 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Invoice reference',
         'Promised amount',
         'Promised payment date',
+        'Legal business name',
       ],
       payload: {
-        name: 'gym_payment_promise_reminder',
+        name: 'gym_payment_promise_upcoming',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, this is a reminder of your payment commitment of {{3}} for invoice {{2}} on {{4}}. Reply here if you need help.',
+          'Hi {{1}}, this is a reminder that you planned to pay {{3}} for invoice {{2}} on {{4}}. Reply if you need help. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', 'INV-1024', '₹2,700', '20 Sep 2026'],
+          body: [
+            'Rahul',
+            'INV-1024',
+            '₹2,700',
+            '20 Sep 2026',
+            'FitZone Wellness Private Limited',
+          ],
+        },
+      },
+    },
+    payment_promise_missed: {
+      id: 'payment_promise_missed',
+      title: 'Missed promised payment',
+      blurb:
+        'Follow up after a promised payment date passes while the invoice remains unpaid.',
+      purpose:
+        'Updates a customer about a missed staff-recorded payment commitment without claiming a failed payment attempt.',
+      trigger:
+        'The opt-in promise-to-pay lifecycle reaches the day after the promised payment date and the balance remains unpaid.',
+      category: 'Utility',
+      galleryGroup: 'feature',
+      consentScope: 'whatsapp_account_updates',
+      wired: true,
+      parameterLabels: [
+        'Customer name',
+        'Invoice reference',
+        'Promised amount',
+        'Promised payment date',
+        'Legal business name',
+      ],
+      payload: {
+        name: 'gym_payment_promise_missed',
+        category: 'Utility',
+        language: 'en_US',
+        body_text:
+          'Hi {{1}}, the planned payment date of {{4}} for {{3}} on invoice {{2}} has passed, and the balance remains unpaid. Reply if you need help. This message is from {{5}}.',
+        sample_values: {
+          body: [
+            'Rahul',
+            'INV-1024',
+            '₹2,700',
+            '20 Sep 2026',
+            'FitZone Wellness Private Limited',
+          ],
         },
       },
     },
@@ -411,7 +540,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       blurb:
         'Confirm a newly committed payment without overstating membership status.',
       purpose:
-        'Updates a customer about one exact recorded payment and says whether that transaction renewed a membership.',
+        'Updates a customer about one exact recorded payment without implying a membership renewal.',
       trigger:
         'A new committed payment is recorded after payment confirmations are enabled.',
       category: 'Utility',
@@ -422,20 +551,56 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Customer name',
         'Amount received',
         'Invoice reference',
-        'Transaction outcome',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_payment_confirmation',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, we received your payment of {{2}} for invoice {{3}}. {{4}} Reply if any payment detail looks incorrect.',
+          'Hi {{1}}, we received {{2}} for invoice {{3}}. Reply if any payment detail looks incorrect. This message is from {{4}}.',
         sample_values: {
           body: [
             'Rahul',
             '₹2,700',
             'INV-1024',
-            'This payment renewed your membership until 20 Dec 2026.',
+            'FitZone Wellness Private Limited',
+          ],
+        },
+      },
+    },
+    payment_membership_renewal_confirmation: {
+      id: 'payment_membership_renewal_confirmation',
+      title: 'Payment and membership renewal confirmation',
+      blurb: 'Confirm a payment that also renewed the customer’s membership.',
+      purpose:
+        'Updates a customer about one exact recorded payment and the membership end date produced by that renewal.',
+      trigger:
+        'A newly committed payment is tied to a confirmed membership-renewal operation.',
+      category: 'Utility',
+      galleryGroup: 'feature',
+      consentScope: 'whatsapp_account_updates',
+      wired: true,
+      parameterLabels: [
+        'Customer name',
+        'Amount received',
+        'Invoice reference',
+        'Membership end date',
+        'Legal business name',
+      ],
+      payload: {
+        name: 'gym_payment_membership_renewal_confirmation',
+        category: 'Utility',
+        language: 'en_US',
+        body_text:
+          'Hi {{1}}, we received {{2}} for invoice {{3}} and renewed your membership until {{4}}. Reply if any payment detail looks incorrect. This message is from {{5}}.',
+        sample_values: {
+          body: [
+            'Rahul',
+            '₹2,700',
+            'INV-1024',
+            '20 Dec 2026',
+            'FitZone Wellness Private Limited',
           ],
         },
       },
@@ -453,14 +618,24 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
       wired: true,
-      parameterLabels: ['Customer name', 'Membership reference'],
+      parameterLabels: [
+        'Customer name',
+        'Membership reference',
+        'Legal business name',
+      ],
       payload: {
         name: 'gym_autopay_retry_update',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your AutoPay payment for {{2}} is still being processed. No payment is needed from you right now; we will update you if anything changes.',
-        sample_values: { body: ['Rahul', 'your membership'] },
+          'Hi {{1}}, your AutoPay payment for {{2}} is still being processed. No payment is needed from you now. This message is from {{3}}.',
+        sample_values: {
+          body: [
+            'Rahul',
+            'your membership',
+            'FitZone Wellness Private Limited',
+          ],
+        },
       },
     },
     autopay_recovery_terminal: {
@@ -480,14 +655,22 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Customer name',
         'Invoice reference',
         'Remaining amount',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_autopay_payment_help',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, AutoPay could not complete invoice {{2}}, which has {{3}} remaining. Reply here and our team will help with the next payment step.',
-        sample_values: { body: ['Rahul', 'INV-1024', '₹2,700'] },
+          'Hi {{1}}, AutoPay could not complete invoice {{2}}, which has {{3}} remaining. Reply for help with the next payment step. This message is from {{4}}.',
+        sample_values: {
+          body: [
+            'Rahul',
+            'INV-1024',
+            '₹2,700',
+            'FitZone Wellness Private Limited',
+          ],
+        },
       },
     },
     payment_link: {
@@ -495,7 +678,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       title: 'Payment link',
       blurb: 'Send a secure link for an existing open gym invoice.',
       purpose:
-        'Requests payment for a specific existing invoice and carries its complete provider payment URL.',
+        'Requests payment for a specific existing invoice through a provider-hosted dynamic URL button.',
       trigger:
         'You tap Send payment link on an open invoice that can still be collected.',
       category: 'Utility',
@@ -506,17 +689,32 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Member name',
         'Outstanding amount',
         'Invoice reference',
-        'Complete payment URL',
+        'Payment link expiry',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_payment_link',
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your payment of {{2}} for invoice {{3}} is due. Pay securely using this link: {{4}}. Please contact us if you need help.',
+          'Hi {{1}}, {{2}} is due for invoice {{3}}. The payment link expires on {{4}}. Use the button below to pay. This message is from {{5}}.',
         sample_values: {
-          body: ['Rahul', '₹2,700', 'INV-1024', 'https://rzp.io/rzp/abc123'],
+          body: [
+            'Rahul',
+            '₹2,700',
+            'INV-1024',
+            '20 Sep 2026, 6:00 pm',
+            'FitZone Wellness Private Limited',
+          ],
         },
+        buttons: [
+          {
+            type: 'URL',
+            text: 'Pay invoice',
+            url: 'https://rzp.io/{{1}}',
+            example: 'i/abc123',
+          },
+        ],
       },
     },
     invoice_document: {
@@ -534,7 +732,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         'Customer name',
         'Invoice number',
         'Invoice total',
-        'Business name',
+        'Legal business name',
       ],
       payload: {
         name: 'gym_invoice_document',
@@ -544,123 +742,13 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         body_text:
           'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
         sample_values: {
-          body: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
-        },
-      },
-    },
-    payment_due: {
-      id: 'payment_due',
-      title: 'Payment due',
-      blurb:
-        'Remind a member about an existing outstanding membership balance.',
-      purpose:
-        'Updates a member about a pending amount tied to an existing membership account.',
-      trigger:
-        'You send it from the Inbox or a contact, once staff has confirmed the outstanding balance.',
-      category: 'Utility',
-      galleryGroup: 'account_update',
-      consentScope: 'whatsapp_account_updates',
-      wired: false,
-      parameterLabels: ['Member name', 'Due amount', 'Plan name'],
-      payload: {
-        name: 'gym_payment_due',
-        category: 'Utility',
-        language: 'en_US',
-        body_text:
-          'Hi {{1}}, a payment of {{2}} for your {{3}} membership is still pending. Please clear it to keep your access active. Reply here for a payment link or any help.',
-        sample_values: { body: ['Rahul', '₹3,999', 'Quarterly'] },
-      },
-    },
-    payment_receipt: {
-      id: 'payment_receipt',
-      title: 'Payment receipt',
-      blurb: 'Confirm an existing membership payment recorded by gym staff.',
-      purpose:
-        'Confirms a completed payment and active-until date for an existing membership transaction.',
-      trigger:
-        'You send it from a contact, right after staff records and checks a membership payment.',
-      category: 'Utility',
-      galleryGroup: 'account_update',
-      consentScope: 'whatsapp_account_updates',
-      wired: false,
-      parameterLabels: [
-        'Member name',
-        'Amount received',
-        'Plan name',
-        'Active-until date',
-      ],
-      payload: {
-        name: 'gym_payment_receipt',
-        category: 'Utility',
-        language: 'en_US',
-        body_text:
-          'Hi {{1}}, we received your payment of {{2}} for your existing {{3}} membership. Your membership is active until {{4}}. Reply if any payment detail looks incorrect.',
-        sample_values: {
-          body: ['Rahul', '₹3,999', 'Quarterly', '20 Dec 2026'],
-        },
-      },
-    },
-    membership_activation: {
-      id: 'membership_activation',
-      title: 'Membership activation',
-      blurb: 'Confirm the exact dates of an activated gym membership.',
-      purpose:
-        'Confirms plan, gym, start date, and end date for an existing activated membership.',
-      trigger:
-        'You send it from a contact, after checkout creates or activates the membership.',
-      category: 'Utility',
-      galleryGroup: 'account_update',
-      consentScope: 'whatsapp_account_updates',
-      wired: false,
-      parameterLabels: [
-        'Member name',
-        'Plan name',
-        'Gym name',
-        'Start date',
-        'End date',
-      ],
-      payload: {
-        name: 'gym_membership_activation',
-        category: 'Utility',
-        language: 'en_US',
-        body_text:
-          'Hi {{1}}, your {{2}} membership at {{3}} is active from {{4}} until {{5}}. Reply if any membership detail is incorrect.',
-        sample_values: {
           body: [
-            'Rahul',
-            'Quarterly',
-            'FitZone Gym',
-            '21 Aug 2026',
-            '20 Nov 2026',
+            'Asha',
+            'INV-000042',
+            '₹2,500.00',
+            'FitZone Wellness Private Limited',
           ],
         },
-      },
-    },
-    win_back: {
-      id: 'win_back',
-      title: 'Win back a lapsed member',
-      blurb: 'Invite a former member to discuss returning to the gym.',
-      purpose:
-        'Re-engages a lapsed member and promotes a future membership purchase.',
-      trigger:
-        'You send it yourself, or as a broadcast, to a Marketing audience you choose.',
-      category: 'Marketing',
-      galleryGroup: 'marketing',
-      consentScope: 'whatsapp_marketing',
-      wired: false,
-      parameterLabels: [
-        'Member name',
-        'Gym name',
-        'Previous membership end date',
-      ],
-      payload: {
-        name: 'gym_win_back',
-        category: 'Marketing',
-        language: 'en_US',
-        body_text:
-          'Hi {{1}}, your membership at {{2}} ended on {{3}}. If you would like to return, use the button below and the gym team will help you choose a membership.',
-        sample_values: { body: ['Rahul', 'FitZone Gym', '20 Jun 2026'] },
-        buttons: INTERESTED_BUTTONS,
       },
     },
     festival_offer: {

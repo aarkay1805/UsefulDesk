@@ -48,6 +48,10 @@ import {
 } from '@/lib/whatsapp/template-send-policy';
 import { getTemplateContract } from '@/lib/whatsapp/template-contracts';
 import { SendMessageError } from '@/lib/whatsapp/send-message-error';
+import {
+  applyLegalBusinessNameParam,
+  loadLegalBusinessName,
+} from '@/lib/whatsapp/legal-business-name';
 
 export { SendMessageError } from '@/lib/whatsapp/send-message-error';
 
@@ -365,6 +369,46 @@ export async function sendMessageToConversation(
     }
   }
 
+  let resolvedTemplateParams = templateParams;
+  let resolvedTemplateMessageParams = templateMessageParams;
+  const templateContract = templateName
+    ? getTemplateContract(templateName)
+    : null;
+  if (messageType === 'template' && templateContract?.wired) {
+    const legalIdentity = await loadLegalBusinessName(
+      db as unknown as Parameters<typeof loadLegalBusinessName>[0],
+      accountId
+    );
+    if (!legalIdentity.ok) {
+      throw new SendMessageError(
+        legalIdentity.code,
+        `WhatsApp template send blocked: ${legalIdentity.code}`,
+        409
+      );
+    }
+    const expectedCount = templateContract.parameterLabels.length;
+    const structured =
+      templateMessageParams && typeof templateMessageParams === 'object'
+        ? (templateMessageParams as Record<string, unknown>)
+        : null;
+    if (structured && Array.isArray(structured.body)) {
+      resolvedTemplateMessageParams = {
+        ...structured,
+        body: applyLegalBusinessNameParam(
+          structured.body as string[],
+          expectedCount,
+          legalIdentity.name
+        ),
+      };
+    } else {
+      resolvedTemplateParams = applyLegalBusinessNameParam(
+        templateParams ?? [],
+        expectedCount,
+        legalIdentity.name
+      );
+    }
+  }
+
   // What the customer will actually read: the template's header line and
   // body, filled with this send's values. Callers other than the inbox
   // composer send only the template name + params, so without this the
@@ -372,13 +416,15 @@ export async function sendMessageToConversation(
   // "Template" tag. An explicit `contentText` still wins — the composer
   // already rendered the same text client-side for its optimistic bubble.
   const templateParamSource = {
-    messageParams: templateMessageParams,
-    params: templateParams,
+    messageParams: resolvedTemplateMessageParams,
+    params: resolvedTemplateParams,
   };
   const resolvedText =
     messageType === 'template'
-      ? (contentText ??
-        renderTemplateMessageText(templateRow, templateParamSource))
+      ? templateContract?.wired
+        ? renderTemplateMessageText(templateRow, templateParamSource)
+        : (contentText ??
+          renderTemplateMessageText(templateRow, templateParamSource))
       : (contentText ?? null);
 
   // An image/video/document header is delivered with the message, so the
@@ -392,7 +438,7 @@ export async function sendMessageToConversation(
   if (persistedMediaUrl) {
     const contract = templateName ? getTemplateContract(templateName) : null;
     const providerHeaderMediaUrl = (
-      templateMessageParams as { headerMediaUrl: string }
+      resolvedTemplateMessageParams as { headerMediaUrl: string }
     ).headerMediaUrl.trim();
     if (
       contract?.id !== 'invoice_document' ||
@@ -419,8 +465,8 @@ export async function sendMessageToConversation(
         templateName: templateName!,
         language: templateLanguage || 'en_US',
         template: templateRow ?? undefined,
-        messageParams: templateMessageParams ?? undefined,
-        params: templateParams || [],
+        messageParams: resolvedTemplateMessageParams ?? undefined,
+        params: resolvedTemplateParams || [],
         contextMessageId,
       });
       return result.messageId;

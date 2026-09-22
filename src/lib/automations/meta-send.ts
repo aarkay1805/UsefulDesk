@@ -15,6 +15,7 @@ import {
   resolveTemplateHeaderMedia,
 } from '@/lib/whatsapp/template-render';
 import type { MessageTemplate } from '@/types';
+import type { SendTimeParams } from '@/lib/whatsapp/template-send-builder';
 
 // ------------------------------------------------------------
 // Automation-side Meta sender.
@@ -51,6 +52,7 @@ interface SendTemplateArgs {
   templateName: string;
   language?: string;
   params?: string[];
+  messageParams?: SendTimeParams;
 }
 
 export async function engineSendText(
@@ -157,6 +159,7 @@ async function sendViaMeta(
         templateName: input.templateName,
         language: input.language,
         params: input.params,
+        messageParams: input.messageParams,
         template: templateRow ?? undefined,
       });
       return r.messageId;
@@ -209,6 +212,7 @@ async function sendViaMeta(
   // header resolves to the template's own stored URL.
   const templateParamSource = {
     params: input.kind === 'template' ? input.params : undefined,
+    messageParams: input.kind === 'template' ? input.messageParams : undefined,
   };
   const content_text =
     input.kind === 'text'

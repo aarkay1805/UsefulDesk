@@ -33,6 +33,12 @@ vi.mock('@/lib/cron/auth', () => ({
 vi.mock('@/lib/platform-access/server', () => ({
   requireProductAccess: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock('@/lib/whatsapp/legal-business-name', () => ({
+  loadLegalBusinessName: vi.fn().mockResolvedValue({
+    ok: true,
+    name: 'FitZone Wellness Private Limited',
+  }),
+}));
 vi.mock('@/lib/locale/config', () => ({
   resolveAccountLocale: () => ({ timeZone: 'Asia/Kolkata' }),
 }));
@@ -313,7 +319,13 @@ describe('GET /api/renewals/cron current eligibility boundary', () => {
     expect(body).toMatchObject({ sent: 1, accepted: 1, failed: 0 });
     expect(h.providerCalls).toBe(1);
     expect(h.sentParams).toEqual([
-      ['Asha K', 'Gold Plus', 'date:2026-09-11', 'money:1250'],
+      [
+        'Asha K',
+        'Gold Plus',
+        'date:2026-09-11',
+        'money:1250',
+        'FitZone Wellness Private Limited',
+      ],
     ]);
     expect(h.writes).toContainEqual(
       expect.objectContaining({
@@ -370,7 +382,13 @@ describe('GET /api/renewals/cron current eligibility boundary', () => {
       failed: 0,
     });
     expect(h.sentParams).toEqual([
-      ['Asha K', 'Personal training plus', 'date:2026-09-11', 'money:650'],
+      [
+        'Asha K',
+        'Personal training plus',
+        'date:2026-09-11',
+        'money:650',
+        'FitZone Wellness Private Limited',
+      ],
     ]);
   });
 

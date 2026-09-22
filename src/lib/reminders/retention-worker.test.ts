@@ -84,6 +84,7 @@ const account = {
   week_start: 1,
   phone_country_code: '+91',
   measurement_system: 'metric',
+  legalBusinessName: 'FitZone Wellness Private Limited',
 };
 const settings = {
   session_pack_reminders_enabled: true,

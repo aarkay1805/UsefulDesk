@@ -379,7 +379,7 @@ describe('TemplateManager gym preset library', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('groups all twenty-three contracts and explains operational requirements', async () => {
+  it('groups all twenty-one contracts and explains operational requirements', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);
 
@@ -407,16 +407,14 @@ describe('TemplateManager gym preset library', () => {
       'Installment reminder',
       'Invoice due reminder',
       'Overdue invoice reminder',
-      'Payment promise reminder',
+      'Upcoming promised payment',
+      'Missed promised payment',
       'Payment confirmation',
+      'Payment and membership renewal confirmation',
       'AutoPay retry update',
       'AutoPay payment help',
       'Payment link',
       'Invoice document',
-      'Payment due',
-      'Payment receipt',
-      'Membership activation',
-      'Win back a lapsed member',
       'Festival offer',
     ]) {
       expect(screen.getByRole('heading', { name: title })).toBeTruthy();
@@ -425,7 +423,7 @@ describe('TemplateManager gym preset library', () => {
     expect(
       screen.queryByText(/Requires recorded .* WhatsApp opt-in/)
     ).toBeNull();
-    expect(screen.getAllByText(/Sends when:/).length).toBe(23);
+    expect(screen.getAllByText(/Sends when:/).length).toBe(21);
     expect(
       screen.getAllByText(/approval and recipient delivery are not guaranteed/)
         .length

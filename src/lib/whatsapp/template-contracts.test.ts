@@ -8,500 +8,149 @@ import {
   getTemplateContractById,
 } from './template-contracts';
 
-const expected = [
-  {
-    id: 'membership_renewal',
-    name: 'gym_membership_renewal',
-    title: 'Membership renewal',
-    category: 'Marketing',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_marketing',
-    wired: true,
-    parameterLabels: [
-      'Member name',
-      'Plan name',
-      'Membership end date',
-      'Current renewal price',
-    ],
-    samples: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
-    body: 'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
-    buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
-  },
-  {
-    id: 'service_renewal',
-    name: 'gym_service_renewal',
-    title: 'Service renewal',
-    category: 'Marketing',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_marketing',
-    wired: true,
-    parameterLabels: [
-      'Member name',
-      'Service name',
-      'Service end date',
-      'Current renewal price',
-    ],
-    samples: ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
-    body: 'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the button below to respond.',
-    buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
-  },
-  {
-    id: 'installment_reminder',
-    name: 'gym_installment_reminder',
-    title: 'Installment reminder',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: [
-      'Member name',
-      'Remaining installment amount',
-      'Plan name',
-      'Installment due date',
-    ],
-    samples: ['Rahul', '₹1,600', 'Quarterly', '20 Sep 2026'],
-    body: 'Hi {{1}}, this is a reminder for your existing {{3}} membership: the remaining installment of {{2}} is due on {{4}}. Reply if you need help with this payment.',
-  },
-  {
-    id: 'invoice_due',
-    name: 'gym_invoice_due',
-    title: 'Invoice due reminder',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: [
-      'Customer name',
-      'Invoice reference',
-      'Remaining amount',
-      'Due date',
-    ],
-    samples: ['Rahul', 'INV-1024', '₹2,700', '20 Sep 2026'],
-    body: 'Hi {{1}}, invoice {{2}} has a remaining balance of {{3}} due on {{4}}. Reply here if you need help with this payment.',
-  },
-  {
-    id: 'invoice_overdue',
-    name: 'gym_invoice_overdue',
-    title: 'Overdue invoice reminder',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: [
-      'Customer name',
-      'Invoice reference',
-      'Remaining amount',
-      'Due date',
-    ],
-    samples: ['Rahul', 'INV-1024', '₹2,700', '20 Sep 2026'],
-    body: 'Hi {{1}}, invoice {{2}} still has a remaining balance of {{3}} from {{4}}. Reply here if you need help with this payment.',
-  },
-  {
-    id: 'payment_promise_reminder',
-    name: 'gym_payment_promise_reminder',
-    title: 'Payment promise reminder',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: [
-      'Customer name',
-      'Invoice reference',
-      'Promised amount',
-      'Promised payment date',
-    ],
-    samples: ['Rahul', 'INV-1024', '₹2,700', '20 Sep 2026'],
-    body: 'Hi {{1}}, this is a reminder of your payment commitment of {{3}} for invoice {{2}} on {{4}}. Reply here if you need help.',
-  },
-  {
-    id: 'payment_confirmation',
-    name: 'gym_payment_confirmation',
-    title: 'Payment confirmation',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: [
-      'Customer name',
-      'Amount received',
-      'Invoice reference',
-      'Transaction outcome',
-    ],
-    samples: [
-      'Rahul',
-      '₹2,700',
-      'INV-1024',
-      'This payment renewed your membership until 20 Dec 2026.',
-    ],
-    body: 'Hi {{1}}, we received your payment of {{2}} for invoice {{3}}. {{4}} Reply if any payment detail looks incorrect.',
-  },
-  {
-    id: 'autopay_recovery_pending',
-    name: 'gym_autopay_retry_update',
-    title: 'AutoPay retry update',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: ['Customer name', 'Membership reference'],
-    samples: ['Rahul', 'your membership'],
-    body: 'Hi {{1}}, your AutoPay payment for {{2}} is still being processed. No payment is needed from you right now; we will update you if anything changes.',
-  },
-  {
-    id: 'autopay_recovery_terminal',
-    name: 'gym_autopay_payment_help',
-    title: 'AutoPay payment help',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: ['Customer name', 'Invoice reference', 'Remaining amount'],
-    samples: ['Rahul', 'INV-1024', '₹2,700'],
-    body: 'Hi {{1}}, AutoPay could not complete invoice {{2}}, which has {{3}} remaining. Reply here and our team will help with the next payment step.',
-  },
-  {
-    id: 'payment_link',
-    name: 'gym_payment_link',
-    title: 'Payment link',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: [
-      'Member name',
-      'Outstanding amount',
-      'Invoice reference',
-      'Complete payment URL',
-    ],
-    samples: ['Rahul', '₹2,700', 'INV-1024', 'https://rzp.io/rzp/abc123'],
-    body: 'Hi {{1}}, your payment of {{2}} for invoice {{3}} is due. Pay securely using this link: {{4}}. Please contact us if you need help.',
-  },
-  {
-    id: 'invoice_document',
-    name: 'gym_invoice_document',
-    title: 'Invoice document',
-    category: 'Utility',
-    galleryGroup: 'feature',
-    consentScope: 'whatsapp_account_updates',
-    wired: true,
-    parameterLabels: [
-      'Customer name',
-      'Invoice number',
-      'Invoice total',
-      'Business name',
-    ],
-    samples: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
-    body: 'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
-    headerType: 'document',
-  },
-  {
-    id: 'payment_due',
-    name: 'gym_payment_due',
-    title: 'Payment due',
-    category: 'Utility',
-    galleryGroup: 'account_update',
-    consentScope: 'whatsapp_account_updates',
-    wired: false,
-    parameterLabels: ['Member name', 'Due amount', 'Plan name'],
-    samples: ['Rahul', '₹3,999', 'Quarterly'],
-    body: 'Hi {{1}}, a payment of {{2}} for your {{3}} membership is still pending. Please clear it to keep your access active. Reply here for a payment link or any help.',
-  },
-  {
-    id: 'payment_receipt',
-    name: 'gym_payment_receipt',
-    title: 'Payment receipt',
-    category: 'Utility',
-    galleryGroup: 'account_update',
-    consentScope: 'whatsapp_account_updates',
-    wired: false,
-    parameterLabels: [
-      'Member name',
-      'Amount received',
-      'Plan name',
-      'Active-until date',
-    ],
-    samples: ['Rahul', '₹3,999', 'Quarterly', '20 Dec 2026'],
-    body: 'Hi {{1}}, we received your payment of {{2}} for your existing {{3}} membership. Your membership is active until {{4}}. Reply if any payment detail looks incorrect.',
-  },
-  {
-    id: 'membership_activation',
-    name: 'gym_membership_activation',
-    title: 'Membership activation',
-    category: 'Utility',
-    galleryGroup: 'account_update',
-    consentScope: 'whatsapp_account_updates',
-    wired: false,
-    parameterLabels: [
-      'Member name',
-      'Plan name',
-      'Gym name',
-      'Start date',
-      'End date',
-    ],
-    samples: [
-      'Rahul',
-      'Quarterly',
-      'FitZone Gym',
-      '21 Aug 2026',
-      '20 Nov 2026',
-    ],
-    body: 'Hi {{1}}, your {{2}} membership at {{3}} is active from {{4}} until {{5}}. Reply if any membership detail is incorrect.',
-  },
-  {
-    id: 'win_back',
-    name: 'gym_win_back',
-    title: 'Win back a lapsed member',
-    category: 'Marketing',
-    galleryGroup: 'marketing',
-    consentScope: 'whatsapp_marketing',
-    wired: false,
-    parameterLabels: [
-      'Member name',
-      'Gym name',
-      'Previous membership end date',
-    ],
-    samples: ['Rahul', 'FitZone Gym', '20 Jun 2026'],
-    body: 'Hi {{1}}, your membership at {{2}} ended on {{3}}. If you would like to return, use the button below and the gym team will help you choose a membership.',
-    buttons: [{ type: 'QUICK_REPLY', text: "I'm interested" }],
-  },
-  {
-    id: 'festival_offer',
-    name: 'gym_festival_offer',
-    title: 'Festival offer',
-    category: 'Marketing',
-    galleryGroup: 'marketing',
-    consentScope: 'whatsapp_marketing',
-    wired: false,
-    parameterLabels: [
-      'Member name',
-      'Festival or campaign',
-      'Gym name',
-      'Discount',
-      'Offer end date',
-    ],
-    samples: ['Rahul', 'Diwali', 'FitZone Gym', '20%', '10 Nov 2026'],
-    body: 'Hi {{1}}, {{2}} offer from {{3}}: {{4}} off annual memberships until {{5}}. Use the button below if you would like details.',
-    buttons: [{ type: 'QUICK_REPLY', text: "I'm interested" }],
-  },
+const expectedContracts = [
+  ['membership_renewal', 'gym_membership_renewal', 'Marketing'],
+  ['service_renewal', 'gym_service_renewal', 'Marketing'],
+  ['membership_post_expiry', 'gym_membership_post_expiry', 'Marketing'],
+  ['service_post_expiry', 'gym_service_post_expiry', 'Marketing'],
+  ['session_pack_low', 'gym_session_pack_low', 'Marketing'],
+  ['session_pack_exhausted', 'gym_session_pack_used', 'Marketing'],
+  ['freeze_return', 'gym_membership_return_reminder', 'Utility'],
+  ['membership_win_back', 'gym_membership_win_back', 'Marketing'],
+  ['service_win_back', 'gym_service_win_back', 'Marketing'],
+  ['installment_reminder', 'gym_installment_reminder', 'Utility'],
+  ['invoice_due', 'gym_invoice_due', 'Utility'],
+  ['invoice_overdue', 'gym_invoice_overdue', 'Utility'],
+  ['payment_promise_upcoming', 'gym_payment_promise_upcoming', 'Utility'],
+  ['payment_promise_missed', 'gym_payment_promise_missed', 'Utility'],
+  ['payment_confirmation', 'gym_payment_confirmation', 'Utility'],
+  [
+    'payment_membership_renewal_confirmation',
+    'gym_payment_membership_renewal_confirmation',
+    'Utility',
+  ],
+  ['autopay_recovery_pending', 'gym_autopay_retry_update', 'Utility'],
+  ['autopay_recovery_terminal', 'gym_autopay_payment_help', 'Utility'],
+  ['payment_link', 'gym_payment_link', 'Utility'],
+  ['invoice_document', 'gym_invoice_document', 'Utility'],
+  ['festival_offer', 'gym_festival_offer', 'Marketing'],
 ] as const;
 
 describe('gym WhatsApp template contracts', () => {
-  it('defines every exact operational payload and policy classification', () => {
-    expect(Object.keys(TEMPLATE_CONTRACTS)).toHaveLength(23);
-
-    for (const wanted of expected) {
-      const contract = getTemplateContractById(wanted.id);
-      expect(contract).toBeDefined();
+  it('defines the direct-cutover operational library without retired duplicates', () => {
+    expect(Object.keys(TEMPLATE_CONTRACTS)).toHaveLength(
+      expectedContracts.length
+    );
+    for (const [id, name, category] of expectedContracts) {
+      const contract = getTemplateContractById(id);
       expect(contract).toMatchObject({
-        id: wanted.id,
-        title: wanted.title,
-        category: wanted.category,
-        galleryGroup: wanted.galleryGroup,
-        consentScope: wanted.consentScope,
-        wired: wanted.wired,
-        parameterLabels: wanted.parameterLabels,
-        payload: {
-          name: wanted.name,
-          category: wanted.category,
-          language: 'en_US',
-          body_text: wanted.body,
-          sample_values: { body: wanted.samples },
-        },
+        id,
+        category,
+        payload: { name, category, language: 'en_US' },
       });
-      expect(contract?.payload.footer_text).toBe(
-        'footer' in wanted ? wanted.footer : undefined
-      );
-      expect(contract?.payload.buttons).toEqual(
-        'buttons' in wanted ? wanted.buttons : undefined
-      );
-      expect(contract?.payload.header_type).toBe(
-        'headerType' in wanted ? wanted.headerType : undefined
-      );
       expect(contract?.purpose.length).toBeGreaterThan(20);
       expect(contract?.trigger.length).toBeGreaterThan(20);
-      expect(getTemplateContract(wanted.name)?.id).toBe(wanted.id);
+      expect(getTemplateContract(name)?.id).toBe(id);
+    }
+
+    for (const retired of [
+      'gym_payment_due',
+      'gym_payment_receipt',
+      'gym_membership_activation',
+      'gym_win_back',
+      'gym_payment_promise_reminder',
+    ]) {
+      expect(getTemplateContract(retired)).toBeUndefined();
     }
   });
 
-  it('keeps every Marketing contract on an affirmative reply without promising suppression', () => {
-    const expectedReply = {
-      membership_renewal: 'Renew membership',
-      service_renewal: 'Renew service',
-      membership_post_expiry: 'Renew membership',
-      service_post_expiry: 'Renew service',
-      session_pack_low: 'Ask about packs',
-      session_pack_exhausted: 'Ask about packs',
-      membership_win_back: 'Renew membership',
-      service_win_back: 'Renew service',
-      win_back: "I'm interested",
-      festival_offer: "I'm interested",
-    } as const;
-
-    for (const [id, reply] of Object.entries(expectedReply)) {
-      const contract = getTemplateContractById(id);
-      expect(contract?.category).toBe('Marketing');
-      expect(contract?.payload.footer_text).toBeUndefined();
-      expect(contract?.payload.buttons).toEqual([
-        { type: 'QUICK_REPLY', text: reply },
-      ]);
-      expect(JSON.stringify(contract?.payload)).not.toMatch(/unsubscribe/i);
+  it('keeps every feature message attributable to the legal business', () => {
+    for (const contract of FEATURE_TEMPLATE_CONTRACTS) {
+      expect(contract.parameterLabels.at(-1)).toBe('Legal business name');
+      expect(contract.payload.sample_values?.body?.at(-1)).toBe(
+        'FitZone Wellness Private Limited'
+      );
+      expect(contract.payload.body_text).toContain(
+        `{{${contract.parameterLabels.length}}}`
+      );
+      expect(contract.payload.body_text).not.toContain('undefined');
     }
   });
 
-  it('builds the exact Meta payload for membership renewal', () => {
-    const contract = getTemplateContractById('membership_renewal');
-    expect(contract).toBeDefined();
-
-    expect(buildMetaTemplatePayload(contract!.payload)).toEqual({
-      name: 'gym_membership_renewal',
-      category: 'MARKETING',
-      language: 'en_US',
-      components: [
-        {
-          type: 'BODY',
-          text: 'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
-          example: {
-            body_text: [['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999']],
-          },
-        },
-        {
-          type: 'BUTTONS',
-          buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
-        },
-      ],
-    });
-  });
-
-  it('builds the exact Meta payload for service renewal', () => {
-    const contract = getTemplateContractById('service_renewal');
-    expect(contract).toBeDefined();
-
-    expect(buildMetaTemplatePayload(contract!.payload)).toEqual({
-      name: 'gym_service_renewal',
-      category: 'MARKETING',
-      language: 'en_US',
-      components: [
-        {
-          type: 'BODY',
-          text: 'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the button below to respond.',
-          example: {
-            body_text: [
-              ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
-            ],
-          },
-        },
-        {
-          type: 'BUTTONS',
-          buttons: [{ type: 'QUICK_REPLY', text: 'Renew service' }],
-        },
-      ],
-    });
-  });
-
-  it('defines exact Marketing contracts for the two post-expiry sequences', () => {
-    expect(TEMPLATE_CONTRACTS.membership_post_expiry.payload).toMatchObject({
-      name: 'gym_membership_post_expiry',
-      category: 'Marketing',
-      language: 'en_US',
-      body_text:
-        'Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current price of {{4}}. Use the button below and our team will help.',
-      sample_values: { body: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'] },
-    });
-    expect(TEMPLATE_CONTRACTS.service_post_expiry.payload).toMatchObject({
-      name: 'gym_service_post_expiry',
-      category: 'Marketing',
-      language: 'en_US',
-      body_text:
-        'Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current price of {{4}}. Use the button below and our team will help.',
-      sample_values: {
-        body: ['Rahul', 'Personal Training', '20 Sep 2026', '₹4,500'],
-      },
-    });
-    expect(TEMPLATE_CONTRACTS.membership_post_expiry.consentScope).toBe(
-      'whatsapp_marketing'
-    );
-    expect(TEMPLATE_CONTRACTS.service_post_expiry.consentScope).toBe(
-      'whatsapp_marketing'
-    );
-  });
-
-  it('defines exact retention contracts without claiming an invented offer, access block, or automatic return', () => {
-    expect(TEMPLATE_CONTRACTS.session_pack_low.payload).toMatchObject({
-      name: 'gym_session_pack_low',
-      category: 'Marketing',
-      body_text:
-        'Hi {{1}}, your {{2}} has {{3}} sessions remaining. Reply here if you would like help choosing your next pack.',
-    });
-    expect(TEMPLATE_CONTRACTS.session_pack_exhausted.payload).toMatchObject({
-      name: 'gym_session_pack_used',
-      category: 'Marketing',
-      body_text:
-        'Hi {{1}}, all sessions in your {{2}} have been used. Reply here if you would like help with your next pack.',
-    });
-    expect(TEMPLATE_CONTRACTS.freeze_return.payload).toMatchObject({
-      name: 'gym_membership_return_reminder',
-      category: 'Utility',
-    });
-    expect(TEMPLATE_CONTRACTS.membership_win_back.payload).toMatchObject({
-      name: 'gym_membership_win_back',
-      category: 'Marketing',
-    });
-    expect(TEMPLATE_CONTRACTS.service_win_back.payload).toMatchObject({
-      name: 'gym_service_win_back',
-      category: 'Marketing',
-    });
-    expect(TEMPLATE_CONTRACTS.freeze_return.consentScope).toBe(
-      'whatsapp_account_updates'
-    );
-    expect(TEMPLATE_CONTRACTS.membership_win_back.consentScope).toBe(
-      'whatsapp_marketing'
-    );
-    expect(TEMPLATE_CONTRACTS.service_win_back.consentScope).toBe(
-      'whatsapp_marketing'
-    );
-  });
-
-  it('builds the exact creation payload for the document-header invoice contract without inventing a sample', () => {
-    const contract = getTemplateContractById('invoice_document');
-    expect(contract).toBeDefined();
-
-    expect(buildMetaTemplatePayload(contract!.payload)).toEqual({
-      name: 'gym_invoice_document',
-      category: 'UTILITY',
-      language: 'en_US',
-      components: [
-        { type: 'HEADER', format: 'DOCUMENT' },
-        {
-          type: 'BODY',
-          text: 'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
-          example: {
-            body_text: [['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym']],
-          },
-        },
-      ],
-    });
-  });
-
-  it('identifies invoice collection templates as wired feature contracts', () => {
-    expect(FEATURE_TEMPLATE_CONTRACTS.map((contract) => contract.id)).toEqual([
+  it('uses truthful renewal copy and the approved help-me-renew reply', () => {
+    for (const id of [
       'membership_renewal',
       'service_renewal',
       'membership_post_expiry',
       'service_post_expiry',
-      'session_pack_low',
-      'session_pack_exhausted',
-      'freeze_return',
       'membership_win_back',
       'service_win_back',
-      'installment_reminder',
-      'invoice_due',
-      'invoice_overdue',
-      'payment_promise_reminder',
-      'payment_confirmation',
-      'autopay_recovery_pending',
-      'autopay_recovery_terminal',
-      'payment_link',
-      'invoice_document',
+    ] as const) {
+      const contract = TEMPLATE_CONTRACTS[id];
+      expect(contract.category).toBe('Marketing');
+      expect(contract.payload.buttons).toEqual([
+        { type: 'QUICK_REPLY', text: 'Help me renew' },
+      ]);
+      expect(JSON.stringify(contract.payload)).not.toMatch(/unsubscribe/i);
+    }
+  });
+
+  it('splits upcoming and missed payment promises into distinct exact contracts', () => {
+    expect(TEMPLATE_CONTRACTS.payment_promise_upcoming.payload.body_text).toBe(
+      'Hi {{1}}, this is a reminder that you planned to pay {{3}} for invoice {{2}} on {{4}}. Reply if you need help. This message is from {{5}}.'
+    );
+    expect(TEMPLATE_CONTRACTS.payment_promise_missed.payload.body_text).toBe(
+      'Hi {{1}}, the planned payment date of {{4}} for {{3}} on invoice {{2}} has passed, and the balance remains unpaid. Reply if you need help. This message is from {{5}}.'
+    );
+  });
+
+  it('separates a generic receipt from membership-renewal confirmation', () => {
+    expect(TEMPLATE_CONTRACTS.payment_confirmation.parameterLabels).toEqual([
+      'Customer name',
+      'Amount received',
+      'Invoice reference',
+      'Legal business name',
     ]);
+    expect(
+      TEMPLATE_CONTRACTS.payment_membership_renewal_confirmation.parameterLabels
+    ).toEqual([
+      'Customer name',
+      'Amount received',
+      'Invoice reference',
+      'Membership end date',
+      'Legal business name',
+    ]);
+    expect(
+      TEMPLATE_CONTRACTS.payment_confirmation.payload.body_text
+    ).not.toMatch(/\{\{4\}\}\s+Reply/);
+  });
+
+  it('builds a dynamic Razorpay URL button instead of exposing the raw URL', () => {
+    const contract = TEMPLATE_CONTRACTS.payment_link;
+    expect(contract.parameterLabels).toEqual([
+      'Member name',
+      'Outstanding amount',
+      'Invoice reference',
+      'Payment link expiry',
+      'Legal business name',
+    ]);
+    expect(contract.payload.body_text).not.toMatch(/https?:\/\//);
+    expect(buildMetaTemplatePayload(contract.payload)).toMatchObject({
+      category: 'UTILITY',
+      components: [
+        { type: 'BODY' },
+        {
+          type: 'BUTTONS',
+          buttons: [
+            {
+              type: 'URL',
+              text: 'Pay invoice',
+              url: 'https://rzp.io/{{1}}',
+              example: ['i/abc123'],
+            },
+          ],
+        },
+      ],
+    });
   });
 });

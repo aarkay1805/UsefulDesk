@@ -288,7 +288,7 @@ export const REMINDER_RULES = [
       'Members with an open payment promise, a promised date, and a phone number.',
     stops: 'The promise is fulfilled, cancelled, or its date changes.',
     staff: 'Contact members whose promised date has passed without payment.',
-    templateContracts: ['payment_promise_reminder'],
+    templateContracts: ['payment_promise_upcoming', 'payment_promise_missed'],
     fields: [booleanField('promise_to_pay_reminders_enabled')],
     configurable: true,
   },
@@ -433,7 +433,10 @@ export const REMINDER_RULES = [
     stops:
       'The payment is reversed or no longer qualifies for a receipt notification.',
     staff: 'Investigate receipt questions or payment reversals.',
-    templateContracts: ['payment_confirmation'],
+    templateContracts: [
+      'payment_confirmation',
+      'payment_membership_renewal_confirmation',
+    ],
     fields: [booleanField('payment_confirmations_enabled')],
     configurable: true,
   },

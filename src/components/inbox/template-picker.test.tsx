@@ -14,7 +14,7 @@ const canonicalTemplate: MessageTemplate = {
   category: 'Marketing',
   language: 'en_US',
   body_text:
-    'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
+    'Hi {{1}}, your {{2}} membership ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}}.',
   status: 'APPROVED',
   created_at: '2026-08-22T00:00:00Z',
 };
@@ -39,7 +39,7 @@ const serviceRenewalTemplate: MessageTemplate = {
   id: 'template-service-renewal',
   name: 'gym_service_renewal',
   body_text:
-    'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the buttons below to respond.',
+    'Hi {{1}}, your {{2}} service ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}}.',
 };
 
 const paymentLinkTemplate: MessageTemplate = {
@@ -48,7 +48,15 @@ const paymentLinkTemplate: MessageTemplate = {
   name: 'gym_payment_link',
   category: 'Utility',
   body_text:
-    'Hi {{1}}, your payment of {{2}} for invoice {{3}} is ready. Complete it here: {{4}}. Reply if you need help.',
+    'Hi {{1}}, {{2}} is due for invoice {{3}}. The payment link expires on {{4}}. Use the button below to pay. This message is from {{5}}.',
+  buttons: [
+    {
+      type: 'URL',
+      text: 'Pay invoice',
+      url: 'https://rzp.io/{{1}}',
+      example: 'i/abc123',
+    },
+  ],
 };
 
 const contact: Contact = {
@@ -165,6 +173,23 @@ const supabase = {
         }),
       };
     }
+    if (table === 'accounts') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: {
+                legal_entity: {
+                  legal_name: 'FitZone Wellness Private Limited',
+                  name: 'FitZone',
+                },
+              },
+              error: null,
+            }),
+          }),
+        }),
+      };
+    }
     throw new Error(`Unexpected table: ${table}`);
   }),
 };
@@ -178,6 +203,8 @@ vi.mock('@/hooks/use-locale', () => ({
     fmt: {
       date: (value: string) => (value === '2026-09-20' ? '20 Sep 2026' : value),
       money: (value: number) => `₹${value.toLocaleString('en-IN')}`,
+      dateTime: (value: string) =>
+        value === '2026-09-20T12:30:00.000Z' ? '20 Sep 2026, 6:00 pm' : value,
     },
   }),
 }));
@@ -223,7 +250,10 @@ beforeEach(() => {
   });
   paymentLinkResult.mockReset();
   paymentLinkResult.mockResolvedValue({
-    data: { short_url: 'https://pay.example/invoice-42' },
+    data: {
+      short_url: 'https://rzp.io/i/invoice-42',
+      expires_at: '2026-09-20T12:30:00.000Z',
+    },
     error: null,
   });
   serviceResult.mockReset();
@@ -320,7 +350,7 @@ describe('TemplatePicker', () => {
 
     expect(
       await screen.findByText(
-        'Hi Asha Rao, your Quarterly membership ends on 20 Sep 2026. Renewing at the current price of ₹3,999 will continue your membership. Use the buttons below to respond.'
+        'Hi Asha Rao, your Quarterly membership ends on 20 Sep 2026. The current renewal price is ₹3,999. Reply using the button if you would like help renewing. This message is from FitZone Wellness Private Limited.'
       )
     ).toBeTruthy();
     expect(
@@ -368,7 +398,7 @@ describe('TemplatePicker', () => {
     expect(screen.getByText('Legacy')).toBeTruthy();
   });
 
-  it('fills a payment reminder when exactly one open invoice is available', async () => {
+  it('does not present a retired payment-due template as a current contract', async () => {
     const user = userEvent.setup();
     renderPicker(paymentDueTemplate);
 
@@ -376,15 +406,8 @@ describe('TemplatePicker', () => {
       await screen.findByRole('button', { name: /Payment due/i })
     );
 
-    expect(
-      await screen.findByText(
-        'Hi Asha Rao, a payment of ₹2,700 for your Quarterly membership is still pending. Please clear it to keep your access active. Reply here for a payment link or any help.'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText('Ready to send using Asha Rao’s latest open invoice.')
-    ).toBeTruthy();
-    expect(screen.queryByLabelText('Due amount')).toBeNull();
+    expect(await screen.findByLabelText('Message detail 2')).toBeTruthy();
+    expect(screen.queryByText(/latest open invoice/i)).toBeNull();
   });
 
   it('uses the immutable invoice number in a payment-link preview', async () => {
@@ -397,7 +420,7 @@ describe('TemplatePicker', () => {
 
     expect(
       await screen.findByText(
-        'Hi Asha Rao, your payment of ₹2,700 for invoice INV-000042 is ready. Complete it here: https://pay.example/invoice-42. Reply if you need help.'
+        'Hi Asha Rao, ₹2,700 is due for invoice INV-000042. The payment link expires on 20 Sep 2026, 6:00 pm. Use the button below to pay. This message is from FitZone Wellness Private Limited.'
       )
     ).toBeTruthy();
   });
@@ -412,7 +435,7 @@ describe('TemplatePicker', () => {
 
     expect(
       await screen.findByText(
-        'Hi Asha Rao, your Personal training service ends on 20 Sep 2026. Renewing at the current price of ₹2,500 will continue this service. Use the buttons below to respond.'
+        'Hi Asha Rao, your Personal training service ends on 20 Sep 2026. The current renewal price is ₹2,500. Reply using the button if you would like help renewing. This message is from FitZone Wellness Private Limited.'
       )
     ).toBeTruthy();
     expect(

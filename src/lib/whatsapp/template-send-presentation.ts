@@ -91,26 +91,6 @@ export function membershipRenewalDefaults(
   ];
 }
 
-export function paymentDueDefaults(
-  membership: Membership,
-  contactName: string | null | undefined,
-  invoice: {
-    id: string;
-    collectible_balance: number;
-    currency?: string | null;
-  },
-  fmt: Pick<LocaleFormatters, 'money'>
-): string[] {
-  return [
-    contactName?.trim() || membership.contact?.name?.trim() || '',
-    fmt.money(
-      Number(invoice.collectible_balance),
-      invoice.currency ?? undefined
-    ),
-    membership.plan?.name?.trim() || '',
-  ];
-}
-
 export function paymentLinkDefaults(
   membership: Membership,
   contactName: string | null | undefined,
@@ -120,8 +100,8 @@ export function paymentLinkDefaults(
     collectible_balance: number;
     currency?: string | null;
   },
-  shortUrl: string | null | undefined,
-  fmt: Pick<LocaleFormatters, 'money'>
+  expiresAt: string | null | undefined,
+  fmt: Pick<LocaleFormatters, 'money' | 'dateTime'>
 ): string[] {
   return [
     contactName?.trim() || membership.contact?.name?.trim() || '',
@@ -130,7 +110,7 @@ export function paymentLinkDefaults(
       invoice.currency ?? undefined
     ),
     financeInvoiceReference(invoice),
-    shortUrl?.trim() || '',
+    expiresAt ? fmt.dateTime(expiresAt) : '',
   ];
 }
 

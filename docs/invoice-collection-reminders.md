@@ -93,15 +93,22 @@ it; the invoice does not need to be fully settled, while an underpayment leaves
 the remaining commitment/debt visible. Replies never count as payment truth.
 
 Both new schedules are off by default. When enabled after exact provider setup,
-promise reminders use `gym_payment_promise_reminder` one day before and on the
+promise reminders use `gym_payment_promise_upcoming` one day before and on the
 recorded date. The next account-local day, an unfulfilled promise becomes a
 single staff-owned follow-up (or preserves an existing open follow-up) and may
-send its one configured reminder. Existing payment links may be followed up at
+send the distinct `gym_payment_promise_missed` contract. Existing payment links
+may be followed up at
 one and three days only from a persisted provider-accepted WhatsApp send
 (`last_sent_at` / provider message id), while the same link is still `created`,
 unexpired, and exactly matches the current collectible balance. Link creation is
 never a send. An expired link creates a staff action to use the existing
 explicit payment-link action; cron never creates a replacement link.
+
+`gym_payment_link` keeps the Razorpay URL out of its body. The body includes the
+invoice reference and link expiry, while the exact `https://rzp.io/{{1}}`
+dynamic URL button receives only the validated Razorpay path suffix at send
+time. All collection contracts end with the account's canonical legal-business
+identity; missing identity blocks the job as setup-required.
 
 Migrations `20260911010000_invoice_commitment_lifecycle.sql` and
 `20260911010100_invoice_commitment_contact_hardening.sql` are additive and

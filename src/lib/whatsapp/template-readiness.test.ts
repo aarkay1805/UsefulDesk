@@ -40,7 +40,7 @@ describe('evaluateTemplateReadiness', () => {
 
   it('accepts equivalent synced button objects regardless of JSON key order', () => {
     const row = membershipRow({
-      buttons: [{ text: 'Renew membership', type: 'QUICK_REPLY' }],
+      buttons: [{ text: 'Help me renew', type: 'QUICK_REPLY' }],
     });
 
     expect(
@@ -108,7 +108,7 @@ describe('evaluateTemplateReadiness', () => {
 
   it('rejects exact body, footer, header, and button drift', () => {
     for (const row of [
-      membershipRow({ body_text: 'Different {{1}} {{2}} {{3}} {{4}}.' }),
+      membershipRow({ body_text: 'Different {{1}} {{2}} {{3}} {{4}} {{5}}.' }),
       membershipRow({ footer_text: 'Different footer' }),
       membershipRow({ header_type: 'text', header_content: 'Promotion' }),
       membershipRow({
@@ -130,23 +130,11 @@ describe('evaluateTemplateReadiness', () => {
     'session_pack_exhausted',
     'membership_win_back',
     'service_win_back',
-    'win_back',
     'festival_offer',
   ] as const)(
     'rejects the prior unsubscribe-promising %s payload as component drift',
     (contractId) => {
       const payload = TEMPLATE_CONTRACTS[contractId].payload;
-      const previousBodies: Partial<Record<typeof contractId, string>> = {
-        membership_renewal:
-          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the buttons below to respond.',
-        service_renewal:
-          'Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of {{4}} will continue this service. Use the buttons below to respond.',
-        membership_post_expiry:
-          'Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current price of {{4}}. Use the buttons below and our team will help.',
-        service_post_expiry:
-          'Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current price of {{4}}. Use the buttons below and our team will help.',
-      };
-
       expect(
         evaluateTemplateReadiness(
           [
@@ -156,7 +144,7 @@ describe('evaluateTemplateReadiness', () => {
               status: 'APPROVED',
               category: payload.category,
               parameter_format: 'POSITIONAL',
-              body_text: previousBodies[contractId] ?? payload.body_text,
+              body_text: payload.body_text,
               footer_text: 'Tap Unsubscribe to stop promotional messages.',
               buttons: [
                 ...(payload.buttons ?? []),

@@ -15,6 +15,7 @@ import { REMINDER_SEND_HOUR_LOCAL } from '@/lib/memberships/renewal-reminders';
 import { isChargeableAmount } from '@/lib/memberships/periods';
 import { runLegacyReminderDelivery } from '@/lib/reminders/legacy-delivery';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
+import { loadLegalBusinessName } from '@/lib/whatsapp/legal-business-name';
 
 const MAX_SENDS_PER_RUN = 200;
 
@@ -154,6 +155,10 @@ export async function GET(request: Request) {
     const config = configResult.data;
     const template = templateResult.data;
     const account = accountResult.data;
+    const legalIdentity = await loadLegalBusinessName(
+      admin as unknown as Parameters<typeof loadLegalBusinessName>[0],
+      accountId
+    );
 
     const templateReadiness = evaluateTemplateReadiness(
       template ? [template] : [],
@@ -164,7 +169,8 @@ export async function GET(request: Request) {
       !config ||
       config.status !== 'connected' ||
       !templateReadiness.ready ||
-      !account
+      !account ||
+      !legalIdentity.ok
     ) {
       summary.accounts_skipped++;
       if (!config || config.status !== 'connected') {
@@ -179,6 +185,9 @@ export async function GET(request: Request) {
         notes.push(
           `account ${accountId}: blocked: account locale is unavailable`
         );
+      }
+      if (!legalIdentity.ok) {
+        notes.push(`account ${accountId}: blocked: ${legalIdentity.code}`);
       }
       continue;
     }
@@ -286,6 +295,7 @@ export async function GET(request: Request) {
             fmt.money(Math.min(Number(candidate.second_amount), balance)),
             candidate.membership?.plan?.name || 'membership',
             fmt.date(candidate.second_due_on),
+            legalIdentity.name,
           ];
           const result = await runLegacyReminderDelivery(
             {

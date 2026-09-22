@@ -136,14 +136,26 @@ describe('engineSendTemplate', () => {
         contactId: 'contact-1',
         templateName: 'gym_membership_renewal',
         language: 'en_US',
-        params: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
+        params: [
+          'Rahul',
+          'Quarterly',
+          '20 Sep 2026',
+          '₹3,999',
+          'FitZone Wellness Private Limited',
+        ],
       })
     ).rejects.toThrow('Meta template reached');
     expect(h.sendTemplateMessage).toHaveBeenCalledOnce();
   });
 
   it('uses parameter facts refreshed by the final beforeSend check', async () => {
-    const params = ['Asha', 'Gold', '20 Sep 2026', '₹1,000'];
+    const params = [
+      'Asha',
+      'Gold',
+      '20 Sep 2026',
+      '₹1,000',
+      'FitZone Wellness Private Limited',
+    ];
     h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.fresh' });
 
     await engineSendTemplate({
@@ -162,7 +174,57 @@ describe('engineSendTemplate', () => {
 
     expect(h.sendTemplateMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        params: ['Asha', 'Gold Plus', '20 Sep 2026', '₹1,250'],
+        params: [
+          'Asha',
+          'Gold Plus',
+          '20 Sep 2026',
+          '₹1,250',
+          'FitZone Wellness Private Limited',
+        ],
+      })
+    );
+  });
+
+  it('passes dynamic URL button parameters through the structured send path', async () => {
+    const row: MessageTemplate = {
+      ...membershipRow(),
+      name: 'gym_payment_link',
+      category: 'Utility',
+      body_text:
+        'Hi {{1}}, {{2}} is due for invoice {{3}}. The payment link expires on {{4}}. Use the button below to pay. This message is from {{5}}.',
+      buttons: [
+        {
+          type: 'URL',
+          text: 'Pay invoice',
+          url: 'https://rzp.io/{{1}}',
+          example: 'i/abc123',
+        },
+      ],
+    };
+    h.db = automationDb(row);
+    h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.link' });
+    const body = [
+      'Asha',
+      '₹2,700',
+      'INV-1024',
+      '20 Sep 2026, 6:00 pm',
+      'FitZone Wellness Private Limited',
+    ];
+
+    await engineSendTemplate({
+      accountId: 'account-1',
+      userId: 'user-1',
+      conversationId: 'conversation-1',
+      contactId: 'contact-1',
+      templateName: 'gym_payment_link',
+      language: 'en_US',
+      params: body,
+      messageParams: { body, buttonParams: { 0: 'i/abc123' } },
+    });
+
+    expect(h.sendTemplateMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageParams: { body, buttonParams: { 0: 'i/abc123' } },
       })
     );
   });
@@ -179,7 +241,13 @@ describe('engineSendTemplate', () => {
       contactId: 'contact-1',
       templateName: 'gym_membership_renewal',
       language: 'en_US',
-      params: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
+      params: [
+        'Rahul',
+        'Quarterly',
+        '20 Sep 2026',
+        '₹3,999',
+        'FitZone Wellness Private Limited',
+      ],
     });
 
     const text = captured.message?.content_text as string;
@@ -208,7 +276,13 @@ describe('engineSendTemplate', () => {
         contactId: 'contact-1',
         templateName: 'gym_membership_renewal',
         language: 'en_US',
-        params: ['Rahul', 'Quarterly', '20 Sep 2026', '₹3,999'],
+        params: [
+          'Rahul',
+          'Quarterly',
+          '20 Sep 2026',
+          '₹3,999',
+          'FitZone Wellness Private Limited',
+        ],
       })
     ).rejects.toMatchObject({
       name: 'MetaAcceptedPersistenceError',

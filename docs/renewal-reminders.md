@@ -35,12 +35,12 @@ default Utility lifecycle. It has its own exact contracts and operational
 rules in [invoice collection reminders](invoice-collection-reminders.md); do
 not substitute a renewal template for a debt reminder.
 
-| Feature            | Exact template               | Category  | Body parameters                                            |
-| ------------------ | ---------------------------- | --------- | ---------------------------------------------------------- |
-| Membership renewal | `gym_membership_renewal`     | Marketing | member name, plan name, end date, current renewal price    |
-| Service renewal    | `gym_service_renewal`        | Marketing | member name, service name, end date, current renewal price |
-| Expired membership | `gym_membership_post_expiry` | Marketing | member name, plan name, end date, current renewal price    |
-| Expired service    | `gym_service_post_expiry`    | Marketing | member name, service name, end date, current renewal price |
+| Feature            | Exact template               | Category  | Body parameters                                                                 |
+| ------------------ | ---------------------------- | --------- | ------------------------------------------------------------------------------- |
+| Membership renewal | `gym_membership_renewal`     | Marketing | member name, plan name, end date, current renewal price, legal business name    |
+| Service renewal    | `gym_service_renewal`        | Marketing | member name, service name, end date, current renewal price, legal business name |
+| Expired membership | `gym_membership_post_expiry` | Marketing | member name, plan name, end date, current renewal price, legal business name    |
+| Expired service    | `gym_service_post_expiry`    | Marketing | member name, service name, end date, current renewal price, legal business name |
 
 These categories are intentional. An ending membership or service is an
 existing relationship, but asking the member to buy its next term promotes a
@@ -50,31 +50,39 @@ future purchase. Neither template is a Utility account update.
 
 `gym_membership_renewal` body:
 
-> Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price
-> of {{4}} will continue your membership. Use the button below to respond.
+> Hi {{1}}, your {{2}} membership ends on {{3}}. The current renewal price is
+>
+> {{4}}. Reply using the button if you would like help renewing. This message
+> is from {{5}}.
 
-Button: `Renew membership`.
+Button: `Help me renew`.
 
 `gym_service_renewal` body:
 
-> Hi {{1}}, your {{2}} service ends on {{3}}. Renewing at the current price of
-> {{4}} will continue this service. Use the button below to respond.
+> Hi {{1}}, your {{2}} service ends on {{3}}. The current renewal price is
+>
+> {{4}}. Reply using the button if you would like help renewing. This message
+> is from {{5}}.
 
-Button: `Renew service`.
+Button: `Help me renew`.
 
 `gym_membership_post_expiry` body:
 
-> Hi {{1}}, your {{2}} membership ended on {{3}}. You can renew at the current
-> price of {{4}}. Use the button below and our team will help.
+> Hi {{1}}, your {{2}} membership ended on {{3}}. The current renewal price is
+>
+> {{4}}. Reply using the button if you would like help renewing. This message
+> is from {{5}}.
 
-Button: `Renew membership`.
+Button: `Help me renew`.
 
 `gym_service_post_expiry` body:
 
-> Hi {{1}}, your {{2}} service ended on {{3}}. You can renew at the current
-> price of {{4}}. Use the button below and our team will help.
+> Hi {{1}}, your {{2}} service ended on {{3}}. The current renewal price is
+>
+> {{4}}. Reply using the button if you would like help renewing. This message
+> is from {{5}}.
 
-Button: `Renew service`.
+Button: `Help me renew`.
 
 These exact Marketing contracts have no footer and keep only the affirmative
 reply action. UsefulDesk still records legacy inbound opt-out commands and old
@@ -84,6 +92,11 @@ does. All use POSITIONAL parameters. Dates and money are rendered with the
 account locale. The exact payloads live in
 `src/lib/whatsapp/template-contracts.ts`; do not restate or edit them at a
 sender.
+
+Every wired feature contract ends with the account's canonical legal-business
+identity, resolved from its linked legal entity (`legal_name`, then `name`). A
+missing or unreadable identity blocks the send with a structured setup reason;
+senders never substitute a product or placeholder brand.
 
 ## Readiness and provider review
 
@@ -104,8 +117,8 @@ contracts are `gym_membership_renewal`, `gym_service_renewal`,
 `gym_membership_post_expiry`, `gym_service_post_expiry`,
 `gym_session_pack_low`, `gym_session_pack_used`,
 `gym_membership_win_back`, and `gym_service_win_back`. The manual gallery
-presets `gym_win_back` and `gym_festival_offer` follow the same honest
-single-reply contract. UsefulDesk does not submit or modify provider templates
+preset `gym_festival_offer` follows the same honest single-reply contract.
+UsefulDesk does not submit or modify provider templates
 automatically as part of this code change.
 After a complete provider snapshot, a previously synced row that Meta no longer
 returns is retained as **Not on Meta** and disabled. A pagination-capped sync
@@ -254,9 +267,12 @@ send, not link creation, and never creates or replaces a provider link.
 The same lifecycle worker also consumes committed transaction facts. An
 `AFTER INSERT` ledger trigger creates a confirmation job keyed by the exact
 `payments.id` while the confirmation setting is enabled; it does not scan or
-backfill older payments. The confirmation says a payment renewed membership
-only when its idempotency key is the matching durable renewal operation. A
-payment-only arrears settlement never claims a new active-until date. Receipts
+backfill older payments. The generic `gym_payment_confirmation` contract
+reports only the member, amount, and invoice. The separate
+`gym_payment_membership_renewal_confirmation` contract includes the new
+membership end date and is selected only when the payment's idempotency key is
+the matching durable renewal operation. A payment-only arrears settlement never
+claims a new active-until date. Receipts
 and retry updates do not reserve the one-per-day chasing slot; terminal
 manual-fallback collection does, while all keep the normal queue lease and
 pre-provider attempt boundary.
@@ -274,7 +290,8 @@ visible as a staff-review outcome, never invented or inferred from a latest
 invoice.
 
 Both schedules are independently off by default. The exact new Utility
-contracts (`gym_payment_confirmation`, `gym_autopay_retry_update`, and
+contracts (`gym_payment_confirmation`,
+`gym_payment_membership_renewal_confirmation`, `gym_autopay_retry_update`, and
 `gym_autopay_payment_help`) must be Approved and synced before any enabled job
 can send. Provider acceptance remains distinct from delivery/read status.
 

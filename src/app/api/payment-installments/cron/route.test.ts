@@ -31,6 +31,12 @@ vi.mock('@/lib/cron/auth', () => ({
 vi.mock('@/lib/platform-access/server', () => ({
   requireProductAccess: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock('@/lib/whatsapp/legal-business-name', () => ({
+  loadLegalBusinessName: vi.fn().mockResolvedValue({
+    ok: true,
+    name: 'FitZone Wellness Private Limited',
+  }),
+}));
 vi.mock('@/lib/locale/config', () => ({
   resolveAccountLocale: () => ({ timeZone: 'Asia/Kolkata' }),
 }));
@@ -310,7 +316,13 @@ describe('GET /api/payment-installments/cron current eligibility boundary', () =
     expect(body).toMatchObject({ sent: 1, accepted: 1, failed: 0 });
     expect(h.providerCalls).toBe(1);
     expect(h.sentParams).toEqual([
-      ['Asha', 'money:250', 'Gold', 'date:2026-09-11'],
+      [
+        'Asha',
+        'money:250',
+        'Gold',
+        'date:2026-09-11',
+        'FitZone Wellness Private Limited',
+      ],
     ]);
     expect(h.writes).toContainEqual(
       expect.objectContaining({

@@ -6,6 +6,22 @@
 
 ---
 
+## 2026-09-21 — WhatsApp feature-template audit cutover
+
+The central WhatsApp contract library now uses concise, legally attributable
+feature messages and retires duplicate/unsafe presets. Promise reminders and
+payment confirmations have truthful event-specific contracts; Razorpay payment
+links use an exact dynamic URL button instead of placing the URL in the body.
+Every wired sender resolves the final legal-business-name parameter from the
+account legal entity and blocks with a structured setup code when it is absent.
+Exact readiness and activation tuples live in
+`supabase/migrations/20260921230000_whatsapp_template_audit_cutover.sql`; the
+migration was authored but not applied. Key code:
+`src/lib/whatsapp/template-contracts.ts`,
+`src/lib/whatsapp/legal-business-name.ts`,
+`src/lib/payments/payment-link-template.ts`, and the renewal/installment/
+lifecycle transaction senders.
+
 ## 2026-09-21 — Branch owners can rename their branches
 
 Settings → Organization & branches now gives an owner of each branch a **Rename

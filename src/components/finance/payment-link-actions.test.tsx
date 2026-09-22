@@ -460,4 +460,40 @@ describe('PaymentLinkActions readiness', () => {
       )
     );
   });
+
+  it('sends the Razorpay suffix as a dynamic URL-button parameter', async () => {
+    renderActions();
+    await resolveReadiness();
+    fetchPaymentLink
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          link: {
+            id: 'link-id',
+            revision: 1,
+            shortUrl: 'https://rzp.io/i/invoice-42',
+            expiresAt: '2026-08-22T08:45:00.000Z',
+            status: 'created',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Send payment link' })
+    );
+
+    await waitFor(() => expect(fetchPaymentLink).toHaveBeenCalledTimes(3));
+    const sendRequest = fetchPaymentLink.mock.calls[2];
+    expect(sendRequest[0]).toBe('/api/whatsapp/send');
+    expect(JSON.parse(String(sendRequest[1]?.body))).toMatchObject({
+      template_message_params: {
+        body: ['Member', '₹50', '#INVOICE', '2026-08-22T08:45:00.000Z'],
+        buttonParams: { 0: 'i/invoice-42' },
+      },
+    });
+  });
 });

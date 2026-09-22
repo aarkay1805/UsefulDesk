@@ -68,7 +68,11 @@ describe('resolveTemplateSendPolicy', () => {
     ).toThrow(TemplateSendPolicyError);
     try {
       resolveTemplateSendPolicy(
-        [membershipRow({ body_text: 'Different {{1}} {{2}} {{3}} {{4}}.' })],
+        [
+          membershipRow({
+            body_text: 'Different {{1}} {{2}} {{3}} {{4}} {{5}}.',
+          }),
+        ],
         'gym_membership_renewal',
         'en_US'
       );

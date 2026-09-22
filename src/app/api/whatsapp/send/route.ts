@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     } catch (err) {
       if (err instanceof SendMessageError) {
         return NextResponse.json(
-          { error: err.message },
+          { error: err.message, code: err.code },
           { status: err.status }
         );
       }
@@ -153,18 +153,17 @@ export async function POST(request: Request) {
         typeof payment_link_id === 'string' &&
         result.whatsappMessageId
       ) {
-        const { data: linkSendRecorded, error: linkSendError } = await supabase.rpc(
-          'record_payment_link_whatsapp_send',
-          {
+        const { data: linkSendRecorded, error: linkSendError } =
+          await supabase.rpc('record_payment_link_whatsapp_send', {
             p_link_id: payment_link_id,
             p_whatsapp_message_id: result.whatsappMessageId,
-          }
-        );
+          });
         paymentLinkSendRecorded = linkSendRecorded === true;
         if (linkSendError || !paymentLinkSendRecorded) {
           console.error(
             'Payment Link send evidence was not recorded:',
-            linkSendError?.message ?? 'the persisted message did not match this active invoice link'
+            linkSendError?.message ??
+              'the persisted message did not match this active invoice link'
           );
         }
       }
@@ -173,7 +172,9 @@ export async function POST(request: Request) {
         success: true,
         message_id: result.messageId,
         whatsapp_message_id: result.whatsappMessageId,
-        ...(paymentLinkSendRecorded === undefined ? {} : { payment_link_send_recorded: paymentLinkSendRecorded }),
+        ...(paymentLinkSendRecorded === undefined
+          ? {}
+          : { payment_link_send_recorded: paymentLinkSendRecorded }),
       });
     } catch (err) {
       if (err instanceof SendMessageError) {
@@ -187,7 +188,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof SendMessageError) {
       return NextResponse.json(
-        { error: error.message },
+        { error: error.message, code: error.code },
         { status: error.status }
       );
     }

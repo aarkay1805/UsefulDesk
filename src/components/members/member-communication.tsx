@@ -65,6 +65,18 @@ const TEMPLATE_REASONS: Record<string, { type: string; subject: string }> = {
     type: 'Payment confirmation',
     subject: 'Recorded payment — exact amount and transaction outcome',
   },
+  gym_payment_membership_renewal_confirmation: {
+    type: 'Renewal payment confirmation',
+    subject: 'Recorded renewal payment — invoice and new membership end date',
+  },
+  gym_payment_promise_upcoming: {
+    type: 'Payment promise reminder',
+    subject: 'Upcoming promised payment — invoice, amount and planned date',
+  },
+  gym_payment_promise_missed: {
+    type: 'Missed payment promise',
+    subject: 'Past promised payment date — balance remains unpaid',
+  },
   gym_autopay_retry_update: {
     type: 'AutoPay retry update',
     subject: 'Verified AutoPay retry — no manual payment requested',

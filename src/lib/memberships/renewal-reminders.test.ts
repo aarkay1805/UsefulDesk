@@ -9,6 +9,7 @@ import {
   selectRenewalTemplate,
   type RenewalTemplateReadinessRow,
 } from './renewal-reminders';
+import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 describe('normalizeDaysBefore', () => {
   it('sorts ascending and de-duplicates', () => {
@@ -55,16 +56,16 @@ describe('isRemindableStatus', () => {
 
 describe('isRenewalTemplateReady', () => {
   it('accepts only the exact approved Marketing membership-renewal contract', () => {
+    const payload = TEMPLATE_CONTRACTS.membership_renewal.payload;
     expect(
       isRenewalTemplateReady({
-        name: 'gym_membership_renewal',
-        language: 'en_US',
+        name: payload.name,
+        language: payload.language,
         status: 'APPROVED',
-        category: 'Marketing',
+        category: payload.category,
         parameter_format: 'POSITIONAL',
-        body_text:
-          'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
-        buttons: [{ type: 'QUICK_REPLY', text: 'Renew membership' }],
+        body_text: payload.body_text,
+        buttons: payload.buttons,
       })
     ).toBe(true);
     expect(
@@ -85,15 +86,15 @@ describe('isRenewalTemplateReady', () => {
   });
 
   it('does not treat retired Utility renewal names as a fallback', () => {
+    const payload = TEMPLATE_CONTRACTS.membership_renewal.payload;
     const current: RenewalTemplateReadinessRow = {
-      name: 'gym_membership_renewal',
-      language: 'en_US',
+      name: payload.name,
+      language: payload.language,
       status: 'APPROVED',
-      category: 'Marketing',
+      category: payload.category,
       parameter_format: 'POSITIONAL',
-      body_text:
-        'Hi {{1}}, your {{2}} membership ends on {{3}}. Renewing at the current price of {{4}} will continue your membership. Use the button below to respond.',
-      buttons: [{ type: 'QUICK_REPLY' as const, text: 'Renew membership' }],
+      body_text: payload.body_text,
+      buttons: payload.buttons,
     };
 
     expect(

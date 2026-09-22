@@ -99,6 +99,23 @@ function dbForTemplate(row: MessageTemplate): SupabaseClient {
           }),
         };
       }
+      if (table === 'accounts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: {
+                    legal_entity: {
+                      legal_name: 'FitZone Wellness Private Limited',
+                    },
+                  },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
       throw new Error(`Unexpected table ${table}`);
     },
   } as unknown as SupabaseClient;

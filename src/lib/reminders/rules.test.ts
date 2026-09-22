@@ -13,7 +13,7 @@ import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 const migration = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260920120000_truthful_marketing_template_contracts.sql'
+    'supabase/migrations/20260921230000_whatsapp_template_audit_cutover.sql'
   ),
   'utf8'
 );
@@ -90,7 +90,8 @@ describe('reminder activation SQL contract', () => {
     'service_post_expiry',
     'invoice_due',
     'invoice_overdue',
-    'payment_promise_reminder',
+    'payment_promise_upcoming',
+    'payment_promise_missed',
     'payment_link',
     'autopay_recovery_pending',
     'autopay_recovery_terminal',
@@ -100,6 +101,7 @@ describe('reminder activation SQL contract', () => {
     'membership_win_back',
     'service_win_back',
     'payment_confirmation',
+    'payment_membership_renewal_confirmation',
   ] as const;
 
   const escapeRegex = (value: string) =>

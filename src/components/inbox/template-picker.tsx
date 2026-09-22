@@ -31,14 +31,17 @@ import {
 } from 'lucide-react';
 import { extractVariableIndices } from '@/lib/whatsapp/template-validators';
 import { useLocale } from '@/hooks/use-locale';
+import { useAuth } from '@/hooks/use-auth';
 import { useApprovedMessageTemplates } from './use-approved-message-templates';
 import {
   getTemplateSendPresentation,
   membershipRenewalDefaults,
-  paymentDueDefaults,
   paymentLinkDefaults,
   serviceRenewalDefaults,
 } from '@/lib/whatsapp/template-send-presentation';
+import { getTemplateContract } from '@/lib/whatsapp/template-contracts';
+import { loadLegalBusinessName } from '@/lib/whatsapp/legal-business-name';
+import { paymentLinkButtonParam } from '@/lib/payments/payment-link-template';
 
 export interface TemplateSendValues {
   body: string[];
@@ -104,6 +107,7 @@ export function TemplatePicker({
   contact,
 }: TemplatePickerProps) {
   const { fmt } = useLocale();
+  const { accountId } = useAuth();
   const { templates, loading } = useApprovedMessageTemplates(open);
   const [selected, setSelected] = useState<MessageTemplate | null>(null);
   const [params, setParams] = useState<string[]>([]);
@@ -155,6 +159,37 @@ export function TemplatePicker({
     if (memberNameIndex >= 0) {
       initialParams[memberNameIndex] = contact?.name?.trim() ?? '';
     }
+    let legalBusinessName = '';
+    const contract = getTemplateContract(template.name);
+    if (contract?.wired) {
+      setResolving(true);
+      if (!accountId) {
+        setResolving(false);
+        setParams(initialParams);
+        setEditing(true);
+        setContextMessage(
+          'The account legal business identity is unavailable.'
+        );
+        return;
+      }
+      const legalIdentity = await loadLegalBusinessName(
+        createClient() as unknown as Parameters<
+          typeof loadLegalBusinessName
+        >[0],
+        accountId
+      );
+      if (selectionRequestRef.current !== requestId) return;
+      if (!legalIdentity.ok) {
+        setResolving(false);
+        setParams(initialParams);
+        setEditing(true);
+        setContextMessage(`Template send blocked: ${legalIdentity.code}.`);
+        return;
+      }
+      legalBusinessName = legalIdentity.name;
+      initialParams[initialParams.length - 1] = legalBusinessName;
+      setResolving(false);
+    }
     setParams(initialParams);
     setHeaderText('');
     setButtonParams({});
@@ -193,6 +228,7 @@ export function TemplatePicker({
         contact.name,
         fmt
       );
+      nextParams.push(legalBusinessName);
       const hasCurrentPrice = nextParams[3].trim().length > 0;
       setParams(nextParams);
       setEditing(!hasCurrentPrice);
@@ -204,9 +240,7 @@ export function TemplatePicker({
       return;
     }
 
-    const resolvesInvoice =
-      presentation.contextKind === 'payment_due' ||
-      presentation.contextKind === 'payment_link';
+    const resolvesInvoice = presentation.contextKind === 'payment_link';
     if (resolvesInvoice && contact?.id) {
       setResolving(true);
       const supabase = createClient();
@@ -255,18 +289,9 @@ export function TemplatePicker({
 
       const membership = membershipResponse.data as Membership;
       const invoice = invoices[0];
-      if (presentation.contextKind === 'payment_due') {
-        setResolving(false);
-        setParams(paymentDueDefaults(membership, contact.name, invoice, fmt));
-        setContextMessage(
-          `Ready to send using ${contact.name?.trim() || 'this contact'}’s latest open invoice.`
-        );
-        return;
-      }
-
       const { data: paymentLink } = await supabase
         .from('razorpay_payment_links')
-        .select('short_url')
+        .select('short_url, expires_at')
         .eq('invoice_id', invoice.id)
         .eq('status', 'created')
         .maybeSingle();
@@ -276,16 +301,25 @@ export function TemplatePicker({
         membership,
         contact.name,
         invoice,
-        paymentLink?.short_url,
+        paymentLink?.expires_at,
         fmt
       );
+      nextParams.push(legalBusinessName);
       setParams(nextParams);
-      const hasActiveLink = nextParams[3].trim().length > 0;
+      let hasActiveLink = false;
+      if (paymentLink?.short_url && paymentLink.expires_at) {
+        try {
+          setButtonParams({ 0: paymentLinkButtonParam(paymentLink.short_url) });
+          hasActiveLink = true;
+        } catch {
+          setButtonParams({});
+        }
+      }
       setEditing(!hasActiveLink);
       setContextMessage(
         hasActiveLink
           ? `Ready to send using ${contact.name?.trim() || 'this contact'}’s active payment link.`
-          : 'No active payment link was found. Create one from Business → Invoices, or enter a complete URL below.'
+          : 'No active payment link was found. Create one from Business → Invoices before sending this template.'
       );
       return;
     }
@@ -322,6 +356,7 @@ export function TemplatePicker({
       contact.name,
       fmt
     );
+    nextParams.push(legalBusinessName);
     setParams(nextParams);
     const hasAllValues = nextParams.every((value) => value.trim().length > 0);
     setEditing(!hasAllValues);
@@ -521,6 +556,11 @@ export function TemplatePicker({
                         presentation?.parameterLabels[i] ??
                         `message detail ${i + 1}`
                       ).toLowerCase()}`}
+                      disabled={
+                        presentation?.parameterLabels[i] ===
+                          'Legal business name' ||
+                        presentation?.contextKind === 'payment_link'
+                      }
                     />
                   </div>
                 ) : null
@@ -541,6 +581,7 @@ export function TemplatePicker({
                       }))
                     }
                     placeholder="URL suffix value"
+                    disabled={presentation?.contextKind === 'payment_link'}
                   />
                   <p className="text-muted-foreground text-[11px] break-all">
                     Final URL:{' '}

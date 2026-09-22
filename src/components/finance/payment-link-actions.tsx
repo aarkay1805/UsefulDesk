@@ -19,6 +19,7 @@ import {
 } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import { PAYMENT_LINK_TEMPLATE_NAME } from '@/lib/payments/payment-link-constants';
+import { paymentLinkButtonParam } from '@/lib/payments/payment-link-template';
 import { createClient } from '@/lib/supabase/client';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 import type { Membership } from '@/types';
@@ -304,7 +305,7 @@ export function PaymentLinkActions({
         member.contact?.name?.trim() || 'there',
         fmt.money(invoice.balance),
         invoice.reference,
-        next.shortUrl!,
+        fmt.dateTime(next.expiresAt ?? next.expires_at!),
       ];
       const response = await fetch('/api/whatsapp/send', {
         method: 'POST',
@@ -314,7 +315,10 @@ export function PaymentLinkActions({
           message_type: 'template',
           template_name: PAYMENT_LINK_TEMPLATE_NAME,
           template_language: templateLanguage,
-          template_message_params: { body: params },
+          template_message_params: {
+            body: params,
+            buttonParams: { 0: paymentLinkButtonParam(next.shortUrl!) },
+          },
           template_params: params,
           payment_link_id: next.id,
         }),
@@ -326,7 +330,9 @@ export function PaymentLinkActions({
         );
       }
       if (body.payment_link_send_recorded === false) {
-        toast.warning('Payment link was sent, but follow-up evidence was not recorded. The link remains available to copy.');
+        toast.warning(
+          'Payment link was sent, but follow-up evidence was not recorded. The link remains available to copy.'
+        );
       } else {
         toast.success('Payment link sent on WhatsApp');
       }

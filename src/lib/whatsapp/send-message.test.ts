@@ -240,6 +240,22 @@ function invoiceSendDb(
               }),
             }),
           };
+        case 'accounts':
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: {
+                      legal_entity: {
+                        legal_name: 'FitZone Wellness Private Limited',
+                      },
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
         case 'messages':
           return {
             insert: (payload: Record<string, unknown>) => {
@@ -372,11 +388,20 @@ describe('sendMessageToConversation — stable invoice history media', () => {
         templateName: 'gym_invoice_document',
         messageParams: {
           headerMediaUrl: signedUrl,
-          body: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
+          body: [
+            'Asha',
+            'INV-000042',
+            '₹2,500.00',
+            'FitZone Wellness Private Limited',
+          ],
         },
       })
     );
     expect(captured.inserted?.media_url).toBe(persistedMediaUrl);
+    expect(captured.inserted?.content_text).toContain(
+      'FitZone Wellness Private Limited'
+    );
+    expect(captured.inserted?.content_text).not.toContain('FitZone Gym');
   });
 });
 

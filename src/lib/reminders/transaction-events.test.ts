@@ -136,6 +136,7 @@ async function run(
       week_start: 1,
       phone_country_code: '+91',
       measurement_system: 'metric',
+      legalBusinessName: 'FitZone Wellness Private Limited',
     },
     now: new Date('2026-09-11T10:00:00.000Z'),
     finish,
@@ -177,12 +178,7 @@ describe('transaction lifecycle event worker', () => {
     expect(h.send).toHaveBeenCalledWith(
       expect.objectContaining({
         templateName: 'gym_payment_confirmation',
-        params: [
-          'Asha',
-          '₹500',
-          'INV-1',
-          'This payment confirmation does not confirm a membership renewal.',
-        ],
+        params: ['Asha', '₹500', 'INV-1', 'FitZone Wellness Private Limited'],
       })
     );
     expect(h.attempts).toHaveBeenCalledOnce();
@@ -213,9 +209,14 @@ describe('transaction lifecycle event worker', () => {
     );
     expect(h.send).toHaveBeenCalledWith(
       expect.objectContaining({
-        params: expect.arrayContaining([
-          'This payment renewed your membership until 2026-12-20.',
-        ]),
+        templateName: 'gym_payment_membership_renewal_confirmation',
+        params: [
+          'Asha',
+          '₹500',
+          'INV-1',
+          '2026-12-20',
+          'FitZone Wellness Private Limited',
+        ],
       })
     );
   });
@@ -272,6 +273,7 @@ describe('transaction lifecycle event worker', () => {
         week_start: 1,
         phone_country_code: '+91',
         measurement_system: 'metric',
+        legalBusinessName: 'FitZone Wellness Private Limited',
       },
       now: new Date('2026-09-11T10:00:00.000Z'),
       finish,
@@ -315,7 +317,14 @@ describe('transaction lifecycle event worker', () => {
     );
     expect(result).toBe('accepted');
     expect(h.send).toHaveBeenCalledWith(
-      expect.objectContaining({ templateName: 'gym_autopay_retry_update' })
+      expect.objectContaining({
+        templateName: 'gym_autopay_retry_update',
+        params: [
+          'there',
+          'your membership',
+          'FitZone Wellness Private Limited',
+        ],
+      })
     );
   });
 
@@ -401,7 +410,7 @@ describe('transaction lifecycle event worker', () => {
     expect(h.send).toHaveBeenCalledWith(
       expect.objectContaining({
         templateName: 'gym_autopay_payment_help',
-        params: ['Asha', 'INV-1', '₹350'],
+        params: ['Asha', 'INV-1', '₹350', 'FitZone Wellness Private Limited'],
       })
     );
   });
