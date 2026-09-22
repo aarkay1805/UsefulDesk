@@ -36,6 +36,7 @@ import {
   canViewAutomatedMessageRules,
   canEditAuthoredContent,
   canCompleteBranchSetup,
+  canCompleteOrganizationNameSetup,
   canClearConversationUnread,
   canManageMembers,
   canManageInvoiceProfile,
@@ -196,6 +197,12 @@ describe('capability predicates', () => {
     expect(canCompleteBranchSetup('admin')).toBe(true);
     expect(canCompleteBranchSetup('agent')).toBe(false);
     expect(canCompleteBranchSetup('viewer')).toBe(false);
+  });
+
+  it('canCompleteOrganizationNameSetup: organization and branch owner only', () => {
+    expect(canCompleteOrganizationNameSetup('owner', 'owner')).toBe(true);
+    expect(canCompleteOrganizationNameSetup('owner', 'admin')).toBe(false);
+    expect(canCompleteOrganizationNameSetup(null, 'owner')).toBe(false);
   });
 
   describe('authored content', () => {

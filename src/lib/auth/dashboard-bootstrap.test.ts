@@ -31,6 +31,7 @@ const branch = {
   is_organization_owner: true,
   setup_reviewed_at: null,
   setup_reviewed_by: null,
+  organization_name_setup_completed_at: '2026-09-21T10:00:00.000Z',
 };
 
 const account = {
@@ -132,6 +133,8 @@ describe('dashboard auth bootstrap', () => {
       branches: [{ account_id: ACCOUNT_ID }],
       branchAccessError: null,
       accountStatusDetail: null,
+      organizationNameSetupState: 'complete',
+      branchAccessStatus: 'ready',
     });
   });
 
@@ -196,5 +199,37 @@ describe('dashboard auth bootstrap', () => {
     expect(from.mock.calls.filter(([table]) => table === 'accounts')).toEqual(
       []
     );
+  });
+
+  it('preserves an explicit null completion timestamp as pending', async () => {
+    const { db } = createDb({
+      branches: [{ ...branch, organization_name_setup_completed_at: null }],
+    });
+
+    const result = await loadDashboardAuthBootstrap(db, 'user-1', null);
+
+    expect(result.organizationNameSetupState).toBe('pending');
+    expect(result.branchAccessError).toBeNull();
+    expect(result.account?.id).toBe(ACCOUNT_ID);
+    expect(result.branchAccessStatus).toBe('ready');
+  });
+
+  it.each([
+    (() => {
+      const row = { ...branch } as Record<string, unknown>;
+      delete row.organization_name_setup_completed_at;
+      return row;
+    })(),
+    { ...branch, organization_name_setup_completed_at: 'invalid' },
+  ])('fails closed when the completion field is unavailable', async (row) => {
+    const { db } = createDb({ branches: [row] });
+
+    const result = await loadDashboardAuthBootstrap(db, 'user-1', null);
+
+    expect(result.organizationNameSetupState).toBe('unavailable');
+    expect(result.branchAccessError).toBe(
+      'Could not verify your gym setup. Please retry.'
+    );
+    expect(result.account?.id).toBe(ACCOUNT_ID);
   });
 });

@@ -4,6 +4,10 @@ import { DEFAULT_CURRENCY } from '@/lib/currency';
 import { isAccountRole, type AccountRole } from '@/lib/auth/roles';
 import { isBranchAccountId } from '@/lib/auth/branch-context';
 import { retryProfileLookup } from '@/lib/auth/account-recovery';
+import {
+  readOrganizationNameSetupState,
+  type OrganizationNameSetupState,
+} from '@/lib/auth/name-setup';
 import { isMode, isThemeId, type Mode, type ThemeId } from '@/lib/themes';
 
 export interface Profile {
@@ -56,6 +60,7 @@ export interface BranchAccount {
   is_organization_owner: boolean;
   setup_reviewed_at: string | null;
   setup_reviewed_by: string | null;
+  organization_name_setup_completed_at?: unknown;
 }
 
 interface ProfileRow {
@@ -80,16 +85,22 @@ export interface DashboardAuthBootstrap {
   branches: BranchAccount[];
   branchAccessError: string | null;
   accountStatusDetail: string | null;
+  organizationNameSetupState: OrganizationNameSetupState;
+  branchAccessStatus:
+    'ready' | 'invalid' | 'forbidden' | 'unavailable' | 'archived' | 'missing';
 }
 
 const emptyBootstrap = (
-  accountStatusDetail: string | null = null
+  accountStatusDetail: string | null = null,
+  branchAccessStatus: DashboardAuthBootstrap['branchAccessStatus'] = 'unavailable'
 ): DashboardAuthBootstrap => ({
   profile: null,
   account: null,
   branches: [],
   branchAccessError: null,
   accountStatusDetail,
+  organizationNameSetupState: 'unavailable',
+  branchAccessStatus,
 });
 
 function baseProfile(
@@ -231,6 +242,8 @@ export async function loadDashboardAuthBootstrap(
       branchAccessError: requestedBranch
         ? 'You do not have access to this branch.'
         : 'This branch link is invalid.',
+      organizationNameSetupState: 'unavailable',
+      branchAccessStatus: requestedBranch ? 'forbidden' : 'invalid',
     };
   }
   if (selectedBranch?.branch_status === 'archived') {
@@ -239,12 +252,14 @@ export async function loadDashboardAuthBootstrap(
       branches,
       branchAccessError:
         'This branch is archived. Its retained history is available in organization reporting.',
+      branchAccessStatus: 'archived',
     };
   }
   if (!selectedBranch) {
     return {
       ...emptyBootstrap(
-        'no available branch membership for the signed-in user'
+        'no available branch membership for the signed-in user',
+        'missing'
       ),
       branches,
       branchAccessError: 'Your login is not linked to an available branch.',
@@ -290,6 +305,10 @@ export async function loadDashboardAuthBootstrap(
     };
   }
 
+  const organizationNameSetupState =
+    readOrganizationNameSetupState(selectedBranch);
+  const nameSetupUnavailable = organizationNameSetupState === 'unavailable';
+
   return {
     profile: baseProfile(
       profileResult.data,
@@ -299,7 +318,13 @@ export async function loadDashboardAuthBootstrap(
     ),
     account: accountSummary(accountRow as Record<string, unknown>),
     branches,
-    branchAccessError: null,
-    accountStatusDetail: null,
+    branchAccessError: nameSetupUnavailable
+      ? 'Could not verify your gym setup. Please retry.'
+      : null,
+    accountStatusDetail: nameSetupUnavailable
+      ? 'the organization name setup state is missing or invalid'
+      : null,
+    organizationNameSetupState,
+    branchAccessStatus: 'ready',
   };
 }

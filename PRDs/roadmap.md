@@ -1,5 +1,19 @@
 # Roadmap
 
+## Built in code — Gym name at signup (2026-09-22)
+
+Email signup supplies separate personal and business names. Google signup names
+its provisional organization through an owner-authorized transaction, with an
+authenticated completion screen for interrupted flows. The organization, legal
+entity, legal name, and first branch start with the same gym name. Invitations
+skip business naming; existing staff can sign in without owner permissions, and
+completion preserves the selected branch through retries and navigation.
+Missing completion-state data fails closed through a membership-scoped read.
+The reviewed spec is `docs/superpowers/specs/2026-09-21-gym-name-signup-design.md`.
+Production connector migration `20260921184441` and its rollback verification
+passed; all three existing organizations remain complete. Application rollout
+is pending; the completion API retains the existing product-access gate.
+
 ## Operations-ready in code — founder-led paid pilots (2026-09-20)
 
 The commercial operating path is now explicit in

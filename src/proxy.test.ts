@@ -146,6 +146,54 @@ describe('proxy authentication', () => {
     ).toBe(branch);
   });
 
+  it('forwards only the URL-derived branch to the completion page', async () => {
+    mockUser = { id: 'user-1' };
+    const branch = '00000000-0000-4000-8000-000000000001';
+
+    const res = await proxy(
+      new NextRequest(`https://app.test/complete-signup?branch=${branch}`, {
+        headers: { 'x-usefuldesk-account-id': 'forged' },
+      })
+    );
+
+    expect(
+      res.headers.get('x-middleware-request-x-usefuldesk-account-id')
+    ).toBe(branch);
+    expect(res.headers.get('location')).toBeNull();
+  });
+
+  it('marks malformed completion-page branches invalid without a fallback', async () => {
+    mockUser = { id: 'user-1' };
+
+    const res = await proxy(
+      new NextRequest('https://app.test/complete-signup?branch=forged', {
+        headers: {
+          'x-usefuldesk-account-id': '00000000-0000-4000-8000-000000000001',
+        },
+      })
+    );
+
+    expect(
+      res.headers.get('x-middleware-request-x-usefuldesk-account-id')
+    ).toBe('invalid');
+  });
+
+  it('strips a caller branch header from a bare completion page', async () => {
+    mockUser = { id: 'user-1' };
+
+    const res = await proxy(
+      new NextRequest('https://app.test/complete-signup', {
+        headers: {
+          'x-usefuldesk-account-id': '00000000-0000-4000-8000-000000000001',
+        },
+      })
+    );
+
+    expect(
+      res.headers.get('x-middleware-request-x-usefuldesk-account-id')
+    ).toBeNull();
+  });
+
   it('removes a caller-authored tenant header from non-dashboard requests', async () => {
     mockUser = { id: 'user-1' };
 

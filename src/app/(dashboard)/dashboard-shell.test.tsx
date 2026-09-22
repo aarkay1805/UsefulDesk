@@ -73,6 +73,8 @@ const SERVER_PROPS = {
     branches: [],
     branchAccessError: null,
     accountStatusDetail: null,
+    organizationNameSetupState: 'complete' as const,
+    branchAccessStatus: 'ready' as const,
   },
 };
 

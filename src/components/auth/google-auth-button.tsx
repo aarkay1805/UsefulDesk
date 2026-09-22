@@ -12,6 +12,15 @@ import {
   type GoogleNonce,
 } from '@/lib/auth/google-identity';
 import { navigateAfterLogin } from '@/lib/auth/post-login-navigation';
+import { normalizeGymName } from '@/lib/auth/gym-name';
+import {
+  clearGymNameDraft,
+  completeSignup,
+  navigateToCompletedBranch,
+  navigateToCompletion,
+  resolveAuthenticatedDefaultBranch,
+  saveGymNameDraft,
+} from '@/lib/auth/complete-signup-client';
 
 type GoogleCredentialResponse = {
   credential?: string;
@@ -54,11 +63,13 @@ type Phase = 'loading' | 'ready' | 'waiting' | 'exchanging' | 'script-error';
 type GoogleAuthButtonProps = {
   inviteToken: string | null;
   onErrorChange: (message: string | null) => void;
+  gymName?: string;
 };
 
 export function GoogleAuthButton({
   inviteToken,
   onErrorChange,
+  gymName,
 }: GoogleAuthButtonProps) {
   const { mode } = useTheme();
   const [phase, setPhase] = useState<Phase>('loading');
@@ -68,9 +79,12 @@ export function GoogleAuthButton({
   const phaseRef = useRef<Phase>('loading');
   const preparationRef = useRef(0);
   const popupBlurredRef = useRef(false);
+  const signupGymNameAttemptRef = useRef<string | null>(null);
 
   const enabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === 'true';
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const requiresSignupCompletion = gymName !== undefined;
+  const normalizedGymName = normalizeGymName(gymName);
 
   const prepareAttempt = useCallback(
     async (preferFedcm = true) => {
@@ -80,6 +94,7 @@ export function GoogleAuthButton({
       phaseRef.current = 'loading';
       setPhase('loading');
       popupBlurredRef.current = false;
+      signupGymNameAttemptRef.current = null;
 
       try {
         const nextAttempt = await generateGoogleNonce();
@@ -118,6 +133,14 @@ export function GoogleAuthButton({
         }
 
         const supabase = createClient();
+        const signupGymName = requiresSignupCompletion
+          ? signupGymNameAttemptRef.current
+          : null;
+        if (requiresSignupCompletion && !signupGymName) {
+          throw new Error('Enter a valid gym name before continuing.');
+        }
+        if (signupGymName) saveGymNameDraft(signupGymName);
+
         const { data, error } = await supabase.auth.signInWithIdToken({
           provider: 'google',
           token: response.credential,
@@ -125,6 +148,31 @@ export function GoogleAuthButton({
         });
 
         if (error) throw error;
+
+        let completedAccountId: string | null = null;
+        if (requiresSignupCompletion && signupGymName) {
+          try {
+            if (!data.user) {
+              throw new Error('Google sign-in did not return a user.');
+            }
+            completedAccountId = await resolveAuthenticatedDefaultBranch(
+              supabase,
+              data.user.id
+            );
+          } catch {
+            navigateToCompletion();
+            return;
+          }
+
+          try {
+            await completeSignup(completedAccountId, signupGymName);
+          } catch {
+            navigateToCompletion(completedAccountId);
+            return;
+          }
+
+          clearGymNameDraft();
+        }
 
         // A first-time Google account may safely inherit its provider photo,
         // but only while UsefulDesk has no avatar. The first-sign-in guard
@@ -160,7 +208,11 @@ export function GoogleAuthButton({
             }
           }
         }
-        navigateAfterLogin(inviteToken);
+        if (completedAccountId) {
+          navigateToCompletedBranch(completedAccountId);
+        } else {
+          navigateAfterLogin(inviteToken);
+        }
       } catch (error) {
         onErrorChange(
           getErrorMessage(error, 'Could not sign in with Google. Try again.')
@@ -168,13 +220,22 @@ export function GoogleAuthButton({
         void prepareAttempt(attemptedWithFedcm);
       }
     },
-    [inviteToken, onErrorChange, prepareAttempt]
+    [inviteToken, onErrorChange, prepareAttempt, requiresSignupCompletion]
   );
 
   const renderGoogleButton = useCallback(() => {
     const googleIdentity = (window as GoogleWindow).google?.accounts?.id;
     const parent = buttonRef.current;
-    if (!googleIdentity || !parent || !attempt || !clientId) return;
+    if (
+      !googleIdentity ||
+      !parent ||
+      !attempt ||
+      !clientId ||
+      (requiresSignupCompletion && !normalizedGymName)
+    ) {
+      parent?.replaceChildren();
+      return;
+    }
 
     googleIdentity.initialize({
       client_id: clientId,
@@ -201,6 +262,10 @@ export function GoogleAuthButton({
         logo_alignment: 'left',
         width,
         click_listener: () => {
+          if (normalizedGymName) {
+            signupGymNameAttemptRef.current = normalizedGymName;
+            saveGymNameDraft(normalizedGymName);
+          }
           popupBlurredRef.current = false;
           phaseRef.current = 'waiting';
           setPhase('waiting');
@@ -214,12 +279,24 @@ export function GoogleAuthButton({
     const observer = new ResizeObserver(draw);
     observer.observe(parent);
     return () => observer.disconnect();
-  }, [attempt, clientId, handleCredential, mode, useFedcm]);
+  }, [
+    attempt,
+    clientId,
+    handleCredential,
+    mode,
+    normalizedGymName,
+    requiresSignupCompletion,
+    useFedcm,
+  ]);
 
   useEffect(() => {
     if (phase !== 'ready') return;
+    if (requiresSignupCompletion && !normalizedGymName) {
+      buttonRef.current?.replaceChildren();
+      return;
+    }
     return renderGoogleButton();
-  }, [phase, renderGoogleButton]);
+  }, [normalizedGymName, phase, renderGoogleButton, requiresSignupCompletion]);
 
   useEffect(() => {
     const handleBlur = () => {
@@ -265,14 +342,30 @@ export function GoogleAuthButton({
         <div
           ref={buttonRef}
           className={
-            phase === 'ready'
+            phase === 'ready' &&
+            (!requiresSignupCompletion || normalizedGymName)
               ? 'w-full'
               : 'pointer-events-none absolute inset-0 opacity-0'
           }
-          aria-hidden={phase === 'ready' ? undefined : true}
+          aria-hidden={
+            phase === 'ready' &&
+            (!requiresSignupCompletion || normalizedGymName)
+              ? undefined
+              : true
+          }
         />
 
-        {phase === 'waiting' ? (
+        {requiresSignupCompletion && !normalizedGymName ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            className="w-full"
+            disabled
+          >
+            Enter a valid gym name to continue with Google
+          </Button>
+        ) : phase === 'waiting' ? (
           <div className="flex flex-col items-center gap-2">
             <Button
               type="button"

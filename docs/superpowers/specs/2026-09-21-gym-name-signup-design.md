@@ -1,6 +1,6 @@
 # Gym name signup and business identity completion
 
-> Status: written-spec review gaps addressed; awaiting implementation
+> Status: implemented; database migration and rollback verification passed; application rollout pending
 > Date: 2026-09-21
 > Scope: separate the person’s name from the initial gym, organization, legal entity, and branch identity across email signup, Google signup, and invitation signup
 

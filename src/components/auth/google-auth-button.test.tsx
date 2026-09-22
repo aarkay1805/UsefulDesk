@@ -9,6 +9,10 @@ const signInWithIdToken = vi.hoisted(() => vi.fn());
 const updateAuthUser = vi.hoisted(() => vi.fn());
 const generateGoogleNonce = vi.hoisted(() => vi.fn());
 const navigateAfterLogin = vi.hoisted(() => vi.fn());
+const completeSignup = vi.hoisted(() => vi.fn());
+const resolveAuthenticatedDefaultBranch = vi.hoisted(() => vi.fn());
+const navigateToCompletion = vi.hoisted(() => vi.fn());
+const navigateToCompletedBranch = vi.hoisted(() => vi.fn());
 const selectProfile = vi.hoisted(() => vi.fn());
 const isAvatarNull = vi.hoisted(() => vi.fn(() => ({ select: selectProfile })));
 const eqUser = vi.hoisted(() => vi.fn(() => ({ is: isAvatarNull })));
@@ -34,6 +38,18 @@ vi.mock('@/lib/auth/google-identity', async () => {
   return { ...actual, generateGoogleNonce };
 });
 vi.mock('@/lib/auth/post-login-navigation', () => ({ navigateAfterLogin }));
+vi.mock('@/lib/auth/complete-signup-client', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/auth/complete-signup-client')
+  >('@/lib/auth/complete-signup-client');
+  return {
+    ...actual,
+    completeSignup,
+    resolveAuthenticatedDefaultBranch,
+    navigateToCompletion,
+    navigateToCompletedBranch,
+  };
+});
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
     auth: { signInWithIdToken, updateUser: updateAuthUser },
@@ -69,6 +85,10 @@ beforeEach(() => {
     hashed: 'hashed-nonce-1',
   });
   navigateAfterLogin.mockReset();
+  completeSignup.mockReset().mockResolvedValue('completed');
+  resolveAuthenticatedDefaultBranch.mockReset().mockResolvedValue('branch-id');
+  navigateToCompletion.mockReset();
+  navigateToCompletedBranch.mockReset();
   selectProfile
     .mockReset()
     .mockResolvedValue({ data: [{ id: 'profile-id' }], error: null });
@@ -91,6 +111,33 @@ afterEach(() => {
 });
 
 describe('GoogleAuthButton', () => {
+  it('does not render the native Google control until a signup gym name is valid', async () => {
+    const { rerender } = render(
+      <GoogleAuthButton inviteToken={null} gymName="" onErrorChange={vi.fn()} />
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Enter a valid gym name to continue with Google',
+      })
+    ).not.toBeNull();
+    expect(renderButton).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole('button', { name: 'Continue with Google' })
+    ).toBeNull();
+
+    rerender(
+      <GoogleAuthButton
+        inviteToken={null}
+        gymName="Iron House"
+        onErrorChange={vi.fn()}
+      />
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Continue with Google' })
+    ).not.toBeNull();
+  });
+
   it('uses the Google-rendered FedCM button and exchanges its token with the raw nonce', async () => {
     const user = userEvent.setup();
     const onErrorChange = vi.fn();
@@ -127,6 +174,7 @@ describe('GoogleAuthButton', () => {
         .getByRole('button', { name: 'Waiting for Google…' })
         .hasAttribute('disabled')
     ).toBe(true);
+    expect(document.body.textContent).toContain('Continue with Google');
 
     config.callback({ credential: 'google-id-token' });
 
@@ -272,5 +320,115 @@ describe('GoogleAuthButton', () => {
 
     await waitFor(() => expect(navigateAfterLogin).toHaveBeenCalled());
     expect(updateProfile).not.toHaveBeenCalled();
+  });
+
+  it('completes the snapshotted signup branch before post-login navigation', async () => {
+    const user = userEvent.setup();
+    signInWithIdToken.mockResolvedValueOnce({
+      data: {
+        user: {
+          id: 'new-user',
+          created_at: '2026-08-15T10:00:00.000Z',
+          last_sign_in_at: '2026-08-15T10:00:01.000Z',
+          user_metadata: {},
+        },
+      },
+      error: null,
+    });
+    const { rerender } = render(
+      <GoogleAuthButton
+        inviteToken={null}
+        gymName="  Iron House  "
+        onErrorChange={vi.fn()}
+      />
+    );
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Continue with Google' })
+    );
+    rerender(
+      <GoogleAuthButton
+        inviteToken={null}
+        gymName="Changed While Popup Open"
+        onErrorChange={vi.fn()}
+      />
+    );
+    const config = initialize.mock.calls[0][0] as {
+      callback: (response: { credential: string }) => void;
+    };
+    config.callback({ credential: 'google-id-token' });
+
+    await waitFor(() =>
+      expect(completeSignup).toHaveBeenCalledWith('branch-id', 'Iron House')
+    );
+    expect(resolveAuthenticatedDefaultBranch).toHaveBeenCalledWith(
+      expect.anything(),
+      'new-user'
+    );
+    expect(navigateToCompletedBranch).toHaveBeenCalledWith('branch-id');
+    expect(navigateAfterLogin).not.toHaveBeenCalled();
+    expect(completeSignup.mock.invocationCallOrder[0]).toBeLessThan(
+      navigateToCompletedBranch.mock.invocationCallOrder[0]
+    );
+  });
+
+  it('preserves the authenticated session and routes completion failures to the explicit branch', async () => {
+    signInWithIdToken.mockResolvedValueOnce({
+      data: { user: { id: 'new-user', user_metadata: {} } },
+      error: null,
+    });
+    completeSignup.mockRejectedValueOnce(new Error('network unavailable'));
+    render(
+      <GoogleAuthButton
+        inviteToken={null}
+        gymName="Iron House"
+        onErrorChange={vi.fn()}
+      />
+    );
+
+    const googleButton = await screen.findByRole('button', {
+      name: 'Continue with Google',
+    });
+    await userEvent.setup().click(googleButton);
+    const config = initialize.mock.calls[0][0] as {
+      callback: (response: { credential: string }) => void;
+    };
+    config.callback({ credential: 'google-id-token' });
+
+    await waitFor(() =>
+      expect(navigateToCompletion).toHaveBeenCalledWith('branch-id')
+    );
+    expect(navigateAfterLogin).not.toHaveBeenCalled();
+    expect(generateGoogleNonce).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses bare completion recovery when default-branch resolution fails', async () => {
+    signInWithIdToken.mockResolvedValueOnce({
+      data: { user: { id: 'new-user', user_metadata: {} } },
+      error: null,
+    });
+    resolveAuthenticatedDefaultBranch.mockRejectedValueOnce(
+      new Error('profile unavailable')
+    );
+    render(
+      <GoogleAuthButton
+        inviteToken={null}
+        gymName="Iron House"
+        onErrorChange={vi.fn()}
+      />
+    );
+
+    await userEvent
+      .setup()
+      .click(
+        await screen.findByRole('button', { name: 'Continue with Google' })
+      );
+    const config = initialize.mock.calls[0][0] as {
+      callback: (response: { credential: string }) => void;
+    };
+    config.callback({ credential: 'google-id-token' });
+
+    await waitFor(() => expect(navigateToCompletion).toHaveBeenCalledWith());
+    expect(completeSignup).not.toHaveBeenCalled();
   });
 });

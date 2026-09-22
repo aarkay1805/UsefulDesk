@@ -414,6 +414,14 @@ export function canManageBranchLifecycle(
   return canManageOrganization(organizationRole) && branchRole === 'owner';
 }
 
+/** Organization owner who also owns the provisional branch: finish naming. */
+export function canCompleteOrganizationNameSetup(
+  organizationRole: OrganizationRole | null,
+  branchRole: AccountRole
+): boolean {
+  return canManageBranchLifecycle(organizationRole, branchRole);
+}
+
 /** Organization owner only: permanently erase every branch and org record. */
 export function canDeleteOrganization(role: OrganizationRole | null): boolean {
   return role === 'owner';

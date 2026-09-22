@@ -56,6 +56,7 @@ function createMockClient() {
             is_organization_owner: true,
             setup_reviewed_at: null,
             setup_reviewed_by: null,
+            organization_name_setup_completed_at: '2026-09-21T10:00:00.000Z',
           },
         ],
         error: null,
@@ -288,6 +289,8 @@ describe('AuthProvider account hydration', () => {
           ],
           branchAccessError: null,
           accountStatusDetail: null,
+          organizationNameSetupState: 'complete',
+          branchAccessStatus: 'ready',
         }}
       >
         <AuthProbe />
@@ -334,6 +337,7 @@ describe('AuthProvider account hydration', () => {
         readiness_state: 'ready' as const,
         setup_reviewed_at: null,
         setup_reviewed_by: null,
+        organization_name_setup_completed_at: '2026-09-21T10:00:00.000Z',
       },
       branches: [
         {
@@ -355,6 +359,8 @@ describe('AuthProvider account hydration', () => {
       ],
       branchAccessError: null,
       accountStatusDetail: null,
+      organizationNameSetupState: 'complete' as const,
+      branchAccessStatus: 'ready' as const,
     };
 
     render(
