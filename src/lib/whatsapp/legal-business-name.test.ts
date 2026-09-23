@@ -44,6 +44,43 @@ describe('applyLegalBusinessNameParam', () => {
 });
 
 describe('loadLegalBusinessName', () => {
+  it('uses the authenticated branch listing when legal-entity RLS hides the row', async () => {
+    const db = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { legal_entity: null },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+      rpc: async (name: string) => {
+        expect(name).toBe('my_branch_accounts');
+        return {
+          data: [
+            {
+              account_id: 'akash-account',
+              legal_entity_name: 'valiance boxing & fitness',
+            },
+            { account_id: 'rajat-account', legal_entity_name: 'rajat Kashyap' },
+          ],
+          error: null,
+        };
+      },
+    };
+
+    await expect(loadLegalBusinessName(db, 'akash-account')).resolves.toEqual({
+      ok: true,
+      name: 'valiance boxing & fitness',
+    });
+    await expect(loadLegalBusinessName(db, 'rajat-account')).resolves.toEqual({
+      ok: true,
+      name: 'rajat Kashyap',
+    });
+  });
+
   it('loads the account legal entity through the shared account-scoped query', async () => {
     const calls: Array<[string, string]> = [];
     const db = {

@@ -7,6 +7,7 @@ import {
   TEMPLATE_CONTRACTS,
   getTemplateContract,
   getTemplateContractById,
+  withLegalBusinessNameSample,
 } from './template-contracts';
 
 const expectedContracts = [
@@ -75,6 +76,24 @@ describe('gym WhatsApp template contracts', () => {
         `{{${contract.parameterLabels.length}}}`
       );
       expect(contract.payload.body_text).not.toContain('undefined');
+    }
+  });
+
+  it('replaces only the legal identity review sample for every built-in contract', () => {
+    for (const contract of Object.values(TEMPLATE_CONTRACTS)) {
+      const index = contract.parameterLabels.indexOf('Legal business name');
+      expect(index).toBeGreaterThanOrEqual(0);
+      const payload = withLegalBusinessNameSample(
+        contract,
+        ' Rajat Fitness Private Limited '
+      );
+      expect(payload.sample_values?.body?.[index]).toBe(
+        'Rajat Fitness Private Limited'
+      );
+      expect(payload.body_text).toBe(contract.payload.body_text);
+      expect(contract.payload.sample_values?.body?.[index]).not.toBe(
+        'Rajat Fitness Private Limited'
+      );
     }
   });
 

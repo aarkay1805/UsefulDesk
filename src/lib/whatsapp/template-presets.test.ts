@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { extractVariableIndices } from './template-validators';
-import { TEMPLATE_PRESETS } from './template-presets';
+import {
+  TEMPLATE_PRESETS,
+  presetWithLegalBusinessName,
+} from './template-presets';
 
 describe('gym template preset projection', () => {
   it('offers the complete supported library without unsupported booking or legacy renewal presets', () => {
@@ -58,6 +61,20 @@ describe('gym template preset projection', () => {
     for (const preset of TEMPLATE_PRESETS) {
       expect(extractVariableIndices(preset.fields.body_text)).toEqual(
         preset.fields.body_samples.map((_, index) => index + 1)
+      );
+    }
+  });
+
+  it('uses the legal name in every built-in sample without changing the registry', () => {
+    for (const preset of TEMPLATE_PRESETS) {
+      const index = preset.parameterLabels.indexOf('Legal business name');
+      expect(index).toBeGreaterThanOrEqual(0);
+      const projected = presetWithLegalBusinessName(
+        preset,
+        'Rajat Fitness Private Limited'
+      );
+      expect(projected.fields.body_samples[index]).toBe(
+        'Rajat Fitness Private Limited'
       );
     }
   });

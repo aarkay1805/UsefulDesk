@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { canEditLegalBusinessName, canRenameBranch } from '@/lib/auth/roles';
 import { getErrorMessage } from '@/lib/errors';
 import { createClient } from '@/lib/supabase/client';
+import { loadLegalBusinessName } from '@/lib/whatsapp/legal-business-name';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -57,20 +58,16 @@ function BusinessDetailsForAccount({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data, error } = await supabase.rpc(
-        'get_invoice_profile_prefill',
-        {
-          p_account_id: accountId,
-        }
+      const identity = await loadLegalBusinessName(
+        supabase as unknown as Parameters<typeof loadLegalBusinessName>[0],
+        accountId
       );
       if (cancelled) return;
-      if (error) {
-        toast.error(getErrorMessage(error, "Business details couldn't load."));
+      if (!identity.ok) {
+        toast.error("Legal business name couldn't load.");
       } else {
-        const row = Array.isArray(data) ? data[0] : data;
-        const value = typeof row?.legal_name === 'string' ? row.legal_name : '';
-        setLegalName(value);
-        setSavedLegalName(value);
+        setLegalName(identity.name);
+        setSavedLegalName(identity.name);
       }
       setLoadingLegalName(false);
     })();

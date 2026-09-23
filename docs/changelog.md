@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-09-23 — Template previews use the legal business name (built in code)
+
+`src/components/settings/template-manager.tsx` resolves the selected branch's
+legal entity for built-in gallery and setup previews, including older Meta rows
+with a fictional stored sample. Single and bulk submissions use that legal name
+as the Meta review example; `src/lib/whatsapp/required-template-submission-server.ts`
+loads it for bulk submissions. Business details now reads the same legal entity
+directly instead of an invoice prefill that can omit the name. Message bodies,
+approved templates, and runtime send parameters are unchanged. For non-owner
+branch members, `src/lib/whatsapp/legal-business-name.ts` falls back to the
+authenticated `my_branch_accounts` RPC because legal-entity RLS hides direct
+rows; unresolved previews show a status instead of the field label as message
+copy. One connected account with an abbreviated canonical identity was
+reconciled to its existing invoice legal name; no general backfill was run.
+
 ## 2026-09-23 — Settings copy made easier to follow (built in code)
 
 Rewrote the Settings rail, panels, forms, help text, and confirmations in

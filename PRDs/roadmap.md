@@ -1,5 +1,19 @@
 # Roadmap
 
+## Built in code — Legal name in WhatsApp template examples (2026-09-23)
+
+Built-in template previews and new Meta review examples now use the selected
+branch's canonical legal business name, including when an existing provider row
+stores an old fictional sample. Bulk required-template submission resolves the
+same legal entity. Business details reads that same source, so its field shows
+the saved name even when invoice prefill would omit it. Approved template bodies
+and actual send parameters stay as they are; no Meta resubmission is needed for
+the preview change. Non-owner branch members resolve the name through the
+authenticated branch-list RPC; if identity is unavailable, the preview shows a
+status rather than inserting **Legal business name** into customer copy. The
+reported account with an abbreviated canonical name was reconciled to its
+existing invoice legal name in the connected database.
+
 ## Built in code — Plain-English Settings copy (2026-09-23)
 
 Settings labels, instructions, statuses, and confirmations now use short,

@@ -77,9 +77,12 @@ import {
 } from '@/lib/whatsapp/template-validators';
 import {
   TEMPLATE_PRESETS,
+  presetWithLegalBusinessName,
   type TemplatePreset,
 } from '@/lib/whatsapp/template-presets';
+import { loadLegalBusinessName } from '@/lib/whatsapp/legal-business-name';
 import {
+  getTemplateContract,
   getTemplateContractById,
   type TemplateContractId,
 } from '@/lib/whatsapp/template-contracts';
@@ -222,6 +225,14 @@ function TemplateMessagePreview({
     ? (template.sample_values?.body ?? [])
     : (preset?.fields.body_samples ?? []);
   const labels = preset?.parameterLabels ?? [];
+  const legalNameIndex = labels.indexOf('Legal business name');
+  const previewSamples = [...samples];
+  if (legalNameIndex >= 0) {
+    previewSamples[legalNameIndex] =
+      preset?.fields.body_samples[legalNameIndex] ?? '';
+  }
+  const identityUnavailable =
+    legalNameIndex >= 0 && !previewSamples[legalNameIndex]?.trim();
 
   return (
     <div
@@ -248,18 +259,25 @@ function TemplateMessagePreview({
           </p>
         )}
         <p className="px-1.5 py-0.5 text-sm break-words whitespace-pre-wrap">
-          <span className="sr-only">
-            Sample message. Filled-in details:{' '}
-            {labels.length ? labels.join(', ') : 'Template variables'}.{' '}
-          </span>
-          {previewSegments(bodyText, samples, labels).map((segment, i) =>
-            segment.kind === 'slot' ? (
-              <span key={i} title={segment.label} className="font-medium">
-                {segment.value}
+          {identityUnavailable ? (
+            'Preview unavailable until the legal business name can be loaded.'
+          ) : (
+            <>
+              <span className="sr-only">
+                Sample message. Filled-in details:{' '}
+                {labels.length ? labels.join(', ') : 'Template variables'}.{' '}
               </span>
-            ) : (
-              <span key={i}>{segment.value}</span>
-            )
+              {previewSegments(bodyText, previewSamples, labels).map(
+                (segment, i) =>
+                  segment.kind === 'slot' ? (
+                    <span key={i} title={segment.label} className="font-medium">
+                      {segment.value}
+                    </span>
+                  ) : (
+                    <span key={i}>{segment.value}</span>
+                  )
+              )}
+            </>
           )}
         </p>
         {footerText && (
@@ -296,9 +314,9 @@ const categoryVariants: Record<string, TemplateBadgeVariant> = {
  *
  * The sample is drawn as a WhatsApp bubble on the inbox's own chat
  * canvas — same fill and meta tokens, same tail geometry, same doodle
- * wallpaper. Linked templates use their stored provider fields, while a
- * missing template uses the preset sample. This keeps preview and status
- * anchored to the same source of truth.
+ * wallpaper. Linked templates use their stored provider copy, while a
+ * missing template uses the preset copy. The legal-name example always shows
+ * the selected branch's current identity, even if Meta stores an older sample.
  *
  * Card, not a rule-separated block: at two columns a shared hairline no
  * longer says which preset owns which message, so each one needs its own
@@ -765,9 +783,41 @@ export function TemplateManager({
   const [reloadNonce, setReloadNonce] = useState(0);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
   const [galleryFilter, setGalleryFilter] = useState<GalleryFilter>('all');
+  const [legalIdentity, setLegalIdentity] = useState<{
+    accountId: string;
+    name: string | null;
+  } | null>(null);
+  const legalBusinessName =
+    legalIdentity?.accountId === accountId ? legalIdentity.name : null;
+  useEffect(() => {
+    if (authLoading || !accountId) return;
+    let cancelled = false;
+    void (async () => {
+      const identity = await loadLegalBusinessName(
+        supabase as unknown as Parameters<typeof loadLegalBusinessName>[0],
+        accountId
+      );
+      if (!cancelled) {
+        setLegalIdentity({
+          accountId,
+          name: identity.ok ? identity.name : null,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [accountId, authLoading, supabase, reloadNonce]);
+  const presets = useMemo(
+    () =>
+      TEMPLATE_PRESETS.map((preset) =>
+        presetWithLegalBusinessName(preset, legalBusinessName)
+      ),
+    [legalBusinessName]
+  );
   const gallery = useMemo(() => {
     const linkedIds = new Set<string>();
-    const presetCards = TEMPLATE_PRESETS.map((preset) => {
+    const presetCards = presets.map((preset) => {
       const template = preset.wired
         ? templates.find(
             (item) =>
@@ -783,7 +833,7 @@ export function TemplateManager({
       .filter((template) => !linkedIds.has(template.id))
       .map((template) => ({ preset: undefined, template }));
     return [...presetCards, ...otherCards];
-  }, [templates]);
+  }, [presets, templates]);
   const galleryCounts = {
     all: gallery.length,
     approved: gallery.filter((item) =>
@@ -806,8 +856,7 @@ export function TemplateManager({
     (item) => item.template && OLDER_TEMPLATE_NAMES.has(item.template.name)
   );
   const focusedPreset = focusedContract
-    ? (TEMPLATE_PRESETS.find((preset) => preset.id === focusedContract.id) ??
-      null)
+    ? (presets.find((preset) => preset.id === focusedContract.id) ?? null)
     : null;
   const focusedTemplate = focusedContract
     ? (templates.find(
@@ -848,7 +897,7 @@ export function TemplateManager({
   // provider component while creating one, including its language.
   const [contractLocked, setContractLocked] = useState(false);
   const lockedPreset = contractLocked
-    ? (TEMPLATE_PRESETS.find(
+    ? (presets.find(
         (preset) => preset.wired && preset.fields.name === form.name
       ) ?? null)
     : null;
@@ -874,6 +923,10 @@ export function TemplateManager({
     () => extractVariableIndices(form.body_text).length,
     [form.body_text]
   );
+  const formLegalSampleIndex =
+    getTemplateContract(form.name)?.parameterLabels.indexOf(
+      'Legal business name'
+    ) ?? -1;
   const headerVarCount = useMemo(
     () =>
       form.header_format === 'text'
@@ -962,8 +1015,18 @@ export function TemplateManager({
 
   function buildSubmitPayload() {
     const sample_values: TemplateSampleValues = {};
-    if (form.body_samples.some((v) => v.trim())) {
-      sample_values.body = form.body_samples.map((v) => v.trim());
+    const bodySamples = form.body_samples.map((v) => v.trim());
+    const builtInContract = getTemplateContract(form.name);
+    if (builtInContract) {
+      const index = builtInContract.parameterLabels.indexOf(
+        'Legal business name'
+      );
+      if (index >= 0 && index < bodySamples.length) {
+        bodySamples[index] = legalBusinessName?.trim() ?? '';
+      }
+    }
+    if (bodySamples.some(Boolean)) {
+      sample_values.body = bodySamples;
     }
     if (form.header_format === 'text' && form.header_sample.trim()) {
       sample_values.header = [form.header_sample.trim()];
@@ -994,7 +1057,9 @@ export function TemplateManager({
   function applyPreset(preset: TemplatePreset) {
     setEditingId(null);
     setContractLocked(preset.wired);
-    setForm(formFromPreset(preset));
+    setForm(
+      formFromPreset(presetWithLegalBusinessName(preset, legalBusinessName))
+    );
     setDialogOpen(true);
   }
 
@@ -1003,7 +1068,15 @@ export function TemplateManager({
     // account/name/language; PATCH only accepts submitted provider templates.
     setEditingId((template.status ?? 'DRAFT') === 'DRAFT' ? null : template.id);
     setContractLocked(false);
-    setForm(formFromTemplate(template));
+    const nextForm = formFromTemplate(template);
+    const contract = getTemplateContract(template.name);
+    const index =
+      contract?.parameterLabels.indexOf('Legal business name') ?? -1;
+    if (index >= 0 && index < nextForm.body_samples.length) {
+      nextForm.body_samples = [...nextForm.body_samples];
+      nextForm.body_samples[index] = legalBusinessName ?? '';
+    }
+    setForm(nextForm);
     setDialogOpen(true);
   }
 
@@ -1025,6 +1098,19 @@ export function TemplateManager({
         (loading || loadError || !accountId || !setupMaySubmit))
     )
       return;
+    const builtInContract = getTemplateContract(form.name);
+    const legalSampleIndex = builtInContract?.parameterLabels.indexOf(
+      'Legal business name'
+    );
+    if (
+      legalSampleIndex !== undefined &&
+      legalSampleIndex >= 0 &&
+      legalSampleIndex < form.body_samples.length &&
+      !legalBusinessName
+    ) {
+      toast.error('Set the legal business name in Business details first.');
+      return;
+    }
     try {
       setSubmitting(true);
       const payload = buildSubmitPayload();
@@ -1934,6 +2020,11 @@ export function TemplateManager({
                 {bodyVarCount > 0 && (
                   <div className="space-y-1.5 pt-1">
                     <Label size="sm">Examples for WhatsApp review</Label>
+                    {formLegalSampleIndex >= 0 && (
+                      <p className="text-muted-foreground text-xs">
+                        The legal business name comes from Business details.
+                      </p>
+                    )}
                     {form.body_samples.map((val, i) => {
                       const inputId = `template-body-sample-${i}`;
                       return (
@@ -1942,8 +2033,14 @@ export function TemplateManager({
                           id={inputId}
                           aria-label={`Sample value for body variable {{${i + 1}}}`}
                           placeholder={`Sample for {{${i + 1}}}`}
-                          value={val}
-                          disabled={contractLocked}
+                          value={
+                            i === formLegalSampleIndex
+                              ? (legalBusinessName ?? '')
+                              : val
+                          }
+                          disabled={
+                            contractLocked || i === formLegalSampleIndex
+                          }
                           onChange={(e) => {
                             const next = [...form.body_samples];
                             next[i] = e.target.value;

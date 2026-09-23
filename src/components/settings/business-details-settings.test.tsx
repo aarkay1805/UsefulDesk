@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   isOrganizationOwner: true,
   rpc: vi.fn(),
   fetch: vi.fn(),
+  legalName: 'Old Legal Ltd',
 }));
 const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }));
 
@@ -27,7 +28,27 @@ vi.mock('@/hooks/use-auth', () => ({
   }),
 }));
 vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => ({ rpc: state.rpc }),
+  createClient: () => ({
+    rpc: state.rpc,
+    from: (table: string) => {
+      if (table !== 'accounts') throw new Error(`Unexpected table: ${table}`);
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: {
+                legal_entity: {
+                  legal_name: null,
+                  name: null,
+                },
+              },
+              error: null,
+            }),
+          }),
+        }),
+      };
+    },
+  }),
 }));
 vi.mock('./invoice-details-card', () => ({
   InvoiceDetailsCard: () => <div>Invoice details card</div>,
@@ -38,11 +59,20 @@ const { BusinessDetailsSettings } = await import('./business-details-settings');
 beforeEach(() => {
   state.role = 'owner';
   state.isOrganizationOwner = true;
+  state.legalName = 'Old Legal Ltd';
   state.rpc.mockReset();
   state.rpc.mockImplementation((name: string) =>
     Promise.resolve(
-      name === 'get_invoice_profile_prefill'
-        ? { data: [{ legal_name: 'Old Legal Ltd' }], error: null }
+      name === 'my_branch_accounts'
+        ? {
+            data: [
+              {
+                account_id: 'branch-id',
+                legal_entity_name: state.legalName,
+              },
+            ],
+            error: null,
+          }
         : { data: 'New Legal Ltd', error: null }
     )
   );
@@ -63,6 +93,11 @@ describe('BusinessDetailsSettings', () => {
     const input = await screen.findByRole('textbox', {
       name: 'Legal business name',
     });
+    await waitFor(() => expect(input).toHaveProperty('value', 'Old Legal Ltd'));
+    expect(state.rpc).not.toHaveBeenCalledWith(
+      'get_invoice_profile_prefill',
+      expect.anything()
+    );
     fireEvent.change(input, { target: { value: 'New Legal Ltd' } });
     fireEvent.click(
       screen.getByRole('button', { name: 'Save legal business name' })

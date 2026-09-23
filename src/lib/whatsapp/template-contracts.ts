@@ -747,7 +747,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
       parameterLabels: [
         'Member name',
         'Festival or campaign',
-        'Gym name',
+        'Legal business name',
         'Discount',
         'Offer end date',
       ],
@@ -768,6 +768,20 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
 export const FEATURE_TEMPLATE_CONTRACTS = Object.values(
   TEMPLATE_CONTRACTS
 ).filter((contract) => contract.wired);
+
+export function withLegalBusinessNameSample(
+  contract: TemplateContract,
+  legalBusinessName: string
+): TemplatePayload {
+  const index = contract.parameterLabels.indexOf('Legal business name');
+  if (index < 0) return contract.payload;
+  const body = [...(contract.payload.sample_values?.body ?? [])];
+  body[index] = legalBusinessName.trim();
+  return {
+    ...contract.payload,
+    sample_values: { ...contract.payload.sample_values, body },
+  };
+}
 
 export function getTemplateContract(
   name: string

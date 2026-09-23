@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, within } from '@testing-library/react';
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getTemplateContractById } from '@/lib/whatsapp/template-contracts';
@@ -8,6 +14,7 @@ import { getTemplateContractById } from '@/lib/whatsapp/template-contracts';
 const setupState = vi.hoisted(() => ({
   rows: [] as unknown[],
   error: null as { message: string } | null,
+  legalName: 'Rajat Fitness Private Limited' as string | null,
 }));
 const toastState = vi.hoisted(() => ({
   success: vi.fn(),
@@ -34,14 +41,38 @@ vi.mock('@/hooks/use-auth', () => ({
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
-    from: () => {
+    from: (table: string) => {
       const query = {
         select: () => query,
         eq: () => query,
         order: async () => ({ data: setupState.rows, error: setupState.error }),
+        maybeSingle: async () => ({
+          data:
+            table === 'accounts'
+              ? {
+                  legal_entity: {
+                    legal_name: null,
+                    name: null,
+                  },
+                }
+              : null,
+          error: null,
+        }),
       };
       return query;
     },
+    rpc: async (name: string) => ({
+      data:
+        name === 'my_branch_accounts'
+          ? [
+              {
+                account_id: 'account-1',
+                legal_entity_name: setupState.legalName,
+              },
+            ]
+          : null,
+      error: null,
+    }),
   }),
 }));
 
@@ -74,6 +105,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   setupState.rows = [];
   setupState.error = null;
+  setupState.legalName = 'Rajat Fitness Private Limited';
   vi.stubGlobal('fetch', vi.fn());
   vi.stubGlobal(
     'ResizeObserver',
@@ -96,6 +128,32 @@ afterEach(() => {
 });
 
 describe('TemplateManager gym preset library', () => {
+  it('never renders the legal-name field label as customer message text', async () => {
+    setupState.legalName = null;
+    render(<TemplateManager />);
+
+    expect(
+      await screen.findAllByText(
+        'Preview unavailable until the legal business name can be loaded.'
+      )
+    ).toHaveLength(21);
+    expect(screen.queryByText(/Reply to Legal business name/)).toBeNull();
+  });
+
+  it('shows the selected legal name even when an approved template stores an old sample', async () => {
+    setupState.rows = [membershipTemplate()];
+    render(<TemplateManager />);
+
+    const heading = await screen.findByRole('heading', {
+      name: 'Membership renewal',
+    });
+    const card = heading.closest('[data-slot="preset"]') as HTMLElement;
+    await waitFor(() => {
+      expect(card.textContent).toContain('Rajat Fitness Private Limited');
+    });
+    expect(card.textContent).not.toContain('FitZone Wellness Private Limited');
+  });
+
   it('submits all required templates once, syncs, and shows the aggregate with individual failures', async () => {
     const user = userEvent.setup();
     let resolveSubmission!: (value: Response) => void;
@@ -385,8 +443,8 @@ describe('TemplateManager gym preset library', () => {
       expect.objectContaining({ method: 'PATCH' })
     );
     const request = vi.mocked(fetch).mock.calls[0]?.[1];
-    expect(JSON.parse(String(request?.body))).toEqual(
-      expect.objectContaining(membershipContract.payload)
+    expect(JSON.parse(String(request?.body)).sample_values.body.at(-1)).toBe(
+      'Rajat Fitness Private Limited'
     );
     expect(close).toHaveBeenCalledWith(true);
   });
@@ -447,8 +505,8 @@ describe('TemplateManager gym preset library', () => {
       expect.objectContaining({ method: 'POST' })
     );
     const request = vi.mocked(fetch).mock.calls[0]?.[1];
-    expect(JSON.parse(String(request?.body))).toEqual(
-      expect.objectContaining(membershipContract.payload)
+    expect(JSON.parse(String(request?.body)).sample_values.body.at(-1)).toBe(
+      'Rajat Fitness Private Limited'
     );
     expect(toastState.success).toHaveBeenCalledWith(
       'Sent for WhatsApp review. This does not turn the message on.'

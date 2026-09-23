@@ -33,7 +33,25 @@ function dbWithRows(rows: MessageTemplate[]) {
   const result = Promise.resolve({ data: rows, error: null });
   const eq = vi.fn(() => result);
   const select = vi.fn(() => ({ eq }));
-  const from = vi.fn(() => ({ select }));
+  const from = vi.fn((table: string) =>
+    table === 'accounts'
+      ? {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  legal_entity: {
+                    legal_name: 'Rajat Fitness Private Limited',
+                    name: 'Old gym name',
+                  },
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }
+      : { select }
+  );
   return { from, select, eq };
 }
 
@@ -91,14 +109,22 @@ describe('runRequiredTemplateSubmission', () => {
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: 'account-1',
-        payload: membership.payload,
+        payload: expect.objectContaining({
+          sample_values: expect.objectContaining({
+            body: expect.arrayContaining(['Rajat Fitness Private Limited']),
+          }),
+        }),
         provider,
       })
     );
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({
         accountId: 'account-1',
-        payload: service.payload,
+        payload: expect.objectContaining({
+          sample_values: expect.objectContaining({
+            body: expect.arrayContaining(['Rajat Fitness Private Limited']),
+          }),
+        }),
         provider,
       })
     );

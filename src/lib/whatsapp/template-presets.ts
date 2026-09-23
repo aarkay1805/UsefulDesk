@@ -54,3 +54,17 @@ export const TEMPLATE_PRESETS: TemplatePreset[] = Object.values(
     buttons: contract.payload.buttons,
   },
 }));
+
+export function presetWithLegalBusinessName(
+  preset: TemplatePreset,
+  legalBusinessName: string | null
+): TemplatePreset {
+  const index = preset.parameterLabels.indexOf('Legal business name');
+  if (index < 0) return preset;
+  const bodySamples = [...preset.fields.body_samples];
+  bodySamples[index] = legalBusinessName?.trim() || '';
+  return {
+    ...preset,
+    fields: { ...preset.fields, body_samples: bodySamples },
+  };
+}
