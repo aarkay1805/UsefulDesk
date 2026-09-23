@@ -6,6 +6,25 @@
 
 ---
 
+## 2026-09-23 — Message template copy distilled (built in code)
+
+The combined gallery now leads with message previews and status, with shorter
+trigger lines and no repeated card summaries. The editor uses plain, brief
+instructions and keeps the exact provider message bodies and submission rules.
+Key code: `src/components/settings/template-manager.tsx` and
+`src/lib/whatsapp/template-contracts.ts`.
+
+## 2026-09-23 — Presets and Meta templates share one gallery (built in code)
+
+Settings → Message templates now renders the preset gallery inline and links
+synced provider rows by contract name and language. Linked cards preview the
+stored Meta wording and display review status with Edit, Resubmit, or Sync
+status actions; custom and legacy rows appear under Other templates in the same
+layout. Approval filters keep pending and approved messages findable, and draft
+submission uses the create endpoint. Key code:
+`src/components/settings/template-manager.tsx`. The existing approval state
+remains Meta's review state, not proof that a wired feature contract matches.
+
 ## 2026-09-23 — Template header actions simplified (built in code)
 
 Settings → Message templates keeps New template and Use preset in the header;

@@ -1,11 +1,19 @@
 # Roadmap
 
-## Built in code — Template action hierarchy (2026-09-23)
+## Built in code — Unified WhatsApp template gallery (2026-09-23)
 
-Settings → Message templates shows New template and Use preset in the header.
-The less frequent required-template bulk submission and Meta sync actions remain
-available in the labelled overflow menu, with single-line labels, permission,
-and loading states.
+Settings → Message templates shows presets and synced Meta templates in one
+gallery. Existing provider templates appear on their matching preset cards with
+their actual wording, category, language, review status, and relevant Edit,
+Resubmit, or Sync status action. Other custom, imported, and legacy templates
+use the same card layout. Approval filters distinguish Approved, Pending, and
+Not approved; a preset without a provider row remains available to use. New
+template remains in the header, while bulk required-template submission and Meta
+sync remain in the labelled overflow menu. No provider submission or send was
+performed for this UI change. Gallery cards now omit repeated summaries and
+status prose; short trigger lines explain when each preset can be used. The
+editor uses short, plain help text while retaining the exact provider message
+bodies and approval rules.
 
 ## Built in code — WhatsApp template parameter boundaries (2026-09-23)
 

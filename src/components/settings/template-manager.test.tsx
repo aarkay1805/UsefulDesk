@@ -75,6 +75,18 @@ beforeEach(() => {
   setupState.rows = [];
   setupState.error = null;
   vi.stubGlobal('fetch', vi.fn());
+  vi.stubGlobal(
+    'ResizeObserver',
+    class ResizeObserver {
+      observe() {}
+      disconnect() {}
+    }
+  );
+  vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+    callback(0);
+    return 1;
+  });
+  vi.stubGlobal('cancelAnimationFrame', () => {});
 });
 
 afterEach(() => {
@@ -107,23 +119,23 @@ describe('TemplateManager gym preset library', () => {
     render(<TemplateManager />);
 
     expect(
-      await screen.findByText(
-        'Submit required templates together from More template actions. Meta reviews and approves each template separately.'
-      )
+      await screen.findByText('Choose a message or check its WhatsApp status.')
     ).toBeTruthy();
     const moreActions = screen.getByRole('button', {
       name: 'More template actions',
     });
     expect(
-      screen.queryByRole('menuitem', { name: 'Submit all required templates' })
+      screen.queryByRole('menuitem', {
+        name: 'Send needed templates for review',
+      })
     ).toBeNull();
     moreActions.focus();
     await user.keyboard(' ');
     const submitAll = screen.getByRole('menuitem', {
-      name: 'Submit all required templates',
+      name: 'Send needed templates for review',
     });
     expect(
-      screen.getByRole('menuitem', { name: 'Sync from Meta' })
+      screen.getByRole('menuitem', { name: 'Sync with WhatsApp' })
     ).toBeTruthy();
 
     await user.click(submitAll);
@@ -156,7 +168,7 @@ describe('TemplateManager gym preset library', () => {
 
     expect(
       await screen.findByText(
-        'Submitted 2 · Already ready or pending 16 · Failed 1 · Total 19'
+        'Sent 2 · Ready or waiting 16 · Failed 1 · Total 19'
       )
     ).toBeTruthy();
     expect(
@@ -188,13 +200,15 @@ describe('TemplateManager gym preset library', () => {
     });
     moreActions.focus();
     await user.keyboard(' ');
-    await user.click(screen.getByRole('menuitem', { name: 'Sync from Meta' }));
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Sync with WhatsApp' })
+    );
 
     expect(fetch).toHaveBeenCalledWith('/api/whatsapp/templates/sync', {
       method: 'POST',
     });
     expect(toastState.success).toHaveBeenCalledWith(
-      'Synced 0 templates from Meta'
+      'Checked 0 messages on WhatsApp'
     );
   });
 
@@ -224,13 +238,11 @@ describe('TemplateManager gym preset library', () => {
       screen.queryByRole('combobox', { name: 'Message language' })
     ).toBeNull();
     expect(screen.queryByText('What members will see')).toBeNull();
-    expect(screen.getByText('Approval needed')).toBeTruthy();
-    expect(
-      screen.getByText(/Submitting does not turn on the message/)
-    ).toBeTruthy();
-    expect(screen.getByText('Used for')).toBeTruthy();
+    expect(screen.getByText('Needs WhatsApp review')).toBeTruthy();
+    expect(screen.getByText(/will not turn on by itself/)).toBeTruthy();
+    expect(screen.getByText('What it does')).toBeTruthy();
     const submit = screen.getByRole('button', {
-      name: 'Submit for WhatsApp approval',
+      name: 'Send for review',
     });
     expect(submit.closest('[data-slot="dialog-footer"]')?.className).toContain(
       'sticky'
@@ -238,7 +250,7 @@ describe('TemplateManager gym preset library', () => {
     expect(window.location.search).toBe(
       '?tab=reminders&rule=membership_renewal'
     );
-    await user.click(screen.getByRole('button', { name: 'Technical details' }));
+    await user.click(screen.getByRole('button', { name: 'Details' }));
     expect(screen.getByText('gym_membership_renewal')).toBeTruthy();
     expect(screen.getByText('Category')).toBeTruthy();
     expect(screen.getByText('No header')).toBeTruthy();
@@ -256,7 +268,7 @@ describe('TemplateManager gym preset library', () => {
       />
     );
     expect(await screen.findByText('Approved for WhatsApp')).toBeTruthy();
-    expect(screen.getByText(/Return to Messages to continue/)).toBeTruthy();
+    expect(screen.getByText(/Go back to Messages/)).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Return to Messages' })
     ).toBeTruthy();
@@ -272,17 +284,15 @@ describe('TemplateManager gym preset library', () => {
         onSetupClose={vi.fn()}
       />
     );
+    expect(await screen.findByText('Waiting for WhatsApp review')).toBeTruthy();
     expect(
-      await screen.findByText('Waiting for WhatsApp approval')
+      screen.getByText(/Check its status after WhatsApp reviews it/)
     ).toBeTruthy();
-    expect(screen.getByText(/When WhatsApp finishes its review/)).toBeTruthy();
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Save and resubmit' })
     ).toBeNull();
-    expect(
-      screen.getByRole('button', { name: 'Sync approval status' })
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Check status' })).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: /submit.*approval/i })
     ).toBeNull();
@@ -304,18 +314,14 @@ describe('TemplateManager gym preset library', () => {
       />
     );
 
-    expect(
-      await screen.findByText('WhatsApp did not approve this message')
-    ).toBeTruthy();
+    expect(await screen.findByText('WhatsApp did not approve it')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Resubmit for WhatsApp approval',
+        name: 'Send for review again',
       })
     ).toBeTruthy();
-    expect(
-      screen.queryByRole('button', { name: 'Sync approval status' })
-    ).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Technical details' }));
+    expect(screen.queryByRole('button', { name: 'Check status' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Details' }));
     expect(screen.getByText('The message needs another review.')).toBeTruthy();
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -333,13 +339,9 @@ describe('TemplateManager gym preset library', () => {
       />
     );
 
-    expect(
-      await screen.findByText('Approval status needs syncing')
-    ).toBeTruthy();
+    expect(await screen.findByText('Check WhatsApp status')).toBeTruthy();
     expect(screen.getByText(/WhatsApp changed this message/)).toBeTruthy();
-    expect(
-      screen.getByRole('button', { name: 'Sync approval status' })
-    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Check status' })).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: /submit.*approval/i })
     ).toBeNull();
@@ -367,11 +369,9 @@ describe('TemplateManager gym preset library', () => {
 
     expect(await screen.findByText('Message needs updating')).toBeTruthy();
     const repair = screen.getByRole('button', {
-      name: 'Update and resubmit for WhatsApp approval',
+      name: 'Update and send for review',
     });
-    expect(
-      screen.queryByRole('button', { name: 'Sync approval status' })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Check status' })).toBeNull();
 
     await user.click(repair);
 
@@ -406,9 +406,7 @@ describe('TemplateManager gym preset library', () => {
     expect(
       await screen.findByText('Message category needs replacing')
     ).toBeTruthy();
-    expect(
-      screen.queryByRole('button', { name: 'Sync approval status' })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Check status' })).toBeNull();
 
     await user.click(screen.getByRole('button', { name: 'Open Templates' }));
 
@@ -435,7 +433,7 @@ describe('TemplateManager gym preset library', () => {
 
     await user.click(
       await screen.findByRole('button', {
-        name: 'Submit for WhatsApp approval',
+        name: 'Send for review',
       })
     );
 
@@ -449,7 +447,7 @@ describe('TemplateManager gym preset library', () => {
       expect.objectContaining(membershipContract.payload)
     );
     expect(toastState.success).toHaveBeenCalledWith(
-      'Submitted for WhatsApp approval. Submitting does not turn on this message.'
+      'Sent for WhatsApp review. This does not turn the message on.'
     );
     expect(close).toHaveBeenCalledWith(true);
   });
@@ -475,9 +473,7 @@ describe('TemplateManager gym preset library', () => {
       }),
       'INV-1024'
     );
-    await user.click(
-      screen.getByRole('button', { name: 'Submit for approval' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Send for review' }));
 
     expect(fetch).not.toHaveBeenCalled();
     expect(toastState.error).toHaveBeenCalledWith(
@@ -498,7 +494,7 @@ describe('TemplateManager gym preset library', () => {
     expect(await screen.findByText('Template lookup failed')).toBeTruthy();
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
     expect(
-      screen.queryByRole('button', { name: 'Submit for approval' })
+      screen.queryByRole('button', { name: 'Send for review' })
     ).toBeNull();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(fetch).not.toHaveBeenCalled();
@@ -526,18 +522,10 @@ describe('TemplateManager gym preset library', () => {
   });
 
   it('groups all twenty-one contracts and explains operational requirements', async () => {
-    const user = userEvent.setup();
     render(<TemplateManager />);
+    await screen.findByRole('heading', { name: 'UsefulDesk features' });
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Use a preset' })
-    );
-
-    for (const heading of [
-      'UsefulDesk features',
-      'Account updates',
-      'Marketing',
-    ]) {
+    for (const heading of ['UsefulDesk features', 'Marketing']) {
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
     }
     for (const title of [
@@ -569,19 +557,77 @@ describe('TemplateManager gym preset library', () => {
     expect(
       screen.queryByText(/Requires recorded .* WhatsApp opt-in/)
     ).toBeNull();
-    expect(screen.getAllByText(/Sends when:/).length).toBe(21);
+    expect(screen.getAllByText(/Used when:/).length).toBe(21);
     expect(
-      screen.getAllByText(/approval and recipient delivery are not guaranteed/)
-        .length
-    ).toBeGreaterThan(0);
+      screen.getByRole('group', {
+        name: 'Filter message templates by approval status',
+      })
+    ).toBeTruthy();
+  });
+
+  it('shows linked Meta wording once and filters approved and pending cards', async () => {
+    const user = userEvent.setup();
+    const serviceContract = getTemplateContractById('service_renewal')!;
+    setupState.rows = [
+      membershipTemplate({ body_text: 'Approved wording from Meta.' }),
+      membershipTemplate({
+        id: 'service-template',
+        ...serviceContract.payload,
+        status: 'PENDING',
+        body_text: 'Pending wording from Meta.',
+      }),
+      membershipTemplate({
+        id: 'custom-template',
+        name: 'custom_welcome',
+        body_text: 'Welcome to our gym.',
+      }),
+    ];
+
+    render(<TemplateManager />);
+    const membership = await screen.findByRole('heading', {
+      name: 'Membership renewal',
+    });
+    const membershipCard = membership.closest('[data-slot="preset"]');
+    expect(membershipCard).toBeTruthy();
+    expect(
+      within(membershipCard as HTMLElement).getByText(
+        'Approved wording from Meta.'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getAllByRole('heading', { name: 'Membership renewal' })
+    ).toHaveLength(1);
+
+    const filters = screen.getByRole('group', {
+      name: 'Filter message templates by approval status',
+    });
+    await user.click(within(filters).getByText('Pending'));
+    expect(
+      screen.getByRole('heading', { name: 'Service renewal' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'Membership renewal' })
+    ).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: 'custom_welcome' })
+    ).toBeNull();
+
+    await user.click(within(filters).getByText('Approved'));
+    expect(
+      screen.getByRole('heading', { name: 'Membership renewal' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'custom_welcome' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'Service renewal' })
+    ).toBeNull();
   });
 
   it('keeps invoice contract identity locked while requiring an editable document sample URL', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);
-    await user.click(
-      await screen.findByRole('button', { name: 'Use a preset' })
-    );
+    await screen.findByRole('heading', { name: 'Invoice document' });
 
     const card = screen
       .getByRole('heading', { name: 'Invoice document' })
@@ -593,7 +639,7 @@ describe('TemplateManager gym preset library', () => {
 
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Header' })).toBeNull();
-    const sample = screen.getByLabelText('Sample PDF link for Meta');
+    const sample = screen.getByLabelText('PDF link for review');
     expect(sample).toHaveProperty('disabled', false);
     expect(sample).toHaveProperty('required', true);
     expect(sample).toHaveProperty('value', '');
@@ -602,9 +648,7 @@ describe('TemplateManager gym preset library', () => {
   it('shows a simple review without editable contract fields', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);
-    await user.click(
-      await screen.findByRole('button', { name: 'Use a preset' })
-    );
+    await screen.findByRole('heading', { name: 'Membership renewal' });
 
     const card = screen
       .getByRole('heading', { name: 'Membership renewal' })
@@ -626,6 +670,6 @@ describe('TemplateManager gym preset library', () => {
       screen.queryByRole('button', { name: 'See setup details' })
     ).toBeNull();
     expect(screen.getByText('gym_membership_renewal')).toBeTruthy();
-    expect(screen.getByText('Used for')).toBeTruthy();
+    expect(screen.getByText('What it does')).toBeTruthy();
   });
 });

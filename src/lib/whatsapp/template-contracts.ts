@@ -51,11 +51,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     membership_renewal: {
       id: 'membership_renewal',
       title: 'Membership renewal',
-      blurb: 'Invite an existing member to continue an ending membership.',
+      blurb: 'Ask a member to renew a membership that will end soon.',
       purpose:
         'Promotes the future purchase of a renewed gym membership for an existing member.',
       trigger:
-        'You tap Remind on a member, or the membership-renewal reminder runs for an ending membership.',
+        'You tap Remind, or a renewal reminder runs for a membership ending soon.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -88,11 +88,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     service_renewal: {
       id: 'service_renewal',
       title: 'Service renewal',
-      blurb: 'Invite a member to continue an ending paid gym service.',
+      blurb: 'Ask a member to renew a paid service that will end soon.',
       purpose:
         'Promotes the future purchase of a renewed paid service for an existing member.',
       trigger:
-        'You tap Remind on a service, or the service-renewal reminder runs for an ending service.',
+        'You tap Remind, or a renewal reminder runs for a service ending soon.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -125,11 +125,10 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     membership_post_expiry: {
       id: 'membership_post_expiry',
       title: 'Expired membership follow-up',
-      blurb:
-        'Invite a member to renew an expired membership at its current price.',
+      blurb: 'Ask a member to renew a membership that has ended.',
       purpose: 'Promotes renewal only after a membership cycle has ended.',
       trigger:
-        'The enabled post-expiry sequence reaches day 1, 3, or 7 after an unchanged membership expiry.',
+        'An enabled reminder runs 1, 3, or 7 days after a membership ends, if it has not changed.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -162,11 +161,10 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     service_post_expiry: {
       id: 'service_post_expiry',
       title: 'Expired service follow-up',
-      blurb:
-        'Invite a member to renew an expired service at its current price.',
+      blurb: 'Ask a member to renew a service that has ended.',
       purpose: 'Promotes renewal only after a service cycle has ended.',
       trigger:
-        'The enabled post-expiry sequence reaches day 1, 3, or 7 after an unchanged service expiry.',
+        'An enabled reminder runs 1, 3, or 7 days after a service ends, if it has not changed.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -199,11 +197,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     session_pack_low: {
       id: 'session_pack_low',
       title: 'Low session pack balance',
-      blurb: 'Let a member know their current session pack is nearly used.',
+      blurb: 'Tell a member when two sessions are left in their pack.',
       purpose:
         'Promotes a future session-pack purchase from current attendance facts only.',
       trigger:
-        'The enabled lifecycle finds two sessions remaining in an unchanged current session-pack cycle.',
+        'An enabled reminder finds two sessions left in the current pack.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -234,11 +232,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     session_pack_exhausted: {
       id: 'session_pack_exhausted',
       title: 'Session pack used',
-      blurb: 'Let a member know their current pack has no sessions remaining.',
+      blurb: 'Tell a member when no sessions are left in their pack.',
       purpose:
         'Promotes a future session-pack purchase without claiming that check-in is blocked.',
       trigger:
-        'The enabled lifecycle finds zero sessions remaining in an unchanged current session-pack cycle.',
+        'An enabled reminder finds no sessions left in the current pack.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -263,12 +261,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     freeze_return: {
       id: 'freeze_return',
       title: 'Planned membership return',
-      blurb:
-        'Remind a frozen member about a staff-recorded planned return date.',
+      blurb: 'Remind a member when their planned return date is near.',
       purpose:
         'Updates a member about an explicitly planned return without resuming or changing their membership.',
       trigger:
-        'One day before an unchanged planned return date on a frozen membership.',
+        'One day before the planned return date for a paused membership, if the date has not changed.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -292,12 +289,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     membership_win_back: {
       id: 'membership_win_back',
       title: 'Membership win-back',
-      blurb:
-        'Invite a former member back with truthful current renewal details.',
+      blurb: 'Invite a former member to join again.',
       purpose:
         'Promotes renewal after the short expiry sequence has ended; it does not invent an offer or discount.',
       trigger:
-        'The enabled win-back lifecycle reaches day 14, 30, or 60 after an unchanged expired membership.',
+        'An enabled reminder runs 14, 30, or 60 days after a membership ends, if it has not changed.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -318,12 +314,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     service_win_back: {
       id: 'service_win_back',
       title: 'Service win-back',
-      blurb:
-        'Invite a former service customer back with truthful current pricing.',
+      blurb: 'Invite a former service customer to return.',
       purpose:
         'Promotes service renewal after the short expiry sequence has ended; it does not invent an offer or discount.',
       trigger:
-        'The enabled win-back lifecycle reaches day 14, 30, or 60 after an unchanged expired service.',
+        'An enabled reminder runs 14, 30, or 60 days after a service ends, if it has not changed.',
       category: 'Marketing',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_marketing',
@@ -354,11 +349,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     installment_reminder: {
       id: 'installment_reminder',
       title: 'Installment reminder',
-      blurb: 'Remind a member about an existing joining-payment installment.',
+      blurb: 'Remind a member about a payment due for joining.',
       purpose:
         'Updates a member about an amount and due date from an existing membership transaction.',
       trigger:
-        "An installment reminder runs 7, 3, 1, and 0 days before the due date, in your gym's timezone.",
+        'A reminder runs 7, 3, or 1 day before the payment is due, or on the due date.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -390,11 +385,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     invoice_due: {
       id: 'invoice_due',
       title: 'Invoice due reminder',
-      blurb: 'Remind a customer about a specific outstanding invoice.',
+      blurb: 'Remind a customer about an unpaid invoice.',
       purpose:
         'Updates a customer about the actual remaining balance and effective due date of one existing invoice.',
       trigger:
-        'The invoice collection lifecycle reaches a configured due milestone for an open invoice.',
+        'An invoice reminder runs on a set day before an unpaid invoice is due.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -426,12 +421,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     invoice_overdue: {
       id: 'invoice_overdue',
       title: 'Overdue invoice reminder',
-      blurb:
-        'Follow up on a specific invoice that remains unpaid after its due date.',
+      blurb: 'Follow up on an invoice that is still unpaid after its due date.',
       purpose:
         'Updates a customer about the actual remaining balance of one overdue invoice without making an access claim.',
       trigger:
-        'The invoice collection lifecycle reaches a configured overdue milestone for an open invoice.',
+        'An invoice reminder runs on a set day after an unpaid invoice is due.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -463,12 +457,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     payment_promise_upcoming: {
       id: 'payment_promise_upcoming',
       title: 'Upcoming promised payment',
-      blurb:
-        'Remind a customer about the exact amount and date they committed to pay.',
+      blurb: 'Remind a customer about a payment they promised to make.',
       purpose:
         'Updates a customer about their staff-recorded payment commitment for one existing invoice without implying that payment was received.',
       trigger:
-        'The opt-in promise-to-pay lifecycle reaches the day before or the promised payment date.',
+        'An enabled reminder runs one day before or on the promised payment date.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -500,12 +493,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     payment_promise_missed: {
       id: 'payment_promise_missed',
       title: 'Missed promised payment',
-      blurb:
-        'Follow up after a promised payment date passes while the invoice remains unpaid.',
+      blurb: 'Follow up when a promised payment is still unpaid.',
       purpose:
         'Updates a customer about a missed staff-recorded payment commitment without claiming a failed payment attempt.',
       trigger:
-        'The opt-in promise-to-pay lifecycle reaches the day after the promised payment date and the balance remains unpaid.',
+        'An enabled reminder runs one day after the promised date, if payment is still due.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -537,12 +529,10 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     payment_confirmation: {
       id: 'payment_confirmation',
       title: 'Payment confirmation',
-      blurb:
-        'Confirm a newly committed payment without overstating membership status.',
+      blurb: 'Confirm a new payment without saying a membership was renewed.',
       purpose:
         'Updates a customer about one exact recorded payment without implying a membership renewal.',
-      trigger:
-        'A new committed payment is recorded after payment confirmations are enabled.',
+      trigger: 'A new payment is recorded while payment messages are on.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -572,11 +562,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     payment_membership_renewal_confirmation: {
       id: 'payment_membership_renewal_confirmation',
       title: 'Payment and membership renewal confirmation',
-      blurb: 'Confirm a payment that also renewed the customer’s membership.',
+      blurb: 'Confirm a payment that renewed a membership.',
       purpose:
         'Updates a customer about one exact recorded payment and the membership end date produced by that renewal.',
       trigger:
-        'A newly committed payment is tied to a confirmed membership-renewal operation.',
+        'A new payment is recorded and the membership renewal is confirmed.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -608,12 +598,10 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     autopay_recovery_pending: {
       id: 'autopay_recovery_pending',
       title: 'AutoPay retry update',
-      blurb:
-        'Tell a member that Razorpay is still retrying without asking for a duplicate payment.',
+      blurb: 'Tell a member that AutoPay will try the payment again.',
       purpose:
         'Updates a customer about an attributable verified AutoPay retry and explicitly avoids a manual payment request.',
-      trigger:
-        'A verified Razorpay subscription.pending event is received after AutoPay recovery is enabled.',
+      trigger: 'Razorpay says it will try again while AutoPay help is on.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -641,12 +629,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     autopay_recovery_terminal: {
       id: 'autopay_recovery_terminal',
       title: 'AutoPay payment help',
-      blurb:
-        'Request help with an unpaid exact obligation only after terminal verified AutoPay recovery.',
+      blurb: 'Ask for payment help after AutoPay stops trying.',
       purpose:
         'Updates a customer after a terminal verified AutoPay failure when a current collectible obligation remains and no healthy mandate covers it.',
       trigger:
-        'A verified Razorpay subscription.halted event remains current after balance and mandate checks.',
+        'Razorpay stops trying, and the amount is still due after we check AutoPay.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -676,11 +663,10 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     payment_link: {
       id: 'payment_link',
       title: 'Payment link',
-      blurb: 'Send a secure link for an existing open gym invoice.',
+      blurb: 'Send a payment link for an unpaid invoice.',
       purpose:
         'Requests payment for a specific existing invoice through a provider-hosted dynamic URL button.',
-      trigger:
-        'You tap Send payment link on an open invoice that can still be collected.',
+      trigger: 'You tap Send payment link on an unpaid invoice.',
       category: 'Utility',
       galleryGroup: 'feature',
       consentScope: 'whatsapp_account_updates',
@@ -720,7 +706,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     invoice_document: {
       id: 'invoice_document',
       title: 'Invoice document',
-      blurb: 'Send the immutable PDF for an existing gym invoice.',
+      blurb: 'Send a PDF copy of a saved invoice.',
       purpose:
         'Delivers the stable non-tax document for a specific existing invoice.',
       trigger: 'You tap Send on WhatsApp from a saved invoice.',
@@ -754,11 +740,10 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
     festival_offer: {
       id: 'festival_offer',
       title: 'Festival offer',
-      blurb: 'Promote a time-bound annual-membership campaign.',
+      blurb: 'Share an annual membership offer.',
       purpose:
         'Promotes a discounted future annual-membership purchase during a named campaign.',
-      trigger:
-        'You send it yourself, or as a broadcast, to a Marketing audience you choose.',
+      trigger: 'You send it yourself or in a broadcast to people you choose.',
       category: 'Marketing',
       galleryGroup: 'marketing',
       consentScope: 'whatsapp_marketing',

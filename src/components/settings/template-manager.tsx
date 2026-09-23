@@ -10,10 +10,7 @@ import {
   RefreshCw,
   AlertCircle,
   X,
-  Pencil,
-  RotateCcw,
   Upload,
-  LayoutTemplate,
   MoreHorizontal,
   Send,
 } from 'lucide-react';
@@ -32,7 +29,6 @@ import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
 } from '@/components/ui/card';
@@ -51,7 +47,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { SettingsPanelHead } from './settings-panel-head';
+import { SettingsPanelHead, SettingsSectionHead } from './settings-panel-head';
+import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import {
   Dialog,
   DialogContent,
@@ -117,22 +114,37 @@ const PRESET_GROUPS: Array<{
   {
     id: 'feature',
     title: 'UsefulDesk features',
-    description:
-      'UsefulDesk sends these for you, from member actions, payment links, and reminders. The name and wording are locked so those sends keep working.',
+    description: 'Messages used by UsefulDesk features.',
   },
   {
     id: 'account_update',
     title: 'Account updates',
-    description:
-      'Starting points you name and edit yourself, about a membership, invoice, or payment a member already has.',
+    description: 'Messages about a member’s account or payment.',
   },
   {
     id: 'marketing',
     title: 'Marketing',
-    description:
-      'Starting points you name and edit yourself, for members who opted in to marketing.',
+    description: 'Offers you can send to members.',
   },
 ];
+
+type GalleryFilter = 'all' | 'approved' | 'pending' | 'not_approved';
+
+function matchesGalleryFilter(
+  template: MessageTemplate | undefined,
+  filter: GalleryFilter
+): boolean {
+  if (filter === 'all') return true;
+  const status = template?.provider_missing_since
+    ? 'NOT_ON_META'
+    : (template?.status ?? 'NOT_SUBMITTED');
+  if (filter === 'approved') return status === 'APPROVED';
+  if (filter === 'pending')
+    return status === 'PENDING' || status === 'IN_APPEAL';
+  return (
+    status !== 'APPROVED' && status !== 'PENDING' && status !== 'IN_APPEAL'
+  );
+}
 
 // A preset's body reads as `Hi {{1}}, your {{2}} membership ends on {{3}}`,
 // which forces the reader to zip placeholder indices against a separate
@@ -145,32 +157,36 @@ type PreviewSegment =
   | { kind: 'text'; value: string }
   | { kind: 'slot'; value: string; label: string };
 
-function previewSegments(preset: TemplatePreset): PreviewSegment[] {
+function previewSegments(
+  bodyText: string,
+  samples: string[],
+  labels: string[]
+): PreviewSegment[] {
   const segments: PreviewSegment[] = [];
   const pattern = /\{\{(\d+)\}\}/g;
   let cursor = 0;
   let match: RegExpExecArray | null;
 
-  while ((match = pattern.exec(preset.fields.body_text)) !== null) {
+  while ((match = pattern.exec(bodyText)) !== null) {
     if (match.index > cursor) {
       segments.push({
         kind: 'text',
-        value: preset.fields.body_text.slice(cursor, match.index),
+        value: bodyText.slice(cursor, match.index),
       });
     }
     const slot = Number(match[1]) - 1;
-    const label = preset.parameterLabels[slot] ?? `Detail ${match[1]}`;
+    const label = labels[slot] ?? `Detail ${match[1]}`;
     segments.push({
       kind: 'slot',
-      value: preset.fields.body_samples[slot]?.trim() || label,
+      value: samples[slot]?.trim() || label,
       label,
     });
     cursor = match.index + match[0].length;
   }
-  if (cursor < preset.fields.body_text.length) {
+  if (cursor < bodyText.length) {
     segments.push({
       kind: 'text',
-      value: preset.fields.body_text.slice(cursor),
+      value: bodyText.slice(cursor),
     });
   }
   return segments;
@@ -178,13 +194,26 @@ function previewSegments(preset: TemplatePreset): PreviewSegment[] {
 
 function TemplateMessagePreview({
   preset,
+  template,
   placement = 'card',
 }: {
-  preset: TemplatePreset;
+  preset?: TemplatePreset;
+  template?: MessageTemplate;
   placement?: 'card' | 'dialog';
 }) {
-  const buttons = preset.fields.buttons ?? [];
-  const footerText = preset.fields.footer_text;
+  const buttons = template
+    ? (template.buttons ?? [])
+    : (preset?.fields.buttons ?? []);
+  const footerText = template
+    ? template.footer_text
+    : preset?.fields.footer_text;
+  const bodyText = template
+    ? template.body_text
+    : (preset?.fields.body_text ?? '');
+  const samples = template
+    ? (template.sample_values?.body ?? [])
+    : (preset?.fields.body_samples ?? []);
+  const labels = preset?.parameterLabels ?? [];
 
   return (
     <div
@@ -203,12 +232,19 @@ function TemplateMessagePreview({
         className={`bg-chat-bubble-in text-foreground relative w-fit rounded-lg rounded-tl-none p-1 shadow-[var(--chat-bubble-shadow)] ${placement === 'dialog' ? 'max-w-[92%]' : 'max-w-[88%]'}`}
       >
         <BubbleTail side="left" />
+        {template?.header_type && (
+          <p className="text-chat-meta px-1.5 pt-0.5 text-xs font-medium">
+            {template.header_type === 'text'
+              ? template.header_content || 'Text header'
+              : `${template.header_type} header`}
+          </p>
+        )}
         <p className="px-1.5 py-0.5 text-sm break-words whitespace-pre-wrap">
           <span className="sr-only">
             Sample message. Filled-in details:{' '}
-            {preset.parameterLabels.join(', ')}.{' '}
+            {labels.length ? labels.join(', ') : 'Template variables'}.{' '}
           </span>
-          {previewSegments(preset).map((segment, i) =>
+          {previewSegments(bodyText, samples, labels).map((segment, i) =>
             segment.kind === 'slot' ? (
               <span key={i} title={segment.label} className="font-medium">
                 {segment.value}
@@ -248,16 +284,13 @@ const categoryVariants: Record<string, TemplateBadgeVariant> = {
 };
 
 /**
- * One preset in the gallery.
+ * One message in the combined gallery.
  *
- * The sample is drawn as a real WhatsApp bubble on the inbox's own chat
+ * The sample is drawn as a WhatsApp bubble on the inbox's own chat
  * canvas — same fill and meta tokens, same tail geometry, same doodle
- * wallpaper — because the question being answered here is "does this read
- * well on my member's phone?", and a grey quote block cannot answer it. The
- * footer and quick-reply rows render for the same reason: the marketing
- * bodies say "Use the buttons below to respond", so a preview without them
- * contradicts its own copy. The inbox bubble omits both because a sent row
- * only persists its body text; the preset knows its whole payload.
+ * wallpaper. Linked templates use their stored provider fields, while a
+ * missing template uses the preset sample. This keeps preview and status
+ * anchored to the same source of truth.
  *
  * Card, not a rule-separated block: at two columns a shared hairline no
  * longer says which preset owns which message, so each one needs its own
@@ -265,29 +298,87 @@ const categoryVariants: Record<string, TemplateBadgeVariant> = {
  * strips of two side-by-side cards land on the same line whatever their
  * messages measure.
  */
-function PresetCard({
+function TemplateGalleryCard({
   preset,
+  template,
   canAct,
   onUse,
+  onEdit,
+  onSync,
+  onDelete,
+  syncing,
+  deleting,
 }: {
-  preset: TemplatePreset;
+  preset?: TemplatePreset;
+  template?: MessageTemplate;
   canAct: boolean;
   onUse: (preset: TemplatePreset) => void;
+  onEdit: (template: MessageTemplate) => void;
+  onSync: () => void;
+  onDelete: (template: MessageTemplate) => void;
+  syncing: boolean;
+  deleting: boolean;
 }) {
+  const statusKey = template?.status || 'DRAFT';
+  const status = template
+    ? resolveTemplateStatusDisplay(statusKey, template.provider_missing_since)
+    : null;
+  const action = template?.provider_missing_since
+    ? 'Sync status'
+    : statusKey === 'APPROVED'
+      ? 'Edit'
+      : statusKey === 'PENDING' ||
+          statusKey === 'IN_APPEAL' ||
+          statusKey === 'DISABLED' ||
+          statusKey === 'PENDING_DELETION'
+        ? 'Sync status'
+        : statusKey === 'REJECTED' || statusKey === 'PAUSED'
+          ? 'Resubmit'
+          : 'Submit draft';
+
   return (
-    <Card data-slot="preset" size="sm">
+    <Card data-slot={preset ? 'preset' : 'template'} size="sm">
       <CardHeader className="min-h-0">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <h4 className="text-foreground text-sm font-medium">
-            {preset.title}
+            {preset?.title ?? template?.name}
           </h4>
-          <Badge variant={categoryVariants[preset.category] || 'neutral'}>
-            {preset.category}
+          <Badge
+            variant={
+              categoryVariants[template?.category ?? preset?.category ?? ''] ||
+              'neutral'
+            }
+          >
+            {template?.category ?? preset?.category}
           </Badge>
+          {status ? (
+            <Badge
+              variant={
+                template?.provider_missing_since
+                  ? 'danger'
+                  : statusVariant(statusKey)
+              }
+            >
+              {status.label}
+            </Badge>
+          ) : (
+            <Badge variant="neutral">Preset</Badge>
+          )}
+          {template?.quality_score && (
+            <Badge
+              variant={qualityVariant(template.quality_score)}
+              title="Meta quality score"
+            >
+              Quality: {template.quality_score.toLowerCase()}
+            </Badge>
+          )}
         </div>
-        <CardDescription className="text-xs leading-[1.5]">
-          {preset.blurb}
-        </CardDescription>
+        {template && (
+          <p className="text-muted-foreground text-xs">
+            {preset ? `${template.name} · ` : ''}
+            {template.language || 'en_US'}
+          </p>
+        )}
       </CardHeader>
 
       {/* A direct child of Card, not CardContent: the band wants the card's
@@ -297,23 +388,75 @@ function PresetCard({
           take it. Matching the header's `px-3` puts the bubble body on the
           title's left edge and leaves the tail to hang into the gutter the
           way it does in the thread. */}
-      <TemplateMessagePreview preset={preset} />
+      <TemplateMessagePreview preset={preset} template={template} />
+
+      {template &&
+        (template.provider_missing_since ||
+          template.rejection_reason ||
+          template.submission_error) && (
+          <CardContent className="text-destructive text-xs">
+            {template.provider_missing_since
+              ? 'WhatsApp did not show this message in the last check.'
+              : template.rejection_reason || template.submission_error}
+          </CardContent>
+        )}
 
       <CardFooter className="items-end gap-3">
-        <p className="text-muted-foreground min-w-0 flex-1 text-xs leading-[1.5]">
-          <span className="text-foreground font-medium">Sends when: </span>
-          {preset.trigger}
-        </p>
-        <GatedButton
-          size="sm"
-          variant="outline"
-          className="shrink-0"
-          onClick={() => onUse(preset)}
-          canAct={canAct}
-          gateReason="create message templates"
-        >
-          {preset.wired ? 'Use preset' : 'Use as custom draft'}
-        </GatedButton>
+        {preset && (
+          <p className="text-muted-foreground min-w-0 flex-1 text-xs leading-[1.5]">
+            <span className="text-foreground font-medium">Used when: </span>
+            {preset.trigger}
+          </p>
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-1">
+          {template ? (
+            <>
+              <GatedButton
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  action === 'Sync status' ? onSync() : onEdit(template)
+                }
+                disabled={syncing}
+                loading={action === 'Sync status' && syncing}
+                canAct={canAct}
+                gateReason={
+                  action === 'Sync status'
+                    ? 'sync message templates from Meta'
+                    : 'edit message templates'
+                }
+              >
+                {action}
+              </GatedButton>
+              <GatedButton
+                variant="destructive-ghost"
+                size="icon-sm"
+                onClick={() => onDelete(template)}
+                loading={deleting}
+                canAct={canAct}
+                gateReason="delete message templates"
+                aria-label={`Delete ${template.name}`}
+                title={
+                  template.meta_template_id && !template.provider_missing_since
+                    ? 'Delete from Meta and UsefulDesk'
+                    : 'Delete from UsefulDesk'
+                }
+              >
+                <Trash2 />
+              </GatedButton>
+            </>
+          ) : preset ? (
+            <GatedButton
+              size="sm"
+              variant="outline"
+              onClick={() => onUse(preset)}
+              canAct={canAct}
+              gateReason="create message templates"
+            >
+              {preset.wired ? 'Use preset' : 'Use as draft'}
+            </GatedButton>
+          ) : null}
+        </div>
       </CardFooter>
     </Card>
   );
@@ -455,18 +598,17 @@ function resolveSetupStateCopy(
   if (!template || status === 'DRAFT') {
     return {
       action: 'submit',
-      title: 'Approval needed',
+      title: 'Needs WhatsApp review',
       description:
-        'WhatsApp must approve this message before it can send. Meta, the company behind WhatsApp, reviews it. Submitting does not turn on the message.',
+        'Send this message for review. It will not turn on by itself.',
     };
   }
 
   if (status === 'REJECTED') {
     return {
       action: 'resubmit',
-      title: 'WhatsApp did not approve this message',
-      description:
-        'Review the reason in Technical details, then resubmit the required message for a new review.',
+      title: 'WhatsApp did not approve it',
+      description: 'See why in Details. Then send it for review again.',
       destructive: true,
     };
   }
@@ -475,8 +617,7 @@ function resolveSetupStateCopy(
     return {
       action: 'resubmit',
       title: 'WhatsApp paused this message',
-      description:
-        'Resubmit the required message to start a new WhatsApp review.',
+      description: 'Send it for review again.',
     };
   }
 
@@ -485,10 +626,9 @@ function resolveSetupStateCopy(
       action: 'sync',
       title:
         status === 'PENDING'
-          ? 'Waiting for WhatsApp approval'
-          : 'WhatsApp is reviewing the appeal',
-      description:
-        'When WhatsApp finishes its review, sync the approval status here.',
+          ? 'Waiting for WhatsApp review'
+          : 'WhatsApp is reviewing it again',
+      description: 'Check its status after WhatsApp reviews it.',
     };
   }
 
@@ -497,7 +637,7 @@ function resolveSetupStateCopy(
       action: 'review',
       title: 'Message not found on WhatsApp',
       description:
-        'The latest complete sync could not find this message. Open Templates to review or replace it.',
+        'WhatsApp did not show it in the last check. Open Templates to fix it.',
       destructive: true,
     };
   }
@@ -506,8 +646,7 @@ function resolveSetupStateCopy(
     return {
       action: 'return',
       title: 'Approved for WhatsApp',
-      description:
-        'This message matches the required version. Return to Messages to continue.',
+      description: 'This message is ready. Go back to Messages.',
     };
   }
 
@@ -521,7 +660,7 @@ function resolveSetupStateCopy(
       action: 'resubmit',
       title: 'Message needs updating',
       description:
-        'The approved message does not match the version this feature requires. Update it to the exact version and resubmit it for review.',
+        'This feature needs different text. Update it and send it for review again.',
     };
   }
 
@@ -530,7 +669,7 @@ function resolveSetupStateCopy(
       action: 'review',
       title: 'Message category needs replacing',
       description:
-        'WhatsApp approved this message under a different category. An approved category cannot be changed, so open Templates to review its replacement.',
+        'This message has the wrong type. Open Templates to replace it.',
       destructive: true,
     };
   }
@@ -538,9 +677,8 @@ function resolveSetupStateCopy(
   if (status === 'APPROVED' && readinessCode === 'provider_sync_required') {
     return {
       action: 'sync',
-      title: 'Approval status needs syncing',
-      description:
-        'WhatsApp changed this message. Sync its latest approval status and wording before it can send.',
+      title: 'Check WhatsApp status',
+      description: 'WhatsApp changed this message. Check its status and text.',
     };
   }
 
@@ -548,17 +686,15 @@ function resolveSetupStateCopy(
     return {
       action: 'sync',
       title: 'WhatsApp disabled this message',
-      description:
-        'Review the message in WhatsApp Manager. After it is available again, sync the approval status here.',
+      description: 'Check it in WhatsApp Manager. Then check its status here.',
       destructive: true,
     };
   }
 
   return {
     action: 'sync',
-    title: 'Approval status needs syncing',
-    description:
-      'UsefulDesk cannot confirm this message’s current WhatsApp status. Sync its latest status before continuing.',
+    title: 'Check WhatsApp status',
+    description: 'Check its status before you continue.',
   };
 }
 
@@ -620,6 +756,38 @@ export function TemplateManager({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
   const [templates, setTemplates] = useState<MessageTemplate[]>([]);
+  const [galleryFilter, setGalleryFilter] = useState<GalleryFilter>('all');
+  const gallery = useMemo(() => {
+    const linkedIds = new Set<string>();
+    const presetCards = TEMPLATE_PRESETS.map((preset) => {
+      const template = preset.wired
+        ? templates.find(
+            (item) =>
+              item.name === preset.fields.name &&
+              (item.language || 'en_US') === 'en_US' &&
+              !linkedIds.has(item.id)
+          )
+        : undefined;
+      if (template) linkedIds.add(template.id);
+      return { preset, template };
+    });
+    const otherCards = templates
+      .filter((template) => !linkedIds.has(template.id))
+      .map((template) => ({ preset: undefined, template }));
+    return [...presetCards, ...otherCards];
+  }, [templates]);
+  const galleryCounts = {
+    all: gallery.length,
+    approved: gallery.filter((item) =>
+      matchesGalleryFilter(item.template, 'approved')
+    ).length,
+    pending: gallery.filter((item) =>
+      matchesGalleryFilter(item.template, 'pending')
+    ).length,
+    not_approved: gallery.filter((item) =>
+      matchesGalleryFilter(item.template, 'not_approved')
+    ).length,
+  };
   const focusedPreset = focusedContract
     ? (TEMPLATE_PRESETS.find((preset) => preset.id === focusedContract.id) ??
       null)
@@ -659,8 +827,6 @@ export function TemplateManager({
     : null;
   const setupMaySubmit =
     setupState?.action === 'submit' || setupState?.action === 'resubmit';
-  // Preset gallery — pick a ready-made gym template to pre-fill the form.
-  const [presetPickerOpen, setPresetPickerOpen] = useState(false);
   // Feature-backed presets are exact application contracts. Lock every
   // provider component while creating one, including its language.
   const [contractLocked, setContractLocked] = useState(false);
@@ -812,12 +978,13 @@ export function TemplateManager({
     setEditingId(null);
     setContractLocked(preset.wired);
     setForm(formFromPreset(preset));
-    setPresetPickerOpen(false);
     setDialogOpen(true);
   }
 
   function openEdit(template: MessageTemplate) {
-    setEditingId(template.id);
+    // DRAFT rows have no Meta identity. The create endpoint upserts them by
+    // account/name/language; PATCH only accepts submitted provider templates.
+    setEditingId((template.status ?? 'DRAFT') === 'DRAFT' ? null : template.id);
     setContractLocked(false);
     setForm(formFromTemplate(template));
     setDialogOpen(true);
@@ -867,14 +1034,14 @@ export function TemplateManager({
         setupContractId
           ? data.dry_run
             ? 'Message saved for testing. No WhatsApp approval request was sent.'
-            : 'Submitted for WhatsApp approval. Submitting does not turn on this message.'
+            : 'Sent for WhatsApp review. This does not turn the message on.'
           : data.dry_run
             ? isEdit
-              ? 'Template updated (dry-run — no Meta call)'
-              : 'Template saved (dry-run — no Meta call)'
+              ? 'Message updated for testing. Nothing was sent to WhatsApp.'
+              : 'Message saved for testing. Nothing was sent to WhatsApp.'
             : isEdit
-              ? 'Edit submitted to Meta for review. Sync Templates after Meta decides.'
-              : 'Submitted to Meta for review. Sync Templates after Meta decides.'
+              ? 'Changes sent for WhatsApp review. Check the status later.'
+              : 'Sent for WhatsApp review. Check the status later.'
       );
       if (data.warning) toast.error(String(data.warning), { duration: 10000 });
       setDialogOpen(false);
@@ -888,8 +1055,8 @@ export function TemplateManager({
         getErrorMessage(
           err,
           setupContractId
-            ? 'Failed to submit for WhatsApp approval'
-            : 'Failed to submit template'
+            ? 'Could not send for WhatsApp review'
+            : 'Could not send message for review'
         )
       );
     } finally {
@@ -907,7 +1074,7 @@ export function TemplateManager({
     }
     if (announceSuccess) {
       toast.success(
-        `Synced ${data.total} template${data.total === 1 ? '' : 's'} from Meta` +
+        `Checked ${data.total} message${data.total === 1 ? '' : 's'} on WhatsApp` +
           (data.inserted || data.updated
             ? ` (${data.inserted} new, ${data.updated} updated)`
             : '')
@@ -922,17 +1089,17 @@ export function TemplateManager({
         );
       const suffix =
         data.errors.length > 3 ? `, +${data.errors.length - 3} more` : '';
-      toast.error(`Failed to sync: ${preview.join(', ')}${suffix}`);
+      toast.error(`Could not check: ${preview.join(', ')}${suffix}`);
     }
     if (data.truncated) {
       toast.error(
-        'Synced the first 2000 templates only — your account has more. Sync again to continue, or contact support if this persists.',
+        'Only the first 2,000 messages were checked. Check again to load more. If this keeps happening, contact support.',
         { duration: 10000 }
       );
     }
     if (Number(data.newly_missing) > 0) {
       toast.error(
-        `${data.newly_missing} local template${data.newly_missing === 1 ? ' is' : 's are'} no longer present on Meta. They were disabled and kept for review.`,
+        `${data.newly_missing} message${data.newly_missing === 1 ? ' is' : 's are'} missing from WhatsApp. We turned them off and kept them for review.`,
         { duration: 10000 }
       );
     }
@@ -947,7 +1114,7 @@ export function TemplateManager({
       await syncTemplatesFromMeta(true);
     } catch (err) {
       console.error('Template sync error:', err);
-      toast.error(getErrorMessage(err, 'Failed to sync templates'));
+      toast.error(getErrorMessage(err, 'Could not check WhatsApp messages'));
     } finally {
       setSyncing(false);
     }
@@ -974,15 +1141,15 @@ export function TemplateManager({
       setRequiredSubmissionSummary(summary);
       if (summary.failed > 0) {
         toast.error(
-          `Submitted ${summary.submitted}; ${summary.failed} template${summary.failed === 1 ? '' : 's'} need attention.`,
+          `Sent ${summary.submitted} for review. ${summary.failed} need help.`,
           { duration: 10000 }
         );
       } else if (summary.submitted > 0) {
         toast.success(
-          `Submitted ${summary.submitted} template${summary.submitted === 1 ? '' : 's'} for individual Meta review.`
+          `Sent ${summary.submitted} message${summary.submitted === 1 ? '' : 's'} for WhatsApp review.`
         );
       } else {
-        toast.success('All required templates are already ready or pending.');
+        toast.success('All needed messages are ready or waiting for review.');
       }
 
       try {
@@ -992,7 +1159,7 @@ export function TemplateManager({
         toast.error(
           getErrorMessage(
             syncError,
-            'Templates were processed, but their latest Meta status could not be synced'
+            'We could not check the latest WhatsApp status'
           ),
           { duration: 10000 }
         );
@@ -1001,7 +1168,7 @@ export function TemplateManager({
     } catch (error) {
       console.error('Required template submission error:', error);
       toast.error(
-        getErrorMessage(error, 'Failed to submit required templates')
+        getErrorMessage(error, 'Could not send needed messages for review')
       );
     } finally {
       submittingRequiredRef.current = false;
@@ -1171,10 +1338,10 @@ export function TemplateManager({
           </DialogTitle>
           <DialogDescription>
             {setupContractId
-              ? `${getTemplateContractById(setupContractId)?.title ?? 'This automated message'} uses the message below. Review its approval status before continuing.`
+              ? `Check the message and its WhatsApp status.`
               : editingId
-                ? 'Save your changes to send the template back to Meta for review.'
-                : 'Build a WhatsApp template, then submit it to Meta for approval.'}
+                ? 'Save changes and send this message for WhatsApp review.'
+                : 'Create a message for WhatsApp to review.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -1189,7 +1356,7 @@ export function TemplateManager({
               </Alert>
             ) : (
               <p role="status" className="text-muted-foreground text-sm">
-                Loading the required template…
+                Loading message…
               </p>
             )}
             <DialogFooter>
@@ -1208,7 +1375,7 @@ export function TemplateManager({
             <TemplateMessagePreview preset={focusedPreset} placement="dialog" />
 
             <div className="space-y-1">
-              <div className="text-sm font-medium">Used for</div>
+              <div className="text-sm font-medium">What it does</div>
               <div className="text-muted-foreground text-sm">
                 {focusedPreset.blurb}
               </div>
@@ -1224,8 +1391,8 @@ export function TemplateManager({
               <div className="space-y-2">
                 <Label htmlFor="locked-template-header-media">
                   {form.header_format === 'document'
-                    ? 'Sample PDF link for WhatsApp review'
-                    : `Sample ${form.header_format} link for WhatsApp review`}
+                    ? 'PDF link for review'
+                    : `${form.header_format} link for review`}
                 </Label>
                 {form.header_format === 'image' ? (
                   <div className="flex flex-wrap items-center gap-2">
@@ -1269,15 +1436,14 @@ export function TemplateManager({
                   required
                 />
                 <div className="text-muted-foreground text-xs leading-relaxed">
-                  Paste a public HTTPS link. It is used only to review this
-                  message.
+                  Use a public HTTPS link. WhatsApp uses it only for review.
                 </div>
               </div>
             ) : null}
 
             <Accordion>
               <AccordionItem value="technical-details">
-                <AccordionTrigger>Technical details</AccordionTrigger>
+                <AccordionTrigger>Details</AccordionTrigger>
                 <AccordionContent>
                   <dl className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-1">
@@ -1379,7 +1545,7 @@ export function TemplateManager({
                       gateReason="sync the WhatsApp approval status"
                       onClick={handleSyncFromMeta}
                     >
-                      Sync approval status
+                      Check status
                     </GatedButton>
                   ) : (
                     <GatedButton
@@ -1390,9 +1556,9 @@ export function TemplateManager({
                     >
                       {setupState.action === 'resubmit'
                         ? setupTemplate?.status === 'APPROVED'
-                          ? 'Update and resubmit for WhatsApp approval'
-                          : 'Resubmit for WhatsApp approval'
-                        : 'Submit for WhatsApp approval'}
+                          ? 'Update and send for review'
+                          : 'Send for review again'
+                        : 'Send for review'}
                     </GatedButton>
                   )}
                 </>
@@ -1407,8 +1573,8 @@ export function TemplateManager({
                   <div className="space-y-2">
                     <Label htmlFor="locked-template-header-media">
                       {form.header_format === 'document'
-                        ? 'Sample PDF link for Meta'
-                        : `Sample ${form.header_format} link for Meta`}
+                        ? 'PDF link for review'
+                        : `${form.header_format} link for review`}
                     </Label>
                     {form.header_format === 'image' ? (
                       <div className="flex flex-wrap items-center gap-2">
@@ -1452,8 +1618,7 @@ export function TemplateManager({
                       required
                     />
                     <p className="text-muted-foreground text-xs leading-relaxed">
-                      Paste a public HTTPS link. Meta uses this file only to
-                      check the message.
+                      Use a public HTTPS link. WhatsApp uses it only for review.
                     </p>
                   </div>
                 ) : null}
@@ -1488,7 +1653,9 @@ export function TemplateManager({
                     </dd>
                   </div>
                   <div className="space-y-1 sm:col-span-2">
-                    <dt className="text-muted-foreground text-xs">Used for</dt>
+                    <dt className="text-muted-foreground text-xs">
+                      What it does
+                    </dt>
                     <dd>{lockedPreset.blurb}</dd>
                   </div>
                 </dl>
@@ -1497,11 +1664,9 @@ export function TemplateManager({
             {!contractLocked && form.category === 'Authentication' && (
               <Alert>
                 <AlertCircle />
-                <AlertTitle>
-                  Authentication templates aren&apos;t supported here
-                </AlertTitle>
+                <AlertTitle>Sign-in messages are not supported here</AlertTitle>
                 <AlertDescription>
-                  Create them in Meta WhatsApp Manager, then use Sync from Meta.
+                  Create them in WhatsApp Manager. Then sync with WhatsApp.
                 </AlertDescription>
               </Alert>
             )}
@@ -1520,10 +1685,10 @@ export function TemplateManager({
                 />
                 <p className="text-muted-foreground text-xs">
                   {editingId
-                    ? 'The name is fixed once the template exists on Meta.'
+                    ? 'You cannot change the name after you save it.'
                     : contractLocked
-                      ? 'This UsefulDesk feature requires the exact template name.'
-                      : 'Lowercase letters, digits, and underscores only.'}
+                      ? 'This feature needs this exact name.'
+                      : 'Use small letters, numbers, and underscores only.'}
                 </p>
               </div>
 
@@ -1573,11 +1738,11 @@ export function TemplateManager({
                   </datalist>
                   <p className="text-muted-foreground text-xs">
                     {editingId ? (
-                      'Language is fixed once a template exists on Meta.'
+                      'You cannot change the language after you save it.'
                     ) : (
                       <>
-                        Must match the exact code on Meta — <code>en_US</code>{' '}
-                        and <code>en</code> are distinct.
+                        Use the exact WhatsApp code. <code>en_US</code> and{' '}
+                        <code>en</code> are different.
                       </>
                     )}
                   </p>
@@ -1623,7 +1788,7 @@ export function TemplateManager({
                     </Label>
                     <Input
                       id="template-header-text"
-                      placeholder="Header text (max 60 chars, optional {{1}})"
+                      placeholder="Header text (up to 60 characters)"
                       value={form.header_content}
                       disabled={contractLocked}
                       onChange={(e) =>
@@ -1639,7 +1804,7 @@ export function TemplateManager({
                         </Label>
                         <Input
                           id="template-header-sample"
-                          placeholder="Example shown to Meta"
+                          placeholder="Example for review"
                           value={form.header_sample}
                           disabled={contractLocked}
                           onChange={(e) =>
@@ -1685,12 +1850,12 @@ export function TemplateManager({
                           Upload image
                         </Button>
                         <span className="text-muted-foreground text-xs">
-                          JPEG or PNG, ≤5 MB
+                          JPEG or PNG, up to 5 MB
                         </span>
                       </div>
                     )}
                     <Label htmlFor="template-header-media" size="sm">
-                      Public {form.header_format} URL
+                      Public {form.header_format} link
                     </Label>
                     <Input
                       id="template-header-media"
@@ -1714,12 +1879,12 @@ export function TemplateManager({
                       )}
                     <p className="text-muted-foreground text-xs leading-relaxed">
                       {form.header_format === 'image'
-                        ? 'Upload a JPEG/PNG (≤5 MB, ≥800×418 px recommended) or paste a public HTTPS link — we upload it to Meta for review automatically.'
-                        : 'Must be a publicly accessible HTTPS link. Meta fetches it once during review, so it needs to stay live for ~24 hrs.'}
+                        ? 'Upload a JPEG or PNG, or use a public HTTPS link. WhatsApp needs it for review.'
+                        : 'Use a public HTTPS link. Keep the file there for 24 hours so WhatsApp can review it.'}
                       {form.header_format === 'video' &&
-                        ' Recommended: MP4 / 3GPP, ≤16 MB, ≤60 seconds.'}
+                        ' Use MP4 or 3GPP, up to 16 MB and 60 seconds.'}
                       {form.header_format === 'document' &&
-                        ' Recommended: PDF, ≤100 MB.'}
+                        ' Use a PDF, up to 100 MB.'}
                     </p>
                   </div>
                 )}
@@ -1740,14 +1905,14 @@ export function TemplateManager({
                   required
                 />
                 <p className="text-muted-foreground text-xs">
-                  Use {`{{1}}`}, {`{{2}}`} for variables (must be contiguous
-                  starting at {`{{1}}`}). Put fixed words before the first and
-                  after the last; punctuation alone does not count.
+                  Use {`{{1}}`}, {`{{2}}`} in order, with no gaps. Write words
+                  before the first and after the last. Marks like ! do not count
+                  as words.
                 </p>
 
                 {bodyVarCount > 0 && (
                   <div className="space-y-1.5 pt-1">
-                    <Label size="sm">Sample values for Meta review</Label>
+                    <Label size="sm">Examples for WhatsApp review</Label>
                     {form.body_samples.map((val, i) => {
                       const inputId = `template-body-sample-${i}`;
                       return (
@@ -1775,7 +1940,7 @@ export function TemplateManager({
                 <Label htmlFor="template-footer">Footer (optional)</Label>
                 <Input
                   id="template-footer"
-                  placeholder="Optional footer text (max 60 chars)"
+                  placeholder="Footer text (up to 60 characters)"
                   value={form.footer_text}
                   disabled={contractLocked}
                   onChange={(e) =>
@@ -1804,8 +1969,8 @@ export function TemplateManager({
                 </div>
                 {form.buttons.length === 0 ? (
                   <p className="text-muted-foreground text-xs">
-                    Up to {TEMPLATE_LIMITS.maxButtonsTotal} buttons. Put quick
-                    replies before link, phone, or copy-code buttons.
+                    Add up to {TEMPLATE_LIMITS.maxButtonsTotal} buttons. Put
+                    quick replies first.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -1878,7 +2043,7 @@ export function TemplateManager({
                         {btn.type === 'URL' && (
                           <div className="space-y-2">
                             <Input
-                              placeholder="https://example.com/path or with {{1}} suffix"
+                              placeholder="https://example.com/page"
                               aria-label={`Button ${i + 1} URL`}
                               value={btn.url}
                               disabled={contractLocked}
@@ -1889,7 +2054,7 @@ export function TemplateManager({
                             />
                             {extractVariableIndices(btn.url).length > 0 && (
                               <Input
-                                placeholder="Example value for {{1}} (required when URL has a variable)"
+                                placeholder="Example for {{1}}"
                                 aria-label={`Button ${i + 1} URL sample`}
                                 value={btn.example ?? ''}
                                 disabled={contractLocked}
@@ -1915,7 +2080,7 @@ export function TemplateManager({
                         )}
                         {btn.type === 'COPY_CODE' && (
                           <Input
-                            placeholder="Example code (e.g. SUMMER20)"
+                            placeholder="Example code, like SUMMER20"
                             aria-label={`Button ${i + 1} example code`}
                             value={btn.example}
                             disabled={contractLocked}
@@ -1936,8 +2101,8 @@ export function TemplateManager({
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {contractLocked ? (
                   <p className="text-muted-foreground text-xs leading-relaxed sm:max-w-xs">
-                    Meta will check this message. After it is approved and
-                    synced, return to Messages to continue setup.
+                    WhatsApp will review this message. Check its status before
+                    you use it in Messages.
                   </p>
                 ) : (
                   <span />
@@ -1960,11 +2125,7 @@ export function TemplateManager({
                     canAct={canEditSettings}
                     gateReason="submit message templates"
                   >
-                    {editingId
-                      ? 'Save and resubmit'
-                      : contractLocked
-                        ? 'Submit for WhatsApp approval'
-                        : 'Submit for approval'}
+                    {editingId ? 'Save and send for review' : 'Send for review'}
                   </GatedButton>
                 </div>
               </div>
@@ -1981,7 +2142,7 @@ export function TemplateManager({
     <section className="animate-in fade-in-50 space-y-4 duration-200">
       <SettingsPanelHead
         title="Message templates"
-        description="Create WhatsApp templates, submit them to Meta, or sync ones created elsewhere."
+        description="Choose a message or check its WhatsApp status."
         action={
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <GatedButton
@@ -1991,15 +2152,6 @@ export function TemplateManager({
             >
               <Plus />
               New template
-            </GatedButton>
-            <GatedButton
-              variant="outline"
-              onClick={() => setPresetPickerOpen(true)}
-              canAct={canEditSettings}
-              gateReason="create message templates"
-            >
-              <LayoutTemplate />
-              Use preset
             </GatedButton>
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -2027,7 +2179,7 @@ export function TemplateManager({
                   }
                 >
                   <Send />
-                  Submit all required templates
+                  Send needed templates for review
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleSyncFromMeta}
@@ -2040,22 +2192,17 @@ export function TemplateManager({
                   title={
                     !canEditSettings
                       ? "Read-only — your role can't sync message templates from Meta"
-                      : 'Pull templates from your Meta WhatsApp Business Account'
+                      : 'Get templates from your WhatsApp account'
                   }
                 >
                   <RefreshCw />
-                  Sync from Meta
+                  Sync with WhatsApp
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         }
       />
-
-      <p className="text-muted-foreground text-sm">
-        Submit required templates together from More template actions. Meta
-        reviews and approves each template separately.
-      </p>
 
       {requiredSubmissionSummary ? (
         <Alert
@@ -2065,14 +2212,14 @@ export function TemplateManager({
         >
           <AlertTitle>
             {requiredSubmissionSummary.failed > 0
-              ? 'Some templates need attention'
-              : 'Required templates processed'}
+              ? 'Some messages need help'
+              : 'Messages sent for review'}
           </AlertTitle>
           <AlertDescription>
             <p>
-              Submitted {requiredSubmissionSummary.submitted} · Already ready or
-              pending {requiredSubmissionSummary.already_ready_or_pending} ·
-              Failed {requiredSubmissionSummary.failed} · Total{' '}
+              Sent {requiredSubmissionSummary.submitted} · Ready or waiting{' '}
+              {requiredSubmissionSummary.already_ready_or_pending} · Failed{' '}
+              {requiredSubmissionSummary.failed} · Total{' '}
               {requiredSubmissionSummary.total}
             </p>
             {requiredSubmissionSummary.failed > 0 ? (
@@ -2095,12 +2242,11 @@ export function TemplateManager({
           <AlertTitle>{focusedContract.title}</AlertTitle>
           <AlertDescription>
             <p>
-              This message needs the exact{' '}
+              This feature needs the exact{' '}
               <span className="font-medium">
                 {focusedContract.payload.name}
               </span>{' '}
-              contract. Use its feature preset or sync its approved provider
-              template here.
+              message. Use its preset or sync with WhatsApp.
             </p>
             {safeReturnTo ? (
               <Button
@@ -2141,7 +2287,7 @@ export function TemplateManager({
         <Alert>
           <AlertTitle>Read-only</AlertTitle>
           <AlertDescription>
-            Only admins and owners can create, sync, edit, or delete templates.
+            Only admins and owners can change templates.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -2171,234 +2317,117 @@ export function TemplateManager({
             </Button>
           </AlertDescription>
         </Alert>
-      ) : templates.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-foreground font-medium">No templates yet</p>
-            <p className="text-muted-foreground mt-1 max-w-sm text-sm">
-              Use a gym preset or create a template from scratch, then submit it
-              to Meta for approval.
-            </p>
-            <GatedButton
-              className="mt-4"
-              onClick={() => setPresetPickerOpen(true)}
-              canAct={canEditSettings}
-              gateReason="create message templates"
-            >
-              <LayoutTemplate />
-              Use a preset
-            </GatedButton>
-          </CardContent>
-        </Card>
       ) : (
-        <div className="grid gap-3 xl:grid-cols-2">
-          {templates.map((template) => {
-            const statusKey = template.status || 'DRAFT';
-            const status = resolveTemplateStatusDisplay(
-              statusKey,
-              template.provider_missing_since
-            );
-            return (
-              <Card key={template.id}>
-                <CardContent className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 space-y-2">
-                      <h3 className="text-foreground truncate font-medium">
-                        {template.name}
-                      </h3>
-                      <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-sm">
-                        <Badge
-                          variant={
-                            categoryVariants[template.category] || 'neutral'
-                          }
-                        >
-                          {template.category}
-                        </Badge>
-                        <Badge
-                          variant={
-                            template.provider_missing_since
-                              ? 'danger'
-                              : statusVariant(statusKey)
-                          }
-                        >
-                          {status.label}
-                        </Badge>
-                        {template.language && (
-                          <span className="uppercase">{template.language}</span>
-                        )}
-                        {template.quality_score && (
-                          <Badge
-                            variant={qualityVariant(template.quality_score)}
-                            title="Meta quality score"
-                          >
-                            Quality: {template.quality_score.toLowerCase()}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {statusKey === 'APPROVED' && (
-                        <GatedButton
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(template)}
-                          title="Editing sends the template back to Meta for review"
-                          aria-label="Edit template"
+        <div className="space-y-8">
+          <ChipGroup<GalleryFilter>
+            selectionMode="single"
+            value={[galleryFilter]}
+            onValueChange={(values) => values[0] && setGalleryFilter(values[0])}
+            aria-label="Filter message templates by approval status"
+          >
+            {(
+              [
+                ['all', 'All'],
+                ['approved', 'Approved'],
+                ['pending', 'Pending'],
+                ['not_approved', 'Not approved'],
+              ] as const
+            ).map(([value, label]) => (
+              <Chip key={value} value={value}>
+                {label} <ChipCount count={galleryCounts[value]} />
+              </Chip>
+            ))}
+          </ChipGroup>
+
+          {galleryCounts[galleryFilter] === 0 ? (
+            <Card>
+              <CardContent className="text-muted-foreground py-10 text-center text-sm">
+                No messages with this status.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-8">
+              {PRESET_GROUPS.map((group) => {
+                const cards = gallery.filter(
+                  (item) =>
+                    item.preset?.galleryGroup === group.id &&
+                    matchesGalleryFilter(item.template, galleryFilter)
+                );
+                if (cards.length === 0) return null;
+                const headingId = `template-group-${group.id}`;
+                return (
+                  <section
+                    key={group.id}
+                    className="space-y-3"
+                    aria-labelledby={headingId}
+                  >
+                    <SettingsSectionHead
+                      id={headingId}
+                      title={group.title}
+                      description={group.description}
+                    />
+                    <div className="grid gap-3 xl:grid-cols-2">
+                      {cards.map(({ preset, template }) => (
+                        <TemplateGalleryCard
+                          key={preset?.id ?? template?.id}
+                          preset={preset}
+                          template={template}
                           canAct={canEditSettings}
-                          gateReason="edit message templates"
-                        >
-                          <Pencil />
-                          Edit
-                        </GatedButton>
-                      )}
-                      {(statusKey === 'REJECTED' || statusKey === 'PAUSED') && (
-                        <GatedButton
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEdit(template)}
-                          title="Edit and resubmit this template to Meta"
-                          aria-label="Edit and resubmit template"
-                          canAct={canEditSettings}
-                          gateReason="edit message templates"
-                        >
-                          <RotateCcw />
-                          Resubmit
-                        </GatedButton>
-                      )}
-                      <GatedButton
-                        variant="destructive-ghost"
-                        size="icon"
-                        onClick={() => setTemplateToDelete(template)}
-                        disabled={deletingId === template.id}
-                        canAct={canEditSettings}
-                        gateReason="delete message templates"
-                        aria-label={
-                          template.meta_template_id &&
-                          !template.provider_missing_since
-                            ? 'Delete template from Meta and locally'
-                            : 'Delete template locally'
-                        }
-                        title={
-                          template.meta_template_id &&
-                          !template.provider_missing_since
-                            ? 'Delete from Meta and UsefulDesk'
-                            : 'Delete from UsefulDesk'
-                        }
-                      >
-                        {deletingId === template.id ? (
-                          <Loader2 className="animate-spin" />
-                        ) : (
-                          <Trash2 />
-                        )}
-                      </GatedButton>
+                          onUse={applyPreset}
+                          onEdit={openEdit}
+                          onSync={handleSyncFromMeta}
+                          onDelete={setTemplateToDelete}
+                          syncing={syncing}
+                          deleting={deletingId === template?.id}
+                        />
+                      ))}
                     </div>
+                  </section>
+                );
+              })}
+              {gallery.some(
+                (item) =>
+                  !item.preset &&
+                  matchesGalleryFilter(item.template, galleryFilter)
+              ) && (
+                <section
+                  className="space-y-3"
+                  aria-labelledby="other-template-heading"
+                >
+                  <SettingsSectionHead
+                    id="other-template-heading"
+                    title="Other templates"
+                    description="Your own messages and other languages."
+                  />
+                  <div className="grid gap-3 xl:grid-cols-2">
+                    {gallery
+                      .filter(
+                        (item) =>
+                          !item.preset &&
+                          matchesGalleryFilter(item.template, galleryFilter)
+                      )
+                      .map(({ template }) => (
+                        <TemplateGalleryCard
+                          key={template?.id}
+                          template={template}
+                          canAct={canEditSettings}
+                          onUse={applyPreset}
+                          onEdit={openEdit}
+                          onSync={handleSyncFromMeta}
+                          onDelete={setTemplateToDelete}
+                          syncing={syncing}
+                          deleting={deletingId === template?.id}
+                        />
+                      ))}
                   </div>
-                  <p className="text-muted-foreground line-clamp-2 text-sm">
-                    {template.body_text}
-                  </p>
-                  {template.footer_text && (
-                    <p className="text-muted-foreground text-xs italic">
-                      {template.footer_text}
-                    </p>
-                  )}
-                  {template.provider_missing_since ? (
-                    <Alert variant="destructive">
-                      <AlertCircle />
-                      <AlertDescription>
-                        This template was not returned by Meta during the last
-                        complete sync. Re-create it in Meta or delete this local
-                        record.
-                      </AlertDescription>
-                    </Alert>
-                  ) : template.rejection_reason || template.submission_error ? (
-                    <Alert variant="destructive">
-                      <AlertCircle />
-                      <AlertDescription>
-                        {template.rejection_reason || template.submission_error}
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                </CardContent>
-              </Card>
-            );
-          })}
+                </section>
+              )}
+            </div>
+          )}
         </div>
       )}
 
       {editorDialog}
-
-      {/* Preset gallery — ready-made gym templates. Selecting one drops
-          its copy into the create form for the gym to customise + submit.
-          The header stays pinned while the list scrolls, so the Meta-review
-          caveat and the group you are inside never scroll out of reach.
-
-          Two columns from `lg` up. Ten presets stacked single-file ran 2.85
-          screens of scroll inside a 672px dialog on a 1440px desktop — half
-          the width left empty to make a comparison task into a linear one.
-          Paired up in a 896px dialog the same ten fit six rows, and two
-          candidates can finally be read side by side. */}
-      <Dialog open={presetPickerOpen} onOpenChange={setPresetPickerOpen}>
-        <DialogContent className="max-h-[calc(100dvh-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:max-w-4xl">
-          <DialogHeader>
-            <DialogTitle size="lg">Use a preset</DialogTitle>
-            <DialogDescription className="max-w-[80ch]">
-              Pick a message to open it in the template form. You submit to Meta
-              from there — approval and recipient delivery are not guaranteed,
-              and Meta can reclassify a template later.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="-mx-4 min-h-0 overflow-y-auto px-4 pb-1">
-            {PRESET_GROUPS.map((group, groupIndex) => {
-              const presets = TEMPLATE_PRESETS.filter(
-                (preset) => preset.galleryGroup === group.id
-              );
-              return (
-                <section
-                  key={group.id}
-                  // The rule and the 32px above it are the whole segregation
-                  // device: three groups of bounded cards need a break that
-                  // reads at a squint, and a heading alone did not give one.
-                  className={
-                    groupIndex === 0
-                      ? undefined
-                      : 'border-border/70 mt-8 border-t'
-                  }
-                >
-                  {/* Only the group title pins. The description orients you
-                      on the way in and is dead weight once read, so it scrolls
-                      away and the persistent bar costs one line, not three. */}
-                  <div
-                    className={`bg-popover sticky top-0 z-10 flex items-center gap-2 pb-2 ${
-                      groupIndex === 0 ? 'pt-0' : 'pt-5'
-                    }`}
-                  >
-                    <h3 className="text-foreground text-sm font-semibold">
-                      {group.title}
-                    </h3>
-                    <Badge variant="neutral" size="count">
-                      {presets.length}
-                    </Badge>
-                  </div>
-                  <p className="text-muted-foreground max-w-[70ch] pb-3 text-xs leading-[1.5]">
-                    {group.description}
-                  </p>
-                  <div className="grid gap-3 lg:grid-cols-2">
-                    {presets.map((preset) => (
-                      <PresetCard
-                        key={preset.id}
-                        preset={preset}
-                        canAct={canEditSettings}
-                        onUse={applyPreset}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Confirm-delete dialog. Surfacing the meta_template_id case
           separately so users understand a real Meta delete is happening,
@@ -2413,9 +2442,10 @@ export function TemplateManager({
           <DialogHeader>
             <DialogTitle>Delete template?</DialogTitle>
             <DialogDescription>
-              {templateToDelete?.meta_template_id
-                ? `"${templateToDelete?.name}" will be deleted from Meta and from UsefulDesk. Active broadcasts using this template will start failing on their next send. This can't be undone.`
-                : `"${templateToDelete?.name}" will be deleted from UsefulDesk. It was never submitted to Meta, so no remote cleanup is needed.`}
+              {templateToDelete?.meta_template_id &&
+              !templateToDelete.provider_missing_since
+                ? `"${templateToDelete?.name}" will be removed from WhatsApp and UsefulDesk. Broadcasts that use it will stop sending. You cannot undo this.`
+                : `"${templateToDelete?.name}" will be removed from UsefulDesk. This does not change WhatsApp.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
