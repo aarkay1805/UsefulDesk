@@ -108,16 +108,27 @@ describe('TemplateManager gym preset library', () => {
 
     expect(
       await screen.findByText(
-        'One click submits every required template. Meta reviews and approves each template separately.'
+        'Submit required templates together from More template actions. Meta reviews and approves each template separately.'
       )
     ).toBeTruthy();
-    const submitAll = screen.getByRole('button', {
+    const moreActions = screen.getByRole('button', {
+      name: 'More template actions',
+    });
+    expect(
+      screen.queryByRole('menuitem', { name: 'Submit all required templates' })
+    ).toBeNull();
+    moreActions.focus();
+    await user.keyboard(' ');
+    const submitAll = screen.getByRole('menuitem', {
       name: 'Submit all required templates',
     });
+    expect(
+      screen.getByRole('menuitem', { name: 'Sync from Meta' })
+    ).toBeTruthy();
 
-    await user.dblClick(submitAll);
+    await user.click(submitAll);
 
-    expect(submitAll.getAttribute('aria-busy')).toBe('true');
+    expect(moreActions.getAttribute('aria-busy')).toBe('true');
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch).toHaveBeenCalledWith(
       '/api/whatsapp/templates/submit-required',
@@ -154,7 +165,37 @@ describe('TemplateManager gym preset library', () => {
     expect(fetch).toHaveBeenNthCalledWith(2, '/api/whatsapp/templates/sync', {
       method: 'POST',
     });
-    expect(submitAll.getAttribute('aria-busy')).toBeNull();
+    expect(moreActions.getAttribute('aria-busy')).toBeNull();
+  });
+
+  it('keeps Meta sync available from the overflow menu', async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        total: 0,
+        inserted: 0,
+        updated: 0,
+        errors: [],
+        truncated: false,
+        newly_missing: 0,
+      }),
+    } as Response);
+
+    render(<TemplateManager />);
+    const moreActions = await screen.findByRole('button', {
+      name: 'More template actions',
+    });
+    moreActions.focus();
+    await user.keyboard(' ');
+    await user.click(screen.getByRole('menuitem', { name: 'Sync from Meta' }));
+
+    expect(fetch).toHaveBeenCalledWith('/api/whatsapp/templates/sync', {
+      method: 'POST',
+    });
+    expect(toastState.success).toHaveBeenCalledWith(
+      'Synced 0 templates from Meta'
+    );
   });
 
   it('opens the required new-template modal directly without a gallery or provider call', async () => {

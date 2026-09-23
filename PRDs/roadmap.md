@@ -1,5 +1,12 @@
 # Roadmap
 
+## Built in code — Template action hierarchy (2026-09-23)
+
+Settings → Message templates shows New template and Use preset in the header.
+The less frequent required-template bulk submission and Meta sync actions remain
+available in the labelled overflow menu, with single-line labels, permission,
+and loading states.
+
 ## Built in code — WhatsApp template parameter boundaries (2026-09-23)
 
 All 21 built-in templates now pass the shared Meta boundary validator. Nineteen

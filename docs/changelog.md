@@ -6,6 +6,14 @@
 
 ---
 
+## 2026-09-23 — Template header actions simplified (built in code)
+
+Settings → Message templates keeps New template and Use preset in the header;
+bulk required-template submission and Meta sync are in its labelled overflow
+menu, whose width keeps action labels on one line. Both actions retain their
+permission and loading states. Key code:
+`src/components/settings/template-manager.tsx`.
+
 ## 2026-09-23 — Meta template parameter boundary repair (built in code)
 
 Shared template validation now rejects body and text-header parameters at an

@@ -14,6 +14,7 @@ import {
   RotateCcw,
   Upload,
   LayoutTemplate,
+  MoreHorizontal,
   Send,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -38,6 +39,12 @@ import {
 import { BubbleTail } from '@/components/inbox/message-bubble';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { GatedButton } from '@/components/ui/gated-button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Accordion,
   AccordionContent,
@@ -1978,17 +1985,6 @@ export function TemplateManager({
         action={
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <GatedButton
-              onClick={handleSubmitRequiredTemplates}
-              loading={submittingRequired}
-              disabled={loading || syncing || !accountId}
-              canAct={canEditSettings}
-              gateReason="submit required message templates"
-            >
-              <Send />
-              Submit all required templates
-            </GatedButton>
-            <GatedButton
-              variant="outline"
               onClick={openCreate}
               canAct={canEditSettings}
               gateReason="create message templates"
@@ -2005,25 +2001,60 @@ export function TemplateManager({
               <LayoutTemplate />
               Use preset
             </GatedButton>
-            <GatedButton
-              variant="outline"
-              onClick={handleSyncFromMeta}
-              loading={syncing}
-              disabled={submittingRequired || loading || !accountId}
-              canAct={canEditSettings}
-              gateReason="sync message templates from Meta"
-              title="Pull templates from your Meta WhatsApp Business Account"
-            >
-              <RefreshCw />
-              Sync from Meta
-            </GatedButton>
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="More template actions"
+                    loading={submittingRequired || syncing}
+                  />
+                }
+              >
+                <MoreHorizontal />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-max min-w-56">
+                <DropdownMenuItem
+                  onClick={handleSubmitRequiredTemplates}
+                  disabled={
+                    !canEditSettings || loading || syncing || !accountId
+                  }
+                  title={
+                    !canEditSettings
+                      ? "Read-only — your role can't submit required message templates"
+                      : undefined
+                  }
+                >
+                  <Send />
+                  Submit all required templates
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleSyncFromMeta}
+                  disabled={
+                    !canEditSettings ||
+                    submittingRequired ||
+                    loading ||
+                    !accountId
+                  }
+                  title={
+                    !canEditSettings
+                      ? "Read-only — your role can't sync message templates from Meta"
+                      : 'Pull templates from your Meta WhatsApp Business Account'
+                  }
+                >
+                  <RefreshCw />
+                  Sync from Meta
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
 
       <p className="text-muted-foreground text-sm">
-        One click submits every required template. Meta reviews and approves
-        each template separately.
+        Submit required templates together from More template actions. Meta
+        reviews and approves each template separately.
       </p>
 
       {requiredSubmissionSummary ? (
