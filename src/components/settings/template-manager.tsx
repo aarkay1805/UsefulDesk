@@ -69,6 +69,7 @@ import { resolveTemplateStatusDisplay } from '@/lib/template-status';
 import {
   extractVariableIndices,
   TEMPLATE_LIMITS,
+  validateTemplatePayload,
 } from '@/lib/whatsapp/template-validators';
 import {
   TEMPLATE_PRESETS,
@@ -835,6 +836,8 @@ export function TemplateManager({
       return;
     try {
       setSubmitting(true);
+      const payload = buildSubmitPayload();
+      validateTemplatePayload(payload);
       const isEdit = editingId !== null;
       const url = isEdit
         ? `/api/whatsapp/templates/${editingId}`
@@ -842,7 +845,7 @@ export function TemplateManager({
       const res = await fetch(url, {
         method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(buildSubmitPayload()),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1731,7 +1734,8 @@ export function TemplateManager({
                 />
                 <p className="text-muted-foreground text-xs">
                   Use {`{{1}}`}, {`{{2}}`} for variables (must be contiguous
-                  starting at {`{{1}}`}).
+                  starting at {`{{1}}`}). Put fixed words before the first and
+                  after the last; punctuation alone does not count.
                 </p>
 
                 {bodyVarCount > 0 && (

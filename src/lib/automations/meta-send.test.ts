@@ -191,7 +191,7 @@ describe('engineSendTemplate', () => {
       name: 'gym_payment_link',
       category: 'Utility',
       body_text:
-        'Hi {{1}}, {{2}} is due for invoice {{3}}. The payment link expires on {{4}}. Use the button below to pay. This message is from {{5}}.',
+        'Hi {{1}}, {{2}} is due for invoice {{3}}. The payment link expires on {{4}}. Use the button below to pay. This message is from {{5}} about your invoice payment link.',
       buttons: [
         {
           type: 'URL',

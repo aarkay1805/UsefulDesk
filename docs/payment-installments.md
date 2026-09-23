@@ -32,12 +32,14 @@ parameters in this order:
 2. outstanding installment amount
 3. plan name
 4. installment due date
+5. legal business name
 
 Exact body:
 
-> Hi {{1}}, this is a reminder for your existing {{3}} membership: the
-> remaining installment of {{2}} is due on {{4}}. Reply if you need help with
-> this payment.
+> Hi {{1}}, the remaining installment of {{2}} for your {{3}} membership is
+> due on {{4}}. Reply if you need help with this payment. This message is from
+>
+> {{5}} about your remaining installment.
 
 Submission starts Meta review; approval and delivery are not guaranteed. Sync
 Templates after review. The cron requires the exact Approved category, format,

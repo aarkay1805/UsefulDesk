@@ -53,7 +53,7 @@ future purchase. Neither template is a Utility account update.
 > Hi {{1}}, your {{2}} membership ends on {{3}}. The current renewal price is
 >
 > {{4}}. Reply using the button if you would like help renewing. This message
-> is from {{5}}.
+> is from {{5}} about your membership renewal.
 
 Button: `Help me renew`.
 
@@ -62,7 +62,7 @@ Button: `Help me renew`.
 > Hi {{1}}, your {{2}} service ends on {{3}}. The current renewal price is
 >
 > {{4}}. Reply using the button if you would like help renewing. This message
-> is from {{5}}.
+> is from {{5}} about your service renewal.
 
 Button: `Help me renew`.
 
@@ -71,7 +71,7 @@ Button: `Help me renew`.
 > Hi {{1}}, your {{2}} membership ended on {{3}}. The current renewal price is
 >
 > {{4}}. Reply using the button if you would like help renewing. This message
-> is from {{5}}.
+> is from {{5}} about your expired membership.
 
 Button: `Help me renew`.
 
@@ -80,7 +80,7 @@ Button: `Help me renew`.
 > Hi {{1}}, your {{2}} service ended on {{3}}. The current renewal price is
 >
 > {{4}}. Reply using the button if you would like help renewing. This message
-> is from {{5}}.
+> is from {{5}} about your expired service.
 
 Button: `Help me renew`.
 
@@ -93,7 +93,7 @@ account locale. The exact payloads live in
 `src/lib/whatsapp/template-contracts.ts`; do not restate or edit them at a
 sender.
 
-Every wired feature contract ends with the account's canonical legal-business
+Every wired feature contract identifies the account's canonical legal-business
 identity, resolved from its linked legal entity (`legal_name`, then `name`). A
 missing or unreadable identity blocks the send with a structured setup reason;
 senders never substitute a product or placeholder brand.
@@ -103,6 +103,14 @@ senders never substitute a product or placeholder brand.
 Settings → Templates can create the exact contract and submit it to Meta.
 Submission starts review; approval is not guaranteed, Meta may reclassify the
 template, and delivery is not guaranteed even after approval.
+Before create or edit reaches Meta, the shared validator rejects body and text
+header placeholders at either edge, including when only spaces or punctuation
+surround them. Add meaningful fixed words before the first placeholder and
+after the last. Footer variables remain unsupported; a dynamic URL-button
+suffix is a separate supported button parameter. The preset gallery, single
+submission, resubmission, and required-template workflow use the same payloads
+and validation. Any previously submitted copy that differs from these exact
+contracts must complete provider review again and be synced before it is ready.
 
 A feature is ready only after **Sync from Meta** proves that the exact
 name/language row is **Approved**, has the expected Marketing category,

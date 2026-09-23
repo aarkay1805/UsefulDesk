@@ -62,6 +62,18 @@ describe('validateBody', () => {
       /cannot start or end/
     );
   });
+  it.each([
+    '  {{1}}, your invoice is due.',
+    '({{1}}) your invoice is due.',
+    'Your invoice is due: {{1}}. ',
+    'Your invoice is due: {{1}}!?',
+    'Your invoice is due: {{1}}。',
+  ])(
+    'rejects punctuation or whitespace masquerading as fixed copy: %s',
+    (body) => {
+      expect(() => validateBody(body)).toThrow(/meaningful fixed words/);
+    }
+  );
   it('accepts contiguous variables', () => {
     expect(validateBody('Hi {{1}}, item {{2}} is ready.')).toEqual([1, 2]);
   });
@@ -99,6 +111,20 @@ describe('validateHeader', () => {
     expect(() =>
       validateHeader({ header_type: 'text', header_content: 'Hello {{2}}' })
     ).toThrow(/must be \{\{1\}\}/);
+  });
+  it('text header requires fixed words around its variable', () => {
+    expect(() =>
+      validateHeader({ header_type: 'text', header_content: '({{1}}) update' })
+    ).toThrow(/Text header cannot start or end/);
+    expect(() =>
+      validateHeader({ header_type: 'text', header_content: 'Update: {{1}}.' })
+    ).toThrow(/Text header cannot start or end/);
+    expect(() =>
+      validateHeader({
+        header_type: 'text',
+        header_content: 'Update {{1}} is ready',
+      })
+    ).not.toThrow();
   });
   it('image header requires a URL or handle', () => {
     expect(() => validateHeader({ header_type: 'image' })).toThrow(
@@ -197,6 +223,18 @@ describe('validateButtons', () => {
     expect(() =>
       validateButtons([{ type: 'URL', text: 'Go', url: 'https://x/{{1}}' }])
     ).toThrow(/Meta requires an example/);
+  });
+  it('allows an example-backed dynamic URL suffix', () => {
+    expect(() =>
+      validateButtons([
+        {
+          type: 'URL',
+          text: 'Pay invoice',
+          url: 'https://rzp.io/{{1}}',
+          example: 'i/abc123',
+        },
+      ])
+    ).not.toThrow();
   });
   it('rejects URL with non-{{1}} variable', () => {
     expect(() =>

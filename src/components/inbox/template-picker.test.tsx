@@ -14,7 +14,7 @@ const canonicalTemplate: MessageTemplate = {
   category: 'Marketing',
   language: 'en_US',
   body_text:
-    'Hi {{1}}, your {{2}} membership ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}}.',
+    'Hi {{1}}, your {{2}} membership ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}} about your membership renewal.',
   status: 'APPROVED',
   created_at: '2026-08-22T00:00:00Z',
 };
@@ -39,7 +39,7 @@ const serviceRenewalTemplate: MessageTemplate = {
   id: 'template-service-renewal',
   name: 'gym_service_renewal',
   body_text:
-    'Hi {{1}}, your {{2}} service ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}}.',
+    'Hi {{1}}, your {{2}} service ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}} about your service renewal.',
 };
 
 const paymentLinkTemplate: MessageTemplate = {
@@ -48,7 +48,7 @@ const paymentLinkTemplate: MessageTemplate = {
   name: 'gym_payment_link',
   category: 'Utility',
   body_text:
-    'Hi {{1}}, {{2}} is due for invoice {{3}}. The payment link expires on {{4}}. Use the button below to pay. This message is from {{5}}.',
+    'Hi {{1}}, {{2}} is due for invoice {{3}}. The payment link expires on {{4}}. Use the button below to pay. This message is from {{5}} about your invoice payment link.',
   buttons: [
     {
       type: 'URL',
@@ -350,7 +350,7 @@ describe('TemplatePicker', () => {
 
     expect(
       await screen.findByText(
-        'Hi Asha Rao, your Quarterly membership ends on 20 Sep 2026. The current renewal price is ₹3,999. Reply using the button if you would like help renewing. This message is from FitZone Wellness Private Limited.'
+        'Hi Asha Rao, your Quarterly membership ends on 20 Sep 2026. The current renewal price is ₹3,999. Reply using the button if you would like help renewing. This message is from FitZone Wellness Private Limited about your membership renewal.'
       )
     ).toBeTruthy();
     expect(
@@ -420,7 +420,7 @@ describe('TemplatePicker', () => {
 
     expect(
       await screen.findByText(
-        'Hi Asha Rao, ₹2,700 is due for invoice INV-000042. The payment link expires on 20 Sep 2026, 6:00 pm. Use the button below to pay. This message is from FitZone Wellness Private Limited.'
+        'Hi Asha Rao, ₹2,700 is due for invoice INV-000042. The payment link expires on 20 Sep 2026, 6:00 pm. Use the button below to pay. This message is from FitZone Wellness Private Limited about your invoice payment link.'
       )
     ).toBeTruthy();
   });
@@ -435,7 +435,7 @@ describe('TemplatePicker', () => {
 
     expect(
       await screen.findByText(
-        'Hi Asha Rao, your Personal training service ends on 20 Sep 2026. The current renewal price is ₹2,500. Reply using the button if you would like help renewing. This message is from FitZone Wellness Private Limited.'
+        'Hi Asha Rao, your Personal training service ends on 20 Sep 2026. The current renewal price is ₹2,500. Reply using the button if you would like help renewing. This message is from FitZone Wellness Private Limited about your service renewal.'
       )
     ).toBeTruthy();
     expect(

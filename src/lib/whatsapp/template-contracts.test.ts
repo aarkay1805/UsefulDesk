@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildMetaTemplatePayload } from './template-components';
+import { validateBody, validateTemplatePayload } from './template-validators';
 import {
   FEATURE_TEMPLATE_CONTRACTS,
   TEMPLATE_CONTRACTS,
@@ -77,6 +78,24 @@ describe('gym WhatsApp template contracts', () => {
     }
   });
 
+  it.each(expectedContracts)(
+    'keeps %s provider copy within Meta variable boundaries',
+    (id) => {
+      const payload = TEMPLATE_CONTRACTS[id].payload;
+      expect(() => validateBody(payload.body_text)).not.toThrow();
+      if (payload.header_type !== 'document') {
+        expect(() => validateTemplatePayload(payload)).not.toThrow();
+      }
+      const body = buildMetaTemplatePayload(payload).components.find(
+        (component) => component.type === 'BODY'
+      );
+      expect(body?.text).toBe(payload.body_text);
+      expect(body?.example?.body_text?.[0]).toEqual(
+        payload.sample_values?.body
+      );
+    }
+  );
+
   it('uses truthful renewal copy and the approved help-me-renew reply', () => {
     for (const id of [
       'membership_renewal',
@@ -97,10 +116,10 @@ describe('gym WhatsApp template contracts', () => {
 
   it('splits upcoming and missed payment promises into distinct exact contracts', () => {
     expect(TEMPLATE_CONTRACTS.payment_promise_upcoming.payload.body_text).toBe(
-      'Hi {{1}}, this is a reminder that you planned to pay {{3}} for invoice {{2}} on {{4}}. Reply if you need help. This message is from {{5}}.'
+      'Hi {{1}}, this is a reminder that you planned to pay {{3}} for invoice {{2}} on {{4}}. Reply if you need help. This message is from {{5}} about your planned invoice payment.'
     );
     expect(TEMPLATE_CONTRACTS.payment_promise_missed.payload.body_text).toBe(
-      'Hi {{1}}, the planned payment date of {{4}} for {{3}} on invoice {{2}} has passed, and the balance remains unpaid. Reply if you need help. This message is from {{5}}.'
+      'Hi {{1}}, the planned payment date of {{4}} for {{3}} on invoice {{2}} has passed, and the balance remains unpaid. Reply if you need help. This message is from {{5}} about your missed payment date.'
     );
   });
 

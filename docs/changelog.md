@@ -6,6 +6,20 @@
 
 ---
 
+## 2026-09-23 — Meta template parameter boundary repair (built in code)
+
+Shared template validation now rejects body and text-header parameters at an
+edge even when spaces or punctuation surround them, with an actionable error
+before Meta submission. The Settings builder checks locally; create, edit, and
+required-template routes retain the same server check. Nineteen contract bodies
+now put topic-specific fixed wording after their legal-business-name parameter;
+the preset gallery, ordered samples, and reminder readiness migration
+`20260923120000_template_variable_boundaries.sql` use the same copy. Previously
+approved old copy requires review and sync again before exact feature readiness.
+The migration remains unapplied because its earlier template cutover dependency
+is still absent from the connected database. No Meta template was submitted or
+customer message sent as part of this change.
+
 ## 2026-09-22 — One-click required WhatsApp template submission (built in code)
 
 Settings → Templates now lets admins and owners submit every canonical template

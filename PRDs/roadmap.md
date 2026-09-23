@@ -1,5 +1,19 @@
 # Roadmap
 
+## Built in code — WhatsApp template parameter boundaries (2026-09-23)
+
+All 21 built-in templates now pass the shared Meta boundary validator. Nineteen
+feature bodies replace their trailing legal-name placeholder with attributable,
+topic-specific fixed wording after it; the document and festival bodies already
+had fixed wording. Custom create, edit/resubmit, and one-click required-template
+submission share the same server guard, and the Settings builder reports the
+error before its request. The validator also checks text headers and treats
+whitespace or punctuation alone as insufficient. Exact database reminder-rule
+readiness is aligned in `20260923120000_template_variable_boundaries.sql`.
+Previously approved old bodies must be reviewed and synced again; no live Meta
+submission or customer send was performed. The follow-on migration remains
+unapplied while the earlier template cutover migration is pending.
+
 ## Built in code — One-click required WhatsApp template submission (2026-09-22)
 
 Admins and owners can now process all 19 canonical templates used by automated

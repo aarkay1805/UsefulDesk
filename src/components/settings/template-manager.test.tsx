@@ -413,6 +413,38 @@ describe('TemplateManager gym preset library', () => {
     expect(close).toHaveBeenCalledWith(true);
   });
 
+  it('shows a boundary error for custom copy before making a submission request', async () => {
+    const user = userEvent.setup();
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<TemplateManager />);
+    await user.click(
+      await screen.findByRole('button', { name: 'New template' })
+    );
+    await user.type(
+      screen.getByRole('textbox', { name: 'Template name' }),
+      'custom_due'
+    );
+    await user.type(
+      screen.getByRole('textbox', { name: 'Body text' }),
+      'Invoice due: {{{{1}}}}.'
+    );
+    await user.type(
+      screen.getByRole('textbox', {
+        name: 'Sample value for body variable {{1}}',
+      }),
+      'INV-1024'
+    );
+    await user.click(
+      screen.getByRole('button', { name: 'Submit for approval' })
+    );
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(toastState.error).toHaveBeenCalledWith(
+      expect.stringContaining('Add meaningful fixed words')
+    );
+    errorLog.mockRestore();
+  });
+
   it('does not offer a duplicate creation form when the template lookup fails', async () => {
     setupState.error = { message: 'Template lookup failed' };
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});

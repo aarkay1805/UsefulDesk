@@ -61,7 +61,7 @@ describe('gym WhatsApp template documentation contract', () => {
   it('documents the exact invoice document provider contract', () => {
     const runbook = read('docs/invoice-documents.md');
 
-    expect(runbook).toContain('ten exact template contracts');
+    expect(runbook).toContain('the exact template library');
     expect(runbook).toContain('`invoice_document`');
     expect(runbook).toContain('`gym_invoice_document`');
     expect(runbook).toContain('Utility');
@@ -69,7 +69,7 @@ describe('gym WhatsApp template documentation contract', () => {
     expect(runbook).toContain('POSITIONAL');
     expect(runbook).toContain('document header');
     expect(runbook).toMatch(
-      /Customer name[^\n]*Invoice number[^\n]*Invoice total[^\n]*Business name/
+      /Customer name[^\n]*Invoice number[^\n]*Invoice total[^\n]*Legal business name/
     );
     expect(runbook).toContain('`whatsapp_account_updates`');
   });

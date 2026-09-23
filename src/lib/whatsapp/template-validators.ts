@@ -87,6 +87,18 @@ function assertContiguous(indices: number[], where: string): void {
   }
 }
 
+/** Punctuation, symbols, and whitespace do not count as fixed copy around a parameter. */
+function assertVariablePlacement(text: string, where: string): void {
+  if (
+    /^[\s\p{P}\p{S}]*\{\{\d+\}\}/u.test(text) ||
+    /\{\{\d+\}\}[\s\p{P}\p{S}]*$/u.test(text)
+  ) {
+    throw new Error(
+      `${where} cannot start or end with a variable. Add meaningful fixed words before the first placeholder and after the last; spaces and punctuation do not count (Meta rule).`
+    );
+  }
+}
+
 export function validateBody(bodyText: string): number[] {
   const trimmedBody = bodyText.trim();
   if (!trimmedBody) throw new Error('Body text is required.');
@@ -97,11 +109,7 @@ export function validateBody(bodyText: string): number[] {
   }
   const indices = extractVariableIndices(bodyText);
   assertContiguous(indices, 'Body');
-  if (/^\{\{\d+\}\}/.test(trimmedBody) || /\{\{\d+\}\}$/.test(trimmedBody)) {
-    throw new Error(
-      'Body text cannot start or end with a variable — add fixed wording around the placeholder (Meta rule).'
-    );
-  }
+  assertVariablePlacement(bodyText, 'Body text');
   return indices;
 }
 
@@ -150,6 +158,8 @@ export function validateHeader(
     if (indices.length === 1 && indices[0] !== 1) {
       throw new Error('Text header variable must be {{1}} (Meta rule).');
     }
+    if (indices.length > 0)
+      assertVariablePlacement(header_content, 'Text header');
     return { variableCount: indices.length };
   }
 

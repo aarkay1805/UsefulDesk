@@ -72,22 +72,22 @@ A viewer can download but cannot share. Agents, admins, and owners can share. A 
 
 ## Exact WhatsApp contract
 
-The registry in `src/lib/whatsapp/template-contracts.ts` contains ten exact template contracts. The invoice entry is:
+The registry in `src/lib/whatsapp/template-contracts.ts` contains the exact template library. The invoice entry is:
 
-| Field            | Required value                                              |
-| ---------------- | ----------------------------------------------------------- |
-| Contract ID      | `invoice_document`                                          |
-| Provider name    | `gym_invoice_document`                                      |
-| Category         | Utility                                                     |
-| Consent scope    | `whatsapp_account_updates`                                  |
-| Language         | `en_US`                                                     |
-| Parameter format | POSITIONAL                                                  |
-| Header           | document header                                             |
-| Body parameters  | Customer name, Invoice number, Invoice total, Business name |
+| Field            | Required value                                                    |
+| ---------------- | ----------------------------------------------------------------- |
+| Contract ID      | `invoice_document`                                                |
+| Provider name    | `gym_invoice_document`                                            |
+| Category         | Utility                                                           |
+| Consent scope    | `whatsapp_account_updates`                                        |
+| Language         | `en_US`                                                           |
+| Parameter format | POSITIONAL                                                        |
+| Header           | document header                                                   |
+| Body parameters  | Customer name, Invoice number, Invoice total, Legal business name |
 
 The parameter order is load-bearing. Call sites must use the registry and `invoiceDocumentTemplateParams`; they must not reconstruct the provider payload.
 
-A harmless sample for preview and provider review is `Asha`, `INV-000042`, `₹2,500.00`, and `FitZone Gym`. Sample validation does not authorize a submission or message.
+A harmless sample for preview and provider review is `Asha`, `INV-000042`, `₹2,500.00`, and `FitZone Wellness Private Limited`. Sample validation does not authorize a submission or message.
 
 The exact `gym_invoice_document`, Utility, `en_US`, POSITIONAL, document-header row is not present, Approved, or synced at the provider. Therefore the application-side share path is shipped, but provider delivery is not ready. No Meta submission or customer send occurred.
 
