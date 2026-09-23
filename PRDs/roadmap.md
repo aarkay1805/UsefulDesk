@@ -1,5 +1,14 @@
 # Roadmap
 
+## Built in code — Gym group follows legal name (2026-09-23)
+
+Saving Legal business name refreshes the branch listing used by the sidebar and
+Settings → Branches. For a gym group with one legal entity, the legal name also
+names the group; existing groups were reconciled through
+`20260923173000_organization_name_follows_legal_name.sql`. Branches shows the
+name without a “Gym group” prefix. Multi-entity groups keep their own group
+label. The database migration is live; application rollout is pending.
+
 ## Built in code — Legal name in WhatsApp template examples (2026-09-23)
 
 Built-in template previews and new Meta review examples now use the selected

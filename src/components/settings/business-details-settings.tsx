@@ -16,8 +16,13 @@ import { InvoiceDetailsCard } from './invoice-details-card';
 import { SettingsPanelHead, SettingsSectionHead } from './settings-panel-head';
 
 export function BusinessDetailsSettings() {
-  const { account, accountRole, isOrganizationOwner, profileLoading } =
-    useAuth();
+  const {
+    account,
+    accountRole,
+    isOrganizationOwner,
+    profileLoading,
+    refreshProfile,
+  } = useAuth();
 
   if (profileLoading || !account || !accountRole) return null;
 
@@ -31,6 +36,7 @@ export function BusinessDetailsSettings() {
         isOrganizationOwner ? 'owner' : null,
         accountRole
       )}
+      refreshProfile={refreshProfile}
     />
   );
 }
@@ -40,11 +46,13 @@ function BusinessDetailsForAccount({
   gymName,
   mayRename,
   mayEditLegalName,
+  refreshProfile,
 }: {
   accountId: string;
   gymName: string;
   mayRename: boolean;
   mayEditLegalName: boolean;
+  refreshProfile: () => Promise<void>;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [name, setName] = useState(gymName);
@@ -117,6 +125,7 @@ function BusinessDetailsForAccount({
       setSavedLegalName(data);
       setInvoiceRevision((current) => current + 1);
       toast.success('Legal business name updated');
+      await refreshProfile();
     } catch (error) {
       toast.error(
         getErrorMessage(error, "Legal business name couldn't be saved.")

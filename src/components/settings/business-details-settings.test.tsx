@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   role: 'owner' as 'owner' | 'admin',
   isOrganizationOwner: true,
   rpc: vi.fn(),
+  refreshProfile: vi.fn(),
   fetch: vi.fn(),
   legalName: 'Old Legal Ltd',
 }));
@@ -25,6 +26,7 @@ vi.mock('@/hooks/use-auth', () => ({
     accountRole: state.role,
     isOrganizationOwner: state.isOrganizationOwner,
     profileLoading: false,
+    refreshProfile: state.refreshProfile,
   }),
 }));
 vi.mock('@/lib/supabase/client', () => ({
@@ -61,6 +63,8 @@ beforeEach(() => {
   state.isOrganizationOwner = true;
   state.legalName = 'Old Legal Ltd';
   state.rpc.mockReset();
+  state.refreshProfile.mockReset();
+  state.refreshProfile.mockResolvedValue(undefined);
   state.rpc.mockImplementation((name: string) =>
     Promise.resolve(
       name === 'my_branch_accounts'
@@ -110,6 +114,7 @@ describe('BusinessDetailsSettings', () => {
       })
     );
     expect(toast.success).toHaveBeenCalledWith('Legal business name updated');
+    await waitFor(() => expect(state.refreshProfile).toHaveBeenCalledOnce());
   });
 
   it('keeps the legal name read-only for branch admins', async () => {

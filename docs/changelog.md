@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-09-23 — Legal name also names the gym group (database live; app built in code)
+
+`src/components/settings/business-details-settings.tsx` refreshes the auth
+branch listing after a legal-name save so branch menus and Settings → Branches
+show the new shared legal name immediately. In single-entity groups,
+`20260923173000_organization_name_follows_legal_name.sql` mirrors the canonical
+`legal_entities.legal_name` into `organizations.name` and reconciles existing
+groups; multi-entity groups retain their own group label. The Branches card
+shows the name without a “Gym group” prefix. Application rollout is pending.
+
 ## 2026-09-23 — Template previews use the legal business name (built in code)
 
 `src/components/settings/template-manager.tsx` resolves the selected branch's
