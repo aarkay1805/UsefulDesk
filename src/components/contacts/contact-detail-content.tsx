@@ -657,19 +657,9 @@ export function ContactDetailContent({
             )}
           </div>
 
-          {/* Quick actions — a primary "Convert" action leads the row
-              (filled circle), then the HubSpot-style icon actions. Wraps
-              so the narrow inbox panel degrades gracefully. */}
+          {/* Quick actions wrap on the narrow inbox panel. Keep the
+              conversion CTA separate and fully labelled below them. */}
           <div className="mt-3 flex flex-wrap items-start gap-x-6 gap-y-3">
-            {showAction('convert') && (
-              <QuickAction
-                icon={UserPlus}
-                label="Convert"
-                title="Convert to member"
-                primary
-                onClick={() => setConvertOpen(true)}
-              />
-            )}
             {showAction('chat') && (
               <QuickAction
                 icon={WhatsAppMark}
@@ -707,6 +697,16 @@ export function ContactDetailContent({
               />
             )}
           </div>
+          {showAction('convert') && (
+            <Button
+              variant="default"
+              className="mt-4 w-full"
+              onClick={() => setConvertOpen(true)}
+            >
+              <UserPlus />
+              Convert to member
+            </Button>
+          )}
         </Header>
 
         {/* Single scrollable page — every section an accordion, open by default */}
@@ -1140,7 +1140,6 @@ function QuickAction({
   href,
   disabled,
   loading,
-  primary,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -1149,12 +1148,9 @@ function QuickAction({
   href?: string;
   disabled?: boolean;
   loading?: boolean;
-  /** Filled primary circle + white icon — the emphasised action. */
-  primary?: boolean;
 }) {
-  const circle = primary
-    ? 'flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/90 cursor-pointer'
-    : 'flex size-9 items-center justify-center rounded-full border border-border bg-transparent text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary-text cursor-pointer';
+  const circle =
+    'flex size-9 items-center justify-center rounded-full border border-border bg-transparent text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary-text cursor-pointer';
   const inner = loading ? (
     <Loader2 className="size-4 animate-spin" />
   ) : (

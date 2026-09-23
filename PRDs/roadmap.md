@@ -1,5 +1,11 @@
 # Roadmap
 
+## Built in code — Prominent lead conversion action (2026-09-23)
+
+Lead details and the inbox contact panel now place a full-width primary
+Convert to member button below their compact icon actions so agents can find
+the conversion path immediately.
+
 ## Built in code — Connected WhatsApp number in settings (2026-09-23)
 
 Settings → WhatsApp shows the Meta-verified display number for a saved,

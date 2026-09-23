@@ -6,6 +6,12 @@
 
 ---
 
+## 2026-09-23 — Lead conversion action made prominent (built in code)
+
+The lead detail sheet and inbox contact panel now show a full-width primary
+Convert to member button below the icon actions. The shared header lives in
+`src/components/contacts/contact-detail-content.tsx`.
+
 ## 2026-09-23 — Connected WhatsApp number shown in settings (built in code)
 
 Settings → WhatsApp now shows the Meta-verified display number and connection
