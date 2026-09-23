@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-09-23 — Business legal name moved to Business details (built in code)
+
+`src/components/settings/business-details-settings.tsx` puts gym name, legal
+business name, and invoice details together under Business setup. Gym rename
+reuses the existing audited branch path. The owner-only
+`20260923170000_business_legal_name_settings.sql` RPC changes the canonical
+legal entity name and updates invoice profiles still following the old value;
+issued snapshots stay unchanged.
+`20260923171000_business_legal_name_display.sql` makes branch discovery show
+the current legal name. Invoice details retain one **Name on invoices** field;
+`20260923172000_invoice_identity_from_business_details.sql` makes future
+seller snapshots read the canonical legal name, ignoring legacy issuer
+overrides. All three are live as connector migrations `20260923170826`,
+`20260923171159`, and `20260923171911`; application rollout is pending.
+
 ## 2026-09-23 — Customer WhatsApp copy benchmark and rewrite (built in code)
 
 Rewrote all 21 canonical bodies in `src/lib/whatsapp/template-contracts.ts`

@@ -18,6 +18,7 @@ import { PlansSettings } from '@/components/settings/plans-settings';
 import { ProductsServicesSettings } from '@/components/settings/products-services-settings';
 import { RenewalRemindersSettings } from '@/components/settings/renewal-reminders-settings';
 import { DealsSettings } from '@/components/settings/deals-settings';
+import { BusinessDetailsSettings } from '@/components/settings/business-details-settings';
 import { LocalizationSettings } from '@/components/settings/localization-settings';
 import { OrganizationSettings } from '@/components/settings/organization-settings';
 import { MembersTab } from '@/components/settings/members-tab';
@@ -77,6 +78,7 @@ export default function SettingsPage() {
     templates: <TemplateManager />,
     fields: <FieldsAndTagsPanel />,
     plans: <PlansSettings />,
+    'business-details': <BusinessDetailsSettings />,
     'products-services': <ProductsServicesSettings />,
     reminders: (
       <RenewalRemindersSettings

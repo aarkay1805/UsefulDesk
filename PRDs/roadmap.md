@@ -1,5 +1,24 @@
 # Roadmap
 
+## Built in code — Discoverable business identity settings (2026-09-23)
+
+Settings → Business setup now leads with Business details. Branch owners can
+rename the gym there through the existing audited branch flow; organization
+owners who also own the selected branch can change the legal business name.
+The legal name remains shared across branches using the same legal entity and
+feeds WhatsApp identity and the Organization & branches list. Invoice details
+now live beside the business identity with one editable **Name on invoices**;
+existing custom display names remain editable, while future seller snapshots
+always read the canonical legal name. Legacy invoice issuer overrides no longer
+affect new documents, and issued invoice snapshots stay intact. The owner-only
+database boundary and display correction are
+`20260923170000_business_legal_name_settings.sql` and
+`20260923171000_business_legal_name_display.sql`, applied to the connected
+UsefulDesk database as connector migrations `20260923170826` and
+`20260923171159`. The invoice identity correction is
+`20260923172000_invoice_identity_from_business_details.sql`, applied as
+`20260923171911`; application rollout is pending.
+
 ## Built in code — Customer WhatsApp copy rewrite (2026-09-23)
 
 All 21 built-in Meta template bodies now use concise, contextual customer copy

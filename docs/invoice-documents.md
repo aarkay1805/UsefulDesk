@@ -17,11 +17,13 @@ Every PDF includes this notice: `Non-tax invoice - GST and tax calculations are 
 
 ## Complete Invoice details before generation
 
-Open **Settings → Payments → Invoice details** before generating the first document. A complete profile requires business name, address line 1, city, and country. Legal name, address line 2, state or region, postal code, phone, and email are optional; a supplied email must be valid.
+Open **Settings → Business details → Invoice details** before generating the first document. A complete profile requires the name on invoices, address line 1, city, and country. The legal business name comes from Business details above and is not edited in the invoice form. Address line 2, state or region, postal code, phone, and email are optional; a supplied email must be valid.
 
-Admin and owner roles can save Invoice details. Agent and viewer roles can inspect the profile but cannot change it. Until the required fields are complete, billing and human numbering continue, but document actions show `Finish Invoice details in Settings -> Payments first.`
+Admin and owner roles can save Invoice details. Agent and viewer roles can inspect the profile but cannot change it. Until the required fields are complete, billing and human numbering continue, but document actions show `Finish Invoice details in Settings -> Business details first.`
 
 Seller snapshots remain null after backfill until the first complete Invoice details save. That save fills only missing seller snapshots on existing invoices. Later profile edits apply to future invoices and do not rewrite a populated seller snapshot or an existing document.
+
+Migration `20260923172000_invoice_identity_from_business_details.sql` makes future seller snapshots read the current legal entity name. Existing invoice display names remain editable, while an older profile's invoice-only legal-name override is ignored for new snapshots. It does not rewrite an already populated seller snapshot or a generated document.
 
 ## Human numbering and identity snapshots
 
@@ -99,7 +101,7 @@ Use the exact recovery copy shown by the product:
 
 | State                           | Recovery                                                                    |
 | ------------------------------- | --------------------------------------------------------------------------- |
-| Invoice details incomplete      | `Finish Invoice details in Settings -> Payments first.`                     |
+| Invoice details incomplete      | `Finish Invoice details in Settings -> Business details first.`             |
 | Customer phone missing          | `Add a phone number before sending on WhatsApp.`                            |
 | WhatsApp disconnected           | `Connect WhatsApp in Settings before sending.`                              |
 | Invoice template unavailable    | `Approve and sync gym_invoice_document in en_US before sending.`            |

@@ -350,7 +350,9 @@ export function canManagePaymentLinks(role: AccountRole): boolean {
 }
 
 /** Agent+ may record a staff-authored invoice payment commitment or hold. */
-export function canCreateInvoiceCollectionCommitment(role: AccountRole): boolean {
+export function canCreateInvoiceCollectionCommitment(
+  role: AccountRole
+): boolean {
   return hasMinRole(role, 'agent');
 }
 
@@ -404,6 +406,14 @@ export function canTransferOwnership(role: AccountRole): boolean {
 /** Organization owner: create, archive, restore, and delete branches. */
 export function canManageOrganization(role: OrganizationRole | null): boolean {
   return role === 'owner';
+}
+
+/** Organization owner who owns the selected branch: edit its legal identity. */
+export function canEditLegalBusinessName(
+  organizationRole: OrganizationRole | null,
+  branchRole: AccountRole
+): boolean {
+  return canManageOrganization(organizationRole) && branchRole === 'owner';
 }
 
 /** Organization owner who also owns the target branch: branch lifecycle. */

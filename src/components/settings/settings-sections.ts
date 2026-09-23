@@ -1,5 +1,6 @@
 import {
   BellRing,
+  Building2,
   Coins,
   Dumbbell,
   PackageOpen,
@@ -38,6 +39,7 @@ export const SETTINGS_SECTIONS = [
   'capture',
   'templates',
   'fields',
+  'business-details',
   'plans',
   'products-services',
   'reminders',
@@ -123,6 +125,12 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'plans',
     label: 'Membership plans',
     icon: Dumbbell,
+    group: 'business-setup',
+  },
+  'business-details': {
+    id: 'business-details',
+    label: 'Business details',
+    icon: Building2,
     group: 'business-setup',
   },
   'products-services': {

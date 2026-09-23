@@ -179,6 +179,11 @@ export function SettingsOverview({
     subtitle: ReactNode;
   }[] = [
     {
+      section: 'business-details',
+      loading: false,
+      subtitle: 'Gym name, legal name & invoices',
+    },
+    {
       section: 'organization',
       loading: false,
       subtitle: `${branches.length} branch${branches.length === 1 ? '' : 'es'}`,

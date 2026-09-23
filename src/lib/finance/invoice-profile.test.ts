@@ -45,7 +45,7 @@ describe('invoice profile normalization and validation', () => {
         country: '  ',
       })
     ).toEqual({
-      business_name: 'Business name is required.',
+      business_name: 'Name on invoices is required.',
       address_line1: 'Address line 1 is required.',
       city: 'City is required.',
       country: 'Country is required.',

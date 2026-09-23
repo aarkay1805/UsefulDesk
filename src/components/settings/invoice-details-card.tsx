@@ -5,13 +5,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { GatedButton } from '@/components/ui/gated-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +20,17 @@ import {
 } from '@/lib/finance/invoice-profile';
 import { COUNTRY_PRESETS } from '@/lib/locale/config';
 import { createClient } from '@/lib/supabase/client';
+import { SettingsSectionHead } from './settings-panel-head';
+
+function InvoiceDetailsHead() {
+  return (
+    <SettingsSectionHead
+      id="invoice-details-heading"
+      title="Invoice details"
+      description="Set the name, address, and contact details for new invoices. The legal business name comes from Business details above. Issued invoices keep their original details."
+    />
+  );
+}
 
 const EMPTY_PROFILE: InvoiceProfileInput = {
   business_name: '',
@@ -41,8 +46,7 @@ const EMPTY_PROFILE: InvoiceProfileInput = {
 };
 
 const PROFILE_FIELDS = [
-  ['business_name', 'Business name'],
-  ['legal_name', 'Legal name'],
+  ['business_name', 'Name on invoices'],
   ['address_line1', 'Address line 1'],
   ['address_line2', 'Address line 2'],
   ['city', 'City'],
@@ -116,25 +120,21 @@ export function InvoiceDetailsCard() {
 
 function InvoiceDetailsCardLoading() {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Invoice details</CardTitle>
-        <CardDescription>
-          These details appear on new invoices. Existing invoice documents keep
-          the details they were issued with.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div
-          className="text-muted-foreground flex items-center gap-2 py-4 text-sm"
-          role="status"
-          aria-live="polite"
-        >
-          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-          Loading invoice details…
-        </div>
-      </CardContent>
-    </Card>
+    <section className="space-y-3" aria-labelledby="invoice-details-heading">
+      <InvoiceDetailsHead />
+      <Card>
+        <CardContent>
+          <div
+            className="text-muted-foreground flex items-center gap-2 py-4 text-sm"
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Loading invoice details…
+          </div>
+        </CardContent>
+      </Card>
+    </section>
   );
 }
 
@@ -200,7 +200,7 @@ function InvoiceDetailsCardForAccount({
           prefill.country_code ??
           '';
         const initial = profileResult.data
-          ? saved
+          ? { ...saved, legal_name: prefill.legal_name ?? '' }
           : {
               ...saved,
               business_name: prefill.business_name,
@@ -296,131 +296,135 @@ function InvoiceDetailsCardForAccount({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Invoice details</CardTitle>
-        <CardDescription>
-          These details appear on new invoices. Existing invoice documents keep
-          the details they were issued with.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {loading ? (
-          <div
-            className="text-muted-foreground flex items-center gap-2 py-4 text-sm"
-            role="status"
-            aria-live="polite"
-          >
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            Loading invoice details…
-          </div>
-        ) : loadError ? (
-          <div className="space-y-3" role="alert">
-            <p className="text-destructive text-sm">{loadError}</p>
-            <p className="text-muted-foreground text-sm">
-              Finish Invoice details in Settings -&gt; Payments first.
-            </p>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => setReloadNonce((nonce) => nonce + 1)}
+    <section className="space-y-3" aria-labelledby="invoice-details-heading">
+      <InvoiceDetailsHead />
+      <Card>
+        <CardContent className="space-y-4">
+          {loading ? (
+            <div
+              className="text-muted-foreground flex items-center gap-2 py-4 text-sm"
+              role="status"
+              aria-live="polite"
             >
-              Try again
-            </Button>
-          </div>
-        ) : (
-          <form
-            className="space-y-4"
-            noValidate
-            onSubmit={(event) => {
-              event.preventDefault();
-              void saveProfile();
-            }}
-          >
-            {!mayManage ? (
-              <p className="text-muted-foreground text-sm">
-                Read-only. Only account admins can change invoice details.
-              </p>
-            ) : null}
-            <div className="grid gap-4 sm:grid-cols-2">
-              {PROFILE_FIELDS.map(([field, label]) => {
-                const error = errors[field];
-                const id = `invoice-profile-${field}`;
-                return (
-                  <div
-                    className={
-                      field === 'address_line1'
-                        ? 'grid gap-2 sm:col-span-2'
-                        : 'grid gap-2'
-                    }
-                    key={field}
-                  >
-                    <Label htmlFor={id}>{label}</Label>
-                    {field === 'phone' ? (
-                      <PhoneInput
-                        id={id}
-                        value={profile.phone}
-                        onValueChange={(value) => setField('phone', value)}
-                        disabled={!mayManage || saving}
-                        aria-invalid={Boolean(error)}
-                        aria-describedby={error ? `${id}-error` : undefined}
-                      />
-                    ) : (
-                      <Input
-                        id={id}
-                        type={field === 'email' ? 'email' : 'text'}
-                        value={profile[field]}
-                        onChange={(event) =>
-                          setField(field, event.target.value)
-                        }
-                        disabled={!mayManage || saving}
-                        autoCapitalize={field === 'email' ? 'none' : undefined}
-                        autoCorrect={field === 'email' ? 'off' : undefined}
-                        spellCheck={field === 'email' ? false : undefined}
-                        aria-invalid={Boolean(error)}
-                        aria-describedby={error ? `${id}-error` : undefined}
-                      />
-                    )}
-                    {error ? (
-                      <p
-                        id={`${id}-error`}
-                        className="text-destructive text-xs"
-                        role="alert"
-                      >
-                        {error}
-                      </p>
-                    ) : null}
-                  </div>
-                );
-              })}
+              <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+              Loading invoice details…
             </div>
-            {saveError ? (
-              <div className="flex flex-wrap items-center gap-3" role="alert">
-                <p className="text-destructive text-sm">{saveError}</p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void saveProfile()}
-                  loading={saving}
-                >
-                  Try again
-                </Button>
-              </div>
-            ) : null}
-            <GatedButton
-              type="submit"
-              canAct={mayManage}
-              gateReason="save invoice details"
-              loading={saving}
-              disabled={!dirty}
+          ) : loadError ? (
+            <div className="space-y-3" role="alert">
+              <p className="text-destructive text-sm">{loadError}</p>
+              <p className="text-muted-foreground text-sm">
+                Finish Invoice details in Settings -&gt; Business details first.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setReloadNonce((nonce) => nonce + 1)}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : (
+            <form
+              className="space-y-4"
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveProfile();
+              }}
             >
-              Save invoice details
-            </GatedButton>
-          </form>
-        )}
-      </CardContent>
-    </Card>
+              {!mayManage ? (
+                <p className="text-muted-foreground text-sm">
+                  Read-only. Only account admins can change invoice details.
+                </p>
+              ) : null}
+              <div className="grid gap-4 sm:grid-cols-2">
+                {PROFILE_FIELDS.map(([field, label]) => {
+                  const error = errors[field];
+                  const id = `invoice-profile-${field}`;
+                  return (
+                    <div
+                      className={
+                        field === 'address_line1'
+                          ? 'grid gap-2 sm:col-span-2'
+                          : 'grid gap-2'
+                      }
+                      key={field}
+                    >
+                      <Label htmlFor={id}>{label}</Label>
+                      {field === 'phone' ? (
+                        <PhoneInput
+                          id={id}
+                          value={profile.phone}
+                          onValueChange={(value) => setField('phone', value)}
+                          disabled={!mayManage || saving}
+                          aria-invalid={Boolean(error)}
+                          aria-describedby={error ? `${id}-error` : undefined}
+                        />
+                      ) : (
+                        <Input
+                          id={id}
+                          type={field === 'email' ? 'email' : 'text'}
+                          value={profile[field]}
+                          onChange={(event) =>
+                            setField(field, event.target.value)
+                          }
+                          disabled={!mayManage || saving}
+                          autoCapitalize={
+                            field === 'email' ? 'none' : undefined
+                          }
+                          autoCorrect={field === 'email' ? 'off' : undefined}
+                          spellCheck={field === 'email' ? false : undefined}
+                          aria-invalid={Boolean(error)}
+                          aria-describedby={error ? `${id}-error` : undefined}
+                        />
+                      )}
+                      {error ? (
+                        <p
+                          id={`${id}-error`}
+                          className="text-destructive text-xs"
+                          role="alert"
+                        >
+                          {error}
+                        </p>
+                      ) : null}
+                      {field === 'business_name' ? (
+                        <p className="text-muted-foreground text-xs">
+                          This can differ from the gym name shown in the
+                          workspace.
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+              {saveError ? (
+                <div className="flex flex-wrap items-center gap-3" role="alert">
+                  <p className="text-destructive text-sm">{saveError}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void saveProfile()}
+                    loading={saving}
+                  >
+                    Try again
+                  </Button>
+                </div>
+              ) : null}
+              <GatedButton
+                type="submit"
+                canAct={mayManage}
+                gateReason="save invoice details"
+                loading={saving}
+                disabled={!dirty}
+              >
+                Save invoice details
+              </GatedButton>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    </section>
   );
 }

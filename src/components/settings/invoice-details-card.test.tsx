@@ -80,7 +80,7 @@ function setField(label: string, value: string) {
 }
 
 function validProfile() {
-  setField('Business name', 'Iron Fitness');
+  setField('Name on invoices', 'Iron Fitness');
   setField('Address line 1', '42 Station Road');
   setField('City', 'Mumbai');
   setField('Country', 'India');
@@ -153,7 +153,7 @@ describe('InvoiceDetailsCard', () => {
     renderCard();
 
     expect(
-      await screen.findByDisplayValue('Iron Fitness Private Limited')
+      await screen.findByDisplayValue('Iron Fitness Andheri')
     ).toBeTruthy();
     await waitFor(() => {
       expect(database.rpc).toHaveBeenCalledWith('get_invoice_profile_prefill', {
@@ -170,12 +170,12 @@ describe('InvoiceDetailsCard', () => {
       await screen.findByDisplayValue('Iron Fitness Andheri')
     ).toBeTruthy();
     expect(
-      screen.getByDisplayValue('Iron Fitness Private Limited')
-    ).toBeTruthy();
+      screen.queryByLabelText('Invoice issuer name (optional)')
+    ).toBeNull();
     expect(screen.getByDisplayValue('India')).toBeTruthy();
   });
 
-  it('renders every saved invoice profile field', async () => {
+  it('renders saved invoice contact fields without an issuer-name input', async () => {
     database.profile = {
       business_name: 'Iron Fitness',
       legal_name: 'Iron Fitness Private Limited',
@@ -193,8 +193,8 @@ describe('InvoiceDetailsCard', () => {
 
     expect(await screen.findByDisplayValue('Iron Fitness')).toBeTruthy();
     expect(
-      screen.getByDisplayValue('Iron Fitness Private Limited')
-    ).toBeTruthy();
+      screen.queryByLabelText('Invoice issuer name (optional)')
+    ).toBeNull();
     expect(screen.getByDisplayValue('42 Station Road')).toBeTruthy();
     expect(screen.getByDisplayValue('Near Metro')).toBeTruthy();
     expect(screen.getByDisplayValue('Mumbai')).toBeTruthy();
@@ -224,13 +224,15 @@ describe('InvoiceDetailsCard', () => {
   it('shows required and email validation errors for an owner', async () => {
     renderCard();
     await screen.findByDisplayValue('Iron Fitness Andheri');
-    setField('Business name', '');
+    setField('Name on invoices', '');
     setField('Email', 'bad@');
     fireEvent.click(
       screen.getByRole('button', { name: 'Save invoice details' })
     );
 
-    expect(await screen.findByText('Business name is required.')).toBeTruthy();
+    expect(
+      await screen.findByText('Name on invoices is required.')
+    ).toBeTruthy();
     expect(screen.getByText('Address line 1 is required.')).toBeTruthy();
     expect(screen.getByText('City is required.')).toBeTruthy();
     expect(screen.getByText('Enter a valid email address.')).toBeTruthy();
@@ -270,6 +272,33 @@ describe('InvoiceDetailsCard', () => {
       expect(toast.success).toHaveBeenCalledWith('Invoice details updated');
     }
   );
+
+  it('uses the canonical legal name when an older profile has an issuer override', async () => {
+    database.profile = {
+      business_name: 'Iron Fitness',
+      legal_name: 'Old invoice issuer',
+      address_line1: '42 Station Road',
+      city: 'Mumbai',
+      country: 'India',
+    };
+    renderCard();
+    await screen.findByDisplayValue('Iron Fitness');
+    setField('City', 'Pune');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save invoice details' })
+    );
+
+    await waitFor(() =>
+      expect(database.rpc).toHaveBeenCalledWith(
+        'save_invoice_profile',
+        expect.objectContaining({
+          p_business_name: 'Iron Fitness',
+          p_legal_name: 'Iron Fitness Private Limited',
+          p_city: 'Pune',
+        })
+      )
+    );
+  });
 
   it('keeps entered values and offers retry when a save fails', async () => {
     database.rpc.mockImplementation((name) => {
@@ -323,7 +352,9 @@ describe('InvoiceDetailsCard', () => {
 
     expect(await screen.findByText('Profile unavailable')).toBeTruthy();
     expect(
-      screen.getByText('Finish Invoice details in Settings -> Payments first.')
+      screen.getByText(
+        'Finish Invoice details in Settings -> Business details first.'
+      )
     ).toBeTruthy();
     database.profileError = null;
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
@@ -339,7 +370,9 @@ describe('InvoiceDetailsCard', () => {
 
     expect(await screen.findByText('Prefill unavailable')).toBeTruthy();
     expect(
-      screen.getByText('Finish Invoice details in Settings -> Payments first.')
+      screen.getByText(
+        'Finish Invoice details in Settings -> Business details first.'
+      )
     ).toBeTruthy();
   });
 
