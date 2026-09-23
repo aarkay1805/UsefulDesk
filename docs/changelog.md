@@ -6,6 +6,12 @@
 
 ---
 
+## 2026-09-23 — Lead delete action moved into header (built in code)
+
+Delete lead now appears at the end of the contact detail icon row instead of
+in a pinned footer. The existing permission check and confirmation dialog remain
+in `src/components/contacts/contact-detail-content.tsx`.
+
 ## 2026-09-23 — Lead conversion action made prominent (built in code)
 
 The lead detail sheet and inbox contact panel now show a full-width primary

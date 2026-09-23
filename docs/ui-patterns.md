@@ -285,7 +285,7 @@ Data-list toolbars follow one reading order: **Search → Filters → Sort → v
 
 There is **ONE** lead/contact detail surface: **`ContactDetailContent`** (`components/contacts/contact-detail-content.tsx`) — identity header + quick-action row over the **Details / Tags / Notes & follow-ups** accordion. It owns its own fetches (`contacts`, `conversations`, `tags`+`contact_tags`, `custom_fields`+`contact_custom_values`), its own writes, and the shared option lists (`useLeadFieldOptions`).
 
-The header keeps Chat, Call, Note, and Email as compact icon actions. **Convert to member** is the full-width primary `Button` directly below them, with its complete action label visible in both the lead sheet and inbox contact panel.
+The header keeps Chat, Call, Note, and Email as compact icon actions. Users who can delete the lead also see Delete as the last icon action; it opens the shared confirmation dialog. **Convert to member** is the full-width primary `Button` directly below the icon row, with its complete action label visible in both the lead sheet and inbox contact panel. Do not pin a second Delete control below the scrollable details.
 
 It is **host-agnostic on purpose** (renders no Sheet chrome) and has exactly two hosts:
 

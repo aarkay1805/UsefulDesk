@@ -1,5 +1,11 @@
 # Roadmap
 
+## Built in code — Lead delete action in header (2026-09-23)
+
+Eligible users now find Delete at the end of the lead detail and inbox contact
+panel icon row. It still opens the existing confirmation dialog; the pinned
+footer action is gone.
+
 ## Built in code — Prominent lead conversion action (2026-09-23)
 
 Lead details and the inbox contact panel now place a full-width primary

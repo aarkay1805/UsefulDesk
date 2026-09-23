@@ -696,6 +696,15 @@ export function ContactDetailContent({
                 href={contact.email ? `mailto:${contact.email}` : undefined}
               />
             )}
+            {canDelete && (
+              <QuickAction
+                icon={Trash2}
+                label="Delete"
+                ariaLabel="Delete lead"
+                title="Delete lead"
+                onClick={() => setDeleteOpen(true)}
+              />
+            )}
           </div>
           {showAction('convert') && (
             <Button
@@ -1023,22 +1032,6 @@ export function ContactDetailContent({
             </AccordionItem>
           </Accordion>
         </div>
-
-        {/* Danger zone — admin-only hard delete. Pinned below the scroll
-            area so it never crowds the fields; hidden entirely for roles
-            that can't delete (the RLS would refuse them anyway). */}
-        {canDelete && (
-          <div className="border-border/50 border-t p-4">
-            <Button
-              variant="destructive-ghost"
-              size="sm"
-              onClick={() => setDeleteOpen(true)}
-              className="w-full justify-center"
-            >
-              <Trash2 className="size-4" /> Delete lead
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Overlays. Nested inside the host's Sheet on /leads — the same
@@ -1135,6 +1128,7 @@ function PanelTitle({ className, ...props }: React.ComponentProps<'h3'>) {
 function QuickAction({
   icon: Icon,
   label,
+  ariaLabel,
   title,
   onClick,
   href,
@@ -1143,6 +1137,7 @@ function QuickAction({
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  ariaLabel?: string;
   title?: string;
   onClick?: () => void;
   href?: string;
@@ -1165,7 +1160,7 @@ function QuickAction({
       title={title}
     >
       {href && !disabled ? (
-        <a href={href} className={circle} aria-label={label}>
+        <a href={href} className={circle} aria-label={ariaLabel ?? label}>
           {inner}
         </a>
       ) : (
@@ -1174,7 +1169,7 @@ function QuickAction({
           onClick={onClick}
           disabled={disabled || loading}
           className={`${circle} disabled:pointer-events-none`}
-          aria-label={label}
+          aria-label={ariaLabel ?? label}
         >
           {inner}
         </button>
