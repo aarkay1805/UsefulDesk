@@ -333,9 +333,7 @@ describe('TemplatePicker', () => {
       await screen.findByRole('button', { name: /Membership renewal/i })
     ).toBeTruthy();
     expect(
-      screen.getByText(
-        'Invite an existing member to continue an ending membership.'
-      )
+      screen.getByText('Ask a member to renew a membership that will end soon.')
     ).toBeTruthy();
     expect(screen.queryByText('gym_membership_renewal')).toBeNull();
   });
