@@ -40,7 +40,7 @@ export function SecurityPanel() {
     <section className="animate-in fade-in-50 max-w-2xl duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Login & security"
-        description="Manage how you sign in and protect your UsefulDesk account."
+        description="Change your email or password, and sign out of other devices."
       />
       <div className="space-y-4">
         {loading ? (
@@ -53,7 +53,7 @@ export function SecurityPanel() {
         ) : error ? (
           <Alert variant="destructive">
             <CircleAlert />
-            <AlertTitle>Sign-in methods unavailable</AlertTitle>
+            <AlertTitle>Couldn’t load sign-in options</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
             <AlertAction>
               <Button

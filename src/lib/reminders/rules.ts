@@ -87,7 +87,7 @@ const reminderDays = (column: string): ReminderRuleField => ({
 const catchUpDays = (column: string): ReminderRuleField => ({
   key: 'catchUpDays',
   column,
-  label: 'Catch-up days',
+  label: 'Days to send late messages',
   type: 'integer',
   defaultValue: 2,
   min: 0,
@@ -132,12 +132,12 @@ export const REMINDER_RULES = [
     schedule: {
       capability: 'editable-date-offsets',
       timing: 'Before the membership ends.',
-      explanation: 'Choose one or more reminder days.',
+      explanation: 'Choose when to send the reminder.',
     },
     eligibility:
-      'Members with an active membership paid manually rather than by AutoPay, an upcoming expiry, and a phone number.',
-    stops: 'The membership is renewed, cancelled, or its end date changes.',
-    staff: 'Handle renewal replies and follow up with members who need help.',
+      'Members with a phone number whose active membership is ending soon and who pay without AutoPay.',
+    stops: 'The member renews, cancels, or changes the membership end date.',
+    staff: 'Reply to members who ask about renewing.',
     templateContracts: ['membership_renewal'],
     fields: [booleanField('enabled'), reminderDays('days_before')],
     configurable: true,
@@ -151,13 +151,13 @@ export const REMINDER_RULES = [
     schedule: {
       capability: 'editable-date-offsets',
       timing: 'Before the service ends.',
-      explanation: 'Choose one or more reminder days.',
+      explanation: 'Choose when to send the reminder.',
     },
     eligibility:
-      'Members with a current service, an upcoming expiry, a current price, and a phone number.',
+      'Members with a phone number and a paid service ending soon, if a current price is set.',
     stops:
-      'The service is renewed, cancelled, archived, or its end date changes.',
-    staff: 'Handle service renewal replies and pricing questions.',
+      'The service is renewed, cancelled, removed from sale, or its end date changes.',
+    staff: 'Reply to questions about renewing and the price.',
     templateContracts: ['service_renewal'],
     fields: [
       booleanField('service_enabled'),
@@ -173,13 +173,14 @@ export const REMINDER_RULES = [
     schedule: {
       capability: 'fixed-date-offsets',
       timing: '1, 3 and 7 days after membership expiry.',
-      explanation: 'These reminder days are fixed.',
+      explanation: 'These days cannot be changed.',
     },
-    eligibility: 'Members whose expired membership has not changed.',
+    eligibility:
+      'Members whose membership has ended and has not changed since.',
     stops:
-      'The membership renews, is held, frozen, replaced, or the member replies.',
+      'The member renews, puts renewal on hold, pauses, starts another membership, or replies.',
     staff:
-      'If there is no reply, UsefulDesk adds a follow-up for the branch owner after WhatsApp accepts the final reminder. It uses an existing follow-up if one is already open.',
+      'If the member does not reply, UsefulDesk adds a follow-up for the branch owner after WhatsApp accepts the last message. If a follow-up is already open, it uses that one.',
     templateContracts: ['membership_post_expiry'],
     fields: [
       booleanField('membership_post_expiry_enabled'),
@@ -195,12 +196,14 @@ export const REMINDER_RULES = [
     schedule: {
       capability: 'fixed-date-offsets',
       timing: '1, 3 and 7 days after service expiry.',
-      explanation: 'These reminder days are fixed.',
+      explanation: 'These days cannot be changed.',
     },
-    eligibility: 'Members whose expired paid service has not changed.',
-    stops: 'The service renews, is held, replaced, or the member replies.',
+    eligibility:
+      'Members whose paid service has ended and has not changed since.',
+    stops:
+      'The member renews, puts renewal on hold, buys another service, or replies.',
     staff:
-      'If there is no reply, UsefulDesk adds a follow-up for the branch owner after WhatsApp accepts the final reminder. It uses an existing follow-up if one is already open.',
+      'If the member does not reply, UsefulDesk adds a follow-up for the branch owner after WhatsApp accepts the last message. If a follow-up is already open, it uses that one.',
     templateContracts: ['service_post_expiry'],
     fields: [
       booleanField('service_post_expiry_enabled'),
@@ -213,18 +216,20 @@ export const REMINDER_RULES = [
     group: 'collections',
     title: 'Unpaid invoice reminders',
     purpose:
-      'Reminds members before an invoice is due and while money is still unpaid.',
+      'Reminds members about an unpaid invoice before and after its due date.',
     schedule: {
       capability: 'editable-date-offsets',
       timing: 'Before, on, and after the invoice due date.',
-      explanation: 'Choose one or more reminder days.',
+      explanation: 'Choose when to send the reminder.',
       anchorNote:
-        'If an invoice has no separate due date, UsefulDesk uses its issue date. That means a newly issued invoice cannot receive an earlier reminder.',
+        'If an invoice has no due date, UsefulDesk uses the day it was created. It cannot send a reminder for an earlier day.',
     },
-    eligibility: 'Members with an open invoice balance and a phone number.',
-    stops: 'The invoice is paid, voided, or its balance or due date changes.',
+    eligibility:
+      'Members with a phone number who still owe money on an invoice.',
+    stops:
+      'The invoice is paid, cancelled, or its amount due or due date changes.',
     staff:
-      'Answer payment questions and record payments received outside UsefulDesk.',
+      'Answer payment questions. Record payments received outside UsefulDesk.',
     templateContracts: ['invoice_due', 'invoice_overdue'],
     fields: [
       booleanField('invoice_collection_enabled'),
@@ -242,12 +247,12 @@ export const REMINDER_RULES = [
       sendHour(
         'sendWindowStart',
         'invoice_collection_send_window_start',
-        'Send window start'
+        'Start sending at'
       ),
       sendHour(
         'sendWindowEnd',
         'invoice_collection_send_window_end',
-        'Send window end'
+        'Stop sending after'
       ),
     ],
     configurable: true,
@@ -262,14 +267,12 @@ export const REMINDER_RULES = [
       timing:
         '7, 3 and 1 days before each installment is due, and again on the due date.',
       explanation:
-        'These reminder days are fixed. Each due date comes from the member’s joining payment plan.',
+        'These days cannot be changed. Each due date comes from the member’s joining payment plan.',
     },
     eligibility:
-      'Members with an unpaid joining installment and a phone number.',
-    stops:
-      'The installment is paid, cancelled, or its payment schedule changes.',
-    staff:
-      'Follow up on unpaid installments and record the payment when it arrives.',
+      'Members with a phone number who still owe part of their joining payment.',
+    stops: 'The payment is made, cancelled, or rescheduled.',
+    staff: 'Follow up if payment is late. Record it when it arrives.',
     templateContracts: ['installment_reminder'],
     fields: [],
     configurable: false,
@@ -282,11 +285,11 @@ export const REMINDER_RULES = [
     schedule: {
       capability: 'fixed-date-offsets',
       timing: '1 day before, on, and 1 day after the promised payment date.',
-      explanation: 'These reminder days are fixed.',
+      explanation: 'These days cannot be changed.',
     },
     eligibility:
-      'Members with an open payment promise, a promised date, and a phone number.',
-    stops: 'The promise is fulfilled, cancelled, or its date changes.',
+      'Members with a phone number and an open promise to pay on a set date.',
+    stops: 'The member pays, cancels the promise, or changes the date.',
     staff: 'Contact members whose promised date has passed without payment.',
     templateContracts: ['payment_promise_upcoming', 'payment_promise_missed'],
     fields: [booleanField('promise_to_pay_reminders_enabled')],
@@ -301,11 +304,11 @@ export const REMINDER_RULES = [
     schedule: {
       capability: 'fixed-date-offsets',
       timing: '1 and 3 days after WhatsApp accepts the payment-link message.',
-      explanation: 'These follow-up days are fixed.',
+      explanation: 'These days cannot be changed.',
     },
     eligibility:
-      'Members with an active unpaid payment link and a phone number.',
-    stops: 'The payment link is paid, expired, cancelled, or replaced.',
+      'Members with a phone number and an active payment link that is still unpaid.',
+    stops: 'The link is paid, expires, is cancelled, or is replaced.',
     staff: 'Help with failed payment attempts or send a new link when needed.',
     templateContracts: ['payment_link'],
     fields: [booleanField('payment_link_follow_up_enabled')],
@@ -323,7 +326,7 @@ export const REMINDER_RULES = [
         'UsefulDesk sends this when Razorpay reports the payment result, not on a day schedule.',
     },
     eligibility:
-      'Members whose AutoPay payment will be tried again or has failed for good, and who have a phone number.',
+      'Members with a phone number whose AutoPay payment will be tried again or has finally failed.',
     stops:
       'The payment succeeds, AutoPay is ready to collect again, or Razorpay reports a different result.',
     staff:
@@ -345,11 +348,11 @@ export const REMINDER_RULES = [
       capability: 'session-count',
       timing: 'At 2 or fewer sessions remaining, and again at 0.',
       explanation:
-        'This message is triggered by sessions remaining, not a day schedule.',
+        'This message sends when the member has few sessions left, regardless of the date.',
     },
     eligibility:
-      'Members with a current session pack and 2 or fewer sessions remaining.',
-    stops: 'The member buys a new pack or the current pack balance changes.',
+      'Members with an active session pack and 2 or fewer sessions left.',
+    stops: 'The member buys a new pack or their remaining sessions change.',
     staff: 'Reply with suitable pack options when the member asks.',
     templateContracts: ['session_pack_low', 'session_pack_exhausted'],
     fields: [booleanField('session_pack_reminders_enabled')],
@@ -365,10 +368,10 @@ export const REMINDER_RULES = [
       capability: 'fixed-date-offsets',
       timing:
         '1 day before the planned return; staff follow-up is due on the return day.',
-      explanation: 'This reminder timing is fixed.',
+      explanation: 'This day cannot be changed.',
     },
     eligibility:
-      'Members with a paused membership and an unchanged planned return date.',
+      'Members whose membership is paused and whose planned return date has not changed.',
     stops:
       'The member returns, the planned date changes, or the membership is cancelled.',
     staff: 'Confirm the member’s next step before the planned return.',
@@ -386,10 +389,10 @@ export const REMINDER_RULES = [
       capability: 'fixed-date-offsets',
       timing:
         '14, 30 and 60 days after expiry, after the first follow-ups end.',
-      explanation: 'These reminder days are fixed.',
+      explanation: 'These days cannot be changed.',
     },
     eligibility:
-      'Former members whose expired membership still has not changed.',
+      'Former members whose membership has ended and who have not renewed.',
     stops:
       'The member renews, starts another membership, puts renewal on hold or pause, promises to pay, or replies.',
     staff: 'Handle replies using the current membership price.',
@@ -407,10 +410,10 @@ export const REMINDER_RULES = [
       capability: 'fixed-date-offsets',
       timing:
         '14, 30 and 60 days after expiry, after the first follow-ups end.',
-      explanation: 'These reminder days are fixed.',
+      explanation: 'These days cannot be changed.',
     },
     eligibility:
-      'Members whose expired paid service still has not changed and has a current price.',
+      'Members whose paid service has ended and has a current price set.',
     stops:
       'The member renews, starts another service, puts renewal on hold, promises to pay, or replies.',
     staff: 'Handle replies using the current service price.',
@@ -427,12 +430,11 @@ export const REMINDER_RULES = [
       capability: 'event-driven',
       timing: 'After a new completed payment is recorded.',
       explanation:
-        'This message is triggered by a recorded payment, not a day schedule. Older payments are not included.',
+        'This message sends after a new payment is recorded. It does not send for older payments.',
     },
     eligibility: 'Members with a newly completed payment and a phone number.',
-    stops:
-      'The payment is reversed or no longer qualifies for a receipt notification.',
-    staff: 'Investigate receipt questions or payment reversals.',
+    stops: 'The payment is reversed or no longer needs a receipt message.',
+    staff: 'Answer receipt questions and check any reversed payments.',
     templateContracts: [
       'payment_confirmation',
       'payment_membership_renewal_confirmation',

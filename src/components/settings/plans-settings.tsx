@@ -176,7 +176,9 @@ export function PlansSettings() {
     if (error) return toast.error(error.message);
     if (!data?.length)
       return toast.error("You don't have permission to change plans");
-    toast.success(isActive ? 'Plan restored' : 'Plan archived');
+    toast.success(
+      isActive ? 'Plan available for sale again' : 'Plan no longer for sale'
+    );
     refreshPlans();
   }
 
@@ -189,7 +191,7 @@ export function PlansSettings() {
       .eq('plan_id', plan.id);
     if (count && count > 0) {
       toast.error(
-        `${plan.name} is used by ${count} member${count === 1 ? '' : 's'} — archive it instead.`
+        `${plan.name} is used by ${count} member${count === 1 ? '' : 's'}. Stop selling it instead.`
       );
       return;
     }
@@ -209,9 +211,7 @@ export function PlansSettings() {
   function optionsSummary(plan: MembershipPlan) {
     const opts = activeOptions(plan);
     if (opts.length === 0) {
-      return (
-        <p className="text-muted-foreground text-sm">No billing options</p>
-      );
+      return <p className="text-muted-foreground text-sm">No prices set yet</p>;
     }
 
     return (
@@ -291,7 +291,7 @@ export function PlansSettings() {
     <section className="animate-in fade-in-50 max-w-5xl duration-200">
       <SettingsPanelHead
         title="Membership plans"
-        description="What your gym sells — plan types and their billing options. New members and renewals pick from these."
+        description="Set up the memberships your gym sells. Choose a plan when adding or renewing a member."
         action={
           canEditSettings ? (
             <Button onClick={openCreate}>
@@ -310,7 +310,7 @@ export function PlansSettings() {
           <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
             <Dumbbell className="text-muted-foreground size-8" />
             <p className="text-muted-foreground text-sm">
-              No membership plans yet.
+              No membership plans yet
             </p>
             {canEditSettings && (
               <div className="flex items-center gap-2">
@@ -327,7 +327,7 @@ export function PlansSettings() {
                   Add a starter plan
                 </Button>
                 <Button variant="outline" onClick={openCreate}>
-                  Create from scratch
+                  Create your own plan
                 </Button>
               </div>
             )}
@@ -346,7 +346,7 @@ export function PlansSettings() {
                       <span>{plan.name}</span>
                       <PlanTypeBadge type={plan.plan_type} />
                       {!plan.is_active ? (
-                        <Badge variant="neutral">Archived</Badge>
+                        <Badge variant="neutral">Not for sale</Badge>
                       ) : null}
                     </CardTitle>
                     {description || access ? (
@@ -382,14 +382,14 @@ export function PlansSettings() {
                                 onClick={() => setActive(plan, false)}
                               >
                                 <Archive className="size-4" />
-                                Archive plan
+                                Stop selling plan
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
                                 onClick={() => setActive(plan, true)}
                               >
                                 <RotateCcw className="size-4" />
-                                Restore plan
+                                Sell plan again
                               </DropdownMenuItem>
                             )}
                             <DropdownMenuSeparator />
@@ -415,7 +415,7 @@ export function PlansSettings() {
 
       {!canEditSettings && (
         <p className="text-muted-foreground mt-3 text-xs">
-          Only account admins can change membership plans.
+          Ask an admin or owner to change membership plans.
         </p>
       )}
 

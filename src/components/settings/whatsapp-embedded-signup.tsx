@@ -93,8 +93,8 @@ export function WhatsAppEmbeddedSignup({
       if (!info?.waba_id || !info?.phone_number_id) {
         toast.error(
           info?.waba_id
-            ? 'Signup finished without a phone number. Re-run Connect and add a phone number inside the Meta popup.'
-            : 'Signup finished but Meta did not report the new WhatsApp account. Please try again.',
+            ? 'No phone number was selected. Select Connect with Meta again and add one.'
+            : 'Meta did not send the WhatsApp account details. Try connecting again.',
           { duration: 10000 }
         );
         return;
@@ -119,14 +119,14 @@ export function WhatsAppEmbeddedSignup({
 
       if (data.registered === false && data.registration_error) {
         toast.warning(
-          `Connected, but Meta couldn't register the number for messaging yet: ${data.registration_error}`,
+          `Connected, but this number is not ready for messages yet: ${data.registration_error}`,
           { duration: 12000 }
         );
       } else {
         toast.success(
           data.phone_info?.verified_name
             ? `WhatsApp connected — ${data.phone_info.verified_name} is live.`
-            : 'WhatsApp connected. Events will start flowing within a minute.'
+            : 'WhatsApp connected. New messages may take a minute to appear.'
         );
       }
       onConnected();
@@ -162,9 +162,7 @@ export function WhatsAppEmbeddedSignup({
       );
     } catch (err) {
       console.error('Embedded signup launch failed:', err);
-      toast.error(
-        getErrorMessage(err, 'Could not open the Meta signup popup.')
-      );
+      toast.error(getErrorMessage(err, 'Could not open Meta. Try again.'));
       setConnecting(false);
     }
   }
@@ -178,7 +176,7 @@ export function WhatsAppEmbeddedSignup({
         <CardDescription>
           {hasExistingConfig
             ? 'The number linked to this branch.'
-            : 'Link your WhatsApp Business number through Meta. No tokens to copy.'}
+            : 'Connect your WhatsApp Business number through Meta.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -202,7 +200,7 @@ export function WhatsAppEmbeddedSignup({
           {connecting ? (
             <>
               <Loader2 className="size-4 animate-spin" />
-              Waiting for Meta…
+              Connecting with Meta…
             </>
           ) : (
             <>
@@ -213,8 +211,8 @@ export function WhatsAppEmbeddedSignup({
         </GatedButton>
         <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
           {hasExistingConfig
-            ? 'Reconnect or switch this number through Meta. The signup window lets you choose the business account and phone number.'
-            : 'Meta opens in a new window. Sign in and choose the business account and phone number you want to use.'}
+            ? 'To change this number, open Meta and choose the business account and phone number you want to use.'
+            : 'Meta will open in a new window. Sign in and choose your business account and phone number.'}
         </p>
       </CardContent>
     </Card>

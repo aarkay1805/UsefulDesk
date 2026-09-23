@@ -104,13 +104,13 @@ describe('Lifecycle sending hours', () => {
 
     expect(
       screen.getByText(
-        'Set the daily window for follow-ups and collection messages.'
+        'Choose when UsefulDesk may send follow-up and payment messages each day.'
       )
     ).toBeTruthy();
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Which messages use these hours?',
+        name: 'Which messages follow these hours?',
       })
     );
     expect(
@@ -128,12 +128,12 @@ describe('Lifecycle sending hours', () => {
     ]);
     expect(
       screen.getByText(
-        /Membership renewal, service renewal, and installment reminders still start after/i
+        /Membership, service, and installment reminders start after/i
       )
     ).toBeTruthy();
     expect(
       screen.getByText(
-        /Payment confirmations and AutoPay updates send when their payment status changes/i
+        /Payment confirmations and AutoPay updates send as soon as the payment changes/i
       )
     ).toBeTruthy();
     expect(screen.queryByText(/lifecycle reminders/i)).toBeNull();

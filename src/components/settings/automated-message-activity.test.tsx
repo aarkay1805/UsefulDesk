@@ -141,11 +141,11 @@ describe('AutomatedMessageActivity', () => {
     expect(members[0].textContent).toContain('View member');
 
     const readiness = screen.getByRole('region', {
-      name: 'Renewal and installment checks',
+      name: 'Reminder checks',
     });
     expect(
       within(readiness).getByText(
-        'Checks membership renewals, service renewals, and installment reminders only.'
+        'Check if membership, service, and installment reminders can be sent.'
       )
     ).toBeTruthy();
     expect(
@@ -200,7 +200,7 @@ describe('AutomatedMessageActivity', () => {
     expect(screen.queryByText('Message Undeliverable.')).toBeNull();
 
     const disclosures = screen.getAllByRole('button', {
-      name: 'Provider details',
+      name: 'WhatsApp details',
     });
     fireEvent.click(disclosures[0]);
     expect(await screen.findByText('Message Undeliverable.')).toBeTruthy();
@@ -229,7 +229,7 @@ describe('AutomatedMessageActivity', () => {
     render(<AutomatedMessageActivity />);
     expect(await screen.findByText('No messages recorded yet')).toBeTruthy();
     expect(
-      screen.getByText(/checks above cover renewals and installments only/i)
+      screen.getByText(/checks above cover renewals and installments/i)
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Clear filters' })).toBeNull();
   });

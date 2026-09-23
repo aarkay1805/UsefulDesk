@@ -143,7 +143,7 @@ export function LocalizationSettings() {
     if (!accountId || !dirty) return;
     const phone = draft.phoneCountryCode.trim();
     if (phone !== '' && !/^\+[0-9]{1,4}$/.test(phone)) {
-      return toast.error('Phone country code must look like +91');
+      return toast.error('Phone calling code must look like +91');
     }
     setSaving(true);
     const { data, error } = await supabase
@@ -165,7 +165,7 @@ export function LocalizationSettings() {
     <section className="animate-in fade-in-50 max-w-3xl duration-200">
       <SettingsPanelHead
         title="Regional settings"
-        description="Set your gym's country, currency, time zone, and display formats for every teammate."
+        description="Choose the country, currency, dates, and times your team will see."
       />
       <form
         onSubmit={(event) => {
@@ -177,19 +177,19 @@ export function LocalizationSettings() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe2 className="text-primary-text size-4" />
-              Regional profile
+              Country and currency
             </CardTitle>
             <CardDescription>
-              Country presets fill every setting at once. You can fine-tune
-              individual fields before saving.
+              Choose your country to fill in common settings. Change any setting
+              below if needed.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <div>
-                <h3 className="font-medium">Region defaults</h3>
+                <h3 className="font-medium">Your location</h3>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Used for billing, phone numbers, and time-based activity.
+                  Used for payments, phone numbers, and message times.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -276,7 +276,7 @@ export function LocalizationSettings() {
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="phone-cc">Phone country code</Label>
+                  <Label htmlFor="phone-cc">Phone calling code</Label>
                   <Input
                     id="phone-cc"
                     value={draft.phoneCountryCode}
@@ -292,10 +292,9 @@ export function LocalizationSettings() {
 
             <div className="space-y-4">
               <div>
-                <h3 className="font-medium">Display formats</h3>
+                <h3 className="font-medium">How details appear</h3>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Controls how dates, time, and measurements appear to your
-                  team.
+                  Choose how your team sees dates, times, and measurements.
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -373,16 +372,18 @@ export function LocalizationSettings() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="metric">Metric (kg, cm)</SelectItem>
-                      <SelectItem value="imperial">
-                        Imperial (lb, ft)
+                      <SelectItem value="metric">
+                        Kilograms and centimetres
                       </SelectItem>
+                      <SelectItem value="imperial">Pounds and feet</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="grid gap-2 sm:col-span-2">
-                  <Label htmlFor="regional-locale">Formatting locale</Label>
+                  <Label htmlFor="regional-locale">
+                    Number and month style
+                  </Label>
                   <Select
                     value={draft.locale}
                     onValueChange={(v) => v && set('locale', v)}
@@ -400,8 +401,8 @@ export function LocalizationSettings() {
                     </SelectContent>
                   </Select>
                   <p className="text-muted-foreground text-xs">
-                    Advanced — controls digit grouping and month names (en-IN
-                    groups ₹1,00,000; en-US groups $100,000).
+                    Choose how large numbers and month names appear. For
+                    example, India shows ₹1,00,000.
                   </p>
                 </div>
               </div>
@@ -413,7 +414,7 @@ export function LocalizationSettings() {
               <div>
                 <h3 className="font-medium">Preview</h3>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  This is how the current draft will appear across UsefulDesk.
+                  See how your choices will look before saving.
                 </p>
               </div>
               <dl className="bg-muted/40 grid gap-x-6 gap-y-4 rounded-lg p-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -453,10 +454,10 @@ export function LocalizationSettings() {
           <CardFooter className="justify-between gap-3">
             <p className="text-muted-foreground text-xs">
               {!canEditSettings
-                ? 'Only account admins can change regional settings.'
+                ? 'Ask an admin or owner to change these settings.'
                 : dirty
                   ? 'You have unsaved changes.'
-                  : 'All regional settings are up to date.'}
+                  : 'All changes saved.'}
             </p>
             {canEditSettings ? (
               <Button type="submit" disabled={saving || !dirty}>

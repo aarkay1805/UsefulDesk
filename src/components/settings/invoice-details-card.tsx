@@ -27,7 +27,7 @@ function InvoiceDetailsHead() {
     <SettingsSectionHead
       id="invoice-details-heading"
       title="Invoice details"
-      description="Set the name, address, and contact details for new invoices. The legal business name comes from Business details above. Issued invoices keep their original details."
+      description="Set what appears on new invoices. Change the legal business name above. Old invoices stay the same."
     />
   );
 }
@@ -313,7 +313,7 @@ function InvoiceDetailsCardForAccount({
             <div className="space-y-3" role="alert">
               <p className="text-destructive text-sm">{loadError}</p>
               <p className="text-muted-foreground text-sm">
-                Finish Invoice details in Settings -&gt; Business details first.
+                Add your invoice details above, then try again.
               </p>
               <Button
                 type="button"
@@ -335,7 +335,7 @@ function InvoiceDetailsCardForAccount({
             >
               {!mayManage ? (
                 <p className="text-muted-foreground text-sm">
-                  Read-only. Only account admins can change invoice details.
+                  Ask an admin or owner to change invoice details.
                 </p>
               ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
@@ -390,8 +390,7 @@ function InvoiceDetailsCardForAccount({
                       ) : null}
                       {field === 'business_name' ? (
                         <p className="text-muted-foreground text-xs">
-                          This can differ from the gym name shown in the
-                          workspace.
+                          This name can be different from your gym name.
                         </p>
                       ) : null}
                     </div>

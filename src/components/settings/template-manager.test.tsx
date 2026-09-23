@@ -119,23 +119,25 @@ describe('TemplateManager gym preset library', () => {
     render(<TemplateManager />);
 
     expect(
-      await screen.findByText('Choose a message or check its WhatsApp status.')
+      await screen.findByText(
+        'Choose WhatsApp messages and check if they are ready to use.'
+      )
     ).toBeTruthy();
     const moreActions = screen.getByRole('button', {
       name: 'More template actions',
     });
     expect(
       screen.queryByRole('menuitem', {
-        name: 'Send needed templates for review',
+        name: 'Send needed messages for review',
       })
     ).toBeNull();
     moreActions.focus();
     await user.keyboard(' ');
     const submitAll = screen.getByRole('menuitem', {
-      name: 'Send needed templates for review',
+      name: 'Send needed messages for review',
     });
     expect(
-      screen.getByRole('menuitem', { name: 'Sync with WhatsApp' })
+      screen.getByRole('menuitem', { name: 'Update from WhatsApp' })
     ).toBeTruthy();
 
     await user.click(submitAll);
@@ -201,7 +203,7 @@ describe('TemplateManager gym preset library', () => {
     moreActions.focus();
     await user.keyboard(' ');
     await user.click(
-      screen.getByRole('menuitem', { name: 'Sync with WhatsApp' })
+      screen.getByRole('menuitem', { name: 'Update from WhatsApp' })
     );
 
     expect(fetch).toHaveBeenCalledWith('/api/whatsapp/templates/sync', {
@@ -232,7 +234,9 @@ describe('TemplateManager gym preset library', () => {
     expect(
       screen.queryByRole('heading', { name: 'Message templates' })
     ).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Use preset' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Use this message' })
+    ).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
     expect(
       screen.queryByRole('combobox', { name: 'Message language' })
@@ -464,7 +468,7 @@ describe('TemplateManager gym preset library', () => {
       'custom_due'
     );
     await user.type(
-      screen.getByRole('textbox', { name: 'Body text' }),
+      screen.getByRole('textbox', { name: 'Message text' }),
       'Invoice due: {{{{1}}}}.'
     );
     await user.type(
@@ -511,7 +515,7 @@ describe('TemplateManager gym preset library', () => {
     render(<TemplateManager />);
     await user.click(
       await screen.findByRole('button', {
-        name: 'Use Membership renewal preset',
+        name: 'Set up Membership renewal',
       })
     );
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
@@ -661,7 +665,7 @@ describe('TemplateManager gym preset library', () => {
       screen.getByRole('button', { name: 'Older templates (2)' })
     );
     expect(
-      screen.getByText('UsefulDesk features no longer use these messages.')
+      screen.getByText('These older messages are no longer used by UsefulDesk.')
     ).toBeTruthy();
     expect(
       screen.getByRole('heading', { name: 'gym_renewal_reminder' })
@@ -681,7 +685,9 @@ describe('TemplateManager gym preset library', () => {
       .closest('[data-slot="preset"]');
     expect(card).toBeTruthy();
     await user.click(
-      within(card as HTMLElement).getByRole('button', { name: 'Use preset' })
+      within(card as HTMLElement).getByRole('button', {
+        name: 'Use this message',
+      })
     );
 
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();
@@ -702,7 +708,9 @@ describe('TemplateManager gym preset library', () => {
       .closest('[data-slot="preset"]');
     expect(card).toBeTruthy();
     await user.click(
-      within(card as HTMLElement).getByRole('button', { name: 'Use preset' })
+      within(card as HTMLElement).getByRole('button', {
+        name: 'Use this message',
+      })
     );
 
     expect(screen.queryByRole('textbox', { name: 'Template name' })).toBeNull();

@@ -35,10 +35,10 @@ export function CustomFieldsManager({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Custom fields</DialogTitle>
+          <DialogTitle>Extra contact details</DialogTitle>
           <DialogDescription>
-            Store structured details on every contact and use them in
-            automations.
+            Save details your team needs on every contact, such as a preferred
+            class time.
           </DialogDescription>
         </DialogHeader>
         <CustomFieldsPanel />
@@ -80,7 +80,10 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       if (cancelled) return;
       if (error) {
         setLoadError(
-          getErrorMessage(error, "Custom fields couldn't load. Try again.")
+          getErrorMessage(
+            error,
+            "Extra contact details couldn't load. Try again."
+          )
         );
       } else {
         setFields((data as CustomField[] | null) ?? []);
@@ -109,7 +112,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       return;
     }
     if (isDuplicate(name)) {
-      toast.error(`A field named “${name}” already exists.`);
+      toast.error(`“${name}” is already in the list.`);
       return;
     }
 
@@ -154,7 +157,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
     if (!canEdit) return false;
     if (!name || name === field.field_name) return true;
     if (isDuplicate(name, field.id)) {
-      toast.error(`A field named “${name}” already exists.`);
+      toast.error(`“${name}” is already in the list.`);
       return false;
     }
 
@@ -225,7 +228,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
           void handleCreate();
         }}
       >
-        <Label htmlFor="new-custom-field">New field</Label>
+        <Label htmlFor="new-custom-field">New detail</Label>
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
           <Input
             id="new-custom-field"
@@ -244,7 +247,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
             ) : (
               <Plus className="size-4" aria-hidden="true" />
             )}
-            {creating ? 'Adding…' : 'Add field'}
+            {creating ? 'Adding…' : 'Add detail'}
           </Button>
         </div>
       </form>
@@ -252,7 +255,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       {loadError ? (
         <Alert variant="destructive">
           <AlertCircle aria-hidden="true" />
-          <AlertTitle>Custom fields couldn&apos;t load</AlertTitle>
+          <AlertTitle>Extra contact details couldn&apos;t load</AlertTitle>
           <AlertDescription>
             <p>{loadError}</p>
             <Button
@@ -275,11 +278,11 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
                 aria-live="polite"
               >
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Loading custom fields…
+                Loading extra contact details…
               </div>
             ) : fields.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">
-                No custom fields yet.
+                No extra details yet.
               </p>
             ) : (
               <ul className="divide-border divide-y">
@@ -307,7 +310,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete custom field?</DialogTitle>
+            <DialogTitle>Delete extra detail?</DialogTitle>
             <DialogDescription>
               “{fieldToDelete?.field_name}” and its saved value on every contact
               will be deleted. This cannot be undone.
@@ -329,7 +332,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
               {busyId && (
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
               )}
-              {busyId ? 'Deleting…' : 'Delete field'}
+              {busyId ? 'Deleting…' : 'Delete detail'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -125,7 +125,7 @@ describe('RazorpaySettingsCard', () => {
       screen.getByRole('button', { name: 'Apply to membership' })
     ).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Mark handled externally' })
+      screen.getByRole('button', { name: 'Already handled elsewhere' })
     ).toBeTruthy();
   });
 });

@@ -239,7 +239,7 @@ export function ExpenseCategoriesCard() {
         throw error ?? new Error('The expense category was not updated.');
       }
       toast.success(
-        isActive ? 'Expense category restored' : 'Expense category archived'
+        isActive ? 'Category available again' : 'Category no longer in use'
       );
       refresh();
     } catch (error) {
@@ -277,8 +277,8 @@ export function ExpenseCategoriesCard() {
             </CardAction>
           ) : null}
           <CardDescription>
-            Keep expense entry consistent with a short, reusable category list.
-            Archived categories remain on historical records.
+            Make a short list to group your expenses. Categories you stop using
+            will still appear on past expenses.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -286,7 +286,7 @@ export function ExpenseCategoriesCard() {
             <Alert>
               <AlertTitle>Read-only</AlertTitle>
               <AlertDescription>
-                Only account admins can change expense categories.
+                Ask an admin or owner to change expense categories.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -323,7 +323,7 @@ export function ExpenseCategoriesCard() {
                 No expense categories yet
               </p>
               <p className="text-muted-foreground mt-1 text-sm">
-                Add a category before recording the next expense.
+                Add a category, such as Rent or Equipment, to group expenses.
               </p>
               {mayManage ? (
                 <Button className="mt-4" size="sm" onClick={openCreate}>
@@ -342,7 +342,7 @@ export function ExpenseCategoriesCard() {
                     {category.name}
                   </span>
                   {!category.is_active ? (
-                    <Badge variant="neutral">Archived</Badge>
+                    <Badge variant="neutral">Not in use</Badge>
                   ) : null}
                   {mayManage ? (
                     <DropdownMenu>
@@ -373,13 +373,13 @@ export function ExpenseCategoriesCard() {
                           <DropdownMenuItem
                             onClick={() => void setActive(category, false)}
                           >
-                            <Archive aria-hidden="true" /> Archive category
+                            <Archive aria-hidden="true" /> Stop using category
                           </DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem
                             onClick={() => void setActive(category, true)}
                           >
-                            <RotateCcw aria-hidden="true" /> Restore category
+                            <RotateCcw aria-hidden="true" /> Use category again
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -405,7 +405,7 @@ export function ExpenseCategoriesCard() {
                 {editingCategory ? 'Edit expense category' : 'Add category'}
               </DialogTitle>
               <DialogDescription>
-                Categories keep expense entry and reporting consistent.
+                Choose a short name people can reuse when adding an expense.
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-2">

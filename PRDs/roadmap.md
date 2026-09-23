@@ -1,5 +1,14 @@
 # Roadmap
 
+## Built in code — Plain-English Settings copy (2026-09-23)
+
+Settings labels, instructions, statuses, and confirmations now use short,
+gym-focused wording across account, leads, memberships, payments, WhatsApp,
+team, and regional setup. The automated-message catalogue explains eligibility
+and timing in everyday language. Required provider field names remain where
+owners or their helpers must match them in Meta or Razorpay; settings behavior
+and permissions are unchanged.
+
 ## Built in code — Discoverable business identity settings (2026-09-23)
 
 Settings → Business setup now leads with Business details. Branch owners can

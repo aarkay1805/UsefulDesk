@@ -63,10 +63,11 @@ const EXPIRY_OPTIONS: { value: string; label: string }[] = [
 ];
 
 const ROLE_DESCRIPTIONS: Record<InviteRole, string> = {
-  admin: 'Can invite teammates, manage settings, send messages, and edit data.',
+  admin:
+    'Can invite teammates, change settings, send messages, and edit records.',
   agent:
-    'Can use the inbox, contacts, broadcasts, automations, and flows. No settings or member access.',
-  viewer: 'Read-only access across every page. Cannot send or edit anything.',
+    'Can help members and leads, send messages, and record payments. Cannot change gym settings.',
+  viewer: 'Can see gym records but cannot send messages or change anything.',
 };
 
 // Server caps label at 80 chars (see src/app/api/account/invitations/route.ts).
@@ -112,7 +113,7 @@ export function InviteMemberDialog({
     // net for that path.
     const trimmedLabel = label.trim();
     if (trimmedLabel.length > MAX_LABEL_LEN) {
-      toast.error(`Label must be ${MAX_LABEL_LEN} characters or fewer`);
+      toast.error(`Keep the note under ${MAX_LABEL_LEN} characters.`);
       return;
     }
     setSubmitting(true);
@@ -201,12 +202,11 @@ export function InviteMemberDialog({
                 Invite created
               </DialogTitle>
               <DialogDescription>
-                Share this link with your new teammate. They&apos;ll be able to
-                sign up (or sign in) and join the account with the{' '}
+                Send this link to your teammate. They can join with the{' '}
                 <span className="font-medium">
                   {ROLE_META[result.role].label}
                 </span>{' '}
-                role. The link is valid for{' '}
+                role. The link works for{' '}
                 <span className="font-medium">
                   {result.expiresInDays} day
                   {result.expiresInDays === 1 ? '' : 's'}
@@ -232,11 +232,10 @@ export function InviteMemberDialog({
 
               <Alert>
                 <AlertTriangle />
-                <AlertTitle>Save this link now</AlertTitle>
+                <AlertTitle>Copy this link now</AlertTitle>
                 <AlertDescription>
-                  UsefulDesk stores only a secure hash, so closing this dialog
-                  removes your only copy. To share again later, use Copy link in
-                  Pending invitations to create a fresh link.
+                  You will not see this link again after closing this window. To
+                  send it later, make a new link from Pending invitations.
                 </AlertDescription>
               </Alert>
 
@@ -274,8 +273,8 @@ export function InviteMemberDialog({
             <DialogHeader>
               <DialogTitle>Invite a teammate</DialogTitle>
               <DialogDescription>
-                Generate a one-time invite link. Share it via WhatsApp, Slack,
-                or any channel you like — no email service required.
+                Create a link and send it to your teammate on WhatsApp or
+                another app.
               </DialogDescription>
             </DialogHeader>
 
@@ -308,7 +307,7 @@ export function InviteMemberDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="invite-expiry">Link valid for</Label>
+                <Label htmlFor="invite-expiry">Link works for</Label>
                 <Select value={expiry} onValueChange={(v) => v && setExpiry(v)}>
                   <SelectTrigger id="invite-expiry" className="w-full">
                     <SelectValue />
@@ -324,7 +323,7 @@ export function InviteMemberDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="invite-label">Label (optional)</Label>
+                <Label htmlFor="invite-label">Note (optional)</Label>
                 <Input
                   id="invite-label"
                   placeholder="e.g. Sara — support team"
@@ -333,8 +332,7 @@ export function InviteMemberDialog({
                   maxLength={MAX_LABEL_LEN}
                 />
                 <p className="text-muted-foreground text-xs">
-                  Helps you remember who you sent the link to in the pending
-                  list below.
+                  Add a note so you remember who received this link.
                 </p>
               </div>
             </div>

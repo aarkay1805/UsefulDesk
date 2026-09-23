@@ -136,14 +136,14 @@ function BusinessDetailsForAccount({
     <section className="max-w-2xl">
       <SettingsPanelHead
         title="Business details"
-        description="Manage the names shown to your team and customers."
+        description="Set the gym and business names used across UsefulDesk."
       />
       <div className="space-y-8">
         <section className="space-y-3" aria-labelledby="gym-name-heading">
           <SettingsSectionHead
             id="gym-name-heading"
             title="Gym name"
-            description="Shown in the branch selector and workspace. Invoice names are configured below."
+            description="Your team sees this name in the branch menu. Set the name on invoices below."
           />
           <Card>
             <CardContent>
@@ -166,7 +166,7 @@ function BusinessDetailsForAccount({
                 </div>
                 {!mayRename && (
                   <p className="text-muted-foreground text-sm">
-                    Only the branch owner can change this name.
+                    Ask the branch owner to change this name.
                   </p>
                 )}
                 <Button
@@ -187,7 +187,7 @@ function BusinessDetailsForAccount({
           <SettingsSectionHead
             id="legal-name-heading"
             title="Legal business name"
-            description="The registered name used in WhatsApp messages and on future invoices. Changes to a shared legal entity affect every branch using it. Issued invoices keep their original details."
+            description="Use the name on your registration papers. It appears in WhatsApp messages and new invoices. If branches share this business, the change applies to all of them. Old invoices stay the same."
           />
           <Card>
             <CardContent>
@@ -214,8 +214,8 @@ function BusinessDetailsForAccount({
                 </div>
                 {!mayEditLegalName && (
                   <p className="text-muted-foreground text-sm">
-                    Only an organization owner who owns this branch can change
-                    the legal business name.
+                    Ask an owner of both this branch and the gym group to change
+                    this name.
                   </p>
                 )}
                 <Button

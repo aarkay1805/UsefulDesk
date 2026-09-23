@@ -102,7 +102,7 @@ const EDIT_PERMISSION_BLOCKER: ActionBlocker = {
 };
 
 const UNSAVED_CHANGES_MESSAGE =
-  'You have unsaved automated-message changes. Leave without saving them?';
+  'You have unsaved changes to automated messages. Leave this page and lose them?';
 
 type RuleRow = ReminderRule & {
   settings: Record<string, unknown>;
@@ -329,9 +329,9 @@ function DeliveryControls({
     <div className="space-y-3">
       {catchUpControl ? (
         <div className="space-y-2">
-          <div className={DETAIL_CAPTION}>If a reminder is delayed</div>
+          <div className={DETAIL_CAPTION}>If a message is late</div>
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span>Allow sending up to</span>
+            <span>Send it up to</span>
             <Select
               value={String(
                 Number(currentTimingValue(rule, draft, catchUpControl))
@@ -615,7 +615,7 @@ function RuleMessagePreview({
       </div>
       <figcaption className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1">
         <span className="text-muted-foreground mr-auto text-xs">
-          <span>This is only a sample.</span>
+          <span>This is a sample message.</span>
           {hasUnsavedChanges ? (
             <>
               {' '}
@@ -720,8 +720,7 @@ function RuleDetail({
           {rule.id === 'joining_installments' ? (
             <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
               <span>
-                Open a member, then view Membership to find the joining payment
-                schedule.
+                Open a member’s Membership tab to see their installment dates.
               </span>
               {!hasUnsavedChanges ? (
                 <Button
@@ -747,7 +746,7 @@ function RuleDetail({
         />
         {sendsAfterNine ? (
           <div className="text-muted-foreground max-w-2xl text-sm leading-5">
-            UsefulDesk can send this message after {localTime(9)} in this
+            UsefulDesk can send this message after {localTime(9)} for this
             branch.
           </div>
         ) : null}
@@ -843,7 +842,7 @@ function RuleDetail({
         )}
         <Accordion>
           <AccordionItem value={`operation-${rule.id}`}>
-            <AccordionTrigger>Eligibility and follow-up</AccordionTrigger>
+            <AccordionTrigger>Who gets this message</AccordionTrigger>
             <AccordionContent className="px-1">
               <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
                 <div className="space-y-1">
@@ -859,7 +858,7 @@ function RuleDetail({
                   </dd>
                 </div>
                 <div className="space-y-1">
-                  <dt className={DETAIL_CAPTION}>Staff follow-up</dt>
+                  <dt className={DETAIL_CAPTION}>What your team should do</dt>
                   <dd className="text-sm leading-5 text-pretty">
                     {rule.staff}
                   </dd>
@@ -918,7 +917,7 @@ function RuleRow({
       setSaving(false);
     }
   };
-  const openLabel = configurationExpanded ? 'Hide configuration' : 'Configure';
+  const openLabel = configurationExpanded ? 'Hide settings' : 'Set up';
   const setupLabel = `Set up ${rule.title} message`;
   const setupButton = (
     <Button size="sm" variant="outline" aria-label={setupLabel}>
@@ -1345,7 +1344,7 @@ export function RenewalRemindersSettings({
         <Alert>
           <AlertTitle>Read-only</AlertTitle>
           <AlertDescription>
-            Only admins and owners can change automated messages.
+            Ask an admin or owner to change automated messages.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -1471,8 +1470,7 @@ export function RenewalRemindersSettings({
               <Alert>
                 <AlertTitle>Admin access required</AlertTitle>
                 <AlertDescription>
-                  Only admins and owners can view scheduled reminder readiness
-                  and message history.
+                  Ask an admin or owner to check message history.
                 </AlertDescription>
               </Alert>
             )}

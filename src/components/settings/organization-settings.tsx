@@ -28,7 +28,8 @@ function branchStatusVariant(
 function branchStatusLabel(
   status: 'active' | 'read_only' | 'archived'
 ): string {
-  if (status === 'read_only') return 'Read only';
+  if (status === 'read_only') return 'View only';
+  if (status === 'archived') return 'Closed';
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
@@ -42,8 +43,8 @@ export function OrganizationSettings() {
   return (
     <section className="animate-in fade-in-50 max-w-3xl duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
-        title="Organization & branches"
-        description="See every branch you can access and manage organization lifecycle actions."
+        title="Branches"
+        description="See the branches you can use and manage your gym group."
       />
 
       <Card>
@@ -53,8 +54,8 @@ export function OrganizationSettings() {
             <span className="truncate">{organizationName}</span>
           </CardTitle>
           <CardDescription>
-            {branches.length} branch{branches.length === 1 ? '' : 'es'}{' '}
-            available to your login
+            {branches.length} branch{branches.length === 1 ? '' : 'es'} you can
+            use
           </CardDescription>
         </CardHeader>
 
@@ -122,7 +123,7 @@ export function OrganizationSettings() {
 
         <CardFooter>
           <p className="text-muted-foreground text-xs">
-            Use the branch selector in the sidebar to add or switch branches.
+            Use the branch menu on the left to add or switch branches.
           </p>
         </CardFooter>
       </Card>
@@ -130,9 +131,10 @@ export function OrganizationSettings() {
       {isOrganizationOwner ? (
         <div className="mt-6 space-y-3">
           <div>
-            <h3 className="text-sm font-semibold">Danger zone</h3>
+            <h3 className="text-sm font-semibold">Delete gym group</h3>
             <p className="text-muted-foreground mt-1 text-sm">
-              Permanently erase the entire organization and all of its branches.
+              Delete this gym group and every branch in it. This cannot be
+              undone.
             </p>
           </div>
           <OrganizationDangerZone />

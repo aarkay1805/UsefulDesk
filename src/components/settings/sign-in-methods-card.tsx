@@ -49,14 +49,13 @@ function AddPasswordAction({ email }: { email: string | null }) {
   return (
     <div className="space-y-3">
       <p className="text-muted-foreground text-sm">
-        We&apos;ll email a secure link so you can verify this account before
-        creating a password.
+        We’ll send you an email. Open its link to add a password.
       </p>
       {sent ? (
         <Alert>
           <Mail />
           <AlertDescription>
-            Check {email} for the secure link. It expires shortly.
+            Check {email} and open the link soon.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -99,9 +98,7 @@ export function SignInMethodsCard({
         <CardTitle>
           <h3 id="sign-in-methods-heading">Sign-in methods</h3>
         </CardTitle>
-        <CardDescription>
-          Methods currently linked to your UsefulDesk account.
-        </CardDescription>
+        <CardDescription>Ways you can sign in to UsefulDesk.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {summary.googleIdentity ? (
@@ -140,7 +137,7 @@ export function SignInMethodsCard({
             <div className="text-muted-foreground text-sm">
               {summary.hasPassword
                 ? 'Available for email sign-in'
-                : 'No password fallback yet'}
+                : 'No password set yet'}
             </div>
           </div>
           <Badge variant={summary.hasPassword ? 'success' : 'neutral'}>

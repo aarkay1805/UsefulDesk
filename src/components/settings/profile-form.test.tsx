@@ -25,13 +25,11 @@ describe('ProfileForm', () => {
   it('keeps cosmetic profile editing to photo and display name', () => {
     render(<ProfileForm />);
 
-    expect(screen.getByLabelText('Display name')).toBeTruthy();
+    expect(screen.getByLabelText('Your name')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Upload photo' })).toBeTruthy();
     expect(screen.queryByLabelText('Email')).toBeNull();
     expect(
-      screen.getByText(
-        'Update the photo and display name people see in UsefulDesk.'
-      )
+      screen.getByText('Choose the name and photo your team sees.')
     ).toBeTruthy();
   });
 });

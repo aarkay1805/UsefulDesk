@@ -86,7 +86,9 @@ describe('SecurityPanel identity-aware settings', () => {
 
     expect(await screen.findByLabelText('Current password')).toBeTruthy();
     expect(
-      screen.getByText(/Changing your account email does not disconnect Google/)
+      screen.getByText(
+        /Changing this email will not change your Google sign-in/
+      )
     ).toBeTruthy();
 
     const email = screen.getByLabelText('Email');
@@ -118,7 +120,9 @@ describe('SecurityPanel identity-aware settings', () => {
       });
     render(<SecurityPanel />);
 
-    expect(await screen.findByText('Sign-in methods unavailable')).toBeTruthy();
+    expect(
+      await screen.findByText('Couldn’t load sign-in options')
+    ).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Sign out everywhere' })
     ).toBeTruthy();

@@ -16,7 +16,7 @@ const base = {
 describe('Meta Page health presentation', () => {
   it.each([
     [{ ...base, health_lease_until: '2026-08-22T09:05:00.000Z' }, 'Checking'],
-    [base, 'Healthy'],
+    [base, 'Working'],
     [{ ...base, last_repair_at: '2026-08-22T08:00:00.000Z' }, 'Repaired'],
     [
       {
@@ -29,7 +29,7 @@ describe('Meta Page health presentation', () => {
     ],
     [
       { ...base, status: 'error', health_error_code: 'token_invalid' },
-      'Reconnect required',
+      'Reconnect Facebook',
     ],
   ])('maps stored health to %s', (page, label) => {
     expect(

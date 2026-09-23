@@ -70,14 +70,14 @@ export function ProfileForm() {
     if (!file) return;
 
     if (!ALLOWED_MIME.has(file.type)) {
-      toast.error('Unsupported image type', {
+      toast.error('This photo format is not supported', {
         description: 'Use PNG, JPG, WebP, or GIF.',
       });
       return;
     }
     if (file.size > MAX_AVATAR_BYTES) {
       toast.error('Image is too large', {
-        description: 'Maximum 2 MB.',
+        description: 'Choose a photo under 2 MB.',
       });
       return;
     }
@@ -101,7 +101,7 @@ export function ProfileForm() {
 
     const trimmedName = fullName.trim();
     if (!trimmedName) {
-      toast.error('Display name is required');
+      toast.error('Enter your name.');
       return;
     }
     setSaving(true);
@@ -170,7 +170,7 @@ export function ProfileForm() {
     <section className="animate-in fade-in-50 max-w-xl duration-200">
       <SettingsPanelHead
         title="Your profile"
-        description="Update the photo and display name people see in UsefulDesk."
+        description="Choose the name and photo your team sees."
       />
       {!profile ? (
         <Alert variant={profileLoading ? 'default' : 'destructive'}>
@@ -228,18 +228,18 @@ export function ProfileForm() {
                     )}
                   </div>
                   <p className="text-muted-foreground mt-2 text-xs">
-                    JPG, PNG, WebP, or GIF. Maximum 2 MB.
+                    Choose a JPG, PNG, WebP, or GIF photo under 2 MB.
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="profile-full-name">Display name</Label>
+                <Label htmlFor="profile-full-name">Your name</Label>
                 <Input
                   id="profile-full-name"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Ada Lovelace"
+                  placeholder="Enter your name"
                   maxLength={120}
                   disabled={saving}
                   required

@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-09-23 — Settings copy made easier to follow (built in code)
+
+Rewrote the Settings rail, panels, forms, help text, and confirmations in
+`src/components/settings/` and the embedded contact-detail editor for plain,
+gym-focused English. Automated-message explanations in
+`src/lib/reminders/rules.ts` now say who receives each message and when it
+stops in simpler words. Required WhatsApp and payment identifiers remain exact;
+the underlying settings and permissions did not change.
+
 ## 2026-09-23 — Business legal name moved to Business details (built in code)
 
 `src/components/settings/business-details-settings.tsx` puts gym name, legal

@@ -181,7 +181,7 @@ export function SettingsOverview({
     {
       section: 'business-details',
       loading: false,
-      subtitle: 'Gym name, legal name & invoices',
+      subtitle: 'Gym name and invoice details',
     },
     {
       section: 'organization',
@@ -206,7 +206,7 @@ export function SettingsOverview({
     {
       section: 'capture',
       loading: false,
-      subtitle: 'Enquiry form & lead ads',
+      subtitle: 'Enquiry form and Facebook ads',
     },
     {
       section: 'members',
@@ -227,7 +227,7 @@ export function SettingsOverview({
       loading: countsLoading,
       subtitle:
         counts?.templates == null
-          ? 'Manage message templates'
+          ? 'View WhatsApp messages'
           : `${counts.templates} template${counts.templates === 1 ? '' : 's'}${
               counts.templatesPending
                 ? ` · ${counts.templatesPending} pending review`
@@ -237,7 +237,7 @@ export function SettingsOverview({
     {
       section: 'deals',
       loading: false,
-      subtitle: 'UPI and Razorpay setup',
+      subtitle: 'Set up UPI and Razorpay',
     },
     {
       section: 'localization',
@@ -249,15 +249,15 @@ export function SettingsOverview({
       loading: countsLoading,
       subtitle:
         counts?.tags == null && counts?.customFields == null
-          ? 'Tags and custom fields'
+          ? 'Tags and extra contact details'
           : `${counts?.tags ?? 0} tag${counts?.tags === 1 ? '' : 's'} · ${
               counts?.customFields ?? 0
-            } custom field${counts?.customFields === 1 ? '' : 's'}`,
+            } extra field${counts?.customFields === 1 ? '' : 's'}`,
     },
     {
       section: 'appearance',
       loading: false,
-      subtitle: `${cap(mode)} mode · ${themeName} accent`,
+      subtitle: `${cap(mode)} mode · ${themeName} colour`,
     },
   ];
 

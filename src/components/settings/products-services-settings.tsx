@@ -256,7 +256,7 @@ export function ProductsServicesSettings() {
       );
       return false;
     }
-    toast.success(active ? 'Restored' : 'Archived');
+    toast.success(active ? 'Available for sale again' : 'No longer for sale');
     refresh();
     return true;
   }
@@ -287,7 +287,7 @@ export function ProductsServicesSettings() {
     if (error || !data?.length) {
       toast.error(
         error?.code === '23503'
-          ? `${deleteTarget.name} has sales or service history — archive it instead.`
+          ? `${deleteTarget.name} has past sales. Stop selling it instead.`
           : getErrorMessage(
               error,
               "You don't have permission to delete this item"
@@ -393,7 +393,7 @@ export function ProductsServicesSettings() {
     <section className="animate-in fade-in-50 max-w-3xl duration-200">
       <SettingsPanelHead
         title="Products & services"
-        description="What your gym sells alongside memberships. Checkout and member sales pick from these."
+        description="Add things you sell besides memberships. Your team can add them to a member’s bill."
         action={
           tab === 'catalogue' && canManageCatalog ? (
             <Button onClick={() => setItemOpen(true)}>
@@ -427,7 +427,7 @@ export function ProductsServicesSettings() {
           onValueChange={(value) => setTab(value as 'catalogue' | 'trainers')}
         >
           <TabsList>
-            <TabsTrigger value="catalogue">Catalogue</TabsTrigger>
+            <TabsTrigger value="catalogue">Products & services</TabsTrigger>
             <TabsTrigger value="trainers">Trainers</TabsTrigger>
           </TabsList>
 
@@ -451,15 +451,13 @@ export function ProductsServicesSettings() {
                           <CardTitle className="flex flex-wrap items-center gap-2">
                             {item.name}
                             <Badge variant="neutral">
-                              {item.kind === 'service'
-                                ? 'Service'
-                                : 'Merchandise'}
+                              {item.kind === 'service' ? 'Service' : 'Product'}
                             </Badge>
                             {item.requires_trainer ? (
                               <Badge variant="info">Trainer priced</Badge>
                             ) : null}
                             {!item.is_active ? (
-                              <Badge variant="neutral">Archived</Badge>
+                              <Badge variant="neutral">Not for sale</Badge>
                             ) : null}
                           </CardTitle>
                           {item.description ? (
@@ -502,14 +500,14 @@ export function ProductsServicesSettings() {
                                         setArchiveTarget({
                                           table: 'catalog_items',
                                           id: item.id,
-                                          title: `Archive ${item.name}?`,
+                                          title: `Stop selling ${item.name}?`,
                                           description:
-                                            'This item and its options will no longer be available for new sales. Existing purchases and service history stay intact.',
+                                            'Your team cannot sell this item again. Past sales will stay.',
                                         })
                                       }
                                     >
                                       <Archive className="size-4" />
-                                      Archive item
+                                      Stop selling item
                                     </DropdownMenuItem>
                                   ) : (
                                     <DropdownMenuItem
@@ -522,7 +520,7 @@ export function ProductsServicesSettings() {
                                       }
                                     >
                                       <RotateCcw className="size-4" />
-                                      Restore item
+                                      Sell item again
                                     </DropdownMenuItem>
                                   )}
                                   <DropdownMenuSeparator />
@@ -546,7 +544,8 @@ export function ProductsServicesSettings() {
                         <CardContent>
                           {item.catalog_options.length === 0 ? (
                             <p className="text-muted-foreground text-sm">
-                              No sellable options yet.
+                              Add a price or duration to start selling this
+                              item.
                             </p>
                           ) : (
                             <ul className="divide-border divide-y">
@@ -567,9 +566,9 @@ export function ProductsServicesSettings() {
                                       setArchiveTarget({
                                         table: 'catalog_options',
                                         id: option.id,
-                                        title: `Archive ${catalogOptionLabel(option)}?`,
+                                        title: `Stop selling ${catalogOptionLabel(option)}?`,
                                         description:
-                                          'This option will no longer be available for new sales. Existing purchases and service history stay intact.',
+                                          'Your team cannot sell this option again. Past sales will stay.',
                                       })
                                     }
                                     onRestore={() =>
@@ -597,14 +596,14 @@ export function ProductsServicesSettings() {
               <CardHeader>
                 <CardTitle>Team members</CardTitle>
                 <CardDescription>
-                  A trainer switch does not change the teammate&apos;s account
-                  role or permissions.
+                  Turn on Trainer for team members who train clients. This does
+                  not change what they can do in UsefulDesk.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
                 {teamMembers.length === 0 ? (
                   <p className="text-muted-foreground px-4 pb-4 text-sm">
-                    No registered team members found.
+                    No team members yet.
                   </p>
                 ) : (
                   <ul className="divide-border divide-y">
@@ -699,7 +698,7 @@ export function ProductsServicesSettings() {
 
       {!canManageCatalog && !canManageTrainers ? (
         <p className="text-muted-foreground mt-4 text-xs">
-          Only account admins can change the catalogue, trainers, or rates.
+          Ask an admin or owner to change products, trainers, or prices.
         </p>
       ) : null}
 
@@ -751,7 +750,7 @@ export function ProductsServicesSettings() {
             </Button>
             <Button onClick={confirmArchive} disabled={archiving}>
               {archiving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {archiving ? 'Archiving…' : 'Archive'}
+              {archiving ? 'Updating…' : 'Stop selling'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -766,9 +765,9 @@ export function ProductsServicesSettings() {
           <DialogHeader>
             <DialogTitle>Delete {deleteTarget?.name}?</DialogTitle>
             <DialogDescription>
-              This permanently deletes the item, all its options, and saved
-              trainer fees. Only items with no sales or service history can be
-              deleted. This cannot be undone.
+              This removes the item, its prices, and saved trainer fees. You can
+              only delete an item that has never been sold. You cannot undo
+              this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -802,9 +801,8 @@ export function ProductsServicesSettings() {
               Delete {trainerDeleteTarget?.display_name}?
             </DialogTitle>
             <DialogDescription>
-              This permanently deletes the independent trainer and their saved
-              rates. Existing invoices and service history keep the trainer name
-              snapshot. This cannot be undone.
+              This removes the trainer and their saved fees. Past invoices and
+              service records will still show their name. You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -963,7 +961,7 @@ function OptionRow({
           (a fee CTA on a phone) wraps below it instead of truncating
           "6 months" down to a single character. */}
       <p className="min-w-24 flex-1 truncate font-medium">{label}</p>
-      {!option.is_active ? <Badge variant="neutral">Archived</Badge> : null}
+      {!option.is_active ? <Badge variant="neutral">Not for sale</Badge> : null}
       <div className="ml-auto flex items-center gap-3">
         {item.requires_trainer ? (
           needsFees ? (
@@ -1013,12 +1011,12 @@ function OptionRow({
               {option.is_active ? (
                 <DropdownMenuItem onClick={onArchive}>
                   <Archive className="size-4" />
-                  Archive
+                  Stop selling
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem onClick={onRestore}>
                   <RotateCcw className="size-4" />
-                  Restore
+                  Sell again
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -1066,10 +1064,10 @@ function ItemDialog({
       return toast.error(
         error.code === '23505'
           ? 'An active item with this name already exists.'
-          : getErrorMessage(error, 'The catalogue item could not be added.')
+          : getErrorMessage(error, 'Could not add this item.')
       );
     }
-    toast.success('Catalogue item added');
+    toast.success('Item added');
     setForm(EMPTY_ITEM);
     onOpenChange(false);
     onSaved();
@@ -1078,9 +1076,9 @@ function ItemDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add catalogue item</DialogTitle>
+          <DialogTitle>Add product or service</DialogTitle>
           <DialogDescription>
-            Add its sellable price or durations next.
+            Add a price or duration after creating the item.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -1110,7 +1108,7 @@ function ItemDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="service">Service</SelectItem>
-                <SelectItem value="merchandise">Merchandise</SelectItem>
+                <SelectItem value="merchandise">Product</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -1127,10 +1125,11 @@ function ItemDialog({
             <div className="flex items-center justify-between rounded-lg border px-3 py-2">
               <div>
                 <Label htmlFor="catalog-item-trainer-priced">
-                  Trainer-priced
+                  Price depends on trainer
                 </Label>
                 <p className="text-muted-foreground text-xs">
-                  Require an explicit trainer rate for every duration.
+                  Set a fee for each trainer and duration before selling this
+                  service.
                 </p>
               </div>
               <Switch
@@ -1407,7 +1406,7 @@ function TrainerDialog({
               onChange={(event) => setName(event.target.value)}
             />
           </Field>
-          <Field id="trainer-title" label="Title or seniority">
+          <Field id="trainer-title" label="Trainer title (optional)">
             <Input
               id="trainer-title"
               value={title}
@@ -1510,7 +1509,7 @@ function RateMatrixDialog({
           <DialogTitle>Trainer fees</DialogTitle>
           <DialogDescription>
             {selection
-              ? `${selection.item.name} · ${catalogOptionLabel(selection.option)}. Leave a fee blank to make that trainer unavailable at checkout.`
+              ? `${selection.item.name} · ${catalogOptionLabel(selection.option)}. Leave a fee blank if this trainer should not be available for this service.`
               : ''}
           </DialogDescription>
         </DialogHeader>

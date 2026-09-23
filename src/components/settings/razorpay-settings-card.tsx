@@ -92,7 +92,7 @@ interface UnappliedCharge {
 }
 
 const CONNECTION_LABELS: Record<ConnectionStatus, string> = {
-  connecting: 'Checking readiness',
+  connecting: 'Checking connection',
   ready: 'Connected',
   blocked: 'Needs attention',
   reconnect_required: 'Reconnect required',
@@ -101,12 +101,12 @@ const CONNECTION_LABELS: Record<ConnectionStatus, string> = {
 };
 
 const MERCHANT_LABELS: Record<MerchantStatus, string> = {
-  unknown: 'Readiness verified',
-  activated: 'Merchant active',
+  unknown: 'Razorpay account status unknown',
+  activated: 'Razorpay account active',
   under_review: 'Under review',
   needs_clarification: 'Details required',
-  suspended: 'Merchant suspended',
-  rejected: 'Merchant rejected',
+  suspended: 'Razorpay account suspended',
+  rejected: 'Razorpay account rejected',
 };
 
 function connectionBadge(status: ConnectionStatus) {
@@ -122,9 +122,9 @@ function connectionBadge(status: ConnectionStatus) {
 
 function attentionSummary(health: ConnectionHealth): string {
   const items = [
-    [health.failedEventCount, 'failed webhook'],
+    [health.failedEventCount, 'failed payment update'],
     [health.missingLedgerCount, 'missing payment record'],
-    [health.unappliedChargeCount, 'unapplied charge'],
+    [health.unappliedChargeCount, 'unrecorded payment'],
     [health.setupExceptionCount, 'auto-pay setup issue'],
     [health.paymentLinkExceptionCount, 'payment-link issue'],
     [health.paymentLinkSetupExceptionCount, 'payment-link setup issue'],
@@ -240,9 +240,7 @@ export function RazorpaySettingsCard() {
     notifiedResult.current = result;
     if (result === 'connected') toast.success('Razorpay connected');
     else if (result === 'needs_attention') {
-      toast.warning(
-        'Razorpay connected, but merchant readiness needs attention'
-      );
+      toast.warning('Razorpay connected, but your account needs attention');
     } else if (result === 'authorization_denied') {
       toast.error('Razorpay authorization was cancelled');
     } else if (result !== 'session_required') {
@@ -419,15 +417,14 @@ export function RazorpaySettingsCard() {
           Razorpay
         </CardTitle>
         <CardDescription>
-          Connect Razorpay for auto-pay and payment links. Money settles
-          directly to your account.
+          Connect Razorpay to collect payments through links and AutoPay. Money
+          goes to your bank account through Razorpay.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {!upiAvailableFor(locale.currency) ? (
           <p className="text-muted-foreground text-sm">
-            Razorpay UPI AutoPay is available for accounts billing in INR. Your
-            account currency is {locale.currency}.
+            UPI AutoPay works only with INR. Your currency is {locale.currency}.
           </p>
         ) : profileLoading ? (
           <RazorpayLoading />
@@ -435,7 +432,7 @@ export function RazorpaySettingsCard() {
           <Alert>
             <AlertTitle>Read-only</AlertTitle>
             <AlertDescription>
-              Only account owners and admins can connect or disconnect Razorpay.
+              Ask an admin or owner to connect or disconnect Razorpay.
             </AlertDescription>
           </Alert>
         ) : loading ? (
@@ -491,11 +488,11 @@ export function RazorpaySettingsCard() {
             ) ? (
               <div className="space-y-3 border-t pt-4">
                 <div>
-                  <p className="font-medium">Captured charges to review</p>
+                  <p className="font-medium">Payments to check</p>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    Razorpay reports these charges as captured, but UsefulDesk
-                    did not receive the webhook. Applying rechecks Razorpay and
-                    does not charge the member again.
+                    Razorpay shows these payments as received, but they are
+                    missing from UsefulDesk. Check each payment before adding
+                    it. The member will not be charged again.
                   </p>
                 </div>
                 <div className="divide-y">
@@ -553,7 +550,7 @@ export function RazorpaySettingsCard() {
                               openChargeResolution(charge, 'ignore')
                             }
                           >
-                            Mark handled externally
+                            Already handled elsewhere
                           </Button>
                         </div>
                       </div>
@@ -690,8 +687,9 @@ export function RazorpaySettingsCard() {
                       : 'Connect with Razorpay'}
                   </p>
                   <p className="text-muted-foreground mt-1 text-sm">
-                    Authorize UsefulDesk without sharing API keys. You can
-                    disconnect after active payment work is resolved.
+                    Sign in to Razorpay to allow UsefulDesk to collect payments.
+                    Disconnect after all active AutoPay plans, payment links,
+                    refunds, and payment issues are closed.
                   </p>
                 </div>
                 {connection.oauthEnabled ? (
@@ -707,7 +705,8 @@ export function RazorpaySettingsCard() {
                   </Button>
                 ) : (
                   <p className="text-muted-foreground text-xs">
-                    Razorpay OAuth is disabled for this environment.
+                    Razorpay connection is not available right now. Ask support
+                    for help.
                   </p>
                 )}
               </div>
@@ -726,9 +725,9 @@ export function RazorpaySettingsCard() {
           <DialogHeader>
             <DialogTitle>Disconnect Razorpay?</DialogTitle>
             <DialogDescription>
-              Disconnect is refused while an auto-pay mandate, payment link,
-              refund, or recovery item still needs Razorpay. Existing payment
-              facts remain in UsefulDesk, and you can reconnect later.
+              You cannot disconnect while AutoPay, a payment link, a refund, or
+              a payment issue is still open. Past payment records will stay in
+              UsefulDesk.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -768,13 +767,13 @@ export function RazorpaySettingsCard() {
           <DialogHeader>
             <DialogTitle>
               {selectedResolution?.action === 'apply'
-                ? 'Apply captured charge?'
-                : 'Mark charge handled externally?'}
+                ? 'Add this payment to the membership?'
+                : 'Mark this payment as handled elsewhere?'}
             </DialogTitle>
             <DialogDescription>
               {selectedResolution?.action === 'apply'
-                ? 'UsefulDesk will recheck the subscription, invoice, payment, and refund state in Razorpay before atomically posting this charge. This does not debit the member again.'
-                : 'No payment or membership credit will be created. Use this only when the captured money has been accounted for outside UsefulDesk.'}
+                ? 'UsefulDesk will check Razorpay and the invoice again before adding this payment. The member will not be charged again.'
+                : 'UsefulDesk will not add this payment to the membership. Choose this only if you recorded the money elsewhere.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -782,14 +781,14 @@ export function RazorpaySettingsCard() {
               className="text-sm font-medium"
               htmlFor="charge-resolution-note"
             >
-              Resolution note
+              What did you do?
             </label>
             <Textarea
               id="charge-resolution-note"
               value={resolutionReason}
               onChange={(event) => setResolutionReason(event.target.value)}
               maxLength={500}
-              placeholder="Explain how this charge should be handled"
+              placeholder="Explain where you recorded this payment"
               disabled={resolvingCharge}
             />
           </div>
@@ -820,7 +819,7 @@ export function RazorpaySettingsCard() {
               ) : null}
               {selectedResolution?.action === 'apply'
                 ? 'Recheck and apply'
-                : 'Mark handled externally'}
+                : 'Already handled elsewhere'}
             </Button>
           </DialogFooter>
         </DialogContent>

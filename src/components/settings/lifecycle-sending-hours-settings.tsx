@@ -135,7 +135,7 @@ export const LifecycleSendingHoursSettings = forwardRef<
       <SettingsSectionHead
         id="lifecycle-sending-hours-title"
         title="Sending hours"
-        description="Set the daily window for follow-ups and collection messages."
+        description="Choose when UsefulDesk may send follow-up and payment messages each day."
       />
       <Card>
         <CardContent className="space-y-4">
@@ -205,7 +205,7 @@ export const LifecycleSendingHoursSettings = forwardRef<
           <Accordion>
             <AccordionItem value="sending-hours-scope">
               <AccordionTrigger>
-                Which messages use these hours?
+                Which messages follow these hours?
               </AccordionTrigger>
               <AccordionContent className="px-1">
                 <div className="text-muted-foreground max-w-3xl space-y-2 text-sm leading-5">
@@ -215,10 +215,9 @@ export const LifecycleSendingHoursSettings = forwardRef<
                     ))}
                   </ul>
                   <p>
-                    Membership renewal, service renewal, and installment
-                    reminders still start after {localTime(9)}. Payment
-                    confirmations and AutoPay updates send when their payment
-                    status changes.
+                    Membership, service, and installment reminders start after{' '}
+                    {localTime(9)}. Payment confirmations and AutoPay updates
+                    send as soon as the payment changes.
                   </p>
                 </div>
               </AccordionContent>

@@ -23,7 +23,7 @@ export function LeadCapturePanel() {
     <section className="animate-in fade-in-50 max-w-3xl duration-200">
       <SettingsPanelHead
         title="Lead capture"
-        description="Manage the ways new enquiries enter UsefulDesk."
+        description="Choose how new enquiries reach your Leads list."
       />
 
       <div className="space-y-4">
@@ -31,7 +31,7 @@ export function LeadCapturePanel() {
           <Alert>
             <AlertTitle>Read-only</AlertTitle>
             <AlertDescription>
-              Only admins and owners can change lead capture settings.
+              Ask an admin or owner to change how enquiries are collected.
             </AlertDescription>
           </Alert>
         ) : null}

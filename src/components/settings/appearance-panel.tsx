@@ -32,7 +32,7 @@ export function AppearancePanel() {
     <section className="animate-in fade-in-50 max-w-3xl duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Appearance"
-        description="Choose a mode and accent. Changes apply immediately and sync to your account."
+        description="Choose how UsefulDesk looks. Changes save automatically."
       />
 
       <div className="space-y-4">
@@ -41,7 +41,7 @@ export function AppearancePanel() {
           className="text-foreground flex items-center gap-2 text-sm font-semibold"
         >
           <SunMoon className="text-muted-foreground size-4" />
-          Mode
+          Light or dark
         </h3>
 
         <RadioGroup
@@ -62,7 +62,7 @@ export function AppearancePanel() {
           className="text-foreground flex items-center gap-2 text-sm font-semibold"
         >
           <Palette className="text-muted-foreground size-4" />
-          Accent colour
+          Main colour
         </h3>
 
         <RadioGroup

@@ -36,7 +36,7 @@ export function DealsSettings() {
     <section className="max-w-2xl">
       <SettingsPanelHead
         title="Payments"
-        description="Set up UPI links and Razorpay collection."
+        description="Choose how members can pay you."
       />
       <div className="space-y-4">
         <UpiCard />
@@ -154,16 +154,15 @@ function UpiCard() {
       <CardHeader>
         <CardTitle>UPI payment links</CardTitle>
         <CardDescription>
-          Save the UPI account used for exact-amount member payment links. Money
-          goes directly to this account.
+          Enter the UPI ID that should receive member payments. Each link shows
+          the amount due.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {!upiAvailableFor(locale.currency) ? (
           <p className="text-muted-foreground text-sm">
-            UPI collection is available for accounts using INR. Your account
-            currency is {locale.currency} — change it under Regional settings to
-            use UPI links.
+            UPI links work only with INR. Your currency is {locale.currency}.
+            Change it in Regional settings to use UPI.
           </p>
         ) : loading ? (
           <div
@@ -197,7 +196,7 @@ function UpiCard() {
               <Alert>
                 <AlertTitle>Read-only</AlertTitle>
                 <AlertDescription>
-                  Only account admins can change UPI details.
+                  Ask an admin or owner to change the UPI details.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -223,12 +222,12 @@ function UpiCard() {
                     role="alert"
                     className="text-destructive text-xs"
                   >
-                    Enter a valid UPI ID, such as gym@okhdfcbank.
+                    Enter a UPI ID like gym@okhdfcbank.
                   </p>
                 ) : null}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="upi-payee">Payee name</Label>
+                <Label htmlFor="upi-payee">Name shown to payer</Label>
                 <Input
                   id="upi-payee"
                   value={payeeName}

@@ -40,7 +40,7 @@ export function resolveMetaLeadPageDisplay(
   }
   if (page.health_error_code && RECONNECT_CODES.has(page.health_error_code)) {
     return {
-      label: 'Reconnect required',
+      label: 'Reconnect Facebook',
       variant: 'danger',
       reconnect: true,
       detail: page.health_error_resolution,
@@ -70,12 +70,12 @@ export function resolveMetaLeadPageDisplay(
       label: 'Repaired',
       variant: 'success',
       reconnect: false,
-      detail: 'UsefulDesk restored the Lead Ads subscription.',
+      detail: 'UsefulDesk restored the connection to your ads.',
     };
   }
   if (page.last_healthy_at) {
     return {
-      label: 'Healthy',
+      label: 'Working',
       variant: 'success',
       reconnect: false,
       detail: null,
@@ -85,6 +85,6 @@ export function resolveMetaLeadPageDisplay(
     label: 'Connected',
     variant: 'neutral',
     reconnect: false,
-    detail: 'The first automatic health check is pending.',
+    detail: 'UsefulDesk has not checked this connection yet.',
   };
 }

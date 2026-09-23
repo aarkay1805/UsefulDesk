@@ -97,7 +97,7 @@ describe('SettingsPage automated-message draft navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Profile section' }));
 
     expect(confirm).toHaveBeenCalledWith(
-      'You have unsaved automated-message changes. Leave without saving them?'
+      'You have unsaved changes to automated messages. Leave this page and lose them?'
     );
     expect(navigation.replace).not.toHaveBeenCalled();
   });

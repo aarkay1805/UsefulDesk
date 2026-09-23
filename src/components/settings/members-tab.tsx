@@ -327,12 +327,12 @@ export function MembersTab() {
     <section className="animate-in fade-in-50 max-w-3xl space-y-6 duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Team members"
-        description="People with access to this account. Roles control what each teammate can do."
+        description="See who can use this gym account and choose what they can do."
         action={
           <RequireRole min="admin">
             <Button onClick={() => setInviteOpen(true)}>
               <Plus className="size-4" />
-              Invite member
+              Invite teammate
             </Button>
           </RequireRole>
         }
@@ -345,7 +345,7 @@ export function MembersTab() {
             role="status"
           >
             <Loader2 className="text-primary-text size-5 animate-spin" />
-            Loading team members...
+            Loading team members…
           </CardContent>
         </Card>
       ) : (
@@ -534,8 +534,8 @@ export function MembersTab() {
                     No pending invitations
                   </p>
                   <p className="text-muted-foreground mt-1 max-w-sm text-xs">
-                    New invite links will appear here until they are used or
-                    revoked.
+                    Invites stay here until someone uses them or you cancel
+                    them.
                   </p>
                 </CardContent>
               ) : (
@@ -633,9 +633,8 @@ export function MembersTab() {
               <span className="font-medium">
                 {removingMember?.full_name || 'this teammate'}
               </span>{' '}
-              from the account? They&apos;ll be signed out of this account and
-              given a fresh personal account on their next sign-in. Their login
-              isn&apos;t deleted.
+              from this gym? They will lose access to it. They can still sign in
+              to their own UsefulDesk account.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

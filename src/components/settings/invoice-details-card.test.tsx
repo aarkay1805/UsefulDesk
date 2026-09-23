@@ -352,9 +352,7 @@ describe('InvoiceDetailsCard', () => {
 
     expect(await screen.findByText('Profile unavailable')).toBeTruthy();
     expect(
-      screen.getByText(
-        'Finish Invoice details in Settings -> Business details first.'
-      )
+      screen.getByText('Add your invoice details above, then try again.')
     ).toBeTruthy();
     database.profileError = null;
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
@@ -370,9 +368,7 @@ describe('InvoiceDetailsCard', () => {
 
     expect(await screen.findByText('Prefill unavailable')).toBeTruthy();
     expect(
-      screen.getByText(
-        'Finish Invoice details in Settings -> Business details first.'
-      )
+      screen.getByText('Add your invoice details above, then try again.')
     ).toBeTruthy();
   });
 

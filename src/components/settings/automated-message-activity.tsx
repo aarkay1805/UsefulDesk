@@ -290,16 +290,14 @@ function ScheduleReadiness({
     >
       <SettingsSectionHead
         id="automated-message-readiness-heading"
-        title="Renewal and installment checks"
-        description="Checks membership renewals, service renewals, and installment reminders only."
+        title="Reminder checks"
+        description="Check if membership, service, and installment reminders can be sent."
       />
       <Card>
         <CardContent>
           {failed ? (
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <p className="text-destructive">
-                Couldn’t check reminder readiness.
-              </p>
+              <p className="text-destructive">Couldn’t check reminders.</p>
               <Button
                 variant="outline"
                 size="sm"
@@ -311,7 +309,7 @@ function ScheduleReadiness({
           ) : diagnostics === null ? (
             <ul aria-busy="true">
               <li className="sr-only" role="status">
-                Checking reminder readiness
+                Checking reminders
               </li>
               {Object.keys(DIAGNOSTIC_RULE).map((kind) => (
                 <li
@@ -509,7 +507,7 @@ function MessageHistory({
       <SettingsSectionHead
         id="automated-message-history-heading"
         title="Message history"
-        description="Automated messages and their latest status, newest first."
+        description="See when messages were sent and what happened. Newest first."
       />
 
       <div className="grid grid-cols-2 gap-3 @2xl/activity:flex @2xl/activity:flex-wrap @2xl/activity:items-end">
@@ -634,7 +632,7 @@ function MessageHistory({
           hint={
             filtered
               ? 'Try a different message, status, or date range.'
-              : 'Messages appear here once a message type queues or sends one. The checks above cover renewals and installments only.'
+              : 'Sent and scheduled messages will appear here. The checks above cover renewals and installments.'
           }
         />
       ) : (
@@ -796,7 +794,7 @@ function ActivityExplanation({
       {hasProviderDetails ? (
         <Accordion className="mt-1">
           <AccordionItem value="provider-details">
-            <AccordionTrigger>Provider details</AccordionTrigger>
+            <AccordionTrigger>WhatsApp details</AccordionTrigger>
             <AccordionContent className="space-y-1">
               {row.provider_error_title ? (
                 <div className="break-words">

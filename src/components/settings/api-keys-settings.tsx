@@ -116,7 +116,7 @@ export function ApiKeysSettings() {
         toast.error(payload.error || 'Failed to revoke key');
         return;
       }
-      toast.success(`Revoked "${key.name}"`);
+      toast.success(`Turned off "${key.name}"`);
       // Reflect the revoke locally without a refetch.
       setKeys((prev) =>
         prev.map((k) =>
@@ -145,10 +145,8 @@ export function ApiKeysSettings() {
         title="API keys"
         description={
           <>
-            Keys authenticate the public REST API (
-            <code className="text-xs">/api/v1</code>) so you can build your own
-            automations. Send them as{' '}
-            <code className="text-xs">Authorization: Bearer &lt;key&gt;</code>.
+            Create a key only if another app needs to connect to UsefulDesk.
+            Give the key to the person setting up that app.
           </>
         }
         action={
@@ -170,12 +168,12 @@ export function ApiKeysSettings() {
             </p>
             {canEditSettings ? (
               <p className="text-muted-foreground mt-1 text-xs">
-                Click <span className="text-foreground">New API key</span> to
+                Select <span className="text-foreground">New API key</span> to
                 create one.
               </p>
             ) : (
               <p className="text-muted-foreground mt-1 text-xs">
-                Ask an admin to create one.
+                Ask an admin or owner to create one.
               </p>
             )}
           </CardContent>
@@ -205,7 +203,7 @@ export function ApiKeysSettings() {
                         </span>
                         {status === 'revoked' && (
                           <Badge className="border-border bg-muted text-muted-foreground text-[10px] tracking-wide uppercase">
-                            Revoked
+                            Turned off
                           </Badge>
                         )}
                         {status === 'expired' && (
@@ -220,7 +218,7 @@ export function ApiKeysSettings() {
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {k.scopes.length === 0 ? (
                           <span className="text-muted-foreground text-xs">
-                            No scopes
+                            No access selected
                           </span>
                         ) : (
                           k.scopes.map((s) => (
@@ -259,7 +257,7 @@ export function ApiKeysSettings() {
                           ) : (
                             <Trash2 className="size-4" />
                           )}
-                          Revoke
+                          Turn off
                         </Button>
                       </RequireRole>
                     )}
@@ -366,8 +364,8 @@ function CreateKeyDialog({
                 Copy your API key
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                This is the only time the full key is shown. Store it somewhere
-                safe — if you lose it, revoke it and create a new one.
+                Copy this key now and keep it safe. You will not see it again.
+                If you lose it, turn it off and create a new key.
               </DialogDescription>
             </DialogHeader>
 
@@ -405,8 +403,8 @@ function CreateKeyDialog({
                 New API key
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Name it after the integration that will use it, and grant only
-                the scopes it needs.
+                Name the app that will use this key. Choose only the access it
+                needs.
               </DialogDescription>
             </DialogHeader>
 
@@ -425,7 +423,9 @@ function CreateKeyDialog({
               </div>
 
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Scopes</Label>
+                <Label className="text-muted-foreground">
+                  What this key can access
+                </Label>
                 <div className="border-border space-y-2 rounded-md border p-3">
                   {API_SCOPES.map((scope) => (
                     <label
@@ -451,9 +451,8 @@ function CreateKeyDialog({
                   ))}
                 </div>
                 <p className="text-muted-foreground text-xs">
-                  A key with no scopes can still call{' '}
-                  <code className="text-[11px]">GET /api/v1/me</code> to verify
-                  it works.
+                  Choose at least one type of access if the app needs to read or
+                  change gym data.
                 </p>
               </div>
             </div>

@@ -236,8 +236,8 @@ export function MetaLeadsConnect() {
         }
         toast.success(
           data.kind === 'repaired'
-            ? 'Lead Ads connection repaired'
-            : 'Lead Ads connection checked'
+            ? 'Facebook ads reconnected'
+            : 'Facebook ads connection checked'
         );
         setNonce((value) => value + 1);
       } catch (error) {
@@ -266,8 +266,8 @@ export function MetaLeadsConnect() {
             Facebook & Instagram lead ads
           </CardTitle>
           <CardDescription>
-            Connect your Page and every lead from a Facebook or Instagram lead
-            ad lands in Leads automatically, ready for your team to follow up.
+            Connect your Facebook Page. Enquiries from its Facebook and
+            Instagram ads will appear in Leads.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -301,7 +301,7 @@ export function MetaLeadsConnect() {
                             </Badge>
                           </div>
                           <p className="text-muted-foreground text-xs">
-                            {display.detail ?? 'Connection checks are passing.'}
+                            {display.detail ?? 'Your ads are connected.'}
                           </p>
                           {page.health_checked_at && (
                             <p className="text-muted-foreground text-xs">
@@ -311,7 +311,7 @@ export function MetaLeadsConnect() {
                           )}
                           {page.last_healthy_at && (
                             <p className="text-muted-foreground text-xs">
-                              Last healthy {fmt.dateTime(page.last_healthy_at)}
+                              Last working {fmt.dateTime(page.last_healthy_at)}
                             </p>
                           )}
                           <p className="text-muted-foreground text-xs">
@@ -368,13 +368,15 @@ export function MetaLeadsConnect() {
                 <Alert>
                   <AlertTriangle aria-hidden="true" />
                   <AlertTitle>
-                    {totalSkipped} lead{totalSkipped === 1 ? '' : 's'} skipped
+                    {totalSkipped}{' '}
+                    {totalSkipped === 1 ? 'enquiry' : 'enquiries'} missing a
+                    phone number
                   </AlertTitle>
                   <AlertDescription>
                     <p>
-                      Your Meta lead form doesn&apos;t ask for a phone number,
-                      so your team can&apos;t follow up by phone. Add a phone
-                      question in Ads Manager to capture it next time.
+                      Your ad form does not ask for a phone number. Add a phone
+                      question in Facebook Ads Manager so your team can call new
+                      leads.
                     </p>
                   </AlertDescription>
                 </Alert>
@@ -407,9 +409,9 @@ export function MetaLeadsConnect() {
           <DialogHeader>
             <DialogTitle>Disconnect Facebook Page?</DialogTitle>
             <DialogDescription>
-              New leads from{' '}
+              New enquiries from{' '}
               {pageToDisconnect?.page_name ?? pageToDisconnect?.page_id} will
-              stop entering UsefulDesk. Existing leads remain unchanged.
+              will stop appearing in UsefulDesk. Leads already saved will stay.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

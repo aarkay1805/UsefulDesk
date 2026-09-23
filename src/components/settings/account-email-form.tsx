@@ -102,7 +102,7 @@ export function AccountEmailForm({
             <h3 id="account-email-heading">Account email</h3>
           </CardTitle>
           <CardDescription>
-            The email UsefulDesk uses for account and security messages.
+            We send sign-in and account messages to this address.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -132,17 +132,16 @@ export function AccountEmailForm({
               id="account-email-help"
               className="text-muted-foreground text-sm"
             >
-              This email comes from Google. Add a password fallback before
-              changing it.
+              You sign in with Google. Add a password before changing this
+              email.
             </p>
           ) : hasGoogle ? (
             <p
               id="account-email-help"
               className="text-muted-foreground text-sm"
             >
-              Changing your account email does not disconnect Google. Google
-              sign-in will remain linked to {googleEmail ?? 'its current email'}
-              .
+              Changing this email will not change your Google sign-in. It will
+              still use {googleEmail ?? 'its current email'}.
             </p>
           ) : null}
 
@@ -151,8 +150,8 @@ export function AccountEmailForm({
               <Mail />
               <AlertTitle>Email change requested</AlertTitle>
               <AlertDescription>
-                Check your inboxes and complete every confirmation email you
-                receive for the change to {pendingEmail}.
+                Check both email inboxes. Open each confirmation email to finish
+                changing your address to {pendingEmail}.
               </AlertDescription>
             </Alert>
           ) : null}

@@ -59,17 +59,16 @@ export function SessionsCard() {
               aria-hidden
               className="text-muted-foreground size-4"
             />
-            <h3 id="sessions-heading">Active sessions</h3>
+            <h3 id="sessions-heading">Signed-in devices</h3>
           </CardTitle>
           <CardDescription>
-            End every UsefulDesk session on every device. This does not sign you
-            out of Google.
+            Sign out of UsefulDesk on all devices. You will stay signed in to
+            Google.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground text-sm">
-            Use this after losing a device or signing in somewhere you no longer
-            trust.
+            Use this if you lost a device or used a shared computer.
           </p>
         </CardContent>
         <CardFooter className="justify-end">
@@ -94,8 +93,8 @@ export function SessionsCard() {
           <DialogHeader>
             <DialogTitle>Sign out everywhere?</DialogTitle>
             <DialogDescription>
-              This ends every UsefulDesk session, including this one, and
-              returns you to the login page. Your Google session is unchanged.
+              You will be signed out of UsefulDesk on every device, including
+              this one. You will stay signed in to Google.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

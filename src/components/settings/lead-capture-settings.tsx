@@ -211,7 +211,7 @@ export function LeadCaptureSettings() {
     if (!form) return;
     const consent = consentText.trim();
     if (!consent) {
-      toast.error('Consent text cannot be empty');
+      toast.error('Permission message cannot be empty');
       return;
     }
     setSaving(true);
@@ -286,7 +286,7 @@ export function LeadCaptureSettings() {
         <CardHeader>
           <CardTitle>Enquiry form</CardTitle>
           <CardDescription>
-            Create a public link that sends every submission to Leads.
+            Create a form link. New enquiries will appear in Leads.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -310,8 +310,8 @@ export function LeadCaptureSettings() {
         <CardHeader>
           <CardTitle>Enquiry form</CardTitle>
           <CardDescription>
-            Share this link anywhere you collect enquiries. Submissions appear
-            in Leads with the selected goal tag.
+            Share this link where people ask about your gym. Their details will
+            appear in Leads with the goal tag you chose.
             {submissionCount !== null && submissionCount > 0 && (
               <>
                 {' '}
@@ -377,7 +377,7 @@ export function LeadCaptureSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lc-intro">Intro</Label>
+              <Label htmlFor="lc-intro">Short introduction</Label>
               <Textarea
                 id="lc-intro"
                 value={intro}
@@ -388,7 +388,7 @@ export function LeadCaptureSettings() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="lc-consent">Consent text</Label>
+              <Label htmlFor="lc-consent">Permission message</Label>
               <Textarea
                 id="lc-consent"
                 value={consentText}
@@ -401,9 +401,8 @@ export function LeadCaptureSettings() {
                 id="lead-capture-consent-description"
                 className="text-muted-foreground text-xs"
               >
-                Shown next to a required checkbox. The exact wording is stored
-                with every submission, so editing it never rewrites what past
-                enquirers agreed to.
+                People must tick a box beside this message before sending the
+                form. Changing it will not change earlier responses.
               </p>
             </div>
 
@@ -424,7 +423,7 @@ export function LeadCaptureSettings() {
                 onClick={() => setRotateOpen(true)}
               >
                 <RefreshCw className="size-4" />
-                Rotate link
+                Replace link
               </GatedButton>
             </div>
           </div>
@@ -434,10 +433,10 @@ export function LeadCaptureSettings() {
       <Dialog open={rotateOpen} onOpenChange={setRotateOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rotate the enquiry link?</DialogTitle>
+            <DialogTitle>Replace the enquiry link?</DialogTitle>
             <DialogDescription>
-              A new URL will replace the current one. Update every place you
-              shared the old link. Existing leads remain unchanged.
+              The old link will stop working. Replace it wherever you shared it.
+              Leads already saved will stay.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -450,7 +449,7 @@ export function LeadCaptureSettings() {
               disabled={rotating}
             >
               {rotating && <Loader2 className="size-4 animate-spin" />}
-              {rotating ? 'Rotating…' : 'Rotate link'}
+              {rotating ? 'Rotating…' : 'Replace link'}
             </Button>
           </DialogFooter>
         </DialogContent>

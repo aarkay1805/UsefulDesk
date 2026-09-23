@@ -21,14 +21,14 @@ export function FieldsAndTagsPanel() {
   return (
     <section className="animate-in fade-in-50 max-w-3xl space-y-4 duration-200">
       <SettingsPanelHead
-        title="Fields & tags"
-        description="Organize contacts with reusable tags and custom fields."
+        title="Tags & contact details"
+        description="Use tags to group contacts. Save any extra details your team needs."
       />
       {!profileLoading && !canEditSettings ? (
         <Alert>
           <AlertTitle>Read-only</AlertTitle>
           <AlertDescription>
-            Only admins and owners can change tags and custom fields.
+            Ask an admin or owner to change tags or contact details.
           </AlertDescription>
         </Alert>
       ) : null}

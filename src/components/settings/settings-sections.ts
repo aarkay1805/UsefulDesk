@@ -111,13 +111,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   },
   templates: {
     id: 'templates',
-    label: 'Templates',
+    label: 'Message templates',
     icon: FileText,
     group: 'messaging',
   },
   fields: {
     id: 'fields',
-    label: 'Fields & tags',
+    label: 'Tags & contact details',
     icon: Tags,
     group: 'lead-management',
   },
@@ -159,7 +159,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   },
   organization: {
     id: 'organization',
-    label: 'Organization & branches',
+    label: 'Branches',
     icon: Network,
     group: 'workspace',
   },
@@ -179,9 +179,9 @@ export const RAIL_GROUPS: {
   { label: null, group: 'top' },
   { label: 'Account', group: 'account' },
   { label: 'Messaging', group: 'messaging' },
-  { label: 'Lead management', group: 'lead-management' },
+  { label: 'Leads', group: 'lead-management' },
   { label: 'Business setup', group: 'business-setup' },
-  { label: 'Workspace', group: 'workspace' },
+  { label: 'Your gym', group: 'workspace' },
 ];
 
 function isSection(value: string | null): value is SettingsSection {

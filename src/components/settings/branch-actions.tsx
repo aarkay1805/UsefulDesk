@@ -113,8 +113,8 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
         return;
       }
 
-      if (action === 'archive') toast.success('Branch archived');
-      if (action === 'restore') toast.success('Branch restored');
+      if (action === 'archive') toast.success('Branch closed');
+      if (action === 'restore') toast.success('Branch reopened');
       if (action === 'rename') toast.success('Branch renamed');
       if (action === 'delete') {
         if (payload.warningCount) {
@@ -152,18 +152,18 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
     action === 'rename'
       ? `Rename ${branch.account_name}`
       : action === 'archive'
-        ? `Archive ${branch.account_name}?`
+        ? `Close ${branch.account_name}?`
         : action === 'restore'
-          ? `Restore ${branch.account_name}?`
+          ? `Reopen ${branch.account_name}?`
           : `Delete ${branch.account_name}?`;
   const description =
     action === 'rename'
-      ? 'Update the name shown in the branch selector and across UsefulDesk. This does not change the branch’s data or settings.'
+      ? 'Change the branch name your team sees in UsefulDesk. Other details will stay the same.'
       : action === 'archive'
-        ? 'This branch becomes unavailable for operational work. Its contacts, messages, memberships, payments, and finance history are retained.'
+        ? 'Your team cannot use this branch until you reopen it. Members, chats, and payment records will stay.'
         : action === 'restore'
-          ? 'This branch becomes active again. Review its connections and readiness before resuming operational work.'
-          : 'This permanently deletes the branch, including its contacts, conversations, memberships, payments, integrations, audit-linked data, and stored media. This cannot be undone.';
+          ? 'Your team can use this branch again. Check its WhatsApp and payment connections before you start.'
+          : 'This deletes the branch, its members, leads, chats, payments, and files for good. You cannot undo this.';
 
   return (
     <>
@@ -190,12 +190,12 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
             archived ? (
               <DropdownMenuItem onClick={() => openAction('restore')}>
                 <RotateCcw className="size-4" />
-                Restore branch
+                Reopen branch
               </DropdownMenuItem>
             ) : (
               <DropdownMenuItem onClick={() => openAction('archive')}>
                 <Archive className="size-4" />
-                Archive branch
+                Close branch
               </DropdownMenuItem>
             )
           ) : null}
@@ -269,9 +269,9 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
               {action === 'rename'
                 ? 'Save name'
                 : action === 'restore'
-                  ? 'Restore branch'
+                  ? 'Reopen branch'
                   : action === 'archive'
-                    ? 'Archive branch'
+                    ? 'Close branch'
                     : 'Permanently delete'}
             </Button>
           </DialogFooter>

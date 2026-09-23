@@ -45,17 +45,17 @@ const PLAN_TYPES: { value: PlanType; label: string; hint: string }[] = [
   {
     value: 'recurring',
     label: 'Recurring',
-    hint: 'Bills every cycle, renewal reminders and auto-pay apply.',
+    hint: 'Members pay again at each renewal. Reminders and AutoPay can be used.',
   },
   {
     value: 'non_recurring',
     label: 'Fixed term',
-    hint: 'Pay once for a fixed period, no renewal chase.',
+    hint: 'Members pay once. UsefulDesk will not send renewal reminders.',
   },
   {
     value: 'session_pack',
     label: 'Session pack',
-    hint: 'A punch card of sessions, each check-in uses one.',
+    hint: 'Members buy a set number of visits. Each check-in uses one.',
   },
 ];
 
@@ -407,8 +407,8 @@ export function PlanEditorDialog({
           <DialogTitle>{isEdit ? 'Edit plan' : 'New plan'}</DialogTitle>
           <DialogDescription>
             {isEdit
-              ? 'Change what this plan sells. Existing members keep their current cycle.'
-              : 'What your gym sells — its billing options and access rules.'}
+              ? 'Change this plan for future sales. Current members keep their present period.'
+              : 'Choose how long this plan lasts and what members pay.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -457,7 +457,7 @@ export function PlanEditorDialog({
             </RadioGroup>
             {typeLocked && (
               <p className="text-muted-foreground text-xs">
-                The type is locked because members are on this plan.
+                You cannot change the type while members use this plan.
               </p>
             )}
           </div>
@@ -482,7 +482,7 @@ export function PlanEditorDialog({
               id="pe-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Shown nowhere yet — internal note"
+              placeholder="Add a note for your team"
             />
           </div>
 
@@ -584,8 +584,8 @@ export function PlanEditorDialog({
                 className="sm:w-32"
               />
               <p className="text-muted-foreground text-xs">
-                Each check-in uses one session. Staff see the remaining count
-                and get a warning (not a block) when the pack runs out.
+                Each visit uses one session. Staff can see how many are left.
+                Check-in still works after they run out.
               </p>
             </div>
           ) : (
@@ -632,8 +632,8 @@ export function PlanEditorDialog({
                     </Select>
                   </div>
                   <p className="text-muted-foreground text-xs">
-                    Over the limit, check-in warns staff but never blocks — the
-                    owner stays in charge.
+                    Staff will see a warning after this limit. They can still
+                    check the member in.
                   </p>
                 </div>
               </Collapse>

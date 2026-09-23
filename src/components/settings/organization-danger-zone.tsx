@@ -97,16 +97,16 @@ export function OrganizationDangerZone() {
       <CardHeader>
         <CardTitle className="text-destructive flex items-center gap-2">
           <AlertTriangle className="size-4" />
-          Delete organization
+          Delete gym group
         </CardTitle>
         <CardDescription>
-          Permanently erase{' '}
+          Permanently delete{' '}
           <span className="text-foreground font-medium">
             {organizationName}
           </span>
-          , all {branches.length} branches, contacts, conversations,
-          memberships, payments, integrations, audit history, and stored media.
-          Teammates who only belong here lose their login.
+          , all {branches.length} branches, members, leads, chats, payments, and
+          saved files. Team members who only use this gym group will lose
+          access.
         </CardDescription>
       </CardHeader>
       <CardFooter className="justify-end">
@@ -120,7 +120,7 @@ export function OrganizationDangerZone() {
           }}
         >
           <Trash2 className="size-4" />
-          Delete organization
+          Delete gym group
         </Button>
       </CardFooter>
 
@@ -135,8 +135,8 @@ export function OrganizationDangerZone() {
           <DialogHeader>
             <DialogTitle>Delete {organizationName}?</DialogTitle>
             <DialogDescription>
-              This permanently deletes every branch and all organization data.
-              It cannot be undone or restored from UsefulDesk.
+              Every branch and its data will be deleted for good. You cannot get
+              it back.
             </DialogDescription>
           </DialogHeader>
 

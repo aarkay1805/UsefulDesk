@@ -68,11 +68,11 @@ type ConnectionStatus = 'connected' | 'disconnected' | 'unknown';
 type ResetReason = 'token_corrupted' | 'meta_api_error' | null;
 
 const REGISTRATION_CHECK_LABELS: Record<string, string> = {
-  config_exists: 'Configuration saved',
-  token_decryptable: 'Access token readable',
-  phone_metadata_ok: 'Phone number reachable',
-  waba_subscribed_to_app: 'Webhook subscription active',
-  locally_marked_registered: 'Number registered for messaging',
+  config_exists: 'Settings saved',
+  token_decryptable: 'Saved connection details are readable',
+  phone_metadata_ok: 'Phone number found',
+  waba_subscribed_to_app: 'Incoming messages connected',
+  locally_marked_registered: 'Number ready for messages',
 };
 
 export function WhatsAppConfig() {
@@ -321,7 +321,7 @@ export function WhatsAppConfig() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || 'Failed to save configuration');
+        toast.error(data.error || 'Could not save WhatsApp settings');
         setSaving(false);
         return;
       }
@@ -343,15 +343,15 @@ export function WhatsAppConfig() {
         // Don't claim the number is "Live" — point at the
         // Registration status banner instead.
         toast.success(
-          'Credentials saved and verified. Inbound registration was skipped (no PIN) — see Registration status below.',
+          'Details saved, but the number is not ready for incoming messages. If Meta asks for a PIN, enter it below.',
           { duration: 10000 }
         );
         setPin('');
       } else {
         toast.success(
           data.phone_info?.verified_name
-            ? `Live — ${data.phone_info.verified_name} can now receive events.`
-            : 'WhatsApp connected. Events will start flowing within a minute.'
+            ? `Connected — ${data.phone_info.verified_name} can now receive messages.`
+            : 'WhatsApp connected. Messages should start arriving within a minute.'
         );
         // Clear the PIN so subsequent saves don't accidentally
         // re-register (which would void the active subscription if
@@ -362,7 +362,7 @@ export function WhatsAppConfig() {
       if (accountId) await fetchConfig(accountId);
     } catch (err) {
       console.error('Save error:', err);
-      toast.error(getErrorMessage(err, 'Failed to save configuration'));
+      toast.error(getErrorMessage(err, 'Could not save WhatsApp settings'));
     } finally {
       setSaving(false);
     }
@@ -386,7 +386,7 @@ export function WhatsAppConfig() {
         toast.success(
           payload.phone_info?.verified_name
             ? `Connected to ${payload.phone_info.verified_name}`
-            : 'API connection successful'
+            : 'WhatsApp is connected'
         );
       } else {
         setConnectionStatus('disconnected');
@@ -399,7 +399,7 @@ export function WhatsAppConfig() {
               : null
         );
         setStatusMessage(payload.message || '');
-        toast.error(payload.message || 'API connection failed');
+        toast.error(payload.message || 'Could not connect to WhatsApp');
       }
     } catch (err) {
       console.error('Test connection error:', err);
@@ -428,12 +428,12 @@ export function WhatsAppConfig() {
         throw new Error(
           'error' in data && typeof data.error === 'string'
             ? data.error
-            : 'Could not check inbound delivery'
+            : 'Could not check incoming messages'
         );
       }
       setRegistrationProbe(data);
       if (data.live) {
-        toast.success('Number is fully wired — Meta is delivering events.');
+        toast.success('This number can receive WhatsApp messages.');
       } else {
         toast.error(
           'Number is not fully registered. See the checks below for which step failed.',
@@ -442,7 +442,7 @@ export function WhatsAppConfig() {
       }
     } catch (err) {
       console.error('verify-registration failed:', err);
-      toast.error(getErrorMessage(err, 'Could not check inbound delivery'));
+      toast.error(getErrorMessage(err, 'Could not check incoming messages'));
     } finally {
       setVerifyingRegistration(false);
     }
@@ -462,7 +462,7 @@ export function WhatsAppConfig() {
         throw new Error(data.error || 'Meta did not accept the PIN');
       }
 
-      toast.success('Inbound delivery restored.');
+      toast.success('Incoming WhatsApp messages are working again.');
       setRegistrationDialogOpen(false);
       setRegistrationPin('');
       if (accountId) await fetchConfig(accountId);
@@ -471,7 +471,7 @@ export function WhatsAppConfig() {
       toast.error(
         getErrorMessage(
           err,
-          'Could not restore inbound delivery. Check the PIN and try again.'
+          'Could not receive messages again. Check the PIN and try again.'
         ),
         { duration: 10000 }
       );
@@ -487,13 +487,11 @@ export function WhatsAppConfig() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || 'Failed to reset configuration');
+        toast.error(data.error || 'Could not clear WhatsApp settings');
         return;
       }
 
-      toast.success(
-        'Configuration cleared. You can now re-enter your credentials.'
-      );
+      toast.success('WhatsApp settings cleared. You can enter them again.');
       setConfig(null);
       setPhoneNumberId('');
       setWabaId('');
@@ -507,7 +505,7 @@ export function WhatsAppConfig() {
       setResetDialogOpen(false);
     } catch (err) {
       console.error('Reset error:', err);
-      toast.error(getErrorMessage(err, 'Failed to reset configuration'));
+      toast.error(getErrorMessage(err, 'Could not clear WhatsApp settings'));
     } finally {
       setResetting(false);
     }
@@ -518,7 +516,7 @@ export function WhatsAppConfig() {
       await navigator.clipboard.writeText(webhookUrl);
       toast.success('Webhook URL copied');
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Could not copy the webhook URL'));
+      toast.error(getErrorMessage(err, 'Could not copy the link'));
     }
   }
 
@@ -553,7 +551,7 @@ export function WhatsAppConfig() {
         <SettingsPanelHead
           title="WhatsApp"
           leading={<WhatsAppMark />}
-          description="Connect and monitor the WhatsApp number your team uses."
+          description="Connect the WhatsApp number your team uses and check if it is working."
         />
         <div
           className="text-muted-foreground flex items-center justify-center gap-2 py-12 text-sm"
@@ -572,7 +570,7 @@ export function WhatsAppConfig() {
         <SettingsPanelHead
           title="WhatsApp"
           leading={<WhatsAppMark />}
-          description="Connect and monitor the WhatsApp number your team uses."
+          description="Connect the WhatsApp number your team uses and check if it is working."
         />
         <Alert variant="destructive">
           <AlertTriangle />
@@ -601,15 +599,14 @@ export function WhatsAppConfig() {
       <SettingsPanelHead
         title="WhatsApp"
         leading={<WhatsAppMark />}
-        description="Connect and monitor the WhatsApp number your team uses."
+        description="Connect the WhatsApp number your team uses and check if it is working."
       />
       <div className="space-y-6">
         {!canEdit && (
           <Alert>
             <AlertTitle>Read-only</AlertTitle>
             <AlertDescription>
-              Only admins and owners can change or verify the WhatsApp
-              connection.
+              Ask an admin or owner to change or check the WhatsApp connection.
             </AlertDescription>
           </Alert>
         )}
@@ -618,7 +615,7 @@ export function WhatsAppConfig() {
         {showResetBanner && (
           <Alert variant="destructive">
             <AlertTriangle />
-            <AlertTitle>Saved token can&apos;t be read</AlertTitle>
+            <AlertTitle>Saved connection details cannot be read</AlertTitle>
             <AlertDescription>
               <p>{statusMessage}</p>
               <GatedButton
@@ -640,7 +637,8 @@ export function WhatsAppConfig() {
           <CardHeader>
             <CardTitle>Connection status</CardTitle>
             <CardDescription>
-              API access and inbound delivery are checked separately.
+              Check whether UsefulDesk can connect to WhatsApp and receive
+              messages.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -652,12 +650,12 @@ export function WhatsAppConfig() {
                   <XCircle className="text-red-foreground mt-0.5 size-4 shrink-0" />
                 )}
                 <div className="min-w-0">
-                  <p className="text-foreground font-medium">API access</p>
+                  <p className="text-foreground font-medium">WhatsApp access</p>
                   <p className="text-muted-foreground mt-0.5 text-sm">
                     {connectionStatus === 'connected'
                       ? canEdit
-                        ? 'Meta accepted the saved credentials.'
-                        : 'Credentials are saved for this branch.'
+                        ? 'Meta accepted the saved connection details.'
+                        : 'Connection details are saved for this branch.'
                       : statusMessage ||
                         'No working WhatsApp connection is saved yet.'}
                   </p>
@@ -673,7 +671,7 @@ export function WhatsAppConfig() {
                 gateReason="verify the WhatsApp connection"
               >
                 {testing ? <Loader2 className="animate-spin" /> : <Zap />}
-                {testing ? 'Checking…' : 'Check access'}
+                {testing ? 'Checking…' : 'Check connection'}
               </GatedButton>
             </div>
 
@@ -690,13 +688,13 @@ export function WhatsAppConfig() {
                     <div className="min-w-0">
                       <p className="text-foreground font-medium">
                         {isRegistered
-                          ? 'Inbound delivery active'
-                          : 'Inbound delivery needs attention'}
+                          ? 'Receiving messages'
+                          : 'Incoming messages need attention'}
                       </p>
                       <p className="text-muted-foreground mt-0.5 text-sm">
                         {isRegistered ? (
                           <>
-                            Registered with Meta
+                            Number registered with Meta
                             {config.registered_at
                               ? ` on ${fmt.dateTime(config.registered_at)}`
                               : ''}
@@ -708,11 +706,11 @@ export function WhatsAppConfig() {
                             <span className="text-red-foreground">
                               {lastRegistrationError}
                             </span>
-                            . Enter this number&apos;s existing two-step PIN to
-                            restore delivery.
+                            . Enter this number’s two-step PIN to receive
+                            messages again.
                           </>
                         ) : (
-                          'Enter the number’s two-step PIN if Meta requires registration.'
+                          'If Meta asks for a two-step PIN, enter it to receive messages.'
                         )}
                       </p>
                     </div>
@@ -723,7 +721,7 @@ export function WhatsAppConfig() {
                         size="sm"
                         onClick={() => setRegistrationDialogOpen(true)}
                         canAct={canEdit}
-                        gateReason="repair inbound delivery"
+                        gateReason="receive WhatsApp messages again"
                       >
                         <KeyRound />
                         Fix delivery
@@ -735,7 +733,7 @@ export function WhatsAppConfig() {
                       onClick={handleVerifyRegistration}
                       loading={verifyingRegistration}
                       canAct={canEdit}
-                      gateReason="verify inbound delivery"
+                      gateReason="check incoming WhatsApp messages"
                     >
                       <Zap />
                       Check delivery
@@ -790,21 +788,22 @@ export function WhatsAppConfig() {
           }}
         />
 
-        {/* Manual setup — the original credential form. Collapsed
+        {/* Set up by hand — the original credential form. Collapsed
             behind "Advanced" when Embedded Signup is available. */}
         <Accordion defaultValue={EMBEDDED_SIGNUP_AVAILABLE ? [] : ['manual']}>
           <AccordionItem value="manual">
-            <AccordionTrigger>Manual setup</AccordionTrigger>
+            <AccordionTrigger>Set up by hand</AccordionTrigger>
             <AccordionContent className="pt-2">
               <div className="grid gap-6 px-1 py-1 lg:grid-cols-[minmax(0,1fr)_380px]">
                 <div className="space-y-6">
                   {/* API Credentials */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>API credentials</CardTitle>
+                      <CardTitle>Details from Meta</CardTitle>
                       <CardDescription>
-                        Use this only when Meta&apos;s guided connection is
-                        unavailable.
+                        Use this only if Connect with Meta does not work. You
+                        may need help from the person who manages your Meta
+                        account.
                       </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -887,8 +886,8 @@ export function WhatsAppConfig() {
                             id="whatsapp-access-token-help"
                             className="text-muted-foreground text-xs"
                           >
-                            Hidden for security. Re-enter it before saving any
-                            manual change.
+                            Enter the access token again before saving changes
+                            here.
                           </p>
                         )}
                       </div>
@@ -923,8 +922,7 @@ export function WhatsAppConfig() {
                           id="whatsapp-verify-token-help"
                           className="text-muted-foreground text-xs"
                         >
-                          Must match the verify token in Meta&apos;s webhook
-                          settings.
+                          Use the same token in Meta’s webhook settings.
                         </p>
                       </div>
 
@@ -953,10 +951,8 @@ export function WhatsAppConfig() {
                           id="whatsapp-pin-help"
                           className="text-muted-foreground text-xs leading-relaxed"
                         >
-                          Enter the 6-digit PIN from WhatsApp Manager only when
-                          Meta requires registration for a production number.
-                          Leave blank for test numbers or to keep an existing
-                          registration unchanged.
+                          Enter this PIN only if Meta asks for it. Leave it
+                          blank to keep the current PIN.
                         </p>
                       </div>
                     </CardContent>
@@ -965,9 +961,10 @@ export function WhatsAppConfig() {
                   {/* Webhook URL */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Webhook callback</CardTitle>
+                      <CardTitle>Link for incoming messages</CardTitle>
                       <CardDescription>
-                        Paste this URL into the Meta App Dashboard.
+                        Copy this link into the webhook settings in your Meta
+                        App Dashboard.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -987,8 +984,8 @@ export function WhatsAppConfig() {
                             size="icon"
                             onClick={handleCopyWebhookUrl}
                             canAct={canEdit}
-                            gateReason="copy the webhook URL"
-                            aria-label="Copy webhook URL"
+                            gateReason="copy the link for incoming messages"
+                            aria-label="Copy link for incoming messages"
                           >
                             <Copy />
                           </GatedButton>
@@ -1017,9 +1014,9 @@ export function WhatsAppConfig() {
                 <div>
                   <Card>
                     <CardHeader>
-                      <CardTitle>Manual setup guide</CardTitle>
+                      <CardTitle>Steps to set up by hand</CardTitle>
                       <CardDescription>
-                        Complete these steps in Meta before saving here.
+                        Follow these steps in Meta, then save your details here.
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -1069,7 +1066,7 @@ export function WhatsAppConfig() {
 
                         <AccordionItem>
                           <AccordionTrigger>
-                            3. Get API credentials
+                            3. Copy details from Meta
                           </AccordionTrigger>
                           <AccordionContent className="text-muted-foreground">
                             <ol className="list-inside list-decimal space-y-1 text-sm">
@@ -1099,7 +1096,7 @@ export function WhatsAppConfig() {
 
                         <AccordionItem>
                           <AccordionTrigger>
-                            4. Configure webhooks
+                            4. Connect incoming messages
                           </AccordionTrigger>
                           <AccordionContent className="text-muted-foreground">
                             <ol className="list-inside list-decimal space-y-1 text-sm">
@@ -1159,7 +1156,8 @@ export function WhatsAppConfig() {
                 Reset connection
               </p>
               <p className="text-muted-foreground mt-0.5 text-sm">
-                Removes the saved number and credentials from this branch.
+                Removes the saved WhatsApp number and connection details from
+                this branch.
               </p>
             </div>
             <GatedButton
@@ -1185,11 +1183,10 @@ export function WhatsAppConfig() {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Restore inbound delivery</DialogTitle>
+            <DialogTitle>Receive messages again</DialogTitle>
             <DialogDescription>
-              Enter the existing six-digit two-step verification PIN for this
-              number. UsefulDesk sends it directly to Meta and does not store
-              it.
+              Enter this number’s six-digit two-step PIN. UsefulDesk sends it to
+              Meta and does not save it.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -1251,9 +1248,8 @@ export function WhatsAppConfig() {
           <DialogHeader>
             <DialogTitle>Reset WhatsApp connection?</DialogTitle>
             <DialogDescription>
-              This removes the saved phone number and credentials from this
-              branch. WhatsApp messages and inbound events will stop until you
-              connect again.
+              This removes the saved WhatsApp number from this branch. Your team
+              cannot send or receive WhatsApp messages until you reconnect.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

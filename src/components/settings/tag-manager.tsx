@@ -149,7 +149,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
           Tags
         </CardTitle>
         <CardDescription>
-          Use simple labels for quick grouping and filters.
+          Add tags, such as Trial or VIP, to group contacts.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -218,7 +218,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <Input
                   id="new-tag-name"
-                  placeholder="e.g. Newsletter"
+                  placeholder="e.g. Trial"
                   value={newTagName}
                   onChange={(event) => setNewTagName(event.target.value)}
                   disabled={!canEdit || saving}

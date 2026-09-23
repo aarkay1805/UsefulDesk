@@ -332,14 +332,14 @@ function TemplateGalleryCard({
     ? resolveTemplateStatusDisplay(statusKey, template.provider_missing_since)
     : null;
   const action = template?.provider_missing_since
-    ? 'Sync status'
+    ? 'Check status'
     : statusKey === 'APPROVED'
       ? 'Edit'
       : statusKey === 'PENDING' ||
           statusKey === 'IN_APPEAL' ||
           statusKey === 'DISABLED' ||
           statusKey === 'PENDING_DELETION'
-        ? 'Sync status'
+        ? 'Check status'
         : statusKey === 'REJECTED' || statusKey === 'PAUSED'
           ? 'Resubmit'
           : 'Submit draft';
@@ -370,7 +370,7 @@ function TemplateGalleryCard({
               {status.label}
             </Badge>
           ) : (
-            <Badge variant="neutral">Preset</Badge>
+            <Badge variant="neutral">Ready-made</Badge>
           )}
           {template?.quality_score && (
             <Badge
@@ -423,13 +423,13 @@ function TemplateGalleryCard({
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  action === 'Sync status' ? onSync() : onEdit(template)
+                  action === 'Check status' ? onSync() : onEdit(template)
                 }
                 disabled={syncing}
-                loading={action === 'Sync status' && syncing}
+                loading={action === 'Check status' && syncing}
                 canAct={canAct}
                 gateReason={
-                  action === 'Sync status'
+                  action === 'Check status'
                     ? 'sync message templates from Meta'
                     : 'edit message templates'
                 }
@@ -461,7 +461,7 @@ function TemplateGalleryCard({
               canAct={canAct}
               gateReason="create message templates"
             >
-              {preset.wired ? 'Use preset' : 'Use as draft'}
+              {preset.wired ? 'Use this message' : 'Use as draft'}
             </GatedButton>
           ) : null}
         </div>
@@ -1681,9 +1681,12 @@ export function TemplateManager({
             {!contractLocked && form.category === 'Authentication' && (
               <Alert>
                 <AlertCircle />
-                <AlertTitle>Sign-in messages are not supported here</AlertTitle>
+                <AlertTitle>
+                  Sign-in messages must be made in WhatsApp Manager
+                </AlertTitle>
                 <AlertDescription>
-                  Create them in WhatsApp Manager. Then sync with WhatsApp.
+                  Create them in WhatsApp Manager, then update this list from
+                  WhatsApp.
                 </AlertDescription>
               </Alert>
             )}
@@ -1758,8 +1761,9 @@ export function TemplateManager({
                       'You cannot change the language after you save it.'
                     ) : (
                       <>
-                        Use the exact WhatsApp code. <code>en_US</code> and{' '}
-                        <code>en</code> are different.
+                        Use the language code shown in WhatsApp. For example,{' '}
+                        <code>en_US</code> and <code>en</code> mean different
+                        things.
                       </>
                     )}
                   </p>
@@ -1767,7 +1771,7 @@ export function TemplateManager({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="template-header-format">Header</Label>
+                <Label htmlFor="template-header-format">Top of message</Label>
                 <Select
                   value={form.header_format}
                   disabled={contractLocked}
@@ -1801,11 +1805,11 @@ export function TemplateManager({
                 {form.header_format === 'text' && (
                   <div className="mt-2 space-y-2">
                     <Label htmlFor="template-header-text" size="sm">
-                      Header text
+                      Text at top
                     </Label>
                     <Input
                       id="template-header-text"
-                      placeholder="Header text (up to 60 characters)"
+                      placeholder="Up to 60 characters"
                       value={form.header_content}
                       disabled={contractLocked}
                       onChange={(e) =>
@@ -1872,7 +1876,7 @@ export function TemplateManager({
                       </div>
                     )}
                     <Label htmlFor="template-header-media" size="sm">
-                      Public {form.header_format} link
+                      Link to public {form.header_format}
                     </Label>
                     <Input
                       id="template-header-media"
@@ -1908,7 +1912,7 @@ export function TemplateManager({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="template-body">Body text</Label>
+                <Label htmlFor="template-body">Message text</Label>
                 <Textarea
                   id="template-body"
                   placeholder="Hello {{1}}, your order {{2}} is confirmed."
@@ -1922,9 +1926,9 @@ export function TemplateManager({
                   required
                 />
                 <p className="text-muted-foreground text-xs">
-                  Use {`{{1}}`}, {`{{2}}`} in order, with no gaps. Write words
-                  before the first and after the last. Marks like ! do not count
-                  as words.
+                  Use {`{{1}}`}, {`{{2}}`} where UsefulDesk should fill in
+                  details. Keep the numbers in order. Add words before and after
+                  them so WhatsApp can approve the message.
                 </p>
 
                 {bodyVarCount > 0 && (
@@ -1954,7 +1958,9 @@ export function TemplateManager({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="template-footer">Footer (optional)</Label>
+                <Label htmlFor="template-footer">
+                  Text at bottom (optional)
+                </Label>
                 <Input
                   id="template-footer"
                   placeholder="Footer text (up to 60 characters)"
@@ -1987,7 +1993,7 @@ export function TemplateManager({
                 {form.buttons.length === 0 ? (
                   <p className="text-muted-foreground text-xs">
                     Add up to {TEMPLATE_LIMITS.maxButtonsTotal} buttons. Put
-                    quick replies first.
+                    reply buttons before links or phone buttons.
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -2118,8 +2124,8 @@ export function TemplateManager({
               <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {contractLocked ? (
                   <p className="text-muted-foreground text-xs leading-relaxed sm:max-w-xs">
-                    WhatsApp will review this message. Check its status before
-                    you use it in Messages.
+                    WhatsApp must approve this message before automated messages
+                    can use it.
                   </p>
                 ) : (
                   <span />
@@ -2159,7 +2165,7 @@ export function TemplateManager({
     <section className="animate-in fade-in-50 space-y-4 duration-200">
       <SettingsPanelHead
         title="Message templates"
-        description="Choose a message or check its WhatsApp status."
+        description="Choose WhatsApp messages and check if they are ready to use."
         action={
           <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
             <GatedButton
@@ -2196,7 +2202,7 @@ export function TemplateManager({
                   }
                 >
                   <Send />
-                  Send needed templates for review
+                  Send needed messages for review
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleSyncFromMeta}
@@ -2213,7 +2219,7 @@ export function TemplateManager({
                   }
                 >
                   <RefreshCw />
-                  Sync with WhatsApp
+                  Update from WhatsApp
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -2259,11 +2265,11 @@ export function TemplateManager({
           <AlertTitle>{focusedContract.title}</AlertTitle>
           <AlertDescription>
             <p>
-              This feature needs the exact{' '}
+              To use this feature, choose the message named{' '}
               <span className="font-medium">
                 {focusedContract.payload.name}
-              </span>{' '}
-              message. Use its preset or sync with WhatsApp.
+              </span>
+              . Use the ready-made message or update your list from WhatsApp.
             </p>
             {safeReturnTo ? (
               <Button
@@ -2293,7 +2299,7 @@ export function TemplateManager({
               >
                 {focusedTemplate
                   ? `Open ${focusedContract.payload.name}`
-                  : `Use ${focusedContract.title} preset`}
+                  : `Set up ${focusedContract.title}`}
               </GatedButton>
             ) : null}
           </AlertDescription>
@@ -2304,7 +2310,7 @@ export function TemplateManager({
         <Alert>
           <AlertTitle>Read-only</AlertTitle>
           <AlertDescription>
-            Only admins and owners can change templates.
+            Ask an admin or owner to change message templates.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -2410,7 +2416,7 @@ export function TemplateManager({
                   <SettingsSectionHead
                     id="other-template-heading"
                     title="Other templates"
-                    description="Your own messages and other languages."
+                    description="Messages you added and versions in other languages."
                   />
                   <div className="grid gap-3 xl:grid-cols-2">
                     {otherTemplates.map(({ template }) => (
@@ -2439,7 +2445,8 @@ export function TemplateManager({
                       <AccordionContent>
                         <div className="space-y-3">
                           <p className="text-muted-foreground text-sm">
-                            UsefulDesk features no longer use these messages.
+                            These older messages are no longer used by
+                            UsefulDesk.
                           </p>
                           <div className="grid gap-3 xl:grid-cols-2">
                             {olderTemplates.map(({ template }) => (
