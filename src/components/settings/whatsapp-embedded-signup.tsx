@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Loader2, PlugZap } from 'lucide-react';
 import { GatedButton } from '@/components/ui/gated-button';
+import { Badge } from '@/components/ui/badge';
 import { getErrorMessage } from '@/lib/errors';
 import {
   Card,
@@ -33,6 +34,8 @@ interface WhatsAppEmbeddedSignupProps {
   onConnected: () => void;
   /** True when a config row already exists — softens the copy. */
   hasExistingConfig: boolean;
+  /** Human-readable number returned by Meta's connection check. */
+  displayPhoneNumber: string | null;
   /** Owner/admin capability; server routes enforce the same boundary. */
   canEdit: boolean;
 }
@@ -40,6 +43,7 @@ interface WhatsAppEmbeddedSignupProps {
 export function WhatsAppEmbeddedSignup({
   onConnected,
   hasExistingConfig,
+  displayPhoneNumber,
   canEdit,
 }: WhatsAppEmbeddedSignupProps) {
   const [connecting, setConnecting] = useState(false);
@@ -170,17 +174,26 @@ export function WhatsAppEmbeddedSignup({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {hasExistingConfig ? 'WhatsApp number' : 'Connect WhatsApp'}
-        </CardTitle>
+        <CardTitle>WhatsApp number</CardTitle>
         <CardDescription>
           {hasExistingConfig
-            ? 'Reconnect or switch the number linked to this branch.'
+            ? 'The number linked to this branch.'
             : 'Link your WhatsApp Business number through Meta. No tokens to copy.'}
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {hasExistingConfig && (
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <p className="text-foreground text-lg font-semibold tabular-nums">
+              {displayPhoneNumber ?? 'Number unavailable'}
+            </p>
+            <Badge variant={displayPhoneNumber ? 'success' : 'warning'}>
+              {displayPhoneNumber ? 'Connected' : 'Needs attention'}
+            </Badge>
+          </div>
+        )}
         <GatedButton
+          variant={hasExistingConfig ? 'outline' : 'default'}
           onClick={handleConnect}
           disabled={connecting}
           canAct={canEdit}
@@ -199,8 +212,9 @@ export function WhatsAppEmbeddedSignup({
           )}
         </GatedButton>
         <p className="text-muted-foreground mt-3 text-xs leading-relaxed">
-          Meta opens in a new window. Sign in and choose the business account
-          and phone number you want to use.
+          {hasExistingConfig
+            ? 'Reconnect or switch this number through Meta. The signup window lets you choose the business account and phone number.'
+            : 'Meta opens in a new window. Sign in and choose the business account and phone number you want to use.'}
         </p>
       </CardContent>
     </Card>

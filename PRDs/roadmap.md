@@ -1,5 +1,13 @@
 # Roadmap
 
+## Built in code — Connected WhatsApp number in settings (2026-09-23)
+
+Settings → WhatsApp shows the Meta-verified display number for a saved,
+healthy connection. An empty branch offers primary Connect with Meta; a saved
+connection offers secondary Reconnect with Meta. When Meta verification fails,
+the card shows Needs attention rather than claiming the number is connected.
+Branch members can read connection health; only admins and owners can change it.
+
 ## Built in code — Unified WhatsApp template gallery (2026-09-23)
 
 Settings → Message templates shows presets and synced Meta templates in one

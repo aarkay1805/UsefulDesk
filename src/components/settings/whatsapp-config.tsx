@@ -102,6 +102,9 @@ export function WhatsAppConfig() {
   const [config, setConfig] = useState<WhatsAppConfigType | null>(null);
   const [connectionStatus, setConnectionStatus] =
     useState<ConnectionStatus>('unknown');
+  const [displayPhoneNumber, setDisplayPhoneNumber] = useState<string | null>(
+    null
+  );
   const [resetReason, setResetReason] = useState<ResetReason>(null);
   const [statusMessage, setStatusMessage] = useState<string>('');
   // Guards against re-hydrating the form when the load effect below
@@ -152,6 +155,7 @@ export function WhatsAppConfig() {
     async (acctId: string) => {
       setLoading(true);
       setLoadError(null);
+      setDisplayPhoneNumber(null);
       try {
         // Load form values from Supabase (shows what's in DB).
         // Switched from `user_id` (which would only match the row's
@@ -191,7 +195,7 @@ export function WhatsAppConfig() {
         setRegistrationProbe(null);
 
         // Then verify health via the API (decrypts token + pings Meta)
-        if (data && canEdit) {
+        if (data) {
           try {
             const res = await fetch('/api/whatsapp/config', { method: 'GET' });
             const payload = await res.json();
@@ -204,6 +208,9 @@ export function WhatsAppConfig() {
 
             if (payload.connected) {
               setConnectionStatus('connected');
+              setDisplayPhoneNumber(
+                payload.phone_info?.display_phone_number || null
+              );
               setResetReason(null);
               setStatusMessage('');
             } else {
@@ -224,12 +231,6 @@ export function WhatsAppConfig() {
               getErrorMessage(err, 'Could not check the saved connection')
             );
           }
-        } else if (data) {
-          setConnectionStatus(
-            data.status === 'connected' ? 'connected' : 'disconnected'
-          );
-          setResetReason(null);
-          setStatusMessage('');
         } else {
           setConnectionStatus('disconnected');
           setResetReason(null);
@@ -244,7 +245,7 @@ export function WhatsAppConfig() {
         setLoading(false);
       }
     },
-    [canEdit, supabase]
+    [supabase]
   );
 
   useEffect(() => {
@@ -379,6 +380,7 @@ export function WhatsAppConfig() {
 
       if (payload.connected) {
         setConnectionStatus('connected');
+        setDisplayPhoneNumber(payload.phone_info?.display_phone_number || null);
         setResetReason(null);
         setStatusMessage('');
         toast.success(
@@ -388,6 +390,7 @@ export function WhatsAppConfig() {
         );
       } else {
         setConnectionStatus('disconnected');
+        setDisplayPhoneNumber(null);
         setResetReason(
           payload.needs_reset
             ? 'token_corrupted'
@@ -401,6 +404,7 @@ export function WhatsAppConfig() {
     } catch (err) {
       console.error('Test connection error:', err);
       setConnectionStatus('disconnected');
+      setDisplayPhoneNumber(null);
       toast.error(
         getErrorMessage(
           err,
@@ -497,6 +501,7 @@ export function WhatsAppConfig() {
       setVerifyToken('');
       setTokenEdited(false);
       setConnectionStatus('disconnected');
+      setDisplayPhoneNumber(null);
       setResetReason(null);
       setStatusMessage('');
       setResetDialogOpen(false);
@@ -778,6 +783,7 @@ export function WhatsAppConfig() {
             when the Meta app id + config id env vars are set). */}
         <WhatsAppEmbeddedSignup
           hasExistingConfig={Boolean(config)}
+          displayPhoneNumber={displayPhoneNumber}
           canEdit={canEdit}
           onConnected={() => {
             if (accountId) void fetchConfig(accountId);

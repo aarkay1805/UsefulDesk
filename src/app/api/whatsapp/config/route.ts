@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient as createAdminClient } from '@supabase/supabase-js';
-import { requireSettingsAccess, toErrorResponse } from '@/lib/auth/account';
+import {
+  getCurrentAccount,
+  requireSettingsAccess,
+  toErrorResponse,
+} from '@/lib/auth/account';
 import {
   registerPhoneNumber,
   subscribeWabaToApp,
@@ -40,7 +44,7 @@ function supabaseAdmin() {
 export async function GET() {
   let ctx;
   try {
-    ctx = await requireSettingsAccess();
+    ctx = await getCurrentAccount();
   } catch (err) {
     return toErrorResponse(err);
   }

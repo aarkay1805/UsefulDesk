@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-09-23 — Connected WhatsApp number shown in settings (built in code)
+
+Settings → WhatsApp now shows the Meta-verified display number and connection
+state in the WhatsApp number card. Empty setup keeps Connect with Meta as the
+primary action; an existing configuration offers Reconnect with Meta as an
+outline action. The account-scoped connection read now serves all branch
+members, while connection changes remain admin/owner only. Key code:
+`src/components/settings/whatsapp-config.tsx`,
+`src/components/settings/whatsapp-embedded-signup.tsx`, and
+`src/app/api/whatsapp/config/route.ts`.
+
 ## 2026-09-23 — Retired templates moved out of the main gallery (built in code)
 
 Settings → Message templates now places the older approved

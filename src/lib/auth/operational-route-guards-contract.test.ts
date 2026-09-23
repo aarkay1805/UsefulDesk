@@ -83,7 +83,7 @@ describe('operational route authorization contract', () => {
     ['whatsapp/send', 'requireSendOperationalAccess', 1],
     ['whatsapp/react', 'requireSendOperationalAccess', 1],
     ['whatsapp/broadcast', 'requireOperationalAccess', 1],
-    ['whatsapp/config', 'requireSettingsAccess', 3],
+    ['whatsapp/config', 'requireSettingsAccess', 2],
     ['whatsapp/config/register', 'requireSettingsAccess', 1],
     ['whatsapp/config/verify-registration', 'requireSettingsAccess', 1],
     ['whatsapp/embedded-signup', 'requireSettingsAccess', 1],
@@ -98,6 +98,12 @@ describe('operational route authorization contract', () => {
         ? new RegExp(`await ${guard}\\(request\\)`, 'g')
         : new RegExp(`await ${guard}\\(\\)`, 'g');
     expect(count(route(path), call)).toBe(expected);
+  });
+
+  it('allows account members to read WhatsApp connection status', () => {
+    expect(route('whatsapp/config')).toMatch(
+      /export async function GET\(\) \{[\s\S]*?ctx = await getCurrentAccount\(\)/
+    );
   });
 
   it.each([
