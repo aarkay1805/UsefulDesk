@@ -178,7 +178,7 @@ const invoiceTemplate: MessageTemplate = {
   language: 'en_US',
   header_type: 'document',
   body_text:
-    'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
+    'Hi {{1}}, attached is invoice {{2}} for {{3}} from {{4}}. Keep it for your records. Reply if anything looks incorrect.',
   status: 'APPROVED',
   parameter_format: 'POSITIONAL',
   created_at: '2026-08-24T00:00:00.000Z',

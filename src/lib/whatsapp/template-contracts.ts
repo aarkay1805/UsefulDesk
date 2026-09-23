@@ -42,10 +42,6 @@ export interface TemplateContract {
   payload: TemplatePayload;
 }
 
-const INTERESTED_BUTTONS = [
-  { type: 'QUICK_REPLY' as const, text: "I'm interested" },
-];
-
 export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
   {
     membership_renewal: {
@@ -72,7 +68,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} membership ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}} about your membership renewal.',
+          'Hi {{1}}, your {{2}} membership ends on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.',
         sample_values: {
           body: [
             'Rahul',
@@ -109,7 +105,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} service ends on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}} about your service renewal.',
+          'Hi {{1}}, your {{2}} service ends on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.',
         sample_values: {
           body: [
             'Rahul',
@@ -145,7 +141,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} membership ended on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}} about your expired membership.',
+          'Hi {{1}}, your {{2}} membership ended on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.',
         sample_values: {
           body: [
             'Rahul',
@@ -181,7 +177,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} service ended on {{3}}. The current renewal price is {{4}}. Reply using the button if you would like help renewing. This message is from {{5}} about your expired service.',
+          'Hi {{1}}, your {{2}} service ended on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.',
         sample_values: {
           body: [
             'Rahul',
@@ -217,7 +213,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your {{2}} has {{3}} sessions remaining. Reply using the button if you would like help with your next pack. This message is from {{4}} about your remaining sessions.',
+          'Hi {{1}}, your {{2}} has {{3}} sessions left. Reply to {{4}} to ask about your next pack.',
         sample_values: {
           body: [
             'Rahul',
@@ -247,7 +243,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, all sessions in your {{2}} have been used. Reply using the button if you would like help with your next pack. This message is from {{3}} about your used session pack.',
+          'Hi {{1}}, you have used all sessions in your {{2}}. Reply to {{3}} to ask about your next pack.',
         sample_values: {
           body: [
             'Rahul',
@@ -280,7 +276,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your planned return date is {{2}}. Reply here if you need to update it. This message is from {{3}} about your planned return.',
+          'Hi {{1}}, your planned return date is {{2}}. Reply to {{3}} if your plans have changed.',
         sample_values: {
           body: ['Rahul', '20 Sep 2026', 'FitZone Wellness Private Limited'],
         },
@@ -304,7 +300,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, you can restart your {{2}} membership. Reply using the button if you would like help renewing. This message is from {{3}} about restarting your membership.',
+          'Hi {{1}}, thinking of restarting your {{2}} membership? Reply to {{3}} for help renewing.',
         sample_values: {
           body: ['Rahul', 'Quarterly', 'FitZone Wellness Private Limited'],
         },
@@ -334,7 +330,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, you can renew your {{2}} service at the current price of {{3}}. Reply using the button if you would like help renewing. This message is from {{4}} about renewing your service.',
+          'Hi {{1}}, thinking of returning to your {{2}} service? Current renewal price: {{3}}. Reply to {{4}} for help renewing.',
         sample_values: {
           body: [
             'Rahul',
@@ -370,7 +366,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, the remaining installment of {{2}} for your {{3}} membership is due on {{4}}. Reply if you need help with this payment. This message is from {{5}} about your remaining installment.',
+          'Hi {{1}}, your remaining installment of {{2}} for your {{3}} membership is due on {{4}}. Reply to {{5}} for payment help.',
         sample_values: {
           body: [
             'Rahul',
@@ -406,7 +402,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, invoice {{2}} has a remaining balance of {{3}} due on {{4}}. Reply if you need help with this payment. This message is from {{5}} about your invoice balance.',
+          'Hi {{1}}, invoice {{2}} has {{3}} left to pay, due on {{4}}. Reply to {{5}} for payment help.',
         sample_values: {
           body: [
             'Rahul',
@@ -442,7 +438,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, invoice {{2}} still has a remaining balance of {{3}} that was due on {{4}}. Reply if you need help with this payment. This message is from {{5}} about your overdue invoice.',
+          'Hi {{1}}, invoice {{2}} has {{3}} left to pay, which was due on {{4}}. Reply to {{5}} if you have paid or need help.',
         sample_values: {
           body: [
             'Rahul',
@@ -478,7 +474,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, this is a reminder that you planned to pay {{3}} for invoice {{2}} on {{4}}. Reply if you need help. This message is from {{5}} about your planned invoice payment.',
+          'Hi {{1}}, your planned payment for invoice {{2}} has {{3}} left to pay on {{4}}. Reply to {{5}} if your plans have changed.',
         sample_values: {
           body: [
             'Rahul',
@@ -514,7 +510,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, the planned payment date of {{4}} for {{3}} on invoice {{2}} has passed, and the balance remains unpaid. Reply if you need help. This message is from {{5}} about your missed payment date.',
+          'Hi {{1}}, invoice {{2}} still has {{3}} unpaid from your planned payment on {{4}}. Reply to {{5}} if you have paid or need more time.',
         sample_values: {
           body: [
             'Rahul',
@@ -548,7 +544,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, we received {{2}} for invoice {{3}}. Reply if any payment detail looks incorrect. This message is from {{4}} about your recorded invoice payment.',
+          'Hi {{1}}, we received {{2}} for invoice {{3}}. Reply to {{4}} if anything looks incorrect. Thank you.',
         sample_values: {
           body: [
             'Rahul',
@@ -583,7 +579,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, we received {{2}} for invoice {{3}} and renewed your membership until {{4}}. Reply if any payment detail looks incorrect. This message is from {{5}} about your payment and membership renewal.',
+          'Hi {{1}}, we received {{2}} for invoice {{3}} and renewed your membership until {{4}}. Reply to {{5}} if anything looks incorrect. Thank you.',
         sample_values: {
           body: [
             'Rahul',
@@ -616,7 +612,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, your AutoPay payment for {{2}} is still being processed. No payment is needed from you now. This message is from {{3}} about your AutoPay retry.',
+          'Hi {{1}}, AutoPay will retry the payment for {{2}}. Please wait before paying another way. Reply to {{3}} if you need help.',
         sample_values: {
           body: [
             'Rahul',
@@ -649,7 +645,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, AutoPay could not complete invoice {{2}}, which has {{3}} remaining. Reply for help with the next payment step. This message is from {{4}} about your unpaid AutoPay invoice.',
+          'Hi {{1}}, the AutoPay payment for invoice {{2}} was unsuccessful. There is {{3}} left to pay. Reply to {{4}} for payment help.',
         sample_values: {
           body: [
             'Rahul',
@@ -683,7 +679,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Utility',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, {{2}} is due for invoice {{3}}. The payment link expires on {{4}}. Use the button below to pay. This message is from {{5}} about your invoice payment link.',
+          'Hi {{1}}, {{2}} is due for invoice {{3}}. This payment link expires on {{4}}. Pay {{5}} using the button below.',
         sample_values: {
           body: [
             'Rahul',
@@ -726,7 +722,7 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         language: 'en_US',
         header_type: 'document',
         body_text:
-          'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
+          'Hi {{1}}, attached is invoice {{2}} for {{3}} from {{4}}. Keep it for your records. Reply if anything looks incorrect.',
         sample_values: {
           body: [
             'Asha',
@@ -760,11 +756,11 @@ export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
         category: 'Marketing',
         language: 'en_US',
         body_text:
-          'Hi {{1}}, {{2}} offer from {{3}}: {{4}} off annual memberships until {{5}}. Use the button below if you would like details.',
+          'Hi {{1}}, {{2}} at {{3}}: save {{4}} on annual memberships until {{5}}. Tap below for offer details.',
         sample_values: {
           body: ['Rahul', 'Diwali', 'FitZone Gym', '20%', '10 Nov 2026'],
         },
-        buttons: INTERESTED_BUTTONS,
+        buttons: [{ type: 'QUICK_REPLY', text: 'Ask about offer' }],
       },
     },
   };

@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-09-23 — Customer WhatsApp copy benchmark and rewrite (built in code)
+
+Rewrote all 21 canonical bodies in `src/lib/whatsapp/template-contracts.ts`
+after a sourced fitness, payments, and WhatsApp copy audit. Preserved variable
+meanings, categories, and send behavior; the festival quick reply now says
+**Ask about offer**. Rendered sample bodies use 30.7% fewer words. Before/after
+copy and remaining opt-out behavior concerns are in
+`docs/whatsapp-copy-audit-2026-09-23.md`. Updated previews/tests and current
+runbooks; exact SQL readiness follows in
+`20260923160000_customer_template_copy.sql`. Migration application, coordinated
+release, and Meta reapproval/sync remain pending; no provider submission or
+customer send occurred.
+
 ## 2026-09-23 — Lead delete action moved into header (built in code)
 
 Delete lead now appears at the end of the contact detail icon row with a red

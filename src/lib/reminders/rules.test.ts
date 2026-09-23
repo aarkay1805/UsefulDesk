@@ -13,7 +13,7 @@ import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 const migration = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260923120000_template_variable_boundaries.sql'
+    'supabase/migrations/20260923160000_customer_template_copy.sql'
   ),
   'utf8'
 );

@@ -48,39 +48,32 @@ future purchase. Neither template is a Utility account update.
 
 ## Exact provider contracts
 
+The current copy and its research rationale are recorded in the
+[customer-message audit](whatsapp-copy-audit-2026-09-23.md). Changing a body
+requires coordinated application/SQL readiness and Meta review/sync; previously
+approved wording does not satisfy the revised exact contract.
+
 `gym_membership_renewal` body:
 
-> Hi {{1}}, your {{2}} membership ends on {{3}}. The current renewal price is
->
-> {{4}}. Reply using the button if you would like help renewing. This message
-> is from {{5}} about your membership renewal.
+> Hi {{1}}, your {{2}} membership ends on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.
 
 Button: `Help me renew`.
 
 `gym_service_renewal` body:
 
-> Hi {{1}}, your {{2}} service ends on {{3}}. The current renewal price is
->
-> {{4}}. Reply using the button if you would like help renewing. This message
-> is from {{5}} about your service renewal.
+> Hi {{1}}, your {{2}} service ends on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.
 
 Button: `Help me renew`.
 
 `gym_membership_post_expiry` body:
 
-> Hi {{1}}, your {{2}} membership ended on {{3}}. The current renewal price is
->
-> {{4}}. Reply using the button if you would like help renewing. This message
-> is from {{5}} about your expired membership.
+> Hi {{1}}, your {{2}} membership ended on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.
 
 Button: `Help me renew`.
 
 `gym_service_post_expiry` body:
 
-> Hi {{1}}, your {{2}} service ended on {{3}}. The current renewal price is
->
-> {{4}}. Reply using the button if you would like help renewing. This message
-> is from {{5}} about your expired service.
+> Hi {{1}}, your {{2}} service ended on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.
 
 Button: `Help me renew`.
 

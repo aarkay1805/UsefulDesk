@@ -116,10 +116,10 @@ describe('gym WhatsApp template contracts', () => {
 
   it('splits upcoming and missed payment promises into distinct exact contracts', () => {
     expect(TEMPLATE_CONTRACTS.payment_promise_upcoming.payload.body_text).toBe(
-      'Hi {{1}}, this is a reminder that you planned to pay {{3}} for invoice {{2}} on {{4}}. Reply if you need help. This message is from {{5}} about your planned invoice payment.'
+      'Hi {{1}}, your planned payment for invoice {{2}} has {{3}} left to pay on {{4}}. Reply to {{5}} if your plans have changed.'
     );
     expect(TEMPLATE_CONTRACTS.payment_promise_missed.payload.body_text).toBe(
-      'Hi {{1}}, the planned payment date of {{4}} for {{3}} on invoice {{2}} has passed, and the balance remains unpaid. Reply if you need help. This message is from {{5}} about your missed payment date.'
+      'Hi {{1}}, invoice {{2}} still has {{3}} unpaid from your planned payment on {{4}}. Reply to {{5}} if you have paid or need more time.'
     );
   });
 

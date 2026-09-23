@@ -1,5 +1,24 @@
 # Roadmap
 
+## Built in code — Customer WhatsApp copy rewrite (2026-09-23)
+
+All 21 built-in Meta template bodies now use concise, contextual customer copy
+with distinct renewal, payment, retry, confirmation, and win-back tones. The
+sourced review and full before/after library are in
+`docs/whatsapp-copy-audit-2026-09-23.md`; sample bodies are 30.7% shorter by word
+count. Positional data meanings and truthful action contracts are retained;
+festival replies now use **Ask about offer**. This supersedes the earlier body
+wording while retaining the Meta variable-boundary validation.
+
+Release pending: apply the matching exact-readiness migration
+`20260923160000_customer_template_copy.sql` with the existing pending template
+cutover chain and application release, then obtain exact Meta approval/sync.
+No production migration, provider submission, customer send, or deployment was
+performed. Audit follow-ups: resolve the documented opt-out suppression gap
+against Meta's policy before broader messaging rollout; separately decide
+whether a recognizable trading/branch name should accompany legal identity.
+Neither behavior changed as part of the copy rewrite.
+
 ## Built in code — Lead delete action in header (2026-09-23)
 
 Eligible users now find a red destructive Delete action at the end of the lead
@@ -102,7 +121,7 @@ manual commercial ledger and access workflow.
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 
 UsefulDesk now has one direct-cutover contract library for wired gym messages.
-Every feature body ends with the branch's canonical legal-business identity;
+Every feature body identifies the branch's canonical legal-business identity;
 missing identity blocks manual and automated sends with a structured setup
 reason. Renewal, collection, retention, installment, confirmation, AutoPay,
 invoice-document, and payment-link paths use the same resolver and exact

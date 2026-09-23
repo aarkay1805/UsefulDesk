@@ -67,7 +67,7 @@ const exactTemplate = {
   header_type: 'document',
   header_content: null,
   body_text:
-    'Hi {{1}}, here is invoice {{2}} for {{3}} from {{4}}. Please keep this document for your records and reply if any invoice detail looks incorrect.',
+    'Hi {{1}}, attached is invoice {{2}} for {{3}} from {{4}}. Keep it for your records. Reply if anything looks incorrect.',
   footer_text: null,
   buttons: [],
   provider_components_sync_required_at: null,

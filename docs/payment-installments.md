@@ -36,10 +36,7 @@ parameters in this order:
 
 Exact body:
 
-> Hi {{1}}, the remaining installment of {{2}} for your {{3}} membership is
-> due on {{4}}. Reply if you need help with this payment. This message is from
->
-> {{5}} about your remaining installment.
+> Hi {{1}}, your remaining installment of {{2}} for your {{3}} membership is due on {{4}}. Reply to {{5}} for payment help.
 
 Submission starts Meta review; approval and delivery are not guaranteed. Sync
 Templates after review. The cron requires the exact Approved category, format,
