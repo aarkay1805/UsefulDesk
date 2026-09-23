@@ -702,6 +702,7 @@ export function ContactDetailContent({
                 label="Delete"
                 ariaLabel="Delete lead"
                 title="Delete lead"
+                destructive
                 onClick={() => setDeleteOpen(true)}
               />
             )}
@@ -1134,6 +1135,7 @@ function QuickAction({
   href,
   disabled,
   loading,
+  destructive,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -1143,9 +1145,14 @@ function QuickAction({
   href?: string;
   disabled?: boolean;
   loading?: boolean;
+  destructive?: boolean;
 }) {
-  const circle =
-    'flex size-9 items-center justify-center rounded-full border border-border bg-transparent text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary-text cursor-pointer';
+  const circle = cn(
+    'flex size-9 items-center justify-center rounded-full border bg-transparent transition-colors cursor-pointer',
+    destructive
+      ? 'border-destructive/40 text-destructive hover:border-destructive/60 hover:bg-destructive/10 dark:hover:bg-destructive/20'
+      : 'border-border text-muted-foreground hover:border-primary/50 hover:text-primary-text'
+  );
   const inner = loading ? (
     <Loader2 className="size-4 animate-spin" />
   ) : (
@@ -1174,7 +1181,12 @@ function QuickAction({
           {inner}
         </button>
       )}
-      <span className="text-muted-foreground text-xs leading-none">
+      <span
+        className={cn(
+          'text-xs leading-none',
+          destructive ? 'text-destructive' : 'text-muted-foreground'
+        )}
+      >
         {label}
       </span>
     </div>
