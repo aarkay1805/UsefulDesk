@@ -130,6 +130,14 @@ const PRESET_GROUPS: Array<{
 
 type GalleryFilter = 'all' | 'approved' | 'pending' | 'not_approved';
 
+// These provider-approved names predate the current feature contracts. Keep
+// them available for manual use and review without repeating their newer
+// use cases in the main gallery.
+const OLDER_TEMPLATE_NAMES = new Set([
+  'gym_renewal_reminder',
+  'gym_payment_due',
+]);
+
 function matchesGalleryFilter(
   template: MessageTemplate | undefined,
   filter: GalleryFilter
@@ -788,6 +796,15 @@ export function TemplateManager({
       matchesGalleryFilter(item.template, 'not_approved')
     ).length,
   };
+  const unmatchedTemplates = gallery.filter(
+    (item) => !item.preset && matchesGalleryFilter(item.template, galleryFilter)
+  );
+  const otherTemplates = unmatchedTemplates.filter(
+    (item) => !item.template || !OLDER_TEMPLATE_NAMES.has(item.template.name)
+  );
+  const olderTemplates = unmatchedTemplates.filter(
+    (item) => item.template && OLDER_TEMPLATE_NAMES.has(item.template.name)
+  );
   const focusedPreset = focusedContract
     ? (TEMPLATE_PRESETS.find((preset) => preset.id === focusedContract.id) ??
       null)
@@ -2385,11 +2402,7 @@ export function TemplateManager({
                   </section>
                 );
               })}
-              {gallery.some(
-                (item) =>
-                  !item.preset &&
-                  matchesGalleryFilter(item.template, galleryFilter)
-              ) && (
+              {otherTemplates.length > 0 && (
                 <section
                   className="space-y-3"
                   aria-labelledby="other-template-heading"
@@ -2400,26 +2413,53 @@ export function TemplateManager({
                     description="Your own messages and other languages."
                   />
                   <div className="grid gap-3 xl:grid-cols-2">
-                    {gallery
-                      .filter(
-                        (item) =>
-                          !item.preset &&
-                          matchesGalleryFilter(item.template, galleryFilter)
-                      )
-                      .map(({ template }) => (
-                        <TemplateGalleryCard
-                          key={template?.id}
-                          template={template}
-                          canAct={canEditSettings}
-                          onUse={applyPreset}
-                          onEdit={openEdit}
-                          onSync={handleSyncFromMeta}
-                          onDelete={setTemplateToDelete}
-                          syncing={syncing}
-                          deleting={deletingId === template?.id}
-                        />
-                      ))}
+                    {otherTemplates.map(({ template }) => (
+                      <TemplateGalleryCard
+                        key={template?.id}
+                        template={template}
+                        canAct={canEditSettings}
+                        onUse={applyPreset}
+                        onEdit={openEdit}
+                        onSync={handleSyncFromMeta}
+                        onDelete={setTemplateToDelete}
+                        syncing={syncing}
+                        deleting={deletingId === template?.id}
+                      />
+                    ))}
                   </div>
+                </section>
+              )}
+              {olderTemplates.length > 0 && (
+                <section aria-label="Older templates">
+                  <Accordion>
+                    <AccordionItem value="older-templates">
+                      <AccordionTrigger>
+                        Older templates ({olderTemplates.length})
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="space-y-3">
+                          <p className="text-muted-foreground text-sm">
+                            UsefulDesk features no longer use these messages.
+                          </p>
+                          <div className="grid gap-3 xl:grid-cols-2">
+                            {olderTemplates.map(({ template }) => (
+                              <TemplateGalleryCard
+                                key={template?.id}
+                                template={template}
+                                canAct={canEditSettings}
+                                onUse={applyPreset}
+                                onEdit={openEdit}
+                                onSync={handleSyncFromMeta}
+                                onDelete={setTemplateToDelete}
+                                syncing={syncing}
+                                deleting={deletingId === template?.id}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 </section>
               )}
             </div>

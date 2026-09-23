@@ -624,6 +624,53 @@ describe('TemplateManager gym preset library', () => {
     ).toBeNull();
   });
 
+  it('keeps retired provider messages reachable without repeating them in Other templates', async () => {
+    const user = userEvent.setup();
+    setupState.rows = [
+      membershipTemplate(),
+      membershipTemplate({
+        id: 'old-renewal',
+        name: 'gym_renewal_reminder',
+        body_text: 'Older renewal message.',
+      }),
+      membershipTemplate({
+        id: 'old-payment',
+        name: 'gym_payment_due',
+        body_text: 'Older payment message.',
+      }),
+      membershipTemplate({
+        id: 'custom-template',
+        name: 'custom_welcome',
+        body_text: 'Welcome to our gym.',
+      }),
+    ];
+
+    render(<TemplateManager />);
+    await screen.findByRole('heading', { name: 'Other templates' });
+    expect(
+      screen.getByRole('heading', { name: 'custom_welcome' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('heading', { name: 'gym_renewal_reminder' })
+    ).toBeNull();
+    expect(
+      screen.queryByRole('heading', { name: 'gym_payment_due' })
+    ).toBeNull();
+
+    await user.click(
+      screen.getByRole('button', { name: 'Older templates (2)' })
+    );
+    expect(
+      screen.getByText('UsefulDesk features no longer use these messages.')
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'gym_renewal_reminder' })
+    ).toBeTruthy();
+    expect(
+      screen.getByRole('heading', { name: 'gym_payment_due' })
+    ).toBeTruthy();
+  });
+
   it('keeps invoice contract identity locked while requiring an editable document sample URL', async () => {
     const user = userEvent.setup();
     render(<TemplateManager />);

@@ -13,7 +13,9 @@ sync remain in the labelled overflow menu. No provider submission or send was
 performed for this UI change. Gallery cards now omit repeated summaries and
 status prose; short trigger lines explain when each preset can be used. The
 editor uses short, plain help text while retaining the exact provider message
-bodies and approval rules.
+bodies and approval rules. Retired `gym_renewal_reminder` and `gym_payment_due`
+rows sit in a collapsed Older templates section, with their status and actions
+still available; they no longer repeat current use cases in Other templates.
 
 ## Built in code — WhatsApp template parameter boundaries (2026-09-23)
 

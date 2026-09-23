@@ -6,6 +6,14 @@
 
 ---
 
+## 2026-09-23 — Retired templates moved out of the main gallery (built in code)
+
+Settings → Message templates now places the older approved
+`gym_renewal_reminder` and `gym_payment_due` rows in a collapsed Older templates
+section. Their provider status and management actions remain available there;
+current feature presets and custom messages stay in the main gallery. Key code:
+`src/components/settings/template-manager.tsx`.
+
 ## 2026-09-23 — Message template copy distilled (built in code)
 
 The combined gallery now leads with message previews and status, with shorter
