@@ -173,6 +173,27 @@ describe('InvoiceDetailsCard', () => {
       screen.queryByLabelText('Invoice issuer name (optional)')
     ).toBeNull();
     expect(screen.getByDisplayValue('India')).toBeTruthy();
+    expect(screen.getByLabelText('New invoice preview').textContent).toContain(
+      'Iron Fitness Private Limited'
+    );
+  });
+
+  it('keeps the invoice display name separate when registered business is missing', async () => {
+    database.prefill = [
+      {
+        business_name: 'Iron Fitness Andheri',
+        legal_name: null,
+        country_code: 'IN',
+      },
+    ];
+    renderCard();
+
+    expect(
+      await screen.findByText(/Registered business name is missing/)
+    ).toBeTruthy();
+    expect(screen.getByLabelText('New invoice preview').textContent).toContain(
+      'Legal business name not set'
+    );
   });
 
   it('renders saved invoice contact fields without an issuer-name input', async () => {
@@ -351,9 +372,7 @@ describe('InvoiceDetailsCard', () => {
     renderCard();
 
     expect(await screen.findByText('Profile unavailable')).toBeTruthy();
-    expect(
-      screen.getByText('Add your invoice details above, then try again.')
-    ).toBeTruthy();
+    expect(screen.getByText('Check this branch, then try again.')).toBeTruthy();
     database.profileError = null;
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
@@ -367,9 +386,7 @@ describe('InvoiceDetailsCard', () => {
     renderCard();
 
     expect(await screen.findByText('Prefill unavailable')).toBeTruthy();
-    expect(
-      screen.getByText('Add your invoice details above, then try again.')
-    ).toBeTruthy();
+    expect(screen.getByText('Check this branch, then try again.')).toBeTruthy();
   });
 
   it('keeps a deferred prior-account load hidden after account resolution changes', async () => {

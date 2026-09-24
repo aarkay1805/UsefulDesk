@@ -1,4 +1,4 @@
-export const GYM_NAME_ERROR = 'Gym name must be between 1 and 80 characters.';
+export const GYM_NAME_ERROR = 'Gym brand must be between 1 and 80 characters.';
 
 export function normalizeGymName(value: unknown): string | null {
   if (typeof value !== 'string') return null;

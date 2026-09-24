@@ -27,7 +27,7 @@ function InvoiceDetailsHead() {
     <SettingsSectionHead
       id="invoice-details-heading"
       title="Invoice details"
-      description="Set what appears on new invoices. Change the legal business name above. Old invoices stay the same."
+      description="Only this branch's new invoices. The invoice name and contact details can differ from your gym brand and branch name. Issued invoices stay the same."
     />
   );
 }
@@ -313,7 +313,7 @@ function InvoiceDetailsCardForAccount({
             <div className="space-y-3" role="alert">
               <p className="text-destructive text-sm">{loadError}</p>
               <p className="text-muted-foreground text-sm">
-                Add your invoice details above, then try again.
+                Check this branch, then try again.
               </p>
               <Button
                 type="button"
@@ -336,6 +336,13 @@ function InvoiceDetailsCardForAccount({
               {!mayManage ? (
                 <p className="text-muted-foreground text-sm">
                   Ask an admin or owner to change invoice details.
+                </p>
+              ) : null}
+              {!profile.legal_name && !loading ? (
+                <p className="text-amber-foreground text-sm">
+                  Registered business name is missing. An owner must add it
+                  above before issuing invoice documents. The name on invoices
+                  does not replace it.
                 </p>
               ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
@@ -390,12 +397,27 @@ function InvoiceDetailsCardForAccount({
                       ) : null}
                       {field === 'business_name' ? (
                         <p className="text-muted-foreground text-xs">
-                          This name can be different from your gym name.
+                          Customers see this name on the invoice. It can differ
+                          from your gym brand, branch, and registered business.
                         </p>
                       ) : null}
                     </div>
                   );
                 })}
+              </div>
+              <div
+                className="border-border space-y-1 border-t pt-4"
+                aria-label="New invoice preview"
+              >
+                <p className="text-muted-foreground text-xs font-medium">
+                  Preview on new invoices
+                </p>
+                <p className="text-sm font-semibold">
+                  {profile.business_name.trim() || 'Name on invoices'}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {profile.legal_name || 'Legal business name not set'}
+                </p>
               </div>
               {saveError ? (
                 <div className="flex flex-wrap items-center gap-3" role="alert">

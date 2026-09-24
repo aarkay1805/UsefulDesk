@@ -47,7 +47,7 @@ export async function GET() {
     ) {
       const { data: entityRows, error: entityError } = await ctx.supabase
         .from('legal_entities')
-        .select('id, name, default_currency')
+        .select('id, name, legal_name, default_currency')
         .eq('organization_id', ctx.account.organizationId)
         .is('archived_at', null)
         .order('name');
@@ -63,7 +63,7 @@ export async function GET() {
       }
       legalEntities = (entityRows ?? []).map((entity) => ({
         id: entity.id,
-        name: entity.name,
+        name: entity.legal_name?.trim() || entity.name,
         defaultCurrency: entity.default_currency,
       }));
     }

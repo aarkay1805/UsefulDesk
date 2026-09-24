@@ -158,7 +158,7 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
           : `Delete ${branch.account_name}?`;
   const description =
     action === 'rename'
-      ? 'Change the branch name your team sees in UsefulDesk. Other details will stay the same.'
+      ? 'Only this branch changes. Your team sees the new name in the branch menu; the gym brand, registered business, and invoices keep their own names.'
       : action === 'archive'
         ? 'Your team cannot use this branch until you reopen it. Members, chats, and payment records will stay.'
         : action === 'restore'

@@ -163,6 +163,9 @@ export function SettingsOverview({
   }, [userId, accountId, canManageMembers]);
 
   const displayName = profile?.full_name || profile?.email || 'Your account';
+  const currentBranch = branches.find(
+    (branch) => branch.account_id === accountId
+  );
   const roleMeta = accountRole ? ROLE_META[accountRole] : null;
   const RoleIcon = roleMeta?.icon;
 
@@ -181,25 +184,25 @@ export function SettingsOverview({
     {
       section: 'business-details',
       loading: false,
-      subtitle: 'Gym name and invoice details',
+      subtitle: 'Gym brand, branch, registered business & invoices',
     },
     {
       section: 'organization',
       loading: false,
-      subtitle: `${branches.length} branch${branches.length === 1 ? '' : 'es'}`,
+      subtitle: `${branches.length} branch${branches.length === 1 ? '' : 'es'} · ${currentBranch?.organization_name ?? 'Your gym'}`,
     },
     {
       section: 'whatsapp',
       loading: whatsappLoading,
       subtitle: !whatsapp?.configured ? (
-        'Not set up yet'
+        'Not set up for this branch'
       ) : whatsapp.connected ? (
         <>
-          <StatusDot tone="ok" /> Connected
+          <StatusDot tone="ok" /> Connected for this branch
         </>
       ) : (
         <>
-          <StatusDot tone="muted" /> Needs reconnecting
+          <StatusDot tone="muted" /> This branch needs reconnecting
         </>
       ),
     },
@@ -237,7 +240,7 @@ export function SettingsOverview({
     {
       section: 'deals',
       loading: false,
-      subtitle: 'Set up UPI and Razorpay',
+      subtitle: 'UPI and Razorpay for this branch',
     },
     {
       section: 'localization',
@@ -273,6 +276,9 @@ export function SettingsOverview({
           fallbackClassName="text-xl"
         />
         <div className="min-w-0 flex-1">
+          <div className="text-muted-foreground text-xs">
+            Your personal profile
+          </div>
           <div className="text-foreground truncate text-base font-semibold">
             {displayName}
           </div>

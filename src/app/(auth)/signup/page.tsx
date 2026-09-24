@@ -191,7 +191,7 @@ function SignupPageInner() {
         <CardContent>
           {!inviteToken ? (
             <div className="mb-4 flex flex-col gap-2">
-              <Label htmlFor="gymName">Gym name</Label>
+              <Label htmlFor="gymName">Gym brand</Label>
               <Input
                 id="gymName"
                 name="gymName"
@@ -212,7 +212,9 @@ function SignupPageInner() {
                 required
               />
               <p id="gym-name-help" className="text-muted-foreground text-xs">
-                Used as your legal entity and first branch.
+                Your team will see this brand. We&apos;ll suggest it as your
+                first branch name. Add your legal business name later in
+                Business details.
               </p>
               {gymNameError ? (
                 <p id="gym-name-error" className="text-red-foreground text-xs">

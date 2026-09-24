@@ -52,6 +52,7 @@ export interface BranchAccount {
   organization_name: string;
   legal_entity_id: string;
   legal_entity_name: string;
+  legal_entity_legal_name: string | null;
   role: AccountRole;
   branch_status: 'active' | 'read_only' | 'archived';
   readiness_state: 'setup' | 'ready' | 'attention';

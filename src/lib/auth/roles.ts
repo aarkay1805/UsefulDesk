@@ -416,6 +416,13 @@ export function canEditLegalBusinessName(
   return canManageOrganization(organizationRole) && branchRole === 'owner';
 }
 
+/** Organization owner: edit the group-wide public gym brand. */
+export function canEditOrganizationBrandName(
+  organizationRole: OrganizationRole | null
+): boolean {
+  return canManageOrganization(organizationRole);
+}
+
 /** Organization owner who also owns the target branch: branch lifecycle. */
 export function canManageBranchLifecycle(
   organizationRole: OrganizationRole | null,

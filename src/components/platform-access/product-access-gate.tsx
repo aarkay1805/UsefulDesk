@@ -86,7 +86,7 @@ function AccountProductAccess({
     branches.find((branch) => branch.account_id === accountId)
       ?.organization_name ||
     account?.name ||
-    'your organization';
+    'your gym';
   const supportReference = snapshot?.access.organization_id || accountId;
   const supportMessage = accessSupportMessage(
     organizationName,
@@ -317,9 +317,7 @@ function AccountProductAccess({
           </div>
           {branches.length > 1 ? (
             <div className="space-y-2">
-              <Label htmlFor="access-branch">
-                Switch organization or branch
-              </Label>
+              <Label htmlFor="access-branch">Switch gym brand or branch</Label>
               <Select
                 value={accountId}
                 disabled={pending === 'branch'}

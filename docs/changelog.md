@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-09-24 — Gym brand, branch, and legal names separated (built in code)
+
+Signup now creates a gym brand and first branch without inventing a registered
+business name. Business setup independently edits the brand, branch, and legal
+name; branch menus, invoice and UPI previews, and WhatsApp settings explain
+where each name appears. Branch lists and previews show names without repeated
+identity prefixes. `20260924110000_independent_gym_brand_and_legal_identity.sql`
+adds the audited brand RPC and requires a real legal name for new invoice seller
+snapshots. Existing legal names and issued snapshots are preserved. This
+supersedes the 2026-09-23 single-entity legal-name mirroring rule. Application
+and migration rollout must be coordinated; neither has been deployed yet.
+
 ## 2026-09-23 — Legal name also names the gym group (database live; app built in code)
 
 `src/components/settings/business-details-settings.tsx` refreshes the auth

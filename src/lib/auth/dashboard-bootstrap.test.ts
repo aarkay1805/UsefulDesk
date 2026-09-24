@@ -23,6 +23,7 @@ const branch = {
   organization_name: 'Useful Fitness',
   legal_entity_id: 'legal-1',
   legal_entity_name: 'Useful Fitness Pvt Ltd',
+  legal_entity_legal_name: 'Useful Fitness Pvt Ltd',
   role: 'owner',
   branch_status: 'active',
   readiness_state: 'ready',

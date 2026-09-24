@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Building2, Check, ChevronsUpDown, Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
+import { registeredBusinessName } from '@/lib/auth/branch-identity';
 import { cn } from '@/lib/utils';
 import { BranchCreationDialog } from '@/components/branches/branch-creation-dialog';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,9 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
   const [createOpen, setCreateOpen] = useState(false);
 
   if (!account || branches.length === 0) return null;
+  const currentBranch = branches.find(
+    (branch) => branch.account_id === account.id
+  );
 
   const trigger = (
     <DropdownMenuTrigger
@@ -74,9 +78,12 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
           className="min-w-72"
         >
           <DropdownMenuGroup>
-            <DropdownMenuLabel>Branches</DropdownMenuLabel>
+            <DropdownMenuLabel>
+              {currentBranch?.organization_name ?? 'Your gym'}
+            </DropdownMenuLabel>
             {branches.map((branch) => {
               const selected = branch.account_id === account.id;
+              const legalName = registeredBusinessName(branch);
               const archived = branch.branch_status === 'archived';
               const loading = switchingTo === branch.account_id;
               return (
@@ -105,7 +112,8 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
                       {branch.account_name}
                     </span>
                     <span className="text-muted-foreground block truncate text-xs">
-                      {branch.organization_name} · {branch.role}
+                      {legalName ?? 'Registered business name not set'} ·{' '}
+                      {branch.role}
                       {archived ? ' · Archived' : ''}
                     </span>
                   </span>

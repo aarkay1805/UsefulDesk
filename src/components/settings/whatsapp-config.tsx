@@ -642,6 +642,12 @@ export function WhatsAppConfig() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <p className="text-muted-foreground text-sm">
+              Customers see the sender name set for this number in Meta WhatsApp
+              Manager. UsefulDesk uses the registered business name from
+              Business details inside its built-in message templates. These
+              names can differ.
+            </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-start gap-2.5">
                 {connectionStatus === 'connected' ? (

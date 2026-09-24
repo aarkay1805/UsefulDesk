@@ -327,7 +327,7 @@ export function MembersTab() {
     <section className="animate-in fade-in-50 max-w-3xl space-y-6 duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Team members"
-        description="See who can use this gym account and choose what they can do."
+        description="See who can use this branch and choose what they can do here."
         action={
           <RequireRole min="admin">
             <Button onClick={() => setInviteOpen(true)}>

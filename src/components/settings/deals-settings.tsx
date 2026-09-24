@@ -235,8 +235,22 @@ function UpiCard() {
                   placeholder="Iron Fitness"
                   disabled={!canEditSettings}
                 />
+                <p className="text-muted-foreground text-xs">
+                  Used in this branch&apos;s UPI links. This is separate from
+                  the registered business and your bank account holder name.
+                </p>
               </div>
             </div>
+            {vpa.trim() ? (
+              <p className="text-muted-foreground text-sm">
+                Link preview: Pay{' '}
+                <span className="text-foreground font-medium">
+                  {payeeName.trim() || 'the UPI account'}
+                </span>{' '}
+                at <span className="text-foreground">{vpa.trim()}</span>. Member
+                payment amounts are added when you copy a link.
+              </p>
+            ) : null}
             {canEditSettings ? (
               <Button type="submit" disabled={saving || !dirty}>
                 {saving ? (

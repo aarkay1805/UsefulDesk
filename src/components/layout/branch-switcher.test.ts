@@ -14,7 +14,7 @@ const authSource = readFileSync(
 describe('BranchSwitcher menu structure', () => {
   it('keeps the Base UI group label inside a menu group', () => {
     expect(source).toMatch(
-      /<DropdownMenuGroup>\s*<DropdownMenuLabel>Branches<\/DropdownMenuLabel>[\s\S]*?<\/DropdownMenuGroup>/
+      /<DropdownMenuGroup>\s*<DropdownMenuLabel>[\s\S]*organization_name[\s\S]*<\/DropdownMenuLabel>[\s\S]*?<\/DropdownMenuGroup>/
     );
   });
 

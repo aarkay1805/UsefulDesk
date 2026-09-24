@@ -3,6 +3,7 @@
 import { Building2, Check } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
+import { registeredBusinessName } from '@/lib/auth/branch-identity';
 import { Badge } from '@/components/ui/badge';
 import {
   Card,
@@ -44,7 +45,7 @@ export function OrganizationSettings() {
     <section className="animate-in fade-in-50 max-w-3xl duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Branches"
-        description="See the branches you can use and manage your gym group."
+        description="Switch between branches under your gym brand. Each branch keeps its own members, payments, and connections."
       />
 
       <Card>
@@ -63,6 +64,7 @@ export function OrganizationSettings() {
           <ul className="divide-border divide-y">
             {branches.map((branch) => {
               const selected = branch.account_id === account.id;
+              const legalName = registeredBusinessName(branch);
               return (
                 <li
                   key={branch.account_id}
@@ -88,7 +90,7 @@ export function OrganizationSettings() {
                       ) : null}
                     </div>
                     <p className="text-muted-foreground truncate text-xs">
-                      {branch.legal_entity_name} ·{' '}
+                      {legalName ?? 'Registered business name not set'} ·{' '}
                       {ROLE_META[branch.role].label}
                     </p>
                     <div className="mt-2 flex items-center gap-2 sm:hidden">

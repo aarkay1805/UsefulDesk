@@ -16,10 +16,10 @@ describe('resolveLegalBusinessName', () => {
     ).toBe('FitZone Wellness Private Limited');
   });
 
-  it('falls back only to the legal entity name', () => {
+  it('does not treat the gym brand as a legal business name', () => {
     expect(
       resolveLegalBusinessName({ legal_name: ' ', name: ' FitZone ' })
-    ).toBe('FitZone');
+    ).toBeNull();
     expect(
       resolveLegalBusinessName({ legal_name: null, name: ' ' })
     ).toBeNull();
@@ -62,9 +62,12 @@ describe('loadLegalBusinessName', () => {
           data: [
             {
               account_id: 'akash-account',
-              legal_entity_name: 'valiance boxing & fitness',
+              legal_entity_legal_name: 'valiance boxing & fitness',
             },
-            { account_id: 'rajat-account', legal_entity_name: 'rajat Kashyap' },
+            {
+              account_id: 'rajat-account',
+              legal_entity_legal_name: 'rajat Kashyap',
+            },
           ],
           error: null,
         };
@@ -115,9 +118,65 @@ describe('loadLegalBusinessName', () => {
       name: 'FitZone Wellness Private Limited',
     });
     expect(calls).toEqual([
-      ['select', 'legal_entity:legal_entities(legal_name, name)'],
+      ['select', 'legal_entity:legal_entities(legal_name)'],
       ['id', 'account-1'],
     ]);
+  });
+
+  it('does not turn a branch-list brand label into a legal identity', async () => {
+    const db = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { legal_entity: null },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+      rpc: async () => ({
+        data: [
+          {
+            account_id: 'account-1',
+            legal_entity_name: 'Iron House',
+            legal_entity_legal_name: null,
+          },
+        ],
+        error: null,
+      }),
+    };
+
+    await expect(loadLegalBusinessName(db, 'account-1')).resolves.toEqual({
+      ok: false,
+      code: 'legal_business_identity_missing',
+    });
+  });
+
+  it('accepts the old RPC legal-name projection during app-first rollout', async () => {
+    const db = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: { legal_entity: null },
+              error: null,
+            }),
+          }),
+        }),
+      }),
+      rpc: async () => ({
+        data: [
+          { account_id: 'account-1', legal_entity_name: 'Old legal name' },
+        ],
+        error: null,
+      }),
+    };
+
+    await expect(loadLegalBusinessName(db, 'account-1')).resolves.toEqual({
+      ok: true,
+      name: 'Old legal name',
+    });
   });
 
   it('distinguishes a missing identity from an unavailable lookup', async () => {

@@ -27,6 +27,7 @@ const branch = {
 
 function makeSupabase(options?: {
   owner?: boolean;
+  legalName?: string | null;
   createResult?: unknown;
   createError?: { code: string; message: string };
 }) {
@@ -52,7 +53,11 @@ function makeSupabase(options?: {
         data: [
           {
             id: ENTITY_ID,
-            name: 'Useful Fitness Pvt Ltd',
+            name: 'Useful Fitness',
+            legal_name:
+              options?.legalName === undefined
+                ? 'Useful Fitness Pvt Ltd'
+                : options.legalName,
             default_currency: 'INR',
           },
         ],
@@ -124,6 +129,17 @@ describe('/api/branches contracts', () => {
 
     expect(body.legalEntities).toEqual([]);
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it('uses the descriptive entity label when its legal name has not been recorded', async () => {
+    const supabase = makeSupabase({ legalName: null });
+    setContext(supabase);
+
+    const body = await (await GET()).json();
+    expect(body.legalEntities[0]).toMatchObject({
+      name: 'Useful Fitness',
+      defaultCurrency: 'INR',
+    });
   });
 
   it('preserves legacy blank creation for same-origin browser calls', async () => {

@@ -61,6 +61,34 @@ The codebase is already partially multi-tenant, which is why this is a bridge, n
 - **Platform tables** (plans, subscriptions, usage, platform_admins) are **not** account-scoped in the tenant sense — they are read via service-role in server routes or gated by a super-admin check, never exposed to tenant sessions except the tenant's own subscription row.
 - **Storage:** media buckets (`chat-media`) must remain account-pathed so one gym can't read another's uploads. Audit current upload paths (`uploadAccountMedia`) for tenant prefixing before GA.
 
+### 5.1 Business identity and branch decisions (2026-09-24)
+
+An owner should understand the hierarchy as **gym brand → branches**, with a
+**registered business** attached to each branch. The brand is the name used to
+recognize the chain; it must remain editable independently of the legal name.
+The branch name identifies a location in navigation and daily work. A registered
+business may issue invoices for several branches. A team member's profile name
+and their role in each branch are separate from all three business names.
+
+Signup asks for a gym brand and uses it as the suggested first branch name. It
+must not assert that the brand is the registered business name. Ask for the
+registered name when a legal-name-dependent invoice or WhatsApp setup needs it,
+and show the exact branch and shared-business scope of each edit. Invoice display
+name, UPI payee, and WhatsApp provider display name are separate customer-facing
+details, with previews where the owner configures them. A bank beneficiary is
+managed by the payment provider and must not be inferred from the owner's name.
+
+The first operational policy remains branch isolation: staff can belong to more
+than one branch through explicit memberships, but member records, membership
+entitlements, payments, credits, check-ins, and conversations do not roam.
+Organization-wide reports retain branch attribution. A branch belongs to one
+registered business; existing multi-entity groups can select an existing entity
+when adding a branch. Self-service creation of another legal entity or transfer
+of a branch between entities requires a separate audited workflow. Before any
+cross-branch membership is built, specify its home branch, access/check-in
+rules, revenue allocation, renewal owner, and member communications; do not
+present a roaming promise in the current product.
+
 ## 6. Scope — capability map
 
 | #   | Capability                              | Build size | Depends on         |

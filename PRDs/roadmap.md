@@ -1,6 +1,31 @@
 # Roadmap
 
+## Built in code — Independent gym, branch, and registered-business names (2026-09-24)
+
+Signup now asks for a gym brand and uses it for the first branch without
+claiming it is the registered business name. Business details independently
+edits the gym brand, selected branch name, and shared legal business name;
+invoice details keep a branch-specific display name and preview. Branch menus,
+creation, WhatsApp, and UPI settings explain what each name affects. New gyms
+must provide an actual legal name before legal-name-dependent invoice setup and
+built-in WhatsApp templates can use it. Existing legal names and issued invoice
+snapshots stay intact. The owner-only brand RPC and explicit legal-name gates
+are in `20260924110000_independent_gym_brand_and_legal_identity.sql`.
+Branch lists and identity previews show the names directly without repeated
+“Gym brand:” or “Registered business:” prefixes.
+
+The application and database migration are pending a coordinated production
+rollout. The previously built single-entity rule that made the gym group follow
+the legal name is superseded by this independent brand model. The branch policy
+is documented in `docs/gym-domain.md` and `PRDs/multi_gym_saas_prd.md`:
+branch operations and member entitlements remain separate, while staff may
+receive explicit access to several branches. Roaming memberships and automatic
+cross-branch transfers remain deferred.
+
 ## Built in code — Gym group follows legal name (2026-09-23)
+
+Historical implementation, superseded by the independent gym brand model above.
+The database behavior remains live until that model's coordinated rollout.
 
 Saving Legal business name refreshes the branch listing used by the sidebar and
 Settings → Branches. For a gym group with one legal entity, the legal name also

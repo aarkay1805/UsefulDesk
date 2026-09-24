@@ -54,6 +54,7 @@ const branchesPayload = {
       organization_name: 'Useful Fitness',
       legal_entity_id: legalEntityId,
       legal_entity_name: 'Useful Fitness Pvt Ltd',
+      legal_entity_legal_name: 'Useful Fitness Pvt Ltd',
       role: 'owner',
       branch_status: 'active',
       readiness_state: 'setup',
@@ -215,6 +216,9 @@ describe('BranchCreationDialog', () => {
     render(<BranchCreationDialog open onOpenChange={vi.fn()} />);
 
     await screen.findByLabelText('Branch name');
+    expect(screen.getByText('Billing business')).toBeTruthy();
+    expect(screen.getByText('Useful Fitness Pvt Ltd · INR')).toBeTruthy();
+    expect(screen.getByText(/This only names the new branch/)).toBeTruthy();
     expect(screen.getByRole('radio', { name: /Start fresh/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create branch' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Continue/ })).toBeNull();

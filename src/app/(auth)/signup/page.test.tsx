@@ -54,7 +54,7 @@ describe('invitation signup continuation', () => {
     const user = userEvent.setup();
     render(<SignupPage />);
 
-    expect(screen.queryByLabelText('Gym name')).toBeNull();
+    expect(screen.queryByLabelText('Gym brand')).toBeNull();
     await user.type(screen.getByLabelText('Full name'), 'Invitee Person');
     await user.type(screen.getByLabelText('Email'), 'invitee@example.com');
     await user.type(screen.getByLabelText('Password'), 'password-123');
@@ -124,7 +124,8 @@ describe('new organization signup', () => {
     const user = userEvent.setup();
     render(<SignupPage />);
 
-    const gymName = screen.getByLabelText('Gym name');
+    const gymName = screen.getByLabelText('Gym brand');
+    expect(screen.getByText(/Add your legal business name later/)).not.toBeNull();
     const google = screen.getByRole('button', {
       name: 'Continue with Google',
     });

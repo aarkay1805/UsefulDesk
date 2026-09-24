@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth, type BranchAccount } from '@/hooks/use-auth';
+import { registeredBusinessName } from '@/lib/auth/branch-identity';
 import {
   BRANCH_SETUP_PACKS,
   normalizeBranchSetupPacks,
@@ -238,6 +239,9 @@ export function BranchCreationDialog({
   const selectedSource = (options?.branches ?? []).find(
     (branch) => branch.account_id === sourceAccountId
   );
+  const selectedSourceLegalName = selectedSource
+    ? registeredBusinessName(selectedSource)
+    : null;
   const selectedEntity = options?.legalEntities.find(
     (entity) => entity.id === legalEntityId
   );
@@ -553,7 +557,8 @@ export function BranchCreationDialog({
                   autoFocus
                 />
                 <p className="text-muted-foreground text-xs">
-                  Use the location or operating name your team recognizes.
+                  Use a location or operating name your team recognizes. This
+                  only names the new branch; your gym brand keeps its own name.
                 </p>
               </div>
 
@@ -604,7 +609,19 @@ export function BranchCreationDialog({
                     </SelectContent>
                   </Select>
                   <p className="text-muted-foreground text-xs">
-                    Used for invoices and currency.
+                    This links the branch to a business record and currency. Set
+                    its registered name separately in Business details.
+                  </p>
+                </div>
+              ) : selectedEntity ? (
+                <div className="space-y-1 text-sm">
+                  <p className="font-medium">Billing business</p>
+                  <p className="text-muted-foreground">
+                    {selectedEntity.name} · {selectedEntity.defaultCurrency}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    The new branch uses this business record and currency. Its
+                    registered name is managed in Business details.
                   </p>
                 </div>
               ) : null}
@@ -692,8 +709,9 @@ export function BranchCreationDialog({
                   </Select>
                   {selectedSource ? (
                     <p className="text-muted-foreground text-xs">
-                      {selectedSource.legal_entity_name} ·{' '}
-                      {selectedSource.default_currency}
+                      {selectedSourceLegalName ??
+                        'Registered business name not set'}{' '}
+                      · {selectedSource.default_currency}
                     </p>
                   ) : null}
                 </div>

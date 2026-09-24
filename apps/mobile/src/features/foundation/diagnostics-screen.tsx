@@ -63,7 +63,7 @@ export function DiagnosticsScreen() {
       description: 'The workspace this device is signed in to right now.',
       rows: [
         ['Branch', state.branch.account_name],
-        ['Organization', state.branch.organization_name],
+        ['Gym brand', state.branch.organization_name],
         ['Role', titleCase(state.branch.role)],
         ['Readiness', titleCase(state.branch.readiness_state)],
       ],

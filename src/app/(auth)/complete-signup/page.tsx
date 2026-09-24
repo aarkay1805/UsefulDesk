@@ -127,7 +127,8 @@ export default async function CompleteSignupPage({
           </div>
           <CardTitle>Name your gym</CardTitle>
           <CardDescription>
-            This name is used for your legal entity and first branch.
+            This brand is shown to your team and suggested as your first branch
+            name. Add your legal business name later in Business details.
           </CardDescription>
         </CardHeader>
         <CardContent>

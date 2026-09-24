@@ -39,7 +39,7 @@ function trimmed(value: unknown): string | null {
 export function resolveLegalBusinessName(
   entity: LegalEntityRow | null | undefined
 ): string | null {
-  return trimmed(entity?.legal_name) ?? trimmed(entity?.name);
+  return trimmed(entity?.legal_name);
 }
 
 export function applyLegalBusinessNameParam(
@@ -61,7 +61,7 @@ export async function loadLegalBusinessName(
 ): Promise<LegalBusinessNameResult> {
   const { data, error } = await db
     .from('accounts')
-    .select('legal_entity:legal_entities(legal_name, name)')
+    .select('legal_entity:legal_entities(legal_name)')
     .eq('id', accountId)
     .maybeSingle();
   const legalEntity = (data as { legal_entity?: unknown } | null)?.legal_entity;
@@ -85,8 +85,21 @@ export async function loadLegalBusinessName(
             (row as { account_id?: unknown })?.account_id === accountId
         )
       : null;
+    const branchRow = branch as {
+      legal_entity_name?: unknown;
+      legal_entity_legal_name?: unknown;
+    } | null;
+    // During app-first rollout, the old RPC has only legal_entity_name,
+    // which is its canonical legal-name projection. The new RPC returns an
+    // explicit null until a legal name is entered; never fall back then.
     const branchName = trimmed(
-      (branch as { legal_entity_name?: unknown } | null)?.legal_entity_name
+      branchRow &&
+        Object.prototype.hasOwnProperty.call(
+          branchRow,
+          'legal_entity_legal_name'
+        )
+        ? branchRow.legal_entity_legal_name
+        : branchRow?.legal_entity_name
     );
     if (branchName) return { ok: true, name: branchName };
   }

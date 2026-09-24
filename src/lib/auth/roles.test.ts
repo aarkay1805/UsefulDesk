@@ -38,6 +38,7 @@ import {
   canCompleteBranchSetup,
   canCompleteOrganizationNameSetup,
   canEditLegalBusinessName,
+  canEditOrganizationBrandName,
   canClearConversationUnread,
   canManageMembers,
   canManageInvoiceProfile,
@@ -210,6 +211,11 @@ describe('capability predicates', () => {
     expect(canEditLegalBusinessName('owner', 'owner')).toBe(true);
     expect(canEditLegalBusinessName('owner', 'admin')).toBe(false);
     expect(canEditLegalBusinessName(null, 'owner')).toBe(false);
+  });
+
+  it('canEditOrganizationBrandName: organization owner only', () => {
+    expect(canEditOrganizationBrandName('owner')).toBe(true);
+    expect(canEditOrganizationBrandName(null)).toBe(false);
   });
 
   describe('authored content', () => {

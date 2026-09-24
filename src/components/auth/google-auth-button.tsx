@@ -137,7 +137,7 @@ export function GoogleAuthButton({
           ? signupGymNameAttemptRef.current
           : null;
         if (requiresSignupCompletion && !signupGymName) {
-          throw new Error('Enter a valid gym name before continuing.');
+          throw new Error('Enter a valid gym brand before continuing.');
         }
         if (signupGymName) saveGymNameDraft(signupGymName);
 
@@ -363,7 +363,7 @@ export function GoogleAuthButton({
             className="w-full"
             disabled
           >
-            Enter a valid gym name to continue with Google
+            Enter a valid gym brand to continue with Google
           </Button>
         ) : phase === 'waiting' ? (
           <div className="flex flex-col items-center gap-2">
