@@ -9,6 +9,7 @@ import {
 describe('gym template preset projection', () => {
   it('offers the complete supported library without unsupported booking or legacy renewal presets', () => {
     expect(TEMPLATE_PRESETS.map((preset) => preset.fields.name)).toEqual([
+      'gym_extended_absence',
       'gym_membership_renewal',
       'gym_service_renewal',
       'gym_membership_post_expiry',

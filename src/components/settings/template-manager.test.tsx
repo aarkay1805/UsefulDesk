@@ -136,7 +136,7 @@ describe('TemplateManager gym preset library', () => {
       await screen.findAllByText(
         'Preview unavailable until the legal business name can be loaded.'
       )
-    ).toHaveLength(21);
+    ).toHaveLength(22);
     expect(screen.queryByText(/Reply to Legal business name/)).toBeNull();
   });
 
@@ -583,7 +583,7 @@ describe('TemplateManager gym preset library', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('groups all twenty-one contracts and explains operational requirements', async () => {
+  it('groups all twenty-two contracts and explains operational requirements', async () => {
     render(<TemplateManager />);
     await screen.findByRole('heading', { name: 'UsefulDesk features' });
 
@@ -591,6 +591,7 @@ describe('TemplateManager gym preset library', () => {
       expect(screen.getByRole('heading', { name: heading })).toBeTruthy();
     }
     for (const title of [
+      'Missed gym visits',
       'Membership renewal',
       'Service renewal',
       'Expired membership follow-up',
@@ -619,7 +620,7 @@ describe('TemplateManager gym preset library', () => {
     expect(
       screen.queryByText(/Requires recorded .* WhatsApp opt-in/)
     ).toBeNull();
-    expect(screen.getAllByText(/Used when:/).length).toBe(21);
+    expect(screen.getAllByText(/Used when:/).length).toBe(22);
     expect(
       screen.getByRole('group', {
         name: 'Filter message templates by approval status',
