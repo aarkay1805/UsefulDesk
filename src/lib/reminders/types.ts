@@ -28,7 +28,9 @@ export type LifecycleReminderKind =
   | 'session_pack_exhausted'
   | 'freeze_return'
   | 'membership_win_back'
-  | 'service_win_back';
+  | 'service_win_back'
+  | 'attendance_absence'
+  | 'attendance_streak';
 
 export type LifecycleReminderState =
   | 'queued'
@@ -73,13 +75,18 @@ export interface LifecycleReminderJob {
   subject_cycle_id: string;
   milestone_key: string;
   effective_due_on: string;
+  scheduled_for_at?: string | null;
   activation_generation: string;
   state: LifecycleReminderState;
   attempt_count: number;
   lease_owner: string | null;
   lease_generation: number;
   provider_message_id: string | null;
-  reason?: { renewed?: boolean; period_end?: string | null; code?: string } | null;
+  reason?: {
+    renewed?: boolean;
+    period_end?: string | null;
+    code?: string;
+  } | null;
 }
 
 export interface ReminderRunSummary {

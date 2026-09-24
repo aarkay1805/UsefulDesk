@@ -762,6 +762,19 @@ function RuleDetail({
             </Button>
           </div>
         ) : null}
+        {rule.id === 'attendance_streak' && lifecycleWindow ? (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
+            <span>
+              Sends after six missed days, then once more six days later if
+              still absent. Staff follow up after the second message. Sends one
+              hour after Assigned arrival, or at{' '}
+              {localTime(lifecycleWindow.end, '30')} without one.
+            </span>
+            <Button variant="link" size="sm" onClick={onOpenSendingHours}>
+              Change sending hours
+            </Button>
+          </div>
+        ) : null}
         {sendingOptionsCollapsed ? (
           <Accordion>
             <AccordionItem value={`delivery-${rule.id}`}>

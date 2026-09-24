@@ -1,13 +1,45 @@
 # Roadmap
 
+## Built in code — Unified six-day absence reminders (2026-09-24)
+
+Settings → Automated messages has one opt-in **Missed gym visits** rule and one
+Marketing template, `gym_extended_absence`. After five consecutive absent
+account-local days, an active member becomes eligible on day six. If the member
+remains absent, one final automated reminder becomes eligible six calendar
+days after the first actual send, with no daily messages between. An assigned arrival sends
+one hour after that time; otherwise the reminder uses the Sending hours ending
+hour's :30 mark. Check-in resets the count. A contact-day conflict defers the
+same job to the next branch-local slot. The 15-minute attendance worker and
+`src/lib/reminders/attendance-absence.ts` recheck current facts before Meta;
+collection keeps message priority. Migration
+`20260924153000_unify_attendance_absence_reminders.sql` retires the former daily
+rule at the database boundary and changes the streak queue to repeat with
+six-day spacing from actual sends; `20260924154000_count_absence_repeat_from_send_day.sql`
+keeps that spacing when an assigned arrival sends after midnight.
+`20260924155000_one_absence_reminder_per_contact.sql` also prevents duplicate
+messages across overlapping memberships.
+`20260924156000_cap_absence_to_two_messages.sql` caps provider attempts at two
+per visit-free streak; `20260924157000_absence_staff_follow_up.sql` creates a
+next-day staff task after the second attempt, skips it after a visit or reply,
+and cancels its open task when the member returns. Earlier attendance
+migrations remain applied history.
+`20260924158000_qualify_absence_queue_order.sql` fixes a live SQL ambiguity
+in the queue ordering; `20260924159000_stop_absence_sequence_on_reply.sql`
+stops further automated nudges after a member reply.
+`20260924160000_clarify_absence_staff_task_note.sql` keeps the staff note
+accurate when a provider outcome is unknown. Database migrations are live;
+application rollout and exact Marketing
+template approval are pending. The rule remains Off until enabled explicitly.
+
 ## Built in code — Attendance arrival-time groups (2026-09-24)
 
 Attendance now filters its Present and Absent register by the optional
 **Assigned arrival** time: All times, Morning (05:00–11:30), Afternoon
 (12:00–16:30), Evening (17:00–23:30), Overnight (00:00–04:30), and Not assigned.
 The selected group's exact times can be sorted, and search, plan filters,
-counts, and pagination apply to the same server-side roster. This does not
-infer scheduled days, lateness, or missed visits. The additive
+counts, and pagination apply to the same server-side roster. The filter itself
+does not infer scheduled days or lateness; missed-visit automation is described
+above. The additive
 `20260924130000_attendance_arrival_period_filter.sql` function is live on the
 connected UsefulDesk database; application rollout is pending.
 

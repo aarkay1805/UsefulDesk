@@ -21,7 +21,8 @@ export type TemplateContractId =
   | 'service_win_back'
   | 'payment_link'
   | 'invoice_document'
-  | 'festival_offer';
+  | 'festival_offer'
+  | 'attendance_streak';
 
 export type TemplateConsentScope =
   'whatsapp_account_updates' | 'whatsapp_marketing';
@@ -44,6 +45,31 @@ export interface TemplateContract {
 
 export const TEMPLATE_CONTRACTS: Record<TemplateContractId, TemplateContract> =
   {
+    attendance_streak: {
+      id: 'attendance_streak',
+      title: 'Missed gym visits',
+      blurb:
+        'Check in after six days without a visit, then once more six days later.',
+      purpose:
+        'Encourages an active member to return after an extended absence.',
+      trigger:
+        'An enabled reminder runs on day six, then once more six days after the first send while no check-in is recorded.',
+      category: 'Marketing',
+      galleryGroup: 'feature',
+      consentScope: 'whatsapp_marketing',
+      wired: true,
+      parameterLabels: ['Member name', 'Legal business name'],
+      payload: {
+        name: 'gym_extended_absence',
+        category: 'Marketing',
+        language: 'en_US',
+        body_text:
+          "Hi {{1}}, it's been a little while since we've seen you at {{2}}, so we wanted to check in. Hope you're doing okay. We'd love to see you again whenever you're ready.",
+        sample_values: {
+          body: ['Rahul', 'FitZone Wellness Private Limited'],
+        },
+      },
+    },
     membership_renewal: {
       id: 'membership_renewal',
       title: 'Membership renewal',

@@ -380,7 +380,7 @@ and message name used by both Settings views. The view tabs are **Messages** and
 Use these exact message names: **Unpaid invoice reminders**, **Installment
 reminders**, **Promised payment reminder**, **AutoPay payment problems**,
 **Return after a membership pause**, **Invite expired members back**, and
-**Invite members to renew a service**. A row disclosure is always **Configure** /
+**Invite members to renew a service**, and **Missed gym visits**. A row disclosure is always **Configure** /
 **Hide configuration**. Until message readiness is complete, show only the
 setup action—configuration and the On/Off switch do not apply yet. Once ready,
 show both Configure and the switch. Once open, **Message preview** is a

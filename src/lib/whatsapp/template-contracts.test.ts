@@ -11,6 +11,7 @@ import {
 } from './template-contracts';
 
 const expectedContracts = [
+  ['attendance_streak', 'gym_extended_absence', 'Marketing'],
   ['membership_renewal', 'gym_membership_renewal', 'Marketing'],
   ['service_renewal', 'gym_service_renewal', 'Marketing'],
   ['membership_post_expiry', 'gym_membership_post_expiry', 'Marketing'],

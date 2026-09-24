@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-09-24 — Unified absence reminder (built in code)
+
+`src/lib/reminders/attendance-absence.ts` and the attendance worker expose one
+opt-in Marketing reminder on absent day six, then one more at least six local
+days after the first actual send. Check-in or reply stops the sequence.
+`20260924153000_unify_attendance_absence_reminders.sql` through
+`20260924160000_clarify_absence_staff_task_note.sql` retire the daily rule,
+cap provider attempts at two, and create an owner Follow-up due the next day
+after the second attempt. Check-in cancels its open task; a reply prevents it.
+The queue handles overnight slots and overlapping memberships. Database
+migrations are live; app rollout and exact template approval are pending.
+
 ## 2026-09-24 — Attendance filtered by assigned arrival (database live; app built in code)
 
 `src/components/members/attendance-view.tsx` filters the paged Attendance

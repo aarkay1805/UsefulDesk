@@ -219,6 +219,12 @@ export const LifecycleSendingHoursSettings = forwardRef<
                     {localTime(9)}. Payment confirmations and AutoPay updates
                     send as soon as the payment changes.
                   </p>
+                  <p>
+                    Missed gym visits sends after six absent days, then once
+                    more six days later if still absent. It uses{' '}
+                    {localTime(end, '30')}
+                    without an Assigned arrival, or one hour after that time.
+                  </p>
                 </div>
               </AccordionContent>
             </AccordionItem>

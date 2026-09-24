@@ -130,7 +130,9 @@ const OUTCOMES: Record<
  * date means depends on the rule that queued the message. Verified against
  * each worker's `effective_due_on` and the legacy ledgers' anchor columns.
  */
-const RULE_DATE_LABEL: Record<ReminderRuleId, string> = {
+const RULE_DATE_LABEL: Record<ReminderRuleId | 'attendance_absence', string> = {
+  attendance_absence: 'Visit date',
+  attendance_streak: 'Check-in date',
   membership_renewal: 'Expiry',
   service_renewal: 'Expiry',
   membership_post_expiry: 'Expiry',

@@ -56,10 +56,14 @@ describe('GET /api/database-cron', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({ group: 'ops', dispatched: 8, failed: 0 });
-    expect(fetch).toHaveBeenCalledTimes(8);
+    expect(body).toMatchObject({ group: 'ops', dispatched: 9, failed: 0 });
+    expect(fetch).toHaveBeenCalledTimes(9);
     expect(fetch).toHaveBeenCalledWith(
       new URL('https://desk.example/api/push/cron'),
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(fetch).toHaveBeenCalledWith(
+      new URL('https://desk.example/api/attendance/reminders/cron'),
       expect.objectContaining({ method: 'GET' })
     );
     for (const [, options] of vi.mocked(fetch).mock.calls) {

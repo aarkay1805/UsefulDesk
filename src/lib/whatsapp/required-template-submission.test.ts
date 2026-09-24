@@ -44,7 +44,8 @@ describe('required automated template submission', () => {
     const ids = REQUIRED_AUTOMATED_TEMPLATE_CONTRACTS.map((item) => item.id);
 
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(19);
+    expect(ids).toHaveLength(20);
+    expect(ids).toContain('attendance_streak');
     expect(ids).toContain('membership_renewal');
     expect(ids).toContain('payment_link');
     expect(ids).not.toContain('invoice_document');

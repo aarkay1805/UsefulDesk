@@ -30,6 +30,7 @@ import {
   processRetentionJob,
   queueRetentionCandidates,
 } from './retention-worker';
+import { processAttendanceAbsenceJob } from './attendance-absence';
 import { processTransactionEventJob } from './transaction-events';
 import { isRenewalChaseable } from '@/lib/memberships/pricing';
 import type {
@@ -334,6 +335,51 @@ function emptySummary(): ReminderRunSummary {
     infrastructureFailures: 0,
     notes: [],
   };
+}
+
+async function processAbsenceClaim(
+  admin: ReturnType<typeof supabaseAdmin>,
+  job: LifecycleReminderJob,
+  account: Pick<AccountRow, 'owner_user_id' | 'timezone' | 'legalBusinessName'>,
+  now: Date,
+  summary: ReminderRunSummary
+) {
+  await processAttendanceAbsenceJob({
+    admin,
+    job,
+    account,
+    now,
+    summary,
+    finish: (state, options) => finishJob(admin, job, state, options),
+    findConversation: (accountId, userId, contactId) =>
+      findOrCreateConversation(admin, accountId, userId, contactId),
+    markProviderAttempt: async () => {
+      const { data, error } = await admin.rpc(
+        'mark_lifecycle_reminder_provider_attempt',
+        {
+          p_job_id: job.id,
+          p_worker_id: job.lease_owner,
+          p_lease_generation: job.lease_generation,
+        }
+      );
+      if (error || data !== true)
+        throw new Error(error?.message ?? 'provider attempt lease lost');
+    },
+    reserveDailyClaim: async (sendOn) => {
+      const { data, error } = await admin.rpc(
+        'reserve_lifecycle_reminder_daily_claim',
+        {
+          p_job_id: job.id,
+          p_worker_id: job.lease_owner,
+          p_lease_generation: job.lease_generation,
+          p_send_on: sendOn,
+        }
+      );
+      if (error || (data !== 'reserved' && data !== 'deferred'))
+        throw new Error(error?.message ?? 'daily coordination lease lost');
+      return data;
+    },
+  });
 }
 
 function invoiceTemplate(kind: LifecycleReminderKind) {
@@ -3051,6 +3097,133 @@ export async function runLifecycleReminderWorker(
         // The expired lease is reconciled by the next claim pass; never abort
         // the remaining independently leased jobs.
       }
+    }
+  }
+  return summary;
+}
+
+/** High-frequency attendance reminders. They never scan or lease the larger
+ * collection/retention queue. */
+export async function runAttendanceAbsenceReminderWorker(
+  now = new Date()
+): Promise<ReminderRunSummary> {
+  const admin = supabaseAdmin();
+  const summary = emptySummary();
+  const workerId = crypto.randomUUID();
+  const { data: settings, error: settingsError } = await admin
+    .from('renewal_reminder_settings')
+    .select('account_id, attendance_streak_enabled')
+    .eq('attendance_streak_enabled', true);
+  if (settingsError) throw settingsError;
+
+  const accounts = new Map<
+    string,
+    Pick<AccountRow, 'owner_user_id' | 'timezone' | 'legalBusinessName'>
+  >();
+  for (const setting of settings ?? []) {
+    const accountId = setting.account_id as string;
+    const { data: account, error: accountError } = await admin
+      .from('accounts')
+      .select('owner_user_id, timezone')
+      .eq('id', accountId)
+      .maybeSingle();
+    if (accountError || !account) {
+      summary.infrastructureFailures++;
+      summary.notes.push(`account ${accountId}: account unavailable`);
+      continue;
+    }
+    try {
+      await requireProductAccess(admin, accountId);
+    } catch {
+      summary.notes.push(`account ${accountId}: product_access_required`);
+      continue;
+    }
+    const legalIdentity = await loadLegalBusinessName(
+      admin as unknown as Parameters<typeof loadLegalBusinessName>[0],
+      accountId
+    );
+    accounts.set(accountId, {
+      owner_user_id: account.owner_user_id,
+      timezone: account.timezone,
+      legalBusinessName: legalIdentity.ok ? legalIdentity.name : null,
+    });
+    summary.accountsConsidered++;
+    const { data: queued, error: queueError } = await admin.rpc(
+      'queue_attendance_streak_reminders',
+      { p_account_id: accountId }
+    );
+    if (queueError) {
+      summary.infrastructureFailures++;
+      summary.notes.push(
+        `account ${accountId}: absence queue unavailable — ${queueError.message}`
+      );
+    } else {
+      summary.queued += Number(queued ?? 0);
+    }
+  }
+
+  const { data: claimed, error: claimError } = await admin.rpc(
+    'claim_attendance_absence_reminder_jobs',
+    { p_worker_id: workerId, p_limit: MAX_JOBS_PER_RUN }
+  );
+  if (claimError) throw claimError;
+  const jobs = (claimed ?? []) as LifecycleReminderJob[];
+  for (let index = 0; index < jobs.length; index += 10) {
+    await Promise.all(
+      jobs.slice(index, index + 10).map(async (job) => {
+        try {
+          const account = accounts.get(job.account_id);
+          if (!account) {
+            await finishJob(admin, job, 'skipped', {
+              reason: { code: 'account_not_enabled' },
+            });
+            summary.skipped++;
+            return;
+          }
+          if (!account.legalBusinessName) {
+            const expired =
+              !job.scheduled_for_at ||
+              now.getTime() - new Date(job.scheduled_for_at).getTime() >
+                2 * 60 * 60_000;
+            await finishJob(admin, job, expired ? 'skipped' : 'blocked', {
+              reason: { code: 'legal_business_identity_missing' },
+              ...(!expired && {
+                nextAttemptAt: new Date(
+                  now.getTime() + 15 * 60_000
+                ).toISOString(),
+              }),
+            });
+            if (expired) summary.skipped++;
+            else summary.blocked++;
+            return;
+          }
+          await processAbsenceClaim(admin, job, account, now, summary);
+        } catch (error) {
+          // Leave the lease for the lifecycle claim repair. An attempted
+          // provider call must remain ambiguous rather than be retried.
+          summary.infrastructureFailures++;
+          summary.notes.push(
+            `job ${job.id}: processing failed — ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      })
+    );
+  }
+  for (const accountId of accounts.keys()) {
+    const { data, error } = await admin.rpc(
+      'sweep_attendance_absence_follow_ups',
+      { p_account_id: accountId }
+    );
+    if (error) {
+      summary.infrastructureFailures++;
+      summary.notes.push(
+        `account ${accountId}: absence staff follow-up unavailable — ${error.message}`
+      );
+    } else if (Number(data?.failed ?? 0) > 0) {
+      summary.infrastructureFailures += Number(data.failed);
+      summary.notes.push(
+        `account ${accountId}: ${data.failed} absence staff follow-up attempts failed`
+      );
     }
   }
   return summary;

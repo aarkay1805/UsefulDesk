@@ -147,6 +147,10 @@ const reasonLabels: Record<string, string> = {
   template_not_ready: templateReasonLabels.not_approved,
   payment_confirmations_disabled_or_regenerated: MESSAGE_REPLACED_REASON,
   autopay_recovery_disabled_or_regenerated: MESSAGE_REPLACED_REASON,
+  attendance_absence_no_longer_eligible:
+    'The member checked in or this missed-visit reminder no longer applies.',
+  attendance_streak_no_longer_eligible:
+    'The member checked in or this longer-absence reminder no longer applies.',
 };
 
 export function activityReason(

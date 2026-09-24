@@ -2,7 +2,7 @@
 
 Settings → **Automated messages** uses the existing `?tab=reminders` URL for the
 selected branch. Its **Messages** and **Message history** tabs sit under the panel
-heading. Messages lists the 14 existing messages in Renewals, Payment reminders,
+heading. Messages lists the 14 messages in Renewals, Payment reminders,
 Keep members coming back, and Confirmations sections. Opening a message from
 **Review message**, **Change sending hours**, or a `?rule=<id>` link keeps the destination in view. Review
 and `?rule=` open the rule; Change sending hours focuses the branch-level
@@ -60,8 +60,9 @@ Sending hours editor instead.
 
 Installment reminders use the recorded joining-payment schedule (7/3/1/0 days)
 and have no independent account toggle. Overdue installment jobs belong to
-Unpaid invoice reminders. Unpaid invoice, post-expiry, and retention messages
-share the branch-level Sending hours, whose existing storage fields remain under
+Unpaid invoice reminders. Unpaid invoice, post-expiry, session-pack,
+planned-return, and win-back messages share the branch-level Sending hours,
+whose existing storage fields remain under
 the internal invoice-collection rule and whose ending hour is inclusive. The
 editor keeps its exact scope and timing exceptions behind **Which messages use
 these hours?** and keeps its draft/save/cancel state separate from per-rule
@@ -75,6 +76,28 @@ confirmations are separate from renewal promises and recovery requests.
 Membership renewal, service renewal, and joining-installment workers retain
 their separate after-09:00 account-local gate. Changing Sending hours does not
 alter those schedules, activate any rule, or backfill prior milestones.
+
+**Missed gym visits** is one opt-in Marketing message. It stays Off until the
+exact `gym_extended_absence` template is approved and synced. It counts
+consecutive account-local calendar days without a check-in, starting on the
+membership start day or the day after the latest visit. The first message is
+eligible on day six; if still absent, one final automated message becomes
+eligible six calendar days after the first actual send. There are no daily
+messages and no third automated nudge in the same absence streak. An assigned
+arrival becomes due one hour after that time; members without one become due
+at the Sending hours ending hour's :30
+mark. A new check-in resets the streak. If another automated message uses the
+day's contact slot, the same job retries at the next branch-local slot and
+the second message is spaced from the actual first send. The 15-minute worker
+rechecks membership, attendance, timing, and template before Meta. After the
+first message, a member reply also stops the automated sequence. After the
+second provider attempt, it creates an **inactive** Follow-up for the branch
+owner, due the next account-local day. A reply or visit before task creation
+prevents it; an eventual check-in cancels a still-open generated task. An
+existing open Follow-up is preserved instead of adding a duplicate. An
+unknown provider outcome counts toward the two-message cap and gets staff
+review rather than risking an extra automated send. The retired daily queue
+returns no jobs; its old history remains visible.
 
 ## Read Message history accurately
 

@@ -125,6 +125,29 @@ const invoiceDays = (
 
 export const REMINDER_RULES = [
   {
+    id: 'attendance_streak',
+    group: 'retention',
+    title: 'Missed gym visits',
+    purpose:
+      'Checks in after six days without a visit, then once more six days after the first message.',
+    schedule: {
+      capability: 'event-driven',
+      timing:
+        'On day six, then once more six days after the first send. One hour after assigned arrival, or 30 minutes before sending hours end.',
+      explanation:
+        'A new membership starts the count. Each check-in resets it. Members already away when this is enabled can receive a message on the next eligible day.',
+    },
+    eligibility:
+      'Active members with a phone number and at least six consecutive account-local days without a check-in.',
+    stops:
+      'After two messages, a check-in, a member reply, an inactive membership, or this message being turned off.',
+    staff:
+      'After the second message, the branch owner gets a follow-up due the next day if the member has not visited or replied.',
+    templateContracts: ['attendance_streak'],
+    fields: [booleanField('attendance_streak_enabled')],
+    configurable: true,
+  },
+  {
     id: 'membership_renewal',
     group: 'renewals',
     title: 'Membership renewal',
