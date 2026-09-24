@@ -1,5 +1,16 @@
 # Roadmap
 
+## Built in code — Attendance arrival-time groups (2026-09-24)
+
+Attendance now filters its Present and Absent register by the optional
+**Assigned arrival** time: All times, Morning (05:00–11:30), Afternoon
+(12:00–16:30), Evening (17:00–23:30), Overnight (00:00–04:30), and Not assigned.
+The selected group's exact times can be sorted, and search, plan filters,
+counts, and pagination apply to the same server-side roster. This does not
+infer scheduled days, lateness, or missed visits. The additive
+`20260924130000_attendance_arrival_period_filter.sql` function is live on the
+connected UsefulDesk database; application rollout is pending.
+
 ## Built in code — Assigned member arrival time (2026-09-24)
 
 All members and Attendance show the same optional **Assigned arrival** time,

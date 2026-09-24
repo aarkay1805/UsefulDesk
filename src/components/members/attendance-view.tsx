@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Dumbbell,
   Loader2,
   LogOut,
@@ -24,7 +25,9 @@ import {
   saveAssignedArrivalTime,
 } from '@/lib/memberships/assigned-arrival';
 import {
+  ATTENDANCE_ARRIVAL_BUCKETS,
   loadAttendanceSnapshot,
+  type AttendanceArrivalBucket,
   type AttendanceBucket,
   type AttendanceSnapshotRow,
   type AttendanceSort,
@@ -46,6 +49,14 @@ import { buildMemberAvatarPreview } from './member-avatar-quick-view';
 import type { ReminderReadiness } from './send-reminder-button';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { SearchInput } from '@/components/ui/search-input';
 import {
   Table,
@@ -89,6 +100,11 @@ export function AttendanceView({
 
   const [rows, setRows] = useState<AttendanceSnapshotRow[]>([]);
   const [bucket, setBucket] = useState<AttendanceBucket>('absent');
+  const [arrivalBucket, setArrivalBucket] =
+    useState<AttendanceArrivalBucket>('all');
+  const arrivalBucketLabel =
+    ATTENDANCE_ARRIVAL_BUCKETS.find((option) => option.value === arrivalBucket)
+      ?.label ?? 'All times';
   const [search, setSearch] = useState('');
   const [planFilters, setPlanFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<AttendanceSort>({
@@ -148,6 +164,7 @@ export function AttendanceView({
             weekStart: locale.weekStart,
             includeUsage: isToday,
             bucket,
+            arrivalBucket,
             search,
             planIds: planFilters,
             sort,
@@ -180,6 +197,7 @@ export function AttendanceView({
     };
   }, [
     accountId,
+    arrivalBucket,
     bucket,
     isToday,
     locale.locale,
@@ -365,10 +383,10 @@ export function AttendanceView({
   }
 
   function emptyMessage() {
-    if (presentCount + absentCount === 0) return 'No members yet.';
-    if (search.trim()) {
-      return `No ${bucket} members match your search.`;
+    if (search.trim() || planFilters.length || arrivalBucket !== 'all') {
+      return `No ${bucket} members match your search or filters.`;
     }
+    if (presentCount + absentCount === 0) return 'No members yet.';
     if (bucket === 'present') {
       return `No members checked in on ${fmt.date(selectedDate)}.`;
     }
@@ -394,6 +412,51 @@ export function AttendanceView({
             placeholder="Search by name or ID"
             aria-label="Search attendance by name or Member ID"
           />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="pill"
+                  aria-pressed={arrivalBucket !== 'all'}
+                  aria-label={`Filter by assigned arrival: ${arrivalBucketLabel}`}
+                />
+              }
+            >
+              <Clock3 className="size-4" />
+              {arrivalBucket === 'all'
+                ? 'Assigned arrival'
+                : `Assigned arrival: ${arrivalBucketLabel}`}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="min-w-52">
+              <DropdownMenuRadioGroup
+                value={arrivalBucket}
+                onValueChange={(value) => {
+                  setArrivalBucket(value as AttendanceArrivalBucket);
+                  setPage(0);
+                  setSort({ key: 'assigned_arrival_time', dir: 'asc' });
+                }}
+              >
+                <DropdownMenuLabel>Assigned arrival</DropdownMenuLabel>
+                {ATTENDANCE_ARRIVAL_BUCKETS.map((option) => (
+                  <DropdownMenuRadioItem
+                    key={option.value}
+                    value={option.value}
+                  >
+                    <span className="flex flex-col">
+                      <span>{option.label}</span>
+                      {'range' in option && (
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          {fmt.timeOfDay(option.range[0])}–
+                          {fmt.timeOfDay(option.range[1])}
+                        </span>
+                      )}
+                    </span>
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           <Toolbar aria-label="Attendance status">
             <ToolbarToggleGroup<AttendanceBucket>
@@ -500,9 +563,14 @@ export function AttendanceView({
               <TableHead className="w-[15%]">
                 <ColumnHeader
                   label="Assigned arrival"
-                  sortable={false}
-                  sortDir={null}
-                  onSort={() => undefined}
+                  sortable
+                  sortDir={
+                    sort.key === 'assigned_arrival_time' ? sort.dir : null
+                  }
+                  onSort={(dir) => {
+                    setSort({ key: 'assigned_arrival_time', dir });
+                    setPage(0);
+                  }}
                 />
               </TableHead>
               <TableHead className="w-[15%]">

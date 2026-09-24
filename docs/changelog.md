@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-09-24 — Attendance filtered by assigned arrival (database live; app built in code)
+
+`src/components/members/attendance-view.tsx` filters the paged Attendance
+register by Morning, Afternoon, Evening, Overnight, or Not assigned and sorts
+by the exact assigned time. `src/lib/memberships/attendance-snapshot.ts` calls
+the additive `20260924130000_attendance_arrival_period_filter.sql` RPC, which
+filters before counts and paging. The earlier RPC stays for deployed clients;
+the new database function is live, while the application rollout is pending.
+
 ## 2026-09-24 — Assigned member arrival time (database live; app built in code)
 
 All members and Attendance now share an editable **Assigned arrival** column

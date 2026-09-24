@@ -201,6 +201,7 @@ describe('AttendanceView bounded data path', () => {
         weekStart: 1,
         includeUsage: true,
         bucket: 'absent',
+        arrivalBucket: 'all',
         search: '',
         planIds: [],
         sort: { key: 'name', dir: 'asc' },
@@ -229,7 +230,9 @@ describe('AttendanceView bounded data path', () => {
     });
     render(<AttendanceView {...props} />);
     expect(await screen.findByText('07:30')).toBeTruthy();
-    expect(screen.getByText('Assigned arrival')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Sort Assigned arrival' })
+    ).toBeTruthy();
   });
 
   it('makes exactly one fresh request when realtime reload advances', async () => {
@@ -369,6 +372,51 @@ describe('AttendanceView bounded data path', () => {
       expect(loadAttendanceSnapshot.mock.calls.at(-1)?.[1]).toMatchObject({
         page: 1,
         pageSize: 25,
+      })
+    );
+  });
+
+  it('combines an assigned arrival period with attendance status and sorts its rows by time', async () => {
+    loadAttendanceSnapshot.mockResolvedValue({
+      ...snapshot,
+      totalCount: 26,
+    });
+    render(<AttendanceView {...props} />);
+    await screen.findByText('Asha Rao');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    await waitFor(() =>
+      expect(loadAttendanceSnapshot.mock.calls.at(-1)?.[1]).toMatchObject({
+        page: 1,
+      })
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Filter by assigned arrival: All times',
+      })
+    );
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /Morning/ }));
+
+    await waitFor(() =>
+      expect(loadAttendanceSnapshot.mock.calls.at(-1)?.[1]).toMatchObject({
+        arrivalBucket: 'morning',
+        bucket: 'absent',
+        sort: { key: 'assigned_arrival_time', dir: 'asc' },
+        page: 0,
+      })
+    );
+    expect(
+      screen.getByRole('button', {
+        name: 'Filter by assigned arrival: Morning',
+      }).textContent
+    ).toContain('Morning');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Present members' }));
+    await waitFor(() =>
+      expect(loadAttendanceSnapshot.mock.calls.at(-1)?.[1]).toMatchObject({
+        arrivalBucket: 'morning',
+        bucket: 'present',
       })
     );
   });

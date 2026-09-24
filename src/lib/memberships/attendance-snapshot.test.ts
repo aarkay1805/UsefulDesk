@@ -15,6 +15,7 @@ const query: AttendanceSnapshotQuery = {
   weekStart: 1,
   includeUsage: true,
   bucket: 'absent',
+  arrivalBucket: 'morning',
   search: '1001',
   planIds: ['11111111-1111-1111-1111-111111111111'],
   sort: { key: 'checked_in_at', dir: 'desc' },
@@ -67,6 +68,7 @@ describe('member attendance RPC client', () => {
       p_week_start: 1,
       p_include_usage: true,
       p_bucket: 'absent',
+      p_arrival_bucket: 'morning',
       p_search: '1001',
       p_plan_ids: ['11111111-1111-1111-1111-111111111111'],
       p_sort_key: 'checked_in_at',
@@ -149,7 +151,7 @@ describe('member attendance RPC client', () => {
     ).resolves.toMatchObject({ totalCount: 61, page: 2 });
     expect(rpc).toHaveBeenCalledOnce();
     expect(rpc).toHaveBeenCalledWith(
-      'member_attendance_page',
+      'member_attendance_page_by_arrival',
       attendanceSnapshotRpcArgs(query)
     );
     expect(abortSignal).toHaveBeenCalledWith(controller.signal);

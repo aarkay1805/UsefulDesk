@@ -4,7 +4,18 @@ import type { SortDir } from '@/components/table/column-header';
 import type { Attendance, Membership } from '@/types';
 
 export type AttendanceBucket = 'present' | 'absent';
-export type AttendanceSortKey = 'name' | 'checked_in_at' | 'checked_out_at';
+export const ATTENDANCE_ARRIVAL_BUCKETS = [
+  { value: 'all', label: 'All times' },
+  { value: 'morning', label: 'Morning', range: ['05:00', '11:30'] },
+  { value: 'afternoon', label: 'Afternoon', range: ['12:00', '16:30'] },
+  { value: 'evening', label: 'Evening', range: ['17:00', '23:30'] },
+  { value: 'overnight', label: 'Overnight', range: ['00:00', '04:30'] },
+  { value: 'unassigned', label: 'Not assigned' },
+] as const;
+export type AttendanceArrivalBucket =
+  (typeof ATTENDANCE_ARRIVAL_BUCKETS)[number]['value'];
+export type AttendanceSortKey =
+  'name' | 'assigned_arrival_time' | 'checked_in_at' | 'checked_out_at';
 
 export interface AttendanceSort {
   key: AttendanceSortKey;
@@ -34,6 +45,7 @@ export interface AttendanceSnapshotQuery {
   weekStart: number;
   includeUsage: boolean;
   bucket: AttendanceBucket;
+  arrivalBucket: AttendanceArrivalBucket;
   search: string;
   planIds: string[];
   sort: AttendanceSort;
@@ -59,6 +71,7 @@ export function attendanceSnapshotRpcArgs(query: AttendanceSnapshotQuery) {
     p_week_start: query.weekStart,
     p_include_usage: query.includeUsage,
     p_bucket: query.bucket,
+    p_arrival_bucket: query.arrivalBucket,
     p_search: query.search,
     p_plan_ids: query.planIds,
     p_sort_key: query.sort.key,
@@ -183,7 +196,7 @@ export async function loadAttendanceSnapshot(
   signal?: AbortSignal
 ): Promise<AttendanceSnapshotPage> {
   let request = supabase.rpc(
-    'member_attendance_page',
+    'member_attendance_page_by_arrival',
     attendanceSnapshotRpcArgs(query)
   );
   if (signal) request = request.abortSignal(signal);
