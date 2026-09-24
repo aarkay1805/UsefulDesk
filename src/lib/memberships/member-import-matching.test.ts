@@ -11,6 +11,49 @@ import {
 } from './member-import-matching';
 
 describe('member import contact matching', () => {
+  it('treats a database TIME and the same CSV half-hour as equal profile values', () => {
+    const context = {
+      plans: [],
+      dateOrder: 'DMY' as const,
+      today: '2026-09-09',
+    };
+    const [candidate] = buildMemberImportCandidates(
+      [
+        {
+          sourceKey: 'csv:2',
+          sourceRow: 2,
+          originalValues: {
+            phone: '+15550000002',
+            name: 'Asha',
+            assignedArrivalTime: '7:30 AM',
+            tagNames: [],
+            customValues: [],
+          },
+        },
+      ],
+      context
+    );
+    const [matched] = rematchMemberImportCandidates(
+      [candidate],
+      {
+        contactsByPhone: new Map([
+          [
+            '15550000002',
+            {
+              id: 'contact-1',
+              phone_normalized: '+15550000002',
+              received_via: null,
+              name: 'Asha',
+              assigned_arrival_time: '07:30:00',
+            },
+          ],
+        ]),
+        memberContactIds: new Set(),
+      },
+      context
+    );
+    expect(matched.existingMatch?.profileConflict).toBe(false);
+  });
   it('reads beyond the first thousand contacts and members', async () => {
     const contactsPage = vi.fn(async (from: number) => ({
       data:

@@ -365,6 +365,27 @@ describe('buildMembershipRow', () => {
     expect(built.contact.weight_kg).toBe(79.8);
   });
 
+  it('keeps a valid half-hour arrival time in the imported contact profile', () => {
+    const built = buildMembershipRow(
+      memberRow({ assignedArrivalTime: '7:30 AM' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.contact.assigned_arrival_time).toBe('07:30');
+  });
+
+  it('flags an invalid imported arrival time instead of silently assigning it', () => {
+    const built = buildMembershipRow(
+      memberRow({ assignedArrivalTime: '7:15 AM' }),
+      PLANS,
+      'DMY',
+      TODAY
+    );
+    expect(built.contact.assigned_arrival_time).toBeNull();
+    expect(built.warnings).toContain('invalid-profile-value');
+  });
+
   it('keeps a cancelled paid history row eligible for a real ledger payment', () => {
     const built = buildMembershipRow(
       memberRow({ status: 'inactive', feeStatus: 'paid' }),

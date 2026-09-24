@@ -15,6 +15,7 @@ import {
 import { normalizeKey } from '@/lib/contacts/dedupe';
 import { parseTagCell } from '@/lib/contacts/parse-contact-csv';
 import { normalizeSubmittedPhone } from '@/lib/leads/capture-form';
+import { parseImportedAssignedArrivalTime } from '@/lib/memberships/assigned-arrival';
 import {
   coerceAssignee,
   type DateOrder,
@@ -164,6 +165,7 @@ export interface MemberImportRow {
   churnRisk?: string;
   legacyMemberId?: string;
   dateOfBirth?: string;
+  assignedArrivalTime?: string;
   gender?: string;
   nickname?: string;
   height?: string;
@@ -235,6 +237,7 @@ const ROW_PROP: Record<
   payment_method: 'paymentMethod',
   paid_at: 'paidAt',
   churn_risk: 'churnRisk',
+  assigned_arrival_time: 'assignedArrivalTime',
   legacy_member_id: 'legacyMemberId',
   date_of_birth: 'dateOfBirth',
   gender: 'gender',
@@ -908,6 +911,7 @@ export interface BuiltMemberRow {
     email: string | null;
     company: string | null;
     date_of_birth: string | null;
+    assigned_arrival_time: string | null;
     gender: string | null;
     nickname: string | null;
     height_cm: number | null;
@@ -1043,6 +1047,13 @@ export function buildMembershipRow(
   const churnRisk = row.churnRisk ? parseBoolean(row.churnRisk) : null;
   if (row.churnRisk && churnRisk === null) warnings.push('unknown-churn-risk');
 
+  const assignedArrivalTime = row.assignedArrivalTime?.trim()
+    ? parseImportedAssignedArrivalTime(row.assignedArrivalTime)
+    : null;
+  if (row.assignedArrivalTime?.trim() && !assignedArrivalTime) {
+    warnings.push('invalid-profile-value');
+  }
+
   const height = row.height ? parseHeightCm(row.height) : null;
   const weight = row.weight ? parseWeightKg(row.weight) : null;
   if ((row.height && height === null) || (row.weight && weight === null)) {
@@ -1054,6 +1065,7 @@ export function buildMembershipRow(
     email: row.email?.trim().toLowerCase() || null,
     company: row.company?.trim() || null,
     date_of_birth: birthday,
+    assigned_arrival_time: assignedArrivalTime,
     gender: row.gender?.trim() || null,
     nickname: row.nickname?.trim() || null,
     height_cm: height,

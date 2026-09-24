@@ -128,6 +128,14 @@ describe('time / dateTime', () => {
     expect(IN.dateTime('2026-07-11')).toBe('11 Jul 2026');
     expect(IN.time('2026-07-11')).toBe('');
   });
+
+  it('formats a recurring wall-clock time without shifting it through the account zone', () => {
+    expect(IN.timeOfDay('07:30:00').toLowerCase()).toContain('7:30');
+    expect(IN.timeOfDay('07:30:00').toLowerCase()).toContain('am');
+    const gb24 = buildFormatters({ ...presetFor('GB'), timeFormat: '24h' });
+    expect(gb24.timeOfDay('07:30')).toBe('7:30');
+    expect(gb24.timeOfDay('not-a-time')).toBe('');
+  });
 });
 
 describe('number / money', () => {

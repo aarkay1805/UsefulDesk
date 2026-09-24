@@ -1,5 +1,14 @@
 # Roadmap
 
+## Built in code — Assigned member arrival time (2026-09-24)
+
+All members and Attendance show the same optional **Assigned arrival** time,
+editable in 30-minute steps. The contact-level field includes service-only
+customers; member import/export carries it. Actual check-in and check-out stay
+independent and do not enforce the assignment. The database migration
+`20260924120000_assigned_member_arrival.sql` is live on the connected
+UsefulDesk database; the application rollout is pending.
+
 ## Built in code — Independent gym, branch, and registered-business names (2026-09-24)
 
 Signup now asks for a gym brand and uses it for the first branch without

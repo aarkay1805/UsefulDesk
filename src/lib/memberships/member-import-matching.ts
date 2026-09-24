@@ -1,4 +1,5 @@
 import { normalizeKey } from '@/lib/contacts/dedupe';
+import { normalizeAssignedArrivalTime } from './assigned-arrival';
 
 import {
   revalidateMemberImportCandidates,
@@ -36,6 +37,13 @@ export interface MemberImportMatchIndex {
 
 const PAGE_SIZE = 1_000;
 
+function comparableProfileValue(key: string, value: unknown): unknown {
+  if (key === 'assigned_arrival_time' && typeof value === 'string') {
+    return normalizeAssignedArrivalTime(value) ?? value;
+  }
+  return value;
+}
+
 function reviewedProfileFingerprint(
   imported: Record<string, unknown>,
   contact: MemberImportMatchContact
@@ -43,7 +51,11 @@ function reviewedProfileFingerprint(
   return JSON.stringify(
     Object.keys(imported)
       .sort()
-      .map((key) => [key, imported[key] ?? null, contact[key] ?? null])
+      .map((key) => [
+        key,
+        comparableProfileValue(key, imported[key]) ?? null,
+        comparableProfileValue(key, contact[key]) ?? null,
+      ])
   );
 }
 
@@ -107,7 +119,9 @@ export function rematchMemberImportCandidates(
     }
     const profileConflict = Object.entries(candidate.built.contact).some(
       ([key, value]) =>
-        value !== null && String(contact[key] ?? '') !== String(value)
+        value !== null &&
+        String(comparableProfileValue(key, contact[key]) ?? '') !==
+          String(comparableProfileValue(key, value))
     );
     const profileFingerprint = reviewedProfileFingerprint(
       candidate.built.contact,

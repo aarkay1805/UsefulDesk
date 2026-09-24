@@ -232,6 +232,8 @@ export interface LocaleFormatters {
   dateShort(value: DateValue): string;
   /** Time of day per `timeFormat`, in the account zone — "9:30 pm" / "21:30". */
   time(value: DateValue): string;
+  /** Recurring wall-clock HH:mm (or SQL HH:mm:ss), displayed per `timeFormat`. */
+  timeOfDay(value: string): string;
   /**
    * Weekday name in the account zone — "Tuesday". Chat surfaces use it for
    * the days between yesterday and a week ago, where a bare clock time is
@@ -339,6 +341,14 @@ export function buildFormatters(
       if (!ts || plainParts(value)) return '';
       return dtf(cfg.locale, { ...timeOpts, timeZone: cfg.timeZone }).format(
         ts
+      );
+    },
+
+    timeOfDay(value) {
+      const match = /^(\d{2}):(\d{2})(?::00)?$/.exec(value);
+      if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return '';
+      return dtf(cfg.locale, { ...timeOpts, timeZone: 'UTC' }).format(
+        new Date(Date.UTC(2000, 0, 1, Number(match[1]), Number(match[2])))
       );
     },
 

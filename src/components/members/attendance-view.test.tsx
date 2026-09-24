@@ -43,6 +43,7 @@ vi.mock('@/hooks/use-locale', () => ({
       today: () => '2026-08-28',
       date: (value: string) => value,
       time: (value: string) => value.slice(11, 16),
+      timeOfDay: (value: string) => value.slice(0, 5),
     },
   }),
 }));
@@ -208,6 +209,27 @@ describe('AttendanceView bounded data path', () => {
       },
       expect.any(AbortSignal)
     );
+  });
+
+  it('shows the assigned arrival beside actual attendance times', async () => {
+    loadAttendanceSnapshot.mockResolvedValueOnce({
+      ...snapshot,
+      rows: [
+        {
+          ...snapshot.rows[0],
+          membership: {
+            ...membership,
+            contact: {
+              ...membership.contact,
+              assigned_arrival_time: '07:30:00',
+            },
+          },
+        },
+      ],
+    });
+    render(<AttendanceView {...props} />);
+    expect(await screen.findByText('07:30')).toBeTruthy();
+    expect(screen.getByText('Assigned arrival')).toBeTruthy();
   });
 
   it('makes exactly one fresh request when realtime reload advances', async () => {

@@ -27,6 +27,19 @@ const allMigrationSql = readdirSync(
   .join('\n');
 
 describe('service-aware resumable member import schema contract', () => {
+  it('stores half-hour arrival times and returns them to the attendance table', () => {
+    expect(
+      allMigrationSql.includes('contacts_assigned_arrival_half_hour')
+    ).toBe(true);
+    expect(
+      allMigrationSql.includes(
+        "'assigned_arrival_time', (row.contact_record).assigned_arrival_time"
+      )
+    ).toBe(true);
+    expect(
+      allMigrationSql.includes("v_contact ? 'assigned_arrival_time'")
+    ).toBe(true);
+  });
   it('keeps the customer directory invoker-scoped and anonymous-free', () => {
     expect(sql).toMatch(
       /VIEW public\.member_customer_directory\s+WITH \(security_invoker = true\)/

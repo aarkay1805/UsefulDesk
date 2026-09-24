@@ -1460,6 +1460,7 @@ export function buildMemberImportCandidates(
             email: null,
             company: null,
             date_of_birth: null,
+            assigned_arrival_time: null,
             gender: null,
             nickname: null,
             height_cm: null,

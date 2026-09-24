@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-09-24 — Assigned member arrival time (database live; app built in code)
+
+All members and Attendance now share an editable **Assigned arrival** column
+with optional 30-minute presets. `src/lib/memberships/assigned-arrival.ts`
+validates and saves the gym-local wall-clock time on `contacts`; member CSV
+import/export carries it. `20260924120000_assigned_member_arrival.sql` is live
+on the connected UsefulDesk database and extends the optimized attendance RPC
+without changing actual check-in/out. The application rollout is pending.
+
 ## 2026-09-24 — Gym brand, branch, and legal names separated (built in code)
 
 Signup now creates a gym brand and first branch without inventing a registered

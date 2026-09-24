@@ -802,7 +802,7 @@ export function ImportMembersCsvDialog({
         supabase
           .from('contacts')
           .select(
-            'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+            'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country, assigned_arrival_time'
           )
           .eq('account_id', accountId)
           .order('id')
@@ -1169,7 +1169,7 @@ export function ImportMembersCsvDialog({
           supabase
             .from('contacts')
             .select(
-              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country, assigned_arrival_time'
             )
             .eq('account_id', accountId)
             .order('id')
@@ -1232,7 +1232,7 @@ export function ImportMembersCsvDialog({
           supabase
             .from('contacts')
             .select(
-              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country, assigned_arrival_time'
             )
             .eq('account_id', accountId)
             .order('id')
@@ -1304,7 +1304,7 @@ export function ImportMembersCsvDialog({
           supabase
             .from('contacts')
             .select(
-              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country'
+              'id, phone_normalized, received_via, name, email, company, date_of_birth, gender, nickname, height_cm, weight_kg, address_line1, address_line2, city, state, postal_code, country, assigned_arrival_time'
             )
             .eq('account_id', accountId)
             .order('id')

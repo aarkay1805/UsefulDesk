@@ -141,6 +141,8 @@ export interface Contact {
   churn_risk?: boolean;
   date_of_birth?: string | null;
   nickname?: string | null;
+  /** Optional recurring gym-local arrival time; half-hour steps. */
+  assigned_arrival_time?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
   city?: string | null;

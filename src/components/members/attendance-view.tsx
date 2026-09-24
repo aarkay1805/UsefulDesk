@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Check,
   ChevronLeft,
@@ -19,6 +19,11 @@ import { getErrorMessage } from '@/lib/errors';
 import { dayStartInTz } from '@/lib/locale/format';
 import { fetchCheckInUsage } from '@/lib/memberships/check-in';
 import {
+  assignedArrivalOptions,
+  normalizeAssignedArrivalTime,
+  saveAssignedArrivalTime,
+} from '@/lib/memberships/assigned-arrival';
+import {
   loadAttendanceSnapshot,
   type AttendanceBucket,
   type AttendanceSnapshotRow,
@@ -34,6 +39,7 @@ import type { Attendance, AttendanceMethod, Membership } from '@/types';
 import { ColumnHeader } from '@/components/table/column-header';
 import { TableSkeletonRows } from '@/components/table/table-skeleton';
 import { AttendanceOverrideDialog } from './attendance-override-dialog';
+import { EditableCell } from '@/components/leads/editable-cell';
 import { FollowUpDialog } from '@/components/follow-ups/follow-up-dialog';
 import { MemberIdentity } from './member-identity';
 import { buildMemberAvatarPreview } from './member-avatar-quick-view';
@@ -100,6 +106,12 @@ export function AttendanceView({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [editingArrivalId, setEditingArrivalId] = useState<string | null>(null);
+  const [savingArrival, setSavingArrival] = useState(false);
+  const arrivalOptions = useMemo(
+    () => assignedArrivalOptions(fmt.timeOfDay),
+    [fmt]
+  );
   const [followUpFor, setFollowUpFor] = useState<Membership | null>(null);
   const [override, setOverride] = useState<{
     membership: Membership;
@@ -189,6 +201,43 @@ export function AttendanceView({
         ? current.filter((id) => id !== planId)
         : [...current, planId]
     );
+  }
+
+  async function commitAssignedArrival(contactId: string, rawValue: string) {
+    if (!accountId) return;
+    setSavingArrival(true);
+    try {
+      const value = await saveAssignedArrivalTime(
+        createClient(),
+        accountId,
+        contactId,
+        rawValue
+      );
+      setRows((current) =>
+        current.map((row) =>
+          row.membership.contact_id === contactId
+            ? {
+                ...row,
+                membership: {
+                  ...row.membership,
+                  contact: row.membership.contact
+                    ? {
+                        ...row.membership.contact,
+                        assigned_arrival_time: value,
+                      }
+                    : row.membership.contact,
+                },
+              }
+            : row
+        )
+      );
+      onAttendanceChanged?.();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not update assigned arrival'));
+    } finally {
+      setSavingArrival(false);
+      setEditingArrivalId(null);
+    }
   }
 
   /** The plan name + current usage shown in the dedicated Plan column. */
@@ -421,10 +470,10 @@ export function AttendanceView({
           </div>
         </div>
 
-        <Table className="min-w-[820px]">
+        <Table className="min-w-[960px]">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[30%] px-4">
+              <TableHead className="w-[25%] px-4">
                 <ColumnHeader
                   label="Name"
                   sortable
@@ -435,7 +484,7 @@ export function AttendanceView({
                   }}
                 />
               </TableHead>
-              <TableHead className="w-[20%]">
+              <TableHead className="w-[18%]">
                 <ColumnHeader
                   label="Plan"
                   sortable={false}
@@ -446,6 +495,14 @@ export function AttendanceView({
                     selected: planFilters,
                     onToggle: togglePlanFilter,
                   }}
+                />
+              </TableHead>
+              <TableHead className="w-[15%]">
+                <ColumnHeader
+                  label="Assigned arrival"
+                  sortable={false}
+                  sortDir={null}
+                  onSort={() => undefined}
                 />
               </TableHead>
               <TableHead className="w-[15%]">
@@ -470,7 +527,7 @@ export function AttendanceView({
                   }}
                 />
               </TableHead>
-              <TableHead className="w-[20%] pr-4 text-right">Actions</TableHead>
+              <TableHead className="w-[12%] pr-4 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -483,18 +540,19 @@ export function AttendanceView({
                   { variant: 'text' },
                   { variant: 'text' },
                   { variant: 'text' },
+                  { variant: 'text' },
                   { variant: 'actions' },
                 ]}
               />
             ) : loadError ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="h-32 px-4 text-center">
+                <TableCell colSpan={6} className="h-32 px-4 text-center">
                   <span className="text-destructive text-sm">{loadError}</span>
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={5} className="h-40 px-4 text-center">
+                <TableCell colSpan={6} className="h-40 px-4 text-center">
                   <span className="text-muted-foreground inline-flex flex-col items-center gap-2 text-sm">
                     <Dumbbell className="size-7" />
                     {emptyMessage()}
@@ -542,6 +600,48 @@ export function AttendanceView({
                           }
                         >
                           {plan.usage}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className={canSendMessages ? 'p-0' : undefined}>
+                      {canSendMessages ? (
+                        <EditableCell
+                          editing={editingArrivalId === membership.contact_id}
+                          saving={savingArrival}
+                          kind="select"
+                          value={
+                            normalizeAssignedArrivalTime(
+                              membership.contact?.assigned_arrival_time
+                            ) ?? ''
+                          }
+                          options={arrivalOptions}
+                          display={
+                            <span className="text-muted-foreground tabular-nums">
+                              {membership.contact?.assigned_arrival_time
+                                ? fmt.timeOfDay(
+                                    membership.contact.assigned_arrival_time
+                                  )
+                                : 'Not assigned'}
+                            </span>
+                          }
+                          onStart={() =>
+                            setEditingArrivalId(membership.contact_id)
+                          }
+                          onCommit={(value) =>
+                            void commitAssignedArrival(
+                              membership.contact_id,
+                              value
+                            )
+                          }
+                          onCancel={() => setEditingArrivalId(null)}
+                        />
+                      ) : (
+                        <span className="text-muted-foreground tabular-nums">
+                          {membership.contact?.assigned_arrival_time
+                            ? fmt.timeOfDay(
+                                membership.contact.assigned_arrival_time
+                              )
+                            : '—'}
                         </span>
                       )}
                     </TableCell>

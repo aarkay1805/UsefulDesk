@@ -41,6 +41,11 @@ import { useAuth } from '@/hooks/use-auth';
 import { toCsv, downloadCsv } from '@/lib/csv/export';
 import { effectiveStatus, daysUntil } from '@/lib/memberships/expiry';
 import {
+  assignedArrivalOptions,
+  normalizeAssignedArrivalTime,
+  saveAssignedArrivalTime,
+} from '@/lib/memberships/assigned-arrival';
+import {
   CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
   MEMBER_STATUS_OPTIONS,
@@ -298,6 +303,10 @@ export function MembersTable({
 }: MembersTableProps) {
   const supabase = useMemo(() => createClient(), []);
   const { fmt } = useLocale();
+  const arrivalOptions = useMemo(
+    () => assignedArrivalOptions(fmt.timeOfDay),
+    [fmt]
+  );
   const reduceMotion = useReducedMotion();
   const { user, profile, accountId } = useAuth();
   const { staff, nameById, avatarById } = useAccountStaff();
@@ -355,7 +364,7 @@ export function MembersTable({
   // dropdown choice, and a visible save state.
   const [editingCell, setEditingCell] = useState<{
     id: string;
-    key: 'assignee' | 'trainer' | 'churnRisk';
+    key: 'assignee' | 'trainer' | 'churnRisk' | 'assignedArrival';
   } | null>(null);
   const [savingCell, setSavingCell] = useState(false);
   // Full trainer roster for display/filtering, including archived identities
@@ -753,6 +762,38 @@ export function MembersTable({
         )
       );
       toast.success(target ? 'Trainer updated' : 'Trainer cleared');
+    } finally {
+      setSavingCell(false);
+      setEditingCell(null);
+    }
+  }
+
+  async function commitAssignedArrival(
+    customer: NormalizedMemberCustomerDirectoryRow,
+    rawValue: string
+  ) {
+    if (!accountId) return;
+    setSavingCell(true);
+    try {
+      const value = await saveAssignedArrivalTime(
+        supabase,
+        accountId,
+        customer.contact_id,
+        rawValue
+      );
+      setRows((current) =>
+        current.map((row) =>
+          row.contact_id === customer.contact_id && row.contact
+            ? {
+                ...row,
+                contact: { ...row.contact, assigned_arrival_time: value },
+              }
+            : row
+        )
+      );
+      onChanged();
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not update assigned arrival'));
     } finally {
       setSavingCell(false);
       setEditingCell(null);
@@ -1284,6 +1325,16 @@ export function MembersTable({
         ) : (
           <span className="text-muted-foreground">No</span>
         );
+      case 'assignedArrival':
+        return (
+          <span className="text-muted-foreground tabular-nums">
+            {customer.contact?.assigned_arrival_time
+              ? fmt.timeOfDay(customer.contact.assigned_arrival_time)
+              : canEdit
+                ? 'Not assigned'
+                : '—'}
+          </span>
+        );
       case 'reminder':
         return renderRowActions(customer);
       default:
@@ -1412,6 +1463,7 @@ export function MembersTable({
         'Fee',
         'Fee status',
         'Churn risk',
+        'Assigned arrival',
       ],
       all.map((customer) => {
         const membership = asMembership(customer);
@@ -1431,6 +1483,9 @@ export function MembersTable({
           fmt.money(membership?.fee_amount ?? customer.generic_balance),
           membership?.fee_status ?? '',
           customer.contact?.churn_risk ? 'Yes' : 'No',
+          customer.contact?.assigned_arrival_time
+            ? fmt.timeOfDay(customer.contact.assigned_arrival_time)
+            : '',
         ];
       })
     );
@@ -2041,7 +2096,8 @@ export function MembersTable({
                                 'bg-card group-hover:bg-card-2 z-10',
                               (col.key === 'assignee' ||
                                 col.key === 'trainer' ||
-                                col.key === 'churnRisk') &&
+                                col.key === 'churnRisk' ||
+                                col.key === 'assignedArrival') &&
                                 canEdit &&
                                 'p-0',
                               col.align === 'right' && 'text-right'
@@ -2101,6 +2157,32 @@ export function MembersTable({
                                 }
                                 onCommit={(value) =>
                                   void commitTrainer(customer, value)
+                                }
+                                onCancel={() => setEditingCell(null)}
+                              />
+                            ) : col.key === 'assignedArrival' && canEdit ? (
+                              <EditableCell
+                                editing={
+                                  editingCell?.id === customer.contact_id &&
+                                  editingCell.key === 'assignedArrival'
+                                }
+                                saving={savingCell}
+                                kind="select"
+                                value={
+                                  normalizeAssignedArrivalTime(
+                                    customer.contact?.assigned_arrival_time
+                                  ) ?? ''
+                                }
+                                options={arrivalOptions}
+                                display={renderCell(col.key, customer)}
+                                onStart={() =>
+                                  setEditingCell({
+                                    id: customer.contact_id,
+                                    key: 'assignedArrival',
+                                  })
+                                }
+                                onCommit={(value) =>
+                                  void commitAssignedArrival(customer, value)
                                 }
                                 onCancel={() => setEditingCell(null)}
                               />

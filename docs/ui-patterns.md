@@ -361,6 +361,7 @@ Visible product vocabulary is a shared interface contract. The same data concept
 
 - A member identity rendered with `MemberIdentity` is always **Name**. Do not relabel it as “Member,” “Customer,” “Customer details,” or “Member details.”
 - Reuse the canonical labels from the primary table for shared member columns: **Name**, **Member ID**, **Plan**, **Expiry**, **Status**, **Assigned to**, **Fee**, and **Actions**.
+- **Assigned arrival** is the same optional planned time in All members and Attendance. **Check-in** and **Check-out** remain actual attendance timestamps; do not relabel either as the assigned time.
 - Finance → Invoices deliberately uses **Membership** for its combined plan-and-billing-period column: plan name is primary and the billing-period date range is its subtitle. It keeps **Member ID** separate from **Name** and uses **Balance**, without a redundant payment-status column.
 - Follow-up-specific concepts remain **Due date**, **Follow-up**, and **Reason** wherever they appear. The task column is always **Follow-up**, never “Notes” or “Next action”; its optional note is supporting text inside the cell.
 - In lead and follow-up surfaces, the accountable task is always called **Follow-up**. Use **No follow-up** and **Add follow-up**; never expose “next action” as a synonym. “Task” is an internal word only — user-facing buttons and descriptions say **Cancel follow-up** / **Cancel follow-ups**, never “Cancel task”.

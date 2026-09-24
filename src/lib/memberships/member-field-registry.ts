@@ -13,6 +13,7 @@ export type MemberColumnKey =
   | 'trainer'
   | 'fee'
   | 'churnRisk'
+  | 'assignedArrival'
   | 'reminder';
 
 export type MemberImportFieldKey =
@@ -53,6 +54,7 @@ export type MemberImportFieldKey =
   | 'payment_method'
   | 'paid_at'
   | 'churn_risk'
+  | 'assigned_arrival_time'
   | 'date_of_birth'
   | 'gender'
   | 'nickname'
@@ -633,6 +635,13 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'zip code',
   ]),
   field('country', 'Country', 'profile', 'profile', ['country', 'nation']),
+  field('assigned_arrival_time', 'Assigned arrival', 'profile', 'profile', [
+    'assigned arrival',
+    'arrival time',
+    'gym time',
+    'gym timing',
+    'time slot',
+  ]),
   field('tags', 'Tags', 'tags', 'tags', [
     'tags',
     'tag',
@@ -767,6 +776,13 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     minWidth: 100,
     filterDim: 'churnRisk',
     importPolicy: { kind: 'fields', fields: ['churn_risk'] },
+  },
+  {
+    key: 'assignedArrival',
+    label: 'Assigned arrival',
+    defaultWidth: 150,
+    minWidth: 125,
+    importPolicy: { kind: 'fields', fields: ['assigned_arrival_time'] },
   },
   {
     key: 'reminder',

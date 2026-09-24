@@ -230,6 +230,7 @@ Commit = RPC `change_membership_plan` — one transaction, `membership_operation
 
 ## Attendance & limits
 
+- **Assigned arrival** is an optional `contacts.assigned_arrival_time` gym-local wall-clock time in 30-minute steps. It belongs to the contact so service-only customers can carry it too. It is a planning hint in All members and Attendance, not an access rule or a substitute for actual `attendance.checked_in_at` / `checked_out_at`. CSV import accepts half-hour 12h/24h times; empty input leaves an existing assignment unchanged.
 - **Session-pack remaining is DERIVED** (`sessions_count` − attendance count since current cycle start, keyed `membership_id`) — **never a stored counter.**
 - A frozen membership's `planned_return_on` is an explicit operational date, never inferred from `frozen_at`. It may create a reminder one day before and one return-day staff follow-up, but it never auto-unfreezes, charges, or moves the membership cycle.
 - Limits / exhausted packs are **warn-with-override at check-in** (`AttendanceOverrideDialog`, both check-in paths) — **never a hard block.**
