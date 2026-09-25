@@ -1,5 +1,13 @@
 # Roadmap
 
+## Built in code — Inbox notification authentication (2026-09-25)
+
+The web sidebar waits for the browser session token before joining Realtime,
+preventing anonymous cold-load subscriptions from suppressing incoming-message
+chimes and unread-dot updates. Regression tests cover delayed authentication and
+unmount during hydration. Application rollout and live post-deploy sound
+acceptance are pending.
+
 ## Built in code — Accurate automated message samples (2026-09-25)
 
 Settings → Automated messages now fills previews from each template contract's

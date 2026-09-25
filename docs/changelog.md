@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-09-25 — Inbox notification authentication (built in code)
+
+`src/hooks/use-total-unread.ts` now waits for `realtime.setAuth()` before
+subscribing. A live Chrome trace showed cold-load joins without an access token
+and matching anonymous rows in `realtime.subscription`; later Inbox-page joins
+were authenticated. That left the persistent sidebar dot stale and prevented
+message chimes. Session-hydration and unmount regression tests cover the fix.
+Application rollout is pending; database policies and audio settings are unchanged.
+
 ## 2026-09-25 — Automated message sample values corrected (built in code)
 
 `src/components/settings/renewal-reminders-settings.tsx` renders each template's

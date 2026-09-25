@@ -100,8 +100,21 @@ export function useTotalUnread({
           for (const n of map.values()) if (n > 0) sum += 1;
           setTotal(sum);
         }
-      )
-      .subscribe();
+      );
+
+    // Server-rendered auth can mount the sidebar before the browser session
+    // has hydrated. Joining then registers an anonymous subscription; a token
+    // arriving while the channel is joining does not repair that registration.
+    // Resolve Realtime auth first, as the native Inbox already does.
+    (async () => {
+      try {
+        await supabase.realtime.setAuth();
+        if (!cancelled) channel.subscribe();
+      } catch (error) {
+        if (!cancelled)
+          console.error('Failed to authenticate Inbox notifications:', error);
+      }
+    })();
 
     return () => {
       cancelled = true;

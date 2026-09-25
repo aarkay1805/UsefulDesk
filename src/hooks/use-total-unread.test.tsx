@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const h = vi.hoisted(() => ({
   accountId: 'account-a' as string | null,
   play: vi.fn(),
+  setAuth: vi.fn().mockResolvedValue(undefined),
+  subscribe: vi.fn(),
   removeChannel: vi.fn(),
   handlers: [] as Array<{
     config: Record<string, unknown>;
@@ -21,6 +23,7 @@ vi.mock('@/lib/notifications/notification-sounds', () => ({
 }));
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({
+    realtime: { setAuth: h.setAuth },
     from: () => ({
       select: () => ({
         eq: async () => ({
@@ -39,7 +42,10 @@ vi.mock('@/lib/supabase/client', () => ({
           h.handlers.push({ config, callback });
           return channel;
         },
-        subscribe: () => channel,
+        subscribe: () => {
+          h.subscribe();
+          return channel;
+        },
       };
       return channel;
     },
@@ -52,8 +58,55 @@ import { useTotalUnread } from './use-total-unread';
 describe('useTotalUnread message sound', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.setAuth.mockReset().mockResolvedValue(undefined);
     h.accountId = 'account-a';
     h.handlers = [];
+  });
+
+  it('waits for the session token before joining the notification channel', async () => {
+    let authenticate!: () => void;
+    h.setAuth.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          authenticate = resolve;
+        })
+    );
+    const { result } = renderHook(() => useTotalUnread({ sound: true }));
+    await waitFor(() => expect(result.current).toBe(1));
+    expect(h.subscribe).not.toHaveBeenCalled();
+    await act(async () => authenticate());
+    expect(h.subscribe).toHaveBeenCalledTimes(1);
+    act(() =>
+      h.handlers
+        .find(({ config }) => config.table === 'conversations')!
+        .callback({
+          eventType: 'UPDATE',
+          new: { id: 'conversation-1', unread_count: 0 },
+        })
+    );
+    expect(result.current).toBe(0);
+    act(() =>
+      h.handlers
+        .find(({ config }) => config.table === 'messages')!
+        .callback({
+          new: { conversation_id: 'conversation-1', sender_type: 'customer' },
+        })
+    );
+    expect(h.play).toHaveBeenCalledOnce();
+  });
+
+  it('does not join after unmount while session hydration is pending', async () => {
+    let authenticate!: () => void;
+    h.setAuth.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          authenticate = resolve;
+        })
+    );
+    const { unmount } = renderHook(() => useTotalUnread({ sound: true }));
+    unmount();
+    await act(async () => authenticate?.());
+    expect(h.subscribe).not.toHaveBeenCalled();
   });
 
   it('filters message inserts and chimes only for this account customer', async () => {
@@ -89,8 +142,9 @@ describe('useTotalUnread message sound', () => {
     expect(h.play).toHaveBeenCalledTimes(1);
   });
 
-  it('swallows audio failure at the realtime boundary', () => {
+  it('swallows audio failure at the realtime boundary', async () => {
     renderHook(() => useTotalUnread({ sound: true }));
+    await waitFor(() => expect(h.subscribe).toHaveBeenCalled());
     const message = h.handlers.find(
       ({ config }) => config.table === 'messages'
     )!;
