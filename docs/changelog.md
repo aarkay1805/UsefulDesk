@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-09-25 — More audible Inbox chime (built in code)
+
+`src/lib/notifications/notification-sounds.ts` uses a full, system-style two-strike bell
+with 880/1175 Hz fundamentals, layered upper partials, stronger gain, and a
+1.25-second ring for the incoming-message cue. This replaces the quiet, quickly
+decaying sine pair; the first brighter triangle-wave revision was still too
+feeble in listening review. Follow-up reminder tuning is preserved.
+Application rollout is pending.
+
 ## 2026-09-25 — Inbox notification authentication (built in code)
 
 `src/hooks/use-total-unread.ts` now waits for `realtime.setAuth()` before

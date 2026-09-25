@@ -76,7 +76,9 @@ function scheduleBellNote(
   startAt: number,
   volume: number,
   duration = 0.28,
-  group?: Map<OscillatorNode, GainNode>
+  group?: Map<OscillatorNode, GainNode>,
+  waveform: OscillatorType = 'sine',
+  sustain = 0
 ): boolean {
   let oscillator: OscillatorNode | null = null;
   let gain: GainNode | null = null;
@@ -84,11 +86,13 @@ function scheduleBellNote(
     oscillator = context.createOscillator();
     gain = context.createGain();
 
-    oscillator.type = 'sine';
+    oscillator.type = waveform;
     oscillator.frequency.setValueAtTime(frequency, startAt);
 
     gain.gain.setValueAtTime(0.0001, startAt);
     gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.012);
+    if (sustain > 0)
+      gain.gain.setValueAtTime(volume, startAt + 0.012 + sustain);
     gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
 
     oscillator.connect(gain);
@@ -114,16 +118,35 @@ function scheduleBellNote(
   }
 }
 
-/** Short two-note cue for a newly received Inbox message. */
+/** Full, system-style bell: two strikes with bright upper partials. */
 export function playInboxMessageTone(): boolean {
   try {
     const context = runningAudioContext();
     if (!context) return false;
 
     const now = context.currentTime + 0.01;
-    return (
-      scheduleBellNote(context, 659.25, now, 0.055) &&
-      scheduleBellNote(context, 880, now + 0.105, 0.045)
+    // Frequency, onset, gain, decay length, and hold. The strong fundamental
+    // provides body; shorter upper partials make the strike cut through noise.
+    // These levels apply only to Inbox, not the repeating reminder ringtone.
+    const partials = [
+      [880, 0, 0.58, 0.8, 0.16],
+      [1760, 0, 0.2, 0.45, 0.06],
+      [2640, 0, 0.1, 0.3, 0.02],
+      [1174.66, 0.3, 0.62, 0.95, 0.19],
+      [2349.32, 0.3, 0.17, 0.5, 0.08],
+      [3523.98, 0.3, 0.07, 0.35, 0.03],
+    ] as const;
+    return partials.every(([frequency, offset, gain, duration, sustain]) =>
+      scheduleBellNote(
+        context,
+        frequency,
+        now + offset,
+        gain,
+        duration,
+        undefined,
+        'sine',
+        sustain
+      )
     );
   } catch {
     return false;

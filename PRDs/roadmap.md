@@ -1,5 +1,11 @@
 # Roadmap
 
+## Built in code — More audible Inbox chime (2026-09-25)
+
+Incoming messages use a full, system-style two-strike bell with layered
+harmonics, stronger gain, and a 1.25-second ring for noisy gym environments. Application rollout and on-device listening
+acceptance are pending.
+
 ## Built in code — Inbox notification authentication (2026-09-25)
 
 The web sidebar waits for the browser session token before joining Realtime,
