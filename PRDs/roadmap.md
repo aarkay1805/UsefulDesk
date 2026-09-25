@@ -1,5 +1,18 @@
 # Roadmap
 
+## Shipped — Automated message activation readiness repair (2026-09-25)
+
+The connected UsefulDesk database now uses the same exact approved-template
+contracts as the application. The additive
+`20260925142732_repair_automated_message_readiness.sql` migration replaces the
+stale readiness function and activation trigger without changing saved rules or
+templates; Supabase recorded it as `20260925142951`. A connected branch's
+Approved/synced membership renewal template now passes both the application
+contract and database guard. The earlier audited-cutover, variable-boundary,
+and customer-copy readiness migration files remain unapplied in production
+history; this repair consolidates their final readiness state. Keep it last if
+replaying those historical files. No rule was enabled or customer message sent.
+
 ## Built in code — Unified six-day absence reminders (2026-09-24)
 
 Settings → Automated messages has one opt-in **Missed gym visits** rule and one
@@ -138,11 +151,11 @@ count. Positional data meanings and truthful action contracts are retained;
 festival replies now use **Ask about offer**. This supersedes the earlier body
 wording while retaining the Meta variable-boundary validation.
 
-Release pending: apply the matching exact-readiness migration
-`20260923160000_customer_template_copy.sql` with the existing pending template
-cutover chain and application release, then obtain exact Meta approval/sync.
-No production migration, provider submission, customer send, or deployment was
-performed. Audit follow-ups: resolve the documented opt-out suppression gap
+The final exact database readiness from
+`20260923160000_customer_template_copy.sql` is live through the 2026-09-25
+repair migration above. Exact Meta approval/sync is still required for each
+template. The original copy rewrite did not submit provider templates or send
+customer messages. Audit follow-ups: resolve the documented opt-out suppression gap
 against Meta's policy before broader messaging rollout; separately decide
 whether a recognizable trading/branch name should accompany legal identity.
 Neither behavior changed as part of the copy rewrite.
@@ -195,8 +208,8 @@ error before its request. The validator also checks text headers and treats
 whitespace or punctuation alone as insufficient. Exact database reminder-rule
 readiness is aligned in `20260923120000_template_variable_boundaries.sql`.
 Previously approved old bodies must be reviewed and synced again; no live Meta
-submission or customer send was performed. The follow-on migration remains
-unapplied while the earlier template cutover migration is pending.
+submission or customer send was performed. The final database readiness from
+this unapplied historical migration is live through the 2026-09-25 repair above.
 
 ## Built in code — One-click required WhatsApp template submission (2026-09-22)
 
@@ -262,11 +275,11 @@ only a validated Razorpay path suffix to the exact
 `https://rzp.io/{{1}}` button. Duplicate/unsafe presets (`gym_payment_due`,
 `gym_payment_receipt`, `gym_membership_activation`, generic `gym_win_back`, and
 the old combined promise reminder) are no longer offered or accepted as feature
-readiness. Migration
-`20260921230000_whatsapp_template_audit_cutover.sql` updates exact database
-readiness and activation checks; it remains unapplied pending the approved
-migration workflow. No provider template was submitted, automation enabled,
-message sent, deployment made, or pull request opened.
+readiness. The historical
+`20260921230000_whatsapp_template_audit_cutover.sql` remains unapplied, while
+its final activation checks are live through the 2026-09-25 repair above. The
+original cutover did not submit a provider template, enable automation, or send
+a message.
 
 ## Shipped — Owner-controlled branch names (2026-09-21)
 

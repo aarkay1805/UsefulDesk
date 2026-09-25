@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-09-25 — Automated message activation readiness repaired (database live)
+
+`20260925142732_repair_automated_message_readiness.sql` restores the current
+exact-template database guard and split promise/confirmation activation checks
+on the connected UsefulDesk database (recorded as `20260925142951`). The older
+cutover and copy migrations remain absent from production history, so this
+idempotent repair must remain last when replaying them. An Approved/synced
+membership renewal template that previously failed the guard now passes; no
+rule or template row changed.
+
 ## 2026-09-24 — Unified absence reminder (built in code)
 
 `src/lib/reminders/attendance-absence.ts` and the attendance worker expose one

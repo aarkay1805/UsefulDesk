@@ -10,17 +10,10 @@ import {
 } from './rules';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
-const migration = readFileSync(
+const readinessMigration = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260923160000_customer_template_copy.sql'
-  ),
-  'utf8'
-);
-const activationMigration = readFileSync(
-  resolve(
-    process.cwd(),
-    'supabase/migrations/20260912103000_reminder_rule_activation_readiness.sql'
+    'supabase/migrations/20260925142732_repair_automated_message_readiness.sql'
   ),
   'utf8'
 );
@@ -112,7 +105,7 @@ describe('reminder activation SQL contract', () => {
       const payload = TEMPLATE_CONTRACTS[id].payload;
       const tuple = new RegExp(
         `\\('${id}', '([^']+)', '([^']+)', '(${escapeRegex(payload.body_text)})', (NULL|'([^']*)'), '(\\[.*?\\])'::jsonb\\)`
-      ).exec(migration);
+      ).exec(readinessMigration);
       expect(tuple).not.toBeNull();
       expect({
         name: tuple?.[1],
@@ -131,14 +124,16 @@ describe('reminder activation SQL contract', () => {
   });
 
   it('blocks only activation edges and leaves lifecycle generation triggers in place', () => {
-    expect(activationMigration).toContain('NOT COALESCE(OLD.enabled, FALSE)');
-    expect(activationMigration).toContain('BEFORE INSERT OR UPDATE');
-    expect(activationMigration).toContain(
-      'trg_reminder_rule_activation_readiness'
-    );
-    expect(activationMigration).toContain(
+    expect(readinessMigration).toContain('NOT COALESCE(OLD.enabled, FALSE)');
+    expect(readinessMigration).toContain(
       'Reminder rule membership_renewal cannot be enabled'
     );
-    expect(activationMigration).toContain('reminder_template_buttons_match');
+    expect(readinessMigration).toContain(
+      "ARRAY['payment_promise_upcoming', 'payment_promise_missed']"
+    );
+    expect(readinessMigration).toContain(
+      "ARRAY['payment_confirmation', 'payment_membership_renewal_confirmation']"
+    );
+    expect(readinessMigration).toContain('reminder_template_buttons_match');
   });
 });
