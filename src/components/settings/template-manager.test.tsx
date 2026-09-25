@@ -303,6 +303,15 @@ describe('TemplateManager gym preset library', () => {
     expect(screen.getByText('Needs WhatsApp review')).toBeTruthy();
     expect(screen.getByText(/will not turn on by itself/)).toBeTruthy();
     expect(screen.getByText('What it does')).toBeTruthy();
+    // Sending for review reads as step one of three, not the finish line.
+    const steps = within(
+      screen.getByRole('list', { name: 'How a message gets approved' })
+    ).getAllByRole('listitem');
+    expect(steps.map((step) => step.getAttribute('aria-current'))).toEqual([
+      'step',
+      null,
+      null,
+    ]);
     const submit = screen.getByRole('button', {
       name: 'Send for review',
     });

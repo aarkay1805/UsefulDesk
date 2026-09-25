@@ -25,7 +25,7 @@ Sending hours editor instead.
   `automated_message_activity` view, so opening Message history to agents needs a
   migration for that view as well as the predicate change.
 - Without settings access, Messages shows **Read-only** and rows open with
-  **Configure**. The switch, **Set up message**, and **Change reminder days** stay
+  **Configure**. The switch, the row setup action, **Send N messages for review**, and **Change reminder days** stay
   focusable, and each opens an **Admin access required** explanation instead
   of acting. Sending-hour fields stay disabled. The Message history tab stays visible
   and shows **Admin access required** in place of the history.
@@ -34,7 +34,8 @@ Sending hours editor instead.
 
 ## Review and activate
 
-1. Each collapsed row leads with its saved timing. Choose **Configure** to expand
+1. Each row leads with its timing, which stays visible while open and reads
+   back unsaved day changes. Choose **Configure** to expand
    its own row; timing and the sample message remain visible, while
    **Eligibility and follow-up** reveals who qualifies, stopping conditions, and
    staff behavior. **Hide configuration** collapses it; opening another rule
@@ -43,7 +44,12 @@ Sending hours editor instead.
    be saved while Off and never activates a schedule. **Cancel** restores the
    saved values. Unsaved changes survive tab/detail navigation within this
    page and are isolated by account/branch; they are not persisted across reloads.
-3. When an unready rule offers **Set up message**, open it to review the
+3. While any rule is unready, **Get ready to send** at the top counts ready
+   messages and offers one next step: **Connect WhatsApp**, **Send N messages
+   for review** (the same bulk submission as Message templates, followed by a
+   sync), or **Check status**. None of them turns a rule on. Each unready row
+   names its WhatsApp state in a Badge and offers the matching action (for
+   example **Send for review** or **Fix and resend**); open it to review the
    required prefilled template
    over the rule. Without settings access, Set up explains that an admin or
    owner must do this and never opens the setup flow. The branch’s existing
@@ -56,7 +62,7 @@ Sending hours editor instead.
 4. Turn a rule On only after its branch WhatsApp connection and all required
    exact Approved/synced POSITIONAL contracts are ready. The API and database
    both reject a new enablement that lacks prerequisites. Already-On rules
-   retain their preference when readiness is lost and show **Blocked**.
+   retain their preference when readiness is lost and show **On, not sending: …**.
 
 Installment reminders use the recorded joining-payment schedule (7/3/1/0 days)
 and have no independent account toggle. Overdue installment jobs belong to

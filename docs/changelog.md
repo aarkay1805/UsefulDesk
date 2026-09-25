@@ -6,6 +6,39 @@
 
 ---
 
+## 2026-09-26 — Automated message configuration distilled (built in code)
+
+The open rule tile in `renewal-reminders-settings.tsx` drops its repeated
+schedule sentence and the "Choose when to send the reminder." instruction: the
+row subtitle now stays visible when open and reads back unsaved chip changes
+(`summary` prop on `RuleRow`). Chip groups use a 14px regular field label under
+the Timing caption; "Pick up to 6 days" shows only at the limit. Send-time,
+Sending hours, anchor, and installment notes collapse into one muted
+`timingNotes` stack; the Missed gym visits paragraph that restated its schedule
+is cut to the one fact the subtitle cannot give (the no-arrival send time).
+The preview caption's template link follows its sentence instead of floating
+right, and the preview section uses Timing's 12px caption rhythm.
+
+## 2026-09-25 — Automated messages setup guidance (built in code)
+
+Messages opens with **Get ready to send** (`automated-message-setup.tsx`)
+whenever any rule is unready: a ready-count progress bar and three steps —
+Connect WhatsApp, Get messages approved by WhatsApp, Turn on the messages you
+want. Step 2's **Send N messages for review** reuses
+`POST /api/whatsapp/templates/submit-required` (previously only in the Message
+templates ⋯ menu), then syncs and reloads; **Check status** runs the sync
+alone. Neither ever enables a rule. Unready rows now show one status Badge per
+readiness code (`ruleSetupStatus` in `renewal-reminders-settings.tsx`) with a
+specific action verb instead of "Needs setup" + "Set up message"; an On rule
+that lost readiness reads **On, not sending: …** in `danger`. The row
+disclosure is back to the documented **Configure / Hide configuration** (it had
+drifted to "Set up", colliding with the setup action). Editors pick reminder
+days from visible multi-select Chips captioned by the date they count from;
+read-only users keep the blocked **Change reminder days** trigger. The
+template setup dialog shows `ApprovalSteps` and the Meta review-time
+expectation. Gotcha: `/preview/automated-messages` fixtures now cycle
+readiness codes and mock submit/sync; `?readiness=all-ready` hides the guide.
+
 ## 2026-09-25 — More audible Inbox chime (built in code)
 
 `src/lib/notifications/notification-sounds.ts` uses a full, system-style two-strike bell

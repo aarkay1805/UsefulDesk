@@ -381,8 +381,20 @@ Use these exact message names: **Unpaid invoice reminders**, **Installment
 reminders**, **Promised payment reminder**, **AutoPay payment problems**,
 **Return after a membership pause**, **Invite expired members back**, and
 **Invite members to renew a service**, and **Missed gym visits**. A row disclosure is always **Configure** /
-**Hide configuration**. Until message readiness is complete, show only the
-setup action—configuration and the On/Off switch do not apply yet. Once ready,
+**Hide configuration**. Until message readiness is complete, show only a
+status Badge and the setup action—configuration and the On/Off switch do not
+apply yet. Status and action come from `ruleSetupStatus` and never from a call
+site: **Not sent for review** → **Send for review**, **In WhatsApp review** →
+**View status**, **Rejected by WhatsApp** → **Fix and resend**, **Paused by
+WhatsApp** → **Resend**, **Needs an update** → **Update message**, **WhatsApp
+not connected** → **Connect WhatsApp**; an On rule prefixes **On, not
+sending:**. While any rule is unready the Messages view leads with **Get ready
+to send**. Editable reminder days are visible multi-select Chips captioned by
+the date they count from, never a menu. The row subtitle is the schedule's only
+readback: it stays visible while the rule is open and reflects unsaved day
+changes, so the open tile never repeats it — Timing opens straight onto the
+controls, followed by one-line notes (send time, Sending hours, date caveats).
+A limit hint appears only once the limit is reached. Once ready,
 show both Configure and the switch. Once open, **Message preview** is a
 directly visible heading and sample—not another disclosure. Keep purpose → schedule → preview → who gets
 it / when it stops / staff action in reading order; only secondary sending

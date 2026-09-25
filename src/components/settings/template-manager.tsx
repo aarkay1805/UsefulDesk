@@ -47,6 +47,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { ApprovalSteps } from './automated-message-setup';
 import { SettingsPanelHead, SettingsSectionHead } from './settings-panel-head';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import {
@@ -626,7 +627,7 @@ function resolveSetupStateCopy(
       action: 'submit',
       title: 'Needs WhatsApp review',
       description:
-        'Send this message for review. It will not turn on by itself.',
+        'Send this message to WhatsApp for approval. It will not turn on by itself — you choose when to start sending.',
     };
   }
 
@@ -654,7 +655,8 @@ function resolveSetupStateCopy(
         status === 'PENDING'
           ? 'Waiting for WhatsApp review'
           : 'WhatsApp is reviewing it again',
-      description: 'Check its status after WhatsApp reviews it.',
+      description:
+        'WhatsApp usually reviews a message within minutes, sometimes up to 24 hours. Check its status after WhatsApp reviews it.',
     };
   }
 
@@ -1483,6 +1485,17 @@ export function TemplateManager({
                 {focusedPreset.blurb}
               </div>
             </div>
+
+            <ApprovalSteps
+              current={
+                setupState.action === 'return'
+                  ? 3
+                  : setupTemplate?.status === 'PENDING' ||
+                      setupTemplate?.status === 'IN_APPEAL'
+                    ? 2
+                    : 1
+              }
+            />
 
             <Alert variant={setupState.destructive ? 'destructive' : 'default'}>
               <AlertCircle />

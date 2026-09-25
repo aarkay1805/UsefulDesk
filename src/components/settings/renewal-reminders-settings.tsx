@@ -7,6 +7,7 @@ import { AlertCircle, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { AutomatedMessageActivity } from '@/components/settings/automated-message-activity';
+import { AutomatedMessageSetup } from '@/components/settings/automated-message-setup';
 import {
   LifecycleSendingHoursSettings,
   LIFECYCLE_SENDING_HOURS_RULE_IDS,
@@ -14,6 +15,7 @@ import {
 } from '@/components/settings/lifecycle-sending-hours-settings';
 import { BubbleTail } from '@/components/inbox/message-bubble';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import {
   Accordion,
   AccordionContent,
@@ -23,14 +25,7 @@ import {
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Collapse } from '@/components/ui/collapse';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Chip, ChipGroup } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -121,6 +116,86 @@ const LIFECYCLE_RULE_IDS = new Set<ReminderRuleId>(
 
 function isEnabled(rule: RuleRow) {
   return rule.settings.enabled === true;
+}
+
+type RuleSetupStatus = {
+  label: string;
+  variant: 'neutral' | 'info' | 'warning' | 'danger';
+  /** The verb on the row's one setup action. */
+  action: string;
+};
+
+/**
+ * One status per unready row, named for what WhatsApp is doing with the
+ * message, and the specific next step. "Needs setup" alone left the owner
+ * guessing whether to act or wait.
+ */
+function ruleSetupStatus(rule: RuleRow): RuleSetupStatus | null {
+  if (rule.readiness.ready) return null;
+  const status: RuleSetupStatus = (() => {
+    switch (rule.readiness.code) {
+      case 'whatsapp_not_connected':
+        return {
+          label: 'WhatsApp not connected',
+          variant: 'neutral',
+          action: 'Connect WhatsApp',
+        };
+      case 'missing':
+      case 'not_approved':
+        return {
+          label: 'Not sent for review',
+          variant: 'neutral',
+          action: 'Send for review',
+        };
+      case 'pending':
+        return {
+          label: 'In WhatsApp review',
+          variant: 'info',
+          action: 'View status',
+        };
+      case 'rejected':
+        return {
+          label: 'Rejected by WhatsApp',
+          variant: 'danger',
+          action: 'Fix and resend',
+        };
+      case 'paused':
+        return {
+          label: 'Paused by WhatsApp',
+          variant: 'warning',
+          action: 'Resend',
+        };
+      case 'disabled':
+        return {
+          label: 'Disabled by WhatsApp',
+          variant: 'danger',
+          action: 'View status',
+        };
+      case 'component_drift':
+      case 'parameter_drift':
+      case 'wrong_parameter_format':
+        return {
+          label: 'Needs an update',
+          variant: 'warning',
+          action: 'Update message',
+        };
+      default:
+        return {
+          label: 'Needs attention',
+          variant: 'warning',
+          action: 'View status',
+        };
+    }
+  })();
+  // A rule left On keeps its preference when readiness is lost, and the
+  // owner must not read that as "sending".
+  return isEnabled(rule)
+    ? {
+        ...status,
+        label: `On, not sending: ${status.label.charAt(0).toLowerCase()}${status.label.slice(1)}`,
+        variant: 'danger',
+      }
+    : status;
 }
 
 function settingValuesEqual(left: unknown, right: unknown) {
@@ -228,20 +303,20 @@ function timingFields(rule: RuleRow) {
   );
 }
 
-function timingChipLabel(fieldKey: string, day: number) {
-  if (day === 0) {
+/** A chip only names the offset; its group caption names what it is
+ *  counted from, so seven chips fit one row. */
+function dayChipLabel(fieldKey: string, day: number) {
+  if (day === 0)
     return fieldKey === 'daysBefore' ? 'On the day' : 'On the due date';
-  }
-  const days = `${day} day${day === 1 ? '' : 's'}`;
-  if (fieldKey === 'overdueDays') return `${days} overdue`;
-  if (fieldKey === 'beforeDueDays') return `${days} before due`;
-  return `${days} before`;
+  return `${day} day${day === 1 ? '' : 's'}`;
 }
 
-function timingGroupLabel(fieldKey: string) {
-  return fieldKey === 'overdueDays'
-    ? 'After payment is due'
-    : 'Before payment is due';
+function dayGroupCaption(rule: RuleRow, fieldKey: string) {
+  if (fieldKey === 'overdueDays') return 'After payment is due';
+  if (fieldKey === 'beforeDueDays') return 'Before payment is due';
+  return rule.id === 'service_renewal'
+    ? 'Before the service ends'
+    : 'Before the membership ends';
 }
 
 function lateSendLabel(days: number) {
@@ -422,21 +497,6 @@ function TimingControls({
     (count, field) => count + (currentValue(field) as number[]).length,
     0
   );
-  const beforeDayControl = dayControls.find(
-    (field) => field.key !== 'overdueDays'
-  );
-  const afterDayControl = dayControls.find(
-    (field) => field.key === 'overdueDays'
-  );
-  const beforeDays = beforeDayControl
-    ? (currentValue(beforeDayControl) as number[])
-    : [];
-  const afterDays = afterDayControl
-    ? (currentValue(afterDayControl) as number[])
-    : [];
-  const scheduleText = beforeDayControl
-    ? reminderScheduleText(rule, beforeDays, afterDays)
-    : null;
   const reminderDaysLabel = `${rule.title} change reminder days, ${selectedDayCount} selected`;
   const validationMessage = timingValidationMessage(rule, draft);
   const validationId = `${rule.id}-timing-error`;
@@ -449,10 +509,7 @@ function TimingControls({
   return (
     <div className="space-y-3">
       {dayControls.length ? (
-        <div className="space-y-3">
-          <div className="max-w-2xl text-sm leading-5 text-pretty">
-            {scheduleText}
-          </div>
+        <div className="space-y-4">
           {blocker ? (
             <ResolvableAction
               blocker={blocker}
@@ -471,79 +528,75 @@ function TimingControls({
               }
             />
           ) : (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={disabled}
-                    aria-label={reminderDaysLabel}
-                    aria-invalid={validationMessage ? true : undefined}
-                    aria-describedby={
-                      validationMessage ? validationId : undefined
+            // Every choice is visible and one press away, the way calendar
+            // and invoicing apps list reminder offsets, instead of behind a
+            // menu the owner has to open to learn what is possible.
+            dayControls.map((field) => {
+              const selectedDays = currentValue(field) as number[];
+              const commonChoices =
+                field.key === 'overdueDays'
+                  ? [1, 2, 3, 7, 14, 30]
+                  : [30, 14, 7, 3, 2, 1, 0];
+              const choices = Array.from(
+                new Set([...commonChoices, ...selectedDays])
+              )
+                .filter(
+                  (day) => day >= (field.min ?? 0) && day <= (field.max ?? 365)
+                )
+                .sort((a, b) => (field.key === 'overdueDays' ? a - b : b - a));
+              const atLimit =
+                field.maxItems !== undefined &&
+                selectedDays.length >= field.maxItems;
+              const groupLabel = dayGroupCaption(rule, field.key);
+              const labelId = `${rule.id}-${field.key}-label`;
+              const hintId = `${rule.id}-${field.key}-hint`;
+              return (
+                <div className="space-y-2" key={field.key}>
+                  <div id={labelId} className="text-sm">
+                    {groupLabel}
+                  </div>
+                  <ChipGroup<string>
+                    selectionMode="multiple"
+                    value={selectedDays.map(String)}
+                    onValueChange={(values) =>
+                      onChange({
+                        ...draft,
+                        [field.key]: values.map(Number).sort((a, b) => b - a),
+                      })
                     }
-                  />
-                }
-              >
-                {reminderDaysTrigger}
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="min-w-60">
-                {dayControls.map((field) => {
-                  const selectedDays = currentValue(field) as number[];
-                  const commonChoices =
-                    field.key === 'overdueDays'
-                      ? [1, 2, 3, 7, 14, 30]
-                      : [30, 14, 7, 3, 2, 1, 0];
-                  const choices = Array.from(
-                    new Set([...commonChoices, ...selectedDays])
-                  ).filter(
-                    (day) =>
-                      day >= (field.min ?? 0) && day <= (field.max ?? 365)
-                  );
-                  return (
-                    <DropdownMenuGroup key={field.key}>
-                      {dayControls.length > 1 ? (
-                        <DropdownMenuLabel>
-                          {timingGroupLabel(field.key)}
-                        </DropdownMenuLabel>
-                      ) : null}
-                      <div className="text-muted-foreground px-2 py-1 text-xs">
-                        Select one or more days
-                        {field.maxItems ? `, up to ${field.maxItems}.` : '.'}
-                      </div>
-                      {choices.map((day) => {
-                        const selected = selectedDays.includes(day);
-                        const atLimit =
-                          field.maxItems !== undefined &&
-                          selectedDays.length >= field.maxItems;
-                        return (
-                          <DropdownMenuCheckboxItem
-                            key={day}
-                            checked={selected}
-                            disabled={!selected && atLimit}
-                            closeOnClick={false}
-                            onCheckedChange={(checked) =>
-                              onChange({
-                                ...draft,
-                                [field.key]: (checked
-                                  ? [...selectedDays, day]
-                                  : selectedDays.filter(
-                                      (selectedDay) => selectedDay !== day
-                                    )
-                                ).sort((a, b) => b - a),
-                              })
-                            }
-                          >
-                            {timingChipLabel(field.key, day)}
-                          </DropdownMenuCheckboxItem>
-                        );
-                      })}
-                    </DropdownMenuGroup>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    aria-label={`${rule.title}: ${groupLabel.toLowerCase()}`}
+                    aria-describedby={
+                      [
+                        atLimit ? hintId : null,
+                        validationMessage ? validationId : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' ') || undefined
+                    }
+                  >
+                    {choices.map((day) => {
+                      const selected = selectedDays.includes(day);
+                      return (
+                        <Chip
+                          key={day}
+                          value={String(day)}
+                          disabled={disabled || (!selected && atLimit)}
+                        >
+                          {dayChipLabel(field.key, day)}
+                        </Chip>
+                      );
+                    })}
+                  </ChipGroup>
+                  {/* The limit only needs saying once it is reached; the
+                      disabled chips alone would read as broken. */}
+                  {atLimit ? (
+                    <div id={hintId} className="text-muted-foreground text-xs">
+                      Up to {field.maxItems} days. Remove one to pick another.
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })
           )}
           {validationMessage ? (
             <p
@@ -635,8 +688,10 @@ function RuleMessagePreview({
           </div>
         ) : null}
       </div>
-      <figcaption className="flex min-h-7 flex-wrap items-center justify-end gap-x-3 gap-y-1">
-        <span className="text-muted-foreground mr-auto text-xs">
+      {/* The link continues the caption's sentence instead of floating at
+          the bubble's far edge. */}
+      <figcaption className="flex min-h-7 flex-wrap items-center gap-x-1">
+        <span className="text-muted-foreground text-xs">
           <span>This is a sample message.</span>
           {hasUnsavedChanges ? (
             <>
@@ -715,50 +770,70 @@ function RuleDetail({
     'service_renewal',
     'joining_installments',
   ].includes(rule.id);
-  const showsLifecycleWindow = usesLifecycleWindow;
+  const sendingHoursLink = (
+    <Button variant="link" size="sm" onClick={onOpenSendingHours}>
+      Change sending hours
+    </Button>
+  );
+  // Each note is one line of fact the schedule itself cannot show: when in
+  // the day it goes out, and any caveat about the date it counts from.
+  const timingNotes = [
+    rule.schedule.anchorNote ? (
+      <div key="anchor">{rule.schedule.anchorNote}</div>
+    ) : null,
+    sendsAfterNine ? (
+      <div key="after-nine">Sends after {localTime(9)}, branch time.</div>
+    ) : null,
+    usesLifecycleWindow && lifecycleWindow ? (
+      <div key="window" className="flex flex-wrap items-center gap-x-1">
+        <span>
+          Sends during Sending hours, {localTime(lifecycleWindow.start)}–
+          {localTime(lifecycleWindow.end, '59')}.
+        </span>
+        {sendingHoursLink}
+      </div>
+    ) : null,
+    rule.id === 'attendance_streak' && lifecycleWindow ? (
+      <div key="arrival" className="flex flex-wrap items-center gap-x-1">
+        <span>
+          Without an assigned arrival, it sends at{' '}
+          {localTime(lifecycleWindow.end, '30')}.
+        </span>
+        {sendingHoursLink}
+      </div>
+    ) : null,
+    rule.id === 'joining_installments' ? (
+      <div key="installments" className="flex flex-wrap items-center gap-x-1">
+        <span>Installment dates are on each member’s Membership tab.</span>
+        {!hasUnsavedChanges ? (
+          <Button
+            nativeButton={false}
+            render={<Link href={branchHref('/members', browserBranchId())} />}
+            variant="link"
+            size="sm"
+          >
+            Find a member
+          </Button>
+        ) : null}
+      </div>
+    ) : null,
+  ].filter(Boolean);
   return (
     <div
       className="bg-card-2 mt-3 rounded-2xl px-4 pt-4 pb-1"
       data-testid={`rule-detail-${rule.id}`}
     >
       <section className="space-y-3" aria-labelledby={`rule-when-${rule.id}`}>
-        <div className="max-w-2xl space-y-1">
-          <h5 className={DETAIL_CAPTION} id={`rule-when-${rule.id}`}>
-            Timing
-          </h5>
-          {hasDayChoices ? null : (
-            <div className="text-sm leading-5 text-pretty">
-              {timingSummary(rule)}
-            </div>
-          )}
-          <div className="text-muted-foreground text-sm leading-5 text-pretty">
+        {/* The row's own subtitle already reads the schedule back, live, so
+            the tile opens straight onto what can be changed. */}
+        <h5 className={DETAIL_CAPTION} id={`rule-when-${rule.id}`}>
+          Timing
+        </h5>
+        {hasDayChoices ? null : (
+          <div className="text-muted-foreground max-w-2xl text-sm leading-5 text-pretty">
             {rule.schedule.explanation}
           </div>
-          {rule.schedule.anchorNote ? (
-            <div className="text-muted-foreground text-sm leading-5 text-pretty">
-              {rule.schedule.anchorNote}
-            </div>
-          ) : null}
-          {rule.id === 'joining_installments' ? (
-            <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
-              <span>
-                Open a member’s Membership tab to see their installment dates.
-              </span>
-              {!hasUnsavedChanges ? (
-                <Button
-                  nativeButton={false}
-                  render={
-                    <Link href={branchHref('/members', browserBranchId())} />
-                  }
-                  variant="link"
-                  size="sm"
-                >
-                  Find a member
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
+        )}
         <TimingControls
           rule={rule}
           draft={draft}
@@ -766,35 +841,9 @@ function RuleDetail({
           disabled={!canEdit || saving}
           blocker={canEdit ? null : EDIT_PERMISSION_BLOCKER}
         />
-        {sendsAfterNine ? (
-          <div className="text-muted-foreground max-w-2xl text-sm leading-5">
-            UsefulDesk can send this message after {localTime(9)} for this
-            branch.
-          </div>
-        ) : null}
-        {showsLifecycleWindow && lifecycleWindow ? (
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
-            <span>
-              Uses this branch’s Sending hours:{' '}
-              {localTime(lifecycleWindow.start)}–
-              {localTime(lifecycleWindow.end, '59')}.
-            </span>
-            <Button variant="link" size="sm" onClick={onOpenSendingHours}>
-              Change sending hours
-            </Button>
-          </div>
-        ) : null}
-        {rule.id === 'attendance_streak' && lifecycleWindow ? (
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-1 text-sm leading-5">
-            <span>
-              Sends after six missed days, then once more six days later if
-              still absent. Staff follow up after the second message. Sends one
-              hour after Assigned arrival, or at{' '}
-              {localTime(lifecycleWindow.end, '30')} without one.
-            </span>
-            <Button variant="link" size="sm" onClick={onOpenSendingHours}>
-              Change sending hours
-            </Button>
+        {timingNotes.length ? (
+          <div className="text-muted-foreground max-w-2xl space-y-1 text-sm leading-5 text-pretty">
+            {timingNotes}
           </div>
         ) : null}
         {sendingOptionsCollapsed ? (
@@ -841,7 +890,7 @@ function RuleDetail({
       </section>
       <Separator className="mt-4" />
       <section
-        className="space-y-5 py-4"
+        className="space-y-3 py-4"
         aria-labelledby={`rule-preview-${rule.id}`}
       >
         <h5 className={DETAIL_CAPTION} id={`rule-preview-${rule.id}`}>
@@ -920,6 +969,7 @@ function RuleDetail({
 
 function RuleRow({
   rule,
+  summary,
   canEdit,
   expanded,
   children,
@@ -928,6 +978,9 @@ function RuleRow({
   onSave,
 }: {
   rule: RuleRow;
+  /** The schedule in words, including unsaved day changes, so the row
+   *  reads back each chip as it is pressed. */
+  summary: string;
   canEdit: boolean;
   expanded: boolean;
   children: ReactNode;
@@ -952,11 +1005,12 @@ function RuleRow({
       setSaving(false);
     }
   };
-  const openLabel = configurationExpanded ? 'Hide settings' : 'Set up';
-  const setupLabel = `Set up ${rule.title} message`;
+  const openLabel = configurationExpanded ? 'Hide configuration' : 'Configure';
+  const setupStatus = ruleSetupStatus(rule);
+  const setupLabel = `${setupStatus?.action ?? 'Set up'}: ${rule.title}`;
   const setupButton = (
     <Button size="sm" variant="outline" aria-label={setupLabel}>
-      Set up message
+      {setupStatus?.action}
     </Button>
   );
   const setupAction = canEdit ? (
@@ -968,7 +1022,7 @@ function RuleRow({
         variant="outline"
         aria-label={setupLabel}
       >
-        Set up message
+        {setupStatus?.action}
       </Button>
     ) : (
       <Button
@@ -977,7 +1031,7 @@ function RuleRow({
         aria-label={setupLabel}
         onClick={() => onSetupTemplate(setupContractId)}
       >
-        Set up message
+        {setupStatus?.action}
       </Button>
     )
   ) : (
@@ -996,21 +1050,11 @@ function RuleRow({
           <h4 className="font-medium" id={`rule-title-${rule.id}`}>
             {rule.title}
           </h4>
-          {!configurationExpanded ? (
-            <p className="text-muted-foreground text-sm text-pretty">
-              {timingSummary(rule)}
-            </p>
-          ) : null}
+          <p className="text-muted-foreground text-sm text-pretty">{summary}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {needsSetup ? (
-            <span className="text-muted-foreground text-sm">
-              {rule.readiness.code === 'whatsapp_not_connected'
-                ? 'WhatsApp not connected'
-                : canToggle
-                  ? 'Needs setup'
-                  : 'Message needs approval'}
-            </span>
+          {setupStatus ? (
+            <Badge variant={setupStatus.variant}>{setupStatus.label}</Badge>
           ) : null}
           {!canToggle ? (
             <span className="text-muted-foreground text-sm">
@@ -1383,6 +1427,16 @@ export function RenewalRemindersSettings({
           </AlertDescription>
         </Alert>
       ) : null}
+      {rules.some((rule) => !rule.readiness.ready) ? (
+        <AutomatedMessageSetup
+          rules={rules}
+          canEdit={canEditSettings}
+          blocker={EDIT_PERMISSION_BLOCKER}
+          connectHref={branchHref('/settings?tab=whatsapp', browserBranchId())}
+          accountId={accountId}
+          onChanged={() => setReloadNonce((value) => value + 1)}
+        />
+      ) : null}
       {invoiceCollection && lifecycleWindow ? (
         <LifecycleSendingHoursSettings
           ref={sendingHoursRef}
@@ -1418,6 +1472,13 @@ export function RenewalRemindersSettings({
                 <RuleRow
                   key={rule.id}
                   rule={rule}
+                  summary={timingSummary({
+                    ...rule,
+                    settings: {
+                      ...rule.settings,
+                      ...drafts[`${draftScope}:${rule.id}`],
+                    },
+                  })}
                   canEdit={canEditSettings}
                   expanded={selected?.id === rule.id}
                   onOpen={() => {

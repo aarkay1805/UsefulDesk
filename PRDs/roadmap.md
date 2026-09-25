@@ -1,5 +1,17 @@
 # Roadmap
 
+## Built in code — Automated messages setup guidance (2026-09-25)
+
+Settings → Automated messages leads with a three-step **Get ready to send**
+guide and a one-click **Send N messages for review** while any message is
+unapproved. Rows name their exact WhatsApp state (Not sent for review, In
+WhatsApp review, Rejected by WhatsApp, …) with a matching action, and reminder
+days are visible Chips. The open configuration tile was distilled on
+2026-09-26: the row subtitle reads back unsaved schedule changes, so the tile
+holds only controls, one-line notes, and the preview. Deferred: turning a rule on automatically once
+WhatsApp approves it (needs an opt-in intent flag and worker/webhook support).
+Application rollout is pending.
+
 ## Built in code — More audible Inbox chime (2026-09-25)
 
 Incoming messages use a full, system-style two-strike bell with layered

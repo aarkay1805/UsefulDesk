@@ -27,6 +27,30 @@ import {
 // states with `?activity=empty|error|loading` and `?readiness=error|loading`.
 // Never reachable in production.
 
+// A spread of approval states so every row status renders: not sent, in
+// review, rejected, and ready. `?readiness=all-ready` hides the setup guide.
+function fixtureReadiness(
+  index: number,
+  templateContractId: ReminderRuleResponse['templateContracts'][number]
+): ReminderRuleResponse['readiness'] {
+  if (
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('readiness') === 'all-ready'
+  )
+    return { ready: true, code: 'ready' };
+  const code = (
+    ['ready', 'missing', 'ready', 'pending', 'ready', 'rejected'] as const
+  )[index % 6];
+  return code === 'ready'
+    ? { ready: true, code }
+    : {
+        ready: false,
+        code,
+        message: 'Create and approve the exact template before it can send.',
+        templateContractId,
+      };
+}
+
 const RULES: ReminderRuleResponse[] = REMINDER_RULES.map((rule, index) => ({
   ...rule,
   settings: {
@@ -35,15 +59,7 @@ const RULES: ReminderRuleResponse[] = REMINDER_RULES.map((rule, index) => ({
     // One rule sends late only on its own day, to show the zero wording.
     ...(rule.id === 'membership_post_expiry' ? { catchUpDays: 0 } : {}),
   },
-  readiness:
-    index % 4 === 1
-      ? {
-          ready: false,
-          code: 'template_missing',
-          message: 'Create and approve the exact template before it can send.',
-          templateContractId: rule.templateContracts[0],
-        }
-      : { ready: true, code: 'ready' },
+  readiness: fixtureReadiness(index, rule.templateContracts[0]),
 }));
 
 const DIAGNOSTICS = [
@@ -258,6 +274,8 @@ const ACTIVITY: AutomatedMessageActivityRow[] = [
 
 const PAGE_SIZE = 10;
 
+let justSubmitted = false;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -340,6 +358,43 @@ if (typeof window !== 'undefined') {
       return init?.method === 'PATCH'
         ? saveResponse(init)
         : json({ whatsappConnected: true, rules: RULES });
+    }
+    // Sending for review moves not-sent and rejected messages into review;
+    // checking status approves everything in review.
+    if (url.pathname === '/api/whatsapp/templates/submit-required') {
+      justSubmitted = true;
+      let submitted = 0;
+      RULES.forEach((rule, index) => {
+        if (
+          ['missing', 'not_approved', 'rejected'].includes(rule.readiness.code)
+        ) {
+          submitted += 1;
+          RULES[index] = {
+            ...rule,
+            readiness: { ...rule.readiness, code: 'pending' },
+          };
+        }
+      });
+      return json({
+        success: true,
+        total: RULES.length,
+        submitted,
+        already_ready_or_pending: RULES.length - submitted,
+        failed: 0,
+        results: [],
+      });
+    }
+    if (url.pathname === '/api/whatsapp/templates/sync') {
+      // The sync that follows a submission finds them still in review.
+      if (justSubmitted) {
+        justSubmitted = false;
+        return json({ total: RULES.length, inserted: 0, updated: 0 });
+      }
+      RULES.forEach((rule, index) => {
+        if (rule.readiness.code === 'pending')
+          RULES[index] = { ...rule, readiness: { ready: true, code: 'ready' } };
+      });
+      return json({ total: RULES.length, inserted: 0, updated: 0 });
     }
     if (url.pathname === '/api/reminders/activity')
       return activityResponse(url);
