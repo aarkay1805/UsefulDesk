@@ -68,6 +68,7 @@ import {
   getTemplateContractById,
   type TemplateContractId,
 } from '@/lib/whatsapp/template-contracts';
+import { renderTemplateBody } from '@/lib/whatsapp/template-render';
 import { TemplateManager } from './template-manager';
 import { useLocale } from '@/hooks/use-locale';
 import { SettingsPanelHead, SettingsSectionHead } from './settings-panel-head';
@@ -185,15 +186,36 @@ function setupHref(rule: RuleRow) {
   return ruleHref(rule);
 }
 
-function previewValue(label: string, fmt: ReturnType<typeof useLocale>['fmt']) {
-  const value = label.toLowerCase();
-  if (value.includes('date')) return fmt.date('2026-09-20');
-  if (value.includes('price') || value.includes('amount'))
-    return fmt.money(3999);
-  if (value.includes('session')) return '2';
-  if (value.includes('service')) return 'Personal Training';
-  if (value.includes('plan')) return 'Quarterly';
-  return 'Rahul';
+function previewValue(
+  sampleValue: string,
+  fmt: ReturnType<typeof useLocale>['fmt']
+) {
+  const money = /^₹([\d,]+(?:\.\d{1,2})?)$/.exec(sampleValue);
+  if (money) return fmt.money(Number(money[1].replaceAll(',', '')));
+
+  const date = /^(\d{1,2}) ([A-Z][a-z]{2}) (\d{4})$/.exec(sampleValue);
+  if (date) {
+    const month =
+      [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ].indexOf(date[2]) + 1;
+    if (month > 0)
+      return fmt.date(
+        `${date[3]}-${String(month).padStart(2, '0')}-${date[1].padStart(2, '0')}`
+      );
+  }
+  return sampleValue;
 }
 
 function timingFields(rule: RuleRow) {
@@ -578,14 +600,14 @@ function RuleMessagePreview({
   hasUnsavedChanges: boolean;
 }) {
   const contract = getTemplateContractById(contractId);
-  const message = contract?.payload.body_text.replace(
-    /\{\{(\d+)\}\}/g,
-    (_match, index) =>
-      previewValue(
-        contract?.parameterLabels[Number(index) - 1] ?? 'Member',
-        fmt
+  const message = contract
+    ? renderTemplateBody(
+        contract.payload.body_text,
+        (contract.payload.sample_values?.body ?? []).map((sampleValue) =>
+          previewValue(sampleValue, fmt)
+        )
       )
-  );
+    : null;
   return (
     <figure className="max-w-[30.5rem] space-y-2">
       {/* The bubble sits straight on the detail tile. ml-2 keeps its 8px tail

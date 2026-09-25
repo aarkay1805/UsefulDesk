@@ -6,6 +6,14 @@
 
 ---
 
+## 2026-09-25 — Automated message sample values corrected (built in code)
+
+`src/components/settings/renewal-reminders-settings.tsx` renders each template's
+own review samples, formatting sample money and dates through the account
+locale. The former label fallback repeated “Rahul” for invoice references and
+legal business names. Both payment confirmation previews are covered; actual
+send parameters are unchanged. Application rollout is pending.
+
 ## 2026-09-25 — Automated message activation readiness repaired (database live)
 
 `20260925142732_repair_automated_message_readiness.sql` restores the current

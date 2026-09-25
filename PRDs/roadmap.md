@@ -1,5 +1,15 @@
 # Roadmap
 
+## Built in code — Accurate automated message samples (2026-09-25)
+
+Settings → Automated messages now fills previews from each template contract's
+own review samples, while account formatters display sample money and dates.
+Payment confirmation examples show an invoice reference and legal business
+name instead of repeating the customer's name. Both payment variants are
+covered by the component test. This changes previews only; runtime payment
+parameters and approved Meta templates are unchanged. Application rollout is
+pending.
+
 ## Shipped — Automated message activation readiness repair (2026-09-25)
 
 The connected UsefulDesk database now uses the same exact approved-template

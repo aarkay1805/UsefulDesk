@@ -299,6 +299,47 @@ describe('Automated messages catalogue', () => {
     ).toBe(false);
   });
 
+  it('uses invoice and business samples in both payment confirmation previews', async () => {
+    mockFetch();
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          rules: [
+            {
+              ...getReminderRule('payment_confirmation')!,
+              settings: { enabled: true },
+              readiness: { ready: true, code: 'ready' },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+    render(<RenewalRemindersSettings />);
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Set up Payment confirmation',
+      })
+    );
+    expect(
+      screen.getByText(
+        'Hi Rahul, we received ₹2700 for invoice INV-1024. Reply to FitZone Wellness Private Limited if anything looks incorrect. Thank you.'
+      )
+    ).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole('tab', {
+        name: 'Payment and membership renewal confirmation',
+      })
+    );
+    expect(
+      screen.getByText(
+        'Hi Rahul, we received ₹2700 for invoice INV-1024 and renewed your membership until 2026-12-20. Reply to FitZone Wellness Private Limited if anything looks incorrect. Thank you.'
+      )
+    ).toBeTruthy();
+  });
+
   it('explains multi-select limits and validates that at least one day remains', async () => {
     mockFetch();
     render(<RenewalRemindersSettings />);
