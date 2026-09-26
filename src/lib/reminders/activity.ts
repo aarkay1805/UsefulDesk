@@ -137,6 +137,10 @@ const reasonLabels: Record<string, string> = {
   invoice_commitment_or_hold_open:
     'Paused while a payment promise or invoice hold is active.',
   provider_request_failed: BEFORE_WHATSAPP_RETRY_REASON,
+  local_message_persistence_failed:
+    'WhatsApp accepted this message, but UsefulDesk couldn’t save a copy in the chat, so delivery can’t be tracked here.',
+  retries_exhausted:
+    'This message did not reach WhatsApp after several tries, so UsefulDesk stopped. Check the member’s phone number and this message’s setup.',
   customer_replied: 'Stopped because the member replied.',
   daily_contact_budget:
     'Waiting because another automated message is already scheduled or sent to this member today.',

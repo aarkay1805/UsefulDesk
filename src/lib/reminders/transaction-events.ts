@@ -1,10 +1,10 @@
-import { engineSendTemplate } from '@/lib/automations/meta-send';
 import { resolveAccountLocale } from '@/lib/locale/config';
 import { buildFormatters, todayInTz } from '@/lib/locale/format';
 import { isCollectibleInvoice } from './policy';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
+import { sendReminderTemplate } from './send';
 import type { LifecycleReminderJob } from './types';
 
 type Admin = ReturnType<
@@ -408,7 +408,7 @@ export async function processTransactionEventJob(input: {
       account.owner_user_id,
       job.contact_id
     );
-    const result = await engineSendTemplate({
+    const result = await sendReminderTemplate({
       beforeSend: async () => {
         // State is read again at the provider boundary. If a success/refund/
         // hold appears while the job is leased, the old fact cannot send.
@@ -576,7 +576,10 @@ export async function processTransactionEventJob(input: {
       language: readiness.language,
       params,
     });
-    await finish('accepted', { providerMessageId: result.whatsapp_message_id });
+    await finish('accepted', {
+      providerMessageId: result.whatsapp_message_id,
+      reason: result.reason,
+    });
     return 'accepted';
   } catch (error) {
     const code =

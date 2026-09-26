@@ -6,6 +6,53 @@
 
 ---
 
+## 2026-09-26 — Lifecycle reminder delivery evidence repaired (shipped)
+
+- **Delivery reconciliation** is one RPC,
+  `reconcile_lifecycle_reminder_deliveries()` (migration
+  `20260926100000_reconcile_lifecycle_reminder_deliveries.sql`, Supabase
+  `20260926034215`). It replaces a worker loop that loaded every accepted job,
+  put all their wamids in one PostgREST `in` URL (breaks past a few hundred),
+  and updated jobs one by one. The join matches the message's conversation to
+  the job's account **and contact**, like `automated_message_activity`, and
+  only moves rows still `accepted`. A partial index covers accepted jobs.
+- **Accepted-but-unsaved sends** keep their evidence. Every lifecycle worker
+  now sends through `sendReminderTemplate` (`src/lib/reminders/send.ts`), which
+  turns `MetaAcceptedPersistenceError` into an accepted result with Meta's id
+  and reason `local_message_persistence_failed` (now labelled in History).
+  Before, all but the attendance worker recorded `ambiguous` and dropped the id.
+  Tests that mock `@/lib/automations/meta-send` must spread `importOriginal` so
+  the error class stays real.
+
+## 2026-09-26 — Lifecycle reminder queue send contract repaired (shipped)
+
+Migration `20260926090000_repair_lifecycle_reminder_send_contract.sql`
+(Supabase version `20260926033451`) fixes three queue RPCs:
+
+- `mark_lifecycle_reminder_provider_attempt` demanded a reserved daily claim
+  from every job, but payment confirmations and AutoPay `retry_pending` notices
+  are budget-exempt and never reserve one — they could never reach Meta.
+  `lifecycle_reminder_uses_daily_budget(kind, milestone_key)` now defines the
+  exemption (an AutoPay job's `milestone_key` is its event kind).
+- The attendance migrations rebuilt `reserve_lifecycle_reminder_daily_claim`
+  from an older copy with `ELSE 6`, ranking retention, promises, and payment
+  links above debt. Priority now lives only in
+  `lifecycle_reminder_priority(kind, milestone_key)`: broken promise 8 >
+  promise/installment 7 > overdue/AutoPay terminal 6 > due/payment link 5 >
+  all retention 3 > streak 2 > absence 1 > unknown 0. Budget-exempt jobs never
+  defer anyone. **Never inline a priority CASE again**; add new kinds to the
+  helper (`lifecycle-rpc-contract.test.ts` checks the tiers).
+- `attempt_count` had not been incremented since the `20260911001000` claim
+  repair, so pre-provider failures retried forever. `finish_…('queued')` now
+  counts each re-queue; the fifth becomes `failed` with
+  `{code: 'retries_exhausted', last_code}` (constraint widened to 0–5).
+
+`runLifecycleReminderWorker` (`worker.ts`) no longer re-blocks jobs hourly
+forever: all rules off or confirmed product-access denial → `skipped`; a failed
+account/access/legal-name lookup → capped `queued` retry; a missing legal name
+blocks for at most 48 hours from `created_at`, then skips. No job existed in
+production when applied; no rule, template, or message changed.
+
 ## 2026-09-26 — Automated messages setup strips compacted (built in code)
 
 **Get ready to send** and **Sending hours** were taking the first fold, so the

@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 const h = vi.hoisted(() => ({ send: vi.fn(), rpc: vi.fn() }));
-vi.mock('@/lib/automations/meta-send', () => ({ engineSendTemplate: h.send }));
+vi.mock('@/lib/automations/meta-send', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/automations/meta-send')>()),
+  engineSendTemplate: h.send,
+}));
 vi.mock('@/lib/locale/config', () => ({
   resolveAccountLocale: () => ({
     timeZone: 'UTC',

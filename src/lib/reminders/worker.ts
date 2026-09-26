@@ -1,6 +1,8 @@
-import { engineSendTemplate } from '@/lib/automations/meta-send';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
-import { requireProductAccess } from '@/lib/platform-access/server';
+import {
+  ProductAccessError,
+  requireProductAccess,
+} from '@/lib/platform-access/server';
 import { resolveAccountLocale } from '@/lib/locale/config';
 import {
   buildFormatters,
@@ -31,6 +33,7 @@ import {
   queueRetentionCandidates,
 } from './retention-worker';
 import { processAttendanceAbsenceJob } from './attendance-absence';
+import { sendReminderTemplate } from './send';
 import { processTransactionEventJob } from './transaction-events';
 import { isRenewalChaseable } from '@/lib/memberships/pricing';
 import type {
@@ -82,6 +85,8 @@ export function retryAt(attemptCount: number, now = new Date()): string {
 }
 
 const MAX_JOBS_PER_RUN = 200;
+/** Longest a job waits for a missing legal business name before it is dropped. */
+const LEGAL_IDENTITY_BLOCK_EXPIRY_MS = 48 * 60 * 60_000;
 
 type AccountRow = {
   id: string;
@@ -755,7 +760,7 @@ async function processPostExpiryJob({
       account.owner_user_id,
       job.contact_id
     );
-    const { whatsapp_message_id } = await engineSendTemplate({
+    const sent = await sendReminderTemplate({
       beforeSend: async () => {
         const { data: finalSetting, error: finalSettingError } = await admin
           .from('renewal_reminder_settings')
@@ -858,7 +863,8 @@ async function processPostExpiryJob({
       params,
     });
     await finishJob(admin, job, 'accepted', {
-      providerMessageId: whatsapp_message_id,
+      providerMessageId: sent.whatsapp_message_id,
+      reason: sent.reason,
     });
     summary.accepted++;
     if (
@@ -1745,7 +1751,7 @@ async function processCommitmentOrLinkJob({
       account.owner_user_id,
       current.contact_id
     );
-    const result = await engineSendTemplate({
+    const result = await sendReminderTemplate({
       beforeSend: async () => {
         // The queue has a durable reservation, but this is the actual Meta boundary:
         // re-read invoice truth and mark the non-retryable provider attempt.
@@ -1982,6 +1988,7 @@ async function processCommitmentOrLinkJob({
     });
     await finishJob(admin, job, 'accepted', {
       providerMessageId: result.whatsapp_message_id,
+      reason: result.reason,
     });
     summary.accepted++;
   } catch (error) {
@@ -2028,73 +2035,16 @@ export async function runLifecycleReminderWorker(
     .select(SETTINGS_SELECT);
   if (settingsError) throw settingsError;
 
-  // Provider acceptance is not delivery. Reconcile only from the existing
-  // durable inbox message record keyed by Meta's provider message id.
-  const { data: acceptedJobs, error: acceptedJobsError } = await admin
-    .from('lifecycle_reminder_jobs')
-    .select('id, provider_message_id')
-    .eq('state', 'accepted')
-    .not('provider_message_id', 'is', null);
-  if (acceptedJobsError) {
+  // Provider acceptance is not delivery. Reconcile only from the durable inbox
+  // message keyed by Meta's provider message id, in one set-based statement.
+  const { error: deliveryError } = await admin.rpc(
+    'reconcile_lifecycle_reminder_deliveries'
+  );
+  if (deliveryError) {
     summary.infrastructureFailures++;
     summary.notes.push(
-      `delivery reconciliation unavailable: ${acceptedJobsError.message}`
+      `delivery reconciliation unavailable: ${deliveryError.message}`
     );
-  } else if ((acceptedJobs ?? []).length > 0) {
-    const messageIds = acceptedJobs!.map(
-      (job) => job.provider_message_id as string
-    );
-    const { data: messages, error: messagesError } = await admin
-      .from('messages')
-      .select('message_id, status')
-      .in('message_id', messageIds)
-      .in('status', ['delivered', 'read', 'failed']);
-    if (messagesError) {
-      summary.infrastructureFailures++;
-      summary.notes.push(
-        `delivery status lookup unavailable: ${messagesError.message}`
-      );
-    } else {
-      const statusByMessageId = new Map(
-        (messages ?? []).map((message) => [
-          message.message_id as string,
-          message.status as string,
-        ])
-      );
-      const deliveryUpdates = await Promise.all(
-        acceptedJobs!
-          .filter((job) =>
-            statusByMessageId.has(job.provider_message_id as string)
-          )
-          .map((job) =>
-            admin
-              .from('lifecycle_reminder_jobs')
-              .update(
-                statusByMessageId.get(job.provider_message_id as string) ===
-                  'failed'
-                  ? {
-                      state: 'failed',
-                      reason: { code: 'provider_delivery_failed' },
-                    }
-                  : {
-                      state: 'delivered',
-                      delivered_at: new Date().toISOString(),
-                    }
-              )
-              .eq('id', job.id)
-              .eq('state', 'accepted')
-          )
-      );
-      const deliveryUpdateError = deliveryUpdates.find(
-        (result) => result.error
-      )?.error;
-      if (deliveryUpdateError) {
-        summary.infrastructureFailures++;
-        summary.notes.push(
-          `delivery reconciliation write unavailable: ${deliveryUpdateError.message}`
-        );
-      }
-    }
   }
   await reconcilePostExpiryEscalations(admin, summary);
 
@@ -2106,6 +2056,12 @@ export async function runLifecycleReminderWorker(
         | 'legal_business_identity_missing'
         | 'legal_business_identity_lookup_unavailable';
     }
+  >();
+  // Accounts whose jobs can never run this pass. A confirmed denial ends the
+  // job; a failed lookup re-queues it under the capped retry count.
+  const accountStops = new Map<
+    string,
+    'product_access_required' | 'account_unavailable'
   >();
   for (const rawSetting of (rawSettings ?? []) as Record<string, unknown>[]) {
     const settings = asSettings(rawSetting);
@@ -2159,6 +2115,7 @@ export async function runLifecycleReminderWorker(
       .eq('id', settings.accountId)
       .maybeSingle();
     if (accountError || !account) {
+      accountStops.set(settings.accountId, 'account_unavailable');
       summary.notes.push(
         `account ${settings.accountId}: account locale unavailable`
       );
@@ -2166,7 +2123,13 @@ export async function runLifecycleReminderWorker(
     }
     try {
       await requireProductAccess(admin, settings.accountId);
-    } catch {
+    } catch (error) {
+      accountStops.set(
+        settings.accountId,
+        error instanceof ProductAccessError && error.snapshot
+          ? 'product_access_required'
+          : 'account_unavailable'
+      );
       summary.notes.push(
         `account ${settings.accountId}: product_access_required`
       );
@@ -2442,18 +2405,47 @@ export async function runLifecycleReminderWorker(
     try {
       const context = accountContexts.get(job.account_id);
       if (!context) {
-        await finishJob(admin, job, 'blocked', {
-          reason: { code: 'account_not_enabled' },
-        });
-        summary.blocked++;
+        const stop = accountStops.get(job.account_id);
+        if (stop === 'account_unavailable') {
+          await finishJob(admin, job, 'queued', {
+            reason: { code: stop },
+            nextAttemptAt: retryAt(job.attempt_count, now),
+          });
+          summary.failed++;
+        } else {
+          // Every rule is off, or product access was confirmed revoked.
+          // Blocking would re-claim the job hourly forever.
+          await finishJob(admin, job, 'skipped', {
+            reason: { code: stop ?? 'account_not_enabled' },
+          });
+          summary.skipped++;
+        }
         continue;
       }
       const { account } = context;
+      if (
+        context.legalIdentityError ===
+        'legal_business_identity_lookup_unavailable'
+      ) {
+        await finishJob(admin, job, 'queued', {
+          reason: { code: context.legalIdentityError },
+          nextAttemptAt: retryAt(job.attempt_count, now),
+        });
+        summary.failed++;
+        continue;
+      }
       if (context.legalIdentityError) {
-        await finishJob(admin, job, 'blocked', {
+        // Wait for the owner to add the legal name, but never send a message
+        // that was queued days earlier (confirmations have no staleness check).
+        const expired =
+          !job.created_at ||
+          now.getTime() - new Date(job.created_at).getTime() >
+            LEGAL_IDENTITY_BLOCK_EXPIRY_MS;
+        await finishJob(admin, job, expired ? 'skipped' : 'blocked', {
           reason: { code: context.legalIdentityError },
         });
-        summary.blocked++;
+        if (expired) summary.skipped++;
+        else summary.blocked++;
         continue;
       }
       if (
@@ -2861,7 +2853,7 @@ export async function runLifecycleReminderWorker(
           fmt.date(job.effective_due_on),
           account.legalBusinessName!,
         ];
-        const { whatsapp_message_id } = await engineSendTemplate({
+        const sent = await sendReminderTemplate({
           beforeSend: async () => {
             // This is the actual provider boundary. Re-read mutable financial
             // truth and the fixed installment promise before Meta can receive a
@@ -3040,7 +3032,8 @@ export async function runLifecycleReminderWorker(
         });
         try {
           await finishJob(admin, job, 'accepted', {
-            providerMessageId: whatsapp_message_id,
+            providerMessageId: sent.whatsapp_message_id,
+            reason: sent.reason,
           });
           summary.accepted++;
         } catch (error) {

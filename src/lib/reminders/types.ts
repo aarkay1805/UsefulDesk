@@ -82,6 +82,7 @@ export interface LifecycleReminderJob {
   lease_owner: string | null;
   lease_generation: number;
   provider_message_id: string | null;
+  created_at?: string;
   reason?: {
     renewed?: boolean;
     period_end?: string | null;

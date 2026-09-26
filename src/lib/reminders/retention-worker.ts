@@ -1,4 +1,3 @@
-import { engineSendTemplate } from '@/lib/automations/meta-send';
 import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
   dayStartInTz,
@@ -23,6 +22,7 @@ import {
   sessionPackMilestone,
   shouldStopWinBack,
 } from './retention';
+import { sendReminderTemplate } from './send';
 import type { LifecycleReminderJob, ReminderRunSummary } from './types';
 
 type Admin = ReturnType<typeof supabaseAdmin>;
@@ -1108,7 +1108,7 @@ export async function processRetentionJob(input: {
       account.owner_user_id,
       job.contact_id
     );
-    const result = await engineSendTemplate({
+    const result = await sendReminderTemplate({
       beforeSend: async () => {
         const currentParams = await ensureRetentionBeforeSend(
           admin,
@@ -1128,7 +1128,10 @@ export async function processRetentionJob(input: {
       language: readiness.row.language ?? 'en_US',
       params,
     });
-    await finish('accepted', { providerMessageId: result.whatsapp_message_id });
+    await finish('accepted', {
+      providerMessageId: result.whatsapp_message_id,
+      reason: result.reason,
+    });
     summary.accepted++;
   } catch (error) {
     const code =

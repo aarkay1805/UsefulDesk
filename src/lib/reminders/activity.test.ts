@@ -208,6 +208,14 @@ describe('automated message activity semantics', () => {
       'provider_request_failed',
       'This message did not reach WhatsApp. UsefulDesk will check again automatically if it is still due.',
     ],
+    [
+      'local_message_persistence_failed',
+      'WhatsApp accepted this message, but UsefulDesk couldn’t save a copy in the chat, so delivery can’t be tracked here.',
+    ],
+    [
+      'retries_exhausted',
+      'This message did not reach WhatsApp after several tries, so UsefulDesk stopped. Check the member’s phone number and this message’s setup.',
+    ],
     ['customer_replied', 'Stopped because the member replied.'],
     [
       'daily_contact_budget',

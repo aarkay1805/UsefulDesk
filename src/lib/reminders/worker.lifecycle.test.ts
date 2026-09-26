@@ -11,17 +11,21 @@ const h = vi.hoisted(() => ({
   partialAtBoundary: false,
   paymentLinkKind: false,
   legalIdentityMissing: false,
+  allRulesOff: false,
+  requireProductAccess: vi.fn(),
   filters: [] as Array<[string, string, unknown]>,
 }));
 
-vi.mock('@/lib/automations/meta-send', () => ({
+vi.mock('@/lib/automations/meta-send', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/automations/meta-send')>()),
   engineSendTemplate: h.engineSend,
 }));
 vi.mock('@/lib/automations/admin-client', () => ({
   supabaseAdmin: () => ({ from, rpc: h.rpc }),
 }));
-vi.mock('@/lib/platform-access/server', () => ({
-  requireProductAccess: vi.fn(),
+vi.mock('@/lib/platform-access/server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: h.requireProductAccess,
 }));
 vi.mock('@/lib/locale/config', () => ({
   resolveAccountLocale: () => ({ timeZone: 'UTC' }),
@@ -127,7 +131,10 @@ class Query {
               {
                 account_id: 'account-1',
                 invoice_collection_enabled:
-                  !h.postExpiryKind && !h.commitmentKind && !h.paymentLinkKind,
+                  !h.allRulesOff &&
+                  !h.postExpiryKind &&
+                  !h.commitmentKind &&
+                  !h.paymentLinkKind,
                 invoice_collection_activated_on: '2026-09-11',
                 invoice_collection_activated_at: '2026-09-11T08:00:00.000Z',
                 invoice_collection_generation: 'generation-1',
@@ -305,6 +312,7 @@ describe('runLifecycleReminderWorker', () => {
           data: [
             {
               id: 'job-identity',
+              created_at: '2026-09-11T08:00:00.000Z',
               account_id: 'account-1',
               contact_id: 'contact-1',
               invoice_id: 'invoice-1',
@@ -341,6 +349,103 @@ describe('runLifecycleReminderWorker', () => {
       })
     );
     h.legalIdentityMissing = false;
+  });
+
+  describe('jobs whose account can no longer run them', () => {
+    const claimedJob = (overrides: Record<string, unknown> = {}) => ({
+      id: 'job-stale',
+      created_at: '2026-09-11T08:00:00.000Z',
+      account_id: 'account-1',
+      contact_id: 'contact-1',
+      invoice_id: 'invoice-1',
+      kind: 'invoice_due',
+      business_key: 'key',
+      subject_cycle_id: 'cycle',
+      milestone_key: 'due',
+      effective_due_on: '2026-09-11',
+      activation_generation: 'generation-1',
+      state: 'leased',
+      attempt_count: 1,
+      lease_owner: 'worker-1',
+      lease_generation: 1,
+      ...overrides,
+    });
+    const run = async (job = claimedJob()) => {
+      h.rpc.mockReset();
+      h.engineSend.mockReset();
+      h.rpc.mockImplementation((name: string) =>
+        Promise.resolve(
+          name === 'claim_lifecycle_reminder_jobs'
+            ? { data: [job], error: null }
+            : { data: true, error: null }
+        )
+      );
+      const { runLifecycleReminderWorker } = await import('./worker');
+      const summary = await runLifecycleReminderWorker(
+        new Date('2026-09-11T10:00:00.000Z')
+      );
+      const finish = h.rpc.mock.calls.find(
+        ([name]) => name === 'finish_lifecycle_reminder_job'
+      )?.[1];
+      return { summary, finish };
+    };
+
+    it('ends the job when every rule is off instead of re-blocking it hourly', async () => {
+      h.allRulesOff = true;
+      try {
+        const { summary, finish } = await run();
+        expect(finish).toMatchObject({
+          p_state: 'skipped',
+          p_reason: { code: 'account_not_enabled' },
+        });
+        expect(summary.skipped).toBe(1);
+        expect(h.engineSend).not.toHaveBeenCalled();
+      } finally {
+        h.allRulesOff = false;
+      }
+    });
+
+    it('ends the job when product access is confirmed revoked', async () => {
+      const { ProductAccessError } =
+        await import('@/lib/platform-access/server');
+      h.requireProductAccess.mockRejectedValueOnce(
+        new ProductAccessError({ allowed: false, status: 'suspended' } as never)
+      );
+      const { finish } = await run();
+      expect(finish).toMatchObject({
+        p_state: 'skipped',
+        p_reason: { code: 'product_access_required' },
+      });
+    });
+
+    it('retries under the capped count when the access lookup itself fails', async () => {
+      const { ProductAccessError } =
+        await import('@/lib/platform-access/server');
+      h.requireProductAccess.mockRejectedValueOnce(new ProductAccessError());
+      const { summary, finish } = await run();
+      expect(finish).toMatchObject({
+        p_state: 'queued',
+        p_reason: { code: 'account_unavailable' },
+      });
+      expect(finish.p_next_attempt_at).toEqual(expect.any(String));
+      expect(summary.failed).toBe(1);
+    });
+
+    it('stops waiting for a legal business name after 48 hours', async () => {
+      h.legalIdentityMissing = true;
+      try {
+        const { summary, finish } = await run(
+          claimedJob({ created_at: '2026-09-09T09:59:00.000Z' })
+        );
+        expect(finish).toMatchObject({
+          p_state: 'skipped',
+          p_reason: { code: 'legal_business_identity_missing' },
+        });
+        expect(summary.skipped).toBe(1);
+      } finally {
+        h.legalIdentityMissing = false;
+      }
+    });
   });
 
   it('queues, claims, reserves, revalidates, and records an accepted mocked provider send', async () => {
@@ -828,5 +933,92 @@ describe('runLifecycleReminderWorker', () => {
       'mark_lifecycle_reminder_provider_attempt'
     );
     h.paymentLinkKind = false;
+  });
+});
+
+describe('runLifecycleReminderWorker provider evidence', () => {
+  const invoiceJob = {
+    id: 'job-evidence',
+    created_at: '2026-09-11T08:00:00.000Z',
+    account_id: 'account-1',
+    contact_id: 'contact-1',
+    invoice_id: 'invoice-1',
+    installment_plan_id: null,
+    kind: 'invoice_due',
+    business_key: 'key',
+    subject_cycle_id: 'cycle',
+    milestone_key: 'due',
+    effective_due_on: '2026-09-11',
+    activation_generation: 'generation-1',
+    state: 'leased',
+    attempt_count: 0,
+    lease_owner: 'worker-1',
+    lease_generation: 1,
+    provider_message_id: null,
+  };
+  const rpcWith = (deliveryError: { message: string } | null) =>
+    h.rpc.mockImplementation((name: string) => {
+      if (name === 'claim_lifecycle_reminder_jobs')
+        return Promise.resolve({ data: [invoiceJob], error: null });
+      if (name === 'reserve_lifecycle_reminder_daily_claim')
+        return Promise.resolve({ data: 'reserved', error: null });
+      if (name === 'reconcile_lifecycle_reminder_deliveries')
+        return Promise.resolve({
+          data: deliveryError
+            ? null
+            : [{ delivered_count: 0, failed_count: 0 }],
+          error: deliveryError,
+        });
+      return Promise.resolve({ data: true, error: null });
+    });
+
+  it('records Meta’s id as accepted when only the inbox copy failed to save', async () => {
+    const { MetaAcceptedPersistenceError } =
+      await import('@/lib/automations/meta-send');
+    h.rpc.mockReset();
+    h.engineSend.mockReset();
+    rpcWith(null);
+    h.engineSend.mockImplementation(
+      async (args: { beforeSend: () => Promise<void> }) => {
+        await args.beforeSend();
+        throw new MetaAcceptedPersistenceError('wamid-kept', 'insert failed');
+      }
+    );
+    const { runLifecycleReminderWorker } = await import('./worker');
+    const summary = await runLifecycleReminderWorker(
+      new Date('2026-09-11T10:00:00.000Z')
+    );
+
+    expect(summary.accepted).toBe(1);
+    expect(summary.ambiguous).toBe(0);
+    expect(h.rpc).toHaveBeenCalledWith(
+      'finish_lifecycle_reminder_job',
+      expect.objectContaining({
+        p_state: 'accepted',
+        p_provider_message_id: 'wamid-kept',
+        p_reason: { code: 'local_message_persistence_failed' },
+      })
+    );
+  });
+
+  it('reconciles deliveries in one database call and reports its failure', async () => {
+    h.rpc.mockReset();
+    h.engineSend.mockReset();
+    rpcWith({ message: 'statement timeout' });
+    h.engineSend.mockResolvedValue({ whatsapp_message_id: 'wamid-ok' });
+    const { runLifecycleReminderWorker } = await import('./worker');
+    const summary = await runLifecycleReminderWorker(
+      new Date('2026-09-11T10:00:00.000Z')
+    );
+
+    expect(
+      h.rpc.mock.calls.filter(
+        ([name]) => name === 'reconcile_lifecycle_reminder_deliveries'
+      )
+    ).toHaveLength(1);
+    expect(summary.infrastructureFailures).toBe(1);
+    expect(summary.notes).toContain(
+      'delivery reconciliation unavailable: statement timeout'
+    );
   });
 });

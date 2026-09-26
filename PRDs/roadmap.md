@@ -1,5 +1,23 @@
 # Roadmap
 
+## Shipped — Lifecycle reminder queue send contract repair (2026-09-26)
+
+Payment confirmations and AutoPay retry notices can now reach WhatsApp once
+enabled (they were rejected at the provider boundary). Debt collection again
+wins a member's one daily automated message over retention and attendance
+messages. Messages that fail before reaching WhatsApp stop after five tries,
+and jobs whose branch can no longer send are closed instead of retried hourly.
+Applied as `20260926090000_repair_lifecycle_reminder_send_contract.sql`
+(Supabase `20260926033451`); no rule was enabled or message sent.
+
+Delivery and read status now reach Message history through one database-side
+check that keeps working as volume grows, and a message WhatsApp accepted is
+recorded as accepted even when its chat copy could not be saved
+(`20260926100000_reconcile_lifecycle_reminder_deliveries.sql`, Supabase
+`20260926034215`). Still open from the 2026-09-26 review: invoice due-date
+anchoring, and an age limit for confirmations blocked on WhatsApp or template
+setup.
+
 ## Built in code — Automated messages setup guidance (2026-09-25)
 
 Settings → Automated messages leads with a three-step **Get ready to send**
