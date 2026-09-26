@@ -226,6 +226,8 @@ export interface LocaleFormatters {
   date(value: DateValue): string;
   /** Month and year — "July 2026". Used by calendar-period reporting. */
   month(value: DateValue): string;
+  /** Short month and year — "Sept 2026". For month labels on narrow screens. */
+  monthShort(value: DateValue): string;
   /** Long month name — "July". Used by split month/year period controls. */
   monthName(value: DateValue): string;
   /** Numeric date per `dateOrder` — 11/07/2026 · 07/11/2026 · 2026-07-11. */
@@ -307,6 +309,24 @@ export function buildFormatters(
       if (!ts) return String(value);
       return dtf(cfg.locale, {
         month: 'long',
+        year: 'numeric',
+        timeZone: cfg.timeZone,
+      }).format(ts);
+    },
+
+    monthShort(value) {
+      const plain = plainParts(value);
+      if (plain) {
+        return dtf(cfg.locale, {
+          month: 'short',
+          year: 'numeric',
+          timeZone: 'UTC',
+        }).format(new Date(Date.UTC(plain.y, plain.m - 1, 1, 12)));
+      }
+      const ts = asDate(value);
+      if (!ts) return String(value);
+      return dtf(cfg.locale, {
+        month: 'short',
         year: 'numeric',
         timeZone: cfg.timeZone,
       }).format(ts);

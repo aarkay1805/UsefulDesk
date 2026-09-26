@@ -174,7 +174,7 @@ describe('MessageContent', () => {
         />
       );
 
-      expect(screen.getByText(`${label} unavailable`)).toBeTruthy();
+      expect(screen.getByText(`${label} not available`)).toBeTruthy();
       expect(screen.queryByText(label)).toBeNull();
     }
   );
@@ -198,7 +198,7 @@ describe('MessageContent', () => {
         />
       );
 
-      expect(screen.getByText(`${label} unavailable`)).toBeTruthy();
+      expect(screen.getByText(`${label} not available`)).toBeTruthy();
       expect(screen.getByText(`${label} caption`)).toBeTruthy();
       expect(screen.queryByRole('button')).toBeNull();
     }
@@ -238,7 +238,7 @@ describe('MessageContent', () => {
       />
     );
 
-    expect(screen.getByText('Location unavailable')).toBeTruthy();
+    expect(screen.getByText('Location not available')).toBeTruthy();
     expect(screen.getByText('Front desk, 14 MG Road')).toBeTruthy();
   });
 
@@ -254,7 +254,7 @@ describe('MessageContent', () => {
 
     fireEvent(screen.getByLabelText('Photo attachment'), 'error');
 
-    expect(screen.getByText('Photo unavailable')).toBeTruthy();
+    expect(screen.getByText('Photo not available')).toBeTruthy();
   });
 
   it('disables repeated attachment opens while the URL is opening', async () => {
@@ -288,7 +288,9 @@ describe('MessageContent', () => {
     rejectOpen(new Error('Unavailable'));
 
     await waitFor(() => {
-      expect(screen.getByText('Unable to open document')).toBeTruthy();
+      expect(
+        screen.getByText('Could not open this document. Try again.')
+      ).toBeTruthy();
     });
   });
 });

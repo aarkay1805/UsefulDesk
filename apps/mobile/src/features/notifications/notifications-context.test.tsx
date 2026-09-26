@@ -44,7 +44,7 @@ function createSetup() {
     status: 'checking',
     canRequest: false,
     shouldExplain: false,
-    message: 'Checking notification access…',
+    message: 'Checking notifications…',
     recoveryAction: null,
   };
   const subscribers = new Set<() => void>();

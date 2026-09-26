@@ -290,7 +290,7 @@ describe('SelectBranchScreen', () => {
     await waitFor(() => {
       expect(
         screen.getByText(
-          'Could not open this branch. Check your connection and try again.'
+          'Could not open this branch. Check your internet and try again.'
         )
       ).toBeTruthy();
       expect(choose).toBeEnabled();
@@ -303,7 +303,7 @@ describe('SelectBranchScreen', () => {
       expect(choose).toBeEnabled();
       expect(
         screen.queryByText(
-          'Could not open this branch. Check your connection and try again.'
+          'Could not open this branch. Check your internet and try again.'
         )
       ).toBeNull();
     });
@@ -325,7 +325,7 @@ describe('SelectBranchScreen', () => {
 
     expect(
       screen.getByText(
-        'Could not open this branch. Check your connection and try again.'
+        'Could not open this branch. Check your internet and try again.'
       )
     ).toBeTruthy();
     expect(

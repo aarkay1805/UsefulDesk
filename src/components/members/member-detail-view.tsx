@@ -689,13 +689,15 @@ function MembershipDetailView({
         planned_return_on: plannedReturnOn || null,
         // The teammate who records the plan owns its return follow-up unless
         // a future assignment UI explicitly chooses another branch member.
-        planned_return_owner_id: plannedReturnOn ? user?.id ?? null : null,
+        planned_return_owner_id: plannedReturnOn ? (user?.id ?? null) : null,
       })
       .eq('id', membership.id)
       .select('id');
     setBusy(false);
     if (error || !data?.length) {
-      toast.error(error?.message ?? "Could not freeze. You may not have access.");
+      toast.error(
+        error?.message ?? 'Could not freeze. You may not have access.'
+      );
       return false;
     }
     toast.success('Membership frozen');
@@ -871,7 +873,7 @@ function MembershipDetailView({
     billingState !== 'ready' || mandateState !== 'ready'
       ? 'Checking AutoPay before you change this membership…'
       : mandate
-        ? "Cancel or finish this member’s AutoPay first. Then you can change this membership."
+        ? 'Cancel or finish this member’s AutoPay first. Then you can change this membership.'
         : null;
 
   // Usage vs limit / sessions left (062) — the Attendance section line.
@@ -982,9 +984,7 @@ function MembershipDetailView({
       service.requires_trainer &&
       (!service.trainer_id || service.current_renewal_price == null)
     ) {
-      toast.error(
-        "Set this trainer’s fee before renewing this service."
-      );
+      toast.error('Set this trainer’s fee before renewing this service.');
       return;
     }
     setSaleInitial([
@@ -1146,11 +1146,12 @@ function MembershipDetailView({
                 </div>
                 {/* Actions take their own full-width row on mobile (the
                     identity block above is already tight at 390px), and the
-                    buttons split it evenly. Renew is NOT here — it's a
-                    lifecycle action in the Membership ⋯ menu; as a header
-                    primary it read as "the thing to do" on every member,
-                    including one who just paid. */}
-                <div className="flex w-full shrink-0 items-center gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
+                    buttons split it evenly, wrapping when three do not fit.
+                    Renew is NOT here — it's a lifecycle action in the
+                    Membership ⋯ menu; as a header primary it read as "the
+                    thing to do" on every member, including one who just
+                    paid. */}
+                <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap [&>*]:flex-1 sm:[&>*]:flex-none">
                   <SendReminderButton
                     membership={membership}
                     readiness={readiness}
@@ -1294,12 +1295,15 @@ function MembershipDetailView({
                                 unfreeze.
                               </p>
                             )}
-                          {membership.status === 'frozen' && membership.planned_return_on && (
-                            <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                              <CalendarDays className="size-3.5 shrink-0" />
-                              Coming back on {fmt.date(membership.planned_return_on)}. A follow-up is due that day.
-                            </p>
-                          )}
+                          {membership.status === 'frozen' &&
+                            membership.planned_return_on && (
+                              <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                                <CalendarDays className="size-3.5 shrink-0" />
+                                Coming back on{' '}
+                                {fmt.date(membership.planned_return_on)}. A
+                                follow-up is due that day.
+                              </p>
+                            )}
                           {membership.notes && (
                             <p className="border-border text-muted-foreground border-l pl-3 text-sm">
                               {membership.notes}
@@ -1346,9 +1350,7 @@ function MembershipDetailView({
                           ) : purchasesState === 'error' ? (
                             <Alert variant="destructive">
                               <CircleAlert className="size-4" />
-                              <AlertTitle>
-                                Could not load purchases
-                              </AlertTitle>
+                              <AlertTitle>Could not load purchases</AlertTitle>
                               <AlertDescription>
                                 <p>{purchasesError}</p>
                                 <Button
@@ -1609,7 +1611,8 @@ function MembershipDetailView({
                             </Alert>
                           ) : membership.is_trial ? (
                             <p className="text-muted-foreground text-sm">
-                              Trials are free. Add them as a member to start billing.
+                              Trials are free. Add them as a member to start
+                              billing.
                             </p>
                           ) : (
                             <>
@@ -1656,7 +1659,8 @@ function MembershipDetailView({
                                       </>
                                     ) : mandate.status === 'orphaned' ? (
                                       <>
-                                        AutoPay needs a payment check before it can try again.
+                                        AutoPay needs a payment check before it
+                                        can try again.
                                       </>
                                     ) : mandate.status === 'creating' ? (
                                       <>AutoPay setup has started.</>
@@ -1664,7 +1668,8 @@ function MembershipDetailView({
                                       <>AutoPay is paused. It needs checking.</>
                                     ) : (
                                       <>
-                                        Waiting for the member to approve AutoPay in their UPI app.
+                                        Waiting for the member to approve
+                                        AutoPay in their UPI app.
                                       </>
                                     )}
                                   </p>
@@ -1872,9 +1877,7 @@ function MembershipDetailView({
                           ) : attendanceState === 'error' ? (
                             <Alert variant="destructive">
                               <CircleAlert className="size-4" />
-                              <AlertTitle>
-                                Could not load attendance
-                              </AlertTitle>
+                              <AlertTitle>Could not load attendance</AlertTitle>
                               <AlertDescription>
                                 <p>{attendanceError}</p>
                                 <Button
@@ -2007,7 +2010,9 @@ function MembershipDetailView({
                 <DialogHeader>
                   <DialogTitle>Cancel AutoPay?</DialogTitle>
                   <DialogDescription>
-                    Razorpay will stop taking money automatically. Past payments are not refunded. After Razorpay confirms, you collect this member’s fees by hand.
+                    Razorpay will stop taking money automatically. Past payments
+                    are not refunded. After Razorpay confirms, you collect this
+                    member’s fees by hand.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-1.5">
@@ -2095,9 +2100,24 @@ function MembershipDetailView({
                 </DialogHeader>
                 {pendingLifecycle === 'freeze' ? (
                   <div className="space-y-2">
-                    <Label>Coming back on <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                    <DatePicker value={plannedReturnOn} onChange={setPlannedReturnOn} min={fmt.today()} disabled={busy} aria-label="Coming back on" />
-                    <p className="text-muted-foreground text-xs">Leave empty if no date is fixed. If you pick a date, you get a reminder one day before and a follow-up on that day. The membership does not unfreeze by itself.</p>
+                    <Label>
+                      Coming back on{' '}
+                      <span className="text-muted-foreground font-normal">
+                        (optional)
+                      </span>
+                    </Label>
+                    <DatePicker
+                      value={plannedReturnOn}
+                      onChange={setPlannedReturnOn}
+                      min={fmt.today()}
+                      disabled={busy}
+                      aria-label="Coming back on"
+                    />
+                    <p className="text-muted-foreground text-xs">
+                      Leave empty if no date is fixed. If you pick a date, you
+                      get a reminder one day before and a follow-up on that day.
+                      The membership does not unfreeze by itself.
+                    </p>
                   </div>
                 ) : null}
                 <DialogFooter>

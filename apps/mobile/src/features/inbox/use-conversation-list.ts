@@ -15,9 +15,9 @@ import type {
   InboxConversation,
 } from './inbox-types';
 
-const LOAD_ERROR = 'Could not load conversations';
-const REFRESH_ERROR = 'Could not refresh conversations';
-const MORE_ERROR = 'Could not load more conversations';
+const LOAD_ERROR = 'Could not load chats';
+const REFRESH_ERROR = 'Could not refresh chats. Pull down to try again.';
+const MORE_ERROR = 'Could not load more chats';
 
 interface ConversationListState {
   accountId: string | null;

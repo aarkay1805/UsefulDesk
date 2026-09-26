@@ -1,6 +1,8 @@
 import * as Application from 'expo-application';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
+import { ACCOUNT_ROLE_LABELS } from '../../../../../src/lib/auth/roles';
+
 import { mobileEnvironment, pushEnvironment } from '../../core/env';
 import { ScreenSafeAreaView } from '../../ui/screen-safe-area-view';
 import { Text } from '../../ui/text';
@@ -17,6 +19,12 @@ const titleCase = (value: string) =>
 const hostOf = (url: string) => new URL(url).host;
 
 const unknown = '—';
+
+const READINESS_LABELS = {
+  setup: 'Setup not finished',
+  ready: 'Ready',
+  attention: 'Needs attention',
+} as const;
 
 interface DetailGroup {
   title: string;
@@ -43,9 +51,8 @@ export function DiagnosticsScreen() {
 
   const groups: readonly DetailGroup[] = [
     {
-      title: 'Build',
-      description:
-        'Baked in when this binary was built, and fixed until the next one.',
+      title: 'App',
+      description: 'Set when this app version was built.',
       rows: [
         ['Environment', titleCase(mobileEnvironment.appEnvironment)],
         [
@@ -59,13 +66,13 @@ export function DiagnosticsScreen() {
       ],
     },
     {
-      title: 'Session',
-      description: 'The workspace this device is signed in to right now.',
+      title: 'Sign-in',
+      description: 'The branch this phone is signed in to now.',
       rows: [
         ['Branch', state.branch.account_name],
         ['Gym brand', state.branch.organization_name],
-        ['Role', titleCase(state.branch.role)],
-        ['Readiness', titleCase(state.branch.readiness_state)],
+        ['Role', ACCOUNT_ROLE_LABELS[state.branch.role]],
+        ['Setup status', READINESS_LABELS[state.branch.readiness_state]],
       ],
     },
   ];

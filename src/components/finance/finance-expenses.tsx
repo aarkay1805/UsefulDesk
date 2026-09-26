@@ -364,18 +364,20 @@ export function FinanceExpenses({
               subtitle="Money spent in this view"
             />
             <MetricCard
-              title="Recurring"
+              title="Every month"
               value={fmt.money(result.summary.recurringAmount)}
               icon={Repeat2}
               subtitle={`${fmt.number(result.summary.recurringCount)} ${
-                result.summary.recurringCount === 1 ? 'expense' : 'expenses' } · ${fmt.number(recurringShare)}% of spend`}
+                result.summary.recurringCount === 1 ? 'expense' : 'expenses'
+              } · ${fmt.number(recurringShare)}% of spend`}
             />
             <MetricCard
               title="One-time"
               value={fmt.money(result.summary.oneTimeAmount)}
               icon={CircleDot}
               subtitle={`${fmt.number(result.summary.oneTimeCount)} ${
-                result.summary.oneTimeCount === 1 ? 'expense' : 'expenses' } · ${fmt.number(oneTimeShare)}% of spend`}
+                result.summary.oneTimeCount === 1 ? 'expense' : 'expenses'
+              } · ${fmt.number(oneTimeShare)}% of spend`}
             />
             <MetricCard
               title="Biggest category"
@@ -456,9 +458,7 @@ export function FinanceExpenses({
             ) : (
               <div className="overflow-x-auto">
                 <Table className="min-w-[1320px] table-fixed">
-                  <TableCaption className="sr-only">
-                    All expenses
-                  </TableCaption>
+                  <TableCaption className="sr-only">All expenses</TableCaption>
                   <colgroup>
                     <col className="w-36" />
                     <col className="w-64" />
@@ -581,7 +581,7 @@ export function FinanceExpenses({
                                 disabled={!mayVoid || row.status === 'void'}
                                 title={
                                   !mayVoid
-                                    ? "Your role cannot cancel expenses"
+                                    ? 'Your role cannot cancel expenses'
                                     : undefined
                                 }
                                 onClick={() => setVoidTarget(row)}

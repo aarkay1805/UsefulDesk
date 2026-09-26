@@ -85,7 +85,7 @@ export function MessageContent({
             </View>
           </View>
         ) : (
-          <Text className="text-foreground text-sm">Photo unavailable</Text>
+          <Text className="text-foreground text-sm">Photo not available</Text>
         )}
         {caption ? (
           <Text className="text-foreground text-sm">{caption}</Text>
@@ -98,7 +98,7 @@ export function MessageContent({
   if (!safeUrl) {
     return (
       <View className="gap-1">
-        <Text className="text-foreground text-sm">{label} unavailable</Text>
+        <Text className="text-foreground text-sm">{label} not available</Text>
         {caption ? (
           <Text className="text-foreground text-sm">{caption}</Text>
         ) : null}
@@ -158,7 +158,9 @@ export function MessageContent({
         Open {label.toLowerCase()}
       </Button>
       {openFailed ? (
-        <Notice tone="danger">Unable to open {label.toLowerCase()}</Notice>
+        <Notice tone="danger">
+          Could not open this {label.toLowerCase()}. Try again.
+        </Notice>
       ) : null}
     </View>
   );

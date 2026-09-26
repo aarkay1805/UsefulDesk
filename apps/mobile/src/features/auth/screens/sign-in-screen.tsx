@@ -7,12 +7,7 @@ import {
   View,
 } from 'react-native';
 
-import {
-  Button,
-  ScreenSafeAreaView,
-  Text,
-  TextField,
-} from '../../../ui';
+import { Button, ScreenSafeAreaView, Text, TextField } from '../../../ui';
 import { useAuth } from '../auth-context';
 
 type PendingAction = 'password' | 'google' | 'cleanup' | null;
@@ -54,7 +49,7 @@ export function SignInScreen() {
         finish();
       }
     } catch {
-      setActionError('Could not sign in. Please try again.');
+      setActionError('Could not sign in. Try again.');
       finish();
     }
   };
@@ -66,7 +61,7 @@ export function SignInScreen() {
       if (result.status === 'error') setActionError(result.message);
       if (result.status !== 'success') finish();
     } catch {
-      setActionError('Could not complete Google sign-in. Please try again.');
+      setActionError('Could not sign in with Google. Try again.');
       finish();
     }
   };
@@ -77,7 +72,7 @@ export function SignInScreen() {
       await auth.signOut();
     } catch {
       setActionError(
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.'
+        'Sign-out did not finish on this phone. Tap Sign out again.'
       );
     } finally {
       finish();
@@ -92,13 +87,13 @@ export function SignInScreen() {
             accessibilityRole="header"
             className="text-foreground text-3xl font-bold"
           >
-            UsefulDesk Agent
+            UsefulDesk
           </Text>
           <Text
             accessibilityLiveRegion="polite"
             className="text-muted text-base leading-6"
           >
-            Signing out securely…
+            Signing out…
           </Text>
         </View>
       </ScreenSafeAreaView>
@@ -114,10 +109,10 @@ export function SignInScreen() {
               accessibilityRole="header"
               className="text-foreground text-3xl font-bold"
             >
-              Secure sign-out needs attention
+              Sign-out did not finish
             </Text>
             <Text className="text-muted text-base leading-6">
-              Finish clearing this device before signing in again.
+              Finish signing out before you sign in again.
             </Text>
           </View>
           <Text
@@ -128,11 +123,11 @@ export function SignInScreen() {
             {error}
           </Text>
           <Button
-            accessibilityLabel="Retry secure sign-out"
+            accessibilityLabel="Sign out again"
             loading={pendingAction === 'cleanup'}
             onPress={() => void retrySecureSignOut()}
           >
-            Retry secure sign-out
+            Sign out again
           </Button>
         </View>
       </ScreenSafeAreaView>
@@ -157,10 +152,10 @@ export function SignInScreen() {
               accessibilityRole="header"
               className="text-foreground text-3xl font-bold"
             >
-              UsefulDesk Agent
+              UsefulDesk
             </Text>
             <Text className="text-muted text-base leading-6">
-              Sign in with your existing UsefulDesk account.
+              Sign in with your UsefulDesk account.
             </Text>
           </View>
 
@@ -238,8 +233,7 @@ export function SignInScreen() {
           </View>
 
           <Text className="text-muted text-sm leading-5">
-            Need access? Ask your UsefulDesk owner or administrator to add your
-            existing email address.
+            No account yet? Ask the owner or an admin to add your email.
           </Text>
         </ScrollView>
       </KeyboardAvoidingView>

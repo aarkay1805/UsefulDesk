@@ -12,7 +12,7 @@ import type {
 
 export const CONVERSATION_PAGE_SIZE = 30;
 
-const LOAD_ERROR = 'Could not load conversations';
+const LOAD_ERROR = 'Could not load chats';
 const UNAVAILABLE_ERROR = 'Conversation is unavailable';
 const MARK_READ_ERROR = 'Could not mark this conversation as read';
 const UUID =

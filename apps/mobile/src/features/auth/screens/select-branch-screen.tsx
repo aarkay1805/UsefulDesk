@@ -41,7 +41,7 @@ export function BranchChoices({
     } catch {
       if (mountedRef.current) {
         setError(
-          'Could not open this branch. Check your connection and try again.'
+          'Could not open this branch. Check your internet and try again.'
         );
       }
     } finally {
@@ -86,7 +86,7 @@ export function BranchChoices({
 
       {available.length === 0 ? (
         <Text className="text-muted text-sm leading-5">
-          No available branches were found for this account.
+          You have no branches to open. Ask the owner to add you.
         </Text>
       ) : null}
 
@@ -139,7 +139,7 @@ export function SelectBranchScreen() {
             Choose a branch
           </Text>
           <Text className="text-muted text-base leading-6">
-            Your work and permissions follow the branch you open.
+            What you see and can do depends on the branch you open.
           </Text>
         </View>
 
@@ -150,7 +150,7 @@ export function SelectBranchScreen() {
             className="bg-warning-soft gap-1 rounded-xl p-4"
           >
             <Text className="text-warning-soft-foreground text-sm font-semibold">
-              Branch access needs attention
+              Cannot open your branch
             </Text>
             <Text className="text-warning-soft-foreground text-sm leading-5">
               {reason}

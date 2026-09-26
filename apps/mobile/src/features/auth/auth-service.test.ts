@@ -261,14 +261,14 @@ describe('createAuthService', () => {
   });
 
   it.each([
-    ['Invalid login credentials', 'Email or password is incorrect.'],
+    ['Invalid login credentials', 'Wrong email or password.'],
     [
       'Email not confirmed',
-      'This account is not ready to sign in. Contact your administrator.',
+      'This account is not ready yet. Ask the owner or an admin for help.',
     ],
     [
       'database connection details: postgres://secret',
-      'Could not sign in. Please try again.',
+      'Could not sign in. Try again.',
     ],
   ])(
     'returns a safe password error for %s',
@@ -303,8 +303,7 @@ describe('createAuthService', () => {
     ).resolves.toEqual({
       status: 'error',
       reason: 'cleanup_failed',
-      message:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      message: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
   });
 
@@ -327,7 +326,7 @@ describe('createAuthService', () => {
       })
     ).resolves.toEqual({
       status: 'error',
-      message: 'Email or password is incorrect.',
+      message: 'Wrong email or password.',
     });
     expect(beforeLocalSignOut).toHaveBeenCalledTimes(1);
   });
@@ -367,7 +366,7 @@ describe('createAuthService', () => {
 
     await expect(service.signInWithGoogle()).resolves.toEqual({
       status: 'error',
-      message: 'Could not start Google sign-in. Please try again.',
+      message: 'Could not open Google sign-in. Try again.',
     });
     expect(dependencies.sessionStorage.allowWrites).not.toHaveBeenCalled();
     expect(dependencies.auth.signInWithOAuth).not.toHaveBeenCalled();
@@ -384,7 +383,7 @@ describe('createAuthService', () => {
       service.signInWithPassword('asha@example.com', 'correct horse')
     ).resolves.toEqual({
       status: 'error',
-      message: 'Could not sign in. Please try again.',
+      message: 'Could not sign in. Try again.',
     });
     expect(dependencies.sessionStorage.purge).toHaveBeenCalledTimes(1);
     expect(dependencies.auth.signOut).toHaveBeenCalledWith({ scope: 'local' });
@@ -418,8 +417,7 @@ describe('createAuthService', () => {
     await expect(service.signInWithGoogle()).resolves.toEqual({
       status: 'error',
       reason: 'cleanup_failed',
-      message:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      message: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
   });
 
@@ -459,7 +457,7 @@ describe('createAuthService', () => {
       localAuth: 'success',
       branchPreference: 'success',
       message:
-        'Signed out on this device, but the remote session could not be closed.',
+        'Signed out on this phone. Could not reach UsefulDesk to finish sign-out.',
     });
     expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
@@ -477,7 +475,8 @@ describe('createAuthService', () => {
       remote: 'success',
       localAuth: 'success',
       branchPreference: 'failed',
-      message: 'Signed out, but local branch data could not be cleared.',
+      message:
+        'You are signed out, but some branch data is still saved on this phone.',
     });
     expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
@@ -495,8 +494,7 @@ describe('createAuthService', () => {
       remote: 'success',
       localAuth: 'failed',
       branchPreference: 'success',
-      message:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      message: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
     expect(dependencies.selectedBranch.set).not.toHaveBeenCalled();
     expect(dependencies.preference.clear).toHaveBeenCalledTimes(1);
@@ -826,7 +824,7 @@ describe('createAuthService', () => {
         )
       ).resolves.toEqual({
         status: 'error',
-        message: 'Secure sign-out is still in progress.',
+        message: 'Still signing out. Wait a moment.',
       });
       expect(signOutSettled).toBe(false);
 
@@ -890,7 +888,7 @@ describe('createAuthService', () => {
         )
       ).resolves.toEqual({
         status: 'error',
-        message: 'Secure sign-out is still in progress.',
+        message: 'Still signing out. Wait a moment.',
       });
       await expect(refresh).resolves.toMatchObject({
         data: { session: null },
@@ -1022,7 +1020,7 @@ describe('createAuthService', () => {
 
     expect(authResult).toEqual({
       status: 'error',
-      message: 'Email or password is incorrect.',
+      message: 'Wrong email or password.',
     });
     expect(preferenceReentry).toBe(retireReentry);
     await expect(preferenceReentry).resolves.toBe(purgeResult);
@@ -1099,8 +1097,7 @@ describe('createAuthService', () => {
     ).resolves.toEqual({
       status: 'error',
       reason: 'cleanup_failed',
-      message:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      message: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
     await expect(service.signInWithGoogle()).resolves.toMatchObject({
       status: 'error',
@@ -1141,14 +1138,12 @@ describe('createAuthService', () => {
     ).resolves.toEqual({
       status: 'error',
       reason: 'cleanup_failed',
-      message:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      message: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
     await expect(service.signInWithGoogle()).resolves.toEqual({
       status: 'error',
       reason: 'cleanup_failed',
-      message:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      message: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
     expect(dependencies.auth.signInWithPassword).not.toHaveBeenCalled();
     expect(dependencies.auth.signInWithOAuth).not.toHaveBeenCalled();
@@ -1171,11 +1166,11 @@ describe('createAuthService', () => {
       service.signInWithPassword('asha@example.com', 'correct horse')
     ).resolves.toEqual({
       status: 'error',
-      message: 'Secure sign-out is still in progress.',
+      message: 'Still signing out. Wait a moment.',
     });
     await expect(service.signInWithGoogle()).resolves.toEqual({
       status: 'error',
-      message: 'Secure sign-out is still in progress.',
+      message: 'Still signing out. Wait a moment.',
     });
     expect(dependencies.auth.signInWithPassword).not.toHaveBeenCalled();
     expect(dependencies.auth.signInWithOAuth).not.toHaveBeenCalled();

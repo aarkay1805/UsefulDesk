@@ -88,15 +88,15 @@ export type SignOutResult =
 function passwordErrorMessage(error: AuthError): string {
   const normalized = error.message.toLowerCase();
   if (normalized.includes('invalid login credentials')) {
-    return 'Email or password is incorrect.';
+    return 'Wrong email or password.';
   }
   if (normalized.includes('email not confirmed')) {
-    return 'This account is not ready to sign in. Contact your administrator.';
+    return 'This account is not ready yet. Ask the owner or an admin for help.';
   }
   if (normalized.includes('rate limit') || normalized.includes('too many')) {
-    return 'Too many sign-in attempts. Please try again later.';
+    return 'Too many tries. Wait a few minutes and try again.';
   }
-  return 'Could not sign in. Please try again.';
+  return 'Could not sign in. Try again.';
 }
 
 export function createAuthService(dependencies: AuthServiceDependencies) {
@@ -109,15 +109,14 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
   const cleanupFailure = (): AuthActionResult => ({
     status: 'error',
     reason: 'cleanup_failed',
-    message:
-      'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+    message: 'Sign-out did not finish on this phone. Tap Sign out again.',
   });
 
   const enableAuthStorage = (): AuthActionResult | null => {
     if (signOutPending) {
       return {
         status: 'error',
-        message: 'Secure sign-out is still in progress.',
+        message: 'Still signing out. Wait a moment.',
       };
     }
     if (!dependencies.refreshCoordinator.isQuiescent()) {
@@ -285,7 +284,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
         }
         return {
           status: 'error',
-          message: 'Could not sign in. Please try again.',
+          message: 'Could not sign in. Try again.',
         };
       }
     },
@@ -301,7 +300,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
         if (redirectTo !== GOOGLE_REDIRECT_URL) {
           return {
             status: 'error',
-            message: 'Could not start Google sign-in. Please try again.',
+            message: 'Could not open Google sign-in. Try again.',
           };
         }
         const storageError = enableAuthStorage();
@@ -315,7 +314,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return {
             status: 'error',
-            message: 'Could not start Google sign-in. Please try again.',
+            message: 'Could not open Google sign-in. Try again.',
           };
         }
 
@@ -334,7 +333,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return {
             status: 'error',
-            message: 'Google sign-in was not completed.',
+            message: 'Google sign-in did not finish. Try again.',
           };
         }
 
@@ -350,7 +349,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           if (!(await abandonAuthAttempt(lifecycle))) return cleanupFailure();
           return {
             status: 'error',
-            message: 'Could not complete Google sign-in. Please try again.',
+            message: 'Could not sign in with Google. Try again.',
           };
         }
         await dependencies.auth.startAutoRefresh();
@@ -361,7 +360,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
         }
         return {
           status: 'error',
-          message: 'Could not complete Google sign-in. Please try again.',
+          message: 'Could not sign in with Google. Try again.',
         };
       }
     },
@@ -392,8 +391,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           status: 'error',
           remote,
           ...local,
-          message:
-            'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+          message: 'Sign-out did not finish on this phone. Tap Sign out again.',
         };
       }
       if (local.branchPreference === 'failed') {
@@ -401,7 +399,8 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           status: 'error',
           remote,
           ...local,
-          message: 'Signed out, but local branch data could not be cleared.',
+          message:
+            'You are signed out, but some branch data is still saved on this phone.',
         };
       }
       if (remote === 'failed') {
@@ -410,7 +409,7 @@ export function createAuthService(dependencies: AuthServiceDependencies) {
           remote,
           ...local,
           message:
-            'Signed out on this device, but the remote session could not be closed.',
+            'Signed out on this phone. Could not reach UsefulDesk to finish sign-out.',
         };
       }
       return { status: 'success', remote, ...local };

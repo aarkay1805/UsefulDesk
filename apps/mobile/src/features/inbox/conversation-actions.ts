@@ -32,22 +32,22 @@ export interface ConversationActionInput {
 export type ActionBlocker =
   | {
       kind: 'local_templates';
-      title: 'No sendable templates';
-      reason: 'Add an approved WhatsApp template before sending outside the customer-service window.';
+      title: 'No approved templates yet';
+      reason: 'After 24 hours, you can send only an approved template. Add one on the UsefulDesk website.';
     }
   | {
       kind: 'template_contract';
-      title: 'Template setup needs attention';
-      reason: 'Sync an approved WhatsApp template contract before sending outside the customer-service window.';
+      title: 'Templates need an update';
+      reason: 'Refresh your approved templates on the UsefulDesk website, then try again.';
     }
   | {
       kind: 'template_readiness';
-      title: 'Template setup is unavailable';
-      reason: 'Could not verify sendable templates for this conversation. Pull to refresh and try again.';
+      title: 'Could not load templates';
+      reason: 'Pull down to refresh and try again.';
     }
   | {
       kind: 'provider';
-      title: 'WhatsApp is unavailable';
+      title: 'WhatsApp is not ready';
       reason: string;
     };
 
@@ -80,10 +80,10 @@ function isServiceWindowOpen(
 function providerBlocker(readiness: ConnectionReadiness): ActionBlocker {
   return {
     kind: 'provider',
-    title: 'WhatsApp is unavailable',
+    title: 'WhatsApp is not ready',
     reason:
       readiness.reason ??
-      'Connect WhatsApp for this branch before sending customer messages.',
+      'Connect WhatsApp for this branch before you send messages.',
   };
 }
 
@@ -124,9 +124,8 @@ export function resolveConversationActions(
       kind: 'blocked',
       blocker: {
         kind: 'template_readiness',
-        title: 'Template setup is unavailable',
-        reason:
-          'Could not verify sendable templates for this conversation. Pull to refresh and try again.',
+        title: 'Could not load templates',
+        reason: 'Pull down to refresh and try again.',
       },
     };
   }
@@ -136,9 +135,9 @@ export function resolveConversationActions(
       kind: 'blocked',
       blocker: {
         kind: 'local_templates',
-        title: 'No sendable templates',
+        title: 'No approved templates yet',
         reason:
-          'Add an approved WhatsApp template before sending outside the customer-service window.',
+          'After 24 hours, you can send only an approved template. Add one on the UsefulDesk website.',
       },
     };
   }
@@ -148,9 +147,9 @@ export function resolveConversationActions(
       kind: 'blocked',
       blocker: {
         kind: 'template_contract',
-        title: 'Template setup needs attention',
+        title: 'Templates need an update',
         reason:
-          'Sync an approved WhatsApp template contract before sending outside the customer-service window.',
+          'Refresh your approved templates on the UsefulDesk website, then try again.',
       },
     };
   }

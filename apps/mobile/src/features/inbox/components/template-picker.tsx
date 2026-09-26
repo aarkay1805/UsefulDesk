@@ -29,16 +29,16 @@ import { templateFields } from '../template-repository';
 
 const NO_TEMPLATES_BLOCKER: ActionBlocker = {
   kind: 'local_templates',
-  title: 'No sendable templates',
+  title: 'No approved templates yet',
   reason:
-    'Add an approved WhatsApp template before sending outside the customer-service window.',
+    'After 24 hours, you can send only an approved template. Add one on the UsefulDesk website.',
 };
 
 const INVALID_TEMPLATES_BLOCKER: ActionBlocker = {
   kind: 'template_contract',
-  title: 'Template setup needs attention',
+  title: 'Templates need an update',
   reason:
-    'Sync an approved WhatsApp template contract before sending outside the customer-service window.',
+    'Refresh your approved templates on the UsefulDesk website, then try again.',
 };
 
 type FieldValues = Record<string, string>;
@@ -318,9 +318,7 @@ export function TemplatePicker({
     try {
       await onOutcomeAcknowledged();
     } catch {
-      setSafetyFailure(
-        'Could not clear the send-safety lock. Sending remains locked until storage recovers.'
-      );
+      setSafetyFailure('Could not unlock sending on this phone. Try again.');
     } finally {
       inFlightRef.current = false;
       setPending(false);
@@ -359,7 +357,7 @@ export function TemplatePicker({
         await onAttemptStarted();
       } catch {
         setSafetyFailure(
-          'Could not save template send safety status. No message was sent. Sending remains locked until storage recovers.'
+          'Nothing was sent. This phone could not save a safety check. Try again later.'
         );
         return;
       }
@@ -380,7 +378,7 @@ export function TemplatePicker({
             await onOutcomeConfirmed();
           } catch {
             setSafetyFailure(
-              'The send was rejected, but the send-safety lock could not be cleared. Sending remains locked until storage recovers.'
+              'The template was not sent. Sending is locked on this phone for now. Try again later.'
             );
             return;
           }
@@ -394,7 +392,7 @@ export function TemplatePicker({
       } catch {
         onSent();
         setSafetyFailure(
-          'The template was sent, but the send-safety lock could not be cleared. Check the conversation. Sending remains locked until storage recovers.'
+          'The template was sent. Sending is locked on this phone for now. Try again later.'
         );
         return;
       }
@@ -436,7 +434,7 @@ export function TemplatePicker({
                     accessibilityTextScale ? '' : 'flex-1'
                   }`}
                 >
-                  Send approved template
+                  Choose a template
                 </Text>
                 <Button
                   accessibilityLabel="Cancel"
@@ -526,7 +524,7 @@ export function TemplatePicker({
                   {fields.length > 0 ? (
                     <View className="gap-3">
                       <Text className="text-foreground text-sm font-medium">
-                        Template values
+                        Fill in the details
                       </Text>
                       {fields.map((field) => {
                         const key = fieldKey(field);
@@ -565,7 +563,7 @@ export function TemplatePicker({
                     <Notice
                       action={
                         <Button
-                          accessibilityLabel="I checked the conversation"
+                          accessibilityLabel="I checked the chat"
                           disabled={pending}
                           loading={pending}
                           onPress={() => void acknowledgeOutcome()}
@@ -575,10 +573,10 @@ export function TemplatePicker({
                         </Button>
                       }
                       symbol="exclamationmark.triangle"
-                      title="Check the conversation first"
+                      title="Check the chat first"
                     >
-                      A previous template send could not be confirmed. Check
-                      this conversation for the message before sending another.
+                      We cannot tell if your last template was sent. Look for it
+                      in this chat before you send another.
                     </Notice>
                   ) : currentAttemptOutcomeUnknown || safetyFailure ? (
                     <Button
@@ -592,16 +590,16 @@ export function TemplatePicker({
                     <Button
                       accessibilityLabel={
                         pending
-                          ? `${sendFailure ? 'Retry send' : 'Send template'}, loading`
+                          ? `${sendFailure ? 'Try again' : 'Send template'}, loading`
                           : sendFailure
-                            ? 'Retry send'
+                            ? 'Try again'
                             : 'Send template'
                       }
                       disabled={pending}
                       loading={pending}
                       onPress={() => void sendTemplate()}
                     >
-                      {sendFailure ? 'Retry send' : 'Send template'}
+                      {sendFailure ? 'Try again' : 'Send template'}
                     </Button>
                   )}
                 </ScrollView>

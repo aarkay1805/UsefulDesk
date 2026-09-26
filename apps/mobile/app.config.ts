@@ -42,8 +42,7 @@ const config: UsefulDeskExpoConfig = {
     [
       'expo-image-picker',
       {
-        photosPermission:
-          'Allow UsefulDesk Agent to choose photos and videos to send in Inbox conversations.',
+        photosPermission: 'Lets you choose photos and videos to send in chats.',
         cameraPermission: false,
         microphonePermission: false,
       },

@@ -14,7 +14,7 @@ describe('authorizationCodeFromCallback', () => {
       authorizationCodeFromCallback('usefuldesk-agent://auth/callback')
     ).toEqual({
       status: 'error',
-      message: 'Google sign-in did not return an authorization code.',
+      message: 'Could not sign in with Google. Try again.',
     });
   });
 
@@ -25,7 +25,7 @@ describe('authorizationCodeFromCallback', () => {
       )
     ).toEqual({
       status: 'error',
-      message: 'Google sign-in was not completed.',
+      message: 'Google sign-in did not finish. Try again.',
     });
   });
 
@@ -36,7 +36,7 @@ describe('authorizationCodeFromCallback', () => {
   ])('rejects an unrelated callback route: %s', (url) => {
     expect(authorizationCodeFromCallback(url)).toEqual({
       status: 'error',
-      message: 'Google sign-in returned an invalid callback.',
+      message: 'Could not sign in with Google. Try again.',
     });
   });
 
@@ -47,7 +47,7 @@ describe('authorizationCodeFromCallback', () => {
   ])('rejects callback authority credentials or a port: %s', (url) => {
     expect(authorizationCodeFromCallback(url)).toEqual({
       status: 'error',
-      message: 'Google sign-in returned an invalid callback.',
+      message: 'Could not sign in with Google. Try again.',
     });
   });
 
@@ -57,14 +57,14 @@ describe('authorizationCodeFromCallback', () => {
   ])('rejects fragment credentials: %s', (url) => {
     expect(authorizationCodeFromCallback(url)).toEqual({
       status: 'error',
-      message: 'Google sign-in returned an invalid callback.',
+      message: 'Could not sign in with Google. Try again.',
     });
   });
 
   it('rejects a malformed callback without throwing', () => {
     expect(authorizationCodeFromCallback('not a url')).toEqual({
       status: 'error',
-      message: 'Google sign-in returned an invalid callback.',
+      message: 'Could not sign in with Google. Try again.',
     });
   });
 
@@ -74,7 +74,7 @@ describe('authorizationCodeFromCallback', () => {
   ])('rejects duplicate or extra callback query data: %s', (url) => {
     expect(authorizationCodeFromCallback(url)).toEqual({
       status: 'error',
-      message: 'Google sign-in did not return an authorization code.',
+      message: 'Could not sign in with Google. Try again.',
     });
   });
 
@@ -95,7 +95,7 @@ describe('authorizationCodeFromCallback', () => {
   ])('rejects non-exact authority and path combinations: %s', (url) => {
     expect(authorizationCodeFromCallback(url)).toEqual({
       status: 'error',
-      message: 'Google sign-in returned an invalid callback.',
+      message: 'Could not sign in with Google. Try again.',
     });
   });
 });

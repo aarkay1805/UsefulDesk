@@ -289,7 +289,7 @@ describe('loadMobileBootstrap', () => {
     });
     if (result.status !== 'blocked') throw new Error('Invalid test result.');
     expect(branchBlockMessage(result.reason)).toBe(
-      'Could not load your branch access. Check your connection and try again.'
+      'Could not load your branches. Check your internet and try again.'
     );
     expect(JSON.stringify(result)).not.toContain('password');
     expect(diagnostic).toHaveBeenCalledWith({

@@ -35,6 +35,7 @@ vi.mock('@/hooks/use-locale', () => ({
     fmt: {
       today: () => '2026-08-29',
       month: (value: string) => value.slice(0, 7),
+      monthShort: (value: string) => value.slice(0, 7),
       number: (value: number) => String(value),
       money: (value: number) => `INR ${value}`,
       date: (value: string) => value,

@@ -134,7 +134,7 @@ describe('useConversationList', () => {
   it('hides previous branch rows when the new branch load fails', async () => {
     repository.list
       .mockResolvedValueOnce(page([conversationA]))
-      .mockRejectedValueOnce(new Error('Could not load conversations'));
+      .mockRejectedValueOnce(new Error('Could not load chats'));
     repository.unreadCount.mockResolvedValueOnce(3).mockResolvedValueOnce(9);
     const { result, rerender } = renderHook<
       UseConversationListResult,
@@ -156,7 +156,7 @@ describe('useConversationList', () => {
   it('clears previous query rows when the new query load fails', async () => {
     repository.list
       .mockResolvedValueOnce(page([conversationA]))
-      .mockRejectedValueOnce(new Error('Could not load conversations'));
+      .mockRejectedValueOnce(new Error('Could not load chats'));
     const { result } = renderHook(() =>
       useConversationList({ accountId: BRANCH_A, repository, realtime })
     );
@@ -172,7 +172,7 @@ describe('useConversationList', () => {
   it('preserves visible rows and warns when manual refresh fails', async () => {
     repository.list
       .mockResolvedValueOnce(page([conversationA]))
-      .mockRejectedValueOnce(new Error('Could not load conversations'));
+      .mockRejectedValueOnce(new Error('Could not load chats'));
     const { result } = renderHook(() =>
       useConversationList({ accountId: BRANCH_A, repository, realtime })
     );
@@ -182,7 +182,7 @@ describe('useConversationList', () => {
 
     await waitFor(() =>
       expect(result.current.refreshWarning).toBe(
-        'Could not refresh conversations'
+        'Could not refresh chats. Pull down to try again.'
       )
     );
     expect(result.current.items).toEqual([conversationA]);
@@ -209,7 +209,7 @@ describe('useConversationList', () => {
     await act(async () => resyncRealtime.emitStatus('connected', 1));
     await waitFor(() =>
       expect(result.current.refreshWarning).toBe(
-        'Could not refresh conversations'
+        'Could not refresh chats. Pull down to try again.'
       )
     );
     expect(result.current.items).toEqual([conversationA]);
@@ -222,7 +222,7 @@ describe('useConversationList', () => {
     expect(result.current.items).toEqual([conversationA]);
     expect(result.current.status).toBe('ready');
     expect(result.current.refreshWarning).toBe(
-      'Could not refresh conversations'
+      'Could not refresh chats. Pull down to try again.'
     );
   });
 
@@ -231,7 +231,7 @@ describe('useConversationList', () => {
     const eventRealtime = fakeRealtimeFeed();
     repository.list
       .mockReturnValueOnce(initial.promise)
-      .mockRejectedValueOnce(new Error('Could not load conversations'));
+      .mockRejectedValueOnce(new Error('Could not load chats'));
     const { result } = renderHook(() =>
       useConversationList({
         accountId: BRANCH_A,
@@ -252,7 +252,7 @@ describe('useConversationList', () => {
 
     await waitFor(() => expect(result.current.status).toBe('error'));
     expect(result.current.items).toEqual([]);
-    expect(result.current.error).toBe('Could not load conversations');
+    expect(result.current.error).toBe('Could not load chats');
     expect(result.current.refreshWarning).toBeNull();
     expect(result.current.refreshing).toBe(false);
 
@@ -653,16 +653,14 @@ describe('useConversationList', () => {
           id: conversationA.id,
         })
       )
-      .mockRejectedValueOnce(new Error('Could not load conversations'));
+      .mockRejectedValueOnce(new Error('Could not load chats'));
     const { result } = renderHook(() =>
       useConversationList({ accountId: BRANCH_A, repository, realtime })
     );
     await waitFor(() => expect(result.current.status).toBe('ready'));
     await act(async () => result.current.loadMore());
     expect(result.current.items).toEqual([conversationA]);
-    expect(result.current.paginationError).toBe(
-      'Could not load more conversations'
-    );
+    expect(result.current.paginationError).toBe('Could not load more chats');
   });
 
   it('does not append a deferred page after realtime deletes its query membership', async () => {
@@ -939,7 +937,7 @@ describe('loaded conversation range refresh', () => {
     await act(async () => feed.emit(event(rows[0])));
     await waitFor(() =>
       expect(result.current.refreshWarning).toBe(
-        'Could not refresh conversations'
+        'Could not refresh chats. Pull down to try again.'
       )
     );
     expect(result.current.items).toEqual(snapshot);
@@ -1081,7 +1079,7 @@ describe('loaded conversation range refresh', () => {
     await act(async () => feed.emit(event(rows[0])));
     await waitFor(() =>
       expect(result.current.refreshWarning).toBe(
-        'Could not refresh conversations'
+        'Could not refresh chats. Pull down to try again.'
       )
     );
     expect(result.current.items).toEqual(beforeFailure);

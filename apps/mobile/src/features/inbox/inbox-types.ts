@@ -101,8 +101,8 @@ export interface NativeTemplate {
 }
 
 export type TemplateField =
-  | { kind: 'body'; variable: number; label: `Body variable ${number}` }
-  | { kind: 'header'; variable: 1; label: 'Header variable' }
+  | { kind: 'body'; variable: number; label: `Message detail ${number}` }
+  | { kind: 'header'; variable: 1; label: 'Title text' }
   | {
       kind: 'button';
       buttonIndex: number;

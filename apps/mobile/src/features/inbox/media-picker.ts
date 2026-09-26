@@ -83,7 +83,7 @@ export async function pickConversationMedia(
     if (result.canceled) return null;
     const asset = result.assets?.[0];
     if (!asset || asset.type !== kind) {
-      throw new Error('Choose a supported file for this attachment type.');
+      throw new Error('This file type cannot be sent. Choose another file.');
     }
     const validated = validateMediaAsset({
       kind,
@@ -107,7 +107,7 @@ export async function pickConversationMedia(
   if (result.canceled) return null;
   const asset = result.assets?.[0];
   if (!asset) {
-    throw new Error('Choose a supported file for this attachment type.');
+    throw new Error('This file type cannot be sent. Choose another file.');
   }
   const validated = validateMediaAsset({
     kind,

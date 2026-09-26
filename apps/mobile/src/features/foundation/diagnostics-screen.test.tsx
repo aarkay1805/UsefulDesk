@@ -130,4 +130,19 @@ describe('DiagnosticsScreen', () => {
     expect(screen.getByText('Admin')).toBeTruthy();
     expect(screen.getByText('Ready')).toBeTruthy();
   });
+
+  it.each([
+    ['agent', 'Staff'],
+    ['viewer', 'View only'],
+  ] as const)('shows the %s role by its plain-language name', (role, label) => {
+    const value = readyAuthValue();
+    value.state.branch = { ...branch(), role, readiness_state: 'attention' };
+    mockUseReadyAuth.mockReturnValue(value);
+
+    render(<DiagnosticsScreen />);
+
+    expect(screen.getByText(label)).toBeTruthy();
+    expect(screen.queryByText(/agent|viewer/i)).toBeNull();
+    expect(screen.getByText('Needs attention')).toBeTruthy();
+  });
 });

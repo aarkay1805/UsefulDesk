@@ -3,7 +3,7 @@ import 'react-native-url-polyfill/auto';
 export type AuthorizationCodeResult =
   { status: 'code'; code: string } | { status: 'error'; message: string };
 
-const INVALID_CALLBACK_MESSAGE = 'Google sign-in returned an invalid callback.';
+const INVALID_CALLBACK_MESSAGE = 'Could not sign in with Google. Try again.';
 
 export function authorizationCodeFromCallback(
   callbackUrl: string
@@ -30,7 +30,7 @@ export function authorizationCodeFromCallback(
   if (parsed.searchParams.has('error')) {
     return {
       status: 'error',
-      message: 'Google sign-in was not completed.',
+      message: 'Google sign-in did not finish. Try again.',
     };
   }
 
@@ -45,7 +45,7 @@ export function authorizationCodeFromCallback(
   ) {
     return {
       status: 'error',
-      message: 'Google sign-in did not return an authorization code.',
+      message: 'Could not sign in with Google. Try again.',
     };
   }
 

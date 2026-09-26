@@ -178,10 +178,10 @@ function renderPicker(options?: {
 }
 
 function fillMembershipFields() {
-  fireEvent.changeText(screen.getByLabelText('Body variable 1'), '  Rajat  ');
-  fireEvent.changeText(screen.getByLabelText('Body variable 2'), '  30 Sep ');
+  fireEvent.changeText(screen.getByLabelText('Message detail 1'), '  Rajat  ');
+  fireEvent.changeText(screen.getByLabelText('Message detail 2'), '  30 Sep ');
   fireEvent.changeText(
-    screen.getByLabelText('Header variable'),
+    screen.getByLabelText('Title text'),
     '  September renewal '
   );
   fireEvent.changeText(screen.getByLabelText('Renew now'), '  member-42 ');
@@ -213,9 +213,9 @@ describe('TemplatePicker', () => {
   it('shows one actionable blocker and no send controls when readiness is blocked', () => {
     const blocker: ActionBlocker = {
       kind: 'template_contract',
-      title: 'Template setup needs attention',
+      title: 'Templates need an update',
       reason:
-        'Sync an approved WhatsApp template contract before sending outside the customer-service window.',
+        'Refresh your approved templates on the UsefulDesk website, then try again.',
     };
 
     renderPicker({ blocker });
@@ -256,7 +256,7 @@ describe('TemplatePicker', () => {
     });
 
     expect(screen.getAllByRole('alert')).toHaveLength(1);
-    expect(screen.getByText('Template setup needs attention')).toBeTruthy();
+    expect(screen.getByText('Templates need an update')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
     expect(send).not.toHaveBeenCalled();
   });
@@ -269,13 +269,13 @@ describe('TemplatePicker', () => {
   it('uses semantic foreground roles for the sheet title and section hierarchy', () => {
     renderPicker();
 
-    expect(
-      screen.getByText('Send approved template').props.className
-    ).toContain('text-foreground');
+    expect(screen.getByText('Choose a template').props.className).toContain(
+      'text-foreground'
+    );
     expect(screen.getByText('Approved templates').props.className).toContain(
       'text-foreground'
     );
-    expect(screen.getByText('Template values').props.className).toContain(
+    expect(screen.getByText('Fill in the details').props.className).toContain(
       'text-foreground'
     );
   });
@@ -338,15 +338,15 @@ describe('TemplatePicker', () => {
     ).toBeTruthy();
     expect(
       screen
-        .getAllByLabelText(/Body variable|Header variable|Renew now/)
+        .getAllByLabelText(/Message detail|Title text|Renew now/)
         .map((field) => field.props.accessibilityLabel)
     ).toEqual([
-      'Body variable 1',
-      'Body variable 2',
-      'Header variable',
+      'Message detail 1',
+      'Message detail 2',
+      'Title text',
       'Renew now',
     ]);
-    expect(screen.getByLabelText('Body variable 1').props.className).toContain(
+    expect(screen.getByLabelText('Message detail 1').props.className).toContain(
       'min-h-12'
     );
   });
@@ -355,8 +355,10 @@ describe('TemplatePicker', () => {
     renderPicker();
 
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
-    expect(screen.getByText('Enter a value for Body variable 1.')).toBeTruthy();
-    expect(screen.getByText('Enter a value for Header variable.')).toBeTruthy();
+    expect(
+      screen.getByText('Enter a value for Message detail 1.')
+    ).toBeTruthy();
+    expect(screen.getByText('Enter a value for Title text.')).toBeTruthy();
     expect(screen.getByText('Enter a value for Renew now.')).toBeTruthy();
     expect(send).not.toHaveBeenCalled();
 
@@ -366,7 +368,7 @@ describe('TemplatePicker', () => {
     );
     expect(screen.getByLabelText('Copy offer').props.value).toBe('WELCOME20');
     fireEvent.changeText(
-      screen.getByLabelText('Body variable 1'),
+      screen.getByLabelText('Message detail 1'),
       '  OFFER25 '
     );
     fireEvent.changeText(screen.getByLabelText('Copy offer'), '  CUSTOM25 ');
@@ -416,7 +418,7 @@ describe('TemplatePicker', () => {
     const { onClose } = renderPicker({ templates: [copyCodeTemplate] });
 
     fireEvent.changeText(
-      screen.getByLabelText('Body variable 1'),
+      screen.getByLabelText('Message detail 1'),
       '  OFFER25 '
     );
     fireEvent.changeText(screen.getByLabelText('Copy offer'), '  CUSTOM25 ');
@@ -535,7 +537,7 @@ describe('TemplatePicker', () => {
 
     expect(
       await screen.findByText(
-        'Could not save template send safety status. No message was sent. Sending remains locked until storage recovers.'
+        'Nothing was sent. This phone could not save a safety check. Try again later.'
       )
     ).toBeTruthy();
     expect(send).not.toHaveBeenCalled();
@@ -545,7 +547,10 @@ describe('TemplatePicker', () => {
 
   it('keeps the selected template and all values after a definite pre-send failure with one retry action', async () => {
     send.mockRejectedValueOnce(
-      new MobileSendError('rate_limited', 'Too many send attempts.')
+      new MobileSendError(
+        'rate_limited',
+        'Too many messages at once. Wait a minute and try again.'
+      )
     );
     const { onOutcomeConfirmed } = renderPicker({
       templates: [membershipTemplate],
@@ -556,12 +561,12 @@ describe('TemplatePicker', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Too many send attempts.'
+        'Too many messages at once. Wait a minute and try again.'
       );
     });
-    expect(screen.getByRole('button', { name: 'Retry send' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Close' })).toBeNull();
-    expect(screen.getByLabelText('Body variable 1').props.value).toBe(
+    expect(screen.getByLabelText('Message detail 1').props.value).toBe(
       '  Rajat  '
     );
     expect(screen.getByLabelText('Renew now').props.value).toBe('  member-42 ');
@@ -572,7 +577,10 @@ describe('TemplatePicker', () => {
 
   it('keeps sending locked when a definite outcome marker cannot be cleared', async () => {
     send.mockRejectedValueOnce(
-      new MobileSendError('rate_limited', 'Too many send attempts.')
+      new MobileSendError(
+        'rate_limited',
+        'Too many messages at once. Wait a minute and try again.'
+      )
     );
     const onOutcomeConfirmed = jest
       .fn()
@@ -583,18 +591,18 @@ describe('TemplatePicker', () => {
 
     expect(
       await screen.findByText(
-        'The send was rejected, but the send-safety lock could not be cleared. Sending remains locked until storage recovers.'
+        'The template was not sent. Sending is locked on this phone for now. Try again later.'
       )
     ).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Retry send' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
     await waitForPickerIdle();
   });
 
   it.each([
-    ['network', 'Could not reach the send service.'],
-    ['provider', 'Message delivery is unavailable.'],
-    ['invalid_response', 'The send service returned an invalid response.'],
+    ['network', 'Could not connect. Check your internet.'],
+    ['provider', 'Something went wrong while sending.'],
+    ['invalid_response', 'Something went wrong while sending.'],
   ] as const)(
     'withholds template retry after an ambiguous %s outcome',
     async (category, detail) => {
@@ -608,14 +616,14 @@ describe('TemplatePicker', () => {
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(
-          `${detail} Delivery could not be confirmed. Check the conversation before sending again.`
+          `${detail} We cannot tell if it was sent. Check the chat before you send it again.`
         );
       });
-      expect(screen.queryByRole('button', { name: 'Retry send' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
       expect(
         screen.queryByRole('button', { name: 'Send template' })
       ).toBeNull();
-      expect(screen.getByLabelText('Body variable 1').props.value).toBe(
+      expect(screen.getByLabelText('Message detail 1').props.value).toBe(
         '  Rajat  '
       );
       expect(screen.getByLabelText('Renew now').props.value).toBe(
@@ -638,16 +646,16 @@ describe('TemplatePicker', () => {
 
     expect(
       screen.getByText(
-        'A previous template send could not be confirmed. Check this conversation for the message before sending another.'
+        'We cannot tell if your last template was sent. Look for it in this chat before you send another.'
       )
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Retry send' })).toBeNull();
-    expect(screen.getByLabelText('Body variable 1').props.editable).toBe(false);
-
-    fireEvent.press(
-      screen.getByRole('button', { name: 'I checked the conversation' })
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    expect(screen.getByLabelText('Message detail 1').props.editable).toBe(
+      false
     );
+
+    fireEvent.press(screen.getByRole('button', { name: 'I checked the chat' }));
 
     expect(onOutcomeAcknowledged).toHaveBeenCalledTimes(1);
     expect(send).not.toHaveBeenCalled();

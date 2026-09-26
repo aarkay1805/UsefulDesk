@@ -140,7 +140,7 @@ describe('TemplateRepository', () => {
     ).resolves.toEqual({
       status: 'absent',
       ready: false,
-      reason: 'No WhatsApp connection is configured for this branch.',
+      reason: 'WhatsApp is not connected for this branch.',
       connectedAt: null,
     });
 
@@ -215,9 +215,9 @@ describe('TemplateRepository', () => {
         providerComponentsSyncRequiredAt: null,
       })
     ).toEqual([
-      { kind: 'body', variable: 1, label: 'Body variable 1' },
-      { kind: 'body', variable: 2, label: 'Body variable 2' },
-      { kind: 'header', variable: 1, label: 'Header variable' },
+      { kind: 'body', variable: 1, label: 'Message detail 1' },
+      { kind: 'body', variable: 2, label: 'Message detail 2' },
+      { kind: 'header', variable: 1, label: 'Title text' },
       { kind: 'button', buttonIndex: 1, label: 'Track order' },
       {
         kind: 'button',

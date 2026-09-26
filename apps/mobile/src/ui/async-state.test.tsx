@@ -77,12 +77,12 @@ it('exposes recoverable errors as alerts with one retry', () => {
   const retry = jest.fn();
   render(
     <ErrorState
-      title="Could not load conversations"
-      message="Check your connection and try again."
+      title="Could not load chats"
+      message="Check your internet and try again."
       onRetry={retry}
     />
   );
   expect(screen.getByRole('alert')).toBeTruthy();
-  fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+  fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
   expect(retry).toHaveBeenCalledTimes(1);
 });

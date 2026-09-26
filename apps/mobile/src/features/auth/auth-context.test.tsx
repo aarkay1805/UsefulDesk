@@ -242,7 +242,7 @@ describe('AuthProvider', () => {
     await waitFor(() =>
       expect(latest?.state).toEqual({
         status: 'signed_out',
-        error: 'Could not restore your session. Sign in again.',
+        error: 'Could not keep you signed in. Sign in again.',
       })
     );
     expect(setup.raw.auth.onAuthStateChange).toHaveBeenCalledTimes(1);
@@ -378,7 +378,7 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(latest?.state.status).toBe('signed_out'));
     expect(latest?.state).toEqual({
       status: 'signed_out',
-      error: 'Your session expired. Sign in again.',
+      error: 'Your sign-in expired. Sign in again.',
     });
     expect(setup.raw.loadBootstrap).not.toHaveBeenCalled();
   });
@@ -396,7 +396,7 @@ describe('AuthProvider', () => {
     await waitFor(() => expect(latest?.state.status).toBe('signed_out'));
     expect(latest?.state).toEqual({
       status: 'signed_out',
-      error: 'Could not verify your session. Sign in again.',
+      error: 'Could not check your sign-in. Sign in again.',
     });
     expect(setup.raw.loadBootstrap).not.toHaveBeenCalled();
   });
@@ -841,11 +841,11 @@ describe('AuthProvider', () => {
       latest!.signInWithPassword('asha@example.com', 'password')
     ).resolves.toEqual({
       status: 'error',
-      message: 'Secure sign-out is still in progress.',
+      message: 'Still signing out. Wait a moment.',
     });
     await expect(latest!.signInWithGoogle()).resolves.toEqual({
       status: 'error',
-      message: 'Secure sign-out is still in progress.',
+      message: 'Still signing out. Wait a moment.',
     });
     expect(setup.raw.actions.signInWithPassword).not.toHaveBeenCalled();
     expect(setup.raw.actions.signInWithGoogle).not.toHaveBeenCalled();
@@ -868,7 +868,7 @@ describe('AuthProvider', () => {
       localAuth: 'success',
       branchPreference: 'success',
       message:
-        'Signed out on this device, but the remote session could not be closed.',
+        'Signed out on this phone. Could not reach UsefulDesk to finish sign-out.',
     });
     await act(async () => pendingSignOut);
 
@@ -906,8 +906,7 @@ describe('AuthProvider', () => {
     await act(async () => latest!.signOut());
     expect(latest?.state).toEqual({
       status: 'cleanup_failed',
-      error:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      error: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
     await expect(
       latest!.signInWithPassword('asha@example.com', 'password')
@@ -997,7 +996,7 @@ describe('AuthProvider', () => {
         lifecycle?.beforeLocalSignOut();
         return {
           status: 'error',
-          message: 'Could not sign in. Please try again.',
+          message: 'Could not sign in. Try again.',
         } as const;
       }
     );
@@ -1014,7 +1013,7 @@ describe('AuthProvider', () => {
       latest!.signInWithPassword('asha@example.com', 'password')
     ).resolves.toEqual({
       status: 'error',
-      message: 'Could not sign in. Please try again.',
+      message: 'Could not sign in. Try again.',
     });
     act(() => setup.emit('SIGNED_OUT', null));
 
@@ -1046,13 +1045,11 @@ describe('AuthProvider', () => {
     expect(result).toMatchObject({
       status: 'error',
       reason: 'cleanup_failed',
-      message:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      message: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
     expect(latest?.state).toEqual({
       status: 'cleanup_failed',
-      error:
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+      error: 'Sign-out did not finish on this phone. Tap Sign out again.',
     });
 
     await expect(
@@ -1099,7 +1096,7 @@ describe('AuthProvider', () => {
         localAuth: 'success',
         branchPreference: 'success',
         message:
-          'Signed out on this device, but the remote session could not be closed.',
+          'Signed out on this phone. Could not reach UsefulDesk to finish sign-out.',
       })
       .mockResolvedValueOnce({
         status: 'success',

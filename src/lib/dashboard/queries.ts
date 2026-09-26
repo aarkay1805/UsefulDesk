@@ -403,12 +403,12 @@ export async function loadActivity(
         contact?.phone ?? '',
         phoneCountryCode
       ) ||
-      'a contact';
+      'someone';
     const autoName = automation?.name || 'Automation';
     items.push({
       id: `auto-${l.id}`,
       kind: 'automation',
-      text: `Automation "${autoName}" ${l.status === 'failed' ? 'failed for' : 'triggered for'} ${who}`,
+      text: `Automation "${autoName}" ${l.status === 'failed' ? 'failed for' : 'ran for'} ${who}`,
       at: l.created_at,
     });
   }

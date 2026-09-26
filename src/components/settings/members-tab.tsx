@@ -103,9 +103,21 @@ interface Invitation {
 // Editable roles in the inline dropdown. Owner is never an option —
 // promotions go through the (deferred) Transfer Ownership flow.
 const EDITABLE_ROLES: { value: AccountRole; label: string; hint: string }[] = [
-  { value: 'admin', label: 'Admin', hint: 'Can do everything, including settings' },
-  { value: 'agent', label: 'Staff', hint: 'Daily work. Cannot change settings' },
-  { value: 'viewer', label: 'View only', hint: 'Can see everything but cannot change anything' },
+  {
+    value: 'admin',
+    label: 'Admin',
+    hint: 'Can do everything, including settings',
+  },
+  {
+    value: 'agent',
+    label: 'Staff',
+    hint: 'Daily work. Cannot change settings',
+  },
+  {
+    value: 'viewer',
+    label: 'View only',
+    hint: 'Can see everything but cannot change anything',
+  },
 ];
 
 // Per-role chip metadata (icon / label / colour) lives in the shared
@@ -532,12 +544,9 @@ export function MembersTab() {
                   <span className="bg-muted flex size-10 items-center justify-center rounded-full">
                     <Mail className="text-muted-foreground size-5" />
                   </span>
-                  <p className="mt-3 text-sm font-medium">
-                    No pending invites
-                  </p>
+                  <p className="mt-3 text-sm font-medium">No pending invites</p>
                   <p className="text-muted-foreground mt-1 max-w-sm text-xs">
-                    Invites stay here until someone uses them or you cancel
-                    them.
+                    Use Invite team member to add someone.
                   </p>
                 </CardContent>
               ) : (
@@ -554,9 +563,7 @@ export function MembersTab() {
                           <div className="min-w-0 flex-1">
                             <div className="flex min-w-0 flex-wrap items-center gap-2">
                               <span className="truncate text-sm font-medium">
-                                {inv.full_name ||
-                                  inv.label ||
-                                  'Invite'}
+                                {inv.full_name || inv.label || 'Invite'}
                               </span>
                               <SettingsChip variant={inviteRoleMeta.variant}>
                                 <InviteRoleIcon />

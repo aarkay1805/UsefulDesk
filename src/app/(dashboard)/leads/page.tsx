@@ -1932,7 +1932,9 @@ export default function LeadsPage() {
         try {
           await requestLeadTransfer(supabase, contact.id, targetId);
         } catch (e) {
-          toast.error(e instanceof Error ? e.message : 'Could not change the owner');
+          toast.error(
+            e instanceof Error ? e.message : 'Could not change the owner'
+          );
           return;
         }
         setContacts((prev) =>
@@ -2092,7 +2094,9 @@ export default function LeadsPage() {
             outcome = await requestLeadAssignment(supabase, contact.id, target);
           } catch (e) {
             toast.error(
-              e instanceof Error ? e.message : 'Could not change who it is assigned to'
+              e instanceof Error
+                ? e.message
+                : 'Could not change who it is assigned to'
             );
             return;
           }
@@ -2284,9 +2288,7 @@ export default function LeadsPage() {
       .select('id');
 
     if (error || !data || data.length === 0) {
-      toast.error(
-        'Could not delete. You can only delete enquiries you added.'
-      );
+      toast.error('Could not delete. You can only delete enquiries you added.');
     } else {
       toast.success('Enquiry deleted');
       refreshAll();
@@ -2390,13 +2392,13 @@ export default function LeadsPage() {
         'Name',
         'Phone',
         'Email',
-        'Status',
+        'Stage',
         'Source',
         'Gender',
-        'Assigned To',
-        'Received By',
+        'Assigned to',
+        'Received by',
         'Tags',
-        'Created On',
+        'Added on',
       ];
       const body = rows.map((c) => {
         const auto = autoReceivedLabel(c.received_via);
@@ -2454,7 +2456,9 @@ export default function LeadsPage() {
           `${removed} deleted. ${skipped} not deleted because someone else added them.`
         );
       } else {
-        toast.success(`${removed} ${removed === 1 ? 'enquiry' : 'enquiries'} deleted`);
+        toast.success(
+          `${removed} ${removed === 1 ? 'enquiry' : 'enquiries'} deleted`
+        );
       }
       setSelected(new Set());
       refreshAll();
@@ -2601,7 +2605,9 @@ export default function LeadsPage() {
         toast.error('Could not update enquiries');
         return false;
       }
-      toast.success(`${ids.length} ${ids.length === 1 ? 'enquiry' : 'enquiries'} updated`);
+      toast.success(
+        `${ids.length} ${ids.length === 1 ? 'enquiry' : 'enquiries'} updated`
+      );
       setSelected(new Set());
       refreshAll();
       return true;
@@ -2680,7 +2686,9 @@ export default function LeadsPage() {
       toast.error('Could not update enquiries');
       return false;
     }
-    toast.success(`${data.length} ${data.length === 1 ? 'enquiry' : 'enquiries'} updated`);
+    toast.success(
+      `${data.length} ${data.length === 1 ? 'enquiry' : 'enquiries'} updated`
+    );
     setSelected(new Set());
     refreshAll();
     return true;
@@ -3020,19 +3028,25 @@ export default function LeadsPage() {
           variant="ghost"
           canAct={canEdit}
           gateReason="add enquiries"
+          aria-label="Import"
           onClick={() => setImportOpen(true)}
         >
           <Download className="size-4" />
-          Import
+          <span className="hidden sm:inline">Import</span>
         </GatedButton>
         {activeView === 'all' && (
-          <Button variant="ghost" onClick={handleExport} disabled={exporting}>
+          <Button
+            variant="ghost"
+            aria-label="Export"
+            onClick={handleExport}
+            disabled={exporting}
+          >
             {exporting ? (
               <Loader2 className="size-4 animate-spin" />
             ) : (
               <Upload className="size-4" />
             )}
-            Export
+            <span className="hidden sm:inline">Export</span>
           </Button>
         )}
         <GatedButton
@@ -3981,7 +3995,8 @@ export default function LeadsPage() {
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
-              Delete {selected.size} {selected.size === 1 ? 'enquiry' : 'enquiries'}?
+              Delete {selected.size}{' '}
+              {selected.size === 1 ? 'enquiry' : 'enquiries'}?
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               This deletes{' '}
@@ -3992,7 +4007,8 @@ export default function LeadsPage() {
             </DialogDescription>
             {!canDeleteAny && (
               <p className="text-muted-foreground mt-1 text-xs">
-                Only enquiries you added will be deleted. Enquiries added by others or added automatically will stay.
+                Only enquiries you added will be deleted. Enquiries added by
+                others or added automatically will stay.
               </p>
             )}
           </DialogHeader>

@@ -117,8 +117,7 @@ const RADAR_AXIS_DETAILS: Record<
   positiveOutcome: {
     label: 'Good results',
     lines: ['Good', 'results'],
-    description:
-      'Out of 100 finished follow-ups, how many ended well.',
+    description: 'Out of 100 finished follow-ups, how many ended well.',
     positionClass: 'top-1/4 left-0 text-right',
     tooltipSide: 'left',
   },
@@ -173,9 +172,7 @@ export function LeadConversionRating({
               >
                 <CircleHelp />
               </DialogTrigger>
-              <TooltipContent>
-                How is the enquiry score made?
-              </TooltipContent>
+              <TooltipContent>How is the enquiry score made?</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         }
@@ -216,12 +213,8 @@ export function LeadConversionRating({
                   }}
                 >
                   {RATING_RANGES.map((days) => (
-                    <ToolbarToggleItem
-                      key={days}
-                      value={String(days)}
-                      aria-label={`${days} days`}
-                    >
-                      {days}d
+                    <ToolbarToggleItem key={days} value={String(days)}>
+                      {days} days
                     </ToolbarToggleItem>
                   ))}
                 </ToolbarToggleGroup>
@@ -266,7 +259,9 @@ function RatingHeadline({ source }: { source: LeadSourceRating }) {
         <span className="text-muted-foreground text-xs">/100</span>
       </div>
       {source.rating == null && (
-        <p className="text-muted-foreground mt-1 text-xs">Not enough data yet</p>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Not enough data yet
+        </p>
       )}
     </div>
   );
@@ -341,8 +336,8 @@ function RatingCalculationDialogContent({
         </CalculationNote>
 
         <CalculationNote title="Trials booked">
-          We count an enquiry as trial booked if it has the Trial booked stage, a
-          done Trial booked follow-up, or a trial membership. It does not mean
+          We count an enquiry as trial booked if it has the Trial booked stage,
+          a done Trial booked follow-up, or a trial membership. It does not mean
           the person came to the gym.
         </CalculationNote>
 
@@ -353,9 +348,9 @@ function RatingCalculationDialogContent({
         </CalculationNote>
 
         <CalculationNote title="Is there enough data?">
-          The smallest part has {fmt.number(source.confidenceSample)} entries, so
-          the data is {CONFIDENCE_LABEL[source.confidence]}. Under 10 is low, 10
-          to 29 is fair, and 30 or more is strong. A part with no data stays
+          The smallest part has {fmt.number(source.confidenceSample)} entries,
+          so the data is {CONFIDENCE_LABEL[source.confidence]}. Under 10 is low,
+          10 to 29 is fair, and 30 or more is strong. A part with no data stays
           blank. It is not counted as zero.
         </CalculationNote>
       </div>
@@ -438,9 +433,9 @@ function RadarChart({ source }: { source: LeadSourceRating }) {
             {source.label} enquiry score
           </title>
           <desc id={`lead-radar-desc-${source.key}`}>
-            Five parts of the score: joined as members, trials booked, replied in
-            24 hours, follow-ups on time, and good results. A part with no data
-            stays blank.
+            Five parts of the score: joined as members, trials booked, replied
+            in 24 hours, follow-ups on time, and good results. A part with no
+            data stays blank.
           </desc>
           {[25, 50, 75, 100].map((level) => (
             <polygon
@@ -516,7 +511,7 @@ function RadarChart({ source }: { source: LeadSourceRating }) {
                   render={
                     <span
                       tabIndex={0}
-                      aria-label={`${details.label} metric`}
+                      aria-label={details.label}
                       className={`text-muted-foreground hover:text-foreground focus-visible:text-foreground absolute z-10 cursor-help text-[10px] leading-3 outline-none focus-visible:underline ${details.positionClass}`}
                     />
                   }

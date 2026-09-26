@@ -22,8 +22,8 @@ import { conversationTimestamp } from '../inbox-format';
 import { useConversationList } from '../use-conversation-list';
 import { useAccountCalendarClock } from '../use-account-calendar-clock';
 
-const LOAD_ERROR = 'Could not load conversations';
-const MORE_ERROR = 'Could not load more conversations';
+const LOAD_ERROR = 'Could not load chats';
+const MORE_ERROR = 'Could not load more chats';
 
 export function InboxScreen() {
   const router = useRouter();
@@ -69,7 +69,7 @@ export function InboxScreen() {
     if (inbox.status === 'loading') {
       return (
         <View className="items-center px-5 py-12">
-          <LoadingState label="Loading conversations" />
+          <LoadingState label="Loading chats" />
         </View>
       );
     }
@@ -79,7 +79,7 @@ export function InboxScreen() {
         <View className="px-5 py-8">
           <ErrorState
             title={inbox.error ?? LOAD_ERROR}
-            message="Check your connection and try again."
+            message="Check your internet and try again."
             onRetry={inbox.refresh}
           />
         </View>
@@ -89,10 +89,10 @@ export function InboxScreen() {
     return (
       <View className="items-center gap-1 px-5 py-12">
         <Text className="text-foreground text-base font-semibold">
-          No conversations yet
+          No chats yet
         </Text>
         <Text className="text-muted text-center text-sm">
-          New WhatsApp conversations will appear here.
+          New WhatsApp chats will appear here.
         </Text>
       </View>
     );
@@ -102,7 +102,7 @@ export function InboxScreen() {
     if (inbox.loadingMore) {
       return (
         <View className="items-center px-5 py-4">
-          <ActivityIndicator accessibilityLabel="Loading more conversations" />
+          <ActivityIndicator accessibilityLabel="Loading more chats" />
         </View>
       );
     }
@@ -117,13 +117,13 @@ export function InboxScreen() {
             {inbox.paginationError ?? MORE_ERROR}
           </Text>
           <Button
-            accessibilityLabel="Retry loading more"
+            accessibilityLabel="Try loading more chats again"
             className="min-h-12"
             onPress={inbox.loadMore}
             size="sm"
             variant="ghost"
           >
-            Retry loading more
+            Try again
           </Button>
         </View>
       );
@@ -134,7 +134,7 @@ export function InboxScreen() {
 
   return (
     <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top']}>
-      <Stack.Screen options={{ headerShown: false, title: 'Inbox' }} />
+      <Stack.Screen options={{ headerShown: false, title: 'Chats' }} />
       <InboxHeader onOpenAccount={() => router.push('/(app)/account')} />
 
       {/*
@@ -148,12 +148,12 @@ export function InboxScreen() {
        */}
       <View className="px-4 pt-1 pb-3">
         <SearchField
-          accessibilityLabel="Search conversations"
+          accessibilityLabel="Search chats"
           onValueChange={inbox.setSearch}
-          placeholder="Search conversations"
+          placeholder="Search chats"
           trailingAccessory={
             <FilterMenu
-              accessibilityLabel="Conversation filter"
+              accessibilityLabel="Chat filter"
               onValueChange={inbox.setFilter}
               options={filters}
               value={inbox.filter}
@@ -178,9 +178,9 @@ export function InboxScreen() {
           <Notice
             className="mx-4 my-3"
             symbol="exclamationmark.triangle"
-            title="Live updates unavailable"
+            title="Not updating live"
           >
-            Pull to refresh while the connection recovers.
+            Check your internet. Pull down to refresh.
           </Notice>
         ) : null}
 

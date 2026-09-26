@@ -113,16 +113,14 @@ const OPTIONS = [
 it('reads out the active option and keeps the option set closed until asked', () => {
   render(
     <FilterMenu
-      accessibilityLabel="Conversation filter"
+      accessibilityLabel="Chat filter"
       options={OPTIONS}
       value="all"
       onValueChange={jest.fn()}
     />
   );
 
-  expect(
-    screen.getByRole('button', { name: 'Conversation filter, All' })
-  ).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Chat filter, All' })).toBeTruthy();
   expect(screen.queryByRole('button', { name: 'Unread, 3' })).toBeNull();
 });
 
@@ -130,16 +128,14 @@ it('selects a different filter from the open menu', () => {
   const onValueChange = jest.fn();
   render(
     <FilterMenu
-      accessibilityLabel="Conversation filter"
+      accessibilityLabel="Chat filter"
       options={OPTIONS}
       value="all"
       onValueChange={onValueChange}
     />
   );
 
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Conversation filter, All' })
-  );
+  fireEvent.press(screen.getByRole('button', { name: 'Chat filter, All' }));
   fireEvent.press(screen.getByRole('button', { name: 'Unread, 3' }));
 
   expect(onValueChange).toHaveBeenCalledWith('unread');
@@ -149,16 +145,14 @@ it('does not re-fire for the option already in force', () => {
   const onValueChange = jest.fn();
   render(
     <FilterMenu
-      accessibilityLabel="Conversation filter"
+      accessibilityLabel="Chat filter"
       options={OPTIONS}
       value="unread"
       onValueChange={onValueChange}
     />
   );
 
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Conversation filter, Unread' })
-  );
+  fireEvent.press(screen.getByRole('button', { name: 'Chat filter, Unread' }));
   fireEvent.press(screen.getByRole('button', { name: 'Unread, 3' }));
 
   expect(onValueChange).not.toHaveBeenCalled();
@@ -167,16 +161,14 @@ it('does not re-fire for the option already in force', () => {
 it('shows a count as its own text rather than folding it into the label', () => {
   render(
     <FilterMenu
-      accessibilityLabel="Conversation filter"
+      accessibilityLabel="Chat filter"
       options={OPTIONS}
       value="all"
       onValueChange={jest.fn()}
     />
   );
 
-  fireEvent.press(
-    screen.getByRole('button', { name: 'Conversation filter, All' })
-  );
+  fireEvent.press(screen.getByRole('button', { name: 'Chat filter, All' }));
 
   expect(screen.getByText('Unread')).toBeTruthy();
   expect(screen.getByText('3')).toBeTruthy();

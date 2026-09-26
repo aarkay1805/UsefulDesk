@@ -68,6 +68,17 @@ export function isAccountRole(value: unknown): value is AccountRole {
   );
 }
 
+/**
+ * The role names people see (`docs/ux-copy.md`). The stored values keep
+ * their original names, so never render a raw `AccountRole`.
+ */
+export const ACCOUNT_ROLE_LABELS: Readonly<Record<AccountRole, string>> = {
+  owner: 'Owner',
+  admin: 'Admin',
+  agent: 'Staff',
+  viewer: 'View only',
+};
+
 // ============================================================
 // Capability predicates
 //

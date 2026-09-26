@@ -67,7 +67,7 @@ it('clears a controlled search and returns the empty value', () => {
   const onValueChange = jest.fn();
   render(
     <SearchField
-      accessibilityLabel="Search conversations"
+      accessibilityLabel="Search chats"
       value="Asha"
       onValueChange={onValueChange}
     />
@@ -80,7 +80,7 @@ it('disables the clear action with the search field', () => {
   const onValueChange = jest.fn();
   render(
     <SearchField
-      accessibilityLabel="Search conversations"
+      accessibilityLabel="Search chats"
       value="Asha"
       onValueChange={onValueChange}
       disabled
@@ -96,7 +96,7 @@ it('disables the clear action with the search field', () => {
 it('keeps a trailing accessory clear of the clear button and the query text', () => {
   render(
     <SearchField
-      accessibilityLabel="Search conversations"
+      accessibilityLabel="Search chats"
       value="Asha"
       onValueChange={jest.fn()}
       trailingAccessory={
@@ -123,7 +123,7 @@ it('keeps a trailing accessory clear of the clear button and the query text', ()
   expect(
     screen.getByRole('button', { name: 'Clear search' }).props.style
   ).toEqual({ insetInlineEnd: 108 });
-  expect(screen.getByLabelText('Search conversations').props.style).toEqual({
+  expect(screen.getByLabelText('Search chats').props.style).toEqual({
     lineHeight: undefined,
     paddingInlineEnd: 144,
   });
@@ -132,14 +132,14 @@ it('keeps a trailing accessory clear of the clear button and the query text', ()
 it('reserves no accessory lane when the field carries no accessory', () => {
   render(
     <SearchField
-      accessibilityLabel="Search conversations"
+      accessibilityLabel="Search chats"
       value="Asha"
       onValueChange={jest.fn()}
     />
   );
 
   expect(screen.queryByTestId('search-field-trailing-accessory')).toBeNull();
-  expect(screen.getByLabelText('Search conversations').props.style).toEqual({
+  expect(screen.getByLabelText('Search chats').props.style).toEqual({
     lineHeight: undefined,
     paddingInlineEnd: undefined,
   });

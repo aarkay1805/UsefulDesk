@@ -208,7 +208,7 @@ function parseConnection(row: unknown, accountId: string): ConnectionReadiness {
     return {
       status: 'absent',
       ready: false,
-      reason: 'No WhatsApp connection is configured for this branch.',
+      reason: 'WhatsApp is not connected for this branch.',
       connectedAt: null,
     };
   }
@@ -247,14 +247,14 @@ export function templateFields(template: NativeTemplate): TemplateField[] {
   ).map((variable) => ({
     kind: 'body',
     variable,
-    label: `Body variable ${variable}`,
+    label: `Message detail ${variable}`,
   }));
   if (
     template.headerType === 'text' &&
     template.headerContent &&
     extractTemplateVariableIndices(template.headerContent).includes(1)
   ) {
-    fields.push({ kind: 'header', variable: 1, label: 'Header variable' });
+    fields.push({ kind: 'header', variable: 1, label: 'Title text' });
   }
   template.buttons.forEach((button, buttonIndex) => {
     if (

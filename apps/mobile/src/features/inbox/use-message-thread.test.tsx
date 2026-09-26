@@ -617,7 +617,9 @@ describe('useMessageThread', () => {
     act(() => result.current.refresh());
 
     await waitFor(() =>
-      expect(result.current.refreshWarning).toBe('Could not refresh messages')
+      expect(result.current.refreshWarning).toBe(
+        'Could not refresh messages. Pull down to try again.'
+      )
     );
     expect(result.current.conversation).toEqual(conversation());
     expect(result.current.items.map((item) => item.id)).toEqual([
@@ -650,7 +652,9 @@ describe('useMessageThread', () => {
 
     await act(async () => realtime.emitStatus('connected', 1));
     await waitFor(() =>
-      expect(result.current.refreshWarning).toBe('Could not refresh messages')
+      expect(result.current.refreshWarning).toBe(
+        'Could not refresh messages. Pull down to try again.'
+      )
     );
     expect(result.current.items).toHaveLength(2);
     expect(result.current.refreshing).toBe(false);
@@ -661,7 +665,9 @@ describe('useMessageThread', () => {
     await waitFor(() => expect(result.current.refreshing).toBe(false));
     expect(result.current.items).toHaveLength(2);
     expect(result.current.status).toBe('ready');
-    expect(result.current.refreshWarning).toBe('Could not refresh messages');
+    expect(result.current.refreshWarning).toBe(
+      'Could not refresh messages. Pull down to try again.'
+    );
   });
 
   it('publishes unavailable when a refresh verifies the conversation is gone', async () => {
@@ -2191,7 +2197,10 @@ describe('useMessageThread', () => {
           >()
           .mockRejectedValueOnce(
             safeToRetry
-              ? new MobileSendError('rate_limited', 'Too many send attempts.')
+              ? new MobileSendError(
+                  'rate_limited',
+                  'Too many messages at once. Wait a minute and try again.'
+                )
               : new Error('Connection lost')
           )
           .mockResolvedValueOnce(acknowledgement);
@@ -2597,7 +2606,10 @@ describe('useMessageThread', () => {
           [MobileSendInput, MobileSendDependencies]
         >()
         .mockRejectedValueOnce(
-          new MobileSendError('rate_limited', 'Too many send attempts.')
+          new MobileSendError(
+            'rate_limited',
+            'Too many messages at once. Wait a minute and try again.'
+          )
         )
         .mockResolvedValueOnce(acknowledgement);
       const dependencies = outbound(sendMessage);
@@ -2717,7 +2729,10 @@ describe('useMessageThread', () => {
           [MobileSendInput, MobileSendDependencies]
         >()
         .mockRejectedValue(
-          new MobileSendError('network', 'Could not reach the send service.')
+          new MobileSendError(
+            'network',
+            'Could not connect. Check your internet.'
+          )
         );
       const { result } = renderHook(() =>
         useConfiguredThread({ outbound: outbound(sendMessage) })
@@ -2734,7 +2749,7 @@ describe('useMessageThread', () => {
         status: 'failed',
         safeToRetry: false,
         message:
-          'Could not reach the send service. Delivery could not be confirmed. Check the conversation before sending again.',
+          'Could not connect. Check your internet. We cannot tell if it was sent. Check the chat before you send it again.',
       });
       expect(result.current.items.at(-1)).toEqual(
         expect.objectContaining({
@@ -2759,7 +2774,10 @@ describe('useMessageThread', () => {
           [MobileSendInput, MobileSendDependencies]
         >()
         .mockRejectedValueOnce(
-          new MobileSendError('rate_limited', 'Too many send attempts.')
+          new MobileSendError(
+            'rate_limited',
+            'Too many messages at once. Wait a minute and try again.'
+          )
         )
         .mockReturnValueOnce(retry.promise);
       const { result } = renderHook(() =>
@@ -2982,7 +3000,10 @@ describe('useMessageThread', () => {
           [MobileSendInput, MobileSendDependencies]
         >()
         .mockRejectedValueOnce(
-          new MobileSendError('rate_limited', 'Too many send attempts.')
+          new MobileSendError(
+            'rate_limited',
+            'Too many messages at once. Wait a minute and try again.'
+          )
         )
         .mockReturnValueOnce(retry.promise);
       const { result } = renderHook(() =>

@@ -30,7 +30,10 @@ export interface ClosedWindowBarProps {
  */
 export function ClosedWindowBar({ onOpenTemplates }: ClosedWindowBarProps) {
   return (
-    <View className="bg-inbox-panel px-3 py-2" testID="closed-window-action-bar">
+    <View
+      className="bg-inbox-panel px-3 py-2"
+      testID="closed-window-action-bar"
+    >
       <Notice
         action={
           <Button
@@ -44,9 +47,9 @@ export function ClosedWindowBar({ onOpenTemplates }: ClosedWindowBarProps) {
         }
         emphasis="outline"
         symbol="clock"
-        title="Reply window closed"
+        title="24-hour reply time is over"
       >
-        WhatsApp allows only an approved template until they reply again.
+        Until they reply, you can send only an approved template.
       </Notice>
     </View>
   );

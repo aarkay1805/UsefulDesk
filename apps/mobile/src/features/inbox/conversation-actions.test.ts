@@ -198,7 +198,7 @@ describe('resolveConversationActions', () => {
           connectionReadiness: {
             status: 'absent',
             ready: false,
-            reason: 'No WhatsApp connection is configured for this branch.',
+            reason: 'WhatsApp is not connected for this branch.',
             connectedAt: null,
           },
         })

@@ -14,15 +14,15 @@ function action(label: string) {
 describe('Notice', () => {
   it('announces the copy and leaves the action outside the alert', () => {
     render(
-      <Notice action={action('Check again')} title="Live updates unavailable">
-        Pull to refresh while the connection recovers.
+      <Notice action={action('Check again')} title="Not updating live">
+        Check your internet. Pull down to refresh.
       </Notice>
     );
 
     const alert = screen.getByRole('alert');
-    expect(within(alert).getByText('Live updates unavailable')).toBeTruthy();
+    expect(within(alert).getByText('Not updating live')).toBeTruthy();
     expect(
-      within(alert).getByText('Pull to refresh while the connection recovers.')
+      within(alert).getByText('Check your internet. Pull down to refresh.')
     ).toBeTruthy();
     /*
      * The regression this master exists to prevent: the bar it replaced never
@@ -34,9 +34,9 @@ describe('Notice', () => {
   });
 
   it('renders a reason with no title', () => {
-    render(<Notice testID="notice">Checking template send safety…</Notice>);
+    render(<Notice testID="notice">Checking your last template…</Notice>);
 
-    expect(screen.getByText('Checking template send safety…')).toBeTruthy();
+    expect(screen.getByText('Checking your last template…')).toBeTruthy();
     expect(screen.getByRole('alert')).toBeTruthy();
   });
 
@@ -61,17 +61,22 @@ describe('Notice', () => {
   it('keeps a filled notice legible on its own tint and an outlined one on the page', () => {
     const { rerender } = render(
       <Notice testID="notice" title="Could not send" tone="danger">
-        The send request did not complete.
+        Something went wrong while sending.
       </Notice>
     );
 
-    expect(
-      screen.getByText('Could not send').props.className
-    ).toContain('text-danger-soft-foreground');
+    expect(screen.getByText('Could not send').props.className).toContain(
+      'text-danger-soft-foreground'
+    );
 
     rerender(
-      <Notice emphasis="outline" testID="notice" title="Could not send" tone="danger">
-        The send request did not complete.
+      <Notice
+        emphasis="outline"
+        testID="notice"
+        title="Could not send"
+        tone="danger"
+      >
+        Something went wrong while sending.
       </Notice>
     );
 
@@ -79,14 +84,14 @@ describe('Notice', () => {
       'text-foreground'
     );
     expect(
-      screen.getByText('The send request did not complete.').props.className
+      screen.getByText('Something went wrong while sending.').props.className
     ).toContain('text-muted');
   });
 
   it('hides the loading spinner from the screen reader that already hears the reason', () => {
     render(
       <Notice loading testID="notice">
-        Checking template send safety…
+        Checking your last template…
       </Notice>
     );
 
@@ -133,7 +138,7 @@ describe('Notice', () => {
   it('takes external layout through className without losing its surface', () => {
     render(
       <Notice className="mx-4 mt-3" testID="notice">
-        Pull to refresh while the connection recovers.
+        Check your internet. Pull down to refresh.
       </Notice>
     );
 

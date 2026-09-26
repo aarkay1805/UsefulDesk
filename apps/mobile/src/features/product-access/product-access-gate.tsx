@@ -166,11 +166,9 @@ function AccessRecovery({
         }
       }
       await requestProductSupport(auth.state.branch.account_id);
-      setMessage(
-        'Support request received. Our team will contact your organization.'
-      );
+      setMessage('Request sent. Our team will contact you.');
     } catch {
-      setMessage('Could not send your support request. Please try again.');
+      setMessage('Could not send your request. Try again.');
     } finally {
       setPending(null);
     }
@@ -180,15 +178,15 @@ function AccessRecovery({
     try {
       await auth.signOut();
     } catch {
-      setMessage('Could not sign out. Please try again.');
+      setMessage('Could not sign out. Try again.');
     } finally {
       setPending(null);
     }
   }
   const reason = loading
-    ? 'Checking your organization’s access…'
+    ? 'Checking your access…'
     : failed
-      ? 'Could not verify access. Check your connection and try again.'
+      ? 'Could not check your access. Check your internet and try again.'
       : snapshot?.status === 'suspended'
         ? 'Your organization’s access is suspended. Contact support to restore access.'
         : snapshot?.status === 'pending'
@@ -231,7 +229,7 @@ function AccessRecovery({
             accessibilityRole="header"
             className="text-foreground text-lg font-semibold"
           >
-            Switch branch or organization
+            Switch gym brand or branch
           </Text>
           <BranchChoices
             branches={auth.state.branches}

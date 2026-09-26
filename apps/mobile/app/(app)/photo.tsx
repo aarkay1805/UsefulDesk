@@ -44,7 +44,7 @@ export default function PhotoScreen() {
           />
         </ScrollView>
       ) : (
-        <Notice tone="danger">Photo unavailable</Notice>
+        <Notice tone="danger">Photo not available</Notice>
       )}
     </ScreenSafeAreaView>
   );

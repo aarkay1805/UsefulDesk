@@ -56,15 +56,15 @@ One row per **billing option** a plan sells: `duration_count × duration_unit ('
 
 **Copy is per plan type — `PLAN_COPY`.** The same `duration_count × duration_unit` column means a different thing per type, so the labels must too:
 
-| Type          | Section            | Duration label     | Add button         |
-| ------------- | ------------------ | ------------------ | ------------------ |
-| recurring     | Billing options    | Bill every         | Add billing option |
-| non_recurring | Pricing & expiry   | **Expire plan in** | Add another price  |
-| session_pack  | Pricing & validity | Valid for          | Add another price  |
+| Type (shown as)             | Section             | Duration label      | Add button        |
+| --------------------------- | ------------------- | ------------------- | ----------------- |
+| recurring (Renewing)        | Prices              | Charge every        | Add price         |
+| non_recurring (One-time)    | Prices and length   | **Plan ends after** | Add another price |
+| session_pack (Session pack) | Prices and validity | Valid for           | Add another price |
 
-The repeater stays on **all three** (PushPress sells several terms under one fixed-term plan too). The visit-limit `period` interval reads "per term" on a fixed-term plan (`limitIntervals(planType)`). Before this, fixed-term shared the recurring branch and told the owner a never-billing plan "bills every 1 month". **Any new type-facing string goes in `PLAN_COPY`** — never a `session_pack ? … : …` split at a call-site.
+The repeater stays on **all three** (PushPress sells several lengths under one one-time plan too). The visit-limit `period` interval reads "for the whole plan" on a one-time plan and "per payment period" otherwise (`limitIntervals(planType)`). Before this, one-time plans shared the renewing branch and told the owner a never-billing plan "bills every 1 month". **Any new type-facing string goes in `PLAN_COPY`** — never a `session_pack ? … : …` split at a call-site.
 
-**Canonical picker: `PlanOptionPicker`** (`components/members/plan-option-picker.tsx`) — plan Select + conditional option Select, labelled per type via `OPTION_LABEL` (Billing option / Term / Pricing), single option auto-selects, trial sentinel + required star + footer slots. Mounted in member-form, renew, change-plan, import-members. (Bulk-convert keeps its DropdownMenu style with an option submenu.)
+**Canonical picker: `PlanOptionPicker`** (`components/members/plan-option-picker.tsx`) — plan Select + conditional option Select, labelled **Price** for every type via `OPTION_LABEL`, single option auto-selects, trial sentinel + required star + footer slots. Mounted in member-form, renew, change-plan, import-members. (Bulk **Add as member** keeps its DropdownMenu style with an option submenu.)
 
 ---
 
@@ -185,7 +185,7 @@ The single _next_ invoice is **projected in TS** (`projectNextInvoice`) — disp
 
 **Every money judgement goes through `isChargeableAmount(amount)`** (`periods.ts`, `SETTLED_BALANCE_EPSILON = 0.5`). **Never `> 0` / `<= 0` on a fee or balance again.** The same epsilon gates `isCollectiblePeriod`, the Record-payment / Copy-UPI affordances, the member card's "₹x due" chip, the payment-due buckets, and bulk record-payment.
 
-An invoice's **payment axis** is orthogonal to its Current/Past/Upcoming/Void lifecycle: pure `invoicePaymentState()` → `paid | due | no_charge`, rendered by `InvoicePaymentBadge`. **No charge** (neutral) = the cycle billed AND collected nothing (a zero-fee cycle, or a stub whose fee rounds to zero) — neither Paid (no money moved) nor Due (nothing owed). A stub that DID collect money still reads Paid. `periodStatus()` delegates to it.
+An invoice's **payment axis** is orthogonal to its Current/Past/Upcoming/Cancelled (`void`) lifecycle: pure `invoicePaymentState()` → `paid | due | no_charge`, rendered by `InvoicePaymentBadge`. **No charge** (neutral) = the cycle billed AND collected nothing (a zero-fee cycle, or a stub whose fee rounds to zero) — neither Paid (no money moved) nor Due (nothing owed). A stub that DID collect money still reads Paid. `periodStatus()` delegates to it.
 
 ---
 
@@ -199,7 +199,7 @@ Hardened by `20260711173414` + `058` — the ledger is DB-authoritative and tamp
 - Every INSERT is validated by `validate_membership_payment`: real open period, amount > 0, ≤ outstanding balance, agent access.
 - **Payment serialization follows the write boundary.** Membership-originated manual payments already lock their `membership_periods` row, then resolve the immutable linked invoice with a normal RLS-visible read; adding an invoice row lock there silently hides the invoice because authenticated callers deliberately have no invoice UPDATE policy. Generic invoice collection enters through trusted RPCs and retains its invoice-level lock. Never grant browser invoice UPDATE access to make a membership payment pass.
 - Payment purpose is assigned only by trusted database paths: `perform_join_checkout` covers initial combined joining collection; `perform_member_checkout` classifies membership renewal, standalone sale, and service renewal; `record_invoice_payment` is the later/due path; legacy membership and AutoPay RPCs keep their operation/cycle classification. Joining = initial collection, renewal = a payment opening a later membership cycle, sale = the payment issued with a standalone product/service invoice, due = money applied later to an existing invoice, and other = plan-change or genuinely ambiguous history. Never accept a purpose from the browser or rewrite it after insert.
-- Idempotent transactional RPCs: `record_joining_payment` · `record_membership_payment` · `renew_membership_transaction` · `void_membership_payment` (admin-only, reasoned; **append-preserving** — status `void` + `voided_at/by/reason`; UI = `VoidPaymentDialog` + `VoidedPaymentBadge` tooltip) · `delete_member` (ledger survives — payment FKs are SET NULL).
+- Idempotent transactional RPCs: `record_joining_payment` · `record_membership_payment` · `renew_membership_transaction` · `void_membership_payment` (admin-only, reasoned; **append-preserving** — status `void` + `voided_at/by/reason`; UI = `VoidPaymentDialog` + `VoidedPaymentBadge` tooltip, shown as **Cancel payment** / **Cancelled**) · `delete_member` (ledger survives — payment FKs are SET NULL).
 - **Receipts live in the PRIVATE `payment-receipts` bucket** — `uploadPrivateAccountMedia`, viewed via signed URL (`PaymentProofLink` re-signs after 4 min). **Never persist a signed URL.** Storage DELETE: agents only for objects unreferenced by a payment row (staged uploads); admins any.
 - `membership_periods` DELETE is admin-only.
 - Error toasts → `getErrorMessage` (`src/lib/errors.ts`).
@@ -210,7 +210,7 @@ Hardened by `20260711173414` + `058` — the ledger is DB-authoritative and tamp
 
 ## Mid-cycle plan change (`061`)
 
-Member sheet → Membership `⋯` → **Change plan** (first item; active + non-trial only — trials keep Convert, frozen must resume first).
+Member sheet → Membership `⋯` → **Change plan** (first item; active + non-trial only — trials keep **Add as member**, frozen must **Unfreeze** first).
 
 `ChangePlanDialog`: pick the new plan + switch date (min = day after the current cycle starts), see the credit quote live. Unused **paid** days of the current cycle come back as a credit against the new plan's fee:
 
@@ -230,15 +230,15 @@ Commit = RPC `change_membership_plan` — one transaction, `membership_operation
 
 ## Attendance & limits
 
-- **Assigned arrival** is an optional `contacts.assigned_arrival_time` gym-local wall-clock time in 30-minute steps. It belongs to the contact so service-only customers can carry it too. It is a planning hint in All members and Attendance, not an access rule or a substitute for actual `attendance.checked_in_at` / `checked_out_at`. CSV import accepts half-hour 12h/24h times; empty input leaves an existing assignment unchanged.
+- **Usual time** is an optional `contacts.assigned_arrival_time` gym-local wall-clock time in 30-minute steps. It belongs to the contact so service-only customers can carry it too. It is a planning hint in All members and Attendance, not an access rule or a substitute for actual `attendance.checked_in_at` / `checked_out_at`. CSV import accepts half-hour 12h/24h times; empty input leaves an existing assignment unchanged.
 - **Extended absence** counts account-local calendar days without a check-in for an active membership, beginning at the later of its start date or the day after the latest check-in. Day six is the first eligible day; one final automated reminder can follow six days after the first actual send while the member remains absent. A real check-in resets the streak. After the second attempt, staff get an inactive Follow-up; a later check-in cancels its still-open generated task. There is one opt-in absence rule and no daily absence reminder.
-- Attendance filters that hint in non-overlapping local-time groups: Morning 05:00–11:30, Afternoon 12:00–16:30, Evening 17:00–23:30, and Overnight 00:00–04:30, with All times and Not assigned. The filtered roster drives Present/Absent counts and pagination; assigned arrival does not imply which days a member plans to visit or that an unchecked member is late.
+- Attendance filters that hint in non-overlapping local-time groups: Morning 05:00–11:30, Afternoon 12:00–16:30, Evening 17:00–23:30, and Overnight 00:00–04:30, with All times and Not assigned. The filtered roster drives Present/Absent counts and pagination; the usual time does not imply which days a member plans to visit or that an unchecked member is late.
 - **Session-pack remaining is DERIVED** (`sessions_count` − attendance count since current cycle start, keyed `membership_id`) — **never a stored counter.**
 - A frozen membership's `planned_return_on` is an explicit operational date, never inferred from `frozen_at`. It may create a reminder one day before and one return-day staff follow-up, but it never auto-unfreezes, charges, or moves the membership cycle.
 - Limits / exhausted packs are **warn-with-override at check-in** (`AttendanceOverrideDialog`, both check-in paths) — **never a hard block.**
 - Both paths (`check-in-view.tsx`, member-sheet `checkIn()`) fresh-count the plan's usage window and open the override dialog at the limit / on an exhausted pack. Usage lines ("9/12 this month" / "7 of 10 sessions left") render in check-in row meta + the sheet's Attendance section.
 - The Attendance register has one search field for member name or Member ID. Staff select the matching row and use its existing check-in/check-out action, which keeps the normal limit/override flow and avoids a separate ID-specific action. Member ID remains an identifier, never a self-service PIN.
-- **Attendance risk is an action list, not a bare threshold.** Dashboard → Members at risk opens Members → At risk, where `member_activity` separates members whose last visit was 10+ days ago from members who never checked in. Rows show the actual absence/joining context and use the canonical Follow-up flow with reason `inactive`.
+- **Attendance risk is an action list, not a bare threshold.** Home → Members at risk opens Members → At risk, where `member_activity` separates members whose last visit was 10+ days ago from members who never checked in. Rows show the actual absence/joining context and use the canonical Follow-up flow with reason `inactive`.
 
 ---
 

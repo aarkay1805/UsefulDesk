@@ -407,7 +407,7 @@ describe('MessageBubble', () => {
       expect.arrayContaining(['text-xs', 'self-end', 'pt-0.5'])
     );
     expect(screen.queryByTestId('message-text-content')).toBeNull();
-    expect(screen.getByText('Document unavailable')).toBeTruthy();
+    expect(screen.getByText('Document not available')).toBeTruthy();
   });
 
   it('uses opening and within-run spacing with sender alignment', () => {

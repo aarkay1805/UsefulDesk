@@ -128,7 +128,7 @@ describe('notification response router', () => {
       expect(deps.openConversation).not.toHaveBeenCalled();
       expect(deps.replaceInbox).toHaveBeenCalledTimes(1);
       expect(deps.showUnavailable).toHaveBeenCalledWith(
-        'This conversation is no longer available.'
+        'This chat is no longer available.'
       );
       jest.useRealTimers();
     }

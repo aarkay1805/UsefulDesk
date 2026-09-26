@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-09-26 — Plain-language copy for the phone app, docs, and narrow screens (built in code)
+
+The Expo app (`apps/mobile`) now uses the `docs/ux-copy.md` glossary: the
+Inbox screen is **Chats**, Diagnostics is **App details**, and errors read
+"Could not … Try again." Diagnostics shows roles through the new shared
+`ACCOUNT_ROLE_LABELS` (`src/lib/auth/roles.ts`), which web `role-meta.ts` also
+reads, so a stored `agent`/`viewer` never renders raw. Shared media validation
+(`src/lib/storage/media-contract.ts`) says "photo", not "image". Gotchas: the
+installed app name stays **UsefulDesk Agent** in `app.config.ts` (a store/brand
+decision), and internal error constants that code compares
+(`Conversation is unavailable`, `Templates with media headers…`) are unchanged.
+
+`docs/ui-patterns.md` and `docs/gym-domain.md` now describe the current labels
+(Usual time, Add as member, Change trainer, Price, Renewing/One-time).
+
+Browser review fixes: the app bar's title row wraps instead of overlapping on
+phones, and Import/Export/Download are icon-only below `sm`
+(`header.tsx`, both list pages); Business shows `fmt.monthShort` ("Sept 2026")
+on phones instead of a truncated month; the member profile's action row wraps;
+enquiry detail labels are sentence case and **Added on** matches the table;
+the enquiry CSV uses **Stage** (still matched by the import aliases).
+
 ## 2026-09-26 — Plain-language product terminology and audit repairs (built in code)
 
 The web product uses the gym-owner glossary in `docs/ux-copy.md`, including

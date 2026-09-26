@@ -47,9 +47,7 @@ export function FinanceMonthActions({
           variant="ghost"
           canAct={mayExport}
           gateReason="download money reports"
-          aria-label={
-            exporting ? 'Downloading…' : 'Download report'
-          }
+          aria-label={exporting ? 'Downloading…' : 'Download report'}
           onClick={onExport}
           disabled={exportDisabled || exporting}
         >
@@ -116,10 +114,11 @@ export function BusinessMonthNavigator({
         <ChevronRight />
       </Button>
       <span
-        className="text-foreground w-20 shrink-0 truncate px-1 text-sm font-medium tabular-nums sm:w-32 sm:text-base"
+        className="text-foreground min-w-20 shrink-0 px-1 text-sm font-medium whitespace-nowrap tabular-nums sm:min-w-32 sm:text-base"
         aria-live="polite"
       >
-        {fmt.month(`${month}-01`)}
+        <span className="sm:hidden">{fmt.monthShort(`${month}-01`)}</span>
+        <span className="hidden sm:inline">{fmt.month(`${month}-01`)}</span>
       </span>
     </div>
   );

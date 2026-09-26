@@ -6,7 +6,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-import type { AccountRole } from '@/lib/auth/roles';
+import { ACCOUNT_ROLE_LABELS, type AccountRole } from '@/lib/auth/roles';
 import type { ChipVariant } from './settings-chip';
 
 /**
@@ -24,29 +24,29 @@ export const ROLE_META: Record<
 > = {
   owner: {
     icon: Crown,
-    label: 'Owner',
+    label: ACCOUNT_ROLE_LABELS.owner,
     variant: 'owner',
     // Same amber foreground token used by every attention treatment.
     className: 'border-amber-500/40 bg-amber-500/10 text-amber-foreground',
   },
   admin: {
     icon: Shield,
-    label: 'Admin',
+    label: ACCOUNT_ROLE_LABELS.admin,
     variant: 'admin',
     // The accent-as-text token clears 4.5:1 in both modes.
     className: 'border-primary/40 bg-primary/10 text-primary-text',
   },
   agent: {
     icon: UserCog,
-    label: 'Staff',
+    label: ACCOUNT_ROLE_LABELS.agent,
     variant: 'muted',
     className: 'border-border bg-muted text-muted-foreground',
   },
   viewer: {
     icon: UserIcon,
-    label: 'View only',
+    label: ACCOUNT_ROLE_LABELS.viewer,
     variant: 'muted',
-    // Outline-only so it stays quieter than the filled Agent chip in
+    // Outline-only so it stays quieter than the filled Staff chip in
     // both modes — bg-card would blend into a card surface in light mode.
     className: 'border-border bg-transparent text-muted-foreground',
   },

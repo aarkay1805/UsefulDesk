@@ -138,7 +138,7 @@ const sent = (temporaryId = 'temp-1'): SendAttemptResult => ({
 const failed = (
   temporaryId = 'temp-1',
   safeToRetry = true,
-  message = 'Too many send attempts.'
+  message = 'Too many messages at once. Wait a minute and try again.'
 ): SendAttemptResult =>
   ({
     temporaryId,
@@ -212,12 +212,14 @@ describe('ConversationComposer', () => {
           'Renewal details'
         );
       } else {
-        fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+        fireEvent.press(
+          screen.getByRole('button', { name: 'Attach photo or file' })
+        );
         fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
         await screen.findByRole('button', { name: 'Send attachment' });
       }
       const sendName = kind === 'text' ? 'Send message' : 'Send attachment';
-      const retryName = kind === 'text' ? 'Retry message' : 'Retry attachment';
+      const retryName = kind === 'text' ? 'Send message again' : 'Send again';
       const send = screen.getByRole('button', { name: sendName });
       expect(send).toBeDisabled();
       fireEvent.press(send);
@@ -240,7 +242,9 @@ describe('ConversationComposer', () => {
   it('offers four accessible attachment choices and treats picker cancellation silently', async () => {
     const props = mediaProps({ pickMedia: jest.fn().mockResolvedValue(null) });
     render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     for (const name of [
       'Choose photo',
       'Choose video',
@@ -257,7 +261,9 @@ describe('ConversationComposer', () => {
 
   it('pairs every attachment choice with its own glyph', () => {
     render(<ConversationComposer {...mediaProps()} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
 
     const glyphs = screen
       .getAllByTestId('composer-symbol')
@@ -291,17 +297,19 @@ describe('ConversationComposer', () => {
         .fn()
         .mockRejectedValue(
           new MediaValidationError(
-            'Choose a supported file for this attachment type.'
+            'This file type cannot be sent. Choose another file.'
           )
         ),
     });
     render(<ConversationComposer {...props} />);
     fireEvent.changeText(screen.getByLabelText('Message'), 'Keep my draft');
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     await waitFor(() =>
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Choose a supported file for this attachment type.'
+        'This file type cannot be sent. Choose another file.'
       )
     );
     expect(screen.getByLabelText('Message').props.value).toBe('Keep my draft');
@@ -314,10 +322,12 @@ describe('ConversationComposer', () => {
         .mockRejectedValue(new Error('PHPhotoLibrary raw diagnostic')),
     });
     const first = render(<ConversationComposer {...pickerProps} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not open the attachment picker.'
+      'Could not open your photos and files. Try again.'
     );
     first.unmount();
 
@@ -330,10 +340,12 @@ describe('ConversationComposer', () => {
       })),
     });
     render(<ConversationComposer {...uploadProps} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Could not upload this attachment.'
+      'Could not upload this file. Try again.'
     );
   });
 
@@ -342,18 +354,20 @@ describe('ConversationComposer', () => {
       uploadMedia: jest.fn(() => ({
         promise: Promise.reject(
           new MediaValidationError(
-            'This image is too large. Choose one up to 5 MB.'
+            'This photo is too large. Choose one up to 5 MB.'
           )
         ),
         abort: jest.fn(),
       })),
     });
     render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'This image is too large. Choose one up to 5 MB.'
+      'This photo is too large. Choose one up to 5 MB.'
     );
   });
 
@@ -370,7 +384,9 @@ describe('ConversationComposer', () => {
       ),
     });
     render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     expect(
       await screen.findByLabelText('Photo attachment preview')
@@ -392,7 +408,10 @@ describe('ConversationComposer', () => {
       .fn()
       .mockReturnValueOnce({
         promise: Promise.reject(
-          new MediaUploadError('storage', 'Could not upload this attachment.')
+          new MediaUploadError(
+            'storage',
+            'Could not upload this file. Try again.'
+          )
         ),
         abort: jest.fn(),
       })
@@ -405,13 +424,15 @@ describe('ConversationComposer', () => {
       uploadMedia,
     });
     render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose document' }));
     expect(await screen.findByText('renewal.pdf')).toBeTruthy();
     expect(
-      await screen.findByRole('button', { name: 'Retry upload' })
+      await screen.findByRole('button', { name: 'Upload again' })
     ).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Retry upload' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Upload again' }));
     await waitFor(() => expect(uploadMedia).toHaveBeenCalledTimes(2));
     expect(
       await screen.findByRole('button', { name: 'Send attachment' })
@@ -424,7 +445,9 @@ describe('ConversationComposer', () => {
     });
     render(<ConversationComposer {...props} />);
     fireEvent.changeText(screen.getByLabelText('Message'), 'Regular reply');
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose document' }));
     const caption = await screen.findByLabelText('Caption');
     expect(screen.getByLabelText('renewal.pdf')).toBeTruthy();
@@ -452,7 +475,9 @@ describe('ConversationComposer', () => {
     const props = mediaProps({ onReplySent, replyTarget });
     render(<ConversationComposer {...props} />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     await screen.findByRole('button', { name: 'Send attachment' });
     expect(screen.getByText('Asha')).toBeTruthy();
@@ -473,7 +498,9 @@ describe('ConversationComposer', () => {
       onSendMedia: jest.fn(() => attempt.promise),
     });
     const view = render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     await screen.findByRole('button', {
       name: 'Discard attachment',
@@ -504,13 +531,15 @@ describe('ConversationComposer', () => {
       onRetryMedia: jest.fn(() => retryAttempt.promise),
     });
     render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send attachment' })
     );
     const retry = await screen.findByRole('button', {
-      name: 'Retry attachment',
+      name: 'Send again',
     });
     screen.getByRole('button', {
       name: 'Discard attachment',
@@ -536,7 +565,9 @@ describe('ConversationComposer', () => {
     };
     const props = mediaProps({ pickMedia: jest.fn().mockResolvedValue(audio) });
     render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose audio' }));
     expect(await screen.findByText('note.ogg')).toBeTruthy();
     expect(screen.queryByLabelText('Caption')).toBeNull();
@@ -556,30 +587,32 @@ describe('ConversationComposer', () => {
       .mockResolvedValue(failed('temp:media', false));
     const props = mediaProps({ onSendMedia, onRetryMedia });
     render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send attachment' })
     );
     const retry = await screen.findByRole('button', {
-      name: 'Retry attachment',
+      name: 'Send again',
     });
     fireEvent.press(retry);
     fireEvent.press(retry);
     await waitFor(() => expect(onRetryMedia).toHaveBeenCalledTimes(1));
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Too many send attempts.'
+      'Too many messages at once. Wait a minute and try again.'
     );
-    expect(
-      screen.queryByRole('button', { name: 'Retry attachment' })
-    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Send again' })).toBeNull();
     expect(props.deleteMedia).not.toHaveBeenCalled();
   });
 
   it('keeps a staged shell when the session expires and resolves Send through templates', async () => {
     const props = mediaProps({ sessionExpired: true });
     render(<ConversationComposer {...props} />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send attachment' })
@@ -602,7 +635,9 @@ describe('ConversationComposer', () => {
         deleteMedia={jest.fn().mockResolvedValue(undefined)}
       />
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     await act(async () => {
       picker.resolve(photo);
@@ -656,7 +691,7 @@ describe('ConversationComposer', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
     expect(await screen.findByText('Asha')).toBeTruthy();
     expect(onReplySent).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByRole('button', { name: 'Retry message' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Send message again' }));
 
     await waitFor(() => expect(onRetry).toHaveBeenCalledWith('temp:reply'));
     expect(onReplySent).toHaveBeenCalledWith('message-parent');
@@ -724,7 +759,7 @@ describe('ConversationComposer', () => {
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent(
-          'The send request did not complete. Delivery could not be confirmed. Check the conversation before sending again.'
+          'Something went wrong while sending. We cannot tell if it was sent. Check the chat before you send it again.'
         );
       });
 
@@ -736,7 +771,7 @@ describe('ConversationComposer', () => {
       );
       expect(mockFocusWhenEditable).toHaveBeenCalledTimes(1);
       expect(
-        screen.queryByRole('button', { name: 'Retry message' })
+        screen.queryByRole('button', { name: 'Send message again' })
       ).toBeNull();
     }
   );
@@ -757,12 +792,14 @@ describe('ConversationComposer', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('button', { name: 'Retry message' })
+        screen.getByRole('button', { name: 'Send message again' })
       ).toBeTruthy();
     });
 
-    fireEvent.press(screen.getByRole('button', { name: 'Retry message' }));
-    const retryButton = screen.getByRole('button', { name: 'Retry message' });
+    fireEvent.press(screen.getByRole('button', { name: 'Send message again' }));
+    const retryButton = screen.getByRole('button', {
+      name: 'Send message again',
+    });
     expect(retryButton.props.accessibilityState).toEqual({
       disabled: true,
       busy: true,
@@ -793,16 +830,18 @@ describe('ConversationComposer', () => {
     fireEvent.changeText(screen.getByLabelText('Message'), 'Retry me');
     fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Retry message' })
+      await screen.findByRole('button', { name: 'Send message again' })
     );
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'The send request did not complete. Delivery could not be confirmed. Check the conversation before sending again.'
+        'Something went wrong while sending. We cannot tell if it was sent. Check the chat before you send it again.'
       );
     });
     expect(onRetry).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole('button', { name: 'Retry message' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Send message again' })
+    ).toBeNull();
     expect(
       screen.getByRole('button', { name: 'Send message' }).props
         .accessibilityState
@@ -816,7 +855,7 @@ describe('ConversationComposer', () => {
         failed(
           'temp-ambiguous',
           false,
-          'Could not reach the send service. Delivery could not be confirmed. Check the conversation before sending again.'
+          'Could not connect. Check your internet. We cannot tell if it was sent. Check the chat before you send it again.'
         )
       )
       .mockResolvedValueOnce(sent('temp-new-content'));
@@ -827,10 +866,12 @@ describe('ConversationComposer', () => {
 
     await waitFor(() => {
       expect(screen.getByRole('alert')).toHaveTextContent(
-        'Could not reach the send service. Delivery could not be confirmed. Check the conversation before sending again.'
+        'Could not connect. Check your internet. We cannot tell if it was sent. Check the chat before you send it again.'
       );
     });
-    expect(screen.queryByRole('button', { name: 'Retry message' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Send message again' })
+    ).toBeNull();
 
     const lockedSend = screen.getByRole('button', { name: 'Send message' });
     expect(lockedSend.props.accessibilityState).toMatchObject({

@@ -57,13 +57,13 @@ describe('IconButton', () => {
   it('renders a labelled SF Symbol in a 48pt rounded-rectangle target', () => {
     render(
       <IconButton
-        accessibilityLabel="Attach media"
+        accessibilityLabel="Attach photo or file"
         symbol="paperclip"
         onPress={jest.fn()}
       />
     );
 
-    const button = screen.getByRole('button', { name: 'Attach media' });
+    const button = screen.getByRole('button', { name: 'Attach photo or file' });
     expect(button.props.className).toContain('min-h-12');
     expect(button.props.className).toContain('min-w-12');
     expect(button.props.className).toContain('rounded-lg');

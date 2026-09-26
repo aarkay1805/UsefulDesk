@@ -325,7 +325,7 @@ const errorResult = () =>
   listResult({
     items: [],
     status: 'error',
-    error: 'Could not load conversations',
+    error: 'Could not load chats',
   });
 
 describe('InboxScreen', () => {
@@ -361,13 +361,8 @@ describe('InboxScreen', () => {
     mockUseConversationList.mockReturnValue(result);
     render(<InboxScreen />);
 
-    fireEvent.changeText(
-      screen.getByLabelText('Search conversations'),
-      'renewal'
-    );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Conversation filter, All' })
-    );
+    fireEvent.changeText(screen.getByLabelText('Search chats'), 'renewal');
+    fireEvent.press(screen.getByRole('button', { name: 'Chat filter, All' }));
     fireEvent.press(screen.getByRole('button', { name: 'Unread, 3' }));
 
     expect(result.setSearch).toHaveBeenCalledWith('renewal');
@@ -377,25 +372,27 @@ describe('InboxScreen', () => {
   it('shows distinct empty and failed states', () => {
     mockUseConversationList.mockReturnValue(emptyResult());
     const { rerender } = render(<InboxScreen />);
-    expect(screen.getByText('No conversations yet')).toBeTruthy();
+    expect(screen.getByText('No chats yet')).toBeTruthy();
 
     mockUseConversationList.mockReturnValue(errorResult());
     rerender(<InboxScreen />);
     expect(screen.getByRole('alert')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
   });
 
   it('shows disconnected status and retries only the failed pagination request', () => {
     const result = listResult({
       connection: 'disconnected',
-      paginationError: 'Could not load more conversations',
+      paginationError: 'Could not load more chats',
     });
     mockUseConversationList.mockReturnValue(result);
     render(<InboxScreen />);
 
-    expect(screen.getByText('Live updates unavailable')).toBeTruthy();
-    expect(screen.getByText('Could not load more conversations')).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Retry loading more' }));
+    expect(screen.getByText('Not updating live')).toBeTruthy();
+    expect(screen.getByText('Could not load more chats')).toBeTruthy();
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Try loading more chats again' })
+    );
     expect(result.loadMore).toHaveBeenCalledTimes(1);
     expect(result.refresh).not.toHaveBeenCalled();
   });
@@ -404,15 +401,17 @@ describe('InboxScreen', () => {
     mockUseConversationList.mockReturnValue(
       listResult({
         connection: 'disconnected',
-        refreshWarning: 'Could not refresh conversations',
+        refreshWarning: 'Could not refresh chats. Pull down to try again.',
       })
     );
 
     render(<InboxScreen />);
 
     expect(screen.getByText('Asha Rao')).toBeTruthy();
-    expect(screen.getByText('Live updates unavailable')).toBeTruthy();
-    expect(screen.getByText('Could not refresh conversations')).toBeTruthy();
+    expect(screen.getByText('Not updating live')).toBeTruthy();
+    expect(
+      screen.getByText('Could not refresh chats. Pull down to try again.')
+    ).toBeTruthy();
     expect(screen.getAllByRole('alert')).toHaveLength(2);
   });
 

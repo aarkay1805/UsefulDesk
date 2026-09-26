@@ -52,7 +52,7 @@ export function ErrorState({ title, message, onRetry }: ErrorStateProps) {
         <Alert.Description>{message}</Alert.Description>
         {onRetry ? (
           <Button className="min-h-12" onPress={onRetry}>
-            Retry
+            Try again
           </Button>
         ) : null}
       </Alert.Content>

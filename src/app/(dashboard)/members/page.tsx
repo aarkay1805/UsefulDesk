@@ -367,15 +367,22 @@ export default function MembersPage() {
           canAct={canSendMessages}
           gateReason="import members"
           variant="ghost"
+          aria-label="Import"
           onClick={() => setImportOpen(true)}
         >
-          <Download className="size-4" /> Import
+          <Download className="size-4" />
+          <span className="hidden sm:inline">Import</span>
         </GatedButton>
         {/* Export — surfaces the All-members table's filter-aware CSV
             export; only meaningful (and only wired) on that view. */}
         {view === 'all' && (
-          <Button variant="ghost" onClick={() => exportFnRef.current?.()}>
-            <Upload className="size-4" /> Export
+          <Button
+            variant="ghost"
+            aria-label="Export"
+            onClick={() => exportFnRef.current?.()}
+          >
+            <Upload className="size-4" />
+            <span className="hidden sm:inline">Export</span>
           </Button>
         )}
         <GatedButton

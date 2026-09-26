@@ -54,14 +54,14 @@ export function NeedsAttentionCard() {
     ? [
         {
           label: 'May leave',
-          detail: 'Members your team marked as "May leave"',
+          detail: 'Members marked "May leave"',
           value: attention.churnRisk,
           icon: ShieldAlert,
           href: '/members?view=all',
         },
         {
           label: 'Trials to follow up',
-          detail: 'Trials ending soon or already over',
+          detail: 'Ending soon or already over',
           value: attention.trialFollowups,
           icon: FlaskConical,
           href: '/members?view=trials',

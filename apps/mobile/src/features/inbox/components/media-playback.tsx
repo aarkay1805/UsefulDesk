@@ -179,11 +179,11 @@ export function AudioAttachment({ uri }: { uri: string }) {
               size="sm"
               variant="ghost"
             >
-              Retry audio
+              Load again
             </Button>
           }
         >
-          Audio unavailable. Try loading it again.
+          Could not load this audio.
         </Notice>
       ) : null}
     </View>
@@ -248,11 +248,11 @@ export function VideoAttachment({
               size="sm"
               variant="ghost"
             >
-              Retry video
+              Load again
             </Button>
           }
         >
-          Video unavailable. Try loading it again.
+          Could not load this video.
         </Notice>
       ) : null}
     </View>

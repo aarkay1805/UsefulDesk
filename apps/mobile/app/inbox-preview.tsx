@@ -200,7 +200,7 @@ export default function InboxPreview() {
 
   return (
     <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top']}>
-      <Stack.Screen options={{ headerShown: false, title: 'Inbox preview' }} />
+      <Stack.Screen options={{ headerShown: false, title: 'Chats preview' }} />
       <ScreenSafeAreaView className="bg-inbox-panel flex-1" edges={['bottom']}>
         <ScrollView className="bg-inbox-panel flex-1">
           {/* On the chrome, as the real screen now places it. */}
@@ -208,12 +208,12 @@ export default function InboxPreview() {
             <Label>Search and filter</Label>
             <View className="px-4">
               <SearchField
-                accessibilityLabel="Search conversations"
+                accessibilityLabel="Search chats"
                 onValueChange={setSearch}
-                placeholder="Search conversations"
+                placeholder="Search chats"
                 trailingAccessory={
                   <FilterMenu
-                    accessibilityLabel="Conversation filter"
+                    accessibilityLabel="Chat filter"
                     onValueChange={(next) => setFilter(next)}
                     options={FILTERS}
                     value={filter}
@@ -224,7 +224,7 @@ export default function InboxPreview() {
             </View>
           </View>
 
-          <Label>Conversation rows</Label>
+          <Label>Chat rows</Label>
           {ROWS.map((conversation) => (
             <ConversationRow
               conversation={conversation}
@@ -274,18 +274,31 @@ export default function InboxPreview() {
            */}
           <Label>Notice — fault vs state</Label>
           <View className="gap-2 px-3 pb-10">
-            <Notice symbol="exclamationmark.triangle" title="Live updates unavailable">
-              Pull to refresh while the connection recovers.
+            <Notice symbol="exclamationmark.triangle" title="Not updating live">
+              Check your internet. Pull down to refresh.
             </Notice>
-            <Notice loading>Checking template send safety…</Notice>
-            <Notice symbol="exclamationmark.triangle" title="Could not send" tone="danger">
-              The send request did not complete.
+            <Notice loading>Checking your last template…</Notice>
+            <Notice
+              symbol="exclamationmark.triangle"
+              title="Could not send"
+              tone="danger"
+            >
+              Something went wrong while sending.
             </Notice>
-            <Notice emphasis="outline" symbol="clock" title="Reply window closed">
-              WhatsApp allows only an approved template until they reply again.
+            <Notice
+              emphasis="outline"
+              symbol="clock"
+              title="24-hour reply time is over"
+            >
+              Until they reply, you can send only an approved template.
             </Notice>
-            <Notice emphasis="outline" symbol="exclamationmark.triangle" title="Attachment discarded" tone="danger">
-              The upload was cancelled before it finished.
+            <Notice
+              emphasis="outline"
+              symbol="exclamationmark.triangle"
+              title="File removed"
+              tone="danger"
+            >
+              The upload was cancelled.
             </Notice>
           </View>
         </ScrollView>

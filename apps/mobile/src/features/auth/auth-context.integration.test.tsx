@@ -342,7 +342,7 @@ describe('AuthProvider real Auth JS rollback integration', () => {
 
     expect(result).toEqual({
       status: 'error',
-      message: 'Email or password is incorrect.',
+      message: 'Wrong email or password.',
     });
     expect(latest?.state).toEqual({ status: 'signed_out' });
     expect(harness.events).toContain('SIGNED_OUT');

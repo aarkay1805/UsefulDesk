@@ -63,7 +63,7 @@ export function DashboardSection({
             <>
               {/* A flex container drops a whitespace-only text run, so this
                   space costs no layout — but it keeps the section's accessible
-                  name from reading "Leads by stage1 total". */}{' '}
+                  name from reading "Enquiries by stage1 total". */}{' '}
               {meta}
             </>
           )}

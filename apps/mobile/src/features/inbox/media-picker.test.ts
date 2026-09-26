@@ -145,7 +145,7 @@ describe('pickConversationMedia', () => {
     });
 
     await expect(pickConversationMedia('image', setup.result)).rejects.toThrow(
-      /supported file|non-empty|too large/
+      /cannot be sent|is empty|too large/
     );
   });
 
@@ -164,7 +164,7 @@ describe('pickConversationMedia', () => {
       assets: [{ ...IMAGE, fileName: null, mimeType: undefined }],
     });
     await expect(pickConversationMedia('image', setup.result)).rejects.toThrow(
-      'Choose a supported file for this attachment type.'
+      'This file type cannot be sent. Choose another file.'
     );
   });
 });

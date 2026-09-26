@@ -61,17 +61,17 @@ export type BranchBlockReason =
   | 'local_state_unavailable';
 
 const BRANCH_BLOCK_MESSAGES: Record<BranchBlockReason, string> = {
-  invalid_branch: 'This branch link is invalid.',
+  invalid_branch: 'This branch link does not work.',
   branch_access_denied: 'You do not have access to this branch.',
   branch_archived: 'This branch is archived.',
-  no_active_branch: 'No active branch access is available.',
+  no_active_branch: 'You do not have access to any open branch.',
   profile_unavailable: 'Could not load your profile. Sign out and try again.',
   branch_access_unavailable:
-    'Could not load your branch access. Check your connection and try again.',
+    'Could not load your branches. Check your internet and try again.',
   selected_branch_unavailable:
-    'Could not open this branch. Check your connection and try again.',
+    'Could not open this branch. Check your internet and try again.',
   local_state_unavailable:
-    'Could not update saved branch data. Unlock your device and try again.',
+    'Could not save your branch on this phone. Unlock your phone and try again.',
 };
 
 export function branchBlockMessage(reason: BranchBlockReason): string {

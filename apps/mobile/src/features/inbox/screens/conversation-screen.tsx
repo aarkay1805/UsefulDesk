@@ -74,9 +74,8 @@ const UUID_PATTERN =
 
 const SEND_READINESS_BLOCKER: ActionBlocker = {
   kind: 'provider',
-  title: 'WhatsApp is unavailable',
-  reason:
-    'Could not verify sending setup for this conversation. Pull to refresh and try again.',
+  title: 'WhatsApp is not ready',
+  reason: 'Could not check WhatsApp for this chat. Pull down to try again.',
 };
 
 type TemplateSendSafetyState = 'loading' | 'clear' | 'unknown' | 'error';
@@ -133,7 +132,7 @@ function ConversationScaffold({
   avatarUrl = null,
   children,
   name,
-  subtitle = 'WhatsApp conversation',
+  subtitle = 'WhatsApp chat',
 }: ConversationScaffoldProps) {
   const router = useRouter();
 
@@ -160,24 +159,24 @@ function UnavailableConversation() {
   const router = useRouter();
 
   return (
-    <ConversationScaffold name="Conversation">
+    <ConversationScaffold name="Chat">
       <View className="flex-1 items-center justify-center gap-4 px-5 py-12">
         <View accessibilityRole="alert" className="items-center gap-1">
           <Text className="text-foreground text-center text-base font-semibold">
-            Conversation is unavailable
+            This chat is not available
           </Text>
           <Text className="text-muted text-center text-sm">
-            It may have been removed or may not belong to this account.
+            It may have been deleted, or it belongs to another branch.
           </Text>
         </View>
         <Button
-          accessibilityLabel="Return to Inbox"
+          accessibilityLabel="Go to chats"
           className="min-h-12"
           onPress={() => router.replace('/(app)')}
           size="sm"
           variant="ghost"
         >
-          Return to Inbox
+          Go to chats
         </Button>
       </View>
     </ConversationScaffold>
@@ -239,14 +238,14 @@ function FailedMessageRetry({ onRetry, temporaryId }: FailedMessageRetryProps) {
   return (
     <View className="items-end px-1 pt-1">
       <Button
-        accessibilityLabel="Retry failed message"
+        accessibilityLabel="Send failed message again"
         disabled={pending}
         loading={pending}
         onPress={retry}
         size="sm"
         variant="ghost"
       >
-        Retry
+        Try again
       </Button>
     </View>
   );
@@ -337,10 +336,10 @@ function ConversationThread({
     thread.conversation?.contact.name?.trim() ||
     (thread.conversation
       ? fmt.phone(thread.conversation.contact.phone)
-      : 'Conversation');
+      : 'Chat');
   const headerSubtitle = thread.conversation?.contact.name?.trim()
     ? fmt.phone(thread.conversation.contact.phone)
-    : 'WhatsApp conversation';
+    : 'WhatsApp chat';
   const selectedReply =
     replySelection?.accountId === accountId &&
     replySelection.conversationId === conversationId
@@ -481,7 +480,7 @@ function ConversationThread({
         <View className="flex-1 justify-center px-5 py-12">
           <ErrorState
             title={thread.error ?? 'Could not load messages'}
-            message="Check your connection and try again."
+            message="Check your internet and try again."
             onRetry={thread.refresh}
           />
         </View>
@@ -513,13 +512,13 @@ function ConversationThread({
             Could not load older messages
           </Text>
           <Button
-            accessibilityLabel="Retry loading older messages"
+            accessibilityLabel="Try loading older messages again"
             className="min-h-12"
             onPress={thread.loadOlder}
             size="sm"
             variant="ghost"
           >
-            Retry loading older messages
+            Try again
           </Button>
         </View>
       );
@@ -740,7 +739,7 @@ function ConversationThread({
             <Notice
               action={
                 <Button
-                  accessibilityLabel="Check template send safety again"
+                  accessibilityLabel="Check last template again"
                   className="self-start"
                   onPress={() => {
                     setTemplateSendSafety('loading');
@@ -753,10 +752,10 @@ function ConversationThread({
                 </Button>
               }
               symbol="exclamationmark.triangle"
-              title="Template sending is locked"
+              title="Cannot send a template yet"
             >
-              Could not verify the previous template send status. Check again
-              before sending.
+              Could not check if your last template was sent. Check again before
+              you send another.
             </Notice>
           </View>
         );
@@ -775,7 +774,7 @@ function ConversationThread({
         <Notice
           action={
             <Button
-              accessibilityLabel="Retry send setup"
+              accessibilityLabel="Check sending again"
               className="self-start"
               disabled={thread.refreshing}
               loading={thread.refreshing}
@@ -811,9 +810,9 @@ function ConversationThread({
           <Notice
             className="mx-4 mt-3"
             symbol="exclamationmark.triangle"
-            title="Live updates unavailable"
+            title="Not updating live"
           >
-            Pull to refresh while the connection recovers.
+            Check your internet. Pull down to refresh.
           </Notice>
         ) : null}
 
@@ -826,7 +825,7 @@ function ConversationThread({
          */}
         {thread.unreadWarning ? (
           <Notice className="mx-4 mt-3" symbol="exclamationmark.triangle">
-            Could not clear unread messages
+            Could not mark messages as read
           </Notice>
         ) : null}
 
@@ -892,13 +891,13 @@ function ConversationThread({
                 pointerEvents="box-none"
               >
                 <Button
-                  accessibilityLabel="Jump to latest"
+                  accessibilityLabel="Go to latest"
                   className="min-h-12"
                   onPress={jumpToLatest}
                   size="sm"
                   variant="ghost"
                 >
-                  Jump to latest
+                  Go to latest
                 </Button>
               </View>
             ) : null}

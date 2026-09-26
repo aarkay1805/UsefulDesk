@@ -141,7 +141,7 @@ describe('sendConversationMessage', () => {
           >({
             category: 'forbidden',
             safeToRetry: true,
-            message: 'This branch is no longer selected.',
+            message: 'You switched to another branch. Open this chat again.',
           });
           await tokenReadStarted.promise;
           selectedBranch = nextBranch;

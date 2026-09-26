@@ -118,7 +118,7 @@ function ensureSelectedBranch(
   if (dependencies.selectedBranch.get() !== accountId) {
     throw new MediaUploadError(
       'forbidden',
-      'This branch is no longer selected.'
+      'You switched to another branch. Open this chat again.'
     );
   }
 }
@@ -134,7 +134,10 @@ async function sessionToken(
   } catch {
     // Normalize below without surfacing auth diagnostics.
   }
-  throw new MediaUploadError('unauthorized', 'Your session has expired.');
+  throw new MediaUploadError(
+    'unauthorized',
+    'Your sign-in expired. Sign in again.'
+  );
 }
 
 function requestStatus(
@@ -159,10 +162,13 @@ function requestStatus(
     request.onload = () => resolve(request.status);
     request.onerror = () =>
       reject(
-        new MediaUploadError('network', 'Could not upload this attachment.')
+        new MediaUploadError(
+          'network',
+          'Could not upload this file. Try again.'
+        )
       );
     request.onabort = () =>
-      reject(new MediaUploadError('aborted', 'Attachment upload cancelled.'));
+      reject(new MediaUploadError('aborted', 'Upload cancelled.'));
     request.send(body);
   });
 }
@@ -204,12 +210,15 @@ export function uploadConversationMedia(
       );
     } catch {
       if (aborted || abortController.signal.aborted) {
-        throw new MediaUploadError('aborted', 'Attachment upload cancelled.');
+        throw new MediaUploadError('aborted', 'Upload cancelled.');
       }
-      throw new MediaUploadError('network', 'Could not read this attachment.');
+      throw new MediaUploadError(
+        'network',
+        'Could not open this file. Choose it again.'
+      );
     }
     if (aborted) {
-      throw new MediaUploadError('aborted', 'Attachment upload cancelled.');
+      throw new MediaUploadError('aborted', 'Upload cancelled.');
     }
     validateMediaAsset({ ...input.asset, size: blob.size });
 
@@ -227,7 +236,7 @@ export function uploadConversationMedia(
     for (let attempt = 0; attempt < 2; attempt += 1) {
       ensureSelectedBranch(input.accountId, dependencies);
       if (aborted) {
-        throw new MediaUploadError('aborted', 'Attachment upload cancelled.');
+        throw new MediaUploadError('aborted', 'Upload cancelled.');
       }
       const request = dependencies.createRequest();
       activeRequest = request;
@@ -266,20 +275,26 @@ export function uploadConversationMedia(
         } catch {
           // Recovery owner decides how the auth surface resolves.
         }
-        throw new MediaUploadError('unauthorized', 'Your session has expired.');
+        throw new MediaUploadError(
+          'unauthorized',
+          'Your sign-in expired. Sign in again.'
+        );
       }
       if (status === 403) {
         throw new MediaUploadError(
           'forbidden',
-          'You cannot upload from this branch.'
+          'You do not have permission to send files in this branch.'
         );
       }
       throw new MediaUploadError(
         'storage',
-        'Could not upload this attachment.'
+        'Could not upload this file. Try again.'
       );
     }
-    throw new MediaUploadError('storage', 'Could not upload this attachment.');
+    throw new MediaUploadError(
+      'storage',
+      'Could not upload this file. Try again.'
+    );
   })();
 
   return {

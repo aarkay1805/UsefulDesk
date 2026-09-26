@@ -144,7 +144,7 @@ it('never mounts operational children while unknown, expired or unavailable', as
   mockLoad.mockRejectedValue(new Error('offline'));
   fireEvent.press(screen.getByText('Check access again'));
   await screen.findByText(
-    'Could not verify access. Check your connection and try again.'
+    'Could not check your access. Check your internet and try again.'
   );
   expect(mounted).not.toHaveBeenCalled();
 });
@@ -210,9 +210,7 @@ it('retains support fallback, branch switching and signout while blocked', async
     'Your organization’s UsefulDesk access has ended. Contact support to continue.'
   );
   fireEvent.press(screen.getByRole('button', { name: 'Contact support' }));
-  await screen.findByText(
-    'Support request received. Our team will contact your organization.'
-  );
+  await screen.findByText('Request sent. Our team will contact you.');
   expect(mockSupport).toHaveBeenCalledWith('a');
   fireEvent.press(screen.getByText('Switch branch'));
   expect(mockAuth().selectBranch).toHaveBeenCalledWith('b');

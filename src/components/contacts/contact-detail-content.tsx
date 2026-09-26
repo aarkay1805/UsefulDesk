@@ -451,7 +451,9 @@ export function ContactDetailContent({
     }
 
     if (!canTransfer || contact.user_id !== user?.id) {
-      toast.error('Only the current owner or an admin can change who owns this enquiry.');
+      toast.error(
+        'Only the current owner or an admin can change who owns this enquiry.'
+      );
       return false;
     }
     setTransferTarget(next);
@@ -740,7 +742,7 @@ export function ContactDetailContent({
                     order, so the two stay in sync — including custom
                     fields (added once in Settings, they surface in both
                     the table and here from the shared custom_fields
-                    fetch). Received By + Created are read-only. */}
+                    fetch). Received by + Added on are read-only. */}
                 <dl className="divide-border/50 border-border/50 divide-y overflow-hidden rounded-lg border">
                   <InlineField
                     label="Name"
@@ -953,7 +955,7 @@ export function ContactDetailContent({
                       onSave={(v) => saveCustomField(field.id, v)}
                     />
                   ))}
-                  <StaticField label="Created">
+                  <StaticField label="Added on">
                     <span className="text-foreground">
                       {fmt.date(contact.created_at)}
                     </span>
@@ -1263,7 +1265,7 @@ function InlineField({
     };
     return (
       <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
-        <span className="text-muted-foreground text-xs capitalize">
+        <span className="text-muted-foreground text-xs first-letter:uppercase">
           {label}
         </span>
         {/* Same in-field editing chrome as the leads table cells: the
@@ -1316,7 +1318,7 @@ function InlineField({
       onClick={begin}
       className="group hover:bg-muted/40 grid min-h-10 w-full grid-cols-[100px_1fr] items-center gap-3 px-3 text-left transition-colors"
     >
-      <span className="text-muted-foreground text-xs leading-5 capitalize">
+      <span className="text-muted-foreground text-xs leading-5 first-letter:uppercase">
         {label}
       </span>
       <span className="flex min-w-0 items-center gap-2">
@@ -1334,7 +1336,7 @@ function InlineField({
 }
 
 // Read-only Details row — same two-column layout as InlineField but no
-// editor (Received By, Created).
+// editor (Received by, Added on).
 function StaticField({
   label,
   children,
@@ -1344,7 +1346,7 @@ function StaticField({
 }) {
   return (
     <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
-      <span className="text-muted-foreground text-xs leading-5 capitalize">
+      <span className="text-muted-foreground text-xs leading-5 first-letter:uppercase">
         {label}
       </span>
       <span className="text-foreground flex min-w-0 items-center gap-2 text-sm">
@@ -1400,7 +1402,7 @@ function InlineSelectField({
 
   return (
     <div className="grid min-h-10 grid-cols-[100px_1fr] items-center gap-3 px-3">
-      <span className="text-muted-foreground text-xs leading-5 capitalize">
+      <span className="text-muted-foreground text-xs leading-5 first-letter:uppercase">
         {label}
       </span>
       <DropdownMenu open={open} onOpenChange={setOpen}>

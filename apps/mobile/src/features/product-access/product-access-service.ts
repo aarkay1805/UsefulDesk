@@ -62,6 +62,6 @@ export async function requestProductSupport(accountId: string) {
     }
   );
   if (error || typeof data !== 'string' || !data)
-    throw new Error('Could not send your support request. Please try again.');
+    throw new Error('Could not send your request. Try again.');
   return data;
 }

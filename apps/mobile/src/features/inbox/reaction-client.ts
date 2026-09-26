@@ -69,23 +69,26 @@ function resolveDependencies(
 
 function responseError(status: number): MobileReactionError {
   if (status === 401) {
-    return new MobileReactionError('unauthorized', 'Your session has expired.');
+    return new MobileReactionError(
+      'unauthorized',
+      'Your sign-in expired. Sign in again.'
+    );
   }
   if (status === 403) {
     return new MobileReactionError(
       'forbidden',
-      'You cannot react from this branch.'
+      'You do not have permission to react in this branch.'
     );
   }
   if (status === 429) {
     return new MobileReactionError(
       'rate_limited',
-      'Too many reaction attempts.'
+      'Too many reactions at once. Wait a minute and try again.'
     );
   }
   return new MobileReactionError(
     'provider',
-    'WhatsApp reactions are unavailable.'
+    'Could not send the reaction. Try again.'
   );
 }
 
@@ -112,7 +115,7 @@ async function postReaction(
   if (dependencies.selectedBranch.get() !== input.accountId) {
     throw new MobileReactionError(
       'forbidden',
-      'This branch is no longer selected.'
+      'You switched to another branch. Open this chat again.'
     );
   }
   try {
@@ -134,7 +137,7 @@ async function postReaction(
   } catch {
     throw new MobileReactionError(
       'network',
-      'Could not reach the reaction service.'
+      'Could not connect. Check your internet and try again.'
     );
   }
 }
@@ -147,7 +150,7 @@ export async function setMessageReaction(
   if (dependencies.selectedBranch.get() !== input.accountId) {
     throw new MobileReactionError(
       'forbidden',
-      'This branch is no longer selected.'
+      'You switched to another branch. Open this chat again.'
     );
   }
 
@@ -177,7 +180,7 @@ export async function setMessageReaction(
   } catch {
     throw new MobileReactionError(
       'invalid_response',
-      'The reaction service returned an invalid response.'
+      'Could not send the reaction. Try again.'
     );
   }
   if (
@@ -188,7 +191,7 @@ export async function setMessageReaction(
   ) {
     throw new MobileReactionError(
       'invalid_response',
-      'The reaction service returned an invalid response.'
+      'Could not send the reaction. Try again.'
     );
   }
 }

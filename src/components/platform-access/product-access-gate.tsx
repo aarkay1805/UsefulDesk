@@ -123,7 +123,9 @@ function AccountProductAccess({
         );
         if (error) throw error;
         if (!organizationId || !isProductAccessSnapshot(data, organizationId))
-          throw new Error('Could not confirm product access');
+          throw new Error(
+            'Could not check your access. Check your internet and try again.'
+          );
         if (!cancelled) {
           setSnapshot(data);
           setError('');
@@ -140,7 +142,12 @@ function AccountProductAccess({
       } catch (err) {
         if (!cancelled) {
           setSnapshot(null);
-          setError(getErrorMessage(err, 'Could not confirm product access'));
+          setError(
+            getErrorMessage(
+              err,
+              'Could not check your access. Check your internet and try again.'
+            )
+          );
         }
       } finally {
         if (!cancelled) setChecking(false);
@@ -196,7 +203,9 @@ function AccountProductAccess({
     try {
       await fn();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Could not complete the request'));
+      toast.error(
+        getErrorMessage(err, 'Could not complete the request. Try again.')
+      );
     } finally {
       setPending('');
     }

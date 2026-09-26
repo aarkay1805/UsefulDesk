@@ -25,6 +25,14 @@ export const MEDIA_MAX_BYTES_BY_KIND = {
   document: 16 * 1024 * 1024,
 } as const satisfies Record<MediaKind, number>;
 
+/** The word owners see for each kind, matching the attach menu. */
+const MEDIA_KIND_NOUN = {
+  image: 'photo',
+  video: 'video',
+  document: 'document',
+  audio: 'audio file',
+} as const satisfies Record<MediaKind, string>;
+
 export interface MediaAssetValidationInput {
   kind: MediaKind;
   mimeType: string | null | undefined;
@@ -54,7 +62,7 @@ export function validateMediaAsset(
     )
   ) {
     throw new MediaValidationError(
-      'Choose a supported file for this attachment type.'
+      'This file type cannot be sent. Choose another file.'
     );
   }
   if (
@@ -62,11 +70,11 @@ export function validateMediaAsset(
     !Number.isFinite(input.size) ||
     input.size <= 0
   ) {
-    throw new MediaValidationError('Choose a non-empty file.');
+    throw new MediaValidationError('This file is empty. Choose another file.');
   }
   if (input.size > MEDIA_MAX_BYTES_BY_KIND[input.kind]) {
     throw new MediaValidationError(
-      `This ${input.kind} is too large. Choose one up to ${
+      `This ${MEDIA_KIND_NOUN[input.kind]} is too large. Choose one up to ${
         MEDIA_MAX_BYTES_BY_KIND[input.kind] / 1024 / 1024
       } MB.`
     );

@@ -239,10 +239,10 @@ export function AuthProvider({
   const localPurgeError = useCallback(
     (result: LocalSessionPurgeResult): string | undefined => {
       if (result.localAuth === 'failed') {
-        return 'Secure sign-out is incomplete. Retry secure sign-out before signing in.';
+        return 'Sign-out did not finish on this phone. Tap Sign out again.';
       }
       if (result.branchPreference === 'failed') {
-        return 'Signed out, but local branch data could not be cleared.';
+        return 'You are signed out, but some branch data is still saved on this phone.';
       }
       return undefined;
     },
@@ -274,7 +274,7 @@ export function AuthProvider({
           status: 'cleanup_failed',
           error:
             error ??
-            'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+            'Sign-out did not finish on this phone. Tap Sign out again.',
         });
         return;
       }
@@ -372,7 +372,7 @@ export function AuthProvider({
         if (preserveReadyState && isCurrent(generation)) return 'failed';
         void purgeLocalForGeneration(
           generation,
-          'Could not verify your session. Sign in again.'
+          'Could not check your sign-in. Sign in again.'
         );
         return isCurrent(generation) ? 'failed' : 'obsolete';
       }
@@ -381,7 +381,7 @@ export function AuthProvider({
       if (error || !data.user || data.user.id !== session.user.id) {
         void purgeLocalForGeneration(
           generation,
-          'Your session expired. Sign in again.'
+          'Your sign-in expired. Sign in again.'
         );
         return isCurrent(generation) ? 'failed' : 'obsolete';
       }
@@ -571,7 +571,7 @@ export function AuthProvider({
       } catch {
         void purgeLocalForGeneration(
           restorationGeneration,
-          'Could not restore your session. Sign in again.'
+          'Could not keep you signed in. Sign in again.'
         );
         return;
       }
@@ -580,7 +580,7 @@ export function AuthProvider({
       if (error || !data.session) {
         void purgeLocalForGeneration(
           restorationGeneration,
-          error ? 'Could not restore your session. Sign in again.' : undefined
+          error ? 'Could not keep you signed in. Sign in again.' : undefined
         );
         return;
       }
@@ -652,8 +652,8 @@ export function AuthProvider({
           status: 'error',
           message:
             authAvailabilityRef.current === 'cleanup_failed'
-              ? 'Secure sign-out is incomplete. Retry secure sign-out before signing in.'
-              : 'Secure sign-out is still in progress.',
+              ? 'Sign-out did not finish on this phone. Tap Sign out again.'
+              : 'Still signing out. Wait a moment.',
           ...(authAvailabilityRef.current === 'cleanup_failed'
             ? { reason: 'cleanup_failed' as const }
             : {}),
@@ -677,8 +677,7 @@ export function AuthProvider({
         authAvailabilityRef.current = 'cleanup_failed';
         setState({
           status: 'cleanup_failed',
-          error:
-            'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+          error: 'Sign-out did not finish on this phone. Tap Sign out again.',
         });
         return;
       }
@@ -712,7 +711,7 @@ export function AuthProvider({
               status: 'error',
               reason: 'cleanup_failed',
               message:
-                'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+                'Sign-out did not finish on this phone. Tap Sign out again.',
             };
           }
         }
@@ -721,7 +720,7 @@ export function AuthProvider({
         settleFailedAuthAttempt(attempt.generation);
         return {
           status: 'error',
-          message: 'Could not sign in. Please try again.',
+          message: 'Could not sign in. Try again.',
         };
       } finally {
         if (ownedSignOutEventGenerationRef.current === attempt.generation) {
@@ -754,7 +753,7 @@ export function AuthProvider({
               status: 'error',
               reason: 'cleanup_failed',
               message:
-                'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+                'Sign-out did not finish on this phone. Tap Sign out again.',
             };
           }
         }
@@ -763,7 +762,7 @@ export function AuthProvider({
         settleFailedAuthAttempt(attempt.generation);
         return {
           status: 'error',
-          message: 'Could not complete Google sign-in. Please try again.',
+          message: 'Could not sign in with Google. Try again.',
         };
       } finally {
         if (ownedSignOutEventGenerationRef.current === attempt.generation) {
@@ -809,8 +808,8 @@ export function AuthProvider({
         ...local,
         message:
           local.localAuth === 'failed'
-            ? 'Secure sign-out is incomplete. Retry secure sign-out before signing in.'
-            : 'Signed out on this device, but the remote session could not be closed.',
+            ? 'Sign-out did not finish on this phone. Tap Sign out again.'
+            : 'Signed out on this phone. Could not reach UsefulDesk to finish sign-out.',
       };
     }
     if (ownedSignOutEventGenerationRef.current === generation) {
@@ -824,8 +823,7 @@ export function AuthProvider({
       authAvailabilityRef.current = 'cleanup_failed';
       setState({
         status: 'cleanup_failed',
-        error:
-          'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+        error: 'Sign-out did not finish on this phone. Tap Sign out again.',
       });
       return;
     }

@@ -730,7 +730,7 @@ describe('ConversationScreen', () => {
       temporaryId: 'temp:reply-failed',
       status: 'failed',
       safeToRetry: true,
-      message: 'Too many send attempts.',
+      message: 'Too many messages at once. Wait a minute and try again.',
     });
     mockUseMessageThread.mockReturnValue(readyThreadResult({ sendText }));
     render(<ConversationScreen />);
@@ -746,7 +746,11 @@ describe('ConversationScreen', () => {
     await waitFor(() =>
       expect(screen.getAllByText('Asha Rao')).toHaveLength(3)
     );
-    expect(screen.getByText('Too many send attempts.')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Too many messages at once. Wait a minute and try again.'
+      )
+    ).toBeTruthy();
   });
 
   it('passes the staged target into a media reply', async () => {
@@ -762,7 +766,9 @@ describe('ConversationScreen', () => {
       'accessibilityAction',
       { nativeEvent: { actionName: 'reply' } }
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send attachment' })
@@ -942,7 +948,9 @@ describe('ConversationScreen', () => {
     const openThread = readyThreadResult();
     mockUseMessageThread.mockReturnValue(openThread);
     const view = render(<ConversationScreen />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     expect(
       await screen.findByLabelText('Photo attachment preview')
@@ -975,14 +983,16 @@ describe('ConversationScreen', () => {
     expect(screen.queryByTestId('closed-window-action-bar')).toBeNull();
     fireEvent.press(screen.getByRole('button', { name: 'Send attachment' }));
     expect(openThread.sendMedia).not.toHaveBeenCalled();
-    expect(await screen.findByText('Send approved template')).toBeTruthy();
+    expect(await screen.findByText('Choose a template')).toBeTruthy();
   });
 
   it('keeps a pending native picker mounted across window closure and releases it after cancellation', async () => {
     const picker = deferred<null>();
     mockPickConversationMedia.mockReturnValueOnce(picker.promise);
     const view = render(<ConversationScreen />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
 
     mockUseMessageThread.mockReturnValue(
@@ -1006,7 +1016,7 @@ describe('ConversationScreen', () => {
     });
 
     expect(
-      screen.getByRole('button', { name: 'Attach media, loading' })
+      screen.getByRole('button', { name: 'Attach photo or file, loading' })
     ).toBeTruthy();
     expect(screen.queryByTestId('closed-window-action-bar')).toBeNull();
 
@@ -1023,7 +1033,9 @@ describe('ConversationScreen', () => {
     const picker = deferred<null>();
     mockPickConversationMedia.mockReturnValueOnce(picker.promise);
     const view = render(<ConversationScreen />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
 
     mockUseMessageThread.mockReturnValue(
@@ -1069,7 +1081,7 @@ describe('ConversationScreen', () => {
       temporaryId: 'temp:screen-media',
       status: 'failed',
       safeToRetry: true,
-      message: 'Too many send attempts.',
+      message: 'Too many messages at once. Wait a minute and try again.',
     });
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
@@ -1091,26 +1103,28 @@ describe('ConversationScreen', () => {
     render(<ConversationScreen />);
 
     expect(
-      screen.getByRole('button', { name: 'Retry failed message' })
+      screen.getByRole('button', { name: 'Send failed message again' })
     ).toBeTruthy();
     fireEvent.press(
-      screen.getByRole('button', { name: 'Retry failed message' })
+      screen.getByRole('button', { name: 'Send failed message again' })
     );
     await waitFor(() =>
       expect(retryMedia).toHaveBeenCalledWith('temp:screen-media')
     );
     retryMedia.mockClear();
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send attachment' })
     );
 
     expect(
-      await screen.findByRole('button', { name: 'Retry attachment' })
+      await screen.findByRole('button', { name: 'Send again' })
     ).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Retry failed message' })
+      screen.queryByRole('button', { name: 'Send failed message again' })
     ).toBeNull();
     expect(retryMedia).not.toHaveBeenCalled();
   });
@@ -1127,7 +1141,7 @@ describe('ConversationScreen', () => {
           temporaryId: 'temp:screen-media',
           status: 'failed',
           safeToRetry: true,
-          message: 'Too many send attempts.',
+          message: 'Too many messages at once. Wait a minute and try again.',
         }),
         items: [
           ...readyThreadResult().items,
@@ -1144,17 +1158,19 @@ describe('ConversationScreen', () => {
     );
     render(<ConversationScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send attachment' })
     );
     expect(
-      await screen.findByRole('button', { name: 'Retry attachment' })
+      await screen.findByRole('button', { name: 'Send again' })
     ).toBeTruthy();
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Retry failed message' })
+      screen.getByRole('button', { name: 'Send failed message again' })
     );
     await waitFor(() =>
       expect(retryText).toHaveBeenCalledWith('temp:screen-text')
@@ -1166,7 +1182,9 @@ describe('ConversationScreen', () => {
     mockUseReadyAuth.mockReturnValue(auth);
     render(<ConversationScreen />);
 
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     await waitFor(() => expect(mockUploadConversationMedia).toHaveBeenCalled());
 
@@ -1239,7 +1257,7 @@ describe('ConversationScreen', () => {
         headerShown: false,
       })
     );
-    fireEvent.press(screen.getByRole('button', { name: 'Back to Inbox' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Back to chats' }));
     expect(mockRouter.back).toHaveBeenCalledTimes(1);
     expect(mockUseMessageThread).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1336,7 +1354,7 @@ describe('ConversationScreen', () => {
     expect(screen.queryByLabelText('Message')).toBeNull();
     expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
     expect(
-      screen.queryByRole('button', { name: 'Retry failed message' })
+      screen.queryByRole('button', { name: 'Send failed message again' })
     ).toBeNull();
     expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
@@ -1373,7 +1391,7 @@ describe('ConversationScreen', () => {
     expect(screen.queryByLabelText('Message')).toBeNull();
     expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
     expect(
-      screen.queryByRole('button', { name: 'Retry failed message' })
+      screen.queryByRole('button', { name: 'Send failed message again' })
     ).toBeNull();
     expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
@@ -1437,7 +1455,7 @@ describe('ConversationScreen', () => {
       expect(screen.queryByLabelText('Message')).toBeNull();
       expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
       expect(
-        screen.queryByRole('button', { name: 'Retry failed message' })
+        screen.queryByRole('button', { name: 'Send failed message again' })
       ).toBeNull();
       expect(ready.sendText).not.toHaveBeenCalled();
       expect(ready.retryText).not.toHaveBeenCalled();
@@ -1449,7 +1467,7 @@ describe('ConversationScreen', () => {
       'Please renew tomorrow'
     );
     expect(
-      screen.getByRole('button', { name: 'Retry failed message' })
+      screen.getByRole('button', { name: 'Send failed message again' })
     ).toBeTruthy();
   });
 
@@ -1509,7 +1527,9 @@ describe('ConversationScreen', () => {
     const ready = readyThreadResult();
     mockUseMessageThread.mockReturnValue(ready);
     const view = render(<ConversationScreen />);
-    fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Attach photo or file' })
+    );
     fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
     mockUseMessageThread.mockReturnValue({
       ...ready,
@@ -1560,7 +1580,9 @@ describe('ConversationScreen', () => {
         screen.getByLabelText('Message'),
         'Private branch draft'
       );
-      fireEvent.press(screen.getByRole('button', { name: 'Attach media' }));
+      fireEvent.press(
+        screen.getByRole('button', { name: 'Attach photo or file' })
+      );
       fireEvent.press(screen.getByRole('button', { name: 'Choose photo' }));
       await screen.findByRole('button', { name: 'Send attachment' });
       mockUseMessageThread.mockReturnValue({
@@ -1629,7 +1651,7 @@ describe('ConversationScreen', () => {
       temporaryId: 'temp:screen-failed',
       status: 'failed',
       safeToRetry: true,
-      message: 'Too many send attempts.',
+      message: 'Too many messages at once. Wait a minute and try again.',
     });
     const retryText = jest.fn().mockResolvedValue({
       temporaryId: 'temp:screen-failed',
@@ -1645,7 +1667,7 @@ describe('ConversationScreen', () => {
 
     await waitFor(() => expect(sendText).toHaveBeenCalledWith('Please renew'));
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Retry message' })
+      await screen.findByRole('button', { name: 'Send message again' })
     );
 
     await waitFor(() =>
@@ -1693,7 +1715,7 @@ describe('ConversationScreen', () => {
     render(<ConversationScreen />);
 
     const retries = screen.getAllByRole('button', {
-      name: 'Retry failed message',
+      name: 'Send failed message again',
     });
     expect(retries).toHaveLength(1);
     expect(retries[0].props.className).toContain('min-h-12');
@@ -1703,11 +1725,11 @@ describe('ConversationScreen', () => {
     expect(retryText).toHaveBeenCalledTimes(1);
     expect(retryText).toHaveBeenCalledWith('temp:screen-failed-two');
     expect(
-      screen.getAllByRole('button', { name: 'Retry failed message' })[0].props
-        .accessibilityState
+      screen.getAllByRole('button', { name: 'Send failed message again' })[0]
+        .props.accessibilityState
     ).toEqual({ disabled: true, busy: true });
     fireEvent.press(
-      screen.getAllByRole('button', { name: 'Retry failed message' })[0]
+      screen.getAllByRole('button', { name: 'Send failed message again' })[0]
     );
     expect(retryText).toHaveBeenCalledTimes(1);
 
@@ -1731,7 +1753,7 @@ describe('ConversationScreen', () => {
         temporaryId: 'temp:persistent-row',
         status: 'failed',
         safeToRetry: true,
-        message: 'Too many send attempts.',
+        message: 'Too many messages at once. Wait a minute and try again.',
       })
       .mockResolvedValueOnce({
         temporaryId: 'temp:later-success',
@@ -1759,16 +1781,18 @@ describe('ConversationScreen', () => {
     fireEvent.changeText(screen.getByLabelText('Message'), 'First attempt');
     fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
     expect(
-      await screen.findByRole('button', { name: 'Retry message' })
+      await screen.findByRole('button', { name: 'Send message again' })
     ).toBeTruthy();
 
     fireEvent.changeText(screen.getByLabelText('Message'), 'Later success');
     fireEvent.press(screen.getByRole('button', { name: 'Send message' }));
     await waitFor(() => expect(sendText).toHaveBeenCalledTimes(2));
 
-    expect(screen.queryByRole('button', { name: 'Retry message' })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: 'Send message again' })
+    ).toBeNull();
     fireEvent.press(
-      screen.getByRole('button', { name: 'Retry failed message' })
+      screen.getByRole('button', { name: 'Send failed message again' })
     );
     await waitFor(() =>
       expect(retryText).toHaveBeenCalledWith('temp:persistent-row')
@@ -1912,14 +1936,14 @@ describe('ConversationScreen', () => {
 
     render(<ConversationScreen />);
 
-    expect(await screen.findByText('Template sending is locked')).toBeTruthy();
+    expect(await screen.findByText('Cannot send a template yet')).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: 'Send a template' })
     ).toBeNull();
 
     fireEvent.press(
       screen.getByRole('button', {
-        name: 'Check template send safety again',
+        name: 'Check last template again',
       })
     );
 
@@ -1955,7 +1979,7 @@ describe('ConversationScreen', () => {
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send a template' })
     );
-    expect(screen.getByText('Send approved template')).toBeTruthy();
+    expect(screen.getByText('Choose a template')).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
     await waitFor(() => expect(sendConversationMessage).toHaveBeenCalled());
@@ -1968,7 +1992,7 @@ describe('ConversationScreen', () => {
       CONVERSATION_ID
     );
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText('Send approved template')).toBeNull();
+    expect(screen.queryByText('Choose a template')).toBeNull();
   });
 
   it('keeps the template picker open when the hook returns an equivalent readiness value on rerender', async () => {
@@ -1993,14 +2017,17 @@ describe('ConversationScreen', () => {
       await screen.findByRole('button', { name: 'Send a template' })
     );
 
-    expect(screen.getByText('Send approved template')).toBeTruthy();
+    expect(screen.getByText('Choose a template')).toBeTruthy();
   });
 
   it('hydrates an ambiguous template outcome after remount and durably clears it only after acknowledgment', async () => {
     jest
       .mocked(sendConversationMessage)
       .mockRejectedValueOnce(
-        new MobileSendError('network', 'Could not reach the send service.')
+        new MobileSendError(
+          'network',
+          'Could not connect. Check your internet.'
+        )
       );
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
@@ -2025,7 +2052,7 @@ describe('ConversationScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
     expect(
-      await screen.findByText(/Delivery could not be confirmed/)
+      await screen.findByText(/We cannot tell if it was sent/)
     ).toBeTruthy();
     fireEvent.press(screen.getByRole('button', { name: 'Close' }));
     view.unmount();
@@ -2038,14 +2065,12 @@ describe('ConversationScreen', () => {
 
     expect(
       screen.getByText(
-        'A previous template send could not be confirmed. Check this conversation for the message before sending another.'
+        'We cannot tell if your last template was sent. Look for it in this chat before you send another.'
       )
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
 
-    fireEvent.press(
-      screen.getByRole('button', { name: 'I checked the conversation' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'I checked the chat' }));
 
     expect(
       await screen.findByRole('button', { name: 'Send template' })
@@ -2083,10 +2108,10 @@ describe('ConversationScreen', () => {
     );
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
-    expect(await screen.findByText(/No message was sent/)).toBeTruthy();
+    expect(await screen.findByText(/Nothing was sent/)).toBeTruthy();
     expect(sendConversationMessage).not.toHaveBeenCalled();
     fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
-    expect(await screen.findByText('Template sending is locked')).toBeTruthy();
+    expect(await screen.findByText('Cannot send a template yet')).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: 'Send a template' })
     ).toBeNull();
@@ -2117,13 +2142,11 @@ describe('ConversationScreen', () => {
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send a template' })
     );
-    fireEvent.press(
-      screen.getByRole('button', { name: 'I checked the conversation' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'I checked the chat' }));
 
     expect(
       await screen.findByText(
-        'Could not clear the send-safety lock. Sending remains locked until storage recovers.'
+        'Could not unlock sending on this phone. Try again.'
       )
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
@@ -2139,7 +2162,10 @@ describe('ConversationScreen', () => {
       jest
         .mocked(sendConversationMessage)
         .mockRejectedValueOnce(
-          new MobileSendError('network', 'Could not reach the send service.')
+          new MobileSendError(
+            'network',
+            'Could not connect. Check your internet.'
+          )
         );
       mockUseMessageThread.mockReturnValue(
         readyThreadResult({
@@ -2163,7 +2189,7 @@ describe('ConversationScreen', () => {
       );
       fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
       expect(
-        await screen.findByText(/Delivery could not be confirmed/)
+        await screen.findByText(/We cannot tell if it was sent/)
       ).toBeTruthy();
       fireEvent.press(screen.getByRole('button', { name: 'Close' }));
 
@@ -2180,7 +2206,7 @@ describe('ConversationScreen', () => {
         screen.getByRole('button', { name: 'Send template' })
       ).toBeTruthy();
       expect(
-        screen.queryByRole('button', { name: 'I checked the conversation' })
+        screen.queryByRole('button', { name: 'I checked the chat' })
       ).toBeNull();
     }
   );
@@ -2211,8 +2237,10 @@ describe('ConversationScreen', () => {
       within(screen.getByTestId('conversation-action-blocker'))
         .getAllByRole('button')
         .map((button) => button.props.accessibilityLabel)
-    ).toEqual(['Retry send setup']);
-    fireEvent.press(screen.getByRole('button', { name: 'Retry send setup' }));
+    ).toEqual(['Check sending again']);
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Check sending again' })
+    );
     expect(refresh).toHaveBeenCalledTimes(1);
 
     mockUseMessageThread.mockReturnValue(
@@ -2231,7 +2259,7 @@ describe('ConversationScreen', () => {
     view.rerender(<ConversationScreen />);
 
     expect(
-      screen.getByRole('button', { name: 'Retry send setup' }).props
+      screen.getByRole('button', { name: 'Check sending again' }).props
         .accessibilityState
     ).toEqual({ disabled: true, busy: true });
   });
@@ -2263,14 +2291,16 @@ describe('ConversationScreen', () => {
     render(<ConversationScreen />);
 
     expect(screen.getAllByRole('alert')).toHaveLength(1);
-    expect(screen.getByText('No sendable templates')).toBeTruthy();
-    expect(screen.queryByText('WhatsApp is unavailable')).toBeNull();
+    expect(screen.getByText('No approved templates yet')).toBeTruthy();
+    expect(screen.queryByText('WhatsApp is not ready')).toBeNull();
     expect(
       within(screen.getByTestId('conversation-action-blocker'))
         .getAllByRole('button')
         .map((button) => button.props.accessibilityLabel)
-    ).toEqual(['Retry send setup']);
-    fireEvent.press(screen.getByRole('button', { name: 'Retry send setup' }));
+    ).toEqual(['Check sending again']);
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Check sending again' })
+    );
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -2301,13 +2331,15 @@ describe('ConversationScreen', () => {
     render(<ConversationScreen />);
 
     expect(screen.getAllByRole('alert')).toHaveLength(1);
-    expect(screen.getByText('WhatsApp is unavailable')).toBeTruthy();
+    expect(screen.getByText('WhatsApp is not ready')).toBeTruthy();
     expect(
       within(screen.getByTestId('conversation-action-blocker'))
         .getAllByRole('button')
         .map((button) => button.props.accessibilityLabel)
-    ).toEqual(['Retry send setup']);
-    fireEvent.press(screen.getByRole('button', { name: 'Retry send setup' }));
+    ).toEqual(['Check sending again']);
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Check sending again' })
+    );
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -2399,7 +2431,7 @@ describe('ConversationScreen', () => {
     );
     expect(
       stableContainer.findAll(
-        (node) => node.props.children === 'Live updates unavailable'
+        (node) => node.props.children === 'Not updating live'
       )
     ).not.toHaveLength(0);
     expect(
@@ -2415,9 +2447,9 @@ describe('ConversationScreen', () => {
       mockUseLocalSearchParams.mockReturnValue({ conversationId: value });
       render(<ConversationScreen />);
 
-      expect(screen.getByText('Conversation is unavailable')).toBeTruthy();
+      expect(screen.getByText('This chat is not available')).toBeTruthy();
       expect(mockUseMessageThread).not.toHaveBeenCalled();
-      fireEvent.press(screen.getByRole('button', { name: 'Return to Inbox' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Go to chats' }));
       expect(mockRouter.replace).toHaveBeenCalledWith('/(app)');
     }
   );
@@ -2478,13 +2510,13 @@ describe('ConversationScreen', () => {
         layoutMeasurement: { height: 700, width: 390 },
       },
     });
-    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Go to latest' })).toBeTruthy();
 
     mockScrollToEnd.mockClear();
     fireListLayout(360);
 
     expect(mockScrollToEnd).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Jump to latest' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Go to latest' })).toBeTruthy();
   });
 
   it('loads older history near the top and preserves the visible anchor', () => {
@@ -2616,7 +2648,7 @@ describe('ConversationScreen', () => {
         layoutMeasurement: { height: 700, width: 390 },
       },
     });
-    const jump = screen.getByRole('button', { name: 'Jump to latest' });
+    const jump = screen.getByRole('button', { name: 'Go to latest' });
     expect(jump.props.className).toContain('min-h-12');
 
     mockUseMessageThread.mockReturnValue(
@@ -2630,9 +2662,9 @@ describe('ConversationScreen', () => {
     rerender(<ConversationScreen />);
     expect(mockScrollToEnd).not.toHaveBeenCalled();
 
-    fireEvent.press(screen.getByRole('button', { name: 'Jump to latest' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Go to latest' }));
     expect(mockScrollToEnd).toHaveBeenCalledWith({ animated: false });
-    expect(screen.queryByRole('button', { name: 'Jump to latest' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Go to latest' })).toBeNull();
   });
 
   it('renders loading, unavailable, and retryable error states', () => {
@@ -2651,7 +2683,7 @@ describe('ConversationScreen', () => {
       })
     );
     rerender(<ConversationScreen />);
-    fireEvent.press(screen.getByRole('button', { name: 'Retry' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
     expect(
       mockUseMessageThread.mock.results.at(-1)?.value.refresh
     ).toHaveBeenCalled();
@@ -2664,7 +2696,7 @@ describe('ConversationScreen', () => {
       })
     );
     rerender(<ConversationScreen />);
-    expect(screen.getByText('Conversation is unavailable')).toBeTruthy();
+    expect(screen.getByText('This chat is not available')).toBeTruthy();
   });
 
   it('renders the ready empty state and wires pull-to-refresh state', () => {
@@ -2686,7 +2718,7 @@ describe('ConversationScreen', () => {
     mockUseMessageThread.mockReturnValue(
       readyThreadResult({
         connection: 'disconnected',
-        refreshWarning: 'Could not refresh messages',
+        refreshWarning: 'Could not refresh messages. Pull down to try again.',
         unreadWarning: 'Could not clear unread messages',
         paginationError: 'Could not load older messages',
         loadOlder,
@@ -2695,12 +2727,14 @@ describe('ConversationScreen', () => {
     const { rerender } = render(<ConversationScreen />);
 
     expect(screen.getByText(/^Hello/)).toBeTruthy();
-    expect(screen.getByText('Live updates unavailable')).toBeTruthy();
-    expect(screen.getByText('Could not refresh messages')).toBeTruthy();
-    expect(screen.getByText('Could not clear unread messages')).toBeTruthy();
+    expect(screen.getByText('Not updating live')).toBeTruthy();
+    expect(
+      screen.getByText('Could not refresh messages. Pull down to try again.')
+    ).toBeTruthy();
+    expect(screen.getByText('Could not mark messages as read')).toBeTruthy();
     expect(screen.getByText('Could not load older messages')).toBeTruthy();
     fireEvent.press(
-      screen.getByRole('button', { name: 'Retry loading older messages' })
+      screen.getByRole('button', { name: 'Try loading older messages again' })
     );
     expect(loadOlder).toHaveBeenCalledTimes(1);
 

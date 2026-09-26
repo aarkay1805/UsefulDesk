@@ -126,7 +126,7 @@ export function ActivityFeed({
                     >
                       <Icon className="h-3.5 w-3.5" />
                     </span>
-                    <span className="text-foreground min-w-0 flex-1 truncate text-sm">
+                    <span className="text-foreground line-clamp-2 min-w-0 flex-1 text-sm">
                       {it.text}
                     </span>
                     <span className="text-muted-foreground flex-shrink-0 text-xs tabular-nums">

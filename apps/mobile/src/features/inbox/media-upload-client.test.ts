@@ -136,7 +136,7 @@ describe('uploadConversationMedia', () => {
 
     await expect(operation.promise).rejects.toEqual(
       new MediaValidationError(
-        'This image is too large. Choose one up to 5 MB.'
+        'This photo is too large. Choose one up to 5 MB.'
       )
     );
     expect(requestCreations).toBe(0);
@@ -191,7 +191,7 @@ describe('uploadConversationMedia', () => {
 
     await expect(operation.promise).rejects.toMatchObject({
       category: 'forbidden',
-      message: 'This branch is no longer selected.',
+      message: 'You switched to another branch. Open this chat again.',
     });
     expect(setup.readBlob).not.toHaveBeenCalled();
     expect(setup.requests).toHaveLength(0);
@@ -289,7 +289,7 @@ describe('uploadConversationMedia', () => {
     const request = await nextRequest(setup);
     request.onerror?.();
     await expect(operation.promise).rejects.toEqual(
-      new MediaUploadError('network', 'Could not upload this attachment.')
+      new MediaUploadError('network', 'Could not upload this file. Try again.')
     );
   });
 

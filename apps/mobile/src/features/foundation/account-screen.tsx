@@ -47,7 +47,7 @@ export function AccountScreen() {
               Branch
             </Text>
             <Text className="text-muted text-sm leading-5">
-              Switch the branch used for this native workspace.
+              Choose which branch this app shows.
             </Text>
           </View>
           <BranchChoices
@@ -75,15 +75,15 @@ export function AccountScreen() {
             <Button
               accessibilityLabel={
                 notifications.status === 'retry_needed'
-                  ? 'Try notification setup again'
-                  : 'Enable notifications'
+                  ? 'Try again'
+                  : 'Turn on notifications'
               }
               onPress={() => void notifications.requestPermission()}
               variant="secondary"
             >
               {notifications.status === 'retry_needed'
-                ? 'Try notification setup again'
-                : 'Enable notifications'}
+                ? 'Try again'
+                : 'Turn on notifications'}
             </Button>
           ) : null}
           {notifications.recoveryAction === 'settings' ? (
@@ -103,18 +103,18 @@ export function AccountScreen() {
               accessibilityRole="header"
               className="text-foreground text-lg font-semibold"
             >
-              Diagnostics
+              App details
             </Text>
             <Text className="text-muted text-sm leading-5">
-              Check which environment and backend this build points at.
+              Version and connection details for support.
             </Text>
           </View>
           <Button
-            accessibilityLabel="Open diagnostics"
+            accessibilityLabel="Open app details"
             onPress={() => router.push('/(app)/diagnostics')}
             variant="secondary"
           >
-            Open diagnostics
+            Open app details
           </Button>
         </View>
 

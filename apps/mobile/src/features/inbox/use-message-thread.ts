@@ -56,7 +56,7 @@ import {
 } from './template-repository';
 
 const LOAD_ERROR = 'Could not load messages';
-const REFRESH_ERROR = 'Could not refresh messages';
+const REFRESH_ERROR = 'Could not refresh messages. Pull down to try again.';
 const PAGINATION_ERROR = 'Could not load older messages';
 const UNREAD_ERROR = 'Could not clear unread messages';
 const UNAVAILABLE_ERROR = 'Conversation is unavailable';
@@ -1447,7 +1447,7 @@ export function useMessageThread({
           safeToRetry: false,
           message:
             failed?.providerErrorTitle ??
-            'Delivery could not be confirmed. Check the conversation before sending again.',
+            'We cannot tell if it was sent. Check the chat before you send it again.',
         });
       }
       const retry = performMediaSend(
@@ -1494,7 +1494,7 @@ export function useMessageThread({
           safeToRetry: false,
           message:
             failed?.providerErrorTitle ??
-            'Delivery could not be confirmed. Check the conversation before sending again.',
+            'We cannot tell if it was sent. Check the chat before you send it again.',
         });
       }
       const retry = performTextSend(

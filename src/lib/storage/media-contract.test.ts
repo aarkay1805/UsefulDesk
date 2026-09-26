@@ -56,7 +56,7 @@ describe('media contract', () => {
       MediaValidationError
     );
     expect(() => validateMediaAsset({ kind, mimeType, size: 1 })).toThrow(
-      'Choose a supported file for this attachment type.'
+      'This file type cannot be sent. Choose another file.'
     );
   });
 
@@ -75,26 +75,28 @@ describe('media contract', () => {
     expect(MEDIA_MAX_BYTES_BY_KIND[kind]).toBe(size);
   });
 
-  it.each(['image', 'video', 'document', 'audio'] as const)(
-    'rejects empty and over-limit %s files',
-    (kind) => {
-      const mimeType = ACCEPTED[kind][0];
-      expect(() => validateMediaAsset({ kind, mimeType, size: 0 })).toThrow(
-        'Choose a non-empty file.'
-      );
-      expect(() =>
-        validateMediaAsset({
-          kind,
-          mimeType,
-          size: MEDIA_MAX_BYTES_BY_KIND[kind] + 1,
-        })
-      ).toThrow(
-        `This ${kind} is too large. Choose one up to ${
-          kind === 'image' ? 5 : 16
-        } MB.`
-      );
-    }
-  );
+  it.each([
+    ['image', 'photo'],
+    ['video', 'video'],
+    ['document', 'document'],
+    ['audio', 'audio file'],
+  ] as const)('rejects empty and over-limit %s files', (kind, noun) => {
+    const mimeType = ACCEPTED[kind][0];
+    expect(() => validateMediaAsset({ kind, mimeType, size: 0 })).toThrow(
+      'This file is empty. Choose another file.'
+    );
+    expect(() =>
+      validateMediaAsset({
+        kind,
+        mimeType,
+        size: MEDIA_MAX_BYTES_BY_KIND[kind] + 1,
+      })
+    ).toThrow(
+      `This ${noun} is too large. Choose one up to ${
+        kind === 'image' ? 5 : 16
+      } MB.`
+    );
+  });
 
   it('builds a canonical account path with a safe basename and extension', () => {
     expect(

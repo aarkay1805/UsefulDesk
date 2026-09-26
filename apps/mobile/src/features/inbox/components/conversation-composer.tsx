@@ -24,7 +24,7 @@ import { attachmentSize } from '../media-display';
 import { ReplyQuote } from './reply-quote';
 
 const UNCONFIRMED_SEND_MESSAGE =
-  'The send request did not complete. Delivery could not be confirmed. Check the conversation before sending again.';
+  'Something went wrong while sending. We cannot tell if it was sent. Check the chat before you send it again.';
 
 interface FailedAttempt {
   temporaryId: string | null;
@@ -366,7 +366,7 @@ export function ConversationComposer({
                     error instanceof MediaUploadError ||
                     error instanceof MediaValidationError
                       ? error.message
-                      : 'Could not upload this attachment.',
+                      : 'Could not upload this file. Try again.',
                 }
               : current
           );
@@ -391,7 +391,7 @@ export function ConversationComposer({
           setPickerError(
             error instanceof MediaValidationError
               ? error.message
-              : 'Could not open the attachment picker.'
+              : 'Could not open your photos and files. Try again.'
           );
         }
       } finally {
@@ -668,7 +668,7 @@ export function ConversationComposer({
           <View className="flex-row flex-wrap gap-2">
             {staged.status === 'upload_failed' ? (
               <Button onPress={() => beginUpload(staged.asset)} size="sm">
-                Retry upload
+                Upload again
               </Button>
             ) : null}
             {staged.status === 'send_failed' && staged.safeToRetry ? (
@@ -677,7 +677,7 @@ export function ConversationComposer({
                 onPress={retryAttachment}
                 size="sm"
               >
-                Retry attachment
+                Send again
               </Button>
             ) : null}
           </View>
@@ -700,7 +700,7 @@ export function ConversationComposer({
           action={
             canRetry ? (
               <Button
-                accessibilityLabel="Retry message"
+                accessibilityLabel="Send message again"
                 className="self-start"
                 disabled={pending || !sendEnabled || sessionExpired}
                 loading={pending}
@@ -708,7 +708,7 @@ export function ConversationComposer({
                 size="sm"
                 variant="ghost"
               >
-                Retry
+                Try again
               </Button>
             ) : null
           }
@@ -738,7 +738,7 @@ export function ConversationComposer({
       ) : null}
       <View className="flex-row items-end gap-2">
         <IconButton
-          accessibilityLabel="Attach media"
+          accessibilityLabel="Attach photo or file"
           isDisabled={pending || pickerPending}
           isLoading={pickerPending}
           onPress={() => setPickerOpen((value) => !value)}

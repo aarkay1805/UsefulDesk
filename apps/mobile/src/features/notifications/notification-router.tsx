@@ -10,7 +10,7 @@ import {
   type PushDestination,
 } from './notification-routing';
 
-const UNAVAILABLE = 'This conversation is no longer available.';
+const UNAVAILABLE = 'This chat is no longer available.';
 
 interface ResponseRouterDependencies {
   selectBranch(accountId: string): Promise<void>;
@@ -138,8 +138,7 @@ export function NotificationRouter() {
           pathname: '/(app)/conversation/[conversationId]',
           params: { conversationId },
         }),
-      showUnavailable: (message) =>
-        Alert.alert('Conversation unavailable', message),
+      showUnavailable: (message) => Alert.alert('Chat not available', message),
     });
     responseRouterRef.current = responseRouter;
     let cancelled = false;

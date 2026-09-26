@@ -133,7 +133,7 @@ describe('AccountScreen branch navigation', () => {
     jest.clearAllMocks();
     mockUseNotifications.mockReturnValue({
       status: 'enabled',
-      message: 'New customer messages can notify this device.',
+      message: 'You will get a notification for new customer messages.',
       canRequest: false,
       shouldExplain: false,
       recoveryAction: null,
@@ -190,7 +190,7 @@ describe('AccountScreen branch navigation', () => {
 
     expect(
       await screen.findByText(
-        'Could not open this branch. Check your connection and try again.'
+        'Could not open this branch. Check your internet and try again.'
       )
     ).toBeTruthy();
     expect(accountRouter.dismissAll).not.toHaveBeenCalled();
@@ -200,9 +200,9 @@ describe('AccountScreen branch navigation', () => {
   });
 
   it.each([
-    ['requestable', 'Enable notifications', 'requestPermission'],
+    ['requestable', 'Turn on notifications', 'requestPermission'],
     ['denied', 'Open settings', 'openSettings'],
-    ['retry_needed', 'Try notification setup again', 'requestPermission'],
+    ['retry_needed', 'Try again', 'requestPermission'],
   ] as const)(
     'shows the one relevant %s recovery action',
     (status, label, action) => {
@@ -239,7 +239,7 @@ describe('AccountScreen branch navigation', () => {
     );
 
     render(<AccountScreen />);
-    fireEvent.press(screen.getByRole('button', { name: 'Open diagnostics' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Open app details' }));
 
     expect(accountRouter.push).toHaveBeenCalledWith('/(app)/diagnostics');
   });
@@ -254,7 +254,7 @@ describe('AccountScreen branch navigation', () => {
 
     expect(screen.getByText('Notifications')).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Enable notifications' })
+      screen.queryByRole('button', { name: 'Turn on notifications' })
     ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Open settings' })).toBeNull();
   });

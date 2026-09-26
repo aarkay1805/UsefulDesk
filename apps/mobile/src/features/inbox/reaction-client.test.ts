@@ -88,7 +88,7 @@ describe('setMessageReaction', () => {
       )
     ).rejects.toMatchObject({
       category: 'forbidden',
-      message: 'This branch is no longer selected.',
+      message: 'You switched to another branch. Open this chat again.',
     });
 
     expect(deps.auth.getSession).not.toHaveBeenCalled();
@@ -106,7 +106,10 @@ describe('setMessageReaction', () => {
         deps.value
       )
     ).rejects.toEqual(
-      new MobileReactionError('unauthorized', 'Your session has expired.')
+      new MobileReactionError(
+        'unauthorized',
+        'Your sign-in expired. Sign in again.'
+      )
     );
 
     expect(deps.fetch).toHaveBeenCalledTimes(2);
@@ -136,16 +139,20 @@ describe('setMessageReaction', () => {
       )
     ).rejects.toMatchObject({
       category: 'forbidden',
-      message: 'This branch is no longer selected.',
+      message: 'You switched to another branch. Open this chat again.',
     });
 
     expect(deps.fetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([
-    [403, 'forbidden', 'You cannot react from this branch.'],
-    [429, 'rate_limited', 'Too many reaction attempts.'],
-    [502, 'provider', 'WhatsApp reactions are unavailable.'],
+    [403, 'forbidden', 'You do not have permission to react in this branch.'],
+    [
+      429,
+      'rate_limited',
+      'Too many reactions at once. Wait a minute and try again.',
+    ],
+    [502, 'provider', 'Could not send the reaction. Try again.'],
   ] as const)(
     'maps HTTP %i to %s without claiming delivery',
     async (status, category, message) => {
@@ -172,7 +179,7 @@ describe('setMessageReaction', () => {
       )
     ).rejects.toMatchObject({
       category: 'invalid_response',
-      message: 'The reaction service returned an invalid response.',
+      message: 'Could not send the reaction. Try again.',
     });
   });
 });

@@ -22,7 +22,7 @@ export function ConversationHeader({
       testID="conversation-header"
     >
       <IconButton
-        accessibilityLabel="Back to Inbox"
+        accessibilityLabel="Back to chats"
         onPress={onBack}
         symbol="chevron.left"
         variant="ghost"

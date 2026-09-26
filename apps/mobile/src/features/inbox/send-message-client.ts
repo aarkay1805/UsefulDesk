@@ -72,14 +72,14 @@ export function describeMobileSendFailure(error: unknown): MobileSendFailure {
   const detail =
     error instanceof MobileSendError
       ? error.message
-      : 'The send request did not complete.';
+      : 'Something went wrong while sending.';
   const safeToRetry =
     error instanceof MobileSendError && error.safeToRetry === true;
   return {
     safeToRetry,
     message: safeToRetry
       ? detail
-      : `${detail} Delivery could not be confirmed. Check the conversation before sending again.`,
+      : `${detail} We cannot tell if it was sent. Check the chat before you send it again.`,
   };
 }
 
@@ -130,28 +130,31 @@ function resolveDependencies(
 
 function errorForStatus(status: number): MobileSendError {
   if (status === 401) {
-    return new MobileSendError('unauthorized', 'Your session has expired.');
+    return new MobileSendError(
+      'unauthorized',
+      'Your sign-in expired. Sign in again.'
+    );
   }
   if (status === 403) {
     return new MobileSendError(
       'forbidden',
-      'You cannot send from this branch.'
+      'You do not have permission to send messages in this branch.'
     );
   }
   if (status === 429) {
-    return new MobileSendError('rate_limited', 'Too many send attempts.');
+    return new MobileSendError(
+      'rate_limited',
+      'Too many messages at once. Wait a minute and try again.'
+    );
   }
-  return new MobileSendError('provider', 'Message delivery is unavailable.');
+  return new MobileSendError('provider', 'Something went wrong while sending.');
 }
 
 function requestBody(input: MobileSendInput): string {
   if (input.kind === 'text') {
     const text = input.text.trim();
     if (!text) {
-      throw new MobileSendError(
-        'invalid_response',
-        'A message cannot be empty.'
-      );
+      throw new MobileSendError('invalid_response', 'Type a message first.');
     }
     return JSON.stringify({
       conversation_id: input.conversationId,
@@ -173,7 +176,7 @@ function requestBody(input: MobileSendInput): string {
     if (caption && caption.length > 1024) {
       throw new MobileSendError(
         'invalid_response',
-        'Captions can be up to 1,024 characters.'
+        'A caption can have up to 1,024 characters.'
       );
     }
     return JSON.stringify({
@@ -206,7 +209,7 @@ function decodeSuccess(body: string): MobileSendResult {
   } catch {
     throw new MobileSendError(
       'invalid_response',
-      'The send service returned an invalid response.'
+      'Something went wrong while sending.'
     );
   }
   if (
@@ -221,7 +224,7 @@ function decodeSuccess(body: string): MobileSendResult {
   ) {
     throw new MobileSendError(
       'invalid_response',
-      'The send service returned an invalid response.'
+      'Something went wrong while sending.'
     );
   }
   return {
@@ -239,7 +242,7 @@ async function sendWithToken(
   if (dependencies.selectedBranch.get() !== input.accountId) {
     throw new MobileSendError(
       'forbidden',
-      'This branch is no longer selected.'
+      'You switched to another branch. Open this chat again.'
     );
   }
 
@@ -257,7 +260,10 @@ async function sendWithToken(
       }
     );
   } catch {
-    throw new MobileSendError('network', 'Could not reach the send service.');
+    throw new MobileSendError(
+      'network',
+      'Could not connect. Check your internet.'
+    );
   }
 }
 
@@ -268,10 +274,16 @@ async function sessionToken(
   try {
     result = await getSession();
   } catch {
-    throw new MobileSendError('unauthorized', 'Your session has expired.');
+    throw new MobileSendError(
+      'unauthorized',
+      'Your sign-in expired. Sign in again.'
+    );
   }
   if (result.error || !result.data.session?.access_token) {
-    throw new MobileSendError('unauthorized', 'Your session has expired.');
+    throw new MobileSendError(
+      'unauthorized',
+      'Your sign-in expired. Sign in again.'
+    );
   }
   return result.data.session.access_token;
 }
@@ -283,10 +295,16 @@ async function refreshedToken(
   try {
     result = await refreshSession();
   } catch {
-    throw new MobileSendError('unauthorized', 'Your session has expired.');
+    throw new MobileSendError(
+      'unauthorized',
+      'Your sign-in expired. Sign in again.'
+    );
   }
   if (result.error || !result.data.session?.access_token) {
-    throw new MobileSendError('unauthorized', 'Your session has expired.');
+    throw new MobileSendError(
+      'unauthorized',
+      'Your sign-in expired. Sign in again.'
+    );
   }
   return result.data.session.access_token;
 }
@@ -300,7 +318,7 @@ export async function sendConversationMessage(
   if (dependencies.selectedBranch.get() !== input.accountId) {
     throw new MobileSendError(
       'forbidden',
-      'This branch is no longer selected.'
+      'You switched to another branch. Open this chat again.'
     );
   }
 
@@ -331,7 +349,7 @@ export async function sendConversationMessage(
   } catch {
     throw new MobileSendError(
       'invalid_response',
-      'The send service returned an invalid response.'
+      'Something went wrong while sending.'
     );
   }
   return decodeSuccess(responseBody);

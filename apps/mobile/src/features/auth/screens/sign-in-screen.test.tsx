@@ -192,8 +192,7 @@ describe('SignInScreen', () => {
       authValue({
         state: {
           status: 'cleanup_failed',
-          error:
-            'Secure sign-out is incomplete. Retry secure sign-out before signing in.',
+          error: 'Sign-out did not finish on this phone. Tap Sign out again.',
         },
         signOut,
       })
@@ -203,7 +202,7 @@ describe('SignInScreen', () => {
 
     expect(
       screen.getByText(
-        'Secure sign-out is incomplete. Retry secure sign-out before signing in.'
+        'Sign-out did not finish on this phone. Tap Sign out again.'
       )
     ).toBeTruthy();
     expect(screen.queryByLabelText('Email')).toBeNull();
@@ -213,9 +212,7 @@ describe('SignInScreen', () => {
       screen.queryByRole('button', { name: 'Continue with Google' })
     ).toBeNull();
 
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Retry secure sign-out' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Sign out again' }));
     await waitFor(() => expect(signOut).toHaveBeenCalledTimes(1));
   });
 
@@ -226,7 +223,7 @@ describe('SignInScreen', () => {
 
     render(<SignInScreen />);
 
-    expect(screen.getByText('Signing out securely…')).toBeTruthy();
+    expect(screen.getByText('Signing out…')).toBeTruthy();
     expect(screen.queryByLabelText('Email')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
     expect(

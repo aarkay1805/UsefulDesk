@@ -37,7 +37,7 @@ describe('ConversationRepository', () => {
         cursor: null,
         limit: 20,
       })
-    ).rejects.toThrow('Could not load conversations');
+    ).rejects.toThrow('Could not load chats');
   });
 
   it('moves from non-null last-message pagination into empty conversations', async () => {
@@ -274,7 +274,7 @@ describe('ConversationRepository', () => {
         },
         limit: 20,
       })
-    ).rejects.toThrow('Could not load conversations');
+    ).rejects.toThrow('Could not load chats');
     expect(querySource.listMessaged).not.toHaveBeenCalled();
   });
 });

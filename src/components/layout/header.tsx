@@ -50,8 +50,10 @@ export function Header({ onOpenSidebar }: HeaderProps) {
 
   return (
     <header className="border-border bg-background flex shrink-0 flex-col border-b">
-      {/* Title row */}
-      <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-4 lg:px-6">
+      {/* Title row. It wraps instead of overlapping: when a page's actions
+          do not fit beside the title on a phone, they drop to a second line
+          (right-aligned by the slot's `ml-auto`). */}
+      <div className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 py-2 lg:px-6">
         <div className="flex min-w-0 items-center">
           {/* Hamburger — mobile only. 44×44 hit target per Apple HIG. */}
           <button
@@ -75,7 +77,7 @@ export function Header({ onOpenSidebar }: HeaderProps) {
             here (see PageHeaderActions). Empty for pages that don't. */}
         <div
           id={PAGE_HEADER_SLOT_ID}
-          className="flex shrink-0 items-center gap-2"
+          className="ml-auto flex shrink-0 items-center gap-1 empty:hidden sm:gap-2"
         />
       </div>
 

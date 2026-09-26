@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ACCOUNT_ROLE_LABELS,
   ACCOUNT_ROLES,
   canManagePlatformAccess,
   type AccountRole,
@@ -128,6 +129,17 @@ describe('isAccountRole', () => {
     expect(isAccountRole(undefined)).toBe(false);
     expect(isAccountRole(123)).toBe(false);
     expect(isAccountRole('superuser')).toBe(false);
+  });
+});
+
+describe('ACCOUNT_ROLE_LABELS', () => {
+  it('shows the plain-language name for every stored role', () => {
+    expect(ACCOUNT_ROLES.map((role) => ACCOUNT_ROLE_LABELS[role])).toEqual([
+      'View only',
+      'Staff',
+      'Admin',
+      'Owner',
+    ]);
   });
 });
 
