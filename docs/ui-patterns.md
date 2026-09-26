@@ -381,9 +381,9 @@ and message name used by both Settings views. The view tabs are **Messages** and
 Use these exact message names: **Unpaid invoice reminders**, **Installment
 reminders**, **Promised payment reminder**, **AutoPay payment problems**,
 **Return after a membership freeze**, **Invite expired members back**, and
-**Invite members to renew a service**, and **Missed gym visits**. A row disclosure is always **Configure** /
-**Hide configuration**. Until message readiness is complete, show only a
-status Badge and the setup action—configuration and the On/Off switch do not
+**Invite members to renew a service**, and **Missed gym visits**. A row disclosure is always **Edit** /
+**Close** (the row has its own **Save changes**, so never **Done**). Until message readiness is complete, show only a
+status Badge and the setup action—**Edit** and the On/Off switch do not
 apply yet. Status and action come from `ruleSetupStatus` and never from a call
 site: **Not sent for review** → **Send for review**, **In WhatsApp review** →
 **View status**, **Rejected by WhatsApp** → **Fix and resend**, **Paused by
@@ -396,11 +396,11 @@ readback: it stays visible while the rule is open and reflects unsaved day
 changes, so the open tile never repeats it — Timing opens straight onto the
 controls, followed by one-line notes (send time, Sending hours, date caveats).
 A limit hint appears only once the limit is reached. Once ready,
-show both Configure and the switch. Once open, **Message preview** is a
+show both **Edit** and the switch. Once open, **Message preview** is a
 directly visible heading and sample—not another disclosure. Keep purpose → schedule → preview → who gets
 it / when it stops / staff action in reading order; only secondary sending
 exceptions belong in an accordion.
-Do not reintroduce Rules, Activity, Collections, Retention, Invoice collection,
+Do not reintroduce Configure, Hide configuration, Rules, Activity, Collections, Retention, Invoice collection,
 Joining installments, Promise to pay, AutoPay recovery, Planned return,
 Membership win-back, or Service win-back as labels for these concepts.
 

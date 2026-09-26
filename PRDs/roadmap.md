@@ -4,9 +4,9 @@
 
 The Expo app, `docs/ui-patterns.md`, and `docs/gym-domain.md` follow the
 `docs/ux-copy.md` glossary, and a phone-width browser review fixed overlapping
-header actions, truncated month labels, and a clipped member action row. Open
-decisions: the installed app name (**UsefulDesk Agent**), the Automated
-messages **Configure** disclosure, and the template-contract label
+header actions, truncated month labels, and a clipped member action row. Automated
+messages rows now open with **Edit** / **Close**. Open decisions: the
+installed app name (**UsefulDesk Agent**) and the template-contract label
 **Outstanding amount**. Mobile release and web rollout are pending.
 
 ## Built in code — Plain-language product terminology (2026-09-26)

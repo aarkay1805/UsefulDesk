@@ -266,7 +266,7 @@ describe('Automated messages catalogue', () => {
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     );
     expect(
@@ -332,7 +332,7 @@ describe('Automated messages catalogue', () => {
 
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Payment confirmation',
+        name: 'Edit Payment confirmation',
       })
     );
     expect(
@@ -358,7 +358,7 @@ describe('Automated messages catalogue', () => {
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     );
     // The limit is only explained once it is reached.
@@ -592,7 +592,7 @@ describe('Automated messages catalogue', () => {
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Promised payment reminder',
+        name: 'Edit Promised payment reminder',
       })
     );
     fireEvent.click(
@@ -637,7 +637,7 @@ describe('Automated messages catalogue', () => {
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Promised payment reminder',
+        name: 'Edit Promised payment reminder',
       })
     );
     fireEvent.click(
@@ -681,7 +681,7 @@ describe('Automated messages catalogue', () => {
     );
     const serviceRow = screen.getByTestId('rule-row-service_renewal');
     const configureMembership = within(membershipRow).getByRole('button', {
-      name: 'Configure Membership renewal',
+      name: 'Edit Membership renewal',
     });
     expect(configureMembership.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(configureMembership);
@@ -690,13 +690,13 @@ describe('Automated messages catalogue', () => {
     ).toBeTruthy();
     expect(
       within(membershipRow)
-        .getByRole('button', { name: 'Hide configuration Membership renewal' })
+        .getByRole('button', { name: 'Close Membership renewal' })
         .getAttribute('aria-expanded')
     ).toBe('true');
     toggleReminderDay('14 days');
     fireEvent.click(
       within(serviceRow).getByRole('button', {
-        name: 'Configure Service renewal',
+        name: 'Edit Service renewal',
       })
     );
     expect(
@@ -709,13 +709,13 @@ describe('Automated messages catalogue', () => {
     );
     fireEvent.click(
       within(membershipRow).getByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     );
     expect(reminderChip('14 days').getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(
       within(membershipRow).getByRole('button', {
-        name: 'Hide configuration Membership renewal',
+        name: 'Close Membership renewal',
       })
     );
     await waitFor(() =>
@@ -748,7 +748,7 @@ describe('Automated messages catalogue', () => {
       expect(within(row).queryByText(/^(On|Off|Blocked)$/)).toBeNull();
       expect(
         within(row).queryByRole('button', {
-          name: 'Configure Membership renewal',
+          name: 'Edit Membership renewal',
         })
       ).toBeNull();
       expect(
@@ -802,7 +802,7 @@ describe('Automated messages catalogue', () => {
     expect(setup.getAttribute('href')).toContain('tab=whatsapp');
     expect(
       within(row).queryByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     ).toBeNull();
     expect(
@@ -857,7 +857,7 @@ describe('Automated messages catalogue', () => {
       ).toBeNull();
       fireEvent.click(
         within(row).getByRole('button', {
-          name: 'Configure Membership renewal',
+          name: 'Edit Membership renewal',
         })
       );
       expect(
@@ -879,7 +879,7 @@ describe('Automated messages catalogue', () => {
   );
 
   it.each(['agent', 'viewer'] as const)(
-    'explains setup permission for %s without exposing Configure',
+    'explains setup permission for %s without exposing Edit',
     async (role) => {
       authState.role = role;
       mockFetch();
@@ -897,14 +897,16 @@ describe('Automated messages catalogue', () => {
         screen.queryByRole('switch', { name: 'Membership renewal automation' })
       ).toBeNull();
       expect(
-        screen.queryByRole('button', { name: 'Configure Membership renewal' })
+        screen.queryByRole('button', { name: 'Edit Membership renewal' })
       ).toBeNull();
       // Gated, not dead: still focusable, and pressing it explains why.
       expect(setup).toHaveProperty('disabled', false);
       expect(setup.getAttribute('aria-disabled')).toBe('true');
       fireEvent.click(setup);
       expect(
-        await screen.findByRole('dialog', { name: 'You do not have permission' })
+        await screen.findByRole('dialog', {
+          name: 'You do not have permission',
+        })
       ).toBeTruthy();
       expect(
         screen.getByText(
@@ -949,7 +951,7 @@ describe('Automated messages catalogue', () => {
       })
     ).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Configure Membership renewal' })
+      screen.queryByRole('button', { name: 'Edit Membership renewal' })
     ).toBeNull();
     expect(
       screen.queryByRole('switch', { name: 'Membership renewal automation' })
@@ -983,7 +985,7 @@ describe('Automated messages catalogue', () => {
     );
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     );
     toggleReminderDay('3 days');
@@ -1007,7 +1009,7 @@ describe('Automated messages catalogue', () => {
     );
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     );
     toggleReminderDay('14 days');
@@ -1025,7 +1027,7 @@ describe('Automated messages catalogue', () => {
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     );
     toggleReminderDay('14 days');
@@ -1060,7 +1062,7 @@ describe('Automated messages catalogue', () => {
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     );
     toggleReminderDay('14 days');
@@ -1078,7 +1080,7 @@ describe('Automated messages catalogue', () => {
       screen.getByRole('button', { name: 'Cancel template setup' })
     );
     fireEvent.click(
-      screen.getByRole('button', { name: 'Configure Membership renewal' })
+      screen.getByRole('button', { name: 'Edit Membership renewal' })
     );
     expect(reminderChip('14 days').getAttribute('aria-pressed')).toBe('true');
     expect(
@@ -1126,7 +1128,7 @@ describe('Automated messages catalogue', () => {
     expect(within(row).queryByRole('switch')).toBeNull();
     expect(
       within(row).queryByRole('button', {
-        name: 'Configure Installment reminders',
+        name: 'Edit Installment reminders',
       })
     ).toBeNull();
     fireEvent.click(
@@ -1141,7 +1143,7 @@ describe('Automated messages catalogue', () => {
     ).toBeTruthy();
   });
 
-  it('opens a linked rule in its group and lets Hide configuration dismiss that link', async () => {
+  it('opens a linked rule in its group and lets Close dismiss that link', async () => {
     window.history.replaceState(
       {},
       '',
@@ -1180,7 +1182,7 @@ describe('Automated messages catalogue', () => {
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Hide configuration Installment reminders',
+        name: 'Close Installment reminders',
       })
     );
     await waitFor(() =>
@@ -1226,7 +1228,9 @@ describe('Automated messages access', () => {
 
       expect(await screen.findByText('Membership renewal')).toBeTruthy();
       expect(screen.getByText('View only')).toBeTruthy();
-      expect(screen.queryByText('Automated messages could not load')).toBeNull();
+      expect(
+        screen.queryByText('Automated messages could not load')
+      ).toBeNull();
       expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 
       const toggle = screen.getByRole('switch', {
@@ -1236,28 +1240,30 @@ describe('Automated messages access', () => {
       expect(toggle.getAttribute('aria-checked')).toBe('true');
       fireEvent.click(toggle);
       expect(
-        await screen.findByRole('dialog', { name: 'You do not have permission' })
+        await screen.findByRole('dialog', {
+          name: 'You do not have permission',
+        })
       ).toBeTruthy();
       expect(toggle.getAttribute('aria-checked')).toBe('true');
       expect(patched()).toBe(false);
     }
   );
 
-  it('opens a read-only rule with Configure and explains the day picker instead of opening it', async () => {
+  it('opens a read-only rule with Edit and explains the day picker instead of opening it', async () => {
     authState.role = 'viewer';
     mockCatalogue([readyRule]);
     render(<RenewalRemindersSettings />);
 
     expect(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     ).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: 'Details Membership renewal' })
     ).toBeNull();
     fireEvent.click(
-      screen.getByRole('button', { name: 'Configure Membership renewal' })
+      screen.getByRole('button', { name: 'Edit Membership renewal' })
     );
     expect(
       screen.getByText(
@@ -1358,7 +1364,7 @@ describe('Automated messages access', () => {
     ).toBeTruthy();
     expect(document.activeElement).toBe(
       within(row).getByRole('button', {
-        name: 'Hide configuration Installment reminders',
+        name: 'Close Installment reminders',
       })
     );
     await waitFor(() => expect(scrolled).toEqual([row]));
@@ -1559,7 +1565,7 @@ describe('Automated messages setup guidance', () => {
     render(<RenewalRemindersSettings />);
     fireEvent.click(
       await screen.findByRole('button', {
-        name: 'Configure Membership renewal',
+        name: 'Edit Membership renewal',
       })
     );
 

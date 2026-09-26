@@ -28,6 +28,11 @@ on phones instead of a truncated month; the member profile's action row wraps;
 enquiry detail labels are sentence case and **Added on** matches the table;
 the enquiry CSV uses **Stage** (still matched by the import aliases).
 
+Automated messages rows now open with **Edit** / **Close** instead of
+**Configure** / **Hide configuration** (`renewal-reminders-settings.tsx`);
+"configure" is a banned word in `docs/ux-copy.md`. The open row keeps its own
+**Save changes**, so the collapse label is **Close**, not **Done**.
+
 ## 2026-09-26 — Plain-language product terminology and audit repairs (built in code)
 
 The web product uses the gym-owner glossary in `docs/ux-copy.md`, including

@@ -25,7 +25,7 @@ Sending hours editor instead.
   `automated_message_activity` view, so opening Message history to agents needs a
   migration for that view as well as the predicate change.
 - Without settings access, Messages shows **Read-only** and rows open with
-  **Configure**. The switch, the row setup action, **Send N messages for review**, and **Change reminder days** stay
+  **Edit**. The switch, the row setup action, **Send N messages for review**, and **Change reminder days** stay
   focusable, and each opens an **Admin access required** explanation instead
   of acting. Sending-hour fields stay disabled. The Message history tab stays visible
   and shows **Admin access required** in place of the history.
@@ -35,10 +35,10 @@ Sending hours editor instead.
 ## Review and activate
 
 1. Each row leads with its timing, which stays visible while open and reads
-   back unsaved day changes. Choose **Configure** to expand
+   back unsaved day changes. Choose **Edit** to expand
    its own row; timing and the sample message remain visible, while
    **Eligibility and follow-up** reveals who qualifies, stopping conditions, and
-   staff behavior. **Hide configuration** collapses it; opening another rule
+   staff behavior. **Close** collapses it; opening another rule
    closes the previous one without discarding drafts.
 2. **Save changes** writes only that rule’s changed fields. Configuration can
    be saved while Off and never activates a schedule. **Cancel** restores the

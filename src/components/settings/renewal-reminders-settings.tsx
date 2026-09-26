@@ -1005,7 +1005,7 @@ function RuleRow({
       setSaving(false);
     }
   };
-  const openLabel = configurationExpanded ? 'Hide configuration' : 'Configure';
+  const openLabel = configurationExpanded ? 'Close' : 'Edit';
   const setupStatus = ruleSetupStatus(rule);
   const setupLabel = `${setupStatus?.action ?? 'Set up'}: ${rule.title}`;
   const setupButton = (
