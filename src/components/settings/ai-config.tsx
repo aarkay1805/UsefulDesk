@@ -84,7 +84,7 @@ export function AiConfig() {
       const res = await fetch('/api/ai/config');
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? 'Failed to load AI configuration');
+        toast.error(data.error ?? 'Could not load AI settings');
         return;
       }
       if (data.configured) {
@@ -103,7 +103,7 @@ export function AiConfig() {
         setEmbeddingsKeyEdited(false);
       }
     } catch {
-      toast.error('Failed to load AI configuration');
+      toast.error('Could not load AI settings');
     } finally {
       setLoading(false);
     }
@@ -156,10 +156,10 @@ export function AiConfig() {
         }),
       });
       const data = await res.json();
-      if (res.ok) toast.success('Key works — the provider responded.');
-      else toast.error(data.error ?? 'The provider rejected the request.');
+      if (res.ok) toast.success('The key works.');
+      else toast.error(data.error ?? 'The AI company did not accept this key.');
     } catch {
-      toast.error('Could not reach the provider.');
+      toast.error('Could not reach the AI company.');
     } finally {
       setTesting(false);
     }
@@ -186,10 +186,10 @@ export function AiConfig() {
         toast.success('AI assistant saved.');
         await fetchConfig();
       } else {
-        toast.error(data.error ?? 'Failed to save.');
+        toast.error(data.error ?? 'Could not save.');
       }
     } catch {
-      toast.error('Failed to save.');
+      toast.error('Could not save.');
     } finally {
       setSaving(false);
     }
@@ -200,7 +200,7 @@ export function AiConfig() {
     try {
       const res = await fetch('/api/ai/config', { method: 'DELETE' });
       if (res.ok) {
-        toast.success('AI configuration removed.');
+        toast.success('AI settings removed.');
         setConfigured(false);
         setHasStoredKey(false);
         setApiKey('');
@@ -210,10 +210,10 @@ export function AiConfig() {
         setSystemPrompt('');
       } else {
         const data = await res.json();
-        toast.error(data.error ?? 'Failed to remove.');
+        toast.error(data.error ?? 'Could not remove.');
       }
     } catch {
-      toast.error('Failed to remove.');
+      toast.error('Could not remove.');
     } finally {
       setRemoving(false);
     }
@@ -232,13 +232,13 @@ export function AiConfig() {
   return (
     <div>
       <SettingsPanelHead
-        title="Agent setup"
-        description="Bring your own OpenAI or Anthropic key. UsefulDesk calls the provider directly with your key — no per-seat AI fees, and your data stays yours. This powers AI-drafted replies in the inbox, the auto-reply bot, and the Playground."
+        title="AI agent setup"
+        description="Use your own OpenAI or Anthropic key. You pay the AI company directly, and your data stays yours. This key is used for AI reply drafts in Chats, AI auto-replies, and the Playground."
       />
 
       {!canEdit && (
         <p className="border-border bg-muted/40 text-muted-foreground mb-4 rounded-md border px-3 py-2 text-sm">
-          Only admins and owners can change the AI configuration.
+          Only the owner or an admin can change AI settings.
         </p>
       )}
 
@@ -246,17 +246,16 @@ export function AiConfig() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="text-primary-text h-4 w-4" /> Provider & key
+              <Sparkles className="text-primary-text h-4 w-4" /> AI company and key
             </CardTitle>
             <CardDescription>
-              Your key is encrypted at rest (AES-256-GCM) and never shown again
-              after saving.
+              Your key is stored safely and is never shown again after saving.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label>Provider</Label>
+                <Label>AI company</Label>
                 <Select
                   value={provider}
                   onValueChange={(v) => handleProviderChange(v as AiProvider)}
@@ -340,9 +339,9 @@ export function AiConfig() {
 
             <div className="space-y-2">
               <Label htmlFor="ai-embeddings-key">
-                Embeddings key{' '}
+                Search key{' '}
                 <span className="text-muted-foreground font-normal">
-                  (optional — enables semantic knowledge-base search)
+                  (optional: helps the AI find answers in your knowledge base)
                 </span>
               </Label>
               <Input
@@ -364,11 +363,9 @@ export function AiConfig() {
                 autoComplete="off"
               />
               <p className="text-muted-foreground text-xs">
-                An OpenAI key used only to embed your knowledge base
-                (text-embedding-3-small)
-                {provider === 'openai' ? ' — can be the same key as above' : ''}
-                . Leave blank to use keyword search instead. Clear it to turn
-                semantic search off.
+                An OpenAI key used only to search your knowledge base
+                {provider === 'openai' ? '. It can be the same key as above' : ''}
+                . Leave it blank to use simple word search.
               </p>
             </div>
           </CardContent>
@@ -378,19 +375,17 @@ export function AiConfig() {
           <CardHeader>
             <CardTitle className="text-base">Behaviour</CardTitle>
             <CardDescription>
-              Tell the assistant about your business — products, tone, what it
-              may and may not promise. This context feeds both drafts and
-              auto-replies.
+              Tell the AI about your gym: what you offer, how to talk, and what it must not promise. It uses this for drafts and auto-replies.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="ai-prompt">Business context & instructions</Label>
+              <Label htmlFor="ai-prompt">About your gym, and rules for the AI</Label>
               <Textarea
                 id="ai-prompt"
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
-                placeholder="e.g. We are Acme, a coffee-equipment store. Be warm and concise. Never quote prices or delivery dates — hand off to a human for those."
+                placeholder="Example: We are Iron Gym in Pune. Be friendly and short. Never tell prices. Pass those chats to the team."
                 rows={5}
                 disabled={disabled}
               />
@@ -399,11 +394,10 @@ export function AiConfig() {
             <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
               <div>
                 <p className="text-foreground text-sm font-medium">
-                  Enable AI assistant
+                  Turn on AI
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  Master switch. Turns on the “Draft with AI” button in the
-                  inbox.
+                  Turns on the “Draft with AI” button in Chats.
                 </p>
               </div>
               <Switch
@@ -416,12 +410,10 @@ export function AiConfig() {
             <div className="border-border flex items-center justify-between gap-4 rounded-md border p-3">
               <div>
                 <p className="text-foreground text-sm font-medium">
-                  Auto-reply to inbound messages
+                  Reply to new messages automatically
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  The bot answers new inbound messages automatically (only when
-                  no flow handles them and no agent is assigned). Hands off to a
-                  human when it can’t help.
+                  The AI answers new messages by itself, but only when no flow handles them and no team member is assigned. It passes the chat to your team when it cannot help.
                 </p>
               </div>
               <Switch
@@ -434,10 +426,10 @@ export function AiConfig() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <Label htmlFor="ai-max">
-                  Max auto-replies per conversation
+                  Most auto-replies in one chat
                 </Label>
                 <p className="text-muted-foreground text-xs">
-                  After this many bot replies in one thread, the bot goes quiet.
+                  After this many AI replies in one chat, the AI stops replying.
                 </p>
               </div>
               <Input

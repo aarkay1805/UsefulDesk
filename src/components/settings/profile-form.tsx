@@ -120,7 +120,7 @@ export function ProfileForm() {
             contentType: pendingAvatar.type,
           });
         if (uploadError) {
-          throw new Error(`Upload failed: ${uploadError.message}`);
+          throw new Error(`Could not upload: ${uploadError.message}`);
         }
         const {
           data: { publicUrl },
@@ -140,7 +140,7 @@ export function ProfileForm() {
         .eq('user_id', user.id)
         .select('id');
       if (updateError) {
-        throw new Error(`Save failed: ${updateError.message}`);
+        throw new Error(`Could not save: ${updateError.message}`);
       }
       if (!updatedProfiles?.length) {
         throw new Error('Your profile could not be updated. Try again.');

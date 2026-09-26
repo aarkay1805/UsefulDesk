@@ -70,7 +70,7 @@ export default function NewAutomationPage() {
           onClick={() => navigate('/automations')}
           loading={isPending('/automations')}
         >
-          Back to Automations
+          Back to automations
         </Button>
       </div>
     );

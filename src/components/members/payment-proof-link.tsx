@@ -62,11 +62,11 @@ export function PaymentProofLink({ payment }: { payment: Payment }) {
       if (popup) popup.location.href = url;
       else
         toast.info(
-          'Receipt link ready. Select the proof icon again to open it.'
+          'Screenshot ready. Tap the icon again to open it.'
         );
     } catch (error) {
       popup?.close();
-      toast.error(getErrorMessage(error, 'Could not open payment proof'));
+      toast.error(getErrorMessage(error, 'Could not open the payment screenshot'));
     } finally {
       setLoading(false);
     }
@@ -79,8 +79,8 @@ export function PaymentProofLink({ payment }: { payment: Payment }) {
       size="icon-sm"
       onClick={openProof}
       disabled={loading}
-      aria-label="View payment proof"
-      title="View payment proof"
+      aria-label="View payment screenshot"
+      title="View payment screenshot"
     >
       {loading ? (
         <Loader2 className="size-3.5 animate-spin" aria-hidden="true" />

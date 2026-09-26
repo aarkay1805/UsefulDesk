@@ -24,14 +24,14 @@ export function CustomFieldsSettings({ canEdit }: { canEdit: boolean }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SlidersHorizontal className="size-4" aria-hidden="true" />
-          Extra contact details
+          Extra details
           <SettingsChip variant="admin">
             <Shield />
             Admin
           </SettingsChip>
         </CardTitle>
         <CardDescription>
-          Add extra details to contact records, such as a preferred class time.
+          Add extra details for each person, like their usual class time.
         </CardDescription>
       </CardHeader>
       <CardContent>

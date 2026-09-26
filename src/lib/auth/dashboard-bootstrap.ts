@@ -242,7 +242,7 @@ export async function loadDashboardAuthBootstrap(
         : 'the branch link does not contain a valid branch id',
       branchAccessError: requestedBranch
         ? 'You do not have access to this branch.'
-        : 'This branch link is invalid.',
+        : 'This branch link is not correct.',
       organizationNameSetupState: 'unavailable',
       branchAccessStatus: requestedBranch ? 'forbidden' : 'invalid',
     };
@@ -252,7 +252,7 @@ export async function loadDashboardAuthBootstrap(
       ...emptyBootstrap('the selected branch is archived'),
       branches,
       branchAccessError:
-        'This branch is archived. Its retained history is available in organization reporting.',
+        'This branch is closed. You can still see its old reports.',
       branchAccessStatus: 'archived',
     };
   }
@@ -320,7 +320,7 @@ export async function loadDashboardAuthBootstrap(
     account: accountSummary(accountRow as Record<string, unknown>),
     branches,
     branchAccessError: nameSetupUnavailable
-      ? 'Could not verify your gym setup. Please retry.'
+      ? 'We could not check your gym setup. Try again.'
       : null,
     accountStatusDetail: nameSetupUnavailable
       ? 'the organization name setup state is missing or invalid'

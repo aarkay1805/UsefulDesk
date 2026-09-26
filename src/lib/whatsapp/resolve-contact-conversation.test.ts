@@ -164,7 +164,7 @@ describe('resolveContactConversation', () => {
       )
     ).rejects.toMatchObject({
       status: 500,
-      message: 'Failed to open a conversation for this contact',
+      message: 'Could not open a conversation for this contact',
     });
 
     const unresolvedRace = makeDb({
@@ -181,7 +181,7 @@ describe('resolveContactConversation', () => {
       )
     ).rejects.toMatchObject({
       status: 500,
-      message: 'Failed to open a conversation for this contact',
+      message: 'Could not open a conversation for this contact',
     });
   });
 });

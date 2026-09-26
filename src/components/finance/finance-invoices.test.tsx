@@ -257,7 +257,7 @@ async function openRefundReviewFromList(
     await screen.findByRole('button', { name: actionName })
   );
   await userEvent.click(
-    screen.getByRole('button', { name: 'Resolve refund review' })
+    screen.getByRole('button', { name: 'Sort out refund' })
   );
   expect(screen.getByText('Loading invoice…')).toBeTruthy();
   expect(document.getElementById('invoice-refund-review-invoice-1')).toBeNull();
@@ -390,9 +390,9 @@ describe('FinanceInvoices refund-review intent', () => {
       await userEvent.click(
         await screen.findByRole('button', { name: actionName })
       );
-      expect(screen.getByText('Admin access required')).toBeTruthy();
+      expect(screen.getByText('You do not have permission')).toBeTruthy();
       expect(
-        screen.queryByRole('button', { name: 'Resolve refund review' })
+        screen.queryByRole('button', { name: 'Sort out refund' })
       ).toBeNull();
       expect(screen.queryByText('Loading invoice…')).toBeNull();
     }
@@ -447,7 +447,7 @@ describe('FinanceInvoices server ledger coordination', () => {
     renderInvoices();
 
     expect(await screen.findByText('ledger unavailable')).toBeTruthy();
-    await userEvent.click(screen.getByRole('button', { name: /Retry/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Try again/i }));
     expect(await screen.findAllByText('INV-1')).toHaveLength(2);
     expect(testState.loadFinanceInvoices).toHaveBeenCalledTimes(2);
   });

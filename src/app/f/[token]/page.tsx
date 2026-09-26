@@ -217,11 +217,11 @@ export default function CaptureFormPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
           <Link2Off className="text-muted-foreground size-8" />
-          <CardTitle>This form isn’t available</CardTitle>
+          <CardTitle>This form is not available</CardTitle>
           <CardDescription>
             {peek.reason === 'revoked'
               ? 'This enquiry link has been turned off. Please contact the gym directly.'
-              : 'This link doesn’t match an active enquiry form. Double-check the URL, or contact the gym directly.'}
+              : 'This link does not match an active enquiry form. Double-check the URL, or contact the gym directly.'}
           </CardDescription>
         </CardHeader>
       </Card>

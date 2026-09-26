@@ -143,7 +143,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'Auto-pay can be set up only for an active, non-trial membership',
+            'AutoPay can be set up only for an active, non-trial membership',
         },
         { status: 400 }
       );
@@ -153,7 +153,7 @@ export async function POST(request: Request) {
     // enforces this in the DB too; fail early with a clean message.
     if (!isRenewalChaseable(membership.plan)) {
       return NextResponse.json(
-        { error: 'Only recurring plans support auto-pay' },
+        { error: 'Only recurring plans support AutoPay' },
         { status: 400 }
       );
     }
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'Auto-pay supports monthly or quarterly plans only; this plan stays on manual collection',
+            'AutoPay supports monthly or quarterly plans only; this plan stays on manual collection',
         },
         { status: 400 }
       );
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'Connect your Razorpay account in Settings → Payments before setting up auto-pay',
+            'Connect your Razorpay account in Settings → Payments before setting up AutoPay',
         },
         { status: 400 }
       );
@@ -236,7 +236,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'A previous auto-pay setup needs payment reconciliation review before retrying.',
+            'A previous AutoPay setup needs payment reconciliation review before retrying.',
         },
         { status: 409 }
       );
@@ -275,7 +275,7 @@ export async function POST(request: Request) {
     if (reservationError || !reservation) {
       if (reservationError?.code !== '23505') {
         return NextResponse.json(
-          { error: 'Could not reserve the auto-pay setup. Please try again.' },
+          { error: 'Could not reserve the AutoPay setup. Please try again.' },
           { status: 500 }
         );
       }
@@ -294,7 +294,7 @@ export async function POST(request: Request) {
 
       if (existingError || !existing) {
         return NextResponse.json(
-          { error: 'Auto-pay setup is already reserved. Please refresh.' },
+          { error: 'AutoPay setup is already reserved. Please refresh.' },
           { status: 409 }
         );
       }
@@ -314,12 +314,12 @@ export async function POST(request: Request) {
 
       const message =
         existing.status === 'active'
-          ? 'This member already has an active auto-pay mandate'
+          ? 'This member already has an active AutoPay mandate'
           : existing.status === 'orphaned'
-            ? 'Auto-pay setup needs payment reconciliation review before it can be retried'
+            ? 'AutoPay setup needs payment reconciliation review before it can be retried'
             : existing.status === 'paused'
-              ? 'This member has a paused auto-pay mandate; resolve it before starting another'
-              : 'Auto-pay setup is already in progress. Please refresh shortly.';
+              ? 'This member has a paused AutoPay mandate; resolve it before starting another'
+              : 'AutoPay setup is already in progress. Please refresh shortly.';
       return NextResponse.json({ error: message }, { status: 409 });
     }
 
@@ -369,7 +369,7 @@ export async function POST(request: Request) {
         .eq('id', mandateId)
         .eq('status', 'creating');
       return NextResponse.json(
-        { error: 'Could not save the auto-pay plan. Please try again.' },
+        { error: 'Could not save the AutoPay plan. Please try again.' },
         { status: 500 }
       );
     }
@@ -456,8 +456,8 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: cancelled
-            ? 'Auto-pay setup could not be saved; the remote subscription was cancelled. Please retry.'
-            : 'Auto-pay setup needs payment reconciliation review before retrying.',
+            ? 'AutoPay setup could not be saved; the remote subscription was cancelled. Please retry.'
+            : 'AutoPay setup needs payment reconciliation review before retrying.',
         },
         { status: 500 }
       );

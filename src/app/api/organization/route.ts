@@ -385,7 +385,7 @@ export async function DELETE(request: Request) {
               error:
                 stage === 'database'
                   ? 'Stored media was removed, but database deletion failed. Retry the organization deletion.'
-                  : 'Failed to delete the organization. Database data was not removed.',
+                  : 'Could not delete the organization. Database data was not removed.',
             },
         { status: 500 }
       );

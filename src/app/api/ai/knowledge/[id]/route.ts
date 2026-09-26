@@ -31,7 +31,7 @@ export async function GET(_request: Request, { params }: Params) {
     if (error) {
       console.error('[ai/knowledge/[id] GET] error:', error);
       return NextResponse.json(
-        { error: 'Failed to load document' },
+        { error: 'Could not load document' },
         { status: 500 }
       );
     }
@@ -89,7 +89,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (error) {
       console.error('[ai/knowledge/[id] PATCH] error:', error);
       return NextResponse.json(
-        { error: 'Failed to update document' },
+        { error: 'Could not update document' },
         { status: 500 }
       );
     }
@@ -151,7 +151,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     if (error) {
       console.error('[ai/knowledge/[id] DELETE] error:', error);
       return NextResponse.json(
-        { error: 'Failed to delete document' },
+        { error: 'Could not delete document' },
         { status: 500 }
       );
     }

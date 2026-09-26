@@ -7,7 +7,7 @@ import {
 import type { BuilderNode, NodeType } from './shared';
 
 describe('uniqueNodeKey', () => {
-  it("returns the base key when it isn't taken", () => {
+  it("returns the base key when it is not taken", () => {
     expect(uniqueNodeKey('menu', [])).toBe('menu');
     expect(
       uniqueNodeKey('menu', [

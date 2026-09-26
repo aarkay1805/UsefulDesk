@@ -71,7 +71,7 @@ describe('All Members table parity contract', () => {
   });
 
   it('keeps the page-size, record-range, and width-reset controls wired', () => {
-    expect(source).toContain('Records per page');
+    expect(source).toContain('Rows per page');
     expect(source).toContain(
       'memberTableRecordRange(totalCount, page, pageSize)'
     );
@@ -151,7 +151,7 @@ describe('All Members table parity contract', () => {
     expect(source).toMatch(
       /selectionSummary\.membershipActionState !== 'hidden'[\s\S]*?<ResolvableAction[\s\S]*?Remind[\s\S]*?<ResolvableAction[\s\S]*?Record payment[\s\S]*?<ResolvableAction[\s\S]*?Delete/
     );
-    expect(source).toContain("title: 'Membership customers only'");
+    expect(source).toContain("title: 'Only for members with a membership'");
     expect(source).toContain('membershipOnlyMemberSelection(current)');
     expect(source).toContain('membershipIds={selectionSummary.membershipIds}');
     expect(source).not.toMatch(

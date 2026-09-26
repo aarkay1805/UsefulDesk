@@ -113,66 +113,66 @@ interface StepMeta {
 
 const STEP_META: Record<AutomationStepType, StepMeta> = {
   send_message: {
-    label: 'Send Message',
+    label: 'Send message',
     icon: MessageSquare,
     border: 'border-l-primary',
   },
   send_template: {
-    label: 'Send Template',
+    label: 'Send template',
     icon: FileText,
     border: 'border-l-primary',
   },
-  add_tag: { label: 'Add Tag', icon: Tag, border: 'border-l-primary' },
+  add_tag: { label: 'Add tag', icon: Tag, border: 'border-l-primary' },
   remove_tag: {
-    label: 'Remove Tag',
+    label: 'Remove tag',
     icon: TagIcon,
     border: 'border-l-primary',
   },
   assign_conversation: {
-    label: 'Assign Conversation',
+    label: 'Assign chat',
     icon: UserCheck,
     border: 'border-l-primary',
   },
   update_contact_field: {
-    label: 'Update Contact Field',
+    label: 'Update a detail',
     icon: PencilLine,
     border: 'border-l-primary',
   },
   set_lead_status: {
-    label: 'Set Lead Status',
+    label: 'Set enquiry stage',
     icon: UserPlus,
     border: 'border-l-primary',
   },
   assign_lead: {
-    label: 'Assign Lead',
+    label: 'Assign enquiry',
     icon: UserCog,
     border: 'border-l-primary',
   },
   create_follow_up: {
-    label: 'Create Follow-up',
+    label: 'Add follow-up',
     icon: ClipboardList,
     border: 'border-l-primary',
   },
   // Legacy — Pipelines merged into Leads. Existing automations with this
   // step still render/execute; it's just not in ADDABLE_STEPS anymore.
   create_deal: {
-    label: 'Create Deal',
+    label: 'Create deal',
     icon: Briefcase,
     border: 'border-l-primary',
   },
   wait: { label: 'Wait', icon: Hourglass, border: 'border-l-border' },
   condition: {
-    label: 'Condition (If/Else)',
+    label: 'Check (if / else)',
     icon: GitBranch,
     border: 'border-l-amber-500',
   },
   send_webhook: {
-    label: 'Send Webhook',
+    label: 'Send to another app (webhook)',
     icon: Webhook,
     border: 'border-l-primary',
   },
   close_conversation: {
-    label: 'Close Conversation',
+    label: 'Close chat',
     icon: CircleSlash,
     border: 'border-l-primary',
   },
@@ -205,35 +205,35 @@ const TRIGGER_OPTIONS: {
 }[] = [
   {
     value: 'new_message_received',
-    label: 'New Message Received',
-    hint: 'Any incoming message',
+    label: 'New message',
+    hint: 'Any message someone sends you',
   },
   {
     value: 'first_inbound_message',
-    label: 'First Message from Contact',
-    hint: 'First time this contact ever messages you (works for manually-added contacts too)',
+    label: 'First message from a person',
+    hint: 'The first time a person ever messages you',
   },
   {
     value: 'keyword_match',
-    label: 'Keyword Match',
-    hint: 'Message contains specific keyword(s)',
+    label: 'Message has a word',
+    hint: 'The message has a word you choose',
   },
   {
     value: 'new_contact_created',
-    label: 'New Contact Created',
-    hint: 'When a contact is auto-created from an incoming message',
+    label: 'New person added',
+    hint: 'When a new person messages you for the first time',
   },
   {
     value: 'conversation_assigned',
-    label: 'Conversation Assigned',
-    hint: 'When assigned to an agent',
+    label: 'Chat assigned',
+    hint: 'When a chat is given to a team member',
   },
   {
     value: 'tag_added',
-    label: 'Tag Added',
-    hint: 'When a tag is added to a contact',
+    label: 'Tag added',
+    hint: 'When a tag is added to a person',
   },
-  { value: 'time_based', label: 'Time-Based', hint: 'On a recurring schedule' },
+  { value: 'time_based', label: 'On a schedule', hint: 'At set times' },
 ];
 
 function cid(): string {
@@ -409,7 +409,7 @@ function TagSelect({
   if (tags.length === 0) {
     return (
       <Input
-        placeholder="Tag id"
+        placeholder="Tag"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="text-foreground"
@@ -474,7 +474,7 @@ function ContactFieldSelect({
         <SelectItem value="company">Company</SelectItem>
         {customFields.length > 0 && (
           <SelectGroup>
-            <SelectLabel>Custom fields</SelectLabel>
+            <SelectLabel>Extra details</SelectLabel>
             {customFields.map((f) => (
               <SelectItem key={f.id} value={`custom:${f.id}`}>
                 {f.field_name}
@@ -505,7 +505,7 @@ function AgentSelect({
   if (members.length === 0) {
     return (
       <Input
-        placeholder="Agent id"
+        placeholder="Team member"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="text-foreground"
@@ -516,7 +516,7 @@ function AgentSelect({
   return (
     <Select value={value || undefined} onValueChange={(v) => onChange(v ?? '')}>
       <SelectTrigger className="w-full">
-        <SelectValue placeholder="Select an agent…" />
+        <SelectValue placeholder="Select a team member…" />
       </SelectTrigger>
       <SelectContent>
         {members.map((m) => (
@@ -525,7 +525,7 @@ function AgentSelect({
           </SelectItem>
         ))}
         {value && !selected && (
-          <SelectItem value={value}>{value} (unknown agent)</SelectItem>
+          <SelectItem value={value}>{value} (unknown team member)</SelectItem>
         )}
       </SelectContent>
     </Select>
@@ -548,7 +548,7 @@ function DealPipelineFields({
   if (pipelines.length === 0) {
     return (
       <>
-        <FieldBlock label="Pipeline id">
+        <FieldBlock label="Pipeline">
           <Input
             value={pipelineId}
             onChange={(e) =>
@@ -557,7 +557,7 @@ function DealPipelineFields({
             className="text-foreground"
           />
         </FieldBlock>
-        <FieldBlock label="Stage id">
+        <FieldBlock label="Stage">
           <Input
             value={stageId}
             onChange={(e) =>
@@ -711,7 +711,7 @@ function SendTemplateFields({
           })}
           {current && !hasMatch && (
             <SelectItem value={current}>
-              {templateName} ({language || 'unknown'}) — not in approved list
+              {templateName} ({language || 'unknown'}) — not approved yet
             </SelectItem>
           )}
         </SelectContent>
@@ -805,10 +805,10 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
           body?.issues?.[0];
         if (firstIssue?.message) {
           toast.error(firstIssue.message, {
-            description: firstIssue.path ? `at ${firstIssue.path}` : undefined,
+            description: undefined,
           });
         } else {
-          toast.error(body?.error ?? 'Save failed');
+          toast.error(body?.error ?? 'Could not save');
         }
         return;
       }
@@ -861,7 +861,7 @@ export function AutomationBuilder({ initial }: { initial: BuilderInitial }) {
           loading={saving}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
-          {isEditing ? 'Save' : 'Save Draft'}
+          {isEditing ? 'Save' : 'Save draft'}
         </Button>
       </header>
 
@@ -925,7 +925,7 @@ function TriggerCard({
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-blue-foreground text-[11px] tracking-wide uppercase">
-              Trigger
+              When this happens
             </div>
             <div className="text-foreground truncate text-sm font-medium">
               {TRIGGER_OPTIONS.find((o) => o.value === type)?.label ?? type}
@@ -942,7 +942,7 @@ function TriggerCard({
           <div className="border-border space-y-3 border-t px-4 py-3">
             <div>
               <label className="text-muted-foreground mb-1 block text-xs font-medium">
-                Trigger type
+                Start when
               </label>
               <Select
                 value={type}
@@ -982,7 +982,7 @@ function TriggerCard({
             )}
             {type === 'time_based' && (
               <Input
-                placeholder="Cron expression or HH:mm"
+                placeholder="Time, like 09:30"
                 value={(config.schedule as string) ?? ''}
                 onChange={(e) =>
                   onConfigChange({ ...config, schedule: e.target.value })
@@ -1038,7 +1038,7 @@ function KeywordMatchConfig({
     <div className="space-y-2">
       <div>
         <label className="text-muted-foreground mb-1 block text-xs font-medium">
-          Keywords (comma-separated)
+          Words (put a comma between each)
         </label>
         <Input
           value={draft}
@@ -1050,13 +1050,13 @@ function KeywordMatchConfig({
               commit();
             }
           }}
-          placeholder="e.g. pricing, demo request, talk to sales"
+          placeholder="Example: fees, timing, trial"
           className="text-foreground"
         />
       </div>
       <div>
         <label className="text-muted-foreground mb-1 block text-xs font-medium">
-          Match type
+          How to match
         </label>
         <Select
           value={config?.match_type ?? 'contains'}
@@ -1078,9 +1078,7 @@ function KeywordMatchConfig({
         </Select>
         {config?.match_type === 'word' && (
           <p className="text-muted-foreground mt-1 text-xs">
-            Matches only a standalone word, so &quot;k&quot; does not match
-            &quot;thanks&quot;. Best for space-separated languages; use Contains
-            for languages written without spaces.
+            Matches only the full word. So &quot;fee&quot; does not match &quot;feedback&quot;.
           </p>
         )}
       </div>
@@ -1373,7 +1371,7 @@ function StepEditor({
           <Textarea
             value={(cfg.text as string) ?? ''}
             onChange={(e) => set({ text: e.target.value })}
-            placeholder="Hi! Thanks for reaching out…"
+            placeholder="Hi! Thanks for your message…"
             className="text-foreground min-h-24"
           />
         </FieldBlock>
@@ -1408,13 +1406,13 @@ function StepEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="round_robin">Round-robin</SelectItem>
-                <SelectItem value="specific">Specific agent</SelectItem>
+                <SelectItem value="round_robin">Take turns (round-robin)</SelectItem>
+                <SelectItem value="specific">Specific team member</SelectItem>
               </SelectContent>
             </Select>
           </FieldBlock>
           {cfg.mode === 'specific' && (
-            <FieldBlock label="Agent">
+            <FieldBlock label="Team member">
               <AgentSelect
                 value={(cfg.agent_id as string) ?? ''}
                 onChange={(v) => set({ agent_id: v })}
@@ -1474,13 +1472,13 @@ function StepEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="round_robin">Round-robin</SelectItem>
-                <SelectItem value="specific">Specific teammate</SelectItem>
+                <SelectItem value="round_robin">Take turns (round-robin)</SelectItem>
+                <SelectItem value="specific">Specific team member</SelectItem>
               </SelectContent>
             </Select>
           </FieldBlock>
           {cfg.mode === 'specific' && (
-            <FieldBlock label="Teammate">
+            <FieldBlock label="Team member">
               <AgentSelect
                 value={(cfg.agent_id as string) ?? ''}
                 onChange={(v) => set({ agent_id: v })}
@@ -1489,7 +1487,7 @@ function StepEditor({
           )}
           <label className="flex items-center justify-between gap-2 pt-1">
             <span className="text-muted-foreground text-sm">
-              Only when the lead has no owner yet
+              Only when the enquiry has no owner yet
             </span>
             <Switch
               checked={(cfg.only_if_unassigned as boolean) ?? true}
@@ -1542,13 +1540,13 @@ function StepEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="lead_owner">Lead&apos;s owner</SelectItem>
-                <SelectItem value="specific">Specific teammate</SelectItem>
+                <SelectItem value="lead_owner">Enquiry owner</SelectItem>
+                <SelectItem value="specific">Specific team member</SelectItem>
               </SelectContent>
             </Select>
           </FieldBlock>
           {cfg.assign_mode === 'specific' && (
-            <FieldBlock label="Teammate">
+            <FieldBlock label="Team member">
               <AgentSelect
                 value={(cfg.agent_id as string) ?? ''}
                 onChange={(v) => set({ agent_id: v })}
@@ -1559,7 +1557,7 @@ function StepEditor({
             <Input
               value={(cfg.note as string) ?? ''}
               onChange={(e) => set({ note: e.target.value })}
-              placeholder="Why chase — supports {{ vars.x }}"
+              placeholder="Why follow up"
               className="text-foreground"
             />
           </FieldBlock>
@@ -1633,14 +1631,14 @@ function StepEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="tag_presence">Tag presence</SelectItem>
-                <SelectItem value="contact_field">Contact field</SelectItem>
-                <SelectItem value="message_content">Message content</SelectItem>
+                <SelectItem value="tag_presence">Has a tag</SelectItem>
+                <SelectItem value="contact_field">Person’s detail</SelectItem>
+                <SelectItem value="message_content">Message text</SelectItem>
                 <SelectItem value="time_of_day">Time of day</SelectItem>
               </SelectContent>
             </Select>
           </FieldBlock>
-          <FieldBlock label="Operand">
+          <FieldBlock label="Compare with">
             <Input
               placeholder={
                 cfg.subject === 'time_of_day'
@@ -1678,7 +1676,7 @@ function StepEditor({
               className="text-foreground"
             />
           </FieldBlock>
-          <FieldBlock label="Body template (JSON)">
+          <FieldBlock label="Data to send (JSON)">
             <Textarea
               value={(cfg.body_template as string) ?? ''}
               onChange={(e) => set({ body_template: e.target.value })}
@@ -1690,8 +1688,7 @@ function StepEditor({
     case 'close_conversation':
       return (
         <p className="text-muted-foreground text-xs">
-          Sets the conversation status to &quot;closed&quot;. No configuration
-          needed.
+          Marks the chat as closed. Nothing to set up.
         </p>
       );
     default:

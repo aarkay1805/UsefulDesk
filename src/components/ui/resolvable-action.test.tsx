@@ -89,7 +89,7 @@ describe('ResolvableAction', () => {
         trigger={<Button type="button">Send invoice</Button>}
         onAction={onAction}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -98,7 +98,7 @@ describe('ResolvableAction', () => {
     expect(trigger.getAttribute('aria-disabled')).toBe('true');
     await userEvent.click(trigger);
     expect(onAction).not.toHaveBeenCalled();
-    expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
+    expect(screen.getByText("Invoice template is not ready")).toBeTruthy();
   });
 
   it('keeps native Button semantics without Base UI nativeButton warnings', async () => {
@@ -112,7 +112,7 @@ describe('ResolvableAction', () => {
         trigger={<Button type="button">Send invoice</Button>}
         onAction={onAction}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -145,7 +145,7 @@ describe('ResolvableAction', () => {
       <ResolvableAction
         trigger={<Button type="button">Send invoice</Button>}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -169,7 +169,7 @@ describe('ResolvableAction', () => {
         }
         onAction={onAction}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -179,7 +179,7 @@ describe('ResolvableAction', () => {
 
     expect(triggerAction).not.toHaveBeenCalled();
     expect(onAction).not.toHaveBeenCalled();
-    expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
+    expect(screen.getByText("Invoice template is not ready")).toBeTruthy();
   });
 
   it('keeps a non-Button blocked trigger visibly interactive', async () => {
@@ -193,7 +193,7 @@ describe('ResolvableAction', () => {
         }
         onAction={onAction}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -207,7 +207,7 @@ describe('ResolvableAction', () => {
     await userEvent.click(trigger);
 
     expect(onAction).not.toHaveBeenCalled();
-    expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
+    expect(screen.getByText("Invoice template is not ready")).toBeTruthy();
   });
 
   it('supports an explicitly non-native composite trigger without warnings', async () => {
@@ -231,8 +231,8 @@ describe('ResolvableAction', () => {
             />
           }
           blocker={{
-            title: 'Admin access required',
-            description: 'Ask an admin or owner to send this invoice.',
+            title: 'You do not have permission',
+            description: 'Ask the owner or an admin to send this invoice.',
           }}
         />
         <DropdownMenuContent>
@@ -245,7 +245,7 @@ describe('ResolvableAction', () => {
     expect(trigger.tagName).toBe('DIV');
     await user.click(trigger);
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
+      screen.getByRole('dialog', { name: 'You do not have permission' })
     ).toBeTruthy();
     expect(screen.queryByRole('menu')).toBeNull();
     expect(
@@ -263,7 +263,7 @@ describe('ResolvableAction', () => {
       <ResolvableAction
         trigger={<Button type="button">Send invoice</Button>}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -271,7 +271,7 @@ describe('ResolvableAction', () => {
     const trigger = screen.getByRole('button', { name: 'Send invoice' });
     trigger.focus();
     await user.keyboard('{Enter}');
-    expect(screen.getByText("Invoice template isn't ready")).toBeTruthy();
+    expect(screen.getByText("Invoice template is not ready")).toBeTruthy();
     await user.keyboard('{Escape}');
     expect(document.activeElement).toBe(trigger);
   });
@@ -284,7 +284,7 @@ describe('ResolvableAction', () => {
         trigger={<Button type="button">Send invoice</Button>}
         onAction={onAction}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -309,7 +309,7 @@ describe('ResolvableAction', () => {
         <ResolvableAction
           trigger={<Button type="button">Send invoice</Button>}
           blocker={{
-            title: "Invoice template isn't ready",
+            title: "Invoice template is not ready",
             description: 'Approve the invoice template before sending.',
           }}
           onOpenChange={onOpenChange}
@@ -341,7 +341,7 @@ describe('ResolvableAction', () => {
       <ResolvableAction
         trigger={<Button type="button">Send invoice</Button>}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
         onOpenChange={onOpenChange}
@@ -372,7 +372,7 @@ describe('ResolvableAction', () => {
         <ResolvableAction
           trigger={<Button type="button">Send invoice</Button>}
           blocker={{
-            title: "Invoice template isn't ready",
+            title: "Invoice template is not ready",
             description: 'Approve the invoice template before sending.',
           }}
           onOpenChange={onOpenChange}
@@ -398,7 +398,7 @@ describe('ResolvableAction', () => {
 
   it('clears uncontrolled open intent when a blocker is removed and later restored', async () => {
     const blocker = {
-      title: "Invoice template isn't ready",
+      title: "Invoice template is not ready",
       description: 'Approve the invoice template before sending.',
     };
     const onOpenChange = vi.fn();
@@ -442,7 +442,7 @@ describe('ResolvableAction', () => {
 
   it('invalidates stale controlled open intent across blocker removal', () => {
     const blocker = {
-      title: "Invoice template isn't ready",
+      title: "Invoice template is not ready",
       description: 'Approve the invoice template before sending.',
     };
     const onOpenChange = vi.fn();
@@ -507,7 +507,7 @@ describe('ResolvableAction', () => {
         trigger={<Button type="button">Send invoice</Button>}
         onAction={onAction}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
           resolution: { label: 'Open template setup', onResolve },
         }}
@@ -527,7 +527,7 @@ describe('ResolvableAction', () => {
         trigger={<Button type="button">Send invoice</Button>}
         disabled
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -535,7 +535,7 @@ describe('ResolvableAction', () => {
     const trigger = screen.getByRole('button', { name: 'Send invoice' });
     expect((trigger as HTMLButtonElement).disabled).toBe(true);
     await userEvent.click(trigger);
-    expect(screen.queryByText("Invoice template isn't ready")).toBeNull();
+    expect(screen.queryByText("Invoice template is not ready")).toBeNull();
   });
 
   it('keeps an already-disabled trigger inert', async () => {
@@ -547,7 +547,7 @@ describe('ResolvableAction', () => {
           </Button>
         }
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
         }}
       />
@@ -555,7 +555,7 @@ describe('ResolvableAction', () => {
     const trigger = screen.getByRole('button', { name: 'Send invoice' });
     expect((trigger as HTMLButtonElement).disabled).toBe(true);
     await userEvent.click(trigger);
-    expect(screen.queryByText("Invoice template isn't ready")).toBeNull();
+    expect(screen.queryByText("Invoice template is not ready")).toBeNull();
   });
 
   it('keeps a link resolution pending until navigation replaces the view', async () => {
@@ -564,7 +564,7 @@ describe('ResolvableAction', () => {
       <ResolvableAction
         trigger={<Button type="button">Send invoice</Button>}
         blocker={{
-          title: "Invoice template isn't ready",
+          title: "Invoice template is not ready",
           description: 'Approve the invoice template before sending.',
           resolution: {
             label: 'Open template setup',

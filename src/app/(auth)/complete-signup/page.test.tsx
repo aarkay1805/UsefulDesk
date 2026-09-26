@@ -45,7 +45,7 @@ function bootstrap(
     ],
     branchAccessError:
       state === 'unavailable'
-        ? 'Could not verify your gym setup. Please retry.'
+        ? 'We could not check your gym setup. Try again.'
         : null,
     accountStatusDetail: null,
     organizationNameSetupState: state,
@@ -87,7 +87,7 @@ describe('/complete-signup server page', () => {
       const result = await render(branch);
 
       expect(result.props).toMatchObject({
-        message: 'This branch link is invalid.',
+        message: 'This branch link is not correct.',
       });
       expect(h.redirect).not.toHaveBeenCalled();
     }
@@ -143,7 +143,7 @@ describe('/complete-signup server page', () => {
 
     const result = await render(ACCOUNT_ID);
 
-    expect(result.props.message).toMatch(/organization's owner/);
+    expect(result.props.message).toMatch(/gym owner/);
   });
 
   it('renders a same-branch retry when completion state is unavailable', async () => {

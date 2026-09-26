@@ -66,16 +66,15 @@ export function MemberDangerZone({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Consent &amp; data</CardTitle>
+        <CardTitle>WhatsApp permission and data</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {canManageConsent && (
           <div className="border-border flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="text-sm font-medium">WhatsApp consent</p>
+              <p className="text-sm font-medium">WhatsApp permission</p>
               <p className="text-muted-foreground mt-0.5 text-sm">
-                Record account-message or marketing consent history. These
-                records do not control sending.
+                Keep a note of which messages this member agreed to. This note does not stop or start any messages.
               </p>
             </div>
             <div className="self-end sm:self-auto">
@@ -92,13 +91,13 @@ export function MemberDangerZone({
               Delete member
             </p>
             <p className="text-muted-foreground mt-0.5 text-sm">
-              Permanently delete this member&apos;s profile, membership,
-              attendance, and notes. Payment ledger entries are retained without
-              the member link for accounting. This can&apos;t be undone.
+              Delete this member’s profile, membership, attendance, and notes.
+              Their payments stay in your records, without their name. You
+              cannot undo this.
             </p>
             {blockedReason && (
               <p className="text-muted-foreground mt-1 text-sm">
-                {blockedReason} Deletion is unavailable until then.
+                {blockedReason} You cannot delete this member until then.
               </p>
             )}
           </div>
@@ -112,7 +111,7 @@ export function MemberDangerZone({
               blockedReason ??
               (canDelete
                 ? undefined
-                : 'Only an owner or admin can delete a member')
+                : 'Only the owner or an admin can delete a member')
             }
           >
             <Trash2 className="size-4" /> Delete
@@ -125,9 +124,7 @@ export function MemberDangerZone({
           <DialogHeader>
             <DialogTitle>Delete {memberName || 'this member'}?</DialogTitle>
             <DialogDescription>
-              This permanently removes the member profile, membership,
-              attendance, and notes. Payment ledger entries are retained and
-              anonymized for accounting. This action cannot be undone.
+              This deletes their profile, membership, attendance, and notes. Their payments stay in your records, without their name. You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

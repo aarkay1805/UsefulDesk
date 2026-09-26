@@ -62,13 +62,13 @@ export interface BulkEditProperty {
   key: string;
   label: string;
   /** Which section of the property picker this sits under. */
-  group: 'Lead fields' | 'Member fields' | 'Custom fields';
+  group: 'Enquiry details' | 'Member fields' | 'Custom fields';
   editor: BulkEditEditor;
 }
 
 // Picker sections render in this order; empty ones are skipped.
 const GROUP_ORDER: BulkEditProperty['group'][] = [
-  'Lead fields',
+  'Enquiry details',
   'Member fields',
   'Custom fields',
 ];
@@ -238,7 +238,7 @@ export function BulkEditDialog({
       <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            Bulk edit {count} {noun}
+            Edit selected {count} {noun}
             {count === 1 ? '' : 's'}
           </DialogTitle>
         </DialogHeader>
@@ -247,7 +247,7 @@ export function BulkEditDialog({
           {/* Step 1 — pick the property to update. */}
           <div className="space-y-2">
             <Label className="text-popover-foreground">
-              Property to update
+              What do you want to change?
             </Label>
             <DropdownMenu>
               <DropdownMenuTrigger

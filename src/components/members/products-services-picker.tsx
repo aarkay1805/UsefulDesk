@@ -64,7 +64,7 @@ export function ProductsServicesPicker({
   membershipEnd,
   defaultStartDate,
   title = 'Products & services',
-  description = "Optional. Items added here share this checkout's invoice.",
+  description = "Optional. These items are added to the same invoice.",
   presentation = 'builder',
 }: {
   value: CheckoutSelection[];
@@ -116,7 +116,7 @@ export function ProductsServicesPicker({
       if (cancelled) return;
       if (itemsResult.error || trainersResult.error) {
         setLoadError(
-          "Couldn't load products and services. Close this dialog and try again."
+          "Could not load products and services. Close this and try again."
         );
         setLoading(false);
         return;
@@ -349,7 +349,7 @@ export function ProductsServicesPicker({
         {loading ? (
           <p className="text-muted-foreground flex items-center gap-2 py-6 text-sm">
             <Loader2 className="size-4 animate-spin" />
-            Loading catalogue…
+            Loading products and services…
           </p>
         ) : loadError ? (
           <p
@@ -361,8 +361,7 @@ export function ProductsServicesPicker({
           </p>
         ) : choices.length === 0 ? (
           <p className="text-muted-foreground py-6 text-sm">
-            No active catalogue options. Add them in Settings → Products &amp;
-            services.
+            No products or services yet. Add them in Settings → Products &amp; services.
           </p>
         ) : (
           <div
@@ -489,7 +488,7 @@ export function ProductsServicesPicker({
                                 —
                               </span>
                               <span className="sr-only">
-                                Price available after choosing a trainer
+                                Choose a trainer to see the price
                               </span>
                             </>
                           )}
@@ -500,7 +499,7 @@ export function ProductsServicesPicker({
                               type="button"
                               variant="ghost"
                               size="icon-xs"
-                              aria-label={`${adjusted ? 'Edit adjusted' : 'Adjust'} price for ${optionLabel}`}
+                              aria-label={`${adjusted ? 'Edit changed' : 'Change'} price for ${optionLabel}`}
                               onClick={() =>
                                 beginPriceAdjustment(
                                   choice,
@@ -522,7 +521,7 @@ export function ProductsServicesPicker({
                         ) : null}
                         {adjusted && cataloguePrice != null ? (
                           <span className="text-muted-foreground block text-xs tabular-nums">
-                            Usually {fmt.money(cataloguePrice)}
+                            Normal price {fmt.money(cataloguePrice)}
                           </span>
                         ) : null}
                       </div>
@@ -607,7 +606,7 @@ export function ProductsServicesPicker({
                           {membershipEnd && endIso && endIso > membershipEnd ? (
                             <p className="text-amber-foreground mt-2 flex items-center gap-1 text-xs">
                               <AlertTriangle className="size-3" />
-                              Service runs beyond membership expiry (
+                              Service ends after the membership expiry (
                               {fmt.date(membershipEnd)}).
                             </p>
                           ) : null}
@@ -642,7 +641,7 @@ export function ProductsServicesPicker({
                                   onChange={(event) =>
                                     setAdjustReason(event.target.value)
                                   }
-                                  placeholder="Required when price changes"
+                                  placeholder="Why is the price different?"
                                 />
                               </div>
                               <div className="flex gap-2">
@@ -693,7 +692,7 @@ export function ProductsServicesPicker({
         {loading ? (
           <p className="text-muted-foreground flex items-center gap-2 text-sm">
             <Loader2 className="size-4 animate-spin" />
-            Loading catalogue…
+            Loading products and services…
           </p>
         ) : loadError ? (
           <p
@@ -705,8 +704,7 @@ export function ProductsServicesPicker({
           </p>
         ) : choices.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No active catalogue options. Add them in Settings → Products &amp;
-            services.
+            No products or services yet. Add them in Settings → Products &amp; services.
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -767,7 +765,7 @@ export function ProductsServicesPicker({
                 {availableTrainers.length === 0 ? (
                   <p className="text-amber-foreground flex items-center gap-1.5 text-xs">
                     <AlertTriangle className="size-3.5" />
-                    No trainer has a rate for this duration.
+                    No trainer has a fee for this duration.
                   </p>
                 ) : null}
               </div>
@@ -797,7 +795,7 @@ export function ProductsServicesPicker({
 
             {selected && configuredPrice != null ? (
               <div className="space-y-1.5">
-                <Label>Configured price</Label>
+                <Label>Normal price</Label>
                 <div className="flex min-h-9 items-center">
                   <span className="text-sm font-medium tabular-nums">
                     {fmt.money(configuredPrice)}
@@ -810,13 +808,13 @@ export function ProductsServicesPicker({
               <>
                 <div className="space-y-1.5">
                   <Label htmlFor={`${fieldId}-override-price`}>
-                    Override price
+                    Change price
                   </Label>
                   <CurrencyInput
                     id={`${fieldId}-override-price`}
                     symbol={currencySymbol(locale.currency)}
                     groupLocale={locale.locale}
-                    placeholder="Use configured price"
+                    placeholder="Use normal price"
                     value={overridePrice}
                     onValueChange={setOverridePrice}
                   />
@@ -825,7 +823,7 @@ export function ProductsServicesPicker({
                 Number(overridePrice) !== configuredPrice ? (
                   <div className="space-y-1.5">
                     <Label htmlFor={`${fieldId}-override-reason`}>
-                      Override reason
+                      Why is the price different?
                     </Label>
                     <Input
                       id={`${fieldId}-override-reason`}
@@ -833,7 +831,7 @@ export function ProductsServicesPicker({
                       onChange={(event) =>
                         setOverrideReason(event.target.value)
                       }
-                      placeholder="Required for audit"
+                      placeholder="Needed for your records"
                     />
                   </div>
                 ) : null}
@@ -855,7 +853,7 @@ export function ProductsServicesPicker({
                   }
                 >
                   <Plus className="size-4" />
-                  Add to checkout
+                  Add
                 </Button>
               </div>
             ) : null}
@@ -887,7 +885,7 @@ export function ProductsServicesPicker({
                 >
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
-                      {choice?.item.name ?? 'Catalogue item'}
+                      {choice?.item.name ?? 'Item'}
                       {(selection.quantity ?? 1) > 1
                         ? ` × ${selection.quantity}`
                         : ''}
@@ -901,7 +899,7 @@ export function ProductsServicesPicker({
                     {membershipEnd && endIso && endIso > membershipEnd ? (
                       <p className="text-amber-foreground mt-1 flex items-center gap-1 text-xs">
                         <AlertTriangle className="size-3" />
-                        Service runs beyond membership expiry (
+                        Service ends after the membership expiry (
                         {fmt.date(membershipEnd)}).
                       </p>
                     ) : null}

@@ -17,6 +17,7 @@ UsefulDesk is an India-first gym CRM built on a mature multi-tenant WhatsApp CRM
 | Document                                                                          | Read when                                                                        |
 | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `docs/ui-patterns.md`                                                             | Touching any UI: canonical components, tokens, forms, tables, and animation      |
+| `docs/ux-copy.md`                                                                 | Writing or changing any visible text: plain-language rules and the glossary      |
 | `docs/gym-domain.md`                                                              | Touching members, plans, memberships, billing, payments, auto-pay, or attendance |
 | `docs/changelog.md`                                                               | Investigating why a past product or engineering decision was made                |
 | `PRDs/roadmap.md`                                                                 | Checking what is built, next, or deliberately deferred                           |

@@ -70,7 +70,7 @@ async function loadStaff(accountId: string, force = false) {
       if (entry.generation !== generation) return;
       entry.staff = ((data as StaffMember[]) ?? []).map((staff) => ({
         user_id: staff.user_id,
-        full_name: staff.full_name || 'Teammate',
+        full_name: staff.full_name || 'Team member',
         avatar_url: staff.avatar_url ?? null,
       }));
     } catch (error) {
@@ -78,7 +78,7 @@ async function loadStaff(accountId: string, force = false) {
       entry.error =
         error instanceof Error
           ? error
-          : new Error('Teammates could not be loaded');
+          : new Error('Team members could not be loaded');
     } finally {
       if (entry.generation === generation) {
         entry.loading = false;

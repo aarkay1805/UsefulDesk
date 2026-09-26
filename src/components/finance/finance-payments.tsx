@@ -90,8 +90,8 @@ const QUICK_VIEWS: {
 }[] = [
   { value: 'all', label: 'All' },
   { value: 'collected', label: 'Collected' },
-  { value: 'autopay', label: 'Auto-pay' },
-  { value: 'voided', label: 'Voided' },
+  { value: 'autopay', label: 'AutoPay' },
+  { value: 'voided', label: 'Cancelled' },
 ];
 
 export function FinancePayments({
@@ -188,7 +188,7 @@ export function FinancePayments({
         if (!cancelled) setResult(next);
       } catch (reason) {
         if (!cancelled) {
-          setError(getErrorMessage(reason, 'Payments could not be loaded'));
+          setError(getErrorMessage(reason, 'Could not load payments'));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -278,7 +278,7 @@ export function FinancePayments({
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (reason) {
-      toast.error(getErrorMessage(reason, 'Payment export failed'));
+      toast.error(getErrorMessage(reason, 'Could not download payments'));
     } finally {
       setExporting(false);
     }
@@ -317,30 +317,28 @@ export function FinancePayments({
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              title="Net collected"
+              title="Money received"
               value={fmt.money(result.summary.collected)}
               icon={CircleCheck}
-              subtitle={`${fmt.money(result.summary.grossCollected)} gross − ${fmt.money(result.summary.processedRefunds)} refunds`}
+              subtitle={`${fmt.money(result.summary.grossCollected)} received − ${fmt.money(result.summary.processedRefunds)} refunded`}
             />
             <MetricCard
               title="Payments"
               value={fmt.number(result.summary.count)}
               icon={WalletCards}
-              subtitle="Records in this filtered view"
+              subtitle="Payments in this view"
             />
             <MetricCard
-              title="Auto-pay"
+              title="AutoPay"
               value={fmt.money(result.summary.autopay)}
               icon={Repeat2}
-              subtitle="Successful gateway collections"
+              subtitle="Paid by AutoPay"
             />
             <MetricCard
-              title="Voided"
+              title="Cancelled"
               value={fmt.money(result.summary.voidedAmount)}
               icon={RotateCcw}
-              subtitle={`${fmt.number(result.summary.voidedCount)} audit ${
-                result.summary.voidedCount === 1 ? 'record' : 'records'
-              }`}
+              subtitle={`${fmt.number(result.summary.voidedCount)} ${ result.summary.voidedCount === 1 ? 'payment' : 'payments' } kept for history`}
             />
           </div>
 
@@ -391,19 +389,19 @@ export function FinancePayments({
                 title={
                   hasQuery
                     ? 'No payments match these filters'
-                    : 'No payments were received in this month'
+                    : 'No payments this month'
                 }
                 hint={
                   hasQuery
-                    ? 'Clear a filter or search term to see more ledger records.'
-                    : 'Recorded and AutoPay collections will appear here without moving payment work out of Members.'
+                    ? 'Clear a filter or search to see more.'
+                    : 'Payments you record and AutoPay payments will show here.'
                 }
               />
             ) : (
               <div className="overflow-x-auto">
                 <Table className="min-w-[1430px] table-fixed">
                   <TableCaption className="sr-only">
-                    Account-wide payment ledger
+                    All payments
                   </TableCaption>
                   <colgroup>
                     <col className="w-36" />
@@ -492,7 +490,7 @@ export function FinancePayments({
                             <div className="grid justify-items-start gap-1.5">
                               <span
                                 className="text-muted-foreground text-xs font-medium tabular-nums"
-                                title="Internal payment record reference"
+                                title="Payment ID"
                               >
                                 {row.reference ||
                                   financePaymentReference(row.id)}
@@ -523,7 +521,7 @@ export function FinancePayments({
                               }
                             >
                               {row.source === 'auto'
-                                ? 'Auto-pay'
+                                ? 'AutoPay'
                                 : row.source === 'payment_link'
                                   ? 'Payment link'
                                   : 'Manual'}
@@ -542,7 +540,7 @@ export function FinancePayments({
                             {(row.processed_refund_amount ?? 0) > 0 ? (
                               <span className="text-muted-foreground block text-xs font-normal">
                                 {fmt.money(row.gross_amount ?? row.amount)}{' '}
-                                gross −{' '}
+                                received −{' '}
                                 {fmt.money(row.processed_refund_amount ?? 0)}{' '}
                                 refunded
                               </span>

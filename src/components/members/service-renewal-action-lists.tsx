@@ -188,12 +188,12 @@ export function ServiceRenewalActionLists({
       return toast.error('Add a phone number before sending a reminder');
     if (row.current_renewal_price == null) {
       return toast.error(
-        'Configure the current trainer rate before sending a renewal reminder'
+        'Set this trainer’s fee before sending a reminder'
       );
     }
     setPendingAction(`${row.id}:remind`);
     try {
-      if (!accountId) return toast.error('Account is still loading');
+      if (!accountId) return toast.error('Still loading. Try again in a moment.');
       const supabase = createClient();
       const [{ data: config }, { data: template }] = await Promise.all([
         supabase
@@ -232,7 +232,7 @@ export function ServiceRenewalActionLists({
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok)
-        return toast.error(result.error || 'Failed to send reminder');
+        return toast.error(result.error || 'Could not send reminder');
       toast.success('Service renewal reminder sent');
     } finally {
       setPendingAction(null);
@@ -311,7 +311,7 @@ export function ServiceRenewalActionLists({
           </div>
         ) : filtered.length === 0 ? (
           <p className="text-muted-foreground py-12 text-center text-sm">
-            No services in this window.
+            No services in these dates.
           </p>
         ) : (
           <div className="overflow-x-auto">

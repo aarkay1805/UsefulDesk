@@ -150,11 +150,11 @@ export function InactiveActionLists({
           }}
           onSelect={onSelect}
           onAssign={canSendMessages ? setAssigning : undefined}
-          emptyLabel="Everyone with a visit history has been in recently."
+          emptyLabel="Everyone who came before has come recently."
         />
         <RetentionList
           title="Never checked in"
-          description="Joined but no first visit recorded"
+          description="Joined but never checked in"
           icon={<Ghost className="text-muted-foreground size-4" />}
           rows={neverVisited as MemberActivityRow[]}
           accountId={accountId}
@@ -165,7 +165,7 @@ export function InactiveActionLists({
           }
           onSelect={onSelect}
           onAssign={canSendMessages ? setAssigning : undefined}
-          emptyLabel="Every member has checked in at least once."
+          emptyLabel="Every member has come at least once."
         />
       </div>
 

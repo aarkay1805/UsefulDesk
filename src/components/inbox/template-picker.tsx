@@ -168,7 +168,7 @@ export function TemplatePicker({
         setParams(initialParams);
         setEditing(true);
         setContextMessage(
-          'The account legal business identity is unavailable.'
+          'Your gym’s legal name is missing. Add it in Settings → Business details.'
         );
         return;
       }
@@ -183,7 +183,7 @@ export function TemplatePicker({
         setResolving(false);
         setParams(initialParams);
         setEditing(true);
-        setContextMessage(`Template send blocked: ${legalIdentity.code}.`);
+        setContextMessage(`Cannot send this template (${legalIdentity.code}).`);
         return;
       }
       legalBusinessName = legalIdentity.name;
@@ -215,10 +215,10 @@ export function TemplatePicker({
         setEditing(true);
         setContextMessage(
           error
-            ? 'Service details could not be loaded. Review the missing details below.'
+            ? 'Could not load service details. Fill in the missing details below.'
             : services.length === 0
-              ? 'No renewable service was found. Add the intended service details below.'
-              : 'Multiple renewable services were found. Add details for the intended service below.'
+              ? 'No service to renew was found. Fill in the service details below.'
+              : 'More than one service can be renewed. Fill in the details for the right one below.'
         );
         return;
       }
@@ -234,8 +234,8 @@ export function TemplatePicker({
       setEditing(!hasCurrentPrice);
       setContextMessage(
         hasCurrentPrice
-          ? `Ready to send using ${contact.name?.trim() || 'this contact'}’s renewable service.`
-          : 'The current service renewal price is unavailable. Enter it below.'
+          ? `Ready to send, using ${contact.name?.trim() || 'this contact'}’s service details.`
+          : 'The renewal price is missing. Enter it below.'
       );
       return;
     }
@@ -268,7 +268,7 @@ export function TemplatePicker({
         setResolving(false);
         setEditing(true);
         setContextMessage(
-          'Billing details could not be loaded. Review the missing details below.'
+          'Could not load payment details. Fill in the missing details below.'
         );
         return;
       }
@@ -279,10 +279,10 @@ export function TemplatePicker({
         setEditing(true);
         setContextMessage(
           !membershipResponse.data
-            ? 'No membership was found for this contact. Add the missing details below.'
+            ? 'No membership found for this person. Fill in the missing details below.'
             : invoices.length === 0
-              ? 'No open invoice was found. Add the intended payment details below.'
-              : 'Multiple open invoices were found. Add details for the intended invoice below.'
+              ? 'No unpaid invoice found. Fill in the payment details below.'
+              : 'More than one unpaid invoice found. Fill in the details for the right one below.'
         );
         return;
       }
@@ -318,8 +318,8 @@ export function TemplatePicker({
       setEditing(!hasActiveLink);
       setContextMessage(
         hasActiveLink
-          ? `Ready to send using ${contact.name?.trim() || 'this contact'}’s active payment link.`
-          : 'No active payment link was found. Create one from Business → Invoices before sending this template.'
+          ? `Ready to send, using ${contact.name?.trim() || 'this contact'}’s payment link.`
+          : 'No payment link found. Make one in Business → Invoices first.'
       );
       return;
     }
@@ -345,8 +345,8 @@ export function TemplatePicker({
       setEditing(true);
       setContextMessage(
         error
-          ? 'Membership details could not be loaded. Review the missing details below.'
-          : 'No membership was found for this contact. Add the missing details below.'
+          ? 'Could not load membership details. Fill in the missing details below.'
+          : 'No membership found for this person. Fill in the missing details below.'
       );
       return;
     }
@@ -362,8 +362,8 @@ export function TemplatePicker({
     setEditing(!hasAllValues);
     setContextMessage(
       hasAllValues
-        ? `Ready to send using ${contact.name?.trim() || 'this contact'}’s membership details.`
-        : 'Some membership details are missing. Complete them below.'
+        ? `Ready to send, using ${contact.name?.trim() || 'this contact'}’s membership details.`
+        : 'Some membership details are missing. Fill them in below.'
     );
   }
 
@@ -413,9 +413,9 @@ export function TemplatePicker({
           <DialogDescription>
             {selected
               ? resolving
-                ? 'Loading known details for this contact.'
-                : 'Review the message before sending it on WhatsApp.'
-              : 'Pick an approved WhatsApp template to send to this contact.'}
+                ? 'Loading their details…'
+                : 'Check the message before sending it on WhatsApp.'
+              : 'Pick a WhatsApp-approved message to send.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -428,11 +428,10 @@ export function TemplatePicker({
             ) : templates.length === 0 ? (
               <div className="border-border bg-background/50 rounded-md border p-6 text-center">
                 <p className="text-popover-foreground text-sm">
-                  No approved templates
+                  No approved templates yet
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs">
-                  Approve a template in Meta WhatsApp Manager, then sync it from
-                  Settings → Templates.
+                  Get a template approved first. Go to Settings → Message templates.
                 </p>
               </div>
             ) : (
@@ -467,7 +466,7 @@ export function TemplatePicker({
                             {t.category}
                           </Badge>
                           {itemPresentation.legacy ? (
-                            <Badge variant="neutral">Legacy</Badge>
+                            <Badge variant="neutral">Old</Badge>
                           ) : null}
                           {t.language ? (
                             <span className="text-muted-foreground text-xs uppercase">
@@ -526,13 +525,13 @@ export function TemplatePicker({
             slots.headerVarCount > 0 ? (
               <div className="space-y-1">
                 <Label htmlFor="template-header-value" size="sm">
-                  Header text
+                  Title text
                 </Label>
                 <Input
                   id="template-header-value"
                   value={headerText}
                   onChange={(e) => setHeaderText(e.target.value)}
-                  placeholder="Value for the header variable"
+                  placeholder="Text for the title"
                 />
               </div>
             ) : null}
@@ -569,7 +568,7 @@ export function TemplatePicker({
               slots?.urlButtonSlots.map((slot) => (
                 <div key={slot.index} className="space-y-1">
                   <Label htmlFor={`template-button-${slot.index}`} size="sm">
-                    {`${slot.text} button URL value`}
+                    {`Link for the “${slot.text}” button`}
                   </Label>
                   <Input
                     id={`template-button-${slot.index}`}
@@ -580,11 +579,11 @@ export function TemplatePicker({
                         [slot.index]: e.target.value,
                       }))
                     }
-                    placeholder="URL suffix value"
+                    placeholder="End of the link"
                     disabled={presentation?.contextKind === 'payment_link'}
                   />
                   <p className="text-muted-foreground text-[11px] break-all">
-                    Final URL:{' '}
+                    Full link:{' '}
                     {slot.url.replace(
                       /\{\{1\}\}/g,
                       buttonParams[slot.index] || '{{1}}'
@@ -600,7 +599,7 @@ export function TemplatePicker({
                 onClick={() => setEditing((current) => !current)}
               >
                 <Pencil />
-                {editing ? 'Hide resolved details' : 'Edit details'}
+                {editing ? 'Hide filled details' : 'Edit details'}
               </Button>
             ) : null}
           </div>

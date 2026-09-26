@@ -19,7 +19,7 @@ async function loadInsightsResponse<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: 'no-store' });
   const body = (await response.json()) as T & { error?: string };
   if (!response.ok) {
-    throw new Error(body.error ?? 'Could not load dashboard insights');
+    throw new Error(body.error ?? 'Could not load reports');
   }
   return body;
 }

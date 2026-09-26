@@ -158,7 +158,7 @@ export function AccountEmailForm({
           {error ? (
             <Alert id="account-email-error" variant="destructive">
               <CircleAlert />
-              <AlertTitle>Email change unavailable</AlertTitle>
+              <AlertTitle>Cannot change email right now</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}

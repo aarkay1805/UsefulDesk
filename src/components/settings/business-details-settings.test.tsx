@@ -101,14 +101,14 @@ describe('BusinessDetailsSettings', () => {
     );
     render(<BusinessDetailsSettings />);
 
-    const brand = screen.getByRole('textbox', { name: 'Gym brand' });
+    const brand = screen.getByRole('textbox', { name: 'Gym name' });
     expect(brand).toHaveProperty('value', 'Old Gym Brand');
     expect(screen.getByRole('textbox', { name: 'Branch name' })).toHaveProperty(
       'value',
       'Old Gym'
     );
     fireEvent.change(brand, { target: { value: 'Iron House' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save gym brand' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save gym name' }));
 
     await waitFor(() =>
       expect(state.fetch).toHaveBeenCalledWith('/api/organization/brand', {
@@ -128,7 +128,7 @@ describe('BusinessDetailsSettings', () => {
     state.role = 'admin';
     render(<BusinessDetailsSettings />);
 
-    expect(screen.getByRole('textbox', { name: 'Gym brand' })).toHaveProperty(
+    expect(screen.getByRole('textbox', { name: 'Gym name' })).toHaveProperty(
       'disabled',
       false
     );

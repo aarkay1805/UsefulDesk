@@ -49,7 +49,7 @@ export function Step1ChooseTemplate({
         setTemplates(data ?? []);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : 'Failed to load templates'
+          err instanceof Error ? err.message : 'Could not load templates'
         );
       } finally {
         setLoading(false);
@@ -79,10 +79,10 @@ export function Step1ChooseTemplate({
     <div className="space-y-6">
       <div>
         <h2 className="text-foreground text-lg font-semibold">
-          Choose a Template
+          Choose a template
         </h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Select an approved message template for your broadcast.
+          Pick a message that WhatsApp has approved.
         </p>
       </div>
 
@@ -90,10 +90,10 @@ export function Step1ChooseTemplate({
         <div className="border-border bg-card/50 flex h-48 flex-col items-center justify-center rounded-xl border">
           <FileText className="text-muted-foreground mb-2 h-8 w-8" />
           <p className="text-muted-foreground text-sm">
-            No templates available.
+            No approved templates yet.
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
-            Create a template in Settings first.
+            Add one in Settings → Message templates.
           </p>
         </div>
       ) : (

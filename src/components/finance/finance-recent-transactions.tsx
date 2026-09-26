@@ -24,8 +24,8 @@ const METHOD_LABEL: Record<string, string> = {
 const PURPOSE_LABEL = {
   joining: 'Joining',
   renewal: 'Renewal',
-  sale: 'Product/service sale',
-  due: 'Due payment',
+  sale: 'Product or service sale',
+  due: 'Old dues',
   other: 'Other',
 } as const;
 
@@ -39,7 +39,7 @@ export function FinanceRecentTransactionsCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Recent transactions</CardTitle>
+        <CardTitle>Recent payments</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
         {transactions.length > 0 ? (
@@ -104,7 +104,7 @@ export function FinanceRecentTransactionsCard({
             <EmptyState
               icon={ArrowDownLeft}
               className="min-h-52"
-              title="No transactions in this month"
+              title="No payments this month"
             />
           </div>
         )}

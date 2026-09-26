@@ -130,7 +130,7 @@ const LEAD_FOLLOW_UP_COLUMNS: LeadFollowUpColumn[] = [
   },
   {
     key: 'dueStatus',
-    label: 'Due status',
+    label: 'Due',
     defaultWidth: 150,
     minWidth: 130,
     filterDim: 'buckets',
@@ -151,14 +151,14 @@ const LEAD_FOLLOW_UP_COLUMNS: LeadFollowUpColumn[] = [
   },
   {
     key: 'status',
-    label: 'Status',
+    label: 'Stage',
     defaultWidth: 160,
     minWidth: 130,
     sortKey: 'status',
   },
   {
     key: 'stageAge',
-    label: 'Stage age',
+    label: 'Days in stage',
     defaultWidth: 130,
     minWidth: 110,
     sortKey: 'stage_age',
@@ -187,8 +187,8 @@ const LEAD_FOLLOW_UP_SORT_COLUMNS = [
   { key: 'name', label: 'Name' },
   { key: 'due_date', label: 'Due date' },
   { key: 'task_type', label: 'Follow-up' },
-  { key: 'status', label: 'Status' },
-  { key: 'stage_age', label: 'Stage age' },
+  { key: 'status', label: 'Stage' },
+  { key: 'stage_age', label: 'Days in stage' },
   { key: 'created_at', label: 'Created' },
 ];
 
@@ -222,7 +222,7 @@ const ISSUE_BADGE: Record<
   overdue: { label: 'Overdue', variant: 'danger' },
   due_today: { label: 'Due today', variant: 'warning' },
   first_response_overdue: {
-    label: `First response ${FIRST_RESPONSE_HOURS}h+`,
+    label: `No reply in ${FIRST_RESPONSE_HOURS} hours`,
     variant: 'danger',
   },
   missing_next_action: { label: 'No follow-up', variant: 'info' },
@@ -388,8 +388,8 @@ export function LeadAccountabilityView({
         const message = getErrorMessage(
           error,
           view === 'followups'
-            ? 'Failed to load follow-ups'
-            : 'Failed to load first response'
+            ? 'Could not load follow-ups'
+            : 'Could not load first response'
         );
         setLoadError(message);
         toast.error(message);
@@ -683,7 +683,7 @@ export function LeadAccountabilityView({
         .select('id')
         .maybeSingle();
       if (error || !data) {
-        toast.error(getErrorMessage(error, 'Failed to reassign follow-up'));
+        toast.error(getErrorMessage(error, 'Could not reassign follow-up'));
         return;
       }
       setFollowUps((current) =>
@@ -691,7 +691,7 @@ export function LeadAccountabilityView({
           item.id === followUp.id ? { ...item, assigned_to: assignedTo } : item
         )
       );
-      toast.success('Follow-up reassigned');
+      toast.success('Follow-up given to new person');
     } finally {
       setSavingCell(false);
       setEditingAssigneeId(null);
@@ -704,7 +704,7 @@ export function LeadAccountabilityView({
     }
     return (
       <AssigneeDisplay
-        name={nameById.get(ownerId) ?? 'Teammate'}
+        name={nameById.get(ownerId) ?? 'Team member'}
         avatarUrl={avatarById.get(ownerId)}
       />
     );
@@ -788,7 +788,7 @@ export function LeadAccountabilityView({
                 {ISSUE_BADGE.first_response_overdue.label}
               </Badge>
             ) : (
-              <Badge variant="info">Within {FIRST_RESPONSE_HOURS}h</Badge>
+              <Badge variant="info">Within {FIRST_RESPONSE_HOURS} hours</Badge>
             )}
             <Badge variant="info">No follow-up</Badge>
           </div>
@@ -919,46 +919,46 @@ export function LeadAccountabilityView({
                 selectionMode="single"
                 value={[filter]}
                 onValueChange={(values) => values[0] && setFilter(values[0])}
-                aria-label="First response filters"
+                aria-label="First reply filters"
               >
                 <QueueChip
                   value="all"
                   label="All"
                   count={rows.length}
-                  helpText="Leads still in New and awaiting their first response."
+                  helpText="New enquiries waiting for their first reply."
                 />
                 <QueueChip
                   value="overdue"
                   label="Overdue"
                   count={summary.firstResponseOverdue}
-                  helpText={`Leads that missed the ${FIRST_RESPONSE_HOURS}-hour first-response target.`}
+                  helpText={`Enquiries that did not get a reply within ${FIRST_RESPONSE_HOURS} hours.`}
                 />
                 <QueueChip
                   value="within_sla"
-                  label={`Within ${FIRST_RESPONSE_HOURS}h`}
+                  label={`Within ${FIRST_RESPONSE_HOURS} hours`}
                   count={withinSlaCount}
-                  helpText="New leads still inside the first-response window."
+                  helpText="New enquiries that still have time for a first reply."
                 />
                 <QueueChip
                   value="missing"
                   label="No follow-up"
                   count={summary.missingNextAction}
-                  helpText="New leads without an open follow-up."
+                  helpText="New enquiries with no follow-up planned."
                 />
                 <QueueChip
                   value="unassigned"
                   label="Unassigned"
                   count={summary.unassigned}
-                  helpText="Work without a responsible salesperson."
+                  helpText="Enquiries not given to anyone yet."
                 />
               </ChipGroup>
             </TooltipProvider>
 
-            <Toolbar className="ml-auto" aria-label="First response scope">
+            <Toolbar className="ml-auto" aria-label="Whose work">
               <ToolbarToggleGroup<LeadAccountabilityScope>
                 value={[scope]}
                 onValueChange={(values) => values[0] && setScope(values[0])}
-                aria-label="Owner scope"
+                aria-label="Whose work"
               >
                 <ToolbarToggleItem value="mine">
                   <UserRoundSearch className="size-4" />
@@ -986,7 +986,7 @@ export function LeadAccountabilityView({
                     />
                   }
                 >
-                  {bulkCount} follow-up{bulkCount === 1 ? '' : 's'} selected
+                  {bulkCount} selected
                   <ChevronDown className="size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="min-w-56">
@@ -996,7 +996,7 @@ export function LeadAccountabilityView({
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={selectAllMatching}>
                     <ListChecks className="size-4" />
-                    All {filteredRows.length} matching
+                    Select all {filteredRows.length}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -1043,11 +1043,11 @@ export function LeadAccountabilityView({
           <div className="p-4">
             <EmptyState
               icon={CheckCircle2}
-              title="Queue is clear"
+              title="Nothing to do here"
               hint={
                 scope === 'mine'
-                  ? `No ${view === 'followups' ? 'follow-ups' : 'first-response leads'} match this queue in My work.`
-                  : `No team ${view === 'followups' ? 'follow-ups' : 'first-response leads'} match this queue.`
+                  ? `You have no ${view === 'followups' ? 'follow-ups' : 'enquiries waiting for a reply'} here.`
+                  : `Your team has no ${view === 'followups' ? 'follow-ups' : 'enquiries waiting for a reply'} here.`
               }
             />
           </div>
@@ -1141,7 +1141,7 @@ export function LeadAccountabilityView({
                       className="cursor-pointer"
                       onClick={() => onOpenLead(row.lead.id, Boolean(followUp))}
                       tabIndex={0}
-                      aria-label={`Open ${row.lead.name || 'lead'} details`}
+                      aria-label={`Open ${row.lead.name || 'enquiry'} details`}
                       onKeyDown={(event) => {
                         if (event.currentTarget !== event.target) return;
                         if (event.key === 'Enter' || event.key === ' ') {
@@ -1215,8 +1215,10 @@ export function LeadAccountabilityView({
             {filteredRows.length}{' '}
             {view === 'followups'
               ? `follow-up${filteredRows.length === 1 ? '' : 's'}`
-              : `lead${filteredRows.length === 1 ? '' : 's'}`}{' '}
-            in this queue
+              : filteredRows.length === 1
+                ? 'enquiry'
+                : 'enquiries'}{' '}
+            in this list
           </p>
           <div className="flex items-center gap-1">
             <Button

@@ -98,6 +98,6 @@ describe('Razorpay P2 integrity migration', () => {
     expect(cancellation).toMatch(
       /cancelSubscription\([\s\S]*fetchRemote\(\)[\s\S]*terminalStatus\(remote\)/
     );
-    expect(member).toContain('Cancel auto-pay');
+    expect(member).toContain('Cancel AutoPay');
   });
 });

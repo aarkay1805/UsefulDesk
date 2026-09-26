@@ -31,8 +31,8 @@ export const AUTOMATION_TEMPLATES: Record<
 > = {
   welcome_message: {
     slug: 'welcome_message',
-    name: 'Welcome Message',
-    description: 'Auto-reply to first-time contacts with a greeting.',
+    name: 'Welcome message',
+    description: 'Say hello to people who message you for the first time.',
     // first_inbound_message (added in PR #33) catches both brand-new
     // contacts AND manually-added/imported contacts on their first-ever
     // reply, which is what a user setting up a "welcome" automation
@@ -55,8 +55,8 @@ export const AUTOMATION_TEMPLATES: Record<
   },
   out_of_office: {
     slug: 'out_of_office',
-    name: 'Out of Office',
-    description: 'Auto-reply during off-hours so nobody is left waiting.',
+    name: 'Gym closed reply',
+    description: 'Reply by itself when the gym is closed, so nobody waits without an answer.',
     trigger_type: 'new_message_received',
     trigger_config: {},
     steps: [
@@ -79,18 +79,18 @@ export const AUTOMATION_TEMPLATES: Record<
   },
   lead_qualifier: {
     slug: 'lead_qualifier',
-    name: 'Lead Qualifier',
-    description: 'Ask qualification questions to filter inbound leads.',
+    name: 'Fees enquiry',
+    description: 'When someone asks about fees, ask their goal and pass the chat to your team.',
     trigger_type: 'keyword_match',
     trigger_config: {
-      keywords: ['pricing', 'quote', 'buy'],
+      keywords: ['fees', 'price', 'membership'],
       match_type: 'contains',
     },
     steps: [
       {
         step_type: 'send_message',
         step_config: {
-          text: 'Great — happy to help with pricing! Quick question: roughly how many seats are you looking for?',
+          text: 'Happy to help with fees! What is your fitness goal: weight loss, muscle gain, or general fitness?',
         },
       },
       {
@@ -105,8 +105,8 @@ export const AUTOMATION_TEMPLATES: Record<
   },
   follow_up_reminder: {
     slug: 'follow_up_reminder',
-    name: 'Follow-up Reminder',
-    description: 'Send a nudge if a contact has not replied within 24 hours.',
+    name: 'Follow-up reminder',
+    description: 'Send a reminder if a person has not replied in 24 hours.',
     trigger_type: 'new_message_received',
     trigger_config: {},
     steps: [
@@ -117,7 +117,7 @@ export const AUTOMATION_TEMPLATES: Record<
       {
         step_type: 'send_message',
         step_config: {
-          text: 'Just circling back — did you have any other questions for us? Happy to help!',
+          text: 'Hi! Do you have any other questions for us? We are happy to help.',
         },
       },
     ],

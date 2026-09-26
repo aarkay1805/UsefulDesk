@@ -6,7 +6,7 @@ import {
   saveAssignedArrivalTime,
 } from './assigned-arrival';
 
-describe('assigned arrival time', () => {
+describe('usual time', () => {
   it('offers each half-hour in a day and a clear choice', () => {
     const options = assignedArrivalOptions((value) => value);
     expect(options).toHaveLength(49);
@@ -87,6 +87,6 @@ describe('assigned arrival time', () => {
         'contact-1',
         '07:30'
       )
-    ).rejects.toThrow('Could not update assigned arrival');
+    ).rejects.toThrow('Could not update usual time');
   });
 });

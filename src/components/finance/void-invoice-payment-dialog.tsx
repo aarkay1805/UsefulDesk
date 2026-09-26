@@ -45,7 +45,7 @@ export function VoidInvoicePaymentDialog({
 
   async function voidPayment() {
     if (!reason.trim()) {
-      toast.error('Enter a reason for the correction');
+      toast.error('Write why you are cancelling it');
       return;
     }
     setSaving(true);
@@ -56,12 +56,12 @@ export function VoidInvoicePaymentDialog({
       });
       if (error) throw error;
       toast.success(
-        'Payment voided; the invoice balance has been recalculated'
+        'Payment cancelled. Invoice balance updated.'
       );
       handleOpenChange(false);
       onVoided();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to void payment'));
+      toast.error(getErrorMessage(error, 'Could not cancel the payment'));
     } finally {
       setSaving(false);
     }
@@ -71,14 +71,14 @@ export function VoidInvoicePaymentDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Void payment?</DialogTitle>
+          <DialogTitle>Cancel this payment?</DialogTitle>
           <DialogDescription>
-            Reverse the{' '}
+            This removes the{' '}
             <span className="tabular-nums">
               {fmt.money(activePayment.amount)}
             </span>{' '}
-            collection from {fmt.date(activePayment.paid_at)}. The ledger row is
-            retained for audit and its invoice allocations are reopened.
+            payment from {fmt.date(activePayment.paid_at)}. It stays in history,
+            and the amount becomes due again on the invoice.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
@@ -87,7 +87,7 @@ export function VoidInvoicePaymentDialog({
             id="void-invoice-payment-reason"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Duplicate or incorrectly recorded payment"
+            placeholder="Example: Added twice by mistake"
             autoFocus
           />
         </div>
@@ -111,7 +111,7 @@ export function VoidInvoicePaymentDialog({
             ) : (
               <RotateCcw className="size-4" />
             )}
-            Void payment
+            Cancel payment
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -35,10 +35,9 @@ export function CustomFieldsManager({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Extra contact details</DialogTitle>
+          <DialogTitle>Extra details</DialogTitle>
           <DialogDescription>
-            Save details your team needs on every contact, such as a preferred
-            class time.
+            Save extra details your team needs for each person, like their usual class time.
           </DialogDescription>
         </DialogHeader>
         <CustomFieldsPanel />
@@ -82,7 +81,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
         setLoadError(
           getErrorMessage(
             error,
-            "Extra contact details couldn't load. Try again."
+            "Extra details could not load. Try again."
           )
         );
       } else {
@@ -108,7 +107,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
     const name = newName.trim();
     if (!canEdit || !name) return;
     if (!accountId || !user) {
-      toast.error('Your profile is not linked to an account.');
+      toast.error('Your login is not linked to a gym.');
       return;
     }
     if (isDuplicate(name)) {
@@ -139,10 +138,10 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
         )
       );
       setNewName('');
-      toast.success(`Created “${name}”`);
+      toast.success(`Added “${name}”`);
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "The custom field couldn't be created.")
+        getErrorMessage(error, "The custom field could not be created.")
       );
     } finally {
       setCreating(false);
@@ -182,7 +181,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       return true;
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "The custom field couldn't be renamed.")
+        getErrorMessage(error, "The custom field could not be renamed.")
       );
       return false;
     } finally {
@@ -212,7 +211,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       setFieldToDelete(null);
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "The custom field couldn't be deleted.")
+        getErrorMessage(error, "The custom field could not be deleted.")
       );
     } finally {
       setBusyId(null);
@@ -234,7 +233,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
             id="new-custom-field"
             value={newName}
             onChange={(event) => setNewName(event.target.value)}
-            placeholder="e.g. Preferred time"
+            placeholder="Example: Usual class time"
             disabled={!canEdit || creating}
           />
           <Button
@@ -255,7 +254,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       {loadError ? (
         <Alert variant="destructive">
           <AlertCircle aria-hidden="true" />
-          <AlertTitle>Extra contact details couldn&apos;t load</AlertTitle>
+          <AlertTitle>Could not load extra details</AlertTitle>
           <AlertDescription>
             <p>{loadError}</p>
             <Button
@@ -278,7 +277,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
                 aria-live="polite"
               >
                 <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-                Loading extra contact details…
+                Loading extra details…
               </div>
             ) : fields.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">
@@ -312,8 +311,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
           <DialogHeader>
             <DialogTitle>Delete extra detail?</DialogTitle>
             <DialogDescription>
-              “{fieldToDelete?.field_name}” and its saved value on every contact
-              will be deleted. This cannot be undone.
+              “{fieldToDelete?.field_name}” will be deleted from every person, with the saved values. You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

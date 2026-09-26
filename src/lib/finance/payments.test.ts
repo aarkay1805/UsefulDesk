@@ -84,12 +84,12 @@ describe('finance payment identity and export', () => {
     expect(financePaymentReference(payment().id)).toBe('#12345678');
   });
 
-  it('labels gateway payments as Auto-pay even without a recorder', () => {
+  it('labels gateway payments as AutoPay even without a recorder', () => {
     expect(
       financePaymentRecordedBy(
         payment({ source: 'auto', user_id: null, recorded_by_name: null })
       )
-    ).toBe('Auto-pay');
+    ).toBe('AutoPay');
   });
 
   it('exports member, gateway, audit, and financial context', () => {

@@ -85,7 +85,7 @@ describe('findOrCreateContact', () => {
     ).rejects.toBeInstanceOf(ContactError);
   });
 
-  it("defaults received_via to 'api' when the caller doesn't say", async () => {
+  it("defaults received_via to 'api' when the caller does not say", async () => {
     // Regression guard: migration 064 added a `receivedVia` param for the
     // capture form and the Meta webhook. The public API (this helper's
     // original caller) passes nothing and MUST keep landing as 'api' —

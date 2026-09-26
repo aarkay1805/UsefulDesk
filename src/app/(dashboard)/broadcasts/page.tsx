@@ -84,7 +84,7 @@ export default function BroadcastsPage() {
       setError(null);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to load broadcasts'
+        err instanceof Error ? err.message : 'Could not load broadcasts'
       );
     } finally {
       setLoading(false);
@@ -197,7 +197,7 @@ export default function BroadcastsPage() {
       <div className="flex h-64 flex-col items-center justify-center gap-2">
         <p className="text-red-foreground text-sm">{error}</p>
         <Button variant="outline" onClick={retryLoad} loading={retrying}>
-          Retry
+          Try again
         </Button>
       </div>
     );
@@ -210,7 +210,7 @@ export default function BroadcastsPage() {
       {anySending && (
         <div
           role="progressbar"
-          aria-label="Broadcast in progress"
+          aria-label="Broadcast is sending"
           className="broadcast-indeterminate bg-muted fixed inset-x-0 top-0 z-40 h-0.5 overflow-hidden"
         >
           <div className="broadcast-indeterminate-bar bg-primary h-0.5" />
@@ -237,7 +237,7 @@ export default function BroadcastsPage() {
         <div>
           <h1 className="text-foreground text-2xl font-bold">Broadcasts</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Send bulk messages to your contacts using approved templates.
+            Send one WhatsApp message to many people at once, using an approved template.
           </p>
         </div>
         <GatedButton
@@ -248,7 +248,7 @@ export default function BroadcastsPage() {
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          New Broadcast
+          New broadcast
         </GatedButton>
       </div>
 
@@ -259,7 +259,7 @@ export default function BroadcastsPage() {
             No broadcasts yet
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
-            Create your first broadcast to reach your contacts at scale.
+            Send your first broadcast to reach many members at once.
           </p>
           <GatedButton
             canAct={canCreate}
@@ -269,7 +269,7 @@ export default function BroadcastsPage() {
             className="bg-primary text-primary-foreground hover:bg-primary/90 mt-4"
           >
             <Plus className="h-4 w-4" />
-            New Broadcast
+            New broadcast
           </GatedButton>
         </div>
       ) : (

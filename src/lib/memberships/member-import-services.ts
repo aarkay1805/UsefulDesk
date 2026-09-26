@@ -315,7 +315,7 @@ export function buildImportedServiceIntent(
   ) {
     errors.push({
       code: 'service-price-unavailable',
-      message: 'Configure an active price for this service option.',
+      message: 'Set a price for this service option.',
     });
   }
 

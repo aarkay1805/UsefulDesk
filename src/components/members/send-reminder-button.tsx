@@ -93,7 +93,7 @@ export function useReminderReadiness(): ReminderReadiness {
           loading: false,
           ready: false,
           reason:
-            "WhatsApp isn't connected yet. Connect it to send renewal reminders.",
+            "WhatsApp is not connected. Connect it to send renewal reminders.",
           resolution: {
             label: 'Connect WhatsApp',
             href: '/settings?tab=whatsapp',
@@ -109,7 +109,7 @@ export function useReminderReadiness(): ReminderReadiness {
           ready: false,
           reason: readiness.message,
           resolution: {
-            label: 'Go to Templates',
+            label: 'Open message templates',
             href: '/settings?tab=templates',
           },
           templateLanguage: 'en_US',
@@ -164,7 +164,7 @@ export async function sendRenewalReminder(
   });
   const payload = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(payload?.error || 'Failed to send reminder');
+    throw new Error(payload?.error || 'Could not send reminder');
   }
 }
 
@@ -225,24 +225,24 @@ export function SendReminderButton({
   // A missing phone is a per-member blocker with no settings fix; the
   // readiness blockers (WhatsApp / template) carry a deep-link resolution.
   const blockedReason = !hasPhone
-    ? "This member has no phone number, so there's nothing to send the reminder to. Add a phone number to their contact first."
+    ? "This member has no phone number. Add their phone number first."
     : readiness.reason;
   const resolution = hasPhone && canEditSettings ? readiness.resolution : null;
   const permissionBlocker: ActionBlocker | null = canSendMessages
     ? null
     : {
-        title: 'Admin access required',
+        title: 'You do not have permission',
         description:
-          'Only an agent, admin, or owner can send renewal reminders from this account.',
+          'Only staff, admins, or the owner can send renewal reminders from this account.',
       };
   const reminderBlocker: ActionBlocker | null =
     !hasPhone || !readiness.ready
       ? {
           title: !hasPhone
-            ? 'Phone number required'
-            : "WhatsApp reminder isn't ready",
+            ? 'No phone number'
+            : "Reminder message is not ready",
           description:
-            blockedReason ?? 'Complete WhatsApp setup before sending.',
+            blockedReason ?? 'Finish WhatsApp setup before sending.',
           resolution: resolution
             ? { label: resolution.label, href: resolution.href }
             : undefined,
@@ -265,7 +265,7 @@ export function SendReminderButton({
       onSent?.();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to send reminder'
+        err instanceof Error ? err.message : 'Could not send reminder'
       );
     } finally {
       setSending(false);

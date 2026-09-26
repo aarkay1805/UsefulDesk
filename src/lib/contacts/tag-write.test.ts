@@ -108,7 +108,7 @@ describe('addContactTagIfAbsent', () => {
       insertError: { code: '42501', message: 'permission denied' },
     });
     await expect(addContactTagIfAbsent(db, input)).rejects.toThrow(
-      'Failed to add contact tag: permission denied'
+      'Could not add contact tag: permission denied'
     );
   });
 });
@@ -130,6 +130,6 @@ describe('removeContactTag', () => {
         }),
         input
       )
-    ).rejects.toThrow('Failed to remove contact tag: permission denied');
+    ).rejects.toThrow('Could not remove contact tag: permission denied');
   });
 });

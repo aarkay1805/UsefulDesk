@@ -29,7 +29,7 @@ export async function GET() {
     if (error) {
       console.error('[ai/knowledge GET] error:', error);
       return NextResponse.json(
-        { error: 'Failed to load knowledge base' },
+        { error: 'Could not load knowledge base' },
         { status: 500 }
       );
     }
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
     if (error || !doc) {
       console.error('[ai/knowledge POST] insert error:', error);
       return NextResponse.json(
-        { error: 'Failed to save document' },
+        { error: 'Could not save document' },
         { status: 500 }
       );
     }

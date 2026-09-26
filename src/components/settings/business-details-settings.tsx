@@ -130,13 +130,13 @@ function BusinessDetailsForAccount({
         error?: string;
       };
       if (!response.ok || typeof body.name !== 'string') {
-        throw new Error(body.error || 'Gym brand was not saved.');
+        throw new Error(body.error || 'Gym name was not saved.');
       }
       setBrandName(body.name);
-      toast.success('Gym brand updated');
+      toast.success('Gym name updated');
       await refreshProfile();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Gym brand couldn't be saved."));
+      toast.error(getErrorMessage(error, "Gym name could not be saved."));
     } finally {
       setBrandSaving(false);
     }
@@ -162,7 +162,7 @@ function BusinessDetailsForAccount({
       toast.success('Branch name updated');
       window.location.reload();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Branch name couldn't be saved."));
+      toast.error(getErrorMessage(error, "Branch name could not be saved."));
       setNameSaving(false);
     }
   }
@@ -187,7 +187,7 @@ function BusinessDetailsForAccount({
       await refreshProfile();
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "Legal business name couldn't be saved.")
+        getErrorMessage(error, "Legal business name could not be saved.")
       );
     } finally {
       setLegalSaving(false);
@@ -208,7 +208,7 @@ function BusinessDetailsForAccount({
         <section className="space-y-3" aria-labelledby="gym-brand-heading">
           <SettingsSectionHead
             id="gym-brand-heading"
-            title="Gym brand"
+            title="Gym name"
             description="Shared by every branch in your gym group. Your team sees this name in the branch menu. Registered business and invoice names are set separately below."
           />
           <Card>
@@ -221,7 +221,7 @@ function BusinessDetailsForAccount({
                 }}
               >
                 <div className="grid gap-2">
-                  <Label htmlFor="business-gym-brand">Gym brand</Label>
+                  <Label htmlFor="business-gym-brand">Gym name</Label>
                   <Input
                     id="business-gym-brand"
                     value={brandName}
@@ -232,19 +232,19 @@ function BusinessDetailsForAccount({
                 </div>
                 {!mayEditBrand ? (
                   <p className="text-muted-foreground text-sm">
-                    Ask a gym group owner to change the brand.
+                    Ask a gym group owner to change the gym name.
                   </p>
                 ) : null}
                 <GatedButton
                   type="submit"
                   canAct={mayEditBrand}
-                  gateReason="change the gym brand"
+                  gateReason="change the gym name"
                   disabled={
                     !trimmedBrandName || trimmedBrandName === gymBrandName
                   }
                   loading={brandSaving}
                 >
-                  Save gym brand
+                  Save gym name
                 </GatedButton>
               </form>
             </CardContent>
@@ -255,7 +255,7 @@ function BusinessDetailsForAccount({
           <SettingsSectionHead
             id="branch-name-heading"
             title="Branch name"
-            description="Only this branch. Your team sees it in the branch menu; changing it does not rename the gym brand, registered business, or past invoices."
+            description="Only this branch. Your team sees it in the branch menu; changing it does not rename the gym name, registered business, or past invoices."
           />
           <Card>
             <CardContent>

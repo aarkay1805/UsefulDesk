@@ -35,20 +35,20 @@ const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
 
 const PAYMENT_STATUSES: { value: PaymentStatus; label: string }[] = [
   { value: 'paid', label: 'Paid' },
-  { value: 'void', label: 'Voided' },
+  { value: 'void', label: 'Cancelled' },
 ];
 
 const PAYMENT_SOURCES: { value: PaymentSource; label: string }[] = [
   { value: 'manual', label: 'Manual' },
-  { value: 'auto', label: 'Auto-pay' },
+  { value: 'auto', label: 'AutoPay' },
 ];
 
 const PAYMENT_PURPOSES: { value: PaymentPurpose; label: string }[] = [
   { value: 'joining', label: 'New memberships' },
   { value: 'renewal', label: 'Renewals' },
   { value: 'sale', label: 'Products & services' },
-  { value: 'due', label: 'Due payments recovered' },
-  { value: 'other', label: 'Other collections' },
+  { value: 'due', label: 'Old dues collected' },
+  { value: 'other', label: 'Other money received' },
 ];
 
 export function FinancePaymentFilters({
@@ -136,7 +136,7 @@ export function FinancePaymentFilters({
           />
           <Separator className="my-3" />
           <FilterGroup
-            label="Payment purpose"
+            label="Paid for"
             options={PAYMENT_PURPOSES}
             selected={value.purposes}
             onToggle={(choice) => toggle('purposes', choice as PaymentPurpose)}
@@ -158,7 +158,7 @@ export function FinancePaymentFilters({
             options={staff}
             selected={value.recordedBy}
             onToggle={(choice) => toggle('recordedBy', choice)}
-            emptyHint="No teammates yet."
+            emptyHint="No team members yet."
           />
           <Separator className="my-3" />
           <div className="grid gap-3">

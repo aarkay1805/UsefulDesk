@@ -61,7 +61,7 @@ export default async function DashboardLayout({
       <CompleteSignupAccessError
         message={
           context.bootstrap.branchAccessError ??
-          "We couldn't verify your gym setup right now. Please retry."
+          "We could not verify your gym setup right now. Please retry."
         }
         retryHref={fallbackHref}
         retryCurrent={!fallbackHref}

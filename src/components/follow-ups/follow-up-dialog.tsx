@@ -38,7 +38,7 @@ import {
 
 /** The recovery a rejected create always names. */
 const ONE_OPEN_TASK =
-  'Only one open follow-up at a time — complete the current one first.';
+  'There is already an open follow-up. Mark it done first.';
 
 interface BaseFollowUpDialogProps {
   open: boolean;
@@ -201,7 +201,7 @@ function CreateFollowUpForm({
     const followUpAccountId = membership?.account_id ?? accountId;
     if (!followUpAccountId)
       return toast.error(
-        'Your session has expired. Sign in again to create this follow-up.'
+        'Your login has expired. Log in again to add this follow-up.'
       );
 
     setSaving(true);
@@ -228,7 +228,7 @@ function CreateFollowUpForm({
         toast.error(
           getErrorMessage(
             noteError,
-            "Couldn't add the note. Check your connection and try again."
+            "Could not add the note. Check your internet and try again."
           )
         );
         return;
@@ -264,7 +264,7 @@ function CreateFollowUpForm({
         toast.error(
           getErrorMessage(
             error,
-            `${prefix}The follow-up wasn't created. Try again.`
+            `${prefix}The follow-up was not created. Try again.`
           )
         );
       }
@@ -284,8 +284,8 @@ function CreateFollowUpForm({
         <DialogHeader>
           <DialogTitle>Create follow-up</DialogTitle>
           <DialogDescription>
-            Give {personLabel}&apos;s follow-up an owner, a due date, and an
-            optional note.
+            Choose who will follow up with {personLabel}, and when. A note is
+            optional.
           </DialogDescription>
         </DialogHeader>
         <div className="flex items-center justify-center py-10">

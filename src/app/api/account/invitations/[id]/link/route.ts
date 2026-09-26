@@ -90,7 +90,7 @@ export async function POST(
         error
       );
       return NextResponse.json(
-        { error: 'Failed to generate link' },
+        { error: 'Could not generate link' },
         { status: 500 }
       );
     }

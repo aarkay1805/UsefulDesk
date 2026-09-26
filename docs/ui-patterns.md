@@ -331,7 +331,7 @@ The lead/contact header never renders a WhatsApp consent action. Scoped consent 
 
 A note written in either surface is a real note. Both write a `contact_notes` row, link it through `follow_ups.note_id`, and copy its first 200 characters onto the task, so the timeline keeps the context after `CompleteFollowUpDialog` overwrites `follow_ups.note` with a closing note.
 
-The database allows one **open** follow-up per contact. `FollowUpDialog` reads that task when it opens and, if one exists, replaces the form with a **Follow-up already open** state — the task's `FollowUpTaskSummary`, its due date and due-state badge, and a **Complete follow-up** action that swaps in `CompleteFollowUpDialog` as a sibling dialog (never a dialog nested inside a dialog). Every rejected write still names the same recovery: _Only one open follow-up at a time — complete the current one first._
+The database allows one **open** follow-up per contact. `FollowUpDialog` reads that task when it opens and, if one exists, replaces the form with a **Follow-up already open** state — the task's `FollowUpTaskSummary`, its due date and due-state badge, and a **Complete follow-up** action that swaps in `CompleteFollowUpDialog` as a sibling dialog (never a dialog nested inside a dialog). Every rejected write still names the same recovery: _There is already an open follow-up. Mark it done first._
 
 The shared manual field set (`components/follow-ups/follow-up-fields.tsx`) uses one control recipe throughout: every value control — task type, due date, assignee, reminder — is an outline `Button size="sm"` menu trigger sitting under its own `Label size="sm"` caption inside a `role="group"`. Reason is the only exception, because a `ChipGroup` owns its full row. Never demote one of these fields to a ghost trigger or an inline label; the note composer and the standalone `FollowUpDialog` reach it only through `FollowUpComposer` and must not diverge.
 
@@ -379,7 +379,7 @@ and message name used by both Settings views. The view tabs are **Messages** and
 
 Use these exact message names: **Unpaid invoice reminders**, **Installment
 reminders**, **Promised payment reminder**, **AutoPay payment problems**,
-**Return after a membership pause**, **Invite expired members back**, and
+**Return after a membership freeze**, **Invite expired members back**, and
 **Invite members to renew a service**, and **Missed gym visits**. A row disclosure is always **Configure** /
 **Hide configuration**. Until message readiness is complete, show only a
 status Badge and the setup action—configuration and the On/Off switch do not

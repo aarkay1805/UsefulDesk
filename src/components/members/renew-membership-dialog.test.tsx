@@ -199,7 +199,7 @@ describe('RenewMembershipDialog shared checkout host', () => {
       variant: 'convert' as const,
       mode: 'convert',
       start: '2026-08-16',
-      button: 'Convert trial to member',
+      button: 'Add as member',
     },
   ])(
     'uses authoritative context for $variant',

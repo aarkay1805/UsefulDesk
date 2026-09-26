@@ -64,7 +64,7 @@ export function buildMemberBulkEditProperties(
     },
     {
       key: 'churnRisk',
-      label: 'Churn risk',
+      label: 'May leave',
       group: 'Member fields',
       editor: {
         kind: 'select',

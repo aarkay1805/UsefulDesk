@@ -23,7 +23,7 @@ export const templateStatusConfig: Record<
     classes: 'bg-slate-600/20 text-slate-foreground',
   },
   PENDING: {
-    label: 'Pending',
+    label: 'In review',
     classes: 'bg-yellow-600/20 text-yellow-foreground',
   },
   APPROVED: {
@@ -31,7 +31,7 @@ export const templateStatusConfig: Record<
     classes: 'bg-primary/20 text-primary-text',
   },
   REJECTED: {
-    label: 'Rejected',
+    label: 'Not approved',
     classes: 'bg-red-600/20 text-red-foreground',
   },
   PAUSED: {
@@ -39,21 +39,21 @@ export const templateStatusConfig: Record<
     classes: 'bg-orange-600/20 text-orange-foreground',
   },
   DISABLED: {
-    label: 'Disabled',
+    label: 'Turned off',
     classes: 'bg-red-900/30 text-red-foreground',
   },
   IN_APPEAL: {
-    label: 'In Appeal',
+    label: 'Appealed',
     classes: 'bg-blue-600/20 text-blue-foreground',
   },
   PENDING_DELETION: {
-    label: 'Pending Deletion',
+    label: 'Being deleted',
     classes: 'bg-slate-700/30 text-slate-foreground',
   },
 };
 
 const PROVIDER_MISSING_STATUS: TemplateStatusDisplay = {
-  label: 'Not on Meta',
+  label: 'Not on WhatsApp',
   classes: 'bg-red-600/20 text-red-foreground',
 };
 

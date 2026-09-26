@@ -32,7 +32,7 @@ export function ValidationPanel() {
     return (
       <div className="bg-background text-emerald-foreground flex items-center gap-2 rounded-lg border border-emerald-600/50 p-3 text-sm font-medium">
         <CircleCheck className="h-4 w-4 shrink-0" />
-        No issues. Ready to activate.
+        No problems. Ready to turn on.
       </div>
     );
   }
@@ -110,7 +110,7 @@ export function IssueLine({
           'hover:bg-muted/60 flex w-full items-start gap-2 rounded-md px-2 py-1 text-left text-xs transition-colors',
           tone
         )}
-        aria-label={`Jump to node ${issue.node_key}`}
+        aria-label={`Go to step ${issue.node_key}`}
       >
         {body}
       </button>

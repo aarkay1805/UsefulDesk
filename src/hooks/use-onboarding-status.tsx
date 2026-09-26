@@ -173,9 +173,9 @@ export function OnboardingProvider({
   const dismiss = useCallback(async () => {
     try {
       const ok = await persistDismissal();
-      if (!ok) throw new Error("You don't have permission to hide this page.");
+      if (!ok) throw new Error("You do not have permission to hide this page.");
     } catch (err) {
-      toast.error(getErrorMessage(err, "Couldn't hide the Get Started page."));
+      toast.error(getErrorMessage(err, "Could not hide the Get Started page."));
     }
   }, [persistDismissal]);
 

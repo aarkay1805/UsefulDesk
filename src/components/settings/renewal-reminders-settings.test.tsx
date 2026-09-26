@@ -904,11 +904,11 @@ describe('Automated messages catalogue', () => {
       expect(setup.getAttribute('aria-disabled')).toBe('true');
       fireEvent.click(setup);
       expect(
-        await screen.findByRole('dialog', { name: 'Admin access required' })
+        await screen.findByRole('dialog', { name: 'You do not have permission' })
       ).toBeTruthy();
       expect(
         screen.getByText(
-          'Only an admin or owner can change automated messages.'
+          'Only the owner or an admin can change automated messages.'
         )
       ).toBeTruthy();
       expect(screen.queryByText('This template needs setup')).toBeNull();
@@ -1094,7 +1094,7 @@ describe('Automated messages catalogue', () => {
     });
     expect(within(collections).getByText('Installment reminders')).toBeTruthy();
     expect(
-      within(collections).getByText('Managed by payment plan')
+      within(collections).getByText('Set by the installment plan')
     ).toBeTruthy();
     expect(
       screen.queryByRole('switch', { name: 'Installment reminders automation' })
@@ -1121,7 +1121,7 @@ describe('Automated messages catalogue', () => {
     render(<RenewalRemindersSettings />);
 
     const row = await screen.findByTestId('rule-row-joining_installments');
-    expect(within(row).getByText('Managed by payment plan')).toBeTruthy();
+    expect(within(row).getByText('Set by the installment plan')).toBeTruthy();
     expect(within(row).getByText('Not sent for review')).toBeTruthy();
     expect(within(row).queryByRole('switch')).toBeNull();
     expect(
@@ -1225,8 +1225,8 @@ describe('Automated messages access', () => {
       render(<RenewalRemindersSettings />);
 
       expect(await screen.findByText('Membership renewal')).toBeTruthy();
-      expect(screen.getByText('Read-only')).toBeTruthy();
-      expect(screen.queryByText('Automated messages couldn’t load')).toBeNull();
+      expect(screen.getByText('View only')).toBeTruthy();
+      expect(screen.queryByText('Automated messages could not load')).toBeNull();
       expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 
       const toggle = screen.getByRole('switch', {
@@ -1236,7 +1236,7 @@ describe('Automated messages access', () => {
       expect(toggle.getAttribute('aria-checked')).toBe('true');
       fireEvent.click(toggle);
       expect(
-        await screen.findByRole('dialog', { name: 'Admin access required' })
+        await screen.findByRole('dialog', { name: 'You do not have permission' })
       ).toBeTruthy();
       expect(toggle.getAttribute('aria-checked')).toBe('true');
       expect(patched()).toBe(false);
@@ -1270,7 +1270,7 @@ describe('Automated messages access', () => {
     expect(reminderDays).toHaveProperty('disabled', false);
     fireEvent.click(reminderDays);
     expect(
-      await screen.findByRole('dialog', { name: 'Admin access required' })
+      await screen.findByRole('dialog', { name: 'You do not have permission' })
     ).toBeTruthy();
     // Read-only users get the explanation, never the editable day chips.
     expect(
@@ -1310,16 +1310,16 @@ describe('Automated messages access', () => {
     fireEvent.click(
       await screen.findByRole('tab', { name: 'Message history' })
     );
-    expect(await screen.findByText('Admin access required')).toBeTruthy();
+    expect(await screen.findByText('You do not have permission')).toBeTruthy();
     expect(
-      screen.getByText('Ask an admin or owner to check message history.')
+      screen.getByText('Ask the owner or an admin to check message history.')
     ).toBeTruthy();
     expect(screen.queryByText('Activity content')).toBeNull();
-    expect(screen.queryByText('Read-only')).toBeNull();
+    expect(screen.queryByText('View only')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Messages' }));
-    expect(await screen.findByText('Read-only')).toBeTruthy();
+    expect(await screen.findByText('View only')).toBeTruthy();
   });
 
   it('shows admins the activity history', async () => {
@@ -1327,12 +1327,12 @@ describe('Automated messages access', () => {
     mockCatalogue([readyRule]);
     render(<RenewalRemindersSettings />);
 
-    expect(screen.queryByText('Read-only')).toBeNull();
+    expect(screen.queryByText('View only')).toBeNull();
     fireEvent.click(
       await screen.findByRole('tab', { name: 'Message history' })
     );
     expect(await screen.findByText('Activity content')).toBeTruthy();
-    expect(screen.queryByText('Admin access required')).toBeNull();
+    expect(screen.queryByText('You do not have permission')).toBeNull();
   });
 
   it('reviews a rule from Message history by opening it on Messages, focusing it, and scrolling to it', async () => {
@@ -1532,7 +1532,7 @@ describe('Automated messages setup guidance', () => {
       within(setup).getByRole('button', { name: 'Send 1 message for review' })
     );
     expect(
-      await screen.findByRole('dialog', { name: 'Admin access required' })
+      await screen.findByRole('dialog', { name: 'You do not have permission' })
     ).toBeTruthy();
     expect(calledUrls().some((url) => url.includes('submit-required'))).toBe(
       false

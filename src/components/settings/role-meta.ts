@@ -38,13 +38,13 @@ export const ROLE_META: Record<
   },
   agent: {
     icon: UserCog,
-    label: 'Agent',
+    label: 'Staff',
     variant: 'muted',
     className: 'border-border bg-muted text-muted-foreground',
   },
   viewer: {
     icon: UserIcon,
-    label: 'Viewer',
+    label: 'View only',
     variant: 'muted',
     // Outline-only so it stays quieter than the filled Agent chip in
     // both modes — bg-card would blend into a card surface in light mode.

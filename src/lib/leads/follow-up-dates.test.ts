@@ -27,9 +27,9 @@ describe('followUpDueLabel', () => {
     );
   });
 
-  it('falls back to "Task" for unknown types', () => {
+  it('falls back to "Follow-up" for unknown types', () => {
     expect(followUpDueLabel('mystery', '2026-07-09', today)).toBe(
-      'Task due today'
+      'Follow-up due today'
     );
   });
 });

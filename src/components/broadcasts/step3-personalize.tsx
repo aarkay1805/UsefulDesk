@@ -26,7 +26,7 @@ interface Step3Props {
   template: MessageTemplate;
   variables: Record<string, VariableMapping>;
   onUpdate: (variables: Record<string, VariableMapping>) => void;
-  /** Media URL for an IMAGE/VIDEO/DOCUMENT header, when the template has one. */
+  /** Link to image or file for an IMAGE/VIDEO/DOCUMENT header, when the template has one. */
   headerMediaUrl: string;
   onHeaderMediaUrlChange: (url: string) => void;
   onNext: () => void;
@@ -50,9 +50,9 @@ function isValidHttpUrl(value: string): boolean {
 }
 
 const contactFields = [
-  { value: 'name', label: 'Contact Name' },
-  { value: 'phone', label: 'Phone Number' },
-  { value: 'email', label: 'Email Address' },
+  { value: 'name', label: 'Name' },
+  { value: 'phone', label: 'Phone number' },
+  { value: 'email', label: 'Email' },
   { value: 'company', label: 'Company' },
 ];
 
@@ -60,10 +60,10 @@ const SAMPLE_CONTACT: Contact = {
   id: 'sample',
   user_id: '',
   account_id: '',
-  name: 'John Doe',
+  name: 'Ravi Kumar',
   phone: '+1234567890',
   email: 'john@example.com',
-  company: 'Acme Corp',
+  company: 'Iron Gym',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
@@ -87,7 +87,7 @@ export function Step3Personalize({
   const [loadingPreview, setLoadingPreview] = useState(true);
 
   // Load user's custom fields + a representative contact for the
-  // live preview. Fall back to sample data if no contacts exist yet.
+  // live preview. Fall back to example if no contacts exist yet.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -236,17 +236,16 @@ export function Step3Personalize({
 
   const previewLabel = firstContact
     ? firstContact.name || fmt.phone(firstContact.phone)
-    : 'sample data';
+    : 'example';
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-foreground text-lg font-semibold">
-          Personalize Message
+          Fill in the message
         </h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Map template variables to contact fields, custom fields, or static
-          values.
+          Choose what goes in each blank, like the person’s name or a fixed text.
         </p>
       </div>
 
@@ -254,13 +253,13 @@ export function Step3Personalize({
         <div className="border-border bg-card/50 rounded-xl border p-4">
           <div className="mb-3 flex items-center gap-2">
             <ImageIcon className="text-primary-text h-4 w-4" />
-            <p className="text-foreground text-sm font-medium">Header media</p>
+            <p className="text-foreground text-sm font-medium">Top image or file</p>
             <span className="bg-primary/10 text-primary-text inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium uppercase">
               {mediaHeaderType}
             </span>
           </div>
           <label className="text-muted-foreground mb-1.5 block text-xs font-medium">
-            Media URL
+            Link to image or file
           </label>
           <Input
             type="url"
@@ -276,8 +275,7 @@ export function Step3Personalize({
             className="border-border text-foreground placeholder:text-muted-foreground"
           />
           <p className="text-muted-foreground mt-1.5 text-xs">
-            Public URL of the {mediaHeaderType} sent as the message header. Used
-            for every recipient in this broadcast.
+            Public URL of the {mediaHeaderType} shown at the top of the message. Everyone gets the same one.
           </p>
           {mediaHeaderType === 'image' &&
             headerMediaError === null &&
@@ -292,8 +290,8 @@ export function Step3Personalize({
           {headerMediaError && (
             <p className="text-amber-foreground mt-1.5 text-xs">
               {headerMediaError === 'missing'
-                ? 'A media URL is required to send this template.'
-                : 'Enter a valid http(s) URL.'}
+                ? 'Add a link to the image or file.'
+                : 'Enter a full link that starts with https://'}
             </p>
           )}
         </div>
@@ -302,7 +300,7 @@ export function Step3Personalize({
       {placeholders.length === 0 && !mediaHeaderType ? (
         <div className="border-border bg-card/50 rounded-xl border p-6 text-center">
           <p className="text-muted-foreground text-sm">
-            This template has no variables to personalize.
+            This message has no blanks to fill.
           </p>
         </div>
       ) : placeholders.length === 0 ? null : (
@@ -325,7 +323,7 @@ export function Step3Personalize({
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
                     <label className="text-muted-foreground mb-1.5 block text-xs font-medium">
-                      Mapping Type
+                      Fill with
                     </label>
                     <Select
                       value={mapping.type}
@@ -340,10 +338,10 @@ export function Step3Personalize({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="border-border bg-popover">
-                        <SelectItem value="static">Static Value</SelectItem>
-                        <SelectItem value="field">Contact Field</SelectItem>
+                        <SelectItem value="static">Same text for everyone</SelectItem>
+                        <SelectItem value="field">Person’s detail</SelectItem>
                         <SelectItem value="custom_field">
-                          Custom Field
+                          Extra detail
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -359,7 +357,7 @@ export function Step3Personalize({
                         onChange={(e) =>
                           updateVariable(key, { value: e.target.value })
                         }
-                        placeholder="Enter value..."
+                        placeholder="Enter text…"
                         className="border-border text-foreground placeholder:text-muted-foreground"
                       />
                     ) : mapping.type === 'field' ? (
@@ -370,7 +368,7 @@ export function Step3Personalize({
                         }
                       >
                         <SelectTrigger className="border-border text-foreground w-full">
-                          <SelectValue placeholder="Select field..." />
+                          <SelectValue placeholder="Choose a detail…" />
                         </SelectTrigger>
                         <SelectContent className="border-border bg-popover">
                           {contactFields.map((field) => (
@@ -393,8 +391,8 @@ export function Step3Personalize({
                               loadingFields
                                 ? 'Loading…'
                                 : customFields.length === 0
-                                  ? 'No custom fields'
-                                  : 'Select custom field…'
+                                  ? 'No extra details'
+                                  : 'Choose an extra detail…'
                             }
                           />
                         </SelectTrigger>
@@ -415,12 +413,12 @@ export function Step3Personalize({
         </div>
       )}
 
-      {/* Live Preview — rendered as a WhatsApp-style bubble so the user
+      {/* Preview — rendered as a WhatsApp-style bubble so the user
           sees approximately what the recipient will see. */}
       <div className="border-border bg-card/50 rounded-xl border p-4">
         <div className="mb-3 flex items-center gap-2">
           <Eye className="text-primary-text h-4 w-4" />
-          <p className="text-foreground text-sm font-medium">Live Preview</p>
+          <p className="text-foreground text-sm font-medium">Preview</p>
           <span className="text-muted-foreground text-xs">
             ({previewLabel})
           </span>
@@ -439,11 +437,11 @@ export function Step3Personalize({
 
       {unmappedKeys.length > 0 && (
         <div className="text-amber-foreground rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
-          Map every placeholder before continuing — still missing{' '}
+          Fill every blank before you continue. Still empty:{' '}
           <span className="font-mono font-semibold">
             {unmappedKeys.join(', ')}
           </span>
-          . Otherwise those placeholders will ship to Meta as empty strings.
+          . Empty blanks will be sent as empty text.
         </div>
       )}
 

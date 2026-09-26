@@ -196,7 +196,7 @@ describe('dashboard auth bootstrap', () => {
 
     expect(result.profile).toBeNull();
     expect(result.account).toBeNull();
-    expect(result.branchAccessError).toMatch(/archived/i);
+    expect(result.branchAccessError).toMatch(/closed/i);
     expect(from.mock.calls.filter(([table]) => table === 'accounts')).toEqual(
       []
     );
@@ -229,7 +229,7 @@ describe('dashboard auth bootstrap', () => {
 
     expect(result.organizationNameSetupState).toBe('unavailable');
     expect(result.branchAccessError).toBe(
-      'Could not verify your gym setup. Please retry.'
+      'We could not check your gym setup. Try again.'
     );
     expect(result.account?.id).toBe(ACCOUNT_ID);
   });

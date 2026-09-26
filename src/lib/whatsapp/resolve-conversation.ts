@@ -123,7 +123,7 @@ export async function resolveConversationByPhone(
         } else {
           throw new SendMessageError(
             'db_error',
-            'Failed to create contact',
+            'Could not create contact',
             500
           );
         }
@@ -173,7 +173,7 @@ async function findOrCreateConversationRow(
     console.error('[resolve-conversation] conversation lookup error:', findErr);
     throw new SendMessageError(
       'db_error',
-      'Failed to resolve conversation',
+      'Could not resolve conversation',
       500
     );
   }
@@ -206,7 +206,7 @@ async function findOrCreateConversationRow(
     console.error('[resolve-conversation] conversation create error:', convErr);
     throw new SendMessageError(
       'db_error',
-      'Failed to create conversation',
+      'Could not create conversation',
       500
     );
   }

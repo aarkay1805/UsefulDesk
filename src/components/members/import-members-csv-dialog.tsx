@@ -165,7 +165,7 @@ type Step = 1 | 2 | 3 | 4;
 const SAMPLE_LIMIT = 3;
 const CUSTOM_VALUE_CHUNK = 100;
 const IMPORT_RULES =
-  'Resolve every included row before confirming. Corrections change this import draft; members and payments are saved when you select Import. Plan and service matches apply to the rows named in the correction. Excluded rows will not be imported. Review automatic exclusions and notices before continuing.';
+  'Fix every row before you confirm. Your fixes are saved in this draft. Members and payments are saved only when you click Import. Rows you skip are not added.';
 const DATE_KEYS = new Set([
   'start_date',
   'end_date',
@@ -339,7 +339,7 @@ export function ImportMembersCsvDialog({
       ]);
       if (cancelled) return;
       if (itemsResult.error || trainersResult.error) {
-        toast.error('Could not load services and trainers for import.');
+        toast.error('Could not load services and trainers.');
         setCatalogItems([]);
         setTrainers([]);
         setTrainerRates([]);
@@ -390,16 +390,16 @@ export function ImportMembersCsvDialog({
   const mappingIssue = useMemo(() => {
     if (validation.ok) return null;
     const parts: string[] = [];
-    if (!validation.phoneMapped) parts.push('Map a column to Phone.');
+    if (!validation.phoneMapped) parts.push('Choose which column has the phone number.');
     if (!validation.planMapped) {
-      parts.push('Map a column to Membership plan, Service, or Offering.');
+      parts.push('Choose which column has the plan or service.');
     }
     if (validation.duplicateTargets.length > 0) {
       const labels = validation.duplicateTargets.map(
         (key) => targetByKey.get(key)?.label ?? key
       );
       parts.push(
-        `${labels.join(', ')} ${labels.length === 1 ? 'is' : 'are'} mapped to more than one column.`
+        `${labels.join(', ')} ${labels.length === 1 ? 'is' : 'are'} picked for more than one column.`
       );
     }
     return parts.join(' ');
@@ -662,7 +662,7 @@ export function ImportMembersCsvDialog({
         warning?: string;
       };
       if (!response.ok || !data.recipe) {
-        throw new Error(data.error || 'Could not analyze this file');
+        throw new Error(data.error || 'Could not read this file');
       }
       setSuggestedRecipe(data.recipe);
       setRaw(input);
@@ -670,7 +670,7 @@ export function ImportMembersCsvDialog({
       setStep(2);
       if (!data.configured) {
         toast.info(
-          'Columns were matched by name. Review the suggested member fields before continuing.'
+          'Columns were matched by their names. Check them before you continue.'
         );
       } else if (data.warning) {
         toast.warning(data.warning);
@@ -682,14 +682,14 @@ export function ImportMembersCsvDialog({
       setMapping(mappingForRecipe(input, fallback, customFields));
       setStep(2);
       toast.warning(
-        `${getErrorMessage(error, 'Column matching unavailable')} Columns were matched by name instead. Review the suggestions before continuing.`
+        `${getErrorMessage(error, 'Automatic matching is not working')} Columns were matched by their names. Check them before you continue.`
       );
     } finally {
       setAnalyzing(false);
     }
   }
 
-  // Single bulk action behind the mapping table's "Match by name": re-derive every
+  // Single bulk action behind the mapping table's "Match for me": re-derive every
   // column from its header name, which necessarily discards a suggested recipe.
   function remapFromColumnNames() {
     const source = sourceRaw ?? raw;
@@ -846,8 +846,8 @@ export function ImportMembersCsvDialog({
     if (!kind) {
       toast.error(
         selected.name.toLowerCase().endsWith('.xls')
-          ? 'Legacy .xls files are not supported. Save the workbook as .xlsx or .csv and try again.'
-          : 'Unsupported file. Choose a .csv or .xlsx file.'
+          ? 'Old .xls files do not work. In Excel, save the file as .xlsx or .csv and try again.'
+          : 'This file type does not work. Choose a .csv or .xlsx file.'
       );
       return false;
     }
@@ -883,7 +883,7 @@ export function ImportMembersCsvDialog({
         if (sequence !== fileReadSequence.current) return false;
         if (parsed.headers.length === 0 || parsed.rows.length === 0) {
           throw new MemberImportFileError(
-            'No rows found. Ensure the file has a header row and data.'
+            'No rows found. The first row of the file must have column names.'
           );
         }
         const prepared = prepareRawTable(parsed);
@@ -919,7 +919,7 @@ export function ImportMembersCsvDialog({
           const firstUsable = sheets.find((sheet) => sheet.raw);
           if (!firstUsable) {
             throw new MemberImportFileError(
-              sheets[0]?.error ?? 'No usable worksheets found in this workbook.'
+              sheets[0]?.error ?? 'No sheet in this file has member data.'
             );
           }
         }
@@ -936,7 +936,7 @@ export function ImportMembersCsvDialog({
             resetWorkingImport();
           }
           toast.error(
-            'Couldn’t save the private import draft. Choose your file again to retry.'
+            'Could not save your progress. Choose your file again to try again.'
           );
           return false;
         }
@@ -975,7 +975,7 @@ export function ImportMembersCsvDialog({
   ) {
     if (!saved.signedUrl) {
       setResumeError(
-        'The saved file could not be opened. Reload the draft to try again, or start fresh with your original file.'
+        'Could not open the saved file. Reload to try again, or start again with your file.'
       );
       return false;
     }
@@ -983,13 +983,13 @@ export function ImportMembersCsvDialog({
     setResumeError(null);
     try {
       const response = await fetch(saved.signedUrl, { cache: 'no-store' });
-      if (!response.ok) throw new Error('Private workbook download failed');
+      if (!response.ok) throw new Error('Could not load the saved file');
       const bytes = await response.arrayBuffer();
       if (
         saved.sourceSize !== undefined &&
         bytes.byteLength !== saved.sourceSize
       ) {
-        throw new Error('Saved workbook size no longer matches its draft');
+        throw new Error('The saved file has changed');
       }
       if (saved.sourceSha256) {
         const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -997,7 +997,7 @@ export function ImportMembersCsvDialog({
           .map((value) => value.toString(16).padStart(2, '0'))
           .join('');
         if (actual !== saved.sourceSha256) {
-          throw new Error('Saved workbook content no longer matches its draft');
+          throw new Error('The saved file has changed');
         }
       }
       const source = new File([bytes], saved.sourceFilename, {
@@ -1014,7 +1014,7 @@ export function ImportMembersCsvDialog({
       return restored;
     } catch (error) {
       setResumeError(
-        `${getErrorMessage(error, 'Could not resume the saved import')}. Reload the draft to try again, or start fresh with your original file.`
+        `${getErrorMessage(error, 'Could not continue the saved import')}. Reload to try again, or start again with your file.`
       );
       return false;
     } finally {
@@ -1079,14 +1079,14 @@ export function ImportMembersCsvDialog({
         )
     );
     if (reserved) {
-      return toast.error('That name is already a standard member field.');
+      return toast.error('A member detail with this name already exists.');
     }
     if (
       customFields.some(
         (field) => normalizeImportHeader(field.field_name) === normalized
       )
     ) {
-      return toast.error('A custom field with that name already exists.');
+      return toast.error('An extra detail with this name already exists.');
     }
 
     setSavingField(true);
@@ -1102,14 +1102,14 @@ export function ImportMembersCsvDialog({
       .single();
     setSavingField(false);
     if (error || !data) {
-      toast.error(getErrorMessage(error, 'Could not create the custom field'));
+      toast.error(getErrorMessage(error, 'Could not add the extra detail'));
       return;
     }
     const created = data as CustomFieldRef;
     setCustomFields((current) => [...current, created]);
     setColumn(createCol, `custom:${created.id}`);
     setCreateCol(null);
-    toast.success(`Created “${created.field_name}”`);
+    toast.success(`Added “${created.field_name}”`);
   }
 
   async function buildPreview() {
@@ -1143,7 +1143,7 @@ export function ImportMembersCsvDialog({
         if (recipe.legacyId !== 'exclude' && legacyMemberId) {
           originalValues.notes = [
             originalValues.notes,
-            `Legacy Member ID: ${legacyMemberId}`,
+            `Old Member ID: ${legacyMemberId}`,
           ]
             .filter(Boolean)
             .join(' · ');
@@ -1191,13 +1191,13 @@ export function ImportMembersCsvDialog({
         !validateDraftState({ ...draftState, candidates: nextCandidates }).ok
       ) {
         throw new Error(
-          'This import is too large to keep resumable. Split the report into smaller files and import them one at a time.'
+          'This file is too big. Split it into smaller files and add them one by one.'
         );
       }
       setCandidates(nextCandidates);
       setStep(3);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not prepare the preview'));
+      toast.error(getErrorMessage(error, 'Could not show the preview'));
     } finally {
       setLoadingPreview(false);
     }
@@ -1280,7 +1280,7 @@ export function ImportMembersCsvDialog({
       toast.error(
         getErrorMessage(
           error,
-          'Could not refresh matching contacts. Review the row again before importing.'
+          'Could not check for people already saved. Check the row again before you import.'
         )
       );
     }
@@ -1293,7 +1293,7 @@ export function ImportMembersCsvDialog({
       const importJobId = draftManager.draft?.id;
       if (!importJobId) {
         throw new Error(
-          'Save this private import draft before importing members.'
+          'Your progress is not saved yet. Save it before you import.'
         );
       }
       const journalOwnedSourceKeys = new Set(
@@ -1359,14 +1359,14 @@ export function ImportMembersCsvDialog({
       ) {
         setStep(3);
         toast.warning(
-          'Contact matching changed. Review the affected rows before importing.'
+          'Some rows now match people already saved. Check those rows before you import.'
         );
         return;
       }
       setImportProgress({
         completed: 0,
         total: Math.max(1, enrichmentCandidates.length),
-        label: 'Preparing member import…',
+        label: 'Getting ready…',
       });
       if (
         !validateDraftState({
@@ -1379,7 +1379,7 @@ export function ImportMembersCsvDialog({
         }).ok
       ) {
         throw new Error(
-          'This import is too large to keep resumable. Split the report into smaller files and import them one at a time.'
+          'This file is too big. Split it into smaller files and add them one by one.'
         );
       }
       const allTagNames = enrichmentCandidates.flatMap(
@@ -1418,7 +1418,7 @@ export function ImportMembersCsvDialog({
             }).ok
           ) {
             toast.error(
-              'This import is too large to keep resumable. Split the report into smaller files and import them one at a time.'
+              'This file is too big. Split it into smaller files and add them one by one.'
             );
             return false;
           }
@@ -1449,7 +1449,7 @@ export function ImportMembersCsvDialog({
             }).ok
           ) {
             toast.error(
-              'This import is too large to keep resumable. Split the report into smaller files and import them one at a time.'
+              'This file is too big. Split it into smaller files and add them one by one.'
             );
             return false;
           }
@@ -1496,7 +1496,7 @@ export function ImportMembersCsvDialog({
             disposition: 'excluded' as const,
             memberOutcome: 'not-processed' as const,
             paymentOutcome: 'not-processed' as const,
-            reason: candidate.exclusionReason ?? 'Excluded by reviewer',
+            reason: candidate.exclusionReason ?? 'Skipped by you',
             contactId: null,
             membershipId: null,
           };
@@ -1507,7 +1507,7 @@ export function ImportMembersCsvDialog({
             disposition: 'unresolved' as const,
             memberOutcome: 'not-processed' as const,
             paymentOutcome: 'not-processed' as const,
-            reason: 'Resolve this row before importing',
+            reason: 'Fix this row before you import',
             contactId: null,
             membershipId: null,
           };
@@ -1521,7 +1521,7 @@ export function ImportMembersCsvDialog({
             paymentOutcome: candidate.built.payment
               ? ('failed' as const)
               : ('not-requested' as const),
-            reason: group?.error ?? 'Customer transaction failed',
+            reason: group?.error ?? 'Could not save this member',
             contactId: null,
             membershipId: null,
           };
@@ -1620,7 +1620,7 @@ export function ImportMembersCsvDialog({
       }
       if (conflictingCustomValues > 0) {
         toast.warning(
-          `Used the value from the last source row for ${conflictingCustomValues} conflicting contact custom value${conflictingCustomValues === 1 ? '' : 's'}.`
+          `${conflictingCustomValues} extra ${conflictingCustomValues === 1 ? 'detail had' : 'details had'} different values in your file. We kept the value from the last row.`
         );
       }
       let tagsAssigned = 0;
@@ -1633,7 +1633,7 @@ export function ImportMembersCsvDialog({
         );
       } catch {
         tagsFailed = tagAssignments.length;
-        toast.warning('Members imported, but some tag assignments failed.');
+        toast.warning('Members added, but some tags were not added.');
       }
       const successfulGroups = transaction.groups.filter(
         (group) => group.status === 'imported'
@@ -1687,7 +1687,7 @@ export function ImportMembersCsvDialog({
       });
       if (!receiptSaved) {
         toast.warning(
-          'Import results need saving before this draft can close.'
+          'The results are still being saved. Wait before closing.'
         );
       }
       if (
@@ -1700,7 +1700,7 @@ export function ImportMembersCsvDialog({
         const cleaned = await draftManager.discard();
         if (!cleaned) {
           toast.warning(
-            'Import completed, but the saved draft still needs cleanup.'
+            'Import done, but the saved draft could not be cleared.'
           );
         }
       }
@@ -1708,31 +1708,31 @@ export function ImportMembersCsvDialog({
       if (skippedNames.length > 0) {
         const sample = skippedNames.slice(0, 3).join(', ');
         toast.info(
-          `Unknown tags skipped: ${sample}${skippedNames.length > 3 ? ` (+${skippedNames.length - 3} more)` : ''}`
+          `These tags do not exist, so they were skipped: ${sample}${skippedNames.length > 3 ? ` (+${skippedNames.length - 3} more)` : ''}`
         );
       }
     } catch (error) {
       setImportProgress((current) =>
         current
-          ? { ...current, label: 'Import stopped before completion.' }
+          ? { ...current, label: 'The import stopped before it finished.' }
           : current
       );
-      toast.error(getErrorMessage(error, 'Member import failed'));
+      toast.error(getErrorMessage(error, 'Could not import members'));
     } finally {
       setImporting(false);
     }
   }
 
   const descriptions: Record<Step, string> = {
-    1: 'Upload a file, then review its columns and rows before importing.',
-    2: 'Match file columns to member fields. Choose “Don’t import” to skip a column.',
-    3: 'Fix each issue or exclude its rows before continuing.',
-    4: 'Review the totals, then import the included rows.',
+    1: 'Upload your member file. You will check it before anything is saved.',
+    2: 'Tell us what each column means. Choose “Skip this column” to leave it out.',
+    3: 'Fix each problem, or skip those rows.',
+    4: 'Check the totals, then import.',
   };
   const currentDescription = descriptions[step];
   const resolveSourceSummary =
     !result && step === 3
-      ? `${file?.name ?? draftManager.draft?.sourceFilename ?? 'Import worksheet'} · ${fmt.number(candidateSummary.source)} source rows`
+      ? `${file?.name ?? draftManager.draft?.sourceFilename ?? 'Member file'} · ${fmt.number(candidateSummary.source)} rows in file`
       : null;
   /* The two-pane resolve workspace, as opposed to a single scrolling step.
      The result panel replaces the step content, so it is not one. */
@@ -1745,13 +1745,13 @@ export function ImportMembersCsvDialog({
     Boolean(resumeError);
   const draftStatusLabel =
     draftManager.saveState === 'saving'
-      ? 'Saving draft…'
+      ? 'Saving progress…'
       : draftManager.saveState === 'saved'
-        ? 'Draft saved'
+        ? 'Progress saved'
         : draftManager.saveState === 'conflict'
-          ? 'Saved draft changed elsewhere'
+          ? 'Draft changed on another screen'
           : draftManager.saveState === 'error'
-            ? 'Couldn’t save draft'
+            ? 'Could not save progress'
             : draftManager.saveState === 'loading' || resumingDraft
               ? 'Loading saved draft…'
               : '';
@@ -1761,7 +1761,7 @@ export function ImportMembersCsvDialog({
     draftManager.draft ? (
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-destructive text-xs">
-          {draftManager.lastError ?? 'Couldn’t save draft.'}
+          {draftManager.lastError ?? 'Could not save your progress.'}
         </span>
         <Button
           type="button"
@@ -1771,7 +1771,7 @@ export function ImportMembersCsvDialog({
           disabled={draftAction !== null}
           onClick={() => void retryDraftSave()}
         >
-          Retry saving
+          Try saving again
         </Button>
         <Button
           type="button"
@@ -1779,13 +1779,13 @@ export function ImportMembersCsvDialog({
           size="sm"
           onClick={() => setStartFreshConfirm(true)}
         >
-          Discard draft
+          Delete draft
         </Button>
       </div>
     ) : draftManager.saveState === 'conflict' && draftManager.draft ? (
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-destructive text-xs">
-          This draft changed elsewhere. Reloading replaces your unsaved changes.
+          This draft was changed on another screen. Reloading will remove your unsaved changes.
         </span>
         <Button
           type="button"
@@ -1803,7 +1803,7 @@ export function ImportMembersCsvDialog({
           size="sm"
           onClick={() => setStartFreshConfirm(true)}
         >
-          Start fresh
+          Start again
         </Button>
       </div>
     ) : resumeError && draftManager.draft ? (
@@ -1824,7 +1824,7 @@ export function ImportMembersCsvDialog({
           size="sm"
           onClick={() => setStartFreshConfirm(true)}
         >
-          Start fresh
+          Start again
         </Button>
       </div>
     ) : draftManager.draft && !result ? (
@@ -1843,7 +1843,7 @@ export function ImportMembersCsvDialog({
           size="sm"
           onClick={() => setStartFreshConfirm(true)}
         >
-          Start fresh
+          Start again
         </Button>
       </div>
     ) : null;
@@ -1892,7 +1892,7 @@ export function ImportMembersCsvDialog({
           className={cn('break-words', !result && step > 1 && 'pl-9')}
           aria-live="polite"
         >
-          {result ? 'Review your import results below.' : currentDescription}
+          {result ? 'See the results below.' : currentDescription}
         </DialogDescription>
       </DialogHeader>
       {!result && <StepIndicator step={step} />}
@@ -1954,7 +1954,7 @@ export function ImportMembersCsvDialog({
           }
           onClick={() => setStep(4)}
         >
-          Review import
+          Check import
         </Button>
       )}
 
@@ -2007,13 +2007,13 @@ export function ImportMembersCsvDialog({
             disabled={readingFile || analyzing}
             onClick={() => setStep(2)}
           >
-            Map manually
+            Match by hand
           </Button>
         ) : null}
         {!result && !uploadStep && (
           <Popover>
             <PopoverTrigger render={<Button variant="ghost" size="sm" />}>
-              <Info /> Import rules
+              <Info /> How import works
             </PopoverTrigger>
             <PopoverContent side="top" align="end" className="w-80">
               <p className="text-sm font-medium">Before you import</p>
@@ -2050,7 +2050,7 @@ export function ImportMembersCsvDialog({
           {resolveWorkspace ? (
             <div
               role="region"
-              aria-label="Resolve issues content"
+              aria-label="Problems to fix"
               className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
               <ImportMembersPreview
@@ -2261,15 +2261,14 @@ export function ImportMembersCsvDialog({
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Create custom field</DialogTitle>
+            <DialogTitle>Add extra detail</DialogTitle>
             <DialogDescription>
-              Creates a field for all contacts now, then maps this column to it.
-              Values are filled when you import.
+              Adds a new detail for all members, and uses this column for it. Values are saved when you import.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
             <div className="space-y-1.5">
-              <Label htmlFor="member-import-field-name">Field name</Label>
+              <Label htmlFor="member-import-field-name">Name</Label>
               <Input
                 id="member-import-field-name"
                 value={newFieldName}
@@ -2277,7 +2276,7 @@ export function ImportMembersCsvDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="member-import-field-type">Data type</Label>
+              <Label htmlFor="member-import-field-type">Type</Label>
               <Select
                 value={newFieldType}
                 onValueChange={(value) => value && setNewFieldType(value)}
@@ -2309,7 +2308,7 @@ export function ImportMembersCsvDialog({
               onClick={saveCustomField}
             >
               {savingField && <Loader2 className="size-4 animate-spin" />}
-              Create & map
+              Add and use
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2318,11 +2317,11 @@ export function ImportMembersCsvDialog({
       <Dialog open={startFreshConfirm} onOpenChange={setStartFreshConfirm}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Start a fresh import?</DialogTitle>
+            <DialogTitle>Start again?</DialogTitle>
             <DialogDescription>
-              This deletes the saved progress and private uploaded file for{' '}
+              This deletes the saved progress and uploaded file for{' '}
               {draftManager.draft?.sourceFilename ?? 'this import'}. It does not
-              affect another teammate or branch.
+              affect another team member or branch.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -2341,7 +2340,7 @@ export function ImportMembersCsvDialog({
               loading={draftAction === 'discarding'}
               disabled={draftAction === 'discarding'}
             >
-              Delete draft and start fresh
+              Delete and start again
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2359,9 +2358,9 @@ function ImportStepBody({ children }: { children: React.ReactNode }) {
 }
 
 function StepIndicator({ step }: { step: Step }) {
-  const labels = ['Upload', 'Map columns', 'Resolve issues', 'Confirm'];
+  const labels = ['Upload', 'Match columns', 'Fix problems', 'Confirm'];
   return (
-    <ol aria-label="Import progress" className="flex items-center gap-2">
+    <ol aria-label="Import steps" className="flex items-center gap-2">
       {labels.map((label, index) => {
         const number = (index + 1) as Step;
         const active = number === step;
@@ -2511,7 +2510,7 @@ function UploadStep({
                   size="sm"
                   onClick={onStartFresh}
                 >
-                  Start fresh
+                  Start again
                 </Button>
               )}
             </div>
@@ -2524,7 +2523,7 @@ function UploadStep({
             <div className="space-y-1">
               <p className="text-sm font-medium">Choose your member file</p>
               <p className="text-muted-foreground text-sm">
-                CSV or Excel (.xlsx), in any column order.
+                CSV or Excel (.xlsx). Columns can be in any order.
               </p>
             </div>
             <Button
@@ -2546,7 +2545,7 @@ function UploadStep({
                     size="sm"
                     onClick={onStartFresh}
                   >
-                    Start fresh
+                    Start again
                   </Button>
                 )}
               </div>
@@ -2557,13 +2556,13 @@ function UploadStep({
       </div>
       {workbookSheets.length > 1 && (
         <div className="space-y-1.5">
-          <Label htmlFor="member-import-worksheet">Worksheet</Label>
+          <Label htmlFor="member-import-worksheet">Sheet</Label>
           <Select
             value={selectedSheet || undefined}
             onValueChange={(value) => value && onWorksheetChange(value)}
           >
             <SelectTrigger id="member-import-worksheet" className="w-full">
-              <SelectValue placeholder="Choose a worksheet" />
+              <SelectValue placeholder="Choose a sheet" />
             </SelectTrigger>
             <SelectContent>
               {workbookSheets.map((sheet) => (
@@ -2581,18 +2580,18 @@ function UploadStep({
           {usableSheetCount === 0 ? (
             <p className="text-destructive text-xs">
               {unavailableSheets[0]?.error ??
-                'No worksheet has both a header row and usable member data.'}
+                'No sheet has column names and member data.'}
             </p>
           ) : (
             <>
               <p className="text-muted-foreground text-xs">
-                Select the worksheet that contains your member table.
+                Pick the sheet that has your members.
               </p>
               {unavailableSheets.length > 0 && (
                 <p className="text-amber-foreground text-xs">
                   {unavailableSheets[0].error}
                   {unavailableSheets.length > 1
-                    ? ` ${unavailableSheets.length - 1} more worksheet${unavailableSheets.length === 2 ? ' is' : 's are'} unavailable.`
+                    ? ` ${unavailableSheets.length - 1} more ${unavailableSheets.length === 2 ? 'sheet has' : 'sheets have'} no member data.`
                     : ''}
                 </p>
               )}
@@ -2608,16 +2607,14 @@ function UploadStep({
       <Accordion>
         <AccordionItem value="file-guidance">
           <AccordionTrigger>
-            File requirements &amp; import rules
+            What your file needs
           </AccordionTrigger>
           <AccordionContent>
             <div className="text-muted-foreground space-y-3">
               <p>
-                Include a phone number for every member, plus their plan or
-                service details. You can check the matched columns before
-                importing.
+                Every member needs a phone number and a plan or service. You can check everything before you import.
               </p>
-              <p>For legacy .xls files, save as .xlsx or .csv.</p>
+              <p>Old .xls file? Save it as .xlsx or .csv first.</p>
               <Button
                 type="button"
                 variant="link"
@@ -2626,15 +2623,13 @@ function UploadStep({
                   downloadCsv('members-template.csv', MEMBER_TEMPLATE_CSV)
                 }
               >
-                <Download /> Download sample CSV
+                <Download /> Download sample file
               </Button>
               <p>
-                Your file and progress are saved in a private draft. Close this
-                window and reopen Import to continue later.
+                Your file and progress are saved. You can close this and continue later from Import.
               </p>
               <p>
-                Column matching uses headers and summary counts. Names, phone
-                numbers, notes, and raw values are not sent for analysis.
+                To match columns, we only look at column names and counts. Names, phone numbers, and notes are not shared.
               </p>
               <p>{IMPORT_RULES}</p>
             </div>
@@ -2709,12 +2704,12 @@ function MappingStep({
       .filter((target) => !registered.has(target.key))
       .map((target) => ({ value: target.key, label: target.label }));
     return [
-      { options: [{ value: MEMBER_IGNORE_KEY, label: "Don't import" }] },
+      { options: [{ value: MEMBER_IGNORE_KEY, label: "Skip this column" }] },
       ...MEMBER_IMPORT_GROUP_ORDER.map((group) => ({
         label: MEMBER_IMPORT_GROUP_LABEL[group],
         options: byGroup.get(group) ?? [],
       })),
-      { label: 'Custom fields', options: custom },
+      { label: 'Extra details', options: custom },
     ].filter((group) => group.options.length > 0);
   }, [targets]);
   const unmapped = mapping.filter((key) => key === MEMBER_IGNORE_KEY).length;
@@ -2740,11 +2735,11 @@ function MappingStep({
           groups={groups}
           value={row.key}
           onSelect={(value) => onSetColumn(row.column, value)}
-          searchPlaceholder="Search fields…"
+          searchPlaceholder="Search details…"
           footer={
             canCreateFields
               ? {
-                  label: 'Create new field…',
+                  label: 'Add new detail…',
                   onSelect: () => onRequestCreateField(row.column),
                 }
               : null
@@ -2760,18 +2755,17 @@ function MappingStep({
           >
             {row.isMapped
               ? (targetByKey.get(row.key)?.label ?? row.key)
-              : "Don't import"}
+              : "Skip this column"}
           </span>
         </Combobox>
         {row.isDuplicate && (
           <ValidationMessage>
-            This field is matched more than once. Choose a different field or
-            skip this column.
+            This detail is picked for more than one column. Pick another detail or skip this column.
           </ValidationMessage>
         )}
         {row.key === 'phone' && (
           <p className="text-muted-foreground mt-1 text-xs">
-            Existing members are matched on this column. Local numbers get{' '}
+            We use this column to find members already saved. Numbers without a country code get{' '}
             {phoneDialCode}.
           </p>
         )}
@@ -2784,8 +2778,8 @@ function MappingStep({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-base font-medium">
           {unmapped === 0
-            ? `All ${fmt.number(mapping.length)} columns mapped`
-            : `${fmt.number(mapping.length - unmapped)} mapped · ${fmt.number(unmapped)} skipped`}
+            ? `All ${fmt.number(mapping.length)} columns matched`
+            : `${fmt.number(mapping.length - unmapped)} matched · ${fmt.number(unmapped)} skipped`}
         </h3>
         <div className="flex flex-wrap items-center gap-2">
           {/* One control for one global setting, not one per ambiguous column. */}
@@ -2816,10 +2810,10 @@ function MappingStep({
             </div>
           )}
           <Button type="button" size="sm" variant="outline" onClick={onAutoMap}>
-            <Wand2 className="size-3.5" /> Match by name
+            <Wand2 className="size-3.5" /> Match for me
           </Button>
           <Button type="button" size="sm" variant="ghost" onClick={onReset}>
-            <RotateCcw className="size-3.5" /> Clear matches
+            <RotateCcw className="size-3.5" /> Clear all
           </Button>
         </div>
       </div>
@@ -2849,13 +2843,13 @@ function MappingStep({
         <Table
           containerClassName="hidden sm:block"
           className="table-fixed"
-          aria-label="Column mapping"
+          aria-label="Match columns"
         >
           <TableHeader>
             <TableRow interactive={false}>
-              <TableHead className="w-[25%]">File column</TableHead>
-              <TableHead className="w-[32%]">Sample data</TableHead>
-              <TableHead className="w-[43%]">Member field</TableHead>
+              <TableHead className="w-[25%]">Column in your file</TableHead>
+              <TableHead className="w-[32%]">Example value</TableHead>
+              <TableHead className="w-[43%]">Member detail</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -2909,7 +2903,7 @@ function ConfirmStep({
       {progress ? (
         <div className="space-y-3" role="status">
           <div className="flex items-center justify-between gap-4 text-sm">
-            <span className="font-medium">Importing members</span>
+            <span className="font-medium">Adding members</span>
             <span className="text-muted-foreground tabular-nums">
               {fmt.number(
                 Math.round(
@@ -2933,8 +2927,7 @@ function ConfirmStep({
             {summary.uniqueCustomers === 1 ? '' : 's'} ready to import
           </h3>
           <p className="text-muted-foreground text-sm">
-            {fmt.number(summary.ready)} of {fmt.number(summary.source)} source
-            rows included
+            {fmt.number(summary.ready)} of {fmt.number(summary.source)} rows in file
             {summary.exclusions > 0
               ? ` · ${fmt.number(summary.exclusions)} excluded`
               : ''}
@@ -2948,26 +2941,24 @@ function ConfirmStep({
         <SummaryValue label="Payments to record" value={summary.payments} />
       </dl>
       <p className="text-muted-foreground text-sm">
-        Import creates the memberships, services, and payment records shown
-        here. Paid amounts are recorded; importing does not collect payment.
+        Import adds the memberships, services, and payments shown here. It only records past payments. It does not take any money.
       </p>
       <Accordion>
         <AccordionItem value="import-breakdown">
-          <AccordionTrigger>Source rows &amp; invoice details</AccordionTrigger>
+          <AccordionTrigger>Row and invoice details</AccordionTrigger>
           <AccordionContent>
             <p className="text-muted-foreground mb-4 text-sm">
-              Member totals group matching rows for the same person. Row totals
-              count individual lines in your file.
+              Member totals join rows for the same person. Row totals count each line in your file.
             </p>
             <dl className="space-y-3">
               {(
                 [
-                  ['Ready rows', summary.ready],
-                  ['Unresolved rows', summary.needsResolution],
-                  ['Automatically excluded', summary.automaticExcluded],
-                  ['Excluded by you', summary.explicitlyExcluded],
-                  ['Membership + service invoices', summary.combinedInvoices],
-                  ['Service-only invoices', summary.serviceOnlyInvoices],
+                  ['Ready', summary.ready],
+                  ['Need fixing', summary.needsResolution],
+                  ['Skipped automatically', summary.automaticExcluded],
+                  ['Skipped by you', summary.explicitlyExcluded],
+                  ['Membership and service invoices', summary.combinedInvoices],
+                  ['Service invoices', summary.serviceOnlyInvoices],
                 ] as const
               ).map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-4 text-sm">
@@ -2989,8 +2980,7 @@ function ConfirmStep({
           htmlFor="member-import-confirm"
           className="text-sm leading-relaxed"
         >
-          I confirm this gym is allowed to store and contact the people in this
-          file, and I have reviewed the import details.
+          I confirm my gym is allowed to save and contact these people, and I have checked the details.
         </label>
       </div>
     </div>
@@ -3049,21 +3039,21 @@ function ResultPanel({
         <div className="space-y-1">
           <h3 className="text-base font-medium">
             {successful > 0
-              ? `${fmt.number(successful)} member${successful === 1 ? '' : 's'} imported`
-              : 'No members imported'}
+              ? `${fmt.number(successful)} ${successful === 1 ? 'member' : 'members'} added`
+              : 'No members added'}
           </h3>
           <p className="text-muted-foreground text-sm">
             {needsAttention
-              ? 'Download the import report to see which rows succeeded and which need attention.'
+              ? 'Download the report to see which rows worked and which need fixing.'
               : successful > 0
-                ? 'Your imported members are available in Members.'
-                : 'Download the import report to see why each row was skipped.'}
+                ? 'Your members are now in Members.'
+                : 'Download the report to see why each row was skipped.'}
           </p>
         </div>
       </div>
       <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
-        <SummaryValue label="New contacts" value={result.imported} />
-        <SummaryValue label="Existing contacts" value={result.attached} />
+        <SummaryValue label="New people" value={result.imported} />
+        <SummaryValue label="Already saved" value={result.attached} />
         <SummaryValue label="Payments recorded" value={result.payments} />
         <SummaryValue
           label="Rows skipped"
@@ -3073,32 +3063,32 @@ function ResultPanel({
       {needsAttention && (
         <Alert>
           <AlertTriangle />
-          <AlertTitle>Review incomplete records</AlertTitle>
+          <AlertTitle>Some rows need fixing</AlertTitle>
           <AlertDescription>
             {result.failed > 0 &&
-              `${fmt.number(result.failed)} member${result.failed === 1 ? '' : 's'} could not be imported. `}
+              `${fmt.number(result.failed)} ${result.failed === 1 ? 'member' : 'members'} could not be added. `}
             {result.paymentFailed > 0 &&
               `${fmt.number(result.paymentFailed)} payment${result.paymentFailed === 1 ? '' : 's'} could not be recorded. `}
             {result.statusFailed > 0 &&
-              `${fmt.number(result.statusFailed)} imported cancellation${result.statusFailed === 1 ? ' needs' : 's need'} a status correction.`}
+              `${fmt.number(result.statusFailed)} cancelled ${result.statusFailed === 1 ? 'membership needs' : 'memberships need'} the status fixed.`}
             {(result.tagsFailed ?? 0) > 0 &&
-              ` ${fmt.number(result.tagsFailed ?? 0)} contact tag assignment${result.tagsFailed === 1 ? '' : 's'} need retrying.`}
+              ` ${fmt.number(result.tagsFailed ?? 0)} ${result.tagsFailed === 1 ? 'tag was' : 'tags were'} not added. Try again.`}
             {(result.customValuesFailed ?? 0) > 0 &&
-              ` ${fmt.number(result.customValuesFailed ?? 0)} custom value${result.customValuesFailed === 1 ? '' : 's'} need retrying.`}
+              ` ${fmt.number(result.customValuesFailed ?? 0)} extra ${result.customValuesFailed === 1 ? 'detail was' : 'details were'} not saved. Try again.`}
           </AlertDescription>
         </Alert>
       )}
       {(result.tagsAssigned > 0 || result.customValues > 0) && (
         <p className="text-muted-foreground text-xs">
-          {fmt.number(result.tagsAssigned)} tag assignments ·{' '}
-          {fmt.number(result.customValues)} custom values saved
+          {fmt.number(result.tagsAssigned)} tags ·{' '}
+          {fmt.number(result.customValues)} extra details saved
         </p>
       )}
       {(result.customValueConflicts ?? 0) > 0 && (
         <p className="text-muted-foreground text-xs">
-          For {fmt.number(result.customValueConflicts ?? 0)} contact custom
-          value{result.customValueConflicts === 1 ? '' : 's'}, the value from
-          the last source row was saved.
+          {fmt.number(result.customValueConflicts ?? 0)} extra{' '}
+          {result.customValueConflicts === 1 ? 'detail had' : 'details had'}{' '}
+          different values. We kept the value from the last row.
         </p>
       )}
       <Separator />
@@ -3109,7 +3099,7 @@ function ResultPanel({
           downloadCsv('member-import-receipt.csv', result.receiptCsv)
         }
       >
-        <Download /> Download import report
+        <Download /> Download report
       </Button>
       {sourceExclusions.length > 0 ? (
         <Button
@@ -3122,17 +3112,17 @@ function ResultPanel({
             )
           }
         >
-          <Download /> Download excluded source rows
+          <Download /> Download skipped rows
         </Button>
       ) : null}
       {needsAttention ? (
         <Button type="button" variant="outline" onClick={onRetry}>
-          Retry outstanding members
+          Try again for the rest
         </Button>
       ) : null}
       {result.failed > 0 ? (
         <Button type="button" variant="outline" onClick={onReviewFailed}>
-          Review failed members
+          See members not added
         </Button>
       ) : null}
     </div>
@@ -3141,7 +3131,7 @@ function ResultPanel({
 
 function sourceExclusionsCsv(exclusions: MemberImportExcludedSourceRow[]) {
   return toCsv(
-    ['Source row', 'Reason', 'Source values'],
+    ['Row', 'Reason', 'Values'],
     exclusions.map((row) => [
       row.sourceRow,
       row.reason.replace('_', ' '),
@@ -3163,22 +3153,21 @@ function SourceExclusionNotice({
     <Alert>
       <Info />
       <AlertTitle>
-        {inspected.length} source row{inspected.length === 1 ? '' : 's'}{' '}
-        excluded automatically
+        {inspected.length} row{inspected.length === 1 ? '' : 's'}{' '}
+        skipped automatically
       </AlertTitle>
       <AlertDescription className="space-y-2">
-        Repeated headers and report totals are kept out of the member preview.
-        Their original values remain available here and in the import receipt.
+        Repeated column names and total rows are not members, so we skipped them. You can still see them here and in the report.
         <Accordion>
           <AccordionItem value="source-exclusions" className="border-b-0">
             <AccordionTrigger className="py-1 text-sm">
-              Inspect excluded source rows
+              See skipped rows
             </AccordionTrigger>
             <AccordionContent>
               <Table className="text-xs">
                 <TableHeader>
                   <TableRow interactive={false}>
-                    <TableHead>Source row</TableHead>
+                    <TableHead>Row</TableHead>
                     <TableHead>Reason</TableHead>
                     <TableHead>Values</TableHead>
                   </TableRow>

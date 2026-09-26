@@ -115,10 +115,10 @@ export function ReassignTrainerDialog({
     const actual = Number(result?.adjustment ?? adjustment);
     toast.success(
       actual > 0
-        ? `Trainer reassigned · ${fmt.money(actual)} adjustment is due`
+        ? `Trainer changed · ${fmt.money(actual)} more is due`
         : actual < 0
-          ? `Trainer reassigned · ${fmt.money(Math.abs(actual))} credited`
-          : 'Trainer reassigned · no price adjustment'
+          ? `Trainer changed · ${fmt.money(Math.abs(actual))} credited`
+          : 'Trainer changed · no change in price'
     );
     setTrainerId(null);
     setReason('');
@@ -130,9 +130,9 @@ export function ReassignTrainerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Reassign trainer</DialogTitle>
+          <DialogTitle>Change trainer</DialogTitle>
           <DialogDescription>
-            The service keeps its expiry. Only the remaining days are repriced.
+            The service keeps the same expiry. Only the days left are charged at the new trainer’s price.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -159,7 +159,7 @@ export function ReassignTrainerDialog({
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Switch date</Label>
+            <Label>Change from</Label>
             <DatePicker
               value={switchDate}
               onChange={setSwitchDate}
@@ -172,13 +172,13 @@ export function ReassignTrainerDialog({
             <Input
               value={reason}
               onChange={(event) => setReason(event.target.value)}
-              placeholder="Required for assignment history"
+              placeholder="Why are you changing the trainer?"
             />
           </div>
           {trainerId ? (
             <div className="rounded-lg border px-3 py-2 text-sm">
               <div className="flex justify-between gap-3">
-                <span>Prorated adjustment</span>
+                <span>Price difference</span>
                 <span className="font-medium tabular-nums">
                   {adjustment > 0 ? '+' : adjustment < 0 ? '−' : ''}
                   {fmt.money(Math.abs(adjustment))}
@@ -189,7 +189,7 @@ export function ReassignTrainerDialog({
                 {fmt.money(
                   service?.assigned_full_rate ?? service?.sold_amount ?? 0
                 )}
-                ) × {remainingDays}/{totalDays} remaining days
+                ) × {remainingDays}/{totalDays} days left
               </p>
             </div>
           ) : null}
@@ -200,7 +200,7 @@ export function ReassignTrainerDialog({
             disabled={saving || !trainerId || !reason.trim()}
           >
             {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Reassign trainer
+            Change trainer
           </Button>
         </DialogFooter>
       </DialogContent>

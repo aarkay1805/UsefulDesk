@@ -51,7 +51,7 @@ export function MembershipStatusBadge({
     daysToExpiry <= expiringWithin
   ) {
     const label =
-      daysToExpiry === 0 ? 'Expires today' : `Expires in ${daysToExpiry}d`;
+      daysToExpiry === 0 ? 'Expires today' : `Expires in ${daysToExpiry} ${daysToExpiry === 1 ? 'day' : 'days'}`;
     return <Badge variant="warning">{label}</Badge>;
   }
   const s = STATUS_VARIANT[status];
@@ -59,7 +59,7 @@ export function MembershipStatusBadge({
 }
 
 export function ServiceCustomerStatusBadge() {
-  return <Badge variant="neutral">Service customer</Badge>;
+  return <Badge variant="neutral">Service only</Badge>;
 }
 
 /**
@@ -74,7 +74,7 @@ const INVOICE_VARIANT: Record<
   paid: { label: 'Paid', variant: 'success' },
   unpaid: { label: 'Unpaid', variant: 'warning' },
   upcoming: { label: 'Upcoming', variant: 'info' },
-  void: { label: 'Void', variant: 'neutral' },
+  void: { label: 'Cancelled', variant: 'neutral' },
   no_charge: { label: 'No charge', variant: 'neutral' },
 };
 
@@ -128,10 +128,10 @@ export function FinanceInvoiceStatusBadge({
   requiresRefundReview?: boolean;
 }) {
   if (requiresRefundReview) {
-    return <Badge variant="warning">Refund review</Badge>;
+    return <Badge variant="warning">Check refund</Badge>;
   }
   if (state === 'void' || lifecycle === 'void') {
-    return <Badge variant="neutral">Void</Badge>;
+    return <Badge variant="neutral">Cancelled</Badge>;
   }
   if (overdue) return <Badge variant="danger">Overdue</Badge>;
   if (lifecycle === 'upcoming') {
@@ -181,14 +181,14 @@ export function VoidedPaymentBadge({
   voidedOn?: string | null;
 }) {
   const detail = [
-    voidedOn ? `Voided ${voidedOn}` : 'Voided',
+    voidedOn ? `Cancelled ${voidedOn}` : 'Cancelled',
     payment.void_reason?.trim() || null,
   ]
     .filter(Boolean)
     .join(': ');
   return (
     <span title={detail} className="inline-flex cursor-help">
-      <Badge variant="neutral">Voided</Badge>
+      <Badge variant="neutral">Cancelled</Badge>
     </span>
   );
 }
@@ -221,8 +221,8 @@ const PLAN_TYPE_VARIANT: Record<
   PlanType,
   { label: string; variant: 'neutral' | 'info' | 'violet' }
 > = {
-  recurring: { label: 'Recurring', variant: 'neutral' },
-  non_recurring: { label: 'Fixed term', variant: 'info' },
+  recurring: { label: 'Renewing', variant: 'neutral' },
+  non_recurring: { label: 'One-time', variant: 'info' },
   session_pack: { label: 'Session pack', variant: 'violet' },
 };
 

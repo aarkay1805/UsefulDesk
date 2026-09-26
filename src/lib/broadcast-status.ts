@@ -48,7 +48,7 @@ export const broadcastStatusConfig: Record<BroadcastStatus, StatusDisplay> = {
 
 export const recipientStatusConfig: Record<RecipientStatus, StatusDisplay> = {
   pending: {
-    label: 'Pending',
+    label: 'Waiting',
     classes: 'bg-slate-500/10 text-slate-foreground',
   },
   sent: {

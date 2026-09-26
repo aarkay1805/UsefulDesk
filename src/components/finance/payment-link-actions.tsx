@@ -43,15 +43,15 @@ interface BrowserPaymentLink {
 }
 
 const PAYMENT_LINK_PERMISSION_BLOCKER: ActionBlocker = {
-  title: 'Admin access required',
+  title: 'You do not have permission',
   description:
-    'Only an agent, admin, or owner can create and send payment links.',
+    'Only staff, admins, or the owner can create and send payment links.',
 };
 
 const PHONE_BLOCKER: ActionBlocker = {
-  title: 'Phone number required',
+  title: 'No phone number',
   description:
-    'Add a phone number to this member before sending a payment link on WhatsApp.',
+    'Add this member’s phone number before sending a payment link.',
 };
 
 function paymentProviderBlocker(
@@ -64,12 +64,12 @@ function paymentProviderBlocker(
     normalized.includes('razorpay needs attention')
   ) {
     return {
-      title: 'Payment setup required',
-      description: reason ?? 'Open payment setup to restore Razorpay.',
+      title: 'Razorpay needs attention',
+      description: reason ?? 'Open payment settings to fix Razorpay.',
       ...(canConfigureGateway
         ? {
             resolution: {
-              label: 'Open payment setup',
+              label: 'Open payment settings',
               href: '/settings?tab=payments',
             },
           }
@@ -78,12 +78,14 @@ function paymentProviderBlocker(
   }
   if (
     normalized.includes('connect razorpay') ||
-    normalized.includes("razorpay isn't connected")
+    normalized.includes("razorpay isn't connected") ||
+    normalized.includes('razorpay is not connected')
   ) {
     return {
-      title: "Razorpay isn't connected",
+      title: "Razorpay is not connected",
       description:
-        reason === "Razorpay isn't connected"
+        reason === "Razorpay isn't connected" ||
+        reason === 'Razorpay is not connected'
           ? 'Connect Razorpay before creating a payment link.'
           : (reason ?? 'Connect Razorpay before creating a payment link.'),
       ...(canConfigureGateway
@@ -97,8 +99,8 @@ function paymentProviderBlocker(
     };
   }
   return {
-    title: 'Payment link unavailable',
-    description: reason ?? 'Payment Link status is unavailable.',
+    title: 'Payment link not available',
+    description: reason ?? 'Could not check the payment link.',
   };
 }
 
@@ -108,7 +110,7 @@ function whatsappBlocker(
 ): ActionBlocker {
   if (reason?.toLowerCase().includes('connect whatsapp')) {
     return {
-      title: "WhatsApp isn't connected",
+      title: "WhatsApp is not connected",
       description: reason,
       ...(canManageSettings
         ? {
@@ -121,14 +123,14 @@ function whatsappBlocker(
     };
   }
   return {
-    title: "Payment link template isn't ready",
+    title: "Payment link message is not ready",
     description:
       reason ??
-      `Approve and sync the exact ${PAYMENT_LINK_TEMPLATE_NAME} template before sending.`,
+      `Get the ${PAYMENT_LINK_TEMPLATE_NAME} message approved by WhatsApp first.`,
     ...(canManageSettings
       ? {
           resolution: {
-            label: 'Open template setup',
+            label: 'Open message templates',
             href: '/settings?tab=templates',
           },
         }
@@ -142,14 +144,14 @@ function PaymentLinkStatusBadge({
   status: BrowserPaymentLink['status'];
 }) {
   if (status === 'created') {
-    return <Badge variant="info">Payment link active</Badge>;
+    return <Badge variant="info">Payment link ready</Badge>;
   }
   if (status === 'paid') return <Badge variant="success">Paid</Badge>;
   if (status === 'creating' || status === 'cancel_requested') {
     return <Badge variant="warning">Updating</Badge>;
   }
   if (status === 'orphaned')
-    return <Badge variant="danger">Needs review</Badge>;
+    return <Badge variant="danger">Needs checking</Badge>;
   return (
     <Badge variant="neutral">{status === 'failed' ? 'Failed' : status}</Badge>
   );
@@ -228,7 +230,7 @@ export function PaymentLinkActions({
         } else {
           setProviderReady(false);
           setProviderReason(
-            linkBody.error ?? 'Payment Link status is unavailable'
+            linkBody.error ?? 'Could not check the payment link'
           );
         }
         const templateReadiness = evaluateTemplateReadiness(
@@ -255,7 +257,7 @@ export function PaymentLinkActions({
         if (cancelled) return;
         setProviderReady(false);
         setProviderReason(
-          getErrorMessage(error, 'Payment Link status is unavailable')
+          getErrorMessage(error, 'Could not check the payment link')
         );
       } finally {
         if (!cancelled) setReadinessLoading(false);
@@ -274,7 +276,7 @@ export function PaymentLinkActions({
     });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.link?.shortUrl) {
-      throw new Error(body.error ?? 'Payment link could not be created');
+      throw new Error(body.error ?? 'Could not make the payment link');
     }
     const next = body.link as BrowserPaymentLink;
     setLink(next);
@@ -290,7 +292,7 @@ export function PaymentLinkActions({
       setCopied(true);
       toast.success('Payment link copied');
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Payment link could not be copied'));
+      toast.error(getErrorMessage(error, 'Could not copy the payment link'));
     } finally {
       setCreatingFor(null);
     }
@@ -326,18 +328,18 @@ export function PaymentLinkActions({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(
-          `${body.error ?? 'WhatsApp send failed'}. The payment link is still available to copy.`
+          `${body.error ?? 'Could not send on WhatsApp'}. You can still copy the payment link.`
         );
       }
       if (body.payment_link_send_recorded === false) {
         toast.warning(
-          'Payment link was sent, but follow-up evidence was not recorded. The link remains available to copy.'
+          'Payment link sent, but we could not save it in history. You can still copy the link.'
         );
       } else {
         toast.success('Payment link sent on WhatsApp');
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Payment link could not be sent'));
+      toast.error(getErrorMessage(error, 'Could not send the payment link'));
     } finally {
       setCreatingFor(null);
     }

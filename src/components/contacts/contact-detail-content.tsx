@@ -360,7 +360,7 @@ export function ContactDetailContent({
       .update({ [column]: next, updated_at: new Date().toISOString() })
       .eq('id', contactId);
     if (error) {
-      toast.error('Failed to update');
+      toast.error('Could not update');
       return false;
     }
     setContact((c) => (c ? { ...c, [column]: next } : c));
@@ -382,7 +382,7 @@ export function ContactDetailContent({
       .update({ [column]: next, updated_at: new Date().toISOString() })
       .eq('id', contactId);
     if (error) {
-      toast.error('Failed to update');
+      toast.error('Could not update');
       return false;
     }
     setContact((c) => (c ? { ...c, [column]: next } : c));
@@ -424,10 +424,10 @@ export function ContactDetailContent({
       .select('id');
     setDeleting(false);
     if (error || !data || data.length === 0) {
-      toast.error('Failed to delete lead');
+      toast.error('Could not delete enquiry');
       return;
     }
-    toast.success('Lead deleted');
+    toast.success('Enquiry deleted');
     setDeleteOpen(false);
     onUpdated();
     onClose?.();
@@ -441,17 +441,17 @@ export function ContactDetailContent({
       try {
         await requestLeadTransfer(supabase, contact.id, next);
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Failed to transfer');
+        toast.error(e instanceof Error ? e.message : 'Could not transfer');
         return false;
       }
       setContact((c) => (c ? { ...c, user_id: next } : c));
       onUpdated();
-      toast.success('Ownership transferred');
+      toast.success('Owner changed');
       return true;
     }
 
     if (!canTransfer || contact.user_id !== user?.id) {
-      toast.error('Only the current owner or an admin can transfer this lead.');
+      toast.error('Only the current owner or an admin can change who owns this enquiry.');
       return false;
     }
     setTransferTarget(next);
@@ -468,7 +468,7 @@ export function ContactDetailContent({
     try {
       outcome = await requestLeadAssignment(supabase, contact.id, next);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to update');
+      toast.error(e instanceof Error ? e.message : 'Could not update');
       return false;
     }
     if (outcome === 'approved') {
@@ -485,7 +485,7 @@ export function ContactDetailContent({
       onUpdated();
       return true;
     }
-    toast.success('Sent to the lead owner for approval');
+    toast.success('Sent to the enquiry owner to approve');
     return false;
   }
 
@@ -499,10 +499,10 @@ export function ContactDetailContent({
         transferTarget,
         note || undefined
       );
-      toast.success('Transfer request sent — waiting for them to accept.');
+      toast.success('Request sent. Waiting for them to accept.');
       setTransferTarget(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to send request');
+      toast.error(e instanceof Error ? e.message : 'Could not send request');
     } finally {
       setTransferSubmitting(false);
     }
@@ -523,7 +523,7 @@ export function ContactDetailContent({
       .eq('contact_id', contactId)
       .eq('custom_field_id', fieldId);
     if (del.error) {
-      toast.error('Failed to update');
+      toast.error('Could not update');
       return false;
     }
 
@@ -534,7 +534,7 @@ export function ContactDetailContent({
         value: trimmed,
       });
       if (error) {
-        toast.error('Failed to update');
+        toast.error('Could not update');
         return false;
       }
     }
@@ -561,7 +561,7 @@ export function ContactDetailContent({
       }
       onUpdated();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update tags'));
+      toast.error(getErrorMessage(error, 'Could not update tags'));
     } finally {
       setSavingTags(false);
       setSavingTagId(null);
@@ -648,7 +648,7 @@ export function ContactDetailContent({
                 variant="ghost"
                 size="icon-sm"
                 onClick={onClose}
-                aria-label="Close contact panel"
+                aria-label="Close details"
                 title="Close"
                 className="-mt-0.5 shrink-0 self-start"
               >
@@ -664,7 +664,7 @@ export function ContactDetailContent({
               <QuickAction
                 icon={WhatsAppMark}
                 label="Chat"
-                title="Open WhatsApp conversation in Inbox"
+                title="Open WhatsApp chat"
                 loading={openingChat}
                 onClick={openChat}
               />
@@ -700,8 +700,8 @@ export function ContactDetailContent({
               <QuickAction
                 icon={Trash2}
                 label="Delete"
-                ariaLabel="Delete lead"
-                title="Delete lead"
+                ariaLabel="Delete enquiry"
+                title="Delete enquiry"
                 destructive
                 onClick={() => setDeleteOpen(true)}
               />
@@ -714,7 +714,7 @@ export function ContactDetailContent({
               onClick={() => setConvertOpen(true)}
             >
               <UserPlus />
-              Convert to member
+              Add as member
             </Button>
           )}
         </Header>
@@ -749,7 +749,7 @@ export function ContactDetailContent({
                     onSave={(v) => saveField('name', v)}
                   />
                   <InlineSelectField
-                    label="Status"
+                    label="Stage"
                     value={leadColumnKey(contact.lead_status)}
                     variant="pill"
                     options={fieldOptions.statuses.map((s) => ({
@@ -850,14 +850,14 @@ export function ContactDetailContent({
                         <span className="flex min-w-0 items-center gap-1.5">
                           <UserAvatar
                             name={
-                              nameById.get(contact.assigned_to) ?? 'Teammate'
+                              nameById.get(contact.assigned_to) ?? 'Team member'
                             }
                             src={avatarById.get(contact.assigned_to) ?? null}
                             size="xs"
                             className="shrink-0"
                           />
                           <span className="truncate">
-                            {nameById.get(contact.assigned_to) ?? 'Teammate'}
+                            {nameById.get(contact.assigned_to) ?? 'Team member'}
                           </span>
                         </span>
                       ) : (
@@ -880,7 +880,7 @@ export function ContactDetailContent({
                         </StaticField>
                       );
                     }
-                    const name = nameById.get(contact.user_id) ?? 'Teammate';
+                    const name = nameById.get(contact.user_id) ?? 'Team member';
                     const ownerChip = (
                       <span className="flex min-w-0 items-center gap-1.5">
                         <UserAvatar
@@ -925,10 +925,10 @@ export function ContactDetailContent({
                     );
                   })()}
                   {contact.created_by && (
-                    <StaticField label="Created by">
+                    <StaticField label="Added by">
                       {(() => {
                         const name =
-                          nameById.get(contact.created_by) ?? 'Teammate';
+                          nameById.get(contact.created_by) ?? 'Team member';
                         return (
                           <span className="flex min-w-0 items-center gap-1.5">
                             <UserAvatar
@@ -970,13 +970,13 @@ export function ContactDetailContent({
               <AccordionContent>
                 {allTags.length === 0 ? (
                   <p className="text-muted-foreground text-sm">
-                    No tags available.{' '}
+                    No tags yet.{' '}
                     <Link
                       href="/settings?tab=fields"
                       onClick={() => onClose?.()}
                       className="text-primary-text hover:text-primary-text/80 underline underline-offset-3"
                     >
-                      Create tags in Settings
+                      Add tags in Settings
                     </Link>
                     .
                   </p>
@@ -1063,7 +1063,7 @@ export function ContactDetailContent({
           if (!open) setTransferTarget(null);
         }}
         targetName={
-          transferTarget ? (nameById.get(transferTarget) ?? 'Teammate') : ''
+          transferTarget ? (nameById.get(transferTarget) ?? 'Team member') : ''
         }
         targetAvatarUrl={transferTarget ? avatarById.get(transferTarget) : null}
         leadName={contact.name?.trim() || displayPhone}
@@ -1077,8 +1077,8 @@ export function ContactDetailContent({
               Delete {contact.name?.trim() || displayPhone}?
             </DialogTitle>
             <DialogDescription>
-              This permanently deletes the lead and its notes, tags, and custom
-              values. This action cannot be undone.
+              This deletes the enquiry with its notes, tags, and extra details.
+              You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1095,7 +1095,7 @@ export function ContactDetailContent({
               disabled={deleting}
             >
               {deleting && <Loader2 className="size-4 animate-spin" />}
-              <Trash2 className="size-4" /> Delete lead
+              <Trash2 className="size-4" /> Delete enquiry
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1224,7 +1224,7 @@ function InlineField({
 
   async function confirm() {
     if (required && !draft.trim()) {
-      toast.error(`${label} is required`);
+      toast.error(`Enter ${label.toLowerCase()}`);
       return;
     }
     setSaving(true);

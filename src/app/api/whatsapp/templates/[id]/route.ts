@@ -97,7 +97,7 @@ export async function PATCH(
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : 'Failed to edit template.',
+          error instanceof Error ? error.message : 'Could not edit template.',
       },
       { status: 500 }
     );
@@ -195,7 +195,7 @@ export async function DELETE(
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : 'Failed to delete template.',
+          error instanceof Error ? error.message : 'Could not delete template.',
       },
       { status: 500 }
     );

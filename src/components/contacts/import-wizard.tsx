@@ -136,30 +136,30 @@ const MODE_LABELS: Record<
 > = {
   contacts: {
     add: {
-      title: 'Add new contacts',
-      hint: 'Insert rows as new contacts. Numbers already in this account are skipped.',
+      title: 'Add new only',
+      hint: 'Add each row as a new person. Phone numbers already saved are skipped.',
     },
     update: {
       title: 'Update existing only',
-      hint: 'Match rows to existing contacts by phone and update them. Unmatched rows are skipped.',
+      hint: 'Find people by phone number and update their details. Other rows are skipped.',
     },
     both: {
       title: 'Add & update',
-      hint: 'Update contacts that already exist and add the rest as new.',
+      hint: 'Update people already saved and add the rest as new.',
     },
   },
   leads: {
     both: {
-      title: 'Add new & update existing',
-      hint: 'Recommended — new phones become leads, known phones get updated.',
+      title: 'Add new and update saved',
+      hint: 'Best choice. New phone numbers are added. Saved numbers are updated.',
     },
     add: {
-      title: 'Only add new leads',
-      hint: 'Rows matching an existing lead by phone are skipped.',
+      title: 'Only add new',
+      hint: 'Rows with a phone number you already saved are skipped.',
     },
     update: {
-      title: 'Only update existing',
-      hint: 'No new leads are created. Unmatched rows are skipped.',
+      title: 'Only update saved',
+      hint: 'No new enquiries are added. Other rows are skipped.',
     },
   },
 };
@@ -350,7 +350,7 @@ export function ImportWizard({
     const parsed = parseCsvRaw(text);
 
     if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-      toast.error('No rows found. Ensure the file has a header row and data.');
+      toast.error('No rows found. The first row of the file must have column names.');
       setRaw(null);
       setMapping([]);
       return;
@@ -468,7 +468,7 @@ export function ImportWizard({
     const isEdit = editFieldId !== null;
     if (!name || (!isEdit && createCol === null)) return;
     if (!accountId || !user) {
-      toast.error('Your profile is not linked to an account.');
+      toast.error('Your login is not linked to a gym.');
       return;
     }
 
@@ -495,7 +495,7 @@ export function ImportWizard({
         .single();
       setSavingField(false);
       if (error || !data) {
-        toast.error('Could not update field. You may not have permission.');
+        toast.error('Could not change this detail. You may not have permission.');
         return;
       }
       const updated = data as CustomFieldRef;
@@ -520,14 +520,14 @@ export function ImportWizard({
     setSavingField(false);
 
     if (error || !data) {
-      toast.error('Could not create field. You may not have permission.');
+      toast.error('Could not add this detail. You may not have permission.');
       return;
     }
 
     const created = data as CustomFieldRef;
     setCustomFields((prev) => [...prev, created]);
     if (createCol !== null) setColumn(createCol, `custom:${created.id}`);
-    toast.success(`Created "${created.field_name}".`);
+    toast.success(`Added "${created.field_name}".`);
     setCreateCol(null);
   }
 
@@ -536,7 +536,7 @@ export function ImportWizard({
     if (!field) return;
     if (
       !window.confirm(
-        `Delete "${field.field_name}"? This removes its stored value on every contact and cannot be undone.`
+        `Delete "${field.field_name}"? Its value will be removed from every person. You cannot undo this.`
       )
     ) {
       return;
@@ -549,7 +549,7 @@ export function ImportWizard({
         .delete()
         .eq('id', fieldId);
       if (error) {
-        toast.error('Could not delete field. You may not have permission.');
+        toast.error('Could not delete this detail. You may not have permission.');
         return;
       }
 
@@ -633,7 +633,7 @@ export function ImportWizard({
 
       setStep(3);
     } catch {
-      toast.error('Could not prepare the preview. Please try again.');
+      toast.error('Could not show the preview. Try again.');
     } finally {
       setLoadingPreview(false);
     }
@@ -667,7 +667,7 @@ export function ImportWizard({
         }),
       });
       if (!res.ok) {
-        toast.error('Could not create teammate. You may not have permission.');
+        toast.error('Could not add team member. You may not have permission.');
         return null;
       }
       const body = (await res.json()) as { invitation?: { id: string } };
@@ -675,11 +675,11 @@ export function ImportWizard({
       const invite: PendingInvite = { id: body.invitation.id, name: trimmed };
       setPendingInvites((prev) => [...prev, invite]);
       toast.success(
-        `Invite created for "${trimmed}" — share the link later from Settings → Team.`
+        `Invite made for "${trimmed}". Share the link later from Settings → Team members.`
       );
       return invite;
     } catch {
-      toast.error('Could not create teammate.');
+      toast.error('Could not add team member.');
       return null;
     }
   }
@@ -695,9 +695,9 @@ export function ImportWizard({
         data: { session },
       } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user) throw new Error('Not authenticated');
+      if (!user) throw new Error('Your login has expired. Log in again.');
       if (!accountId)
-        throw new Error('Your profile is not linked to an account.');
+        throw new Error('Your login is not linked to a gym.');
 
       let imported = 0;
       let updated = 0;
@@ -882,7 +882,7 @@ export function ImportWizard({
           tagIdByKey
         );
       } catch {
-        toast.warning('Contacts imported, but some tag assignments failed.');
+        toast.warning('People added, but some tags were not added.');
       }
 
       setResult({
@@ -902,10 +902,10 @@ export function ImportWizard({
         const sample = skippedNames.slice(0, 3).join(', ');
         const more =
           skippedNames.length > 3 ? ` (+${skippedNames.length - 3} more)` : '';
-        toast.info(`Unknown tags skipped: ${sample}${more}`);
+        toast.info(`These tags do not exist, so they were skipped: ${sample}${more}`);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Import failed';
+      const message = err instanceof Error ? err.message : 'Could not add from the file';
       toast.error(message);
     } finally {
       setImporting(false);
@@ -923,9 +923,9 @@ export function ImportWizard({
         data: { session },
       } = await supabase.auth.getSession();
       const authUser = session?.user;
-      if (!authUser) throw new Error('Not authenticated');
+      if (!authUser) throw new Error('Your login has expired. Log in again.');
       if (!accountId)
-        throw new Error('Your profile is not linked to an account.');
+        throw new Error('Your login is not linked to a gym.');
 
       let imported = 0;
       let updated = 0;
@@ -1127,7 +1127,7 @@ export function ImportWizard({
           tagIdByKey
         );
       } catch {
-        toast.warning('Leads imported, but some tag assignments failed.');
+        toast.warning('Enquiries added, but some tags were not added.');
       }
 
       setResult({
@@ -1146,10 +1146,10 @@ export function ImportWizard({
         const sample = skippedNames.slice(0, 3).join(', ');
         const more =
           skippedNames.length > 3 ? ` (+${skippedNames.length - 3} more)` : '';
-        toast.info(`Unknown tags skipped: ${sample}${more}`);
+        toast.info(`These tags do not exist, so they were skipped: ${sample}${more}`);
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Import failed';
+      const message = err instanceof Error ? err.message : 'Could not add from the file';
       toast.error(message);
     } finally {
       setImporting(false);
@@ -1168,24 +1168,24 @@ export function ImportWizard({
   }, [previewRows, mode]);
 
   const stepLabels = isLeads
-    ? ['Upload', 'Map columns', 'Preview & edit', 'Confirm']
-    : ['Upload', 'Map Fields', 'Review'];
+    ? ['Upload', 'Match columns', 'Check', 'Confirm']
+    : ['Upload', 'Match columns', 'Review'];
 
   const description = (() => {
-    if (result) return 'Import complete.';
+    if (result) return 'Done.';
     if (step === 1)
       return isLeads
-        ? 'Upload a CSV of leads to begin.'
-        : 'Upload a CSV of contacts to begin.';
+        ? 'Upload a CSV file with your enquiries.'
+        : 'Upload a CSV file with your contacts.';
     if (step === 2)
       return isLeads
-        ? 'Map your file columns to lead fields.'
-        : 'Map your file columns to contact fields.';
+        ? 'Tell us what each column in your file means.'
+        : 'Tell us what each column in your file means.';
     if (step === 3)
       return isLeads
-        ? 'Check and edit the leads exactly as they will appear.'
-        : 'Review and confirm the import.';
-    return 'Choose the write policy and confirm.';
+        ? 'Check the enquiries and fix anything wrong.'
+        : 'Check and confirm.';
+    return 'Choose what to do with saved phone numbers, then confirm.';
   })();
 
   return (
@@ -1200,7 +1200,7 @@ export function ImportWizard({
           <div className="border-border/80 shrink-0 space-y-4 border-b px-6 pt-6 pb-5">
             <DialogHeader className="gap-1.5">
               <DialogTitle size="lg" className="text-popover-foreground">
-                {isLeads ? 'Import Leads' : 'Import Contacts'}
+                {isLeads ? 'Add enquiries from a file' : 'Add contacts from a file'}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground leading-relaxed">
                 {description}
@@ -1355,7 +1355,7 @@ export function ImportWizard({
                   className="text-muted-foreground hover:text-foreground"
                 >
                   <Download className="size-4" />
-                  Sample CSV
+                  Download sample file
                 </Button>
               )}
               {step === 2 && !result && !validation.ok && (
@@ -1363,15 +1363,15 @@ export function ImportWizard({
                   {!validation.phoneMapped && (
                     <p className="text-red-foreground flex items-center gap-1.5 text-xs">
                       <XCircle className="size-3.5 shrink-0" />
-                      Map one column to{' '}
-                      <span className="font-medium">Phone</span> to continue —
-                      it&apos;s required.
+                      Choose which column has the{' '}
+                      <span className="font-medium">Phone</span> number. It is
+                      needed.
                     </p>
                   )}
                   {validation.duplicateTargets.length > 0 && (
                     <p className="text-red-foreground flex items-center gap-1.5 text-xs">
                       <XCircle className="size-3.5 shrink-0" />
-                      Each field can be mapped once. Duplicated:{' '}
+                      You picked the same detail for two columns:{' '}
                       {validation.duplicateTargets
                         .map((k) => customFieldId(k) ?? k)
                         .join(', ')}
@@ -1465,8 +1465,8 @@ export function ImportWizard({
                       className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {importing && <Loader2 className="size-4 animate-spin" />}
-                      Import {mappedPreview.rows.length} contact
-                      {mappedPreview.rows.length !== 1 ? 's' : ''}
+                      Add {mappedPreview.rows.length}{' '}
+                      {mappedPreview.rows.length !== 1 ? 'contacts' : 'contact'}
                     </Button>
                   )}
                   {step === 4 && isLeads && (
@@ -1479,8 +1479,8 @@ export function ImportWizard({
                       className="bg-primary hover:bg-primary/90 text-primary-foreground"
                     >
                       {importing && <Loader2 className="size-4 animate-spin" />}
-                      Import {leadWriteCount} lead
-                      {leadWriteCount !== 1 ? 's' : ''}
+                      Add {leadWriteCount}{' '}
+                      {leadWriteCount !== 1 ? 'enquiries' : 'enquiry'}
                     </Button>
                   )}
                 </>
@@ -1510,7 +1510,7 @@ export function ImportWizard({
 
           <div className="space-y-4 py-1">
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground">Field name</Label>
+              <Label className="text-muted-foreground">Name</Label>
               <Input
                 value={newFieldName}
                 autoFocus
@@ -1521,13 +1521,13 @@ export function ImportWizard({
                     void handleSaveField();
                   }
                 }}
-                placeholder="e.g. Lead Source"
+                placeholder="Example: Batch time"
                 className="text-foreground"
               />
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-muted-foreground">Data type</Label>
+              <Label className="text-muted-foreground">Type</Label>
               <Select
                 value={newFieldType}
                 onValueChange={(v) => v && setNewFieldType(v)}
@@ -1567,7 +1567,7 @@ export function ImportWizard({
               className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               {savingField && <Loader2 className="size-4 animate-spin" />}
-              {editFieldId !== null ? 'Save changes' : 'Create & map'}
+              {editFieldId !== null ? 'Save changes' : 'Add and use'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1668,7 +1668,7 @@ function UploadStep({
               Click to choose a CSV file
             </p>
             <p className="text-muted-foreground text-[11px]">
-              Any column layout — you&apos;ll map fields next
+              Columns can be in any order. You will match them next.
             </p>
           </>
         )}
@@ -1676,11 +1676,11 @@ function UploadStep({
 
       {isLeads && (
         <p className="text-muted-foreground text-center text-xs">
-          Exported from Excel or Google Sheets? Use{' '}
+          Using Excel or Google Sheets? First click{' '}
           <span className="text-foreground font-medium">
             File → Save as → .csv
-          </span>{' '}
-          first — only CSV files are supported.
+          </span>
+          . Only CSV files work.
         </p>
       )}
 
@@ -1754,11 +1754,11 @@ function MapStep({
   const mappedCount = mapping.filter((k) => k !== IGNORE_KEY).length;
   const unmappedCount = mapping.length - mappedCount;
 
-  // Grouped, searchable picker — "Don't import" first, then the field
+  // Grouped, searchable picker — "Skip this column" first, then the field
   // groups, custom fields last with their data type as a hint.
   const comboGroups = useMemo<ComboboxGroup[]>(() => {
     const groups: ComboboxGroup[] = [
-      { options: [{ value: IGNORE_KEY, label: "Don't import" }] },
+      { options: [{ value: IGNORE_KEY, label: "Skip this column" }] },
       {
         label: 'Standard',
         options: targets
@@ -1775,7 +1775,7 @@ function MapStep({
     );
     if (leadFields.length > 0) {
       groups.push({
-        label: 'Lead fields',
+        label: 'Enquiry details',
         options: leadFields.map((t) => ({ value: t.key, label: t.label })),
       });
     }
@@ -1788,7 +1788,7 @@ function MapStep({
     const custom = targets.filter((t) => t.kind === 'custom');
     if (custom.length > 0) {
       groups.push({
-        label: 'Custom fields',
+        label: 'Extra details',
         options: custom.map((t) => ({ value: t.key, label: t.label })),
       });
     }
@@ -1801,7 +1801,7 @@ function MapStep({
       {showMode && (
         <div className="space-y-2">
           <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase">
-            How to process rows
+            What to do with each row
           </p>
           <RadioGroup
             value={mode}
@@ -1834,7 +1834,7 @@ function MapStep({
           {showEmptyToggle && (
             <label className="border-border/80 bg-background/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
               <span className="text-foreground text-sm">
-                Don&apos;t overwrite existing values with empty cells
+                Keep saved values when a cell in the file is empty
               </span>
               <Switch
                 checked={dontOverwriteEmpty}
@@ -1846,7 +1846,7 @@ function MapStep({
           {mode !== 'add' && (
             <p className="text-amber-foreground flex items-start gap-1.5 text-[11px]">
               <AlertTriangle className="mt-px size-3 shrink-0" />
-              Updates applied via import cannot be undone.
+              You cannot undo changes made from a file.
             </p>
           )}
         </div>
@@ -1856,7 +1856,7 @@ function MapStep({
       <div className="space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase">
-            Column mapping
+            Match columns
           </p>
           <div className="flex gap-1.5">
             <Button
@@ -1867,7 +1867,7 @@ function MapStep({
               className="border-border text-muted-foreground hover:bg-muted h-7"
             >
               <Wand2 className="size-3.5" />
-              Auto map
+              Match for me
             </Button>
             <Button
               type="button"
@@ -1891,13 +1891,13 @@ function MapStep({
               <thead>
                 <tr className="border-border bg-background/60 border-b">
                   <th className="text-muted-foreground w-[18%] px-3 py-2 text-left font-medium">
-                    File column
+                    Column in your file
                   </th>
                   <th className="text-muted-foreground w-[24%] px-3 py-2 text-left font-medium">
-                    Sample data
+                    Example value
                   </th>
                   <th className="text-muted-foreground w-[42%] px-3 py-2 text-left font-medium">
-                    {variant === 'leads' ? 'Lead field' : 'Contact field'}
+                    {variant === 'leads' ? 'Enquiry detail' : 'Contact detail'}
                   </th>
                   <th className="text-muted-foreground w-[16%] px-3 py-2 text-left font-medium">
                     Status
@@ -1914,7 +1914,7 @@ function MapStep({
                       <td className="text-foreground max-w-[10rem] truncate px-3 py-2 font-medium">
                         {header || (
                           <span className="text-muted-foreground italic">
-                            (unnamed)
+                            (no name)
                           </span>
                         )}
                       </td>
@@ -1929,11 +1929,11 @@ function MapStep({
                             groups={comboGroups}
                             value={key}
                             onSelect={(v) => onSetColumn(col, v)}
-                            searchPlaceholder="Search fields…"
+                            searchPlaceholder="Search details…"
                             footer={
                               canCreateFields
                                 ? {
-                                    label: 'Create new field…',
+                                    label: 'Add new detail…',
                                     onSelect: () => onRequestCreateField(col),
                                   }
                                 : null
@@ -1952,7 +1952,7 @@ function MapStep({
                             >
                               {isMapped
                                 ? (targetByKey.get(key)?.label ?? key)
-                                : "Don't import"}
+                                : "Skip this column"}
                             </span>
                           </Combobox>
 
@@ -1962,7 +1962,7 @@ function MapStep({
                                 type="button"
                                 variant="ghost"
                                 size="icon-sm"
-                                title="Edit field"
+                                title="Edit detail"
                                 onClick={() => onRequestEditField(cfId)}
                                 className="text-muted-foreground hover:text-foreground shrink-0"
                               >
@@ -1972,7 +1972,7 @@ function MapStep({
                                 type="button"
                                 variant="destructive-ghost"
                                 size="icon-sm"
-                                title="Delete field"
+                                title="Delete detail"
                                 onClick={() => onDeleteField(cfId)}
                                 loading={deletingFieldId === cfId}
                                 disabled={deletingFieldId !== null}
@@ -1986,8 +1986,7 @@ function MapStep({
 
                         {key === 'phone' && (
                           <p className="text-muted-foreground mt-1 max-w-[24rem] text-[10px] leading-snug">
-                            Leads are matched by phone — duplicates in your file
-                            and existing records are handled automatically.
+                            Enquiries are matched by phone number. Repeated rows and saved numbers are handled for you.
                           </p>
                         )}
 
@@ -1995,7 +1994,7 @@ function MapStep({
                           <button
                             type="button"
                             onClick={onToggleDateOrder}
-                            title="Toggle day/month order"
+                            title="Switch day and month order"
                             className="bg-primary/10 text-primary-text hover:bg-primary/20 mt-1 inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-mono text-[10px] font-semibold"
                           >
                             {dateOrder === 'DMY' ? 'DD/MM' : 'MM/DD'} ▾
@@ -2032,12 +2031,12 @@ function MapStep({
           {unmappedCount === 0 ? (
             <span className="text-emerald-foreground inline-flex items-center gap-1">
               <CheckCircle className="size-3" />
-              All {mapping.length} columns mapped
+              All {mapping.length} columns matched
             </span>
           ) : (
             <>
-              {unmappedCount} column{unmappedCount === 1 ? '' : 's'} won&apos;t
-              be imported
+              {unmappedCount} {unmappedCount === 1 ? 'column' : 'columns'} will
+              be skipped
             </>
           )}
         </p>
@@ -2072,13 +2071,13 @@ function ReviewStep({
       <div className="border-border bg-background/40 rounded-xl border p-4">
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
           <div>
-            <span className="text-muted-foreground">Rows to process: </span>
+            <span className="text-muted-foreground">Rows in file: </span>
             <span className="text-foreground font-medium">
               {mappedPreview.rows.length}
             </span>
           </div>
           <div>
-            <span className="text-muted-foreground">Mode: </span>
+            <span className="text-muted-foreground">Choice: </span>
             <span className="text-foreground font-medium">
               {MODE_LABELS[variant][mode].title}
             </span>
@@ -2086,7 +2085,7 @@ function ReviewStep({
           {mappedPreview.droppedNoPhone > 0 && (
             <div>
               <span className="text-muted-foreground">
-                Rows without phone:{' '}
+                Rows with no phone:{' '}
               </span>
               <span className="text-amber-foreground font-medium">
                 {mappedPreview.droppedNoPhone} skipped
@@ -2096,7 +2095,7 @@ function ReviewStep({
           {mappedPreview.invalidCustomValues > 0 && (
             <div>
               <span className="text-muted-foreground">
-                Wrong-format values:{' '}
+                Values in the wrong format:{' '}
               </span>
               <span className="text-amber-foreground font-medium">
                 {mappedPreview.invalidCustomValues} will be skipped
@@ -2129,9 +2128,9 @@ function ConsentCheckbox({
         className="mt-0.5"
       />
       <span className="text-muted-foreground text-xs leading-relaxed">
-        I confirm these contacts have consented to be messaged, or that I have a
-        legitimate business interest to contact them, in line with WhatsApp and
-        anti-spam policies.
+        I confirm these people agreed to get messages from my gym, or have a
+        real business reason to hear from us. I will follow WhatsApp rules on
+        spam.
       </span>
     </label>
   );
@@ -2156,7 +2155,7 @@ function RemapTarget({
   if (entry.field === 'assignee') {
     return (
       <span className="text-foreground truncate">
-        {entry.key ? (nameById.get(entry.key) ?? 'Teammate') : 'You (importer)'}
+        {entry.key ? (nameById.get(entry.key) ?? 'Team member') : 'You'}
       </span>
     );
   }
@@ -2200,19 +2199,19 @@ function ConfirmStep({
   const showEmptyToggle = mode === 'update' || mode === 'both';
 
   const receipt: [string, number][] = [
-    ['New leads', mode === 'update' ? 0 : fresh],
-    ['Updates (matched by phone)', mode === 'add' ? 0 : existing],
+    ['New enquiries', mode === 'update' ? 0 : fresh],
+    ['Updated (same phone number)', mode === 'add' ? 0 : existing],
     ...(mode === 'add' && existing > 0
-      ? ([['Skipped — already exist', existing]] as [string, number][])
+      ? ([['Skipped: already saved', existing]] as [string, number][])
       : []),
     ...(mode === 'update' && fresh > 0
-      ? ([['Skipped — not found', fresh]] as [string, number][])
+      ? ([['Skipped: not found', fresh]] as [string, number][])
       : []),
     ...(meta.droppedNoPhone > 0
-      ? ([['Skipped — no phone', meta.droppedNoPhone]] as [string, number][])
+      ? ([['Skipped: no phone number', meta.droppedNoPhone]] as [string, number][])
       : []),
     ...(meta.dupes > 0
-      ? ([['Skipped — duplicate in file', meta.dupes]] as [string, number][])
+      ? ([['Skipped: repeated in file', meta.dupes]] as [string, number][])
       : []),
   ];
 
@@ -2220,7 +2219,7 @@ function ConfirmStep({
     <div className="grid gap-5 md:grid-cols-[1fr_minmax(15rem,0.8fr)]">
       <div className="space-y-2">
         <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.14em] uppercase">
-          How to process rows
+          What to do with each row
         </p>
         <RadioGroup
           value={mode}
@@ -2253,7 +2252,7 @@ function ConfirmStep({
         {showEmptyToggle && (
           <label className="border-border/80 bg-background/40 flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5">
             <span className="text-foreground text-sm">
-              Don&apos;t overwrite existing values with empty cells
+              Keep saved values when a cell in the file is empty
             </span>
             <Switch
               checked={dontOverwriteEmpty}
@@ -2265,7 +2264,7 @@ function ConfirmStep({
         {mode !== 'add' && (
           <p className="text-amber-foreground flex items-start gap-1.5 text-[11px]">
             <AlertTriangle className="mt-px size-3 shrink-0" />
-            Updates applied via import cannot be undone.
+            You cannot undo changes made from a file.
           </p>
         )}
 
@@ -2277,10 +2276,10 @@ function ConfirmStep({
         </div>
       </div>
 
-      {/* Import receipt — counts + the value-remap audit. */}
+      {/* Summary — counts + the value-remap audit. */}
       <aside className="border-border bg-background/40 h-fit rounded-xl border p-4">
         <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.13em] uppercase">
-          Import receipt
+          Summary
         </p>
         <div className="mt-2 space-y-1">
           {receipt.map(([label, n]) => (
@@ -2298,11 +2297,11 @@ function ConfirmStep({
 
         <div className="border-border mt-3 border-t border-dashed pt-3">
           <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.13em] uppercase">
-            Values remapped · {remaps.reduce((n, r) => n + r.count, 0)}
+            Values fixed · {remaps.reduce((n, r) => n + r.count, 0)}
           </p>
           {remaps.length === 0 ? (
             <p className="text-muted-foreground mt-1.5 text-xs">
-              No fixes applied — unmatched values import as-is.
+              No fixes. Values not in your list are saved as they are.
             </p>
           ) : (
             <div className="mt-1.5 space-y-1.5">
@@ -2344,7 +2343,7 @@ function ContactsResultPanel({ result }: { result: ImportResult }) {
   return (
     <div className="border-border bg-background/50 rounded-xl border p-5">
       <p className="text-popover-foreground text-sm font-medium">
-        Import complete
+        Done
       </p>
       <div className="mt-3 flex flex-wrap gap-4">
         {stats
@@ -2368,19 +2367,19 @@ function ContactsResultPanel({ result }: { result: ImportResult }) {
       {(result.tagsAssigned > 0 || result.customValues > 0) && (
         <p className="text-muted-foreground mt-3 text-xs">
           {result.tagsAssigned > 0 &&
-            `${result.tagsAssigned} tag assignment${result.tagsAssigned !== 1 ? 's' : ''}`}
+            `${result.tagsAssigned} ${result.tagsAssigned !== 1 ? 'tags' : 'tag'}`}
           {result.tagsAssigned > 0 && result.customValues > 0 && ' · '}
           {result.customValues > 0 &&
-            `${result.customValues} custom value${result.customValues !== 1 ? 's' : ''}`}{' '}
-          applied.
+            `${result.customValues} extra ${result.customValues !== 1 ? 'details' : 'detail'}`}{' '}
+          added.
         </p>
       )}
       {result.invalidValues > 0 && (
         <p className="text-amber-foreground mt-2 flex items-center gap-1.5 text-xs">
           <AlertTriangle className="size-3.5 shrink-0" />
-          {result.invalidValues} value
-          {result.invalidValues !== 1 ? 's' : ''} skipped — wrong format for the
-          field type.
+          {result.invalidValues}{' '}
+          {result.invalidValues !== 1 ? 'values were' : 'value was'} skipped
+          because the format was wrong.
         </p>
       )}
     </div>
@@ -2401,7 +2400,7 @@ function LeadsResultPanel({
 }) {
   const tiles: { label: string; n: number; className: string }[] = [
     {
-      label: 'Leads added',
+      label: 'Enquiries added',
       n: result.imported,
       className: 'text-emerald-foreground',
     },
@@ -2418,7 +2417,7 @@ function LeadsResultPanel({
       <div className="flex items-center gap-2">
         <CheckCircle className="text-emerald-foreground size-5 shrink-0" />
         <p className="text-popover-foreground text-sm font-medium">
-          Import complete
+          Done
         </p>
       </div>
 
@@ -2446,15 +2445,15 @@ function LeadsResultPanel({
       {result.failed > 0 && (
         <p className="text-red-foreground flex items-center gap-1.5 text-xs">
           <XCircle className="size-3.5 shrink-0" />
-          {result.failed} row{result.failed !== 1 ? 's' : ''} failed to write.
+          {result.failed} {result.failed !== 1 ? 'rows were' : 'row was'} not saved.
         </p>
       )}
 
       {result.remapped > 0 && remaps.length > 0 && (
         <div className="border-border bg-background/40 rounded-xl border p-4">
           <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.13em] uppercase">
-            {result.remapped} value{result.remapped !== 1 ? 's' : ''} remapped
-            to your options
+            {result.remapped} {result.remapped !== 1 ? 'values' : 'value'} changed
+            to match your list
           </p>
           <div className="mt-2 space-y-1.5">
             {remaps.map((r, i) => (
@@ -2485,10 +2484,10 @@ function LeadsResultPanel({
         result.invalidValues > 0) && (
         <p className="text-muted-foreground text-xs">
           {result.tagsAssigned > 0 &&
-            `${result.tagsAssigned} tag assignment${result.tagsAssigned !== 1 ? 's' : ''} applied`}
+            `${result.tagsAssigned} ${result.tagsAssigned !== 1 ? 'tags' : 'tag'} added`}
           {result.tagsAssigned > 0 && result.customValues > 0 && ' · '}
           {result.customValues > 0 &&
-            `${result.customValues} custom value${result.customValues !== 1 ? 's' : ''} applied`}
+            `${result.customValues} extra ${result.customValues !== 1 ? 'details' : 'detail'} added`}
           {result.invalidValues > 0 && (
             <>
               {(result.tagsAssigned > 0 || result.customValues > 0) && ' · '}

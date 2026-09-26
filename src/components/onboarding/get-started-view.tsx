@@ -38,9 +38,9 @@ const STEP_ICONS: Record<OnboardingStepId, typeof MessageCircle> = {
 };
 
 const GROUP_LABELS: { key: OnboardingStep['group']; label: string }[] = [
-  { key: 'messaging', label: 'Set up messaging' },
-  { key: 'gym', label: 'Run your gym' },
-  { key: 'payments', label: 'Collect payments' },
+  { key: 'messaging', label: 'WhatsApp' },
+  { key: 'gym', label: 'Your gym' },
+  { key: 'payments', label: 'Payments' },
 ];
 
 function StepRow({
@@ -111,11 +111,10 @@ export function GetStartedView() {
             <Rocket className="size-5" />
           </span>
           <div className="text-foreground text-base font-semibold">
-            Setup is handled by admins
+            Only admins can do setup
           </div>
           <p className="text-muted-foreground text-sm">
-            Ask an admin or the account owner to manage the seven-step setup
-            guide.
+            Ask the gym owner or an admin to finish these setup steps.
           </p>
           <Button
             variant="outline"
@@ -124,7 +123,7 @@ export function GetStartedView() {
             onClick={() => startNavigation(dashboardHref)}
             loading={isPending(dashboardHref)}
           >
-            Go to dashboard
+            Go to Home
           </Button>
         </Card>
       </section>
@@ -142,12 +141,10 @@ export function GetStartedView() {
             <CheckCircle2 className="size-5" />
           </span>
           <div className="text-foreground text-base font-semibold">
-            Core checklist complete
+            Setup done
           </div>
           <p className="text-muted-foreground text-sm">
-            The seven-step checklist is complete. Review WhatsApp, payments,
-            reminders, templates, and other integrations separately before
-            relying on them operationally.
+            All setup steps are done. Before you depend on them, check that WhatsApp, payments, and reminders work the way you want.
           </p>
           <Button
             variant="outline"
@@ -156,7 +153,7 @@ export function GetStartedView() {
             onClick={() => startNavigation(dashboardHref)}
             loading={isPending(dashboardHref)}
           >
-            Go to dashboard
+            Go to Home
           </Button>
         </Card>
       </section>
@@ -196,7 +193,7 @@ export function GetStartedView() {
       {recommended && (
         <Card className="mt-3 px-5 py-5">
           <div className="text-muted-foreground text-xs font-medium">
-            We recommend this action next
+            Do this next
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <span className="bg-primary-soft text-primary-text flex size-11 shrink-0 items-center justify-center rounded-lg">
@@ -216,16 +213,16 @@ export function GetStartedView() {
               onClick={() => startNavigation(recommendedHref!)}
               loading={isPending(recommendedHref!)}
             >
-              Set up <ArrowRight data-icon="inline-end" />
+              Start <ArrowRight data-icon="inline-end" />
             </Button>
           </div>
         </Card>
       )}
 
       <Card size="sm" className="text-muted-foreground mt-3 px-4 py-3 text-xs">
-        Submission starts Meta review. Meta may reclassify a template, and
-        approval and delivery are not guaranteed. UsefulDesk marks setup ready
-        only after the exact provider contract is approved and synced.
+        WhatsApp checks every message before you can send it. This can take a
+        few hours, and WhatsApp may say no. The step is marked done only after
+        WhatsApp approves the message.
       </Card>
 
       {/* Setup actions, grouped */}
@@ -253,7 +250,7 @@ export function GetStartedView() {
           className="text-muted-foreground"
           onClick={() => void onboarding.dismiss()}
         >
-          Hide this page — I&apos;m already set up
+          I have already set up — hide this page
         </Button>
       </div>
     </section>

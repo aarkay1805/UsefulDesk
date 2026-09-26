@@ -158,9 +158,9 @@ describe('PaymentLinkActions readiness', () => {
   it('applies an external collection blocker to Copy and Send without invoking either action', async () => {
     const onResolve = vi.fn();
     renderActions(member, {
-      title: 'Refund review blocks collection',
+      title: 'Sort out the refund first',
       description: 'Resolve the refund review before collecting again.',
-      resolution: { label: 'Resolve refund review', onResolve },
+      resolution: { label: 'Sort out refund', onResolve },
     });
     await resolveReadiness();
 
@@ -171,7 +171,7 @@ describe('PaymentLinkActions readiness', () => {
     await userEvent.click(copy);
     expect(fetchPaymentLink).toHaveBeenCalledTimes(1);
     await userEvent.click(
-      screen.getByRole('button', { name: 'Resolve refund review' })
+      screen.getByRole('button', { name: 'Sort out refund' })
     );
     expect(onResolve).toHaveBeenCalledOnce();
   });
@@ -179,16 +179,16 @@ describe('PaymentLinkActions readiness', () => {
   it('keeps permission ahead of an external blocker and withholds its CTA', async () => {
     accountRole = 'viewer';
     renderActions(member, {
-      title: 'Refund review blocks collection',
+      title: 'Sort out the refund first',
       description: 'Resolve the refund review before collecting again.',
-      resolution: { label: 'Resolve refund review', onResolve: vi.fn() },
+      resolution: { label: 'Sort out refund', onResolve: vi.fn() },
     });
     await resolveReadiness();
 
     await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
-    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.getByText('You do not have permission')).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Resolve refund review' })
+      screen.queryByRole('button', { name: 'Sort out refund' })
     ).toBeNull();
   });
 
@@ -238,7 +238,7 @@ describe('PaymentLinkActions readiness', () => {
     expect(readySend.getAttribute('aria-busy')).toBeNull();
     expect(readySend.querySelector('.animate-spin')).toBeNull();
 
-    const status = screen.getByText('Payment link active');
+    const status = screen.getByText('Payment link ready');
     const expiry = screen.getByText('Expires 2026-08-22T08:45:00.000Z');
     expect(status.parentElement).toBe(expiry.parentElement);
     // The caption claims its own line in the footer's collection band so the
@@ -252,14 +252,14 @@ describe('PaymentLinkActions readiness', () => {
     renderActions();
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay isn't connected",
+      providerReason: "Razorpay is not connected",
     });
 
     const copy = screen.getByRole('button', { name: 'Copy link' });
     expect(copy.getAttribute('aria-disabled')).toBe('true');
     await userEvent.click(copy);
 
-    expect(screen.getByText("Razorpay isn't connected")).toBeTruthy();
+    expect(screen.getByText("Razorpay is not connected")).toBeTruthy();
     const resolution = screen.getByRole('button', {
       name: 'Connect Razorpay',
     });
@@ -278,7 +278,7 @@ describe('PaymentLinkActions readiness', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
 
     const resolution = screen.getByRole('button', {
-      name: 'Open payment setup',
+      name: 'Open payment settings',
     });
     expect(resolution.tagName).toBe('A');
     expect(resolution.getAttribute('href')).toBe('/settings?tab=payments');
@@ -288,16 +288,16 @@ describe('PaymentLinkActions readiness', () => {
     renderActions();
     await resolveReadiness({
       providerReady: false,
-      providerReason: 'Payment Link status is unavailable',
+      providerReason: 'Could not check the payment link',
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
 
     const blocker = screen.getByRole('dialog', {
-      name: 'Payment link unavailable',
+      name: 'Payment link not available',
     });
     expect(
-      within(blocker).getByText('Payment Link status is unavailable')
+      within(blocker).getByText('Could not check the payment link')
     ).toBeTruthy();
     expect(blockerControls(blocker)).toHaveLength(0);
   });
@@ -309,14 +309,14 @@ describe('PaymentLinkActions readiness', () => {
     renderActions(null);
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay isn't connected",
+      providerReason: "Razorpay is not connected",
     });
 
     const send = screen.getByRole('button', { name: 'Send payment link' });
     await userEvent.click(send);
 
     const blocker = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You do not have permission',
     });
     expect(blockerControls(blocker)).toHaveLength(0);
   });
@@ -327,7 +327,7 @@ describe('PaymentLinkActions readiness', () => {
     renderActions(null);
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay isn't connected",
+      providerReason: "Razorpay is not connected",
     });
 
     await userEvent.click(
@@ -335,7 +335,7 @@ describe('PaymentLinkActions readiness', () => {
     );
 
     const blocker = screen.getByRole('dialog', {
-      name: 'Phone number required',
+      name: 'No phone number',
     });
     expect(blockerControls(blocker)).toHaveLength(0);
   });
@@ -346,7 +346,7 @@ describe('PaymentLinkActions readiness', () => {
     renderActions();
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay isn't connected",
+      providerReason: "Razorpay is not connected",
     });
 
     await userEvent.click(
@@ -354,7 +354,7 @@ describe('PaymentLinkActions readiness', () => {
     );
 
     expect(
-      screen.getByRole('dialog', { name: "Razorpay isn't connected" })
+      screen.getByRole('dialog', { name: "Razorpay is not connected" })
     ).toBeTruthy();
   });
 
@@ -387,7 +387,7 @@ describe('PaymentLinkActions readiness', () => {
     );
 
     const resolution = screen.getByRole('button', {
-      name: 'Open template setup',
+      name: 'Open message templates',
     });
     expect(resolution.tagName).toBe('A');
     expect(resolution.getAttribute('href')).toBe('/settings?tab=templates');
@@ -398,21 +398,21 @@ describe('PaymentLinkActions readiness', () => {
     renderActions();
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay isn't connected",
+      providerReason: "Razorpay is not connected",
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
 
     const blocker = screen.getByRole('dialog', {
-      name: "Razorpay isn't connected",
+      name: "Razorpay is not connected",
     });
     expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
   });
 
   it.each([
-    [false, true, "WhatsApp isn't connected"],
-    [true, false, "Payment link template isn't ready"],
+    [false, true, "WhatsApp is not connected"],
+    [true, false, "Payment link message is not ready"],
   ])(
     'does not promise WhatsApp or template setup to an agent',
     async (connected, approved, title) => {

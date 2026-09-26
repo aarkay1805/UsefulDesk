@@ -34,7 +34,7 @@ describe('Razorpay disconnect boundary', () => {
     mocks.requireAccess.mockResolvedValue({ accountId: 'account-id' });
     mocks.disconnect.mockRejectedValue(
       new mocks.DisconnectBlockedError(
-        'Disconnect is blocked while an active auto-pay mandate needs Razorpay'
+        'Disconnect is blocked while an active AutoPay mandate needs Razorpay'
       )
     );
   });
@@ -56,7 +56,7 @@ describe('Razorpay disconnect boundary', () => {
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toEqual({
       error:
-        'Disconnect is blocked while an active auto-pay mandate needs Razorpay',
+        'Disconnect is blocked while an active AutoPay mandate needs Razorpay',
     });
   });
 });

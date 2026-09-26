@@ -107,7 +107,7 @@ describe('ProductServiceSaleCheckout', () => {
     );
 
     expect(
-      screen.getByRole('group', { name: 'Purchase checkout' })
+      screen.getByRole('group', { name: 'New purchase' })
     ).toBeTruthy();
   });
 
@@ -130,7 +130,7 @@ describe('ProductServiceSaleCheckout', () => {
     );
 
     const checkout = screen.getByRole('group', {
-      name: 'Purchase checkout',
+      name: 'New purchase',
     });
     const items = within(checkout).getByRole('region', {
       name: 'Products & services',
@@ -151,13 +151,13 @@ describe('ProductServiceSaleCheckout', () => {
     expect(paymentFooter?.className).toContain('sm:justify-start');
     const cancel = screen.getByRole('button', { name: 'Cancel' });
     const createInvoice = screen.getByRole('button', {
-      name: /Create invoice.*₹50/,
+      name: /Save sale.*₹50/,
     });
     expect(payment.contains(cancel)).toBe(true);
     expect(payment.contains(createInvoice)).toBe(true);
     expect(screen.getAllByRole('button', { name: 'Cancel' })).toHaveLength(1);
     expect(
-      screen.getAllByRole('button', { name: /Create invoice.*₹50/ })
+      screen.getAllByRole('button', { name: /Save sale.*₹50/ })
     ).toHaveLength(1);
   });
 
@@ -172,7 +172,7 @@ describe('ProductServiceSaleCheckout', () => {
     );
 
     const checkout = screen.getByRole('group', {
-      name: 'Purchase checkout',
+      name: 'New purchase',
     });
     expect(checkout.className).toContain('lg:grid');
     expect(checkout.className).toContain(
@@ -191,7 +191,7 @@ describe('ProductServiceSaleCheckout', () => {
     ).toBe(true);
     expect(
       payment.contains(
-        screen.getByRole('button', { name: /Create invoice.*₹50/ })
+        screen.getByRole('button', { name: /Save sale.*₹50/ })
       )
     ).toBe(true);
   });
@@ -235,7 +235,7 @@ describe('ProductServiceSaleCheckout', () => {
     );
 
     expect(
-      screen.getByRole('button', { name: /Create invoice.*₹50/ }).className
+      screen.getByRole('button', { name: /Save sale.*₹50/ }).className
     ).toContain('w-full');
   });
 
@@ -257,9 +257,9 @@ describe('ProductServiceSaleCheckout', () => {
       />
     );
 
-    const collectNow = screen.getByRole('radio', { name: 'Collect now' });
+    const collectNow = screen.getByRole('radio', { name: 'Pay now' });
     const collectLater = screen.getByRole('radio', {
-      name: 'Collect later',
+      name: 'Pay later',
     });
 
     expect(collectLater.getAttribute('aria-checked')).toBe('true');

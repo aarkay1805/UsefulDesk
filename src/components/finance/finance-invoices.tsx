@@ -70,7 +70,7 @@ const SORT_COLUMNS: {
   key: FinanceInvoiceSortKey;
   label: string;
 }[] = [
-  { key: 'issued_on', label: 'Issued on' },
+  { key: 'issued_on', label: 'Date' },
   { key: 'period', label: 'Billing period' },
   { key: 'name', label: 'Name' },
   { key: 'member_id', label: 'Member ID' },
@@ -194,18 +194,18 @@ export function FinanceInvoices({
           .maybeSingle();
         if (cancelled) return;
         if (error) {
-          toast.error(getErrorMessage(error, 'Invoice could not be loaded'));
+          toast.error(getErrorMessage(error, 'Could not load the invoice'));
           return;
         }
         if (!data) {
-          toast.error('This invoice is unavailable in the selected branch.');
+          toast.error('This invoice is not in the branch you picked.');
           return;
         }
         setDeepLinkedInvoice(invoiceDetailFromBalance(data as Invoice));
         setInvoiceOpen(true);
       } catch (cause) {
         if (!cancelled)
-          toast.error(getErrorMessage(cause, 'Invoice could not be loaded'));
+          toast.error(getErrorMessage(cause, 'Could not load the invoice'));
       }
     })();
     return () => {
@@ -256,7 +256,7 @@ export function FinanceInvoices({
         setSnapshot(result);
       } catch (reason) {
         if (cancelled || controller.signal.aborted) return;
-        setError(getErrorMessage(reason, 'Invoices could not be loaded'));
+        setError(getErrorMessage(reason, 'Could not load invoices'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -365,7 +365,7 @@ export function FinanceInvoices({
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (reason) {
-      toast.error(getErrorMessage(reason, 'Invoices could not be exported'));
+      toast.error(getErrorMessage(reason, 'Could not download invoices'));
     } finally {
       setExporting(false);
     }
@@ -393,7 +393,7 @@ export function FinanceInvoices({
             className="mt-2 w-fit"
             onClick={() => setRetryKey((key) => key + 1)}
           >
-            <RefreshCw /> Retry
+            <RefreshCw /> Try again
           </Button>
         </Alert>
       ) : null}
@@ -404,7 +404,7 @@ export function FinanceInvoices({
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricCard
-              title="Outstanding"
+              title="Total due"
               value={fmt.money(summary.outstanding)}
               icon={Wallet}
               subtitle={`${fmt.number(summary.count)} ${summary.count === 1 ? 'invoice' : 'invoices'} in this view`}
@@ -413,19 +413,19 @@ export function FinanceInvoices({
               title="Overdue"
               value={fmt.number(summary.overdue)}
               icon={AlertTriangle}
-              subtitle="Need collection follow-up"
+              subtitle="Need follow-up to collect"
             />
             <MetricCard
-              title="Net collected"
+              title="Money received"
               value={fmt.money(summary.collected)}
               icon={CircleCheck}
-              subtitle={`${fmt.money(summary.grossCollected)} gross − ${fmt.money(summary.refunds)} refunds`}
+              subtitle={`${fmt.money(summary.grossCollected)} received − ${fmt.money(summary.refunds)} refunded`}
             />
             <MetricCard
-              title="Net invoiced"
+              title="Total billed"
               value={fmt.money(summary.invoiced)}
               icon={ReceiptText}
-              subtitle={`${fmt.money(summary.grossInvoiced)} gross − ${fmt.money(summary.adjustments)} adjustments`}
+              subtitle={`${fmt.money(summary.grossInvoiced)} billed − ${fmt.money(summary.adjustments)} reduced`}
             />
           </div>
 
@@ -463,7 +463,7 @@ export function FinanceInvoices({
                   ['attention', 'Needs attention'],
                   ['paid', 'Paid'],
                   ['upcoming', 'Upcoming'],
-                  ['void', 'Void'],
+                  ['void', 'Cancelled'],
                 ] as const
               ).map(([value, label]) => (
                 <Chip key={value} value={value}>
@@ -482,12 +482,12 @@ export function FinanceInvoices({
                 title={
                   hasQuery
                     ? 'No invoices match these filters'
-                    : 'No invoices were issued in this month'
+                    : 'No invoices this month'
                 }
                 hint={
                   hasQuery
-                    ? 'Clear a filter or search term to see more invoice records.'
-                    : 'A new membership, renewal, service, or merchandise checkout will appear here.'
+                    ? 'Clear a filter or search to see more.'
+                    : 'New memberships, renewals, services, and product sales will show here.'
                 }
               />
             ) : (
@@ -596,7 +596,7 @@ export function FinanceInvoices({
                 <div className="hidden lg:block">
                   <Table className="table-fixed">
                     <TableCaption className="sr-only">
-                      Account-wide invoices
+                      All invoices
                     </TableCaption>
                     <colgroup>
                       <col className="w-36" />
@@ -616,7 +616,7 @@ export function FinanceInvoices({
                           onSort={setSort}
                         />
                         <InvoiceHeader
-                          label="Customer"
+                          label="Name"
                           sortKey="name"
                           sort={sort}
                           onSort={setSort}
@@ -711,7 +711,7 @@ export function FinanceInvoices({
                                 />
                                 <p className="text-muted-foreground text-xs tabular-nums">
                                   {row.requires_refund_review
-                                    ? 'Collection paused'
+                                    ? 'Collecting paused'
                                     : row.lifecycle === 'upcoming'
                                       ? `Starts ${fmt.date(row.period_start)}`
                                       : row.overdue
@@ -720,7 +720,7 @@ export function FinanceInvoices({
                                           ? `By ${fmt.date(row.period_end)}`
                                           : row.paymentState === 'paid'
                                             ? 'Settled'
-                                            : 'Nothing to collect'}
+                                            : 'Nothing due'}
                                 </p>
                               </div>
                             </TableCell>

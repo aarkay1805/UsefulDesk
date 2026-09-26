@@ -50,7 +50,7 @@ export function PendingAssigneeDisplay({ name }: { name: string }) {
   return (
     <span
       className="text-amber-foreground flex min-w-0 items-center gap-1.5"
-      title={`Invite pending — ${name} hasn't joined yet`}
+      title={`Invite sent. ${name} has not joined yet.`}
     >
       <UserAvatar
         name={name}
@@ -61,7 +61,7 @@ export function PendingAssigneeDisplay({ name }: { name: string }) {
       />
       <span className="min-w-0 truncate text-sm">
         <span className="truncate">{name}</span>
-        <span className="text-[10px] font-medium opacity-80"> · pending</span>
+        <span className="text-[10px] font-medium opacity-80"> · invited</span>
       </span>
     </span>
   );

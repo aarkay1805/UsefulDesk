@@ -58,8 +58,8 @@ interface LeadConversionRatingProps {
 }
 
 const METRIC_HELP: Record<LeadRatingMetric['key'], string> = {
-  memberConversion: 'Leads who became paid members',
-  trialBooking: 'Leads with a booked trial or a trial membership',
+  memberConversion: 'Enquiries who became paying members',
+  trialBooking: 'Enquiries who booked a trial or got a trial membership',
   humanResponse: 'New messages answered by a team member within 24 hours',
   followUp: 'Follow-ups finished on or before the due date',
   positiveOutcome:
@@ -86,39 +86,39 @@ const RADAR_AXIS_DETAILS: Record<
   }
 > = {
   memberConversion: {
-    label: 'Member conversion',
-    lines: ['Member', 'conversion'],
-    description: 'The share of leads that became paid members.',
+    label: 'Joined as members',
+    lines: ['Joined as', 'members'],
+    description: 'Out of 100 enquiries, how many became paying members.',
     positionClass: 'top-[10%] left-1/2 -translate-x-1/2 text-center',
     tooltipSide: 'top',
   },
   trialBooking: {
-    label: 'Trial booking',
-    lines: ['Trial', 'booking'],
-    description: 'The share of leads with recorded trial-booking evidence.',
+    label: 'Trials booked',
+    lines: ['Trials', 'booked'],
+    description: 'Out of 100 enquiries, how many booked a trial.',
     positionClass: 'top-1/4 right-0 text-left',
     tooltipSide: 'right',
   },
   humanResponse: {
-    label: 'First reply',
-    lines: ['First', 'reply'],
+    label: 'Replied in 24 hours',
+    lines: ['Replied in', '24 hours'],
     description:
-      'The share of inbound leads that received a first human reply within 24 hours.',
+      'Out of 100 enquiries that messaged you, how many got a reply from your team within 24 hours.',
     positionClass: 'right-0 bottom-[16%] text-left',
     tooltipSide: 'right',
   },
   followUp: {
-    label: 'On-time follow-up',
-    lines: ['On-time', 'follow-up'],
-    description: 'The share of due follow-ups completed on time.',
+    label: 'Follow-ups on time',
+    lines: ['Follow-ups', 'on time'],
+    description: 'Out of 100 follow-ups, how many were done by the due date.',
     positionClass: 'bottom-[16%] left-0 text-right',
     tooltipSide: 'left',
   },
   positiveOutcome: {
-    label: 'Positive outcome',
-    lines: ['Positive', 'outcome'],
+    label: 'Good results',
+    lines: ['Good', 'results'],
     description:
-      'The share of recorded completed follow-ups with a positive outcome.',
+      'Out of 100 finished follow-ups, how many ended well.',
     positionClass: 'top-1/4 left-0 text-right',
     tooltipSide: 'left',
   },
@@ -144,7 +144,7 @@ export function LeadConversionRating({
     <Dialog open={calculationOpen} onOpenChange={setCalculationOpen}>
       <DashboardSection
         id="lead-health-score"
-        title="Lead health score"
+        title="Enquiry score"
         className={cn('flex flex-col', className)}
         meta={
           <TooltipProvider>
@@ -159,7 +159,7 @@ export function LeadConversionRating({
                         // Sits tight against the label it explains; the
                         // heading's own gap-2 is spacing for a count.
                         className="-ml-1.5"
-                        aria-label="How does the lead health score work?"
+                        aria-label="How is the enquiry score made?"
                         onKeyDown={(event) => {
                           if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault();
@@ -174,7 +174,7 @@ export function LeadConversionRating({
                 <CircleHelp />
               </DialogTrigger>
               <TooltipContent>
-                How does the lead health score work?
+                How is the enquiry score made?
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -190,14 +190,14 @@ export function LeadConversionRating({
               >
                 <SelectTrigger
                   id="lead-rating-source"
-                  aria-label="Lead source"
+                  aria-label="Enquiry source"
                   className="w-36 max-w-full"
                 >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_LEADS_RATING_KEY}>
-                    All leads
+                    All enquiries
                   </SelectItem>
                   {data?.sources.map((source) => (
                     <SelectItem key={source.key} value={source.key}>
@@ -237,8 +237,8 @@ export function LeadConversionRating({
             <CardContent className="flex flex-1 flex-col">
               <EmptyState
                 icon={ChartNoAxesCombined}
-                title="No new leads in this time"
-                hint="The score will show after you add leads."
+                title="No new enquiries in these days"
+                hint="The score shows after you add enquiries."
               />
             </CardContent>
           ) : (
@@ -266,7 +266,7 @@ function RatingHeadline({ source }: { source: LeadSourceRating }) {
         <span className="text-muted-foreground text-xs">/100</span>
       </div>
       {source.rating == null && (
-        <p className="text-muted-foreground mt-1 text-xs">Score not ready</p>
+        <p className="text-muted-foreground mt-1 text-xs">Not enough data yet</p>
       )}
     </div>
   );
@@ -284,10 +284,13 @@ function RatingCalculationDialogContent({
   return (
     <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-lg">
       <DialogHeader>
-        <DialogTitle>How the lead health score works</DialogTitle>
+        <DialogTitle>How the enquiry score is made</DialogTitle>
         <DialogDescription>
-          This score shows how well {source.label.toLowerCase()} are moving. It
-          does not rank one lead source against another.
+          This score shows how well your team handles{' '}
+          {source.key === ALL_LEADS_RATING_KEY
+            ? 'all enquiries'
+            : `enquiries from ${source.label}`}
+          . It does not compare one source with another.
         </DialogDescription>
       </DialogHeader>
 
@@ -297,7 +300,7 @@ function RatingCalculationDialogContent({
             id="rating-components-heading"
             className="text-foreground text-sm font-medium"
           >
-            What makes the score
+            What the score is made of
           </h3>
           <ul className="border-border mt-2 divide-y rounded-lg border">
             {source.metrics.map((metric) => (
@@ -322,39 +325,38 @@ function RatingCalculationDialogContent({
         </section>
 
         <CalculationNote title="How points are set">
-          Each result is checked against its goal. A result cannot score more
-          than 100. The five results are then joined using the share shown
-          above.
+          Each part is compared with its goal. A part can score up to 100. The
+          five parts are added using the % shown next to each one.
         </CalculationNote>
 
-        <CalculationNote title="Time used">
-          This view starts with {fmt.number(source.cohortSize)} leads added from{' '}
-          {fmt.date(data.period.start)} through {fmt.date(data.period.end)}. It
-          uses the work saved for those leads up to now.
+        <CalculationNote title="Dates used">
+          This uses {fmt.number(source.cohortSize)} enquiries added from{' '}
+          {fmt.date(data.period.start)} to {fmt.date(data.period.end)}, and all
+          work done on them until today.
         </CalculationNote>
 
-        <CalculationNote title="Scope">
-          All leads includes every lead added in the chosen time, even if the
-          lead source is blank. Pick a source to see only those leads.
+        <CalculationNote title="Which enquiries">
+          All enquiries means every enquiry added in these dates, even ones with
+          no source. Pick a source to see only those enquiries.
         </CalculationNote>
 
-        <CalculationNote title="Trial booking">
-          UsefulDesk does not have a full booking list yet. It counts a Trial
-          booked status, a finished Trial booked follow-up, or a trial
-          membership. This does not prove that the person visited.
+        <CalculationNote title="Trials booked">
+          We count an enquiry as trial booked if it has the Trial booked stage, a
+          done Trial booked follow-up, or a trial membership. It does not mean
+          the person came to the gym.
         </CalculationNote>
 
         <CalculationNote title="Good follow-up results">
-          This uses only finished follow-ups with a saved result. Renewed, paid,
-          promised, contacted, and trial booked count as good results. No
-          answer, not interested, and other do not.
+          Only finished follow-ups with a saved result are used. Good results
+          are: renewed, paid, promised to pay, contacted, and trial booked. No
+          answer, not interested, and other are not good results.
         </CalculationNote>
 
-        <CalculationNote title="How much data is used">
-          The smallest group has {fmt.number(source.confidenceSample)} records,
-          so the data level is {CONFIDENCE_LABEL[source.confidence]}. Under 10
-          is low, 10 to 29 gives a rough guide, and 30 or more is strong. If a
-          result has no data, the score stays blank. It is not shown as zero.
+        <CalculationNote title="Is there enough data?">
+          The smallest part has {fmt.number(source.confidenceSample)} entries, so
+          the data is {CONFIDENCE_LABEL[source.confidence]}. Under 10 is low, 10
+          to 29 is fair, and 30 or more is strong. A part with no data stays
+          blank. It is not counted as zero.
         </CalculationNote>
       </div>
 
@@ -433,11 +435,11 @@ function RadarChart({ source }: { source: LeadSourceRating }) {
           aria-labelledby={`lead-radar-title-${source.key} lead-radar-desc-${source.key}`}
         >
           <title id={`lead-radar-title-${source.key}`}>
-            {source.label} lead health score
+            {source.label} enquiry score
           </title>
           <desc id={`lead-radar-desc-${source.key}`}>
-            Five parts of the score: members joined, trials booked, first reply,
-            follow-ups on time, and good follow-up results. A part with no data
+            Five parts of the score: joined as members, trials booked, replied in
+            24 hours, follow-ups on time, and good results. A part with no data
             stays blank.
           </desc>
           {[25, 50, 75, 100].map((level) => (

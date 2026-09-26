@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     if (convErr) {
       console.error('[ai/draft] conversation lookup error:', convErr);
       return NextResponse.json(
-        { error: 'Failed to load conversation' },
+        { error: 'Could not load conversation' },
         { status: 500 }
       );
     }

@@ -52,7 +52,7 @@ export async function cropToWebp(
   canvas.width = target;
   canvas.height = target;
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error("Your browser can't process images.");
+  if (!ctx) throw new Error("Your browser cannot process images.");
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   ctx.drawImage(

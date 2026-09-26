@@ -101,7 +101,7 @@ export function RecordInvoicePaymentDialog({
       const result = await uploadPrivateAccountMedia('payment-receipts', file);
       setShot({ url: result.signedUrl, path: result.path });
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Upload failed'));
+      toast.error(getErrorMessage(error, 'Could not upload the screenshot'));
     } finally {
       setUploading(false);
     }
@@ -135,7 +135,7 @@ export function RecordInvoicePaymentDialog({
       return;
     }
     if (paidOn > fmt.today()) {
-      toast.error('The payment date cannot be in the future');
+      toast.error('Payment date cannot be after today');
       return;
     }
 
@@ -156,12 +156,12 @@ export function RecordInvoicePaymentDialog({
       if (error) throw error;
 
       const settled = !isChargeableAmount(balance - parsed);
-      toast.success(settled ? 'Payment recorded' : 'Partial payment recorded');
+      toast.success(settled ? 'Payment recorded' : 'Part payment recorded');
       setShot(null);
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to record payment'));
+      toast.error(getErrorMessage(error, 'Could not record payment'));
     } finally {
       setSaving(false);
     }
@@ -193,7 +193,7 @@ export function RecordInvoicePaymentDialog({
     >
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Record invoice payment</DialogTitle>
+          <DialogTitle>Record payment</DialogTitle>
           <DialogDescription>
             {invoice.reference} · {fmt.money(balance)} outstanding
           </DialogDescription>
@@ -268,10 +268,10 @@ export function RecordInvoicePaymentDialog({
           {amountValidation === 'valid' ? (
             <p className="text-muted-foreground text-xs">
               {Number(amount) >= balance ? (
-                'This payment settles the invoice.'
+                'This pays the full invoice.'
               ) : (
                 <>
-                  Remaining after this payment:{' '}
+                  Still due after this payment:{' '}
                   <span className="text-foreground font-medium tabular-nums">
                     {fmt.money(balance - Number(amount))}
                   </span>
@@ -297,7 +297,7 @@ export function RecordInvoicePaymentDialog({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={shot.url}
-                  alt="Payment proof"
+                  alt="Payment screenshot"
                   className="size-10 rounded object-cover"
                 />
                 <span className="text-muted-foreground flex-1 truncate">
@@ -308,7 +308,7 @@ export function RecordInvoicePaymentDialog({
                   variant="ghost"
                   size="icon-sm"
                   onClick={removeShot}
-                  aria-label="Remove payment proof"
+                  aria-label="Remove screenshot"
                 >
                   <X className="size-4" />
                 </Button>
@@ -321,7 +321,7 @@ export function RecordInvoicePaymentDialog({
                   </>
                 ) : (
                   <>
-                    <Upload className="size-4" /> Upload UPI/receipt screenshot
+                    <Upload className="size-4" /> Upload UPI or receipt screenshot
                   </>
                 )}
                 <input

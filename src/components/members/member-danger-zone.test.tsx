@@ -30,9 +30,9 @@ describe('MemberDangerZone', () => {
       />
     );
 
-    expect(screen.getByText('Consent & data')).toBeDefined();
+    expect(screen.getByText('WhatsApp permission and data')).toBeDefined();
     expect(
-      screen.getByRole('button', { name: 'WhatsApp consent' })
+      screen.getByRole('button', { name: 'WhatsApp permission' })
     ).toBeDefined();
   });
 });

@@ -121,12 +121,12 @@ describe('SecurityPanel identity-aware settings', () => {
     render(<SecurityPanel />);
 
     expect(
-      await screen.findByText('Couldn’t load sign-in options')
+      await screen.findByText('Could not load sign-in options')
     ).toBeTruthy();
     expect(
       screen.getByRole('button', { name: 'Sign out everywhere' })
     ).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(await screen.findByLabelText('Current password')).toBeTruthy();
     expect(getUserIdentities).toHaveBeenCalledTimes(2);

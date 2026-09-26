@@ -91,31 +91,31 @@ export function Step4ScheduleSend({
 
   const audienceLabel =
     audience.type === 'all'
-      ? 'All Contacts'
+      ? 'Everyone'
       : audience.type === 'tags'
         ? `Tags (${audience.tagIds?.length ?? 0} selected)`
         : audience.type === 'csv'
-          ? 'CSV Upload'
-          : 'Custom';
+          ? 'Uploaded list'
+          : 'People with an extra detail';
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-foreground text-lg font-semibold">Review & Send</h2>
+        <h2 className="text-foreground text-lg font-semibold">Check and send</h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Name your broadcast, review the details, and send.
+          Name your broadcast, check the details, and send.
         </p>
       </div>
 
-      {/* Broadcast Name */}
+      {/* Broadcast name */}
       <div>
         <label className="text-foreground mb-1.5 block text-sm font-medium">
-          Broadcast Name
+          Broadcast name
         </label>
         <Input
           value={name}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder="e.g. Summer Sale Announcement"
+          placeholder="Example: Diwali offer"
           className="border-border text-foreground placeholder:text-muted-foreground"
         />
       </div>
@@ -133,7 +133,7 @@ export function Step4ScheduleSend({
             <p className="text-foreground">{audienceLabel}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs">Estimated Reach</p>
+            <p className="text-muted-foreground text-xs">Will reach about</p>
             <div className="flex items-center gap-1.5">
               {loadingReach ? (
                 <Loader2 className="text-primary-text h-3 w-3 animate-spin" />
@@ -161,7 +161,7 @@ export function Step4ScheduleSend({
             <div className="flex items-center gap-2">
               <Loader2 className="text-primary-text h-4 w-4 animate-spin" />
               <p className="text-foreground text-sm font-medium">
-                Sending broadcast...
+                Sending broadcast…
               </p>
             </div>
             <span className="text-primary-text text-xs font-medium">
@@ -198,7 +198,7 @@ export function Step4ScheduleSend({
               className="border-border text-muted-foreground hover:bg-muted disabled:opacity-50"
             >
               <Save className="h-4 w-4" />
-              Save as Draft
+              Save as draft
             </Button>
           )}
 
@@ -213,23 +213,23 @@ export function Step4ScheduleSend({
               }
             >
               <Send className="h-4 w-4" />
-              Send Broadcast
+              Send broadcast
             </DialogTrigger>
             <DialogContent className="border-border bg-popover sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="text-popover-foreground">
-                  Confirm Broadcast
+                  Send this broadcast?
                 </DialogTitle>
                 <DialogDescription className="text-muted-foreground">
-                  You are about to send this broadcast to{' '}
+                  This sends the message to{' '}
                   <span className="text-popover-foreground font-medium">
                     {estimatedReach.toLocaleString()}
                   </span>{' '}
-                  contacts using the{' '}
+                  people using the{' '}
                   <span className="text-popover-foreground font-medium">
                     {template.name}
                   </span>{' '}
-                  template. This action cannot be undone.
+                  template. You cannot undo this.
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
@@ -248,7 +248,7 @@ export function Step4ScheduleSend({
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   <Send className="h-4 w-4" />
-                  Confirm & Send
+                  Send now
                 </Button>
               </DialogFooter>
             </DialogContent>

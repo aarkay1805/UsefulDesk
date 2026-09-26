@@ -160,7 +160,7 @@ export function PlansSettings() {
       refreshPlans();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to add the starter plan'
+        err instanceof Error ? err.message : 'Could not add the starter plan'
       );
     } finally {
       setSeeding(false);
@@ -175,7 +175,7 @@ export function PlansSettings() {
       .select('id');
     if (error) return toast.error(error.message);
     if (!data?.length)
-      return toast.error("You don't have permission to change plans");
+      return toast.error("You do not have permission to change plans");
     toast.success(
       isActive ? 'Plan available for sale again' : 'Plan no longer for sale'
     );
@@ -202,7 +202,7 @@ export function PlansSettings() {
       .select('id');
     if (error) return toast.error(error.message);
     if (!data?.length)
-      return toast.error("You don't have permission to delete plans");
+      return toast.error("You do not have permission to delete plans");
     toast.success('Plan deleted');
     refreshPlans();
   }
@@ -278,7 +278,7 @@ export function PlansSettings() {
     }
     if (plan.attendance_limit_count && plan.attendance_limit_interval) {
       const interval = {
-        period: 'billing period',
+        period: 'payment period',
         week: 'week',
         month: 'month',
       }[plan.attendance_limit_interval];
@@ -415,7 +415,7 @@ export function PlansSettings() {
 
       {!canEditSettings && (
         <p className="text-muted-foreground mt-3 text-xs">
-          Ask an admin or owner to change membership plans.
+          Ask the owner or an admin to change membership plans.
         </p>
       )}
 

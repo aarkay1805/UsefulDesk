@@ -59,7 +59,7 @@ export function ContactSidebar({
   if (!contact) {
     return (
       <div className="border-border bg-card flex h-full w-90 items-center justify-center border-l">
-        <p className="text-muted-foreground text-sm">Select a conversation</p>
+        <p className="text-muted-foreground text-sm">Select a chat</p>
       </div>
     );
   }

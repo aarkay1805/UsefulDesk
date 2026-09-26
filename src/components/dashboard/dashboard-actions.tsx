@@ -27,7 +27,7 @@ async function loadDashboardActions(): Promise<DashboardActionSnapshot> {
     error?: string;
   };
   if (!response.ok) {
-    throw new Error(body.error ?? 'Could not load dashboard actions');
+    throw new Error(body.error ?? 'Could not load today’s work');
   }
   return body;
 }

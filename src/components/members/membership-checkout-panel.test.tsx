@@ -285,7 +285,7 @@ describe('MembershipCheckoutPanel', () => {
     ).toBe('true');
     expect(
       screen.getByText(
-        'Complete the bonus months above to calculate the amount due.'
+        'Finish the bonus months above to see the amount.'
       )
     ).toBeTruthy();
   });
@@ -335,7 +335,7 @@ describe('MembershipCheckoutPanel', () => {
     ).toBe('true');
     expect(
       screen.getByText(
-        'Complete the discount above to calculate the amount due.'
+        'Finish the discount above to see the amount.'
       )
     ).toBeTruthy();
   });
@@ -358,7 +358,7 @@ describe('MembershipCheckoutPanel', () => {
         screen.queryByRole('radio', { name: /Collect full amount/ })
       ).toBeNull();
     });
-    expect(screen.getByText('Amount due')).toBeTruthy();
+    expect(screen.getByText('To pay')).toBeTruthy();
     expect(screen.getAllByText('₹1000').length).toBeGreaterThan(0);
   });
 
@@ -368,7 +368,7 @@ describe('MembershipCheckoutPanel', () => {
 
     expect(screen.getByText('Collect full amount')).toBeTruthy();
     const installments = screen.getByRole('radio', {
-      name: /Part now, part later/,
+      name: /Pay in 2 parts/,
     });
     await user.click(installments);
 
@@ -377,7 +377,7 @@ describe('MembershipCheckoutPanel', () => {
       '₹600 now, then ₹400 on 2026-09-13'
     );
     expect(
-      screen.getByRole('combobox', { name: "Today's payment method" })
+      screen.getByRole('combobox', { name: "How are they paying today?" })
     ).toBeTruthy();
   });
 
@@ -398,7 +398,7 @@ describe('MembershipCheckoutPanel', () => {
     expect(screen.queryByText('Membership fee')).toBeNull();
     expect(screen.queryByText('Invoice total')).toBeNull();
     expect(screen.queryByText('Final membership fee')).toBeNull();
-    expect(screen.getByText('Cash due')).toBeTruthy();
+    expect(screen.getByText('To pay')).toBeTruthy();
 
     // A discount makes the arithmetic real, so the line items come back.
     await user.click(screen.getByRole('checkbox', { name: 'Offer discount' }));
@@ -413,12 +413,12 @@ describe('MembershipCheckoutPanel', () => {
   it('shows no payment controls when credit leaves zero cash due', () => {
     render(<Harness availableCredit={2_000} />);
 
-    expect(screen.getByText('No payment required')).toBeTruthy();
+    expect(screen.getByText('Nothing to pay')).toBeTruthy();
     expect(
       screen.queryByRole('radio', { name: /Collect full amount/ })
     ).toBeNull();
     expect(
-      screen.queryByRole('combobox', { name: "Today's payment method" })
+      screen.queryByRole('combobox', { name: "How are they paying today?" })
     ).toBeNull();
   });
 
@@ -429,7 +429,7 @@ describe('MembershipCheckoutPanel', () => {
       screen.getByRole('radio', { name: /Collect full amount/ })
     ).toBeTruthy();
     expect(
-      screen.queryByRole('radio', { name: /Part now, part later/ })
+      screen.queryByRole('radio', { name: /Pay in 2 parts/ })
     ).toBeNull();
   });
 });

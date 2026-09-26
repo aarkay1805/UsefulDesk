@@ -79,7 +79,7 @@ export default async function DataDeletionPage({
         ) : (
           <div className="border-border bg-card rounded-lg border p-5">
             <p className="text-base font-medium">
-              We couldn&apos;t find a request with that confirmation code.
+              We could not find a request with that confirmation code.
             </p>
             <p className="text-muted-foreground mt-2 text-sm">
               Double-check the link you were given, or use the instructions

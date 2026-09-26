@@ -222,7 +222,7 @@ export async function loadLeadListingSnapshot(
     buildLeadListingRpcArgs(input)
   );
   const { data, error } = await request.abortSignal(signal);
-  if (error) throw new Error(error.message || 'Failed to load leads');
+  if (error) throw new Error(error.message || 'Could not load enquiries');
   return normalizeLeadListingSnapshot(data);
 }
 

@@ -95,7 +95,7 @@ const CONNECTION_LABELS: Record<ConnectionStatus, string> = {
   connecting: 'Checking connection',
   ready: 'Connected',
   blocked: 'Needs attention',
-  reconnect_required: 'Reconnect required',
+  reconnect_required: 'Connect again',
   disconnecting: 'Disconnecting',
   disconnected: 'Not connected',
 };
@@ -104,7 +104,7 @@ const MERCHANT_LABELS: Record<MerchantStatus, string> = {
   unknown: 'Razorpay account status unknown',
   activated: 'Razorpay account active',
   under_review: 'Under review',
-  needs_clarification: 'Details required',
+  needs_clarification: 'Razorpay needs more details',
   suspended: 'Razorpay account suspended',
   rejected: 'Razorpay account rejected',
 };
@@ -125,7 +125,7 @@ function attentionSummary(health: ConnectionHealth): string {
     [health.failedEventCount, 'failed payment update'],
     [health.missingLedgerCount, 'missing payment record'],
     [health.unappliedChargeCount, 'unrecorded payment'],
-    [health.setupExceptionCount, 'auto-pay setup issue'],
+    [health.setupExceptionCount, 'AutoPay setup issue'],
     [health.paymentLinkExceptionCount, 'payment-link issue'],
     [health.paymentLinkSetupExceptionCount, 'payment-link setup issue'],
   ] as const;
@@ -192,7 +192,7 @@ export function RazorpaySettingsCard() {
         });
         const body = await response.json();
         if (!response.ok) {
-          throw new Error(body.error || 'Failed to load Razorpay connection');
+          throw new Error(body.error || 'Could not load Razorpay connection');
         }
         if (cancelled) return;
         const next = body.connection as BrowserSafeConnection;
@@ -218,7 +218,7 @@ export function RazorpaySettingsCard() {
               ? 'The connection check took too long. Try again.'
               : getErrorMessage(
                   error,
-                  "Razorpay status couldn't load. Try again."
+                  "Could not load Razorpay status. Try again."
                 )
           );
         }
@@ -370,7 +370,7 @@ export function RazorpaySettingsCard() {
     setSelectedResolution({ charge, action });
     setResolutionReason(
       action === 'apply'
-        ? 'Revalidated against Razorpay and applied to the membership ledger.'
+        ? 'Checked with Razorpay and added to the membership.'
         : ''
     );
   }
@@ -392,18 +392,18 @@ export function RazorpaySettingsCard() {
       );
       const body = await response.json();
       if (!response.ok) {
-        throw new Error(body.error || 'Could not resolve Razorpay charge');
+        throw new Error(body.error || 'Could not sort out this payment');
       }
       toast.success(
         selectedResolution.action === 'apply'
-          ? 'Razorpay charge applied to the membership'
-          : 'Razorpay charge marked as handled externally'
+          ? 'Payment added to the membership'
+          : 'Payment marked as handled elsewhere'
       );
       setSelectedResolution(null);
       setResolutionReason('');
       setReloadNonce((nonce) => nonce + 1);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not resolve Razorpay charge'));
+      toast.error(getErrorMessage(error, 'Could not sort out this payment'));
     } finally {
       setResolvingCharge(false);
     }
@@ -430,9 +430,9 @@ export function RazorpaySettingsCard() {
           <RazorpayLoading />
         ) : !canConfigure ? (
           <Alert>
-            <AlertTitle>Read-only</AlertTitle>
+            <AlertTitle>View only</AlertTitle>
             <AlertDescription>
-              Ask an admin or owner to connect or disconnect Razorpay.
+              Ask the owner or an admin to connect or disconnect Razorpay.
             </AlertDescription>
           </Alert>
         ) : loading ? (
@@ -440,7 +440,7 @@ export function RazorpaySettingsCard() {
         ) : loadError ? (
           <Alert variant="destructive">
             <TriangleAlert aria-hidden="true" />
-            <AlertTitle>Razorpay status couldn&apos;t load</AlertTitle>
+            <AlertTitle>Could not load Razorpay status</AlertTitle>
             <AlertDescription>
               <p>{loadError}</p>
               <Button
@@ -457,7 +457,7 @@ export function RazorpaySettingsCard() {
         ) : !connection ? (
           <Alert variant="destructive">
             <TriangleAlert aria-hidden="true" />
-            <AlertTitle>Razorpay status is unavailable</AlertTitle>
+            <AlertTitle>Could not get Razorpay status</AlertTitle>
             <AlertDescription>Try the connection check again.</AlertDescription>
           </Alert>
         ) : (
@@ -471,7 +471,7 @@ export function RazorpaySettingsCard() {
                 <AlertDescription>
                   <p>{attentionDetails}</p>
                   <p className="mt-1">
-                    Contact support before retrying affected payment work.
+                    Contact support before you try these payments again.
                   </p>
                   {health?.latestUnappliedReason ? (
                     <p className="mt-1">
@@ -528,7 +528,7 @@ export function RazorpaySettingsCard() {
                         <p className="text-muted-foreground text-xs">
                           {charge.gateway_paid_at
                             ? `Captured ${fmt.dateTime(charge.gateway_paid_at)}`
-                            : 'Provider payment time unavailable'}
+                            : 'Payment time not known'}
                           {charge.currency ? ` · ${charge.currency}` : ''}
                         </p>
                         <p className="text-sm">{charge.reason_message}</p>
@@ -586,11 +586,11 @@ export function RazorpaySettingsCard() {
 
                 <div className="bg-muted/20 grid gap-2 rounded-lg p-3 text-sm sm:grid-cols-2">
                   <div>
-                    <p className="text-muted-foreground text-xs">Merchant</p>
+                    <p className="text-muted-foreground text-xs">Razorpay account</p>
                     <p className="text-foreground font-medium">
                       {connection.merchantAccountSuffix
                         ? `Razorpay account ending ${connection.merchantAccountSuffix}`
-                        : 'Merchant identity unavailable'}
+                        : 'Account not known'}
                     </p>
                   </div>
                   <div>

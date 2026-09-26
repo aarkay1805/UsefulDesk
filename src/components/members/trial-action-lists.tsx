@@ -56,9 +56,9 @@ const BUCKET_META: Record<
     empty: 'No trials ending this week.',
   },
   expired_unconverted: {
-    label: 'Expired — not converted',
+    label: 'Ended — did not join',
     icon: <CircleAlert className="text-red-foreground size-4" />,
-    empty: 'No lapsed trials to win back.',
+    empty: 'No ended trials to follow up.',
   },
 };
 
@@ -212,10 +212,10 @@ function TrialList({
             const days = daysUntil(m.end_date, today);
             const when =
               days < 0
-                ? `ended ${fmt.date(m.end_date)} (${-days}d ago)`
+                ? `ended ${fmt.date(m.end_date)} (${-days} ${-days === 1 ? 'day' : 'days'} ago)`
                 : days === 0
                   ? `ends today`
-                  : `ends ${fmt.date(m.end_date)} (in ${days}d)`;
+                  : `ends ${fmt.date(m.end_date)} (in ${days} ${days === 1 ? 'day' : 'days'})`;
             return (
               <li
                 key={m.id}
@@ -266,7 +266,7 @@ function TrialList({
                     size="sm"
                     onClick={() => onConvert(m)}
                   >
-                    <UserPlus className="size-3.5" /> Convert
+                    <UserPlus className="size-3.5" /> Add as member
                   </Button>
                 </div>
               </li>

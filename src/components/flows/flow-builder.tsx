@@ -164,16 +164,17 @@ export function FlowBuilder() {
       <section className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 className="text-foreground text-sm font-semibold">
-            Nodes ({state.nodes.length})
+            Steps ({state.nodes.length})
           </h2>
           <AddNodeButton onAdd={addNode} />
         </div>
 
         {state.nodes.length === 0 ? (
           <div className="border-border bg-card/50 text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">
-            Add a <strong>Start</strong> node, then a{' '}
-            <strong>Send buttons</strong> node, then a <strong>Handoff</strong>{' '}
-            — that&apos;s the welcome-menu shape from the brief.
+            Add a <strong>Start</strong> step, then{' '}
+            <strong>Send buttons</strong>, then{' '}
+            <strong>Pass to your team</strong>. This makes a simple welcome
+            menu.
           </div>
         ) : (
           state.nodes.map((node) => (
@@ -246,7 +247,7 @@ function KeywordsInput({
           commit();
         }
       }}
-      placeholder="support, help, hi"
+      placeholder="Example: hi, fees, timing"
     />
   );
 }
@@ -288,13 +289,13 @@ function TriggerPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="keyword">
-                A message contains a keyword
+                A message has a word
               </SelectItem>
               <SelectItem value="first_inbound_message">
-                Customer&apos;s first ever inbound message
+                A person’s first message
               </SelectItem>
               <SelectItem value="manual">
-                Manual only (no auto-trigger)
+                Only when started by hand
               </SelectItem>
             </SelectContent>
           </Select>
@@ -302,7 +303,7 @@ function TriggerPanel({
         {state.trigger_type === 'keyword' && (
           <div>
             <label className="text-muted-foreground mb-1 block text-xs">
-              Keywords (comma-separated)
+              Words (put a comma between each)
             </label>
             <KeywordsInput
               keywords={
@@ -346,12 +347,12 @@ function EntryPicker({
   return (
     <section className="border-border bg-card flex items-center gap-3 rounded-lg border p-3">
       <CornerDownRight className="text-primary-text h-4 w-4 shrink-0" />
-      <span className="text-muted-foreground text-xs">Entry node:</span>
+      <span className="text-muted-foreground text-xs">First step:</span>
       <NodeKeySelect
         value={state.entry_node_id}
         nodes={state.nodes}
         onChange={(key) => setState((s) => ({ ...s, entry_node_id: key }))}
-        placeholder="Pick the first node…"
+        placeholder="Pick the first step…"
         className="max-w-xs flex-1"
       />
     </section>
@@ -464,13 +465,13 @@ function NodeCard({
             <div className="flex items-center gap-2">
               {!isEntry && (
                 <Button variant="ghost" size="sm" onClick={onSetEntry}>
-                  Set as entry
+                  Make first step
                 </Button>
               )}
             </div>
             <Button variant="destructive-ghost" size="sm" onClick={onRemove}>
               <Trash2 className="h-3.5 w-3.5" />
-              Remove node
+              Remove step
             </Button>
           </div>
           {issues.length > 0 && (
@@ -531,7 +532,7 @@ function NodeConfigWithAdvanced({
           <div className="mt-3 flex flex-col gap-3">
             <div>
               <label className="text-muted-foreground mb-1 block text-xs">
-                Node key (internal identifier — keep stable for analytics)
+                Step ID (do not change)
               </label>
               <Input
                 value={node.node_key}
@@ -543,9 +544,7 @@ function NodeConfigWithAdvanced({
             </div>
             {hasReplyIds && (
               <p className="text-muted-foreground text-[10px]">
-                Reply IDs for each option are shown inline above. They&apos;re
-                returned by WhatsApp when a customer taps; you usually
-                don&apos;t need to touch them.
+                Each option has a reply ID above. You usually do not need to change it.
               </p>
             )}
           </div>
@@ -576,10 +575,10 @@ function AddNodeButton({ onAdd }: { onAdd: (type: NodeType) => void }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         className="border-border bg-card text-foreground hover:bg-muted inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
-        aria-label="Add node"
+        aria-label="Add step"
       >
         <Plus className="h-3.5 w-3.5" />
-        Add node
+        Add step
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="border-border bg-popover">
         {groupNodeTypesByCategory(types).map((group, i) => (

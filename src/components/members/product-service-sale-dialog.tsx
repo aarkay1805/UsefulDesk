@@ -48,8 +48,8 @@ export function ProductServiceSaleDialog({
             {mode === 'service_renewal' ? 'Renew service' : 'Add purchase'}
           </DialogTitle>
           <DialogDescription>
-            Set quantities, then choose what to collect.
-            {membership ? ' Member credit is applied automatically.' : ''}
+            Pick items and quantity, then record the payment.
+            {membership ? ' Any credit from earlier is used first.' : ''}
           </DialogDescription>
         </DialogHeader>
         <ProductServiceSaleCheckout

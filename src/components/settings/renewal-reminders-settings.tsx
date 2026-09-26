@@ -93,8 +93,8 @@ type RuleReveal = {
 // permission is the first blocker on each change action, so pressing one
 // explains why instead of opening a flow they cannot finish.
 const EDIT_PERMISSION_BLOCKER: ActionBlocker = {
-  title: 'Admin access required',
-  description: 'Only an admin or owner can change automated messages.',
+  title: 'You do not have permission',
+  description: 'Only the owner or an admin can change automated messages.',
 };
 
 const UNSAVED_CHANGES_MESSAGE =
@@ -167,7 +167,7 @@ function ruleSetupStatus(rule: RuleRow): RuleSetupStatus | null {
         };
       case 'disabled':
         return {
-          label: 'Disabled by WhatsApp',
+          label: 'Turned off by WhatsApp',
           variant: 'danger',
           action: 'View status',
         };
@@ -796,7 +796,7 @@ function RuleDetail({
     rule.id === 'attendance_streak' && lifecycleWindow ? (
       <div key="arrival" className="flex flex-wrap items-center gap-x-1">
         <span>
-          Without an assigned arrival, it sends at{' '}
+          Without a usual time, it sends at{' '}
           {localTime(lifecycleWindow.end, '30')}.
         </span>
         {sendingHoursLink}
@@ -1058,7 +1058,7 @@ function RuleRow({
           ) : null}
           {!canToggle ? (
             <span className="text-muted-foreground text-sm">
-              Managed by payment plan
+              Set by the installment plan
             </span>
           ) : null}
           {needsSetup ? setupAction : null}
@@ -1088,7 +1088,7 @@ function RuleRow({
                 <Loader2
                   className="text-muted-foreground size-4 animate-spin"
                   role="status"
-                  aria-label="Saving activation"
+                  aria-label="Saving…"
                 />
               ) : null}
             </>
@@ -1119,7 +1119,7 @@ function RuleRow({
           {needsSetup ? (
             <p className="text-muted-foreground mt-3 text-sm">
               {rule.readiness.message ??
-                'Connect WhatsApp and approve the exact template before it can send.'}
+                'Connect WhatsApp and get this message approved before it can send.'}
             </p>
           ) : null}
           {children}
@@ -1230,7 +1230,7 @@ export function RenewalRemindersSettings({
           // Try again.
           if (!cancelled)
             setError({
-              message: data?.error || 'Automated messages couldn’t load.',
+              message: data?.error || 'Automated messages could not load.',
               canRetry: response.status !== 401 && response.status !== 403,
             });
           return;
@@ -1246,7 +1246,7 @@ export function RenewalRemindersSettings({
           setError({
             message: getErrorMessage(
               loadError,
-              'Automated messages couldn’t load. Try again.'
+              'Automated messages could not load. Try again.'
             ),
             canRetry: true,
           });
@@ -1371,7 +1371,7 @@ export function RenewalRemindersSettings({
       const data = await response.json();
       if (!response.ok)
         throw new Error(
-          data?.error || 'Automated message settings couldn’t be saved.'
+          data?.error || 'Automated message settings could not be saved.'
         );
       // A branch navigation can happen while the request is in flight. Its
       // response belongs to the branch that initiated the mutation, never the
@@ -1385,7 +1385,7 @@ export function RenewalRemindersSettings({
       toast.error(
         getErrorMessage(
           saveError,
-          'Automated message settings couldn’t be saved. Try again.'
+          'Automated message settings could not be saved. Try again.'
         )
       );
       throw saveError;
@@ -1402,7 +1402,7 @@ export function RenewalRemindersSettings({
   ) : error ? (
     <Alert variant="destructive">
       <AlertCircle />
-      <AlertTitle>Automated messages couldn’t load</AlertTitle>
+      <AlertTitle>Automated messages could not load</AlertTitle>
       <AlertDescription>
         <p>{error.message}</p>
         {error.canRetry ? (
@@ -1421,9 +1421,9 @@ export function RenewalRemindersSettings({
     <div ref={rulesRef} className="space-y-8">
       {!canEditSettings ? (
         <Alert>
-          <AlertTitle>Read-only</AlertTitle>
+          <AlertTitle>View only</AlertTitle>
           <AlertDescription>
-            Ask an admin or owner to change automated messages.
+            Ask the owner or an admin to change automated messages.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -1564,9 +1564,9 @@ export function RenewalRemindersSettings({
               // The tab stays visible (gate, don't hide), but its history is
               // admin-only in the database, so nothing is requested here.
               <Alert>
-                <AlertTitle>Admin access required</AlertTitle>
+                <AlertTitle>You do not have permission</AlertTitle>
                 <AlertDescription>
-                  Ask an admin or owner to check message history.
+                  Ask the owner or an admin to check message history.
                 </AlertDescription>
               </Alert>
             )}

@@ -34,14 +34,14 @@ export function FinanceAdPerformanceCard({
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="bg-muted/30 rounded-lg p-3">
-            <p className="text-muted-foreground text-xs">Marketing spend</p>
+            <p className="text-muted-foreground text-xs">Money spent on ads</p>
             <p className="mt-1 text-lg font-medium tabular-nums">
               {fmt.money(performance.adSpend)}
             </p>
           </div>
           <div className="bg-muted/30 rounded-lg p-3">
             <p className="text-muted-foreground text-xs">
-              Joining revenue to date
+              Joining fees received so far
             </p>
             <p className="mt-1 text-lg font-medium tabular-nums">
               {fmt.money(performance.joiningRevenue)}
@@ -59,16 +59,16 @@ export function FinanceAdPerformanceCard({
                     render={
                       <button
                         type="button"
-                        aria-label="About leads acquired"
+                        aria-label="About enquiries from ads"
                         className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex cursor-help items-center gap-1.5 rounded-sm text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
                       />
                     }
                   >
-                    <span>Leads acquired</span>
+                    <span>Enquiries from ads</span>
                     <CircleHelp aria-hidden="true" className="size-3.5" />
                   </TooltipTrigger>
                   <TooltipContent>
-                    Instagram, Facebook and automated Meta leads
+                    Enquiries from Instagram and Facebook ads
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -79,7 +79,7 @@ export function FinanceAdPerformanceCard({
           </div>
           <div className="flex items-center gap-3 py-2.5">
             <span className="text-muted-foreground flex-1">
-              Converted members to date
+              Joined as members so far
             </span>
             <span className="font-medium tabular-nums">
               {fmt.number(performance.convertedMembers)}
@@ -87,21 +87,20 @@ export function FinanceAdPerformanceCard({
           </div>
           <div className="flex items-center gap-3 py-2.5">
             <span className="text-muted-foreground flex-1">
-              Conversion to date
+              Joined so far (%)
             </span>
             <span className="font-medium tabular-nums">{conversion}</span>
           </div>
           <div className="flex items-center gap-3 py-2.5">
             <span className="text-muted-foreground flex-1">
-              Return on ad spend
+              Money earned for every ₹1 spent
             </span>
             <span className="font-medium tabular-nums">{returnOnSpend}</span>
           </div>
         </div>
 
         <p className="text-muted-foreground text-xs leading-relaxed">
-          Historical cohorts keep updating as their leads convert and make their
-          joining payment.
+          Older months keep updating when their enquiries join and pay.
         </p>
       </CardContent>
     </Card>

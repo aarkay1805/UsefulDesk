@@ -133,12 +133,12 @@ export const REMINDER_RULES = [
     schedule: {
       capability: 'event-driven',
       timing:
-        'On day six, then once more six days after the first send. One hour after assigned arrival, or 30 minutes before sending hours end.',
+        'On day six, then once more six days after the first send. One hour after usual time, or 30 minutes before sending hours end.',
       explanation:
         'A new membership starts the count. Each check-in resets it. Members already away when this is enabled can receive a message on the next eligible day.',
     },
     eligibility:
-      'Active members with a phone number and at least six consecutive account-local days without a check-in.',
+      'Active members with a phone number who have not checked in for six days in a row.',
     stops:
       'After two messages, a check-in, a member reply, an inactive membership, or this message being turned off.',
     staff:
@@ -201,7 +201,7 @@ export const REMINDER_RULES = [
     eligibility:
       'Members whose membership has ended and has not changed since.',
     stops:
-      'The member renews, puts renewal on hold, pauses, starts another membership, or replies.',
+      'The member renews, puts renewal on hold, freezes, starts another membership, or replies.',
     staff:
       'If the member does not reply, UsefulDesk adds a follow-up for the branch owner after WhatsApp accepts the last message. If a follow-up is already open, it uses that one.',
     templateContracts: ['membership_post_expiry'],
@@ -384,20 +384,20 @@ export const REMINDER_RULES = [
   {
     id: 'freeze_return',
     group: 'retention',
-    title: 'Return after a membership pause',
+    title: 'Return after a membership freeze',
     purpose:
-      'Reminds members before they plan to return from a paused membership.',
+      'Reminds members a day before they plan to come back from a frozen membership.',
     schedule: {
       capability: 'fixed-date-offsets',
       timing:
-        '1 day before the planned return; staff follow-up is due on the return day.',
+        '1 day before they plan to come back. A staff follow-up is due on that day.',
       explanation: 'This day cannot be changed.',
     },
     eligibility:
-      'Members whose membership is paused and whose planned return date has not changed.',
+      'Members whose membership is frozen and who have a date to come back.',
     stops:
-      'The member returns, the planned date changes, or the membership is cancelled.',
-    staff: 'Confirm the member’s next step before the planned return.',
+      'The member comes back, the date changes, or the membership is cancelled.',
+    staff: 'Check with the member before the date they plan to come back.',
     templateContracts: ['freeze_return'],
     fields: [booleanField('freeze_return_reminders_enabled')],
     configurable: true,
@@ -417,7 +417,7 @@ export const REMINDER_RULES = [
     eligibility:
       'Former members whose membership has ended and who have not renewed.',
     stops:
-      'The member renews, starts another membership, puts renewal on hold or pause, promises to pay, or replies.',
+      'The member renews, starts another membership, puts renewal on hold, freezes, promises to pay, or replies.',
     staff: 'Handle replies using the current membership price.',
     templateContracts: ['membership_win_back'],
     fields: [booleanField('membership_win_back_enabled')],

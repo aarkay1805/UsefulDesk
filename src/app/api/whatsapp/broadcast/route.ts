@@ -239,7 +239,7 @@ export async function POST(request: Request) {
         sentCount++;
       } else {
         console.error(
-          `Failed to send broadcast to ${recipient.phone}:`,
+          `Could not send broadcast to ${recipient.phone}:`,
           lastError
         );
         results.push({
@@ -261,7 +261,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error in WhatsApp broadcast POST:', error);
     return NextResponse.json(
-      { error: 'Failed to process broadcast' },
+      { error: 'Could not process broadcast' },
       { status: 500 }
     );
   }

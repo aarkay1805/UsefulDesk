@@ -42,16 +42,16 @@ interface PlanOptionPickerProps {
 
 const PLAN_TYPE_SUFFIX: Record<MembershipPlan['plan_type'], string | null> = {
   recurring: null,
-  non_recurring: 'fixed term',
+  non_recurring: 'one-time',
   session_pack: 'session pack',
 };
 
 /** A row's duration only *bills* on a recurring plan — see PLAN_COPY in
  *  plan-editor-dialog.tsx, which names the same thing on the authoring side. */
 const OPTION_LABEL: Record<MembershipPlan['plan_type'], string> = {
-  recurring: 'Billing option',
-  non_recurring: 'Term',
-  session_pack: 'Pricing',
+  recurring: 'Price',
+  non_recurring: 'Price',
+  session_pack: 'Price',
 };
 
 /**
@@ -198,8 +198,7 @@ export function PlanOptionPicker({
 
       {selectedPlan && options.length === 0 && (
         <p className="text-destructive text-xs">
-          This plan has no active price — add one in Settings → Membership
-          plans.
+          This plan has no price yet. Add a price in Settings → Membership plans.
         </p>
       )}
     </div>

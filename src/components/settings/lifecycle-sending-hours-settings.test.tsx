@@ -116,7 +116,7 @@ describe('Lifecycle sending hours', () => {
       'Promised payment reminder',
       'Payment link follow-up',
       'Session pack reminders',
-      'Return after a membership pause',
+      'Return after a membership freeze',
       'Invite expired members back',
       'Invite members to renew a service',
     ]);
@@ -175,7 +175,7 @@ describe('Lifecycle sending hours', () => {
     await chooseStart('10:00 am');
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
-    const alertTitle = await screen.findByText('Sending hours weren’t saved');
+    const alertTitle = await screen.findByText('Sending hours were not saved');
     expect(alertTitle.closest('[role="alert"]')).toBeTruthy();
     expect(screen.getByText('Write failed')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Save changes' })).toBeTruthy();

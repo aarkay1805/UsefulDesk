@@ -126,7 +126,7 @@ async function sendViaMeta(
       .maybeSingle();
     if (data && !isMessageTemplate(data)) {
       throw new Error(
-        'Template row is malformed locally — run "Sync from Meta" in Settings to repair it.'
+        'This template is broken. Go to Settings → Message templates and click Update from WhatsApp.'
       );
     }
     templateRow = data ?? null;
@@ -143,7 +143,7 @@ async function sendViaMeta(
     .eq('account_id', input.accountId)
     .single();
   if (configErr || !config) {
-    throw new Error('WhatsApp not configured for this account');
+    throw new Error('WhatsApp is not connected');
   }
 
   const accessToken = decrypt(config.access_token);

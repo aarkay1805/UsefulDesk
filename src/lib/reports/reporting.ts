@@ -1472,12 +1472,12 @@ export function ownerReportCsv(
       report.metrics.newMembers.previous,
     ]),
     csvRow([
-      'Average Sale Price',
+      'Average price paid',
       report.metrics.averageSalePrice.current,
       report.metrics.averageSalePrice.previous,
     ]),
     csvRow([
-      'Lead conversion (%)',
+      'Enquiries who joined (%)',
       report.metrics.conversion.current,
       report.metrics.conversion.previous,
     ]),
@@ -1485,22 +1485,22 @@ export function ownerReportCsv(
     csvRow(['Needs attention', 'Members', 'Amount']),
     csvRow(['Renewals due in 7 days', report.attention.renewalsDue, '']),
     csvRow([
-      'Outstanding dues',
+      'Dues',
       report.attention.outstandingDues,
       report.attention.outstandingAmount,
     ]),
-    csvRow(['Inactive 10+ days', report.attention.inactiveMembers, '']),
-    csvRow(['Churn risk', report.attention.churnRisk, '']),
+    csvRow(['Not seen for 10+ days', report.attention.inactiveMembers, '']),
+    csvRow(['May leave', report.attention.churnRisk, '']),
     csvRow(['Trial follow-ups', report.attention.trialFollowups, '']),
-    csvRow(['Failed mandates', report.attention.failedMandates, '']),
+    csvRow(['AutoPay failed', report.attention.failedMandates, '']),
     '',
     csvRow([
       'Date',
       'Revenue',
       'Visits',
       'New members',
-      'Acquired leads',
-      'Converted leads',
+      'New enquiries',
+      'Enquiries who joined',
     ]),
     ...report.trend.map((row) =>
       csvRow([
@@ -1526,8 +1526,8 @@ export function ownerReportCsv(
     '',
     csvRow([
       'Plan',
-      'Billing option',
-      'Standard fee',
+      'Price',
+      'Normal fee',
       'Active members',
       'New members',
       'Revenue',
@@ -1539,7 +1539,7 @@ export function ownerReportCsv(
           plan.name,
           option.durationCount && option.durationUnit
             ? durationLabel(option.durationCount, option.durationUnit)
-            : 'Unassigned billing option',
+            : 'No price picked',
           option.price ?? '',
           option.activeMembers,
           option.newMembers,
@@ -1550,8 +1550,8 @@ export function ownerReportCsv(
     ),
     '',
     csvRow([
-      'Lead source',
-      'Open leads',
+      'Enquiry source',
+      'Open enquiries',
       'Members',
       'Revenue',
       'Conversion (%)',
@@ -1569,12 +1569,12 @@ export function ownerReportCsv(
       ? [
           '',
           csvRow(['Ad performance', 'Value']),
-          csvRow(['Marketing spend', adPerformance.adSpend]),
-          csvRow(['Ad-source leads', adPerformance.leads]),
-          csvRow(['Converted members to date', adPerformance.convertedMembers]),
-          csvRow(['Joining revenue to date', adPerformance.joiningRevenue]),
-          csvRow(['Conversion rate', adPerformance.conversionRate ?? '']),
-          csvRow(['Return on ad spend', adPerformance.returnOnAdSpend ?? '']),
+          csvRow(['Money spent on ads', adPerformance.adSpend]),
+          csvRow(['Enquiries from ads', adPerformance.leads]),
+          csvRow(['Joined as members so far', adPerformance.convertedMembers]),
+          csvRow(['Joining fees received so far', adPerformance.joiningRevenue]),
+          csvRow(['Joined (%)', adPerformance.conversionRate ?? '']),
+          csvRow(['Money earned for every 1 spent', adPerformance.returnOnAdSpend ?? '']),
         ]
       : []),
     '',

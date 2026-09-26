@@ -177,7 +177,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error in WhatsApp react POST:', error);
     return NextResponse.json(
-      { error: 'Failed to react to message' },
+      { error: 'Could not react to message' },
       { status: 500 }
     );
   }

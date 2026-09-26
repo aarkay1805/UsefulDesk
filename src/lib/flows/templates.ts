@@ -74,7 +74,7 @@ const WELCOME_MENU: FlowTemplate = {
   slug: 'welcome_menu',
   name: 'Welcome menu',
   description:
-    "Greet customers who type a keyword and route them to the right agent based on whether they're new or existing.",
+    'Say hello when someone sends a word like “hi”, then send them to the right team member based on whether they are a member or new.',
   icon: 'MessageSquare',
   trigger_type: 'keyword',
   trigger_config: {
@@ -92,17 +92,17 @@ const WELCOME_MENU: FlowTemplate = {
       node_key: 'welcome',
       node_type: 'send_buttons',
       config: {
-        text: 'Hi! 👋 Welcome to support. Are you an existing customer or new here?',
+        text: 'Hi! 👋 Welcome. Are you already a member, or new here?',
         footer_text: 'Tap a button below to continue.',
         buttons: [
           {
             reply_id: 'existing',
-            title: 'Existing customer',
+            title: 'I am a member',
             next_node_key: 'existing_handoff',
           },
           {
             reply_id: 'new',
-            title: 'New customer',
+            title: 'I am new',
             next_node_key: 'new_handoff',
           },
         ],
@@ -112,14 +112,14 @@ const WELCOME_MENU: FlowTemplate = {
       node_key: 'existing_handoff',
       node_type: 'handoff',
       config: {
-        note: 'Existing customer needs assistance — please check account history before replying.',
+        note: 'A member needs help. Check their profile before you reply.',
       } as HandoffNodeConfig,
     },
     {
       node_key: 'new_handoff',
       node_type: 'handoff',
       config: {
-        note: 'New customer — share pricing + onboarding link.',
+        note: 'New enquiry. Share fees and trial details.',
       } as HandoffNodeConfig,
     },
   ],
@@ -132,7 +132,7 @@ const FAQ_BOT: FlowTemplate = {
   slug: 'faq_bot',
   name: 'FAQ bot',
   description:
-    'Answer common questions automatically. Customer picks a topic from a list; the bot replies with the answer and ends.',
+    'Answer common questions by itself. The person picks a topic from a list and gets the answer.',
   icon: 'HelpCircle',
   trigger_type: 'keyword',
   trigger_config: {
@@ -163,12 +163,12 @@ const FAQ_BOT: FlowTemplate = {
               },
               {
                 reply_id: 'pricing',
-                title: 'Pricing',
+                title: 'Fees',
                 next_node_key: 'answer_pricing',
               },
               {
                 reply_id: 'refunds',
-                title: 'Refund policy',
+                title: 'Freeze membership',
                 next_node_key: 'answer_refunds',
               },
             ],
@@ -178,7 +178,7 @@ const FAQ_BOT: FlowTemplate = {
             rows: [
               {
                 reply_id: 'human',
-                title: 'Talk to a human',
+                title: 'Talk to the team',
                 next_node_key: 'human_handoff',
               },
             ],
@@ -190,7 +190,7 @@ const FAQ_BOT: FlowTemplate = {
       node_key: 'answer_hours',
       node_type: 'send_message',
       config: {
-        text: "We're open Mon–Fri, 9am–6pm local time. Weekend support is limited to urgent issues.",
+        text: 'We are open Monday to Saturday, 6 am to 10 pm. Please check Sunday timings at the front desk.',
         next_node_key: 'end',
       } as SendMessageNodeConfig,
     },
@@ -198,7 +198,7 @@ const FAQ_BOT: FlowTemplate = {
       node_key: 'answer_pricing',
       node_type: 'send_message',
       config: {
-        text: 'Our pricing starts at $9/mo. Visit https://example.com/pricing for the full breakdown.',
+        text: 'Reply with your fitness goal and our team will share the plans and fees that suit you.',
         next_node_key: 'end',
       } as SendMessageNodeConfig,
     },
@@ -206,7 +206,7 @@ const FAQ_BOT: FlowTemplate = {
       node_key: 'answer_refunds',
       node_type: 'send_message',
       config: {
-        text: "Refunds are honored within 30 days of purchase. Reply with your order number and we'll process it.",
+        text: 'To freeze your membership, reply with your name and the dates. Our team will help you.',
         next_node_key: 'end',
       } as SendMessageNodeConfig,
     },
@@ -214,7 +214,7 @@ const FAQ_BOT: FlowTemplate = {
       node_key: 'human_handoff',
       node_type: 'handoff',
       config: {
-        note: 'Customer asked to talk to a human from the FAQ bot.',
+        note: 'This person asked to talk to the team from the FAQ bot.',
       } as HandoffNodeConfig,
     },
     {
@@ -230,9 +230,9 @@ const FAQ_BOT: FlowTemplate = {
 // ============================================================
 const LEAD_CAPTURE: FlowTemplate = {
   slug: 'lead_capture',
-  name: 'Lead capture',
+  name: 'Enquiry questions',
   description:
-    'Greet first-time inbounds, capture name + email + company, then hand off to sales with the answers in the note.',
+    'Welcome people who message for the first time, ask their name, goal, and preferred time, then pass the chat to your team with the answers.',
   icon: 'UserPlus',
   trigger_type: 'first_inbound_message',
   trigger_config: {},
@@ -247,7 +247,7 @@ const LEAD_CAPTURE: FlowTemplate = {
       node_key: 'intro',
       node_type: 'send_message',
       config: {
-        text: "Welcome! 👋 I'll ask a few quick questions so we can get you to the right person.",
+        text: 'Welcome! 👋 I will ask a few quick questions so the right person can help you.',
         next_node_key: 'ask_name',
       } as SendMessageNodeConfig,
     },
@@ -255,7 +255,7 @@ const LEAD_CAPTURE: FlowTemplate = {
       node_key: 'ask_name',
       node_type: 'collect_input',
       config: {
-        prompt_text: "What's your name?",
+        prompt_text: 'What is your name?',
         var_key: 'name',
         next_node_key: 'ask_email',
       } as CollectInputNodeConfig,
@@ -264,8 +264,8 @@ const LEAD_CAPTURE: FlowTemplate = {
       node_key: 'ask_email',
       node_type: 'collect_input',
       config: {
-        prompt_text: "Thanks {{vars.name}}! What's your work email?",
-        var_key: 'email',
+        prompt_text: 'Thanks {{vars.name}}! What is your fitness goal?',
+        var_key: 'goal',
         next_node_key: 'ask_company',
       } as CollectInputNodeConfig,
     },
@@ -273,8 +273,8 @@ const LEAD_CAPTURE: FlowTemplate = {
       node_key: 'ask_company',
       node_type: 'collect_input',
       config: {
-        prompt_text: "Almost done — what's your company name?",
-        var_key: 'company',
+        prompt_text: 'Almost done. What time do you want to come to the gym?',
+        var_key: 'preferred_time',
         next_node_key: 'handoff',
       } as CollectInputNodeConfig,
     },
@@ -282,7 +282,7 @@ const LEAD_CAPTURE: FlowTemplate = {
       node_key: 'handoff',
       node_type: 'handoff',
       config: {
-        note: 'New lead — name={{vars.name}}, email={{vars.email}}, company={{vars.company}}.',
+        note: 'New enquiry. Name: {{vars.name}}. Goal: {{vars.goal}}. Preferred time: {{vars.preferred_time}}.',
       } as HandoffNodeConfig,
     },
   ],

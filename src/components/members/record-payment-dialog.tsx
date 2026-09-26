@@ -156,7 +156,7 @@ export function RecordPaymentDialog({
       const res = await uploadPrivateAccountMedia('payment-receipts', file);
       setShot({ url: res.signedUrl, path: res.path });
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Upload failed'));
+      toast.error(getErrorMessage(err, 'Could not upload the screenshot'));
     } finally {
       setUploading(false);
     }
@@ -182,11 +182,11 @@ export function RecordPaymentDialog({
   async function handleSave() {
     const amt = Number(amount);
     if (!dues || loadError)
-      return toast.error('The balance is not available yet');
+      return toast.error('Still loading the balance. Try again in a moment.');
     // ISO date strings compare lexically == chronologically. Backdating
     // is legitimate (cash noted late); future-dating is a typo.
     if (paidOn > fmt.today())
-      return toast.error('The payment date cannot be in the future');
+      return toast.error('Payment date cannot be after today');
     const validation = validatePaymentAmount(amt, dues.balance);
     if (validation === 'invalid' || validation === 'not_positive') {
       return toast.error('Enter an amount greater than zero');
@@ -219,14 +219,14 @@ export function RecordPaymentDialog({
       const result = (data as { balance: number }[] | null)?.[0];
       const settled = Number(result?.balance ?? dues.balance - amt) <= 0;
 
-      toast.success(settled ? 'Payment recorded' : 'Partial payment recorded');
+      toast.success(settled ? 'Payment recorded' : 'Part payment recorded');
       // The receipt now belongs to the persisted payment; prevent close
       // cleanup from deleting it.
       setShot(null);
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to record payment'));
+      toast.error(getErrorMessage(err, 'Could not record payment'));
     } finally {
       setSaving(false);
     }
@@ -258,7 +258,7 @@ export function RecordPaymentDialog({
           <DialogDescription>
             {period
               ? `For ${fmt.date(targetStart)} – ${fmt.date(targetEnd)}.`
-              : 'Log a cash, UPI, or card payment for this member.'}
+              : 'Save a cash, UPI, or card payment from this member.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -281,13 +281,12 @@ export function RecordPaymentDialog({
               className="border-destructive/30 bg-destructive/10 text-destructive rounded-lg border px-3 py-2 text-sm"
               role="alert"
             >
-              Could not load the current balance. Close this dialog and try
-              again.
+              Could not load the balance. Close this and try again.
             </p>
           )}
           {dues && !isChargeableAmount(dues.balance) && !loadError && (
             <p className="text-emerald-foreground rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm">
-              This billing period is already settled.
+              This period is already fully paid.
             </p>
           )}
           <div className="grid grid-cols-2 gap-3">
@@ -369,10 +368,10 @@ export function RecordPaymentDialog({
             validatePaymentAmount(Number(amount), dues.balance) === 'valid' && (
               <p className="text-muted-foreground text-xs">
                 {Number(amount) >= dues.balance ? (
-                  <>This payment settles the period.</>
+                  <>This pays the full amount.</>
                 ) : (
                   <>
-                    Remaining after this payment:{' '}
+                    Still due after this payment:{' '}
                     <span className="text-foreground font-medium tabular-nums">
                       {fmt.money(dues.balance - Number(amount))}
                     </span>
@@ -402,7 +401,7 @@ export function RecordPaymentDialog({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={shot.url}
-                  alt="Payment proof"
+                  alt="Payment screenshot"
                   className="size-10 rounded object-cover"
                 />
                 <span className="text-muted-foreground flex-1 truncate">
@@ -425,7 +424,7 @@ export function RecordPaymentDialog({
                   </>
                 ) : (
                   <>
-                    <Upload className="size-4" /> Upload UPI/receipt screenshot
+                    <Upload className="size-4" /> Upload UPI or receipt screenshot
                   </>
                 )}
                 <input

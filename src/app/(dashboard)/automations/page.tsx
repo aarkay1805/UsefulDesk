@@ -89,7 +89,7 @@ export default function AutomationsPage() {
       setError(null);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : 'Failed to load automations'
+        err instanceof Error ? err.message : 'Could not load automations'
       );
     }
   }
@@ -125,10 +125,10 @@ export default function AutomationsPage() {
           prev
       );
       const body = await res.json().catch(() => ({}));
-      toast.error(body?.error ?? 'Failed to update');
+      toast.error(body?.error ?? 'Could not change it');
       return;
     }
-    toast.success(next ? 'Automation activated' : 'Automation paused');
+    toast.success(next ? 'Automation turned on' : 'Automation turned off');
   }
 
   async function duplicate(a: Automation) {
@@ -139,7 +139,7 @@ export default function AutomationsPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        toast.error(body?.error ?? 'Failed to duplicate');
+        toast.error(body?.error ?? 'Could not duplicate');
         return;
       }
       toast.success('Automation duplicated');
@@ -158,7 +158,7 @@ export default function AutomationsPage() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        toast.error(body?.error ?? 'Failed to delete');
+        toast.error(body?.error ?? 'Could not delete');
         return;
       }
       toast.success('Automation deleted');
@@ -187,7 +187,7 @@ export default function AutomationsPage() {
       <div className="flex h-64 flex-col items-center justify-center gap-2">
         <p className="text-red-foreground text-sm">{error}</p>
         <Button variant="outline" onClick={retryLoad} loading={retrying}>
-          Retry
+          Try again
         </Button>
       </div>
     );
@@ -209,7 +209,7 @@ export default function AutomationsPage() {
         <div>
           <h1 className="text-foreground text-2xl font-bold">Automations</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Build workflows that react to WhatsApp® events automatically.
+            Set up actions that happen by themselves when something happens on WhatsApp®.
           </p>
         </div>
         <GatedButton
@@ -220,14 +220,14 @@ export default function AutomationsPage() {
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
           <Plus className="h-4 w-4" />
-          Create Automation
+          Create automation
         </GatedButton>
       </div>
 
       {showTemplates && (
         <section>
           <h2 className="text-muted-foreground mb-3 text-sm font-semibold">
-            Quick-start templates
+            Ready-made automations
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
             {TEMPLATE_ORDER.map((slug) => {
@@ -277,7 +277,7 @@ export default function AutomationsPage() {
             No automations yet
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
-            Pick a template above or create one from scratch.
+            Pick a ready-made one above, or create your own.
           </p>
         </div>
       ) : (
@@ -327,9 +327,8 @@ export default function AutomationsPage() {
           <DialogHeader>
             <DialogTitle>Delete automation</DialogTitle>
             <DialogDescription>
-              This permanently removes{' '}
-              <span className="text-foreground">{pendingDelete?.name}</span> and
-              its execution history. This cannot be undone.
+              This deletes{' '}
+              <span className="text-foreground">{pendingDelete?.name}</span> and its run history. You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -446,7 +445,7 @@ function AutomationCard({
           <Switch
             checked={automation.is_active}
             onCheckedChange={(v) => onToggle(!!v)}
-            aria-label={automation.is_active ? 'Deactivate' : 'Activate'}
+            aria-label={automation.is_active ? 'Turn off' : 'Turn on'}
             disabled={!canEdit}
           />
 
@@ -477,7 +476,7 @@ function AutomationCard({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onLogs}>
                 <FileText className="h-4 w-4" />
-                View Logs
+                View run history
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

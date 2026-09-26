@@ -60,12 +60,12 @@ export function SetUpAutoPayDialog({
         body: JSON.stringify({ membership_id: membership.id }),
       });
       const data = (await res.json()) as { short_url?: string; error?: string };
-      if (!res.ok) throw new Error(data.error ?? 'Could not start auto-pay');
-      if (!data.short_url) throw new Error('No mandate link returned');
+      if (!res.ok) throw new Error(data.error ?? 'Could not start AutoPay');
+      if (!data.short_url) throw new Error('Razorpay did not send an AutoPay link. Try again.');
       setShortUrl(data.short_url);
       onStarted();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Could not start auto-pay'));
+      toast.error(getErrorMessage(err, 'Could not start AutoPay'));
     } finally {
       setBusy(false);
     }
@@ -93,34 +93,34 @@ export function SetUpAutoPayDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Repeat className="size-4" /> Set up auto-pay
+            <Repeat className="size-4" /> Set up AutoPay
           </DialogTitle>
           <DialogDescription>
-            Auto-debit {membership.contact?.name ?? 'this member'}&apos;s{' '}
+            Collect {membership.contact?.name ?? 'this member'}&apos;s{' '}
             <span className="tabular-nums">{fmt.money(recurringFee)}</span>{' '}
-            {membership.plan?.name ? `${membership.plan.name} ` : ''}fee each
-            cycle over UPI AutoPay. The member approves the mandate once;
-            renewals then collect automatically.
+            {membership.plan?.name ? `${membership.plan.name} ` : ''}fee
+            automatically every period with UPI AutoPay. The member says yes
+            once. After that, renewals are paid by themselves.
           </DialogDescription>
         </DialogHeader>
 
         {!shortUrl ? (
           <div className="text-muted-foreground space-y-2 text-sm">
             <p>
-              We&apos;ll create a UPI-mandate link on your Razorpay account.
-              Share it with the member — they approve it once in their UPI app
-              (GPay, PhonePe, etc.) with a single PIN.
+              We will make an AutoPay link using your Razorpay account. Send it
+              to the member. They approve it once in their UPI app (GPay,
+              PhonePe, and others) with their UPI PIN.
             </p>
             <p>
-              Until they approve, this member stays on manual collection. If a
-              future auto-debit fails, they fall back to the usual WhatsApp
-              reminder + manual payment.
+              Until they approve, collect their fees by hand. If an AutoPay
+              payment fails later, they get the normal WhatsApp reminder and pay
+              by hand.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             <p className="text-emerald-foreground text-sm font-medium">
-              Mandate link created. Send it to the member to approve.
+              AutoPay link ready. Send it to the member to approve.
             </p>
             <div className="flex items-center gap-2">
               <code className="bg-muted flex-1 truncate rounded-md px-2.5 py-2 text-xs">
@@ -140,8 +140,8 @@ export function SetUpAutoPayDialog({
               </Button>
             </div>
             <p className="text-muted-foreground text-xs">
-              The member&apos;s auto-pay turns on once they approve —
-              you&apos;ll see it reflected here shortly after.
+              AutoPay turns on when the member approves. You will see it here
+              soon after.
             </p>
           </div>
         )}
@@ -158,7 +158,7 @@ export function SetUpAutoPayDialog({
               </Button>
               <Button onClick={createMandate} disabled={busy}>
                 {busy && <Loader2 className="size-4 animate-spin" />}
-                Create mandate link
+                Create AutoPay link
               </Button>
             </>
           ) : (

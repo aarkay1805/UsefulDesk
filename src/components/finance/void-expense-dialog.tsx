@@ -40,7 +40,7 @@ export function VoidExpenseDialog({
 
   async function voidExpense() {
     if (!reason.trim()) {
-      toast.error('Enter a reason for the correction');
+      toast.error('Write why you are cancelling it');
       return;
     }
     setSaving(true);
@@ -50,11 +50,11 @@ export function VoidExpenseDialog({
         p_reason: reason.trim(),
       });
       if (error) throw error;
-      toast.success('Expense voided; Business totals were recalculated');
+      toast.success('Expense cancelled. Totals updated.');
       onOpenChange(false);
       onVoided();
     } catch (reason) {
-      toast.error(getErrorMessage(reason, 'Could not void expense'));
+      toast.error(getErrorMessage(reason, 'Could not cancel the expense'));
     } finally {
       setSaving(false);
     }
@@ -64,12 +64,12 @@ export function VoidExpenseDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Void expense?</DialogTitle>
+          <DialogTitle>Cancel this expense?</DialogTitle>
           <DialogDescription>
-            Reverse the{' '}
+            This removes the{' '}
             <span className="tabular-nums">{fmt.money(expense.amount)}</span>{' '}
-            entry for {activeExpense.description}. The ledger row and receipt
-            remain in audit history.
+            expense for {activeExpense.description} from your totals. It stays
+            in history with its receipt.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-1.5">
@@ -78,7 +78,7 @@ export function VoidExpenseDialog({
             id="void-expense-reason"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Duplicate or incorrectly recorded expense"
+            placeholder="Example: Added twice by mistake"
             autoFocus
           />
         </div>
@@ -98,7 +98,7 @@ export function VoidExpenseDialog({
             disabled={saving || !reason.trim()}
           >
             {saving ? <Loader2 className="animate-spin" /> : <RotateCcw />}
-            Void expense
+            Cancel expense
           </Button>
         </DialogFooter>
       </DialogContent>

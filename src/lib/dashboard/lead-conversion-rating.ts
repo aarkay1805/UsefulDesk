@@ -32,27 +32,27 @@ export const LEAD_RATING_TARGETS: Record<
   { label: string; weight: number; target: number }
 > = {
   memberConversion: {
-    label: 'Member conversion',
+    label: 'Joined as members',
     weight: 35,
     target: 30,
   },
   trialBooking: {
-    label: 'Trial booking proxy',
+    label: 'Trials booked',
     weight: 20,
     target: 40,
   },
   humanResponse: {
-    label: 'First human response within 24h',
+    label: 'Replied in 24 hours',
     weight: 15,
     target: 90,
   },
   followUp: {
-    label: 'On-time follow-up completion',
+    label: 'Follow-ups on time',
     weight: 15,
     target: 90,
   },
   positiveOutcome: {
-    label: 'Positive follow-up outcome',
+    label: 'Good results',
     weight: 15,
     target: 60,
   },
@@ -331,7 +331,7 @@ export function aggregateLeadSourceRatings(
 
   const allLeads = buildRating(
     ALL_LEADS_RATING_KEY,
-    'All leads',
+    'All enquiries',
     rows.contacts
   );
   const sources = Array.from(contactsBySource.entries())
@@ -339,7 +339,7 @@ export function aggregateLeadSourceRatings(
       buildRating(
         key,
         key === 'unknown'
-          ? 'Unknown'
+          ? 'No source'
           : (sourceLabels.get(key) ?? humaniseKey(key)),
         contacts
       )
@@ -468,7 +468,7 @@ export function aggregateLeadSourceRatingInputs(
       return ratingFromAggregate(
         key,
         key === 'unknown'
-          ? 'Unknown'
+          ? 'No source'
           : (sourceLabels.get(key) ?? humaniseKey(key)),
         row
       );
@@ -485,7 +485,7 @@ export function aggregateLeadSourceRatingInputs(
     period,
     allLeads: ratingFromAggregate(
       ALL_LEADS_RATING_KEY,
-      'All leads',
+      'All enquiries',
       allLeadsRow
     ),
     sources,

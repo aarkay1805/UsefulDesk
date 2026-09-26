@@ -18,8 +18,8 @@ export function followUpPermissionBlocker(
     ? null
     : {
         code: FOLLOW_UP_PERMISSION_BLOCKER_CODE,
-        title: 'Admin access required',
-        description: `Ask an admin or owner to ${gateReason}.`,
+        title: 'You do not have permission',
+        description: `Ask the owner or an admin to ${gateReason}.`,
       };
 }
 

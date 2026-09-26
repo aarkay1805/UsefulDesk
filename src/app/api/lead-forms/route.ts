@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     if (readError) {
       console.error('[lead-forms] read error:', readError);
       return NextResponse.json(
-        { error: 'Failed to load form' },
+        { error: 'Could not load form' },
         { status: 500 }
       );
     }
@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       if (error || !rotated) {
         console.error('[lead-forms] rotate error:', error);
         return NextResponse.json(
-          { error: 'Failed to rotate link' },
+          { error: 'Could not rotate link' },
           { status: 500 }
         );
       }
@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     if (error || !created) {
       console.error('[lead-forms] create error:', error);
       return NextResponse.json(
-        { error: 'Failed to create form' },
+        { error: 'Could not create form' },
         { status: 500 }
       );
     }

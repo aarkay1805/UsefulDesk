@@ -105,7 +105,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   // Meta App Review clears) Facebook/Instagram lead ads live together.
   capture: {
     id: 'capture',
-    label: 'Lead capture',
+    label: 'Enquiry form & ads',
     icon: Magnet,
     group: 'lead-management',
   },
@@ -117,7 +117,7 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
   },
   fields: {
     id: 'fields',
-    label: 'Tags & contact details',
+    label: 'Tags & extra details',
     icon: Tags,
     group: 'lead-management',
   },
@@ -179,7 +179,7 @@ export const RAIL_GROUPS: {
   { label: null, group: 'top' },
   { label: 'Account', group: 'account' },
   { label: 'Messaging', group: 'messaging' },
-  { label: 'Leads', group: 'lead-management' },
+  { label: 'Enquiries', group: 'lead-management' },
   { label: 'Business setup', group: 'business-setup' },
   { label: 'Your gym', group: 'workspace' },
 ];

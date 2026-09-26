@@ -91,7 +91,7 @@ export function validateFlowForActivation(
       severity: 'error',
       scope: 'flow',
       field: 'entry_node_id',
-      message: `Entry node "${flow.entry_node_id}" doesn't exist.`,
+      message: `Entry node "${flow.entry_node_id}" does not exist.`,
     });
   }
 
@@ -168,7 +168,7 @@ function validateTrigger(
           severity: 'warning',
           scope: 'trigger',
           field: 'trigger_config.keywords',
-          message: `${blanks} keyword${blanks === 1 ? ' is' : 's are'} blank — they won't match anything.`,
+          message: `${blanks} keyword${blanks === 1 ? ' is' : 's are'} blank — they will not match anything.`,
         });
       }
     }

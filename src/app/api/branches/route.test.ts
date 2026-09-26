@@ -206,7 +206,7 @@ describe('/api/branches contracts', () => {
     setContext(unexpected);
     const response = await post(request);
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: 'Failed to create branch' });
+    expect(await response.json()).toEqual({ error: 'Could not create branch' });
   });
 
   it('rejects originless creation before resolving the account', async () => {

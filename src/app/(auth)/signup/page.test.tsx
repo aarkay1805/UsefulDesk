@@ -54,7 +54,7 @@ describe('invitation signup continuation', () => {
     const user = userEvent.setup();
     render(<SignupPage />);
 
-    expect(screen.queryByLabelText('Gym brand')).toBeNull();
+    expect(screen.queryByLabelText('Gym name')).toBeNull();
     await user.type(screen.getByLabelText('Full name'), 'Invitee Person');
     await user.type(screen.getByLabelText('Email'), 'invitee@example.com');
     await user.type(screen.getByLabelText('Password'), 'password-123');
@@ -102,7 +102,7 @@ describe('invitation signup continuation', () => {
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     const submit = screen.getByRole('button', {
-      name: 'Creating account...',
+      name: 'Creating account…',
     });
     try {
       expect(submit.getAttribute('aria-busy')).toBe('true');
@@ -124,8 +124,8 @@ describe('new organization signup', () => {
     const user = userEvent.setup();
     render(<SignupPage />);
 
-    const gymName = screen.getByLabelText('Gym brand');
-    expect(screen.getByText(/Add your legal business name later/)).not.toBeNull();
+    const gymName = screen.getByLabelText('Gym name');
+    expect(screen.getByText(/add your legal business name later/)).not.toBeNull();
     const google = screen.getByRole('button', {
       name: 'Continue with Google',
     });
@@ -158,7 +158,7 @@ describe('new organization signup', () => {
     await user.type(screen.getByLabelText('Confirm password'), 'password-123');
     await user.click(screen.getByRole('button', { name: 'Create account' }));
 
-    expect(await screen.findByText(/between 1 and 80/)).not.toBeNull();
+    expect(await screen.findByText(/1 to 80 letters/)).not.toBeNull();
     expect(signUp).not.toHaveBeenCalled();
   });
 });

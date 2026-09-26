@@ -92,7 +92,7 @@ export async function PATCH(request: Request) {
     if (error) {
       console.error('[PATCH /api/account] update error:', error);
       return NextResponse.json(
-        { error: 'Failed to update account' },
+        { error: 'Could not update account' },
         { status: 500 }
       );
     }
@@ -150,7 +150,7 @@ export async function DELETE(request: Request) {
           error:
             error.code === '55000'
               ? error.message
-              : 'Failed to archive the branch.',
+              : 'Could not archive the branch.',
         },
         { status: error.code === '55000' ? 409 : 500 }
       );

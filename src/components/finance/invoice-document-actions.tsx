@@ -75,9 +75,9 @@ export function attachmentFilename(
 }
 
 const PERMISSION_BLOCKER: ActionBlocker = {
-  title: 'Admin access required',
+  title: 'You do not have permission',
   description:
-    'Only an agent, admin, or owner can send invoice documents from this account.',
+    'Only staff, admins, or the owner can send invoice documents from this account.',
 };
 
 function documentBlocker(
@@ -95,20 +95,20 @@ function documentBlocker(
   switch (code) {
     case 'void':
       return {
-        title: 'Invoice document unavailable',
-        description: description ?? 'Voided invoices cannot be shared.',
+        title: 'Invoice PDF not available',
+        description: description ?? 'Cancelled invoices cannot be shared.',
       };
     case 'refund_review':
       return {
-        title: 'Refund review required',
+        title: 'Sort out the refund first',
         description:
           description ??
-          'Resolve the invoice refund review before creating a document.',
+          'Sort out the refund before making the invoice PDF.',
         ...(capabilities.canResolveRefundReview &&
         capabilities.onResolveRefundReview
           ? {
               resolution: {
-                label: 'Resolve refund review',
+                label: 'Sort out refund',
                 onResolve: capabilities.onResolveRefundReview,
               },
             }
@@ -116,9 +116,9 @@ function documentBlocker(
       };
     case 'invoice_profile':
       return {
-        title: 'Invoice setup required',
+        title: 'Finish invoice setup',
         description:
-          description ?? 'Finish invoice setup before creating a document.',
+          description ?? 'Add your invoice details in Settings before making a PDF.',
         ...(capabilities.canManageInvoiceProfile
           ? {
               resolution: {
@@ -130,13 +130,13 @@ function documentBlocker(
       };
     case 'missing_phone':
       return {
-        title: 'Phone number required',
+        title: 'No phone number',
         description:
           description ?? 'Add a phone number before sending on WhatsApp.',
       };
     case 'whatsapp_disconnected':
       return {
-        title: "WhatsApp isn't connected",
+        title: "WhatsApp is not connected",
         description:
           description ?? 'Connect WhatsApp before sending this invoice.',
         ...(capabilities.canEditSettings
@@ -150,13 +150,13 @@ function documentBlocker(
       };
     case 'template_unavailable':
       return {
-        title: "Invoice template isn't ready",
+        title: "Invoice message is not ready",
         description:
-          description ?? 'Approve the invoice template before sending.',
+          description ?? 'Get the invoice message approved by WhatsApp first.',
         ...(capabilities.canEditSettings
           ? {
               resolution: {
-                label: 'Open template setup',
+                label: 'Open message templates',
                 href: '/settings?tab=templates',
               },
             }
@@ -310,7 +310,7 @@ export function InvoiceDocumentActions({
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(
-          responseErrorMessage(body, 'Invoice could not be downloaded')
+          responseErrorMessage(body, 'Could not download the invoice')
         );
       }
       const blob = await response.blob();
@@ -331,7 +331,7 @@ export function InvoiceDocumentActions({
           : current
       );
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Invoice could not be downloaded'));
+      toast.error(getErrorMessage(error, 'Could not download the invoice'));
     } finally {
       setDownloading(false);
     }
@@ -346,7 +346,7 @@ export function InvoiceDocumentActions({
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(
-          responseErrorMessage(body, 'Invoice could not be sent on WhatsApp')
+          responseErrorMessage(body, 'Could not send the invoice on WhatsApp')
         );
       }
       setLoadedReadiness((current) =>
@@ -357,7 +357,7 @@ export function InvoiceDocumentActions({
       toast.success('Invoice sent on WhatsApp');
     } catch (error) {
       toast.error(
-        getErrorMessage(error, 'Invoice could not be sent on WhatsApp')
+        getErrorMessage(error, 'Could not send the invoice on WhatsApp')
       );
     } finally {
       setSharing(false);

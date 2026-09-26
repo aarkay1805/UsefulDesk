@@ -340,12 +340,12 @@ export function FlowEditorProvider({
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json.error ?? `Save failed: ${res.status}`);
+        throw new Error(json.error ?? `Could not save (error ${res.status})`);
       }
       setDirty(false);
       toast.success('Saved.');
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Save failed';
+      const msg = err instanceof Error ? err.message : 'Could not save';
       toast.error(msg);
     } finally {
       setSaving(false);
@@ -356,7 +356,7 @@ export function FlowEditorProvider({
   const setStatus = useCallback(
     async (next: BuilderState['status']) => {
       if (next === 'active' && !canActivate) {
-        toast.error('Fix the issues below before activating.');
+        toast.error('Fix the problems below before turning it on.');
         return;
       }
       setActivating(true);
@@ -374,18 +374,18 @@ export function FlowEditorProvider({
         });
         if (!res.ok) {
           const json = await res.json().catch(() => ({}));
-          throw new Error(json.error ?? `Status update failed: ${res.status}`);
+          throw new Error(json.error ?? `Could not change status (error ${res.status})`);
         }
         setStateRaw((s) => ({ ...s, status: next }));
         toast.success(
           next === 'active'
-            ? 'Flow activated.'
+            ? 'Flow turned on.'
             : next === 'archived'
               ? 'Archived.'
               : 'Saved as draft.'
         );
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Status update failed';
+        const msg = err instanceof Error ? err.message : 'Could not change status';
         toast.error(msg);
       } finally {
         setActivating(false);
@@ -397,7 +397,7 @@ export function FlowEditorProvider({
   // ---- Delete ----
   const deleteFlow = useCallback(async () => {
     const yes = window.confirm(
-      `Delete "${state.name}"? Any active runs end immediately. This can't be undone.`
+      `Delete "${state.name}"? Chats running this flow stop now. You cannot undo this.`
     );
     if (!yes) return;
     let navigationStarted = false;
@@ -406,11 +406,11 @@ export function FlowEditorProvider({
       const res = await fetch(`/api/flows/${initialFlow.id}`, {
         method: 'DELETE',
       });
-      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Could not delete (error ${res.status})`);
       router.push('/flows');
       navigationStarted = true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Delete failed';
+      const msg = err instanceof Error ? err.message : 'Could not delete';
       toast.error(msg);
     } finally {
       if (!navigationStarted) setDeleting(false);

@@ -194,27 +194,27 @@ const LIFECYCLE_COPY: Record<
   freeze: {
     title: 'Freeze membership?',
     description:
-      'Check-ins will pause. Existing invoice balances remain due, and the frozen days will be added to this cycle when you resume.',
+      'The member cannot check in while frozen. Any fee due is still due. The frozen days are added back when you unfreeze.',
     action: 'Freeze membership',
   },
   resume: {
-    title: 'Resume membership?',
+    title: 'Unfreeze membership?',
     description:
-      'Check-ins will resume and this cycle will be extended by the paused days. Existing payments stay attached to the cycle.',
-    action: 'Resume membership',
+      'The member can check in again. Their expiry date moves ahead by the frozen days.',
+    action: 'Unfreeze membership',
   },
   cancel: {
     title: 'Cancel membership?',
     description:
-      'The membership will stop and its current invoice will be voided. Settled past cycles remain in billing history, and you can reactivate later.',
+      'The membership stops and its current invoice is cancelled. Past payments stay in history. You can restart it later.',
     action: 'Cancel membership',
     destructive: true,
   },
   reactivate: {
-    title: 'Reactivate membership?',
+    title: 'Restart membership?',
     description:
-      'The membership and its current billing period will reopen. Review the balance before collecting another payment.',
-    action: 'Reactivate membership',
+      'The membership and its current invoice open again. Check the balance due before you collect money.',
+    action: 'Restart membership',
   },
 };
 
@@ -661,16 +661,16 @@ function MembershipDetailView({
         error?: string;
       };
       if (!response.ok) {
-        throw new Error(payload.error || 'Failed to cancel auto-pay');
+        throw new Error(payload.error || 'Could not cancel AutoPay');
       }
       toast.success(
-        'Auto-pay cancelled; this membership is back on manual collection'
+        'AutoPay cancelled. Collect this member’s fees by hand from now.'
       );
       setCancelAutoPayOpen(false);
       setCancelAutoPayReason('');
       refreshAll();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to cancel auto-pay'));
+      toast.error(getErrorMessage(error, 'Could not cancel AutoPay'));
     } finally {
       setCancellingAutoPay(false);
     }
@@ -695,7 +695,7 @@ function MembershipDetailView({
       .select('id');
     setBusy(false);
     if (error || !data?.length) {
-      toast.error(error?.message ?? "Couldn't freeze — check your access.");
+      toast.error(error?.message ?? "Could not freeze. You may not have access.");
       return false;
     }
     toast.success('Membership frozen');
@@ -716,7 +716,7 @@ function MembershipDetailView({
       toast.error(error.message);
       return false;
     }
-    toast.success('Membership resumed');
+    toast.success('Membership unfrozen');
     refreshAll();
     return true;
   }
@@ -754,7 +754,7 @@ function MembershipDetailView({
       toast.error(error.message);
       return false;
     }
-    toast.success('Membership reactivated');
+    toast.success('Membership restarted');
     refreshAll();
     return true;
   }
@@ -869,9 +869,9 @@ function MembershipDetailView({
     canConfigurePaymentGateway(accountRole);
   const membershipLifecycleBlockReason =
     billingState !== 'ready' || mandateState !== 'ready'
-      ? 'Checking billing and AutoPay status before changing this membership.'
+      ? 'Checking AutoPay before you change this membership…'
       : mandate
-        ? "Resolve this member's AutoPay mandate before changing this membership."
+        ? "Cancel or finish this member’s AutoPay first. Then you can change this membership."
         : null;
 
   // Usage vs limit / sessions left (062) — the Attendance section line.
@@ -966,10 +966,10 @@ function MembershipDetailView({
       if (!response.ok) {
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
-      toast.success(`Template "${template.name}" sent`);
+      toast.success(`Message "${template.name}" sent`);
     } catch (error) {
       toast.error(
-        `Failed to send template: ${getErrorMessage(error, 'network error')}`
+        `Could not send the message: ${getErrorMessage(error, 'no internet connection')}`
       );
     } finally {
       setSendingTemplate(false);
@@ -983,7 +983,7 @@ function MembershipDetailView({
       (!service.trainer_id || service.current_renewal_price == null)
     ) {
       toast.error(
-        "Configure the current trainer's rate before renewing this service."
+        "Set this trainer’s fee before renewing this service."
       );
       return;
     }
@@ -1010,7 +1010,7 @@ function MembershipDetailView({
         p_reason: cancelServiceReason.trim(),
       });
       if (error) return toast.error(error.message);
-      toast.success('Service cancelled. No financial credit was created.');
+      toast.success('Service cancelled. No money was credited back.');
       setCancelServiceTarget(null);
       setCancelServiceReason('');
       refreshAll();
@@ -1044,7 +1044,7 @@ function MembershipDetailView({
             <div className="bg-muted/20 flex flex-1 items-start justify-center p-4 sm:items-center sm:p-6">
               <Alert variant="destructive" className="max-w-md">
                 <CircleAlert className="size-4" />
-                <AlertTitle>Couldn&apos;t load this member</AlertTitle>
+                <AlertTitle>Could not load this member</AlertTitle>
                 <AlertDescription>
                   <p>{loadError}</p>
                   <Button
@@ -1107,7 +1107,7 @@ function MembershipDetailView({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <SheetTitle className="text-base sm:text-lg">
-                      {membership.contact?.name || 'Unnamed member'}
+                      {membership.contact?.name || 'No name'}
                     </SheetTitle>
                     {membership.is_trial && <TrialBadge />}
                     {eff && (
@@ -1162,17 +1162,17 @@ function MembershipDetailView({
                     type="button"
                     variant="outline"
                     canAct={canSendMessages}
-                    gateReason="send WhatsApp templates"
+                    gateReason="send WhatsApp messages"
                     loading={sendingTemplate}
                     onClick={() => setTemplatePickerOpen(true)}
                     className="w-full sm:w-auto"
                   >
                     <WhatsAppMark className="size-4" />
-                    Template
+                    Send message
                   </GatedButton>
                   {membership.is_trial && canSendMessages && (
                     <Button onClick={() => setConvertOpen(true)}>
-                      <UserPlus className="size-4" /> Convert to member
+                      <UserPlus className="size-4" /> Add as member
                     </Button>
                   )}
                 </div>
@@ -1259,9 +1259,7 @@ function MembershipDetailView({
                             <Stat label="Plan">
                               {membership.plan?.name ?? '—'}
                             </Stat>
-                            <Stat
-                              label={isRecurringMembership ? 'Billing' : 'Fee'}
-                            >
+                            <Stat label="Fee">
                               {isRecurringMembership && pricingOption ? (
                                 <span className="tabular-nums">
                                   {fmt.money(pricingOption.price)}
@@ -1291,14 +1289,15 @@ function MembershipDetailView({
                             membership.frozen_at && (
                               <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                                 <Snowflake className="size-3.5 shrink-0" />
-                                Frozen since {fmt.date(membership.frozen_at)} —
-                                the paused days are added back on resume.
+                                Frozen since {fmt.date(membership.frozen_at)}.
+                                The frozen days are added back when you
+                                unfreeze.
                               </p>
                             )}
                           {membership.status === 'frozen' && membership.planned_return_on && (
                             <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
                               <CalendarDays className="size-3.5 shrink-0" />
-                              Planned return {fmt.date(membership.planned_return_on)} — a staff follow-up is due that day.
+                              Coming back on {fmt.date(membership.planned_return_on)}. A follow-up is due that day.
                             </p>
                           )}
                           {membership.notes && (
@@ -1348,7 +1347,7 @@ function MembershipDetailView({
                             <Alert variant="destructive">
                               <CircleAlert className="size-4" />
                               <AlertTitle>
-                                Couldn&apos;t load purchases
+                                Could not load purchases
                               </AlertTitle>
                               <AlertDescription>
                                 <p>{purchasesError}</p>
@@ -1429,7 +1428,7 @@ function MembershipDetailView({
                                                 }
                                               >
                                                 <ArrowLeftRight className="size-4" />{' '}
-                                                Reassign trainer
+                                                Change trainer
                                               </DropdownMenuItem>
                                             ) : null}
                                             {canSell ? (
@@ -1456,7 +1455,7 @@ function MembershipDetailView({
                                     <p className="text-foreground pr-8 text-sm font-medium">
                                       {service
                                         ? service.item_name_snapshot
-                                        : line?.description || 'Merchandise'}
+                                        : line?.description || 'Product'}
                                     </p>
                                     <dl className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
                                       {service ? (
@@ -1571,8 +1570,7 @@ function MembershipDetailView({
                                     variant="outline"
                                     onClick={() => setAutoPayOpen(true)}
                                   >
-                                    <Repeat className="size-4" /> Set up
-                                    auto-pay
+                                    <Repeat className="size-4" /> Set up AutoPay
                                   </Button>
                                 )}
                               </CardAction>
@@ -1594,7 +1592,7 @@ function MembershipDetailView({
                             <Alert variant="destructive">
                               <CircleAlert className="size-4" />
                               <AlertTitle>
-                                Couldn&apos;t load billing history
+                                Could not load billing history
                               </AlertTitle>
                               <AlertDescription>
                                 <p>{billingError}</p>
@@ -1611,15 +1609,13 @@ function MembershipDetailView({
                             </Alert>
                           ) : membership.is_trial ? (
                             <p className="text-muted-foreground text-sm">
-                              Trials aren&apos;t billed. Convert to a member to
-                              start invoicing.
+                              Trials are free. Add them as a member to start billing.
                             </p>
                           ) : (
                             <>
                               {membership.status === 'cancelled' && (
                                 <p className="text-muted-foreground text-sm">
-                                  Cancelled — this billing period is not
-                                  collectible.
+                                  Cancelled. No fee is due for this period.
                                 </p>
                               )}
 
@@ -1630,7 +1626,7 @@ function MembershipDetailView({
                                 <Alert variant="destructive">
                                   <CircleAlert className="size-4" />
                                   <AlertTitle>
-                                    Couldn&apos;t verify AutoPay status
+                                    Could not check AutoPay
                                   </AlertTitle>
                                   <AlertDescription>
                                     <p>{mandateError}</p>
@@ -1653,24 +1649,22 @@ function MembershipDetailView({
                                     <Repeat className="size-3.5" />
                                     {mandate.status === 'active' ? (
                                       <>
-                                        Auto-pay on
+                                        AutoPay on
                                         {mandate.vpa
                                           ? ` · ${mandate.vpa}`
                                           : ' · UPI AutoPay'}
                                       </>
                                     ) : mandate.status === 'orphaned' ? (
                                       <>
-                                        Auto-pay needs payment reconciliation
-                                        review before retrying.
+                                        AutoPay needs a payment check before it can try again.
                                       </>
                                     ) : mandate.status === 'creating' ? (
-                                      <>Auto-pay setup in progress.</>
+                                      <>AutoPay setup has started.</>
                                     ) : mandate.status === 'paused' ? (
-                                      <>Auto-pay paused — needs review.</>
+                                      <>AutoPay is paused. It needs checking.</>
                                     ) : (
                                       <>
-                                        Auto-pay pending the member&apos;s
-                                        approval.
+                                        Waiting for the member to approve AutoPay in their UPI app.
                                       </>
                                     )}
                                   </p>
@@ -1681,7 +1675,7 @@ function MembershipDetailView({
                                       size="xs"
                                       onClick={() => setCancelAutoPayOpen(true)}
                                     >
-                                      Cancel auto-pay
+                                      Cancel AutoPay
                                     </Button>
                                   ) : null}
                                 </div>
@@ -1703,7 +1697,7 @@ function MembershipDetailView({
                                       <TableRow className="hover:bg-transparent">
                                         <TableHead>Invoice</TableHead>
                                         <TableHead className="hidden sm:table-cell">
-                                          Issued on
+                                          Date
                                         </TableHead>
                                         <TableHead className="text-right">
                                           Total
@@ -1757,7 +1751,7 @@ function MembershipDetailView({
                                                 </span>
                                                 {invoice.state === 'void' ? (
                                                   <Badge variant="neutral">
-                                                    Void
+                                                    Cancelled
                                                   </Badge>
                                                 ) : (
                                                   <InvoicePaymentBadge
@@ -1879,7 +1873,7 @@ function MembershipDetailView({
                             <Alert variant="destructive">
                               <CircleAlert className="size-4" />
                               <AlertTitle>
-                                Couldn&apos;t load attendance
+                                Could not load attendance
                               </AlertTitle>
                               <AlertDescription>
                                 <p>{attendanceError}</p>
@@ -2011,11 +2005,9 @@ function MembershipDetailView({
             >
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Cancel auto-pay?</DialogTitle>
+                  <DialogTitle>Cancel AutoPay?</DialogTitle>
                   <DialogDescription>
-                    Razorpay will stop future automatic collections. This does
-                    not refund past payments; the membership returns to manual
-                    collection after Razorpay confirms cancellation.
+                    Razorpay will stop taking money automatically. Past payments are not refunded. After Razorpay confirms, you collect this member’s fees by hand.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-1.5">
@@ -2038,7 +2030,7 @@ function MembershipDetailView({
                     onClick={() => setCancelAutoPayOpen(false)}
                     disabled={cancellingAutoPay}
                   >
-                    Keep auto-pay
+                    Keep AutoPay
                   </Button>
                   <Button
                     type="button"
@@ -2047,7 +2039,7 @@ function MembershipDetailView({
                     loading={cancellingAutoPay}
                     disabled={cancellingAutoPay || !cancelAutoPayReason.trim()}
                   >
-                    Cancel auto-pay
+                    Cancel AutoPay
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -2103,9 +2095,9 @@ function MembershipDetailView({
                 </DialogHeader>
                 {pendingLifecycle === 'freeze' ? (
                   <div className="space-y-2">
-                    <Label>Planned return date <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                    <DatePicker value={plannedReturnOn} onChange={setPlannedReturnOn} min={fmt.today()} disabled={busy} aria-label="Planned return date" />
-                    <p className="text-muted-foreground text-xs">Leave this empty when no return date is agreed. A date creates a reminder one day before and assigns the return-day follow-up to you; it never resumes the membership automatically.</p>
+                    <Label>Coming back on <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                    <DatePicker value={plannedReturnOn} onChange={setPlannedReturnOn} min={fmt.today()} disabled={busy} aria-label="Coming back on" />
+                    <p className="text-muted-foreground text-xs">Leave empty if no date is fixed. If you pick a date, you get a reminder one day before and a follow-up on that day. The membership does not unfreeze by itself.</p>
                   </div>
                 ) : null}
                 <DialogFooter>
@@ -2192,8 +2184,7 @@ function MembershipDetailView({
                 <DialogHeader>
                   <DialogTitle>Cancel service?</DialogTitle>
                   <DialogDescription>
-                    The service stops, but this does not issue a refund or
-                    credit.
+                    The service stops. No money is refunded or credited.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-1.5">
@@ -2204,7 +2195,7 @@ function MembershipDetailView({
                     onChange={(event) =>
                       setCancelServiceReason(event.target.value)
                     }
-                    placeholder="Required for history"
+                    placeholder="Why is it cancelled?"
                   />
                 </div>
                 <DialogFooter>

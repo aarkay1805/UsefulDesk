@@ -146,7 +146,7 @@ export default function NotificationsPage() {
         .eq('id', id)
         .is('read_at', null);
       if (updateErr) {
-        toast.error('Failed to mark notification as read');
+        toast.error('Could not mark notification as read');
         load();
       }
     },
@@ -163,11 +163,11 @@ export default function NotificationsPage() {
       try {
         const supabase = createClient();
         await respondLeadTransfer(supabase, n.reference_id, accept);
-        toast.success(accept ? 'Transfer accepted' : 'Transfer declined');
+        toast.success(accept ? 'Accepted' : 'Declined');
         if (!n.read_at) markRead(n.id);
         load();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Action failed');
+        toast.error(e instanceof Error ? e.message : 'Could not do this. Try again.');
       } finally {
         setActingId(null);
       }
@@ -183,11 +183,11 @@ export default function NotificationsPage() {
       try {
         const supabase = createClient();
         await respondLeadAssignment(supabase, n.reference_id, approve);
-        toast.success(approve ? 'Assignment approved' : 'Assignment rejected');
+        toast.success(approve ? 'Approved' : 'Rejected');
         if (!n.read_at) markRead(n.id);
         load();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Action failed');
+        toast.error(e instanceof Error ? e.message : 'Could not do this. Try again.');
       } finally {
         setActingId(null);
       }
@@ -252,7 +252,7 @@ export default function NotificationsPage() {
       .is('read_at', null);
     setMarkingAll(false);
     if (updateErr) {
-      toast.error('Failed to mark all as read');
+      toast.error('Could not mark all as read');
       load();
     }
   }, [unreadIds.length, load]);
@@ -262,7 +262,7 @@ export default function NotificationsPage() {
       <div className="flex h-64 flex-col items-center justify-center gap-2">
         <p className="text-destructive text-sm">{error}</p>
         <Button variant="outline" onClick={() => window.location.reload()}>
-          Retry
+          Try again
         </Button>
       </div>
     );
@@ -282,7 +282,7 @@ export default function NotificationsPage() {
         <div>
           <h1 className="text-foreground text-2xl font-bold">Notifications</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Conversations other teammates assign to you show up here.
+            Chats other team members assign to you show up here.
           </p>
         </div>
         <Button
@@ -309,8 +309,7 @@ export default function NotificationsPage() {
             No notifications yet
           </p>
           <p className="text-muted-foreground mt-1 text-xs">
-            You&apos;ll see an alert here when someone assigns you a
-            conversation.
+            You will see an alert here when someone gives you a chat.
           </p>
         </div>
       ) : (

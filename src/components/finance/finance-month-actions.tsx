@@ -46,9 +46,9 @@ export function FinanceMonthActions({
           type="button"
           variant="ghost"
           canAct={mayExport}
-          gateReason="export financial data"
+          gateReason="download money reports"
           aria-label={
-            exporting ? 'Exporting finance data' : 'Export finance data'
+            exporting ? 'Downloading…' : 'Download report'
           }
           onClick={onExport}
           disabled={exportDisabled || exporting}
@@ -84,7 +84,7 @@ export function BusinessMonthNavigator({
     <div
       className="flex min-w-0 items-center gap-1 sm:gap-2"
       role="group"
-      aria-label="Business reporting month"
+      aria-label="Month"
     >
       <Button
         type="button"

@@ -238,10 +238,10 @@ describe('AutomatedMessageActivity', () => {
     respond({ status: 500, body: { error: 'Internal server error' } });
     render(<AutomatedMessageActivity />);
     expect(
-      await screen.findByText('Message history couldn’t load')
+      await screen.findByText('Message history could not load')
     ).toBeTruthy();
     expect(
-      screen.getByText('Check your connection, then try again.')
+      screen.getByText('Check your internet, then try again.')
     ).toBeTruthy();
     expect(screen.queryByText('Internal server error')).toBeNull();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();

@@ -26,7 +26,7 @@ export async function GET() {
     if (error) {
       console.error('[GET /api/branches] list failed:', error);
       return NextResponse.json(
-        { error: 'Failed to load branches' },
+        { error: 'Could not load branches' },
         { status: 500 }
       );
     }
@@ -57,7 +57,7 @@ export async function GET() {
           entityError
         );
         return NextResponse.json(
-          { error: 'Failed to load branches' },
+          { error: 'Could not load branches' },
           { status: 500 }
         );
       }
@@ -138,7 +138,7 @@ export async function POST(request: Request) {
         }
       );
       if (error) {
-        return branchSetupRpcErrorResponse(error, 'Failed to create branch');
+        return branchSetupRpcErrorResponse(error, 'Could not create branch');
       }
 
       return NextResponse.json(
@@ -211,7 +211,7 @@ export async function POST(request: Request) {
       }
     );
     if (error) {
-      return branchSetupRpcErrorResponse(error, 'Failed to create branch');
+      return branchSetupRpcErrorResponse(error, 'Could not create branch');
     }
 
     const result = data as BranchSetupCreationResult;

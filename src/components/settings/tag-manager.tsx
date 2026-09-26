@@ -69,7 +69,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
 
       if (cancelled) return;
       if (error) {
-        setLoadError(getErrorMessage(error, "Tags couldn't load. Try again."));
+        setLoadError(getErrorMessage(error, "Could not load tags. Try again."));
       } else {
         setTags((data as Tag[] | null) ?? []);
       }
@@ -85,7 +85,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
     const name = newTagName.trim();
     if (!canEdit || !name) return;
     if (!user || !accountId) {
-      toast.error('Your profile is not linked to an account.');
+      toast.error('Your login is not linked to a gym.');
       return;
     }
 
@@ -110,7 +110,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
       setNewTagName('');
       toast.success('Tag created');
     } catch (error) {
-      toast.error(getErrorMessage(error, "The tag couldn't be created."));
+      toast.error(getErrorMessage(error, "Could not add the tag."));
     } finally {
       setSaving(false);
     }
@@ -135,7 +135,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
       setTagToDelete(null);
       toast.success('Tag deleted');
     } catch (error) {
-      toast.error(getErrorMessage(error, "The tag couldn't be deleted."));
+      toast.error(getErrorMessage(error, "Could not delete the tag."));
     } finally {
       setDeleting(false);
     }
@@ -149,7 +149,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
           Tags
         </CardTitle>
         <CardDescription>
-          Add tags, such as Trial or VIP, to group contacts.
+          Add tags, like Trial or VIP, to group people.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -165,7 +165,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
         ) : loadError ? (
           <Alert variant="destructive">
             <AlertCircle aria-hidden="true" />
-            <AlertTitle>Tags couldn&apos;t load</AlertTitle>
+            <AlertTitle>Could not load tags</AlertTitle>
             <AlertDescription>
               <p>{loadError}</p>
               <Button
@@ -218,7 +218,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
               <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                 <Input
                   id="new-tag-name"
-                  placeholder="e.g. Trial"
+                  placeholder="Example: Trial"
                   value={newTagName}
                   onChange={(event) => setNewTagName(event.target.value)}
                   disabled={!canEdit || saving}
@@ -255,8 +255,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
           <DialogHeader>
             <DialogTitle>Delete tag?</DialogTitle>
             <DialogDescription>
-              “{tagToDelete?.name}” will be removed from every contact. This
-              cannot be undone.
+              “{tagToDelete?.name}” will be removed from everyone. You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

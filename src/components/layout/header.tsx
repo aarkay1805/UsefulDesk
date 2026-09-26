@@ -9,11 +9,11 @@ import {
 } from '@/components/layout/page-header-actions';
 
 const pageTitles: Record<string, string> = {
-  '/get-started': 'Get Started',
-  '/dashboard': 'Dashboard',
-  '/inbox': 'Inbox',
+  '/get-started': 'Setup',
+  '/dashboard': 'Home',
+  '/inbox': 'Chats',
   '/notifications': 'Notifications',
-  '/leads': 'Leads',
+  '/leads': 'Enquiries',
   '/members/purchase': 'Add purchase',
   '/members': 'Members',
   '/finance': 'Business',
@@ -27,7 +27,7 @@ function getPageTitle(pathname: string): string {
   const match = Object.entries(pageTitles).find(([path]) =>
     pathname.startsWith(path)
   );
-  return match ? match[1] : 'Dashboard';
+  return match ? match[1] : 'Home';
 }
 
 interface HeaderProps {

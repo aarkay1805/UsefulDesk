@@ -184,7 +184,7 @@ export function SettingsOverview({
     {
       section: 'business-details',
       loading: false,
-      subtitle: 'Gym brand, branch, registered business & invoices',
+      subtitle: 'Gym name, branches, and invoice details',
     },
     {
       section: 'organization',
@@ -230,10 +230,10 @@ export function SettingsOverview({
       loading: countsLoading,
       subtitle:
         counts?.templates == null
-          ? 'View WhatsApp messages'
+          ? 'View message templates'
           : `${counts.templates} template${counts.templates === 1 ? '' : 's'}${
               counts.templatesPending
-                ? ` · ${counts.templatesPending} pending review`
+                ? ` · ${counts.templatesPending} waiting for WhatsApp approval`
                 : ''
             }`,
     },
@@ -252,10 +252,10 @@ export function SettingsOverview({
       loading: countsLoading,
       subtitle:
         counts?.tags == null && counts?.customFields == null
-          ? 'Tags and extra contact details'
+          ? 'Tags and extra details'
           : `${counts?.tags ?? 0} tag${counts?.tags === 1 ? '' : 's'} · ${
               counts?.customFields ?? 0
-            } extra field${counts?.customFields === 1 ? '' : 's'}`,
+            } extra ${counts?.customFields === 1 ? 'detail' : 'details'}`,
     },
     {
       section: 'appearance',

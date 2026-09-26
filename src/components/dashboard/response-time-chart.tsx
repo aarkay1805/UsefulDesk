@@ -48,11 +48,10 @@ export function ResponseTimeChart({
       <header className="border-border flex items-center justify-between gap-3 border-b px-5 py-4">
         <div>
           <h2 className="text-foreground text-sm font-semibold">
-            Average First Response Time
+            Time to first reply
           </h2>
           <p className="text-muted-foreground mt-0.5 text-xs">
-            Minutes to reply to a customer&apos;s first unreplied message, by
-            weekday
+            Average minutes your team took to reply to a new message, by day
           </p>
         </div>
         <div className="flex items-center gap-3 text-right text-xs">
@@ -84,8 +83,8 @@ export function ResponseTimeChart({
         ) : !hasData ? (
           <EmptyState
             icon={Clock}
-            title="No replies recorded yet"
-            hint="This chart fills in as you reply to customer messages."
+            title="No replies yet"
+            hint="This chart fills in when your team replies to messages."
           />
         ) : (
           <BarChart

@@ -150,7 +150,7 @@ export function LeadsFilters({
 
         <div className="max-h-[65vh] overflow-y-auto px-3 py-3">
           <RadioGroup
-            label="Create date"
+            label="Date added"
             options={CREATED_RANGE_OPTIONS}
             value={value.createdRange}
             onChange={(v) =>
@@ -160,7 +160,7 @@ export function LeadsFilters({
 
           <Divider />
           <CheckGroup
-            label="Lead status"
+            label="Stage"
             options={statuses.map((c) => ({ value: c.key, label: c.label }))}
             selected={value.leadStatus}
             onToggle={(v) => toggle('leadStatus', v)}
@@ -193,11 +193,11 @@ export function LeadsFilters({
 
           <Divider />
           <CheckGroup
-            label="Contact owner"
+            label="Owner"
             options={staffOptions}
             selected={value.owner}
             onToggle={(v) => toggle('owner', v)}
-            emptyHint="No teammates."
+            emptyHint="No team members."
           />
 
           <Divider />
@@ -214,11 +214,11 @@ export function LeadsFilters({
 
           <Divider />
           <CheckGroup
-            label="Created by"
+            label="Added by"
             options={staffOptions}
             selected={value.createdBy}
             onToggle={(v) => toggle('createdBy', v)}
-            emptyHint="No teammates."
+            emptyHint="No team members."
           />
         </div>
       </PopoverContent>

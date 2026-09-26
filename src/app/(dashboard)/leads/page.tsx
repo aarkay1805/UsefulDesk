@@ -271,23 +271,23 @@ const LEAD_QUICK_FILTER_META: Record<
 > = {
   all: {
     label: 'All',
-    helpText: 'All leads matching the search and detailed filters.',
+    helpText: 'All enquiries that match your search and filters.',
   },
   no_followup: {
     label: 'No follow-up',
-    helpText: 'New leads without an open follow-up.',
+    helpText: 'New enquiries with no follow-up planned.',
   },
   unassigned: {
     label: 'Unassigned',
-    helpText: 'Active leads without an assignee or pending teammate.',
+    helpText: 'Enquiries not given to anyone yet.',
   },
   mine: {
     label: 'Mine',
-    helpText: 'Active leads assigned to you.',
+    helpText: 'Enquiries given to you.',
   },
   new_today: {
     label: 'Today',
-    helpText: 'New leads added today in the account timezone.',
+    helpText: 'Enquiries added today.',
   },
 };
 
@@ -429,12 +429,12 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
       c.name ? (
         <span className="text-foreground font-medium">{c.name}</span>
       ) : (
-        <span className="text-muted-foreground italic">Unnamed</span>
+        <span className="text-muted-foreground italic">No name</span>
       ),
   },
   {
     key: 'status',
-    label: 'Status',
+    label: 'Stage',
     defaultWidth: 150,
     minWidth: 110,
     sortColumn: 'lead_status',
@@ -511,7 +511,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
   },
   {
     key: 'received_by',
-    label: 'Received By',
+    label: 'Received by',
     defaultWidth: 170,
     minWidth: 130,
     // Groups leads by origin channel; ordering by the raw text is useful
@@ -531,7 +531,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
   },
   {
     key: 'created_by',
-    label: 'Created by',
+    label: 'Added by',
     defaultWidth: 160,
     minWidth: 120,
     // Immutable original creator (migration 051) — audit; never changes on
@@ -541,7 +541,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
     relatedSort: { kind: 'person', column: 'created_by' },
     render: (c) =>
       c.created_by ? (
-        <span className="text-muted-foreground text-sm">Created</span>
+        <span className="text-muted-foreground text-sm">Added</span>
       ) : (
         <span className="text-muted-foreground text-sm">—</span>
       ),
@@ -560,7 +560,7 @@ const BUILTIN_COLUMNS: ColumnDef[] = [
   },
   {
     key: 'created',
-    label: 'Created on',
+    label: 'Added on',
     defaultWidth: 120,
     minWidth: 100,
     sortColumn: 'created_at',
@@ -1220,7 +1220,7 @@ export default function LeadsPage() {
             if (req) {
               const fromId = req.from_user_id ?? c.assigned_to ?? null;
               const targetName = req.to_user_id
-                ? (nameById.get(req.to_user_id) ?? 'Teammate')
+                ? (nameById.get(req.to_user_id) ?? 'Team member')
                 : 'Unassign';
               const badge = (
                 <TransferPendingDisplay
@@ -1262,7 +1262,7 @@ export default function LeadsPage() {
                           className="text-popover-foreground focus:bg-muted"
                         >
                           <Check className="size-4" />
-                          Approve assignment
+                          Approve
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() =>
@@ -1283,7 +1283,7 @@ export default function LeadsPage() {
                         className="text-popover-foreground focus:bg-muted"
                       >
                         <Ban className="size-4" />
-                        Withdraw request
+                        Cancel request
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -1304,7 +1304,7 @@ export default function LeadsPage() {
             }
             return (
               <AssigneeDisplay
-                name={nameById.get(c.assigned_to) ?? 'Teammate'}
+                name={nameById.get(c.assigned_to) ?? 'Team member'}
                 avatarUrl={avatarById.get(c.assigned_to)}
               />
             );
@@ -1331,13 +1331,13 @@ export default function LeadsPage() {
               const badge = (
                 <TransferPendingDisplay
                   ownerName={
-                    ownerId ? (nameById.get(ownerId) ?? 'Teammate') : null
+                    ownerId ? (nameById.get(ownerId) ?? 'Team member') : null
                   }
                   ownerAvatarUrl={ownerId ? avatarById.get(ownerId) : null}
                   targetName={
                     transfer.to_user_id
-                      ? (nameById.get(transfer.to_user_id) ?? 'Teammate')
-                      : 'Teammate'
+                      ? (nameById.get(transfer.to_user_id) ?? 'Team member')
+                      : 'Team member'
                   }
                   incoming={transfer.to_user_id === user?.id}
                 />
@@ -1373,7 +1373,7 @@ export default function LeadsPage() {
                           className="text-popover-foreground focus:bg-muted"
                         >
                           <Check className="size-4" />
-                          Accept transfer
+                          Accept
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() =>
@@ -1394,7 +1394,7 @@ export default function LeadsPage() {
                         className="text-popover-foreground focus:bg-muted"
                       >
                         <Ban className="size-4" />
-                        Withdraw request
+                        Cancel request
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
@@ -1404,7 +1404,7 @@ export default function LeadsPage() {
 
             const ownerChip = (
               <AssigneeDisplay
-                name={nameById.get(c.user_id) ?? 'Teammate'}
+                name={nameById.get(c.user_id) ?? 'Team member'}
                 avatarUrl={avatarById.get(c.user_id)}
               />
             );
@@ -1468,7 +1468,7 @@ export default function LeadsPage() {
           render: (c) =>
             c.created_by ? (
               <AssigneeDisplay
-                name={nameById.get(c.created_by) ?? 'Teammate'}
+                name={nameById.get(c.created_by) ?? 'Team member'}
                 avatarUrl={avatarById.get(c.created_by)}
               />
             ) : (
@@ -1753,7 +1753,7 @@ export default function LeadsPage() {
     } catch (error) {
       if (seq !== listingFetchSeq.current) return;
       const message = error instanceof Error ? error.message : '';
-      if (!/abort/i.test(message)) toast.error('Failed to load leads');
+      if (!/abort/i.test(message)) toast.error('Could not load enquiries');
       setListingDataKey(leadListingRequestKey(listingInput));
       setTotalCount(0);
       setQuickFilterCounts(EMPTY_QUICK_FILTER_COUNTS);
@@ -1883,13 +1883,13 @@ export default function LeadsPage() {
         );
         toast.success(
           outcome === 'pending'
-            ? 'Transfer request sent — waiting for them to accept.'
-            : 'Lead reassigned'
+            ? 'Request sent. Waiting for them to accept.'
+            : 'Enquiry given to new owner'
         );
         setTransferDialog(null);
         refreshAll();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Failed to send request');
+        toast.error(e instanceof Error ? e.message : 'Could not send request');
       } finally {
         setTransferSubmitting(false);
       }
@@ -1903,7 +1903,7 @@ export default function LeadsPage() {
       try {
         if (action === 'cancel') {
           await cancelLeadTransfer(supabase, transferId);
-          toast.success('Transfer request withdrawn');
+          toast.success('Request cancelled');
         } else {
           await respondLeadTransfer(supabase, transferId, action === 'accept');
           toast.success(
@@ -1932,7 +1932,7 @@ export default function LeadsPage() {
         try {
           await requestLeadTransfer(supabase, contact.id, targetId);
         } catch (e) {
-          toast.error(e instanceof Error ? e.message : 'Failed to transfer');
+          toast.error(e instanceof Error ? e.message : 'Could not change the owner');
           return;
         }
         setContacts((prev) =>
@@ -1946,12 +1946,12 @@ export default function LeadsPage() {
           )
         );
         fetchTransfers();
-        toast.success('Ownership transferred');
+        toast.success('Owner changed');
         return;
       }
       if (!canTransfer || contact.user_id !== user?.id) {
         toast.error(
-          'Only the current owner or an admin can transfer this lead.'
+          'Only the current owner or an admin can change who owns this enquiry.'
         );
         return;
       }
@@ -1971,7 +1971,7 @@ export default function LeadsPage() {
       try {
         if (action === 'cancel') {
           await cancelLeadAssignment(supabase, requestId);
-          toast.success('Request withdrawn');
+          toast.success('Request cancelled');
         } else {
           await respondLeadAssignment(
             supabase,
@@ -2066,7 +2066,7 @@ export default function LeadsPage() {
             })
             .eq('id', contact.id);
           if (error) {
-            toast.error('Failed to update status');
+            toast.error('Could not change the stage');
             return;
           }
           setContacts((prev) =>
@@ -2092,7 +2092,7 @@ export default function LeadsPage() {
             outcome = await requestLeadAssignment(supabase, contact.id, target);
           } catch (e) {
             toast.error(
-              e instanceof Error ? e.message : 'Failed to update assignee'
+              e instanceof Error ? e.message : 'Could not change who it is assigned to'
             );
             return;
           }
@@ -2118,7 +2118,7 @@ export default function LeadsPage() {
           } else {
             // Pending the owner's approval — surface the overlay.
             fetchTransfers();
-            toast.success('Sent to the lead owner for approval');
+            toast.success('Sent to the enquiry owner to approve');
           }
         } else if (edit.kind === 'custom') {
           const trimmed = rawValue.trim();
@@ -2137,7 +2137,7 @@ export default function LeadsPage() {
                 .eq('contact_id', contact.id)
                 .eq('custom_field_id', edit.fieldId);
           if (error) {
-            toast.error('Failed to save');
+            toast.error('Could not save');
             return;
           }
           setContacts((prev) =>
@@ -2157,7 +2157,7 @@ export default function LeadsPage() {
           // Built-in contacts column (phone/email/select).
           const trimmed = rawValue.trim();
           if (edit.column === 'phone' && !trimmed) {
-            toast.error('Phone number is required');
+            toast.error('Enter a phone number');
             return;
           }
           const { error } = await supabase
@@ -2169,9 +2169,9 @@ export default function LeadsPage() {
             .eq('id', contact.id);
           if (error) {
             if (isUniqueViolation(error)) {
-              toast.error('A lead with this phone number already exists');
+              toast.error('An enquiry with this phone number already exists');
             } else {
-              toast.error('Failed to save');
+              toast.error('Could not save');
             }
             return;
           }
@@ -2216,7 +2216,7 @@ export default function LeadsPage() {
           await addContactTag(contact.id, tagId);
         }
       } catch (error) {
-        toast.error(getErrorMessage(error, 'Failed to update tags'));
+        toast.error(getErrorMessage(error, 'Could not update tags'));
         setContacts((prev) => prev.map(apply(had)));
       }
     },
@@ -2285,10 +2285,10 @@ export default function LeadsPage() {
 
     if (error || !data || data.length === 0) {
       toast.error(
-        'Failed to delete lead — you can only delete leads you created'
+        'Could not delete. You can only delete enquiries you added.'
       );
     } else {
-      toast.success('Lead deleted');
+      toast.success('Enquiry deleted');
       refreshAll();
     }
 
@@ -2363,7 +2363,7 @@ export default function LeadsPage() {
       );
       setSelected(new Set(idsFromLeadListing(snapshot)));
     } catch {
-      toast.error('Failed to select all leads');
+      toast.error('Could not select all enquiries');
     }
   }
 
@@ -2382,7 +2382,7 @@ export default function LeadsPage() {
         new AbortController().signal
       );
       if (rows.length === 0) {
-        toast.error('No leads to export');
+        toast.error('No enquiries to download');
         return;
       }
 
@@ -2400,7 +2400,7 @@ export default function LeadsPage() {
       ];
       const body = rows.map((c) => {
         const auto = autoReceivedLabel(c.received_via);
-        const receivedBy = auto ?? nameById.get(c.user_id) ?? 'Teammate';
+        const receivedBy = auto ?? nameById.get(c.user_id) ?? 'Team member';
         return [
           c.name ?? '',
           fmt.phone(c.phone),
@@ -2408,7 +2408,7 @@ export default function LeadsPage() {
           fieldOptions.statusFor(c.lead_status).label,
           c.source ? fieldOptions.sourceLabel(c.source) : '',
           c.gender ? fieldOptions.genderLabel(c.gender) : '',
-          c.assigned_to ? (nameById.get(c.assigned_to) ?? 'Teammate') : '',
+          c.assigned_to ? (nameById.get(c.assigned_to) ?? 'Team member') : '',
           receivedBy,
           c.tags.map((tag) => tag.name).join(', '),
           fmt.date(c.created_at),
@@ -2418,10 +2418,10 @@ export default function LeadsPage() {
       const stamp = new Date().toISOString().slice(0, 10);
       downloadCsv(`leads-${stamp}.csv`, toCsv(headers, body));
       toast.success(
-        `Exported ${rows.length} lead${rows.length === 1 ? '' : 's'}`
+        `Downloaded ${rows.length} ${rows.length === 1 ? 'enquiry' : 'enquiries'}`
       );
     } catch {
-      toast.error('Failed to export leads');
+      toast.error('Could not download enquiries');
     } finally {
       setExporting(false);
     }
@@ -2443,18 +2443,18 @@ export default function LeadsPage() {
       .select('id');
 
     if (error) {
-      toast.error('Failed to delete leads');
+      toast.error('Could not delete enquiries');
     } else {
       const removed = data?.length ?? 0;
       const skipped = ids.length - removed;
       if (removed === 0) {
-        toast.error('You can only delete leads you created');
+        toast.error('You can only delete enquiries you added');
       } else if (skipped > 0) {
         toast.success(
-          `${removed} lead${removed === 1 ? '' : 's'} deleted · ${skipped} skipped (you can only delete leads you created)`
+          `${removed} deleted. ${skipped} not deleted because someone else added them.`
         );
       } else {
-        toast.success(`${removed} lead${removed === 1 ? '' : 's'} deleted`);
+        toast.success(`${removed} ${removed === 1 ? 'enquiry' : 'enquiries'} deleted`);
       }
       setSelected(new Set());
       refreshAll();
@@ -2489,8 +2489,8 @@ export default function LeadsPage() {
     return [
       {
         key: 'status',
-        label: 'Lead status',
-        group: 'Lead fields',
+        label: 'Stage',
+        group: 'Enquiry details',
         editor: {
           kind: 'select',
           // Coloured pills, matching the Status cell editor.
@@ -2505,7 +2505,7 @@ export default function LeadsPage() {
       {
         key: 'assignee',
         label: 'Assigned to',
-        group: 'Lead fields',
+        group: 'Enquiry details',
         editor: { kind: 'select', variant: 'plain', options: assigneeOptions },
       },
       // Ownership ("Received by" = contacts.user_id). Moves through the
@@ -2517,7 +2517,7 @@ export default function LeadsPage() {
             {
               key: 'received_by',
               label: 'Received by',
-              group: 'Lead fields' as const,
+              group: 'Enquiry details' as const,
               editor: {
                 kind: 'select' as const,
                 variant: 'plain' as const,
@@ -2540,7 +2540,7 @@ export default function LeadsPage() {
       {
         key: 'source',
         label: 'Source',
-        group: 'Lead fields',
+        group: 'Enquiry details',
         editor: {
           kind: 'select',
           variant: 'plain',
@@ -2555,7 +2555,7 @@ export default function LeadsPage() {
       {
         key: 'gender',
         label: 'Gender',
-        group: 'Lead fields',
+        group: 'Enquiry details',
         editor: {
           kind: 'select',
           variant: 'plain',
@@ -2598,10 +2598,10 @@ export default function LeadsPage() {
         { onConflict: 'contact_id,custom_field_id' }
       );
       if (error) {
-        toast.error('Failed to update leads');
+        toast.error('Could not update enquiries');
         return false;
       }
-      toast.success(`Updated ${ids.length} lead${ids.length === 1 ? '' : 's'}`);
+      toast.success(`${ids.length} ${ids.length === 1 ? 'enquiry' : 'enquiries'} updated`);
       setSelected(new Set());
       refreshAll();
       return true;
@@ -2677,10 +2677,10 @@ export default function LeadsPage() {
       .in('id', ids)
       .select('id');
     if (error || !data || data.length === 0) {
-      toast.error('Failed to update leads');
+      toast.error('Could not update enquiries');
       return false;
     }
-    toast.success(`Updated ${data.length} lead${data.length === 1 ? '' : 's'}`);
+    toast.success(`${data.length} ${data.length === 1 ? 'enquiry' : 'enquiries'} updated`);
     setSelected(new Set());
     refreshAll();
     return true;
@@ -3019,7 +3019,7 @@ export default function LeadsPage() {
         <GatedButton
           variant="ghost"
           canAct={canEdit}
-          gateReason="add or import leads"
+          gateReason="add enquiries"
           onClick={() => setImportOpen(true)}
         >
           <Download className="size-4" />
@@ -3037,11 +3037,11 @@ export default function LeadsPage() {
         )}
         <GatedButton
           canAct={canEdit}
-          gateReason="add or import leads"
+          gateReason="add enquiries"
           onClick={openAddForm}
         >
           <Plus className="size-4" />
-          Add Lead
+          Add enquiry
         </GatedButton>
       </PageHeaderActions>
 
@@ -3056,7 +3056,7 @@ export default function LeadsPage() {
               value="all"
               className="flex-none px-0.5 pb-2 text-[0.9375rem] group-data-horizontal/tabs:after:bottom-0"
             >
-              All leads
+              All enquiries
             </TabsTrigger>
             <TabsTrigger
               value="followups"
@@ -3086,8 +3086,8 @@ export default function LeadsPage() {
             <SearchInput
               value={searchInput}
               onValueChange={setSearchInput}
-              placeholder="Search leads…"
-              aria-label="Search leads"
+              placeholder="Search name or phone"
+              aria-label="Search enquiries"
             />
 
             {/* Data and presentation actions follow the search, matching the
@@ -3125,7 +3125,7 @@ export default function LeadsPage() {
                   onValueChange={(values) =>
                     changeQuickFilter(values[0] ?? 'all')
                   }
-                  aria-label="Lead quick filters"
+                  aria-label="Quick filters"
                 >
                   {LEAD_QUICK_FILTERS.map((filter) => {
                     const meta = LEAD_QUICK_FILTER_META[filter];
@@ -3150,9 +3150,9 @@ export default function LeadsPage() {
 
             {/* The view picker is the trailing control, with the active view's
               settings fused into the same compact toolbar. */}
-            <Toolbar className="ml-auto" aria-label="Lead view controls">
+            <Toolbar className="ml-auto" aria-label="View options">
               <ToolbarToggleGroup<LeadsView>
-                aria-label="Lead view"
+                aria-label="Show as"
                 value={[view]}
                 onValueChange={(nextViews) => {
                   const nextView = nextViews[0];
@@ -3207,7 +3207,7 @@ export default function LeadsPage() {
                       />
                     }
                   >
-                    {bulkCount} record{bulkCount === 1 ? '' : 's'} selected
+                    {bulkCount} selected
                     <ChevronDown className="size-4 transition-transform duration-150 group-data-[popup-open]:rotate-180" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="min-w-56">
@@ -3217,20 +3217,20 @@ export default function LeadsPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={selectAllMatching}>
                       <ListChecks className="size-4" />
-                      All {visibleTotalCount} in Leads
+                      Select all {visibleTotalCount}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
                 <div className="bg-border mx-0.5 h-4 w-px" />
 
-                {/* Actions — Edit / Delete / Add note / Convert to member.
+                {/* Actions — Edit / Delete / Add note / Add as member.
                   (Assign lives inside Edit → Assigned to.) */}
                 <GatedButton
                   variant="ghost"
                   size="sm"
                   canAct={canEdit}
-                  gateReason="edit leads"
+                  gateReason="edit enquiries"
                   onClick={() => setBulkEditOpen(true)}
                 >
                   <Pencil />
@@ -3240,7 +3240,7 @@ export default function LeadsPage() {
                   variant="destructive-ghost"
                   size="sm"
                   canAct={canEdit}
-                  gateReason="delete leads"
+                  gateReason="delete enquiries"
                   onClick={() => setBulkDeleteOpen(true)}
                 >
                   <Trash2 />
@@ -3260,11 +3260,11 @@ export default function LeadsPage() {
                   variant="ghost"
                   size="sm"
                   canAct={canEdit}
-                  gateReason="convert leads to members"
+                  gateReason="add members"
                   onClick={() => setBulkConvertOpen(true)}
                 >
                   <UserCheck />
-                  Convert to member
+                  Add as member
                 </GatedButton>
 
                 {/* Close — clears the selection, trailing edge. */}
@@ -3301,20 +3301,20 @@ export default function LeadsPage() {
                   <Users className="text-muted-foreground size-8" />
                   <p className="text-muted-foreground text-sm">
                     {hasActiveFilters
-                      ? 'No leads match your filters.'
-                      : 'No leads yet.'}
+                      ? 'No enquiries match your filters.'
+                      : 'No enquiries yet.'}
                   </p>
                   {!hasActiveFilters && (
                     <GatedButton
                       canAct={canEdit}
-                      gateReason="add or import leads"
+                      gateReason="add enquiries"
                       variant="outline"
                       size="sm"
                       onClick={openAddForm}
                       className="border-border text-muted-foreground hover:bg-muted mt-2"
                     >
                       <Plus className="size-3.5" />
-                      Add your first lead
+                      Add your first enquiry
                     </GatedButton>
                   )}
                 </div>
@@ -3407,7 +3407,7 @@ export default function LeadsPage() {
                                 }
                                 onCheckedChange={toggleSelectAll}
                                 disabled={contacts.length === 0}
-                                aria-label="Select all leads on this page"
+                                aria-label="Select all enquiries on this page"
                               />
                             </div>
                           </TableHead>
@@ -3491,7 +3491,7 @@ export default function LeadsPage() {
                       <TableBody>
                         {!listingDataReady || loading ? (
                           <TableSkeletonRows
-                            label="Loading leads"
+                            label="Loading enquiries"
                             rows={9}
                             columns={[
                               {
@@ -3526,20 +3526,20 @@ export default function LeadsPage() {
                                 <Users className="text-muted-foreground size-8" />
                                 <p className="text-muted-foreground text-sm">
                                   {hasActiveFilters
-                                    ? 'No leads match your filters.'
-                                    : 'No leads yet.'}
+                                    ? 'No enquiries match your filters.'
+                                    : 'No enquiries yet.'}
                                 </p>
                                 {!hasActiveFilters && (
                                   <GatedButton
                                     canAct={canEdit}
-                                    gateReason="add or import leads"
+                                    gateReason="add enquiries"
                                     variant="outline"
                                     size="sm"
                                     onClick={openAddForm}
                                     className="border-border text-muted-foreground hover:bg-muted mt-2"
                                   >
                                     <Plus className="size-3.5" />
-                                    Add your first lead
+                                    Add your first enquiry
                                   </GatedButton>
                                 )}
                               </div>
@@ -3771,7 +3771,7 @@ export default function LeadsPage() {
                       id="leads-page-size-label"
                       className="text-muted-foreground text-xs whitespace-nowrap"
                     >
-                      Records per page
+                      Rows per page
                     </span>
                     <Select
                       value={String(pageSize)}
@@ -3899,7 +3899,7 @@ export default function LeadsPage() {
         }}
         targetName={
           transferDialog
-            ? (nameById.get(transferDialog.targetId) ?? 'Teammate')
+            ? (nameById.get(transferDialog.targetId) ?? 'Team member')
             : ''
         }
         targetAvatarUrl={
@@ -3946,14 +3946,14 @@ export default function LeadsPage() {
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
-              Delete Lead
+              Delete this enquiry?
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Are you sure you want to delete{' '}
+              This deletes{' '}
               <span className="text-popover-foreground font-medium">
                 {deleteTarget?.name || fmt.phone(deleteTarget?.phone)}
-              </span>
-              ? This action cannot be undone.
+              </span>{' '}
+              and their notes. You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="bg-popover border-border">
@@ -3970,7 +3970,7 @@ export default function LeadsPage() {
               disabled={deleting}
             >
               {deleting && <Loader2 className="size-4 animate-spin" />}
-              Delete
+              Delete enquiry
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3981,19 +3981,18 @@ export default function LeadsPage() {
         <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-popover-foreground">
-              Delete {selected.size} {selected.size === 1 ? 'Lead' : 'Leads'}
+              Delete {selected.size} {selected.size === 1 ? 'enquiry' : 'enquiries'}?
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Are you sure you want to delete{' '}
+              This deletes{' '}
               <span className="text-popover-foreground font-medium">
-                {selected.size} {selected.size === 1 ? 'lead' : 'leads'}
-              </span>
-              ? This action cannot be undone.
+                {selected.size} {selected.size === 1 ? 'enquiry' : 'enquiries'}
+              </span>{' '}
+              and their notes. You cannot undo this.
             </DialogDescription>
             {!canDeleteAny && (
               <p className="text-muted-foreground mt-1 text-xs">
-                Only leads you created will be deleted — leads created by others
-                or captured automatically are skipped.
+                Only enquiries you added will be deleted. Enquiries added by others or added automatically will stay.
               </p>
             )}
           </DialogHeader>

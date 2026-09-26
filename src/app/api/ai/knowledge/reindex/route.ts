@@ -33,7 +33,7 @@ export async function POST() {
     if (error) {
       console.error('[ai/knowledge/reindex] fetch error:', error);
       return NextResponse.json(
-        { error: 'Failed to load documents' },
+        { error: 'Could not load documents' },
         { status: 500 }
       );
     }

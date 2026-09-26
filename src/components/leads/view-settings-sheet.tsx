@@ -67,20 +67,20 @@ export function BoardSettingsSheet({
             Board settings
           </SheetTitle>
           <SheetDescription className="text-muted-foreground">
-            Configure how the leads board looks and behaves.
+            Choose how the enquiry board looks.
           </SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <Section title="Display">
             <SettingRow
-              label="Card density"
+              label="Card size"
               description="How much detail each card shows."
             >
               <Segmented
                 options={[
-                  { value: 'comfortable', label: 'Comfortable' },
-                  { value: 'compact', label: 'Compact' },
+                  { value: 'comfortable', label: 'Large' },
+                  { value: 'compact', label: 'Small' },
                 ]}
                 value={density}
                 onChange={(v) => onDensityChange(v as BoardDensity)}
@@ -89,7 +89,7 @@ export function BoardSettingsSheet({
 
             <SettingRow
               label="Sort cards"
-              description="Order of cards within each status column."
+              description="Order of cards in each stage column."
             >
               <Select
                 value={sortWithin}
@@ -109,8 +109,8 @@ export function BoardSettingsSheet({
             </SettingRow>
 
             <SettingRow
-              label="Collapse empty columns"
-              description="Hide statuses with no leads. They reappear while you drag so you can still drop into an empty stage."
+              label="Hide empty columns"
+              description="Hide stages with no enquiries. They show again while you drag a card."
             >
               <Switch
                 checked={collapseEmpty}
@@ -119,8 +119,7 @@ export function BoardSettingsSheet({
             </SettingRow>
 
             <p className="border-border bg-muted/40 text-muted-foreground rounded-lg border px-3 py-2 text-xs leading-relaxed">
-              The board shows the {boardLimit} most recent leads. Switch to the
-              table view to page through all of them.
+              The board shows the {boardLimit} newest enquiries. Use the table view to see all of them.
             </p>
           </Section>
         </div>
@@ -180,7 +179,7 @@ function SettingRow({
   );
 }
 
-// Compact segmented toggle for a small set of options (best for 2–3).
+// Small segmented toggle for a small set of options (best for 2–3).
 // A raised active pill on a muted track — the standard segmented look.
 function Segmented({
   options,

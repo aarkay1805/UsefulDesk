@@ -57,7 +57,7 @@ describe('validateFlowForActivation — flow-level', () => {
     expect(issues.some((i) => i.field === 'entry_node_id')).toBe(true);
   });
 
-  it("flags entry_node_id that doesn't exist in nodes", () => {
+  it("flags entry_node_id that does not exist in nodes", () => {
     const issues = validateFlowForActivation(
       { ...validFlow, entry_node_id: 'ghost' },
       validNodes
@@ -396,7 +396,7 @@ describe('validateFlowForActivation — nodes', () => {
     ).toBe(true);
   });
 
-  it("doesn't crash on unknown node_type — flags it", () => {
+  it("does not crash on unknown node_type — flags it", () => {
     const nodes = [{ node_key: 's', node_type: 'wibble', config: {} }];
     const issues = validateFlowForActivation(
       { ...validFlow, entry_node_id: 's' },

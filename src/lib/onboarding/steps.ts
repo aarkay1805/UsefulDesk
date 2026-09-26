@@ -59,16 +59,16 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   {
     id: 'whatsapp',
     title: 'Connect WhatsApp',
-    subtitle: 'Link your WhatsApp Business number so you can message members',
+    subtitle: 'Add your gym\'s WhatsApp Business number so you can message members',
     href: '/settings?tab=whatsapp',
     group: 'messaging',
     isDone: (raw) => raw.whatsappConnected,
   },
   {
     id: 'template',
-    title: 'Approve the membership renewal template',
+    title: 'Get your renewal message approved',
     subtitle:
-      'Submit the exact Marketing contract to Meta; approval is not guaranteed',
+      'Send the renewal reminder message to WhatsApp for approval. WhatsApp may say no.',
     href: '/settings?tab=templates',
     group: 'messaging',
     isDone: (raw) => raw.templateApproved,
@@ -76,7 +76,7 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   {
     id: 'plan',
     title: 'Create your first membership plan',
-    subtitle: 'Set up the plans and pricing your gym sells',
+    subtitle: 'Add the plans and prices your gym sells',
     href: '/settings?tab=plans',
     group: 'gym',
     isDone: (raw) => raw.hasActivePlanPricing,
@@ -84,7 +84,7 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   {
     id: 'member',
     title: 'Add your first member',
-    subtitle: 'Bring your existing members into UsefulDesk',
+    subtitle: 'Add your current members, one by one or from an Excel file',
     href: '/members',
     group: 'gym',
     isDone: (raw) => raw.membershipCount > 0,
@@ -92,16 +92,16 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   {
     id: 'staff',
     title: 'Invite your staff',
-    subtitle: 'Give trainers and front-desk staff their own access',
+    subtitle: 'Give trainers and front-desk staff their own login',
     href: '/settings?tab=members',
     group: 'gym',
     isDone: (raw) => (raw.teamSize ?? 0) > 1 || (raw.pendingInvites ?? 0) > 0,
   },
   {
     id: 'autopay',
-    title: 'Set up auto-pay for members',
+    title: 'Set up AutoPay for members',
     subtitle:
-      'Connect your Razorpay account to collect membership payments automatically',
+      'Connect Razorpay so member fees are collected automatically every month',
     href: '/settings?tab=deals',
     group: 'payments',
     isDone: (raw) => raw.razorpayConnected,
@@ -109,7 +109,7 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   {
     id: 'payment',
     title: 'Record your first payment',
-    subtitle: "Log a payment from a member's profile to track collections",
+    subtitle: "Open a member and record a fee they paid",
     href: '/members',
     group: 'payments',
     isDone: (raw) => raw.paidPaymentCount > 0,

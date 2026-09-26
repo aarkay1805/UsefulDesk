@@ -60,17 +60,17 @@ export function OrganizationDangerZone() {
         warningCount?: number;
       };
       if (!response.ok) {
-        toast.error(payload.error || 'Failed to delete the organization');
+        toast.error(payload.error || 'Could not delete the gym group');
         setBusy(false);
         return;
       }
 
       if (payload.warningCount) {
         toast.warning(
-          'Organization deleted, but some unused teammate logins need administrator cleanup.'
+          'Gym group deleted. Some old team logins still need to be cleaned up by support.'
         );
       } else {
-        toast.success('Organization permanently deleted');
+        toast.success('Gym group deleted');
       }
 
       if (payload.nextAccountId) {
@@ -87,7 +87,7 @@ export function OrganizationDangerZone() {
       window.location.href = '/login';
     } catch (error) {
       console.error('[OrganizationDangerZone] delete failed:', error);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
       setBusy(false);
     }
   }
@@ -104,7 +104,7 @@ export function OrganizationDangerZone() {
           <span className="text-foreground font-medium">
             {organizationName}
           </span>
-          , all {branches.length} branches, members, leads, chats, payments, and
+          , all {branches.length} branches, members, enquiries, chats, payments, and
           saved files. Team members who only use this gym group will lose
           access.
         </CardDescription>

@@ -31,7 +31,7 @@ export const SCOPE_DESCRIPTIONS: Record<ApiScope, string> = {
   'messages:read': 'Read messages and their delivery status',
   'contacts:read': 'List and read contacts',
   'contacts:write': 'Create and update contacts',
-  'conversations:read': 'List and read conversations',
+  'conversations:read': 'List and read chats',
   'broadcasts:send': 'Send one message to many contacts',
   'webhooks:manage': 'Send UsefulDesk updates to another app',
 };

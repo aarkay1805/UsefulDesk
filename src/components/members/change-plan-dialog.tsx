@@ -169,7 +169,7 @@ export function ChangePlanDialog({
 
   async function handleChange() {
     if (!selectedPlan || !selectedOption || !newEnd || !quote) {
-      return toast.error('Pick the new plan and billing option');
+      return toast.error('Pick the new plan and price');
     }
     const fee = feeAmount === '' ? quote.netFee : Number(feeAmount);
     if (!Number.isFinite(fee) || fee < 0)
@@ -184,7 +184,7 @@ export function ChangePlanDialog({
       return toast.error('Enter a valid amount');
     }
     if (collected > fee) {
-      return toast.error('Collected amount cannot exceed the fee');
+      return toast.error('Amount cannot be more than the fee');
     }
 
     setSaving(true);
@@ -206,7 +206,7 @@ export function ChangePlanDialog({
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to change the plan'));
+      toast.error(getErrorMessage(err, 'Could not change the plan'));
     } finally {
       setSaving(false);
     }
@@ -218,8 +218,7 @@ export function ChangePlanDialog({
         <DialogHeader>
           <DialogTitle>Change plan</DialogTitle>
           <DialogDescription>
-            Switch this member to another plan mid-cycle. Paid, unused days of
-            the current plan are credited against the new plan&apos;s fee.
+            Move this member to another plan today. Unused paid days of the old plan are taken off the new fee.
           </DialogDescription>
         </DialogHeader>
 
@@ -246,8 +245,7 @@ export function ChangePlanDialog({
               min={minSwitch}
             />
             <p className="text-muted-foreground text-xs">
-              The current cycle ends on this day and is re-invoiced for the days
-              used.
+              The old plan ends on this day. They pay only for the days they used.
             </p>
           </div>
 
@@ -257,8 +255,8 @@ export function ChangePlanDialog({
                 <>
                   <p>
                     <span className="text-muted-foreground">
-                      Credit for {quote.remainingDays} unused day
-                      {quote.remainingDays === 1 ? '' : 's'}:{' '}
+                      Credit for {quote.remainingDays} unused{' '}
+                      {quote.remainingDays === 1 ? 'day' : 'days'}:{' '}
                     </span>
                     <span className="text-emerald-foreground font-medium tabular-nums">
                       {fmt.money(quote.credit)}
@@ -273,18 +271,17 @@ export function ChangePlanDialog({
                   </p>
                   {quote.carryover > 0 && (
                     <p className="text-muted-foreground text-xs">
-                      The credit exceeds the new plan&apos;s price by{' '}
+                      The credit is more than the new plan’s price by{' '}
                       <span className="tabular-nums">
                         {fmt.money(quote.carryover)}
                       </span>{' '}
-                      — the new cycle is fully covered; the remainder is not
-                      carried further.
+                      . The new plan is fully paid. The extra credit is not kept.
                     </p>
                   )}
                 </>
               ) : (
                 <p className="text-muted-foreground">
-                  No unused paid balance to credit from the current cycle.
+                  No unused paid days to credit from the old plan.
                 </p>
               )}
               <p>
@@ -298,7 +295,7 @@ export function ChangePlanDialog({
 
           <div className="space-y-1.5">
             <Label htmlFor="cp-fee" className="text-muted-foreground">
-              Fee for the new cycle
+              Fee for the new plan
             </Label>
             <Input
               id="cp-fee"
@@ -354,7 +351,7 @@ export function ChangePlanDialog({
             )}
             {collectPayment && effectiveFee <= 0 && (
               <p className="text-muted-foreground text-xs">
-                Nothing to collect — the credit covers the new cycle.
+                Nothing to collect. The credit pays for the new plan.
               </p>
             )}
           </div>

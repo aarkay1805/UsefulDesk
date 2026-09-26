@@ -172,7 +172,7 @@ export function OwnerReportsView({
           const message =
             reason instanceof Error
               ? reason.message
-              : 'Performance could not be loaded.';
+              : 'Could not load the report.';
           setError(message);
         })
         .finally(() => {
@@ -292,7 +292,7 @@ export function OwnerReportsView({
               }
             }}
           >
-            <SelectTrigger aria-label="Performance scope" className="w-44">
+            <SelectTrigger aria-label="Show report for" className="w-44">
               <SelectValue />
             </SelectTrigger>
             <SelectContent align="end">
@@ -332,19 +332,19 @@ export function OwnerReportsView({
         <GatedButton
           variant="ghost"
           canAct={mayExport}
-          gateReason="export financial data"
+          gateReason="download money reports"
           onClick={exportReport}
           disabled={!report || loading}
         >
           <Download />
-          <span className="hidden sm:inline">Export CSV</span>
+          <span className="hidden sm:inline">Download CSV</span>
         </GatedButton>
       </PageHeaderActions>
 
       {error && (
         <Alert variant="destructive">
           <AlertCircle />
-          <AlertTitle>Could not load performance</AlertTitle>
+          <AlertTitle>Could not load the report</AlertTitle>
           <AlertDescription>{friendlyReportError(error)}</AlertDescription>
           <Button
             size="sm"
@@ -353,7 +353,7 @@ export function OwnerReportsView({
             loading={loading}
             className="mt-2 w-fit"
           >
-            <RefreshCw /> Retry
+            <RefreshCw /> Try again
           </Button>
         </Alert>
       )}
@@ -415,13 +415,13 @@ function KpiGrid({
         {...comparisonProps(report.metrics.newMembers, fmt)}
       />
       <MetricCard
-        title="Average Sale Price"
+        title="Average price paid"
         value={fmt.money(report.metrics.averageSalePrice.current)}
         icon={CircleDollarSign}
         {...comparisonProps(report.metrics.averageSalePrice, fmt)}
       />
       <MetricCard
-        title="Lead conversion"
+        title="Enquiries who joined"
         value={`${fmt.number(report.metrics.conversion.current)}%`}
         icon={Target}
         delta={pointDelta(
@@ -439,16 +439,16 @@ function comparisonProps(
   fmt: ReturnType<typeof useLocale>['fmt']
 ): { delta?: { sign: number; label: string }; subtitle?: string } {
   const change = relativeChange(metric.current, metric.previous);
-  if (change === null) return { subtitle: 'No prior-period baseline' };
+  if (change === null) return { subtitle: 'Nothing to compare with' };
   if (change === 0) {
-    return { delta: { sign: 0, label: 'No change vs previous period' } };
+    return { delta: { sign: 0, label: 'Same as the period before' } };
   }
   return {
     delta: {
       sign: change,
       label: `${change > 0 ? '+' : ''}${fmt.number(
         Math.round(change * 10) / 10
-      )}% vs previous period`,
+      )}% from the period before`,
     },
   };
 }
@@ -463,8 +463,8 @@ function pointDelta(
     sign: change,
     label:
       change === 0
-        ? 'No change vs previous period'
-        : `${change > 0 ? '+' : ''}${fmt.number(change)} pts vs previous period`,
+        ? 'Same as the period before'
+        : `${change > 0 ? '+' : ''}${fmt.number(change)} points from the period before`,
   };
 }
 
@@ -478,9 +478,9 @@ function PlanPerformanceCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Plan performance</CardTitle>
+        <CardTitle>Plans</CardTitle>
         <CardDescription>
-          Membership, collections, and usage by plan
+          Members, money, and visits for each plan
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
@@ -545,11 +545,11 @@ function PlanPerformanceCard({
                                           option.durationCount,
                                           option.durationUnit
                                         )
-                                      : 'Unassigned billing option'}
+                                      : 'No price picked'}
                                   </span>
                                   {option.price !== null && (
                                     <span className="text-muted-foreground block text-xs tabular-nums">
-                                      {fmt.money(option.price)} standard fee
+                                      {fmt.money(option.price)} normal fee
                                     </span>
                                   )}
                                 </TableCell>
@@ -571,7 +571,7 @@ function PlanPerformanceCard({
                         </Table>
                       ) : (
                         <p className="text-muted-foreground py-3 pr-4 pl-10 text-sm">
-                          No billing options are available for this plan.
+                          This plan has no prices.
                         </p>
                       )}
                     </AccordionContent>
@@ -583,8 +583,8 @@ function PlanPerformanceCard({
         ) : (
           <div className="px-4">
             <EmptyState
-              title="No plan activity in this period"
-              hint="Active plans and their results will appear here."
+              title="No plan activity in these dates"
+              hint="Your plans and their results will show here."
             />
           </div>
         )}
@@ -603,9 +603,9 @@ function SourcePerformanceCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Lead source performance</CardTitle>
+        <CardTitle>Enquiry sources</CardTitle>
         <CardDescription>
-          Acquisition cohort for the selected period
+          Enquiries added in these dates
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
@@ -621,10 +621,10 @@ function SourcePerformanceCard({
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className="pl-4">Source</TableHead>
-                <TableHead className="text-right">Leads</TableHead>
+                <TableHead className="text-right">Enquiries</TableHead>
                 <TableHead className="text-right">Members</TableHead>
                 <TableHead className="text-right">Revenue</TableHead>
-                <TableHead className="pr-4 text-right">Conversion</TableHead>
+                <TableHead className="pr-4 text-right">Joined (%)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -658,8 +658,8 @@ function SourcePerformanceCard({
           <div className="px-4">
             <EmptyState
               icon={Target}
-              title="No acquired leads in this period"
-              hint="New leads and their conversions will appear here."
+              title="No enquiries in these dates"
+              hint="New enquiries, and how many joined, will show here."
             />
           </div>
         )}
@@ -682,14 +682,14 @@ function ReportBodySkeleton() {
           </div>
           <TableSkeleton
             className="min-w-[30rem] table-fixed"
-            label="Loading lead source performance"
+            label="Loading enquiry sources"
             rows={6}
             columns={[
               { label: 'Source', variant: 'identity' },
-              { label: 'Leads', headClassName: 'text-right' },
+              { label: 'Enquiries', headClassName: 'text-right' },
               { label: 'Members', headClassName: 'text-right' },
               { label: 'Revenue', headClassName: 'text-right' },
-              { label: 'Conversion', headClassName: 'text-right' },
+              { label: 'Joined (%)', headClassName: 'text-right' },
             ]}
           />
         </div>
@@ -705,7 +705,7 @@ function friendlyReportError(message: string): string {
     lower.includes('schema cache') ||
     lower.includes('pgrst202')
   ) {
-    return 'The performance database function is not available yet. Apply the latest Supabase migration, then retry.';
+    return 'This report is not ready yet. Contact UsefulDesk support.';
   }
   return message;
 }

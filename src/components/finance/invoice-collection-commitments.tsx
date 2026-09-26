@@ -27,7 +27,7 @@ type Commitment = {
 };
 
 const KIND_LABEL: Record<CommitmentKind, string> = {
-  promise_to_pay: 'Promise to pay', verification_hold: 'Verification hold', dispute_hold: 'Dispute hold',
+  promise_to_pay: 'Promise to pay', verification_hold: 'On hold: checking payment', dispute_hold: 'On hold: member disagrees',
 };
 
 function commitmentState(state: Commitment['state']) {
@@ -59,10 +59,10 @@ export function InvoiceCollectionCommitments({ invoiceId, maxAmount }: { invoice
       try {
         const response = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}/commitments`, { cache: 'no-store' });
         const body = await response.json();
-        if (!response.ok) throw new Error(body.error ?? 'Commitments could not be loaded');
+        if (!response.ok) throw new Error(body.error ?? 'Could not load promises');
         if (!cancelled) setItems(body.commitments ?? []);
       } catch (error) {
-        if (!cancelled) toast.error(getErrorMessage(error, 'Commitments could not be loaded'));
+        if (!cancelled) toast.error(getErrorMessage(error, 'Could not load promises'));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -84,7 +84,7 @@ export function InvoiceCollectionCommitments({ invoiceId, maxAmount }: { invoice
   async function save() {
     const numericAmount = Number(amount);
     if (!nextAction.trim() || !assignee || (kind === 'promise_to_pay' && (!Number.isFinite(numericAmount) || numericAmount <= 0 || numericAmount > maxAmount || !promisedOn)) || (kind !== 'promise_to_pay' && !reason.trim())) {
-      toast.error(kind === 'promise_to_pay' ? 'Enter an amount within the current balance, a date, next action, and assignee' : 'Enter a hold reason, next action, and assignee');
+      toast.error(kind === 'promise_to_pay' ? 'Enter an amount up to the balance due, a date, what to do next, and who will do it' : 'Enter why it is on hold, what to do next, and who will do it');
       return;
     }
     setSaving(true);
@@ -94,9 +94,9 @@ export function InvoiceCollectionCommitments({ invoiceId, maxAmount }: { invoice
         body: JSON.stringify({ id: editing?.id, revision: editing?.revision, kind, amount: kind === 'promise_to_pay' ? numericAmount : null, promisedOn: kind === 'promise_to_pay' ? promisedOn : null, reason: kind === 'promise_to_pay' ? null : reason, nextAction, assignedTo: assignee }),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? 'Commitment could not be saved');
-      setDialogOpen(false); refresh(); toast.success(editing ? 'Commitment updated' : 'Commitment recorded');
-    } catch (error) { toast.error(getErrorMessage(error, 'Commitment could not be saved')); }
+      if (!response.ok) throw new Error(body.error ?? 'Could not save');
+      setDialogOpen(false); refresh(); toast.success(editing ? 'Promise updated' : 'Promise saved');
+    } catch (error) { toast.error(getErrorMessage(error, 'Could not save')); }
     finally { setSaving(false); }
   }
 
@@ -105,9 +105,9 @@ export function InvoiceCollectionCommitments({ invoiceId, maxAmount }: { invoice
     try {
       const response = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}/commitments`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, revision: item.revision }) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? 'Commitment could not be cancelled');
-      refresh(); toast.success('Commitment cancelled');
-    } catch (error) { toast.error(getErrorMessage(error, 'Commitment could not be cancelled')); }
+      if (!response.ok) throw new Error(body.error ?? 'Could not cancel');
+      refresh(); toast.success('Cancelled');
+    } catch (error) { toast.error(getErrorMessage(error, 'Could not cancel')); }
     finally { setSaving(false); }
   }
 
@@ -116,18 +116,18 @@ export function InvoiceCollectionCommitments({ invoiceId, maxAmount }: { invoice
     try {
       const response = await fetch(`/api/invoices/${encodeURIComponent(invoiceId)}/commitments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: item.id, revision: item.revision, action: 'resolve' }) });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error ?? 'Commitment could not be resolved');
-      refresh(); toast.success('Commitment resolved');
-    } catch (error) { toast.error(getErrorMessage(error, 'Commitment could not be resolved')); }
+      if (!response.ok) throw new Error(body.error ?? 'Could not mark as done');
+      refresh(); toast.success('Marked as done');
+    } catch (error) { toast.error(getErrorMessage(error, 'Could not mark as done')); }
     finally { setSaving(false); }
   }
 
   return <section className="space-y-2" aria-labelledby={`invoice-commitments-${invoiceId}`}>
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div><h3 id={`invoice-commitments-${invoiceId}`} className="text-base font-medium">Payment commitments</h3><p className="text-muted-foreground mt-1 text-xs">Promises and verification holds pause automated collection for this invoice.</p></div>
-      <GatedButton type="button" variant="outline" size="sm" canAct={canCreate} gateReason="record payment commitments" onClick={openCreate}><Handshake className="size-3.5" /> Add commitment</GatedButton>
+      <div><h3 id={`invoice-commitments-${invoiceId}`} className="text-base font-medium">Payment promises and holds</h3><p className="text-muted-foreground mt-1 text-xs">While there is a promise or hold, automatic reminders for this invoice are paused.</p></div>
+      <GatedButton type="button" variant="outline" size="sm" canAct={canCreate} gateReason="save payment promises" onClick={openCreate}><Handshake className="size-3.5" /> Add promise or hold</GatedButton>
     </div>
-    {loading ? <p className="text-muted-foreground border-border border-t py-3 text-sm">Loading commitments…</p> : items.length === 0 ? <p className="text-muted-foreground border-border border-t py-3 text-sm">No payment commitment or hold recorded.</p> : <div className="divide-border border-border divide-y border-y">
+    {loading ? <p className="text-muted-foreground border-border border-t py-3 text-sm">Loading…</p> : items.length === 0 ? <p className="text-muted-foreground border-border border-t py-3 text-sm">No promise or hold yet.</p> : <div className="divide-border border-border divide-y border-y">
       {items.map((item) => {
         const editable = accountRole ? canEditInvoiceCollectionCommitment(accountRole, user?.id ?? null, item.created_by) : false;
         const resolvable = accountRole ? canResolveInvoiceCollectionCommitment(accountRole, user?.id ?? null, item.created_by) : false;
@@ -136,7 +136,7 @@ export function InvoiceCollectionCommitments({ invoiceId, maxAmount }: { invoice
           <ShieldCheck className="text-amber-foreground mt-0.5 size-4 shrink-0" />
           <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-medium">{KIND_LABEL[item.kind]}</p><span className="text-muted-foreground text-xs">{commitmentState(item.state)}</span></div>
             {item.kind === 'promise_to_pay' ? <p className="text-muted-foreground mt-1 text-sm"><span className="tabular-nums">{fmt.money(Number(item.amount))}</span> promised for {item.promised_on ? fmt.date(item.promised_on) : '—'}</p> : <p className="text-muted-foreground mt-1 text-sm">{item.reason}</p>}
-            <p className="text-muted-foreground mt-1 text-xs">Next: {item.next_action} · Assigned to {nameById.get(item.assigned_to) ?? 'Former teammate'}</p>
+            <p className="text-muted-foreground mt-1 text-xs">Next: {item.next_action} · Assigned to {nameById.get(item.assigned_to) ?? 'Former team member'}</p>
           </div>
           {item.state === 'open' && editable ? <Button type="button" variant="ghost" size="sm" onClick={() => openEdit(item)}>Edit</Button> : null}
           {item.state === 'open' && resolvable ? <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={() => void resolve(item)}><Check className="size-3.5" /> Resolve</Button> : null}
@@ -145,12 +145,12 @@ export function InvoiceCollectionCommitments({ invoiceId, maxAmount }: { invoice
       })}
     </div>}
     <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
-      <DialogContent className="sm:max-w-[30rem]"><DialogHeader><DialogTitle>{editing ? 'Edit payment commitment' : 'Record payment commitment'}</DialogTitle><DialogDescription>Only the author can edit a commitment. Admin cancellation stays in its audit history.</DialogDescription></DialogHeader>
+      <DialogContent className="sm:max-w-[30rem]"><DialogHeader><DialogTitle>{editing ? 'Edit promise or hold' : 'Add promise or hold'}</DialogTitle><DialogDescription>Only the person who added this can edit it. If an admin cancels it, that is saved in history.</DialogDescription></DialogHeader>
         <div className="grid gap-4 py-1"><div className="grid gap-2"><Label htmlFor="commitment-kind">Type</Label><Select value={kind} onValueChange={(value) => setKind(value as CommitmentKind)} disabled={Boolean(editing)}><SelectTrigger id="commitment-kind" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="promise_to_pay">Promise to pay</SelectItem><SelectItem value="verification_hold">Verification hold</SelectItem><SelectItem value="dispute_hold">Dispute hold</SelectItem></SelectContent></Select></div>
-          {kind === 'promise_to_pay' ? <><div className="grid gap-2"><Label htmlFor="commitment-amount">Promised amount</Label><CurrencyInput id="commitment-amount" symbol={currencySymbol(locale.currency)} groupLocale={locale.locale} value={amount} onValueChange={setAmount} aria-label="Promised amount" /></div><div className="grid gap-2"><Label>Promised payment date</Label><DatePicker value={promisedOn} onChange={setPromisedOn} min={fmt.today()} /></div></> : <div className="grid gap-2"><Label htmlFor="commitment-reason">Hold reason</Label><Input id="commitment-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} /></div>}
-          <div className="grid gap-2"><Label htmlFor="commitment-next-action">Staff next action</Label><Input id="commitment-next-action" value={nextAction} onChange={(event) => setNextAction(event.target.value)} maxLength={500} /></div>
-          <div className="grid gap-2"><Label htmlFor="commitment-assignee">Assign to</Label><Select value={assignee} onValueChange={(value) => setAssignee(value ?? '')}><SelectTrigger id="commitment-assignee" className="w-full"><SelectValue placeholder="Choose a teammate" /></SelectTrigger><SelectContent>{staff.map((person) => <SelectItem key={person.user_id} value={person.user_id}>{person.full_name}</SelectItem>)}</SelectContent></Select></div>
-        </div><DialogFooter><Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="button" loading={saving} onClick={() => void save()}>{editing ? 'Save changes' : 'Record commitment'}</Button></DialogFooter>
+          {kind === 'promise_to_pay' ? <><div className="grid gap-2"><Label htmlFor="commitment-amount">Promised amount</Label><CurrencyInput id="commitment-amount" symbol={currencySymbol(locale.currency)} groupLocale={locale.locale} value={amount} onValueChange={setAmount} aria-label="Promised amount" /></div><div className="grid gap-2"><Label>Date they will pay</Label><DatePicker value={promisedOn} onChange={setPromisedOn} min={fmt.today()} /></div></> : <div className="grid gap-2"><Label htmlFor="commitment-reason">Why is it on hold?</Label><Input id="commitment-reason" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={500} /></div>}
+          <div className="grid gap-2"><Label htmlFor="commitment-next-action">What should staff do next?</Label><Input id="commitment-next-action" value={nextAction} onChange={(event) => setNextAction(event.target.value)} maxLength={500} /></div>
+          <div className="grid gap-2"><Label htmlFor="commitment-assignee">Assign to</Label><Select value={assignee} onValueChange={(value) => setAssignee(value ?? '')}><SelectTrigger id="commitment-assignee" className="w-full"><SelectValue placeholder="Choose a team member" /></SelectTrigger><SelectContent>{staff.map((person) => <SelectItem key={person.user_id} value={person.user_id}>{person.full_name}</SelectItem>)}</SelectContent></Select></div>
+        </div><DialogFooter><Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>Cancel</Button><Button type="button" loading={saving} onClick={() => void save()}>{editing ? 'Save changes' : 'Save'}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   </section>;

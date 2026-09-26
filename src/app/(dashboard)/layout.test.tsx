@@ -133,7 +133,7 @@ describe('dashboard server layout authentication backstop', () => {
         profile: { account_id: 'branch-1' },
         account: null,
         branches: [],
-        branchAccessError: 'Could not verify your gym setup. Please retry.',
+        branchAccessError: 'We could not check your gym setup. Try again.',
         accountStatusDetail: 'missing completion state',
         organizationNameSetupState: 'unavailable',
         branchAccessStatus: 'ready',

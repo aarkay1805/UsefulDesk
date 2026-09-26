@@ -212,7 +212,7 @@ describe('MemberForm shared checkout host', () => {
   it.each([
     { label: 'Add member', seedContact: { phone: '+919876543210' } },
     {
-      label: 'Convert to member',
+      label: 'Add as member',
       seedContact: { id: 'lead', name: 'Lead', phone: '+919876543210' },
     },
   ])('submits intent only for $label', async ({ label, seedContact }) => {

@@ -1,7 +1,7 @@
 'use client';
 
 // ============================================================
-// Settings → Lead capture.
+// Settings → Enquiry form & ads.
 //
 // "Where do my leads come from" — one section for every inbound
 // channel. The public enquiry form ships today; the Meta lead-ads card
@@ -22,16 +22,16 @@ export function LeadCapturePanel() {
   return (
     <section className="animate-in fade-in-50 max-w-3xl duration-200">
       <SettingsPanelHead
-        title="Lead capture"
-        description="Choose how new enquiries reach your Leads list."
+        title="Enquiry form & ads"
+        description="Get new enquiries into UsefulDesk from a web form or Facebook and Instagram ads."
       />
 
       <div className="space-y-4">
         {!profileLoading && !canEditSettings ? (
           <Alert>
-            <AlertTitle>Read-only</AlertTitle>
+            <AlertTitle>View only</AlertTitle>
             <AlertDescription>
-              Ask an admin or owner to change how enquiries are collected.
+              Ask the owner or an admin to change how enquiries are collected.
             </AlertDescription>
           </Alert>
         ) : null}

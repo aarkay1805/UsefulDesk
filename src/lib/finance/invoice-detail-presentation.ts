@@ -120,7 +120,7 @@ export type InvoiceHeadlineDetail =
 
 export interface InvoiceHeadlinePresentation {
   label:
-    'Accounting balance' | 'Invoice total' | 'Balance due' | 'Paid in full';
+    'Balance' | 'Invoice total' | 'Balance due' | 'Paid in full';
   amount: number;
   detail: InvoiceHeadlineDetail;
 }
@@ -180,16 +180,16 @@ export interface InvoiceDocumentActionPresentation {
 }
 
 const INVOICE_PROFILE_RECOVERY =
-  'Finish Invoice details in Settings -> Payments first.';
-const VOID_DOCUMENT_RECOVERY = 'Voided invoices cannot generate documents';
+  'Add your invoice details in Settings → Payments first.';
+const VOID_DOCUMENT_RECOVERY = 'Cancelled invoices cannot be made into a PDF';
 const REFUND_REVIEW_RECOVERY =
-  'Resolve the invoice refund review before generating a document';
+  'Sort out the refund before making the invoice PDF';
 const DOCUMENT_PREPARING_RECOVERY =
-  'Invoice document generation is already in progress. Please retry shortly.';
+  'The invoice PDF is already being made. Try again in a minute.';
 const PHONE_RECOVERY = 'Add a phone number before sending on WhatsApp.';
 const WHATSAPP_RECOVERY = 'Connect WhatsApp in Settings before sending.';
 const TEMPLATE_RECOVERY =
-  'Approve and sync gym_invoice_document in en_US before sending.';
+  'Get the invoice message approved by WhatsApp before sending.';
 
 /**
  * The single owner of invoice-document action readiness and recovery copy.
@@ -287,7 +287,7 @@ export function invoiceHeadline(
 ): InvoiceHeadlinePresentation {
   if (invoice.requires_refund_review) {
     return {
-      label: 'Accounting balance',
+      label: 'Balance',
       amount: Number(invoice.accounting_balance ?? invoice.balance),
       detail: 'refund_review',
     };
@@ -354,7 +354,7 @@ export function invoiceSummaryRows(
   if (isChargeableAmount(adjustment)) {
     rows.push({
       key: 'invoice_adjustment',
-      label: 'Charge adjustment',
+      label: 'Bill reduced',
       amount: adjustment,
       sign: 'minus',
     });
@@ -363,7 +363,7 @@ export function invoiceSummaryRows(
   if (isChargeableAmount(credit)) {
     rows.push({
       key: 'credit_applied',
-      label: 'Credit applied',
+      label: 'Credit used',
       amount: credit,
       sign: 'minus',
     });
@@ -376,7 +376,7 @@ export function invoiceSummaryRows(
   ) {
     rows.push({
       key: 'collection',
-      label: isChargeableAmount(refunded) ? 'Net collected' : 'Collected',
+      label: isChargeableAmount(refunded) ? 'Money received' : 'Collected',
       amount: netCollected,
       collectionBreakdown: isChargeableAmount(refunded)
         ? { gross: grossCollected, refunded }
@@ -387,7 +387,7 @@ export function invoiceSummaryRows(
   rows.push({
     key: 'balance',
     label: invoice.requires_refund_review
-      ? 'Accounting balance'
+      ? 'Balance'
       : 'Balance due',
     amount: balance,
     emphasis: true,
@@ -427,24 +427,24 @@ export const PAYMENT_REFUND_STATUS_PRESENTATION: Record<
     eventLabel: 'Failed',
   },
   orphaned: {
-    label: 'Refund needs review',
+    label: 'Refund needs checking',
     variant: 'danger',
     eventLabel: 'Requested',
   },
 };
 
 export function paymentRefundOutcome(refund: PaymentRefund): string {
-  if (refund.disposition === 'reopen_balance') return 'Balance reopened';
-  if (refund.disposition === 'reduce_charge') return 'Charge reduced';
+  if (refund.disposition === 'reopen_balance') return 'Amount due again';
+  if (refund.disposition === 'reduce_charge') return 'Bill reduced';
   if (refund.status === 'processed') {
     return refund.allocation_complete
-      ? 'Classification required'
-      : 'Line targeting required';
+      ? 'Needs sorting out'
+      : 'Needs splitting across items';
   }
-  if (refund.status === 'failed') return 'No balance changed';
-  if (refund.status === 'orphaned') return 'Manual review required';
+  if (refund.status === 'failed') return 'Balance not changed';
+  if (refund.status === 'orphaned') return 'Needs checking by hand';
   if (refund.status === 'creating') return 'Sending to Razorpay';
-  return 'Awaiting Razorpay';
+  return 'Waiting for Razorpay';
 }
 
 export function paymentRefundEventAt(refund: PaymentRefund): string {

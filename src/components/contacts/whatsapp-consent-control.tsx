@@ -57,13 +57,13 @@ export function WhatsAppConsentControl({
       });
       toast.success(
         action === 'opt_in'
-          ? 'WhatsApp permission recorded.'
-          : 'WhatsApp opt-out recorded for the organization.'
+          ? 'WhatsApp permission saved.'
+          : 'Saved: this person asked not to get messages.'
       );
       setEvidenceNote('');
       setOpen(false);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not record WhatsApp consent.'));
+      toast.error(getErrorMessage(error, 'Could not save WhatsApp permission.'));
     } finally {
       setSaving(false);
     }
@@ -72,14 +72,14 @@ export function WhatsAppConsentControl({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button type="button" variant="outline" onClick={() => setOpen(true)}>
-        <ShieldCheck className="size-4" /> WhatsApp consent
+        <ShieldCheck className="size-4" /> WhatsApp permission
       </Button>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Record WhatsApp consent</DialogTitle>
+          <DialogTitle>Save WhatsApp permission</DialogTitle>
           <DialogDescription>
-            Keep an audit record for {contactName || 'this contact'}. This
-            record does not control whether UsefulDesk sends a message.
+            Keep a note of what {contactName || 'this person'} agreed to. This
+            note does not stop or start any messages.
           </DialogDescription>
         </DialogHeader>
 
@@ -87,7 +87,7 @@ export function WhatsAppConsentControl({
           <RadioGroup
             value={scope}
             onValueChange={(value) => setScope(value as TemplateConsentScope)}
-            aria-label="WhatsApp permission category"
+            aria-label="Type of messages"
           >
             <Label className="border-border flex items-start gap-3 rounded-lg border p-3">
               <RadioGroupItem
@@ -95,35 +95,35 @@ export function WhatsAppConsentControl({
                 className="mt-0.5"
               />
               <span>
-                <span className="block">Account updates</span>
+                <span className="block">Updates about their account</span>
                 <span className="text-muted-foreground mt-1 block text-xs leading-4 font-normal">
-                  Existing membership, invoice, payment, and transaction
-                  updates. This does not include renewal offers.
+                  Messages about their membership, invoices, and payments. Not
+                  renewal offers.
                 </span>
               </span>
             </Label>
             <Label className="border-border flex items-start gap-3 rounded-lg border p-3">
               <RadioGroupItem value="whatsapp_marketing" className="mt-0.5" />
               <span>
-                <span className="block">Marketing</span>
+                <span className="block">Offers and marketing</span>
                 <span className="text-muted-foreground mt-1 block text-xs leading-4 font-normal">
-                  Renewal invitations, win-back messages, campaigns, and offers.
+                  Renewal offers, come-back offers, and other promotions.
                 </span>
               </span>
             </Label>
           </RadioGroup>
 
           <div className="space-y-2">
-            <Label htmlFor="whatsapp-consent-evidence">Evidence note</Label>
+            <Label htmlFor="whatsapp-consent-evidence">How did they tell you?</Label>
             <Textarea
               id="whatsapp-consent-evidence"
               value={evidenceNote}
               onChange={(event) => setEvidenceNote(event.target.value)}
-              placeholder="Where and when did the member give or withdraw permission?"
+              placeholder="Example: Said yes at the front desk on 5 March"
             />
             <p className="text-muted-foreground text-xs leading-4">
-              Opt-ins and opt-outs are retained as organization-wide history;
-              neither blocks an outbound send.
+              This is saved as history for all branches. It does not stop
+              messages from being sent.
             </p>
           </div>
         </div>
@@ -136,7 +136,7 @@ export function WhatsAppConsentControl({
             loading={saving}
             onClick={() => void record('opt_out')}
           >
-            Record opt-out
+            Save: does not want messages
           </Button>
           <Button
             type="button"
@@ -144,7 +144,7 @@ export function WhatsAppConsentControl({
             loading={saving}
             onClick={() => void record('opt_in')}
           >
-            Record permission
+            Save: agreed to messages
           </Button>
         </DialogFooter>
       </DialogContent>

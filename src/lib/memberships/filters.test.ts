@@ -101,7 +101,7 @@ describe('applyMemberFilters', () => {
     ]);
   });
 
-  it('filters members not marked as churn risk', () => {
+  it('filters members not marked as “may leave”', () => {
     const q = stub();
     applyMemberFilters(
       q,
@@ -120,7 +120,7 @@ describe('applyMemberFilters', () => {
     ]);
   });
 
-  it('does not constrain churn risk when both values are selected', () => {
+  it('does not constrain “may leave” when both values are selected', () => {
     const q = stub();
     applyMemberFilters(
       q,

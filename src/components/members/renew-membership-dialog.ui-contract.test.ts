@@ -30,10 +30,10 @@ describe('RenewMembershipDialog UI contract', () => {
 
   it('keeps the renewal shell actions and lifecycle copy', () => {
     expect(dialog).toContain(
-      "{isConvert ? 'Convert trial to member' : 'Renew membership'}"
+      "{isConvert ? 'Add as member' : 'Renew membership'}"
     );
-    expect(dialog).toContain('Trial converted to member');
+    expect(dialog).toContain('Added as member');
     expect(dialog).toContain('Membership renewed');
-    expect(dialog).toContain('Existing invoices stay due');
+    expect(dialog).toContain('Old dues stay due');
   });
 });

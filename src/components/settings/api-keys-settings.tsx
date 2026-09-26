@@ -81,14 +81,14 @@ export function ApiKeysSettings() {
       const res = await fetch('/api/account/api-keys', { cache: 'no-store' });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to load API keys');
+        toast.error(payload.error || 'Could not load API keys');
         return;
       }
       const data = (await res.json()) as { keys: ApiKey[] };
       setKeys(data.keys);
     } catch (err) {
       console.error('[ApiKeysSettings] load error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
     } finally {
       setLoading(false);
     }
@@ -113,7 +113,7 @@ export function ApiKeysSettings() {
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to revoke key');
+        toast.error(payload.error || 'Could not turn off the key');
         return;
       }
       toast.success(`Turned off "${key.name}"`);
@@ -125,7 +125,7 @@ export function ApiKeysSettings() {
       );
     } catch (err) {
       console.error('[ApiKeysSettings] revoke error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
     } finally {
       setRevoking(null);
     }
@@ -173,7 +173,7 @@ export function ApiKeysSettings() {
               </p>
             ) : (
               <p className="text-muted-foreground mt-1 text-xs">
-                Ask an admin or owner to create one.
+                Ask the owner or an admin to create one.
               </p>
             )}
           </CardContent>
@@ -325,14 +325,14 @@ function CreateKeyDialog({
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(payload.error || 'Failed to create key');
+        toast.error(payload.error || 'Could not create key');
         return;
       }
       setCreatedKey(payload.plaintext as string);
       onCreated();
     } catch (err) {
       console.error('[CreateKeyDialog] create error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
     } finally {
       setSubmitting(false);
     }
@@ -344,7 +344,7 @@ function CreateKeyDialog({
       await navigator.clipboard.writeText(createdKey);
       toast.success('API key copied');
     } catch {
-      toast.error('Copy failed — select and copy manually');
+      toast.error('Could not copy. Select the key and copy it.');
     }
   }
 
@@ -417,7 +417,7 @@ function CreateKeyDialog({
                   id="api-key-name"
                   value={name}
                   maxLength={80}
-                  placeholder="e.g. Zapier automation"
+                  placeholder="Example: Zapier"
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>

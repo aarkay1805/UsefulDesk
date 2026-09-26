@@ -54,7 +54,7 @@ export default function AutomationLogsPage({
         setAutomation(autRes.data as Automation | null);
         setLogs((logRes.data ?? []) as AutomationLog[]);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load logs');
+        setError(err instanceof Error ? err.message : 'Could not load logs');
       }
     }
     load();
@@ -104,15 +104,15 @@ export default function AutomationLogsPage({
           <h1 className="text-foreground text-2xl font-bold">
             {automation.name}
           </h1>
-          <p className="text-muted-foreground mt-0.5 text-sm">Execution logs</p>
+          <p className="text-muted-foreground mt-0.5 text-sm">Run history</p>
         </div>
       </div>
 
       {logs.length === 0 ? (
         <div className="border-border bg-card/40 flex h-48 flex-col items-center justify-center rounded-xl border border-dashed">
-          <p className="text-foreground text-sm">No executions yet</p>
+          <p className="text-foreground text-sm">Not run yet</p>
           <p className="text-muted-foreground mt-1 text-xs">
-            Trigger this automation to see runs here.
+            When this automation runs, you will see it here.
           </p>
         </div>
       ) : (
@@ -138,7 +138,7 @@ export default function AutomationLogsPage({
                   <div className="min-w-0 flex-1">
                     <div className="text-foreground truncate text-sm font-medium">
                       {(log.contact?.name ?? fmt.phone(log.contact?.phone)) ||
-                        'Unknown contact'}
+                        'Unknown person'}
                     </div>
                     <div className="text-muted-foreground truncate text-xs">
                       {log.trigger_event} · {log.steps_executed?.length ?? 0}{' '}
@@ -163,7 +163,7 @@ export default function AutomationLogsPage({
                       ))}
                       {(log.steps_executed ?? []).length === 0 && (
                         <li className="text-muted-foreground text-xs">
-                          No steps recorded.
+                          No steps saved.
                         </li>
                       )}
                     </ul>

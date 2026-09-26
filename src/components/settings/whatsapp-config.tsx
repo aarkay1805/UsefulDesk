@@ -275,11 +275,11 @@ export function WhatsAppConfig() {
 
   async function handleSave() {
     if (!phoneNumberId.trim()) {
-      toast.error('Phone Number ID is required');
+      toast.error('Enter the Phone Number ID');
       return;
     }
     if (!config && (!accessToken.trim() || !tokenEdited)) {
-      toast.error('Access Token is required for initial setup');
+      toast.error('Enter the access token');
       return;
     }
 
@@ -307,7 +307,7 @@ export function WhatsAppConfig() {
         // server. But our POST handler requires an access_token to verify
         // with Meta. If the user didn't change the token, we need to signal
         // that. Simplest: require token re-entry if they're updating.
-        toast.error('Please re-enter the Access Token to save changes');
+        toast.error('Enter the access token again to save changes');
         setSaving(false);
         return;
       }
@@ -334,7 +334,7 @@ export function WhatsAppConfig() {
       //                         is human-readable from Meta.
       if (data.registered === false && data.registration_error) {
         toast.error(
-          `Saved, but Meta couldn't register the number: ${data.registration_error}`,
+          `Saved, but WhatsApp could not set up the number: ${data.registration_error}`,
           { duration: 12000 }
         );
       } else if (data.registration_skipped) {
@@ -408,7 +408,7 @@ export function WhatsAppConfig() {
       toast.error(
         getErrorMessage(
           err,
-          'Connection test failed. Check network and try again.'
+          'Could not check the connection. Check your internet and try again.'
         )
       );
     } finally {
@@ -436,7 +436,7 @@ export function WhatsAppConfig() {
         toast.success('This number can receive WhatsApp messages.');
       } else {
         toast.error(
-          'Number is not fully registered. See the checks below for which step failed.',
+          'The number is not fully set up. See which step failed below.',
           { duration: 8000 }
         );
       }
@@ -459,7 +459,7 @@ export function WhatsAppConfig() {
       });
       const data = (await res.json()) as { success?: boolean; error?: string };
       if (!res.ok) {
-        throw new Error(data.error || 'Meta did not accept the PIN');
+        throw new Error(data.error || 'WhatsApp did not accept the PIN');
       }
 
       toast.success('Incoming WhatsApp messages are working again.');
@@ -514,7 +514,7 @@ export function WhatsAppConfig() {
   async function handleCopyWebhookUrl() {
     try {
       await navigator.clipboard.writeText(webhookUrl);
-      toast.success('Webhook URL copied');
+      toast.success('Link copied');
     } catch (err) {
       toast.error(getErrorMessage(err, 'Could not copy the link'));
     }
@@ -537,11 +537,11 @@ export function WhatsAppConfig() {
     setVerifyToken(token);
     try {
       await navigator.clipboard.writeText(token);
-      toast.success('Verify token generated and copied');
+      toast.success('Token made and copied');
     } catch {
       // Clipboard can reject on insecure origins. The generated token remains
       // visible in the field so the user can copy it manually.
-      toast.success('Verify token generated. Copy it from the field.');
+      toast.success('Token made. Copy it from the box.');
     }
   }
 
@@ -604,9 +604,9 @@ export function WhatsAppConfig() {
       <div className="space-y-6">
         {!canEdit && (
           <Alert>
-            <AlertTitle>Read-only</AlertTitle>
+            <AlertTitle>View only</AlertTitle>
             <AlertDescription>
-              Ask an admin or owner to change or check the WhatsApp connection.
+              Ask the owner or an admin to change or check the WhatsApp connection.
             </AlertDescription>
           </Alert>
         )}
@@ -643,10 +643,7 @@ export function WhatsAppConfig() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              Customers see the sender name set for this number in Meta WhatsApp
-              Manager. UsefulDesk uses the registered business name from
-              Business details inside its built-in message templates. These
-              names can differ.
+              Members see the name set for this number in WhatsApp Manager. Our ready-made messages use the business name from Business details. The two names can be different.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-start gap-2.5">
@@ -700,7 +697,7 @@ export function WhatsAppConfig() {
                       <p className="text-muted-foreground mt-0.5 text-sm">
                         {isRegistered ? (
                           <>
-                            Number registered with Meta
+                            Number set up with WhatsApp
                             {config.registered_at
                               ? ` on ${fmt.dateTime(config.registered_at)}`
                               : ''}
@@ -708,7 +705,7 @@ export function WhatsAppConfig() {
                           </>
                         ) : lastRegistrationError ? (
                           <>
-                            Meta reported:{' '}
+                            WhatsApp says:{' '}
                             <span className="text-red-foreground">
                               {lastRegistrationError}
                             </span>

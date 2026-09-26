@@ -169,14 +169,14 @@ function BulkCompleteForm({
         toast.error(
           getErrorMessage(
             error,
-            "These follow-ups couldn't be updated. Refresh and try again."
+            "Could not update these follow-ups. Refresh the page and try again."
           )
         );
         return;
       }
       if (!data || data.length !== followUpIds.length) {
         toast.error(
-          'Some follow-ups could not be updated. Refresh and try again.'
+          'Some follow-ups were not updated. Refresh the page and try again.'
         );
         return;
       }
@@ -199,14 +199,15 @@ function BulkCompleteForm({
       <DialogHeader>
         <DialogTitle>Complete selected follow-ups</DialogTitle>
         <DialogDescription>
-          Apply one outcome to {followUpIds.length} selected follow-up
-          {followUpIds.length === 1 ? '' : 's'}. Notes already on them are kept.
+          Choose one result for {followUpIds.length} selected{' '}
+          {followUpIds.length === 1 ? 'follow-up' : 'follow-ups'}. Their notes
+          stay.
         </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-1.5">
         <Label htmlFor="bulk-fu-outcome" size="sm">
-          Outcome
+          Result
         </Label>
         <Select
           value={outcome}
@@ -297,7 +298,7 @@ function CompleteForm({
         toast.error(
           getErrorMessage(
             error,
-            "This follow-up couldn't be updated. Refresh and try again."
+            "Could not update this follow-up. Refresh the page and try again."
           )
         );
         return;
@@ -327,7 +328,7 @@ function CompleteForm({
       <div className="space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="fu-outcome" size="sm">
-            Outcome
+            Result
           </Label>
           <Select
             value={outcome}
@@ -359,8 +360,8 @@ function CompleteForm({
             placeholder={
               existingNote ||
               (context === 'lead'
-                ? 'e.g. Interested in the evening batch; asked to call Friday'
-                : 'e.g. Renewed for 3 months, paid via UPI')
+                ? 'Example: Wants the evening batch. Call on Friday.'
+                : 'Example: Renewed for 3 months. Paid by UPI.')
             }
             className="min-h-[60px] resize-none text-sm"
           />

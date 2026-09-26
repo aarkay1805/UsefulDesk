@@ -205,7 +205,7 @@ export function AutomatedMessageSetup({
     });
     const data = await response.json().catch(() => null);
     if (!response.ok)
-      throw new Error(data?.error || 'We couldn’t check WhatsApp.');
+      throw new Error(data?.error || 'We could not check WhatsApp.');
     if (accountId) invalidateApprovedMessageTemplates(accountId);
   };
 
@@ -218,7 +218,7 @@ export function AutomatedMessageSetup({
       const data = await response.json().catch(() => null);
       if (!response.ok)
         throw new Error(
-          data?.error || 'Messages couldn’t be sent for review. Try again.'
+          data?.error || 'Messages could not be sent for review. Try again.'
         );
       const summary = data as RequiredTemplateSubmissionSummary;
       if (summary.failed > 0) {
@@ -237,13 +237,13 @@ export function AutomatedMessageSetup({
         await syncFromWhatsApp();
       } catch (syncError) {
         toast.error(
-          getErrorMessage(syncError, 'We couldn’t check the latest status.')
+          getErrorMessage(syncError, 'We could not check the latest status.')
         );
       }
       onChanged();
     } catch (error) {
       toast.error(
-        getErrorMessage(error, 'Messages couldn’t be sent for review.')
+        getErrorMessage(error, 'Messages could not be sent for review.')
       );
     } finally {
       setSubmitting(false);
@@ -257,7 +257,7 @@ export function AutomatedMessageSetup({
       toast.success('WhatsApp status checked');
       onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'We couldn’t check WhatsApp.'));
+      toast.error(getErrorMessage(error, 'We could not check WhatsApp.'));
     } finally {
       setChecking(false);
     }

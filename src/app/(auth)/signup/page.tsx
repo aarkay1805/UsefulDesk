@@ -90,7 +90,7 @@ function SignupPageInner() {
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+      setError('Password must have at least 6 characters');
       return;
     }
 
@@ -146,9 +146,8 @@ function SignupPageInner() {
               Check your email
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              We&apos;ve sent a confirmation link to{' '}
-              <span className="text-foreground">{email}</span>. Please check
-              your inbox and click the link to verify your account.
+              We sent a link to{' '}
+              <span className="text-foreground">{email}</span>. Open your email and click the link to confirm your account.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -184,14 +183,14 @@ function SignupPageInner() {
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? 'Verify your email, then accept the invitation to join your team.'
+              ? 'Confirm your email, then accept the invite to join your team.'
               : 'Get started with UsefulDesk'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {!inviteToken ? (
             <div className="mb-4 flex flex-col gap-2">
-              <Label htmlFor="gymName">Gym brand</Label>
+              <Label htmlFor="gymName">Gym name</Label>
               <Input
                 id="gymName"
                 name="gymName"
@@ -212,9 +211,7 @@ function SignupPageInner() {
                 required
               />
               <p id="gym-name-help" className="text-muted-foreground text-xs">
-                Your team will see this brand. We&apos;ll suggest it as your
-                first branch name. Add your legal business name later in
-                Business details.
+                Your team will see this name. You can add your legal business name later in Settings → Business details.
               </p>
               {gymNameError ? (
                 <p id="gym-name-error" className="text-red-foreground text-xs">
@@ -248,7 +245,7 @@ function SignupPageInner() {
               <Input
                 id="fullName"
                 type="text"
-                placeholder="John Doe"
+                placeholder="Your full name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
@@ -258,7 +255,7 @@ function SignupPageInner() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="country" className="text-muted-foreground">
-                Where is your business?
+                Where is your gym?
               </Label>
               <Select value={country} onValueChange={(v) => v && setCountry(v)}>
                 <SelectTrigger id="country" className="w-full">
@@ -273,8 +270,7 @@ function SignupPageInner() {
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-xs">
-                Sets your currency, time zone, and date formats — you can change
-                any of it later in Settings.
+                This sets your currency, time zone, and date style. You can change it later in Settings.
               </p>
             </div>
 
@@ -332,7 +328,7 @@ function SignupPageInner() {
               disabled={loading}
               className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 h-10 w-full disabled:opacity-50"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? 'Creating account…' : 'Create account'}
             </Button>
           </form>
 

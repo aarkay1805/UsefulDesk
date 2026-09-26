@@ -1,7 +1,7 @@
 'use client';
 
 // ============================================================
-// Settings → Lead capture → Facebook & Instagram lead ads.
+// Settings → Lead capture → Facebook & Instagram ads.
 //
 // A SIBLING of whatsapp-embedded-signup.tsx, not an edit to it: that
 // component's `extras` / sessionInfoVersion / WA_EMBEDDED_SIGNUP message
@@ -263,11 +263,10 @@ export function MetaLeadsConnect() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <ProviderMark provider="meta" />
-            Facebook & Instagram lead ads
+            Facebook & Instagram ads
           </CardTitle>
           <CardDescription>
-            Connect your Facebook Page. Enquiries from its Facebook and
-            Instagram ads will appear in Leads.
+            Connect your Facebook Page. Enquiries from its Facebook and Instagram ads will show in Enquiries.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -311,13 +310,13 @@ export function MetaLeadsConnect() {
                           )}
                           {page.last_healthy_at && (
                             <p className="text-muted-foreground text-xs">
-                              Last working {fmt.dateTime(page.last_healthy_at)}
+                              Last worked {fmt.dateTime(page.last_healthy_at)}
                             </p>
                           )}
                           <p className="text-muted-foreground text-xs">
                             {page.last_lead_at
-                              ? `Last lead ${fmt.dateTime(page.last_lead_at)}`
-                              : 'No leads received yet'}
+                              ? `Last enquiry ${fmt.dateTime(page.last_lead_at)}`
+                              : 'No enquiries yet'}
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -375,8 +374,7 @@ export function MetaLeadsConnect() {
                   <AlertDescription>
                     <p>
                       Your ad form does not ask for a phone number. Add a phone
-                      question in Facebook Ads Manager so your team can call new
-                      leads.
+                      question in Facebook Ads Manager so your team can call new enquiries.
                     </p>
                   </AlertDescription>
                 </Alert>
@@ -410,8 +408,7 @@ export function MetaLeadsConnect() {
             <DialogTitle>Disconnect Facebook Page?</DialogTitle>
             <DialogDescription>
               New enquiries from{' '}
-              {pageToDisconnect?.page_name ?? pageToDisconnect?.page_id} will
-              will stop appearing in UsefulDesk. Leads already saved will stay.
+              {pageToDisconnect?.page_name ?? pageToDisconnect?.page_id} will stop showing in UsefulDesk. Enquiries already saved will stay.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

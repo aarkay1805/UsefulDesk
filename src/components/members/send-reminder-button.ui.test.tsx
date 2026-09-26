@@ -192,7 +192,7 @@ describe('SendReminderButton blockers', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Remind' }));
 
-    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.getByText('You do not have permission')).toBeTruthy();
     expect(screen.queryByText('Phone number required')).toBeNull();
     expect(
       screen.queryByRole('button', { name: 'Connect WhatsApp' })
@@ -220,7 +220,7 @@ describe('SendReminderButton blockers', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Remind' }));
 
-    expect(screen.getByText("WhatsApp reminder isn't ready")).toBeTruthy();
+    expect(screen.getByText("Reminder message is not ready")).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: 'Connect WhatsApp' })
     ).toBeNull();

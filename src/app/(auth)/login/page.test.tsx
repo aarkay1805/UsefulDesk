@@ -44,7 +44,7 @@ describe('invitation login continuation', () => {
     await user.type(screen.getByLabelText('Password'), 'password-123');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    const submit = screen.getByRole('button', { name: 'Signing in...' });
+    const submit = screen.getByRole('button', { name: 'Signing in…' });
     try {
       expect(submit.getAttribute('aria-busy')).toBe('true');
       expect((submit as HTMLButtonElement).disabled).toBe(true);

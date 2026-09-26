@@ -104,7 +104,7 @@ export async function POST(request: Request) {
         claimedError
       );
       return NextResponse.json(
-        { error: 'Failed to validate the phone number.' },
+        { error: 'Could not validate the phone number.' },
         { status: 500 }
       );
     }
@@ -224,7 +224,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'Failed to encrypt the access token. Check that ENCRYPTION_KEY is a valid 64-character hex string.',
+            'Could not encrypt the access token. Check that ENCRYPTION_KEY is a valid 64-character hex string.',
         },
         { status: 500 }
       );

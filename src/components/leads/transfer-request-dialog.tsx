@@ -49,13 +49,12 @@ export function TransferRequestDialog({
       <DialogContent className="border-border bg-popover text-popover-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            Request transfer
+            Ask to change owner
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Ownership of{' '}
+            The owner of{' '}
             <span className="text-foreground font-medium">{leadName}</span>{' '}
-            moves only after your teammate accepts. Until then you stay the
-            owner.
+            changes only after your team member accepts. Until then, you stay the owner.
           </DialogDescription>
         </DialogHeader>
 
@@ -77,7 +76,7 @@ export function TransferRequestDialog({
           <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Add context for your teammate…"
+            placeholder="Add a message for your team member…"
             rows={3}
             className="text-foreground"
           />

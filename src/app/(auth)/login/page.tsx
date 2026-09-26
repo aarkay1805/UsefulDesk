@@ -90,7 +90,7 @@ function LoginPageInner() {
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? "Sign in and we'll take you to the invitation."
+              ? "Sign in and we will take you to the invite."
               : 'Sign in to your account'}
           </CardDescription>
         </CardHeader>
@@ -151,12 +151,12 @@ function LoginPageInner() {
               disabled={loading}
               className="bg-primary text-primary-foreground hover:bg-primary/90 mt-2 h-10 w-full disabled:opacity-50"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
 
           <p className="text-muted-foreground mt-6 text-center text-sm">
-            Don&apos;t have an account?{' '}
+            Do not have an account?{' '}
             <Link
               href={withInvitation('/signup', inviteToken)}
               className="text-primary-text hover:text-primary-text/80"

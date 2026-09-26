@@ -90,7 +90,7 @@ export function AvatarEditorDialog({
       return;
     }
     if (file.size > MAX_INPUT_BYTES) {
-      toast.error('That image is too large (max 15 MB).');
+      toast.error('This photo is too big. Use one under 15 MB.');
       return;
     }
     const reader = new FileReader();
@@ -128,7 +128,7 @@ export function AvatarEditorDialog({
       .select('id');
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) {
-      throw new Error("You don't have permission to update this member.");
+      throw new Error("You do not have permission to change this member.");
     }
     // Best-effort GC of the previous object (RLS lets us delete only our
     // own uploads; a miss is a harmless storage nit).
@@ -151,7 +151,7 @@ export function AvatarEditorDialog({
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not signed in.');
+      if (!user) throw new Error('Your login has expired. Log in again.');
 
       const blob = await cropToWebp(src, areaPx);
       // Path first segment = auth.uid() → matches the avatars bucket RLS
@@ -206,9 +206,9 @@ export function AvatarEditorDialog({
     >
       <DialogContent className="sm:max-w-md" onPaste={onPaste}>
         <DialogHeader>
-          <DialogTitle>{src ? 'Crop photo' : 'Member photo'}</DialogTitle>
+          <DialogTitle>{src ? 'Fit photo' : 'Member photo'}</DialogTitle>
           <DialogDescription>
-            {src ? 'Position and crop the photo.' : 'Upload or paste a photo.'}
+            {src ? 'Move and cut the photo to fit.' : 'Upload or paste a photo.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -259,7 +259,7 @@ export function AvatarEditorDialog({
               />
             )}
             <p className="text-muted-foreground text-xs">
-              PNG, JPG, WebP or GIF — capped at 512px, compressed to WebP.
+              Use a PNG, JPG, WebP, or GIF photo.
             </p>
           </div>
         )}

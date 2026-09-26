@@ -88,7 +88,7 @@ function ResetPasswordPageInner() {
     }
 
     if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+      setError('Password must have at least 8 characters');
       return;
     }
 
@@ -137,8 +137,7 @@ function ResetPasswordPageInner() {
               Reset link expired
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              This password reset link is invalid or has expired. Request a new
-              one to continue.
+              This link does not work anymore. Ask for a new link.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -148,7 +147,7 @@ function ResetPasswordPageInner() {
                 onClick={() => setRequestingNewLink(true)}
                 className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
               >
-                Request new link
+                Get a new link
               </Button>
             </Link>
           </CardContent>
@@ -177,7 +176,7 @@ function ResetPasswordPageInner() {
                 ? 'Login & security'
                 : successDestination.startsWith('/join/')
                   ? 'your invitation'
-                  : 'your dashboard'}
+                  : 'Home'}
               …
             </CardDescription>
           </CardHeader>
@@ -198,7 +197,7 @@ function ResetPasswordPageInner() {
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {addingPassword
-              ? 'Create a password fallback for your UsefulDesk account'
+              ? 'Add a password so you can also sign in without Google'
               : 'Choose a new password for your account'}
           </CardDescription>
         </CardHeader>

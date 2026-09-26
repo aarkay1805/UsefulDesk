@@ -59,7 +59,7 @@ async function finalizeCancellation(input: {
   const localStatus = terminalStatus(input.subscription);
   if (!localStatus) {
     throw new MandateCancellationUnavailableError(
-      'Razorpay did not confirm that auto-pay is cancelled'
+      'Razorpay did not confirm that AutoPay is cancelled'
     );
   }
   if (input.subscription.id !== input.gatewaySubscriptionId) {
@@ -112,7 +112,7 @@ export async function cancelRazorpayMandate(input: {
   if (error) throw new Error(`load mandate: ${error.message}`);
   if (!data) {
     throw new MandateCancellationConflictError(
-      'The auto-pay mandate was not found in this account'
+      'The AutoPay mandate was not found in this account'
     );
   }
 
@@ -135,7 +135,7 @@ export async function cancelRazorpayMandate(input: {
   }
   if (mandate.gateway !== 'razorpay' || !mandate.gateway_subscription_id) {
     throw new MandateCancellationConflictError(
-      'This auto-pay setup has no cancellable Razorpay subscription'
+      'This AutoPay setup has no cancellable Razorpay subscription'
     );
   }
 
@@ -150,7 +150,7 @@ export async function cancelRazorpayMandate(input: {
   }
   if (!connection) {
     throw new MandateCancellationConflictError(
-      'Reconnect Razorpay before cancelling this auto-pay mandate'
+      'Reconnect Razorpay before cancelling this AutoPay mandate'
     );
   }
 

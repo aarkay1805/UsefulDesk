@@ -68,26 +68,26 @@ type PeekResult = PeekOk | PeekFail;
 
 const ROLE_LABEL: Record<PeekOk['role'], string> = {
   admin: 'Admin',
-  agent: 'Agent',
-  viewer: 'Viewer',
+  agent: 'Staff',
+  viewer: 'View only',
 };
 
 const FAIL_COPY: Record<PeekFail['reason'], { title: string; body: string }> = {
   not_found: {
     title: 'Invite not found',
-    body: 'This link doesn’t match a valid invitation. Double-check the URL or ask the person who invited you to send a new one.',
+    body: 'This invite link is not correct. Check the link, or ask for a new one.',
   },
   used: {
     title: 'Invite already used',
-    body: 'This invitation has already been accepted. If that wasn’t you, ask the account admin to send a fresh link.',
+    body: 'This invite was already used. If it was not you, ask the gym admin for a new link.',
   },
   expired: {
     title: 'Invite expired',
-    body: 'This invitation has expired. Ask the account admin to send a new one — they take a few seconds to generate.',
+    body: 'This invite has expired. Ask the gym admin for a new link.',
   },
   server_error: {
     title: 'Something went wrong',
-    body: 'We couldn’t verify this invitation right now. Try refreshing the page in a moment.',
+    body: 'We could not check this invite. Refresh the page in a moment.',
   },
 };
 
@@ -181,7 +181,7 @@ export default function JoinPage() {
             payload.error || 'You already have access to this branch.'
           );
         } else {
-          toast.error(payload.error || 'Failed to accept invitation');
+          toast.error(payload.error || 'Could not accept the invite');
         }
         setAccepting(false);
         return;
@@ -197,7 +197,7 @@ export default function JoinPage() {
       window.location.href = `${destination.pathname}${destination.search}`;
     } catch (err) {
       console.error('[join] redeem error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
       setAccepting(false);
     }
   }, [token]);
@@ -208,7 +208,7 @@ export default function JoinPage() {
       <Card className="border-border bg-card w-full max-w-md">
         <CardContent className="flex flex-col items-center gap-3 py-12">
           <Loader2 className="text-primary-text size-6 animate-spin" />
-          <p className="text-muted-foreground text-sm">Verifying invitation…</p>
+          <p className="text-muted-foreground text-sm">Checking invite…</p>
         </CardContent>
       </Card>
     );
@@ -325,7 +325,7 @@ export default function JoinPage() {
               className="bg-primary text-primary-foreground hover:bg-primary/90 w-full"
             >
               <CheckCircle className="size-4" />
-              {accepting ? 'Accepting…' : 'Accept invitation'}
+              {accepting ? 'Accepting…' : 'Accept invite'}
             </Button>
             <p className="text-muted-foreground text-center text-xs">
               Accepting adds{' '}
@@ -355,7 +355,7 @@ export default function JoinPage() {
             </DialogHeader>
             <div className="text-muted-foreground space-y-2 py-2 text-xs">
               <p>
-                Open the dashboard and choose{' '}
+                Open Home and choose{' '}
                 <span className="text-popover-foreground">
                   {peek.account_name}
                 </span>{' '}
@@ -380,7 +380,7 @@ export default function JoinPage() {
                 loading={openingDashboard}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
-                Open dashboard
+                Open Home
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -40,9 +40,9 @@ const ACTION_LABEL: Record<MembershipActionId, string> = {
   'change-plan': 'Change plan',
   edit: 'Edit membership',
   freeze: 'Freeze membership',
-  resume: 'Resume membership',
+  resume: 'Unfreeze membership',
   cancel: 'Cancel membership',
-  reactivate: 'Reactivate membership',
+  reactivate: 'Restart membership',
 };
 
 function actionIsApplicable(
@@ -110,12 +110,12 @@ export function MembershipActionsMenu({
     selectedActionId && selectedActionApplicable
       ? !canManage
         ? {
-            title: 'Admin access required',
-            description: `Ask an admin or owner to ${ACTION_LABEL[selectedActionId].toLowerCase()}.`,
+            title: 'You do not have permission',
+            description: `Ask an admin or the owner to ${ACTION_LABEL[selectedActionId].toLowerCase()}.`,
           }
         : lifecycleBlockReason
           ? {
-              title: 'AutoPay must be resolved first',
+              title: 'Finish or cancel AutoPay first',
               description: lifecycleBlockReason,
               resolution: {
                 label: 'Open billing',
@@ -193,7 +193,7 @@ export function MembershipActionsMenu({
             onClick={() => runOrExplain('resume', onResume)}
             disabled={busy}
           >
-            <Play className="size-4" /> Resume membership
+            <Play className="size-4" /> Unfreeze membership
           </DropdownMenuItem>
         ) : (
           status === 'active' && (
@@ -210,7 +210,7 @@ export function MembershipActionsMenu({
             onClick={() => runOrExplain('reactivate', onReactivate)}
             disabled={busy}
           >
-            <RotateCcw className="size-4" /> Reactivate membership
+            <RotateCcw className="size-4" /> Restart membership
           </DropdownMenuItem>
         ) : (
           <>

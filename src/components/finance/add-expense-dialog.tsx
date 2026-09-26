@@ -90,7 +90,7 @@ export function AddExpenseDialog({
 
   async function uploadReceipt(file: File) {
     if (file.size > RECEIPT_MAX_BYTES) {
-      toast.error('Receipt must be 5 MB or smaller');
+      toast.error('The receipt must be 5 MB or smaller');
       return;
     }
     if (
@@ -114,7 +114,7 @@ export function AddExpenseDialog({
       );
       setReceipt({ name: file.name, path: uploaded.path });
     } catch (reason) {
-      toast.error(getErrorMessage(reason, 'Receipt upload failed'));
+      toast.error(getErrorMessage(reason, 'Could not upload the receipt'));
     } finally {
       setUploading(false);
     }
@@ -123,11 +123,11 @@ export function AddExpenseDialog({
   async function saveExpense() {
     const numericAmount = Number(amount);
     if (!description.trim()) {
-      toast.error('Enter an expense description');
+      toast.error('Write what the expense was for');
       return;
     }
     if (!categoryId) {
-      toast.error('Select an expense category');
+      toast.error('Pick a category');
       return;
     }
     if (!isChargeableAmount(numericAmount)) {
@@ -135,7 +135,7 @@ export function AddExpenseDialog({
       return;
     }
     if (occurredOn > fmt.today()) {
-      toast.error('The expense date cannot be in the future');
+      toast.error('Expense date cannot be after today');
       return;
     }
 
@@ -155,10 +155,10 @@ export function AddExpenseDialog({
 
       setReceipt(null);
       onOpenChange(false);
-      toast.success('Expense recorded');
+      toast.success('Expense saved');
       onSaved();
     } catch (reason) {
-      toast.error(getErrorMessage(reason, 'Could not record expense'));
+      toast.error(getErrorMessage(reason, 'Could not save the expense'));
     } finally {
       setSaving(false);
     }
@@ -176,8 +176,7 @@ export function AddExpenseDialog({
         <DialogHeader>
           <DialogTitle>Add expense</DialogTitle>
           <DialogDescription>
-            Record a business cash-out entry. Corrections are voided rather than
-            deleted.
+            Save money your gym spent. If you make a mistake, you can cancel it later.
           </DialogDescription>
         </DialogHeader>
 
@@ -188,7 +187,7 @@ export function AddExpenseDialog({
               id="expense-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="July studio rent"
+              placeholder="Example: July rent"
               autoFocus
             />
           </div>
@@ -271,11 +270,11 @@ export function AddExpenseDialog({
               aria-label="Expense type"
               className="flex-none"
             >
-              <Chip value="recurring">Recurring</Chip>
+              <Chip value="recurring">Every month</Chip>
               <Chip value="one_time">One-time</Chip>
             </ChipGroup>
             <p className="text-muted-foreground text-xs">
-              Use recurring for regular costs such as rent or salaries.
+              Choose Every month for costs like rent or salaries.
             </p>
           </div>
 
@@ -328,7 +327,7 @@ export function AddExpenseDialog({
               </label>
             )}
             <p className="text-muted-foreground text-xs">
-              PNG, JPG, WebP, or PDF up to 5 MB. Receipts stay private.
+              PNG, JPG, WebP, or PDF, up to 5 MB. Only your team can see it.
             </p>
           </div>
         </div>
@@ -354,7 +353,7 @@ export function AddExpenseDialog({
             }
           >
             {saving ? <Loader2 className="animate-spin" /> : null}
-            {saving ? 'Recording…' : 'Record expense'}
+            {saving ? 'Recording…' : 'Save expense'}
           </Button>
         </DialogFooter>
       </DialogContent>

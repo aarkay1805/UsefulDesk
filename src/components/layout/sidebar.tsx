@@ -68,13 +68,13 @@ const ROLE_CHIP: Record<
   },
   agent: {
     icon: UserCog,
-    label: 'Agent',
+    label: 'Staff',
     // Neutral slate: the operational default.
     className: 'bg-muted text-foreground',
   },
   viewer: {
     icon: User,
-    label: 'Viewer',
+    label: 'View only',
     // Muted slate: read-only role; visually quieter than agent.
     className: 'bg-muted text-muted-foreground',
   },
@@ -105,10 +105,10 @@ interface NavItem {
 }
 
 const primaryNavItems: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/inbox', label: 'Inbox', icon: MessageSquare },
+  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/inbox', label: 'Chats', icon: MessageSquare },
   { href: '/notifications', label: 'Notifications', icon: Bell },
-  { href: '/leads', label: 'Leads', icon: Users },
+  { href: '/leads', label: 'Enquiries', icon: Users },
   { href: '/members', label: 'Members', icon: Dumbbell },
   { href: '/finance', label: 'Business', icon: BriefcaseBusiness },
 ];
@@ -333,7 +333,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 )}
                 {showUnreadDot && (
                   <span
-                    aria-label={`${totalUnread} unread conversation${totalUnread === 1 ? '' : 's'}`}
+                    aria-label={`${totalUnread} unread chat${totalUnread === 1 ? '' : 's'}`}
                     className="relative flex h-2 w-2"
                   >
                     <span className="bg-primary absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" />
@@ -482,14 +482,14 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
                 <li>
                   <SidebarNavLink
                     href={branchHref('/get-started', accountId)}
-                    label="Get Started"
+                    label="Setup"
                     icon={Rocket}
                     isActive={pathname.startsWith('/get-started')}
                     collapsed={collapsed}
                     trailing={
                       !onboarding.loading ? (
                         <span
-                          aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps complete`}
+                          aria-label={`${onboarding.completedCount} of ${onboarding.total} setup steps done`}
                           className="bg-primary text-primary-foreground flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold"
                         >
                           {onboarding.completedCount}/{onboarding.total}

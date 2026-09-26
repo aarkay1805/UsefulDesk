@@ -154,7 +154,7 @@ export function MembersFilters({
 
           <Separator className="my-3" />
           <CheckGroup
-            label="Churn risk"
+            label="May leave"
             options={CHURN_RISK_OPTIONS}
             selected={value.churnRisk}
             onToggle={(v) => toggle('churnRisk', v)}

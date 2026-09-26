@@ -170,7 +170,7 @@ export async function DELETE(
   if (lookupError) {
     console.error('[DELETE /api/automations/:id] lookup failed:', lookupError);
     return NextResponse.json(
-      { error: 'Failed to delete automation' },
+      { error: 'Could not delete automation' },
       { status: 500 }
     );
   }

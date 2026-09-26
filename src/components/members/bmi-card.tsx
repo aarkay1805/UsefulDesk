@@ -119,7 +119,7 @@ export function BmiCard({
 
     if (error) return toast.error(error.message);
     if (!data || data.length === 0)
-      return toast.error("You don't have permission to update measurements.");
+      return toast.error("You do not have permission to update measurements.");
 
     toast.success('Measurements saved');
     setEditing(false);

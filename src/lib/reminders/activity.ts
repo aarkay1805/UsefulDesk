@@ -114,9 +114,9 @@ const MESSAGE_REPLACED_REASON =
 const reasonLabels: Record<string, string> = {
   ...templateReasonLabels,
   daily_coordination_unavailable:
-    'UsefulDesk couldn’t safely schedule this message. It will check again automatically.',
+    'UsefulDesk could not safely schedule this message. It will check again automatically.',
   reply_history_unavailable:
-    'UsefulDesk couldn’t check recent replies. Open the chat before sending anything manually.',
+    'UsefulDesk could not check recent replies. Open the chat before sending anything manually.',
   manual_fallback_needs_staff_review:
     'Review the invoice and AutoPay result before asking the member to pay another way.',
   provider_outcome_unknown: UNKNOWN_OUTCOME_REASON,
@@ -138,7 +138,7 @@ const reasonLabels: Record<string, string> = {
     'Paused while a payment promise or invoice hold is active.',
   provider_request_failed: BEFORE_WHATSAPP_RETRY_REASON,
   local_message_persistence_failed:
-    'WhatsApp accepted this message, but UsefulDesk couldn’t save a copy in the chat, so delivery can’t be tracked here.',
+    'WhatsApp accepted this message, but UsefulDesk could not save a copy in the chat, so delivery cannot be tracked here.',
   retries_exhausted:
     'This message did not reach WhatsApp after several tries, so UsefulDesk stopped. Check the member’s phone number and this message’s setup.',
   customer_replied: 'Stopped because the member replied.',

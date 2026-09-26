@@ -83,7 +83,7 @@ describe('ProductServiceSaleDialog desktop layout', () => {
     );
 
     const checkout = screen.getByRole('group', {
-      name: 'Purchase checkout',
+      name: 'New purchase',
     });
     const items = within(checkout).getByRole('region', {
       name: 'Products & services',

@@ -115,7 +115,7 @@ export const LifecycleSendingHoursSettings = forwardRef<
         ...current,
         [requestScope]: getErrorMessage(
           saveError,
-          'Sending hours couldn’t be saved. Try again.'
+          'Sending hours could not be saved. Try again.'
         ),
       }));
     } finally {
@@ -237,7 +237,7 @@ export const LifecycleSendingHoursSettings = forwardRef<
                     </div>
                     <div>
                       Missed gym visits sends one hour after the member’s
-                      assigned arrival, or at {localTime(end, '30')} if none is
+                      usual time, or at {localTime(end, '30')} if none is
                       set.
                     </div>
                   </div>
@@ -248,7 +248,7 @@ export const LifecycleSendingHoursSettings = forwardRef<
 
           {error ? (
             <Alert variant="destructive">
-              <AlertTitle>Sending hours weren’t saved</AlertTitle>
+              <AlertTitle>Sending hours were not saved</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}

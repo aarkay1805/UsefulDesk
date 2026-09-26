@@ -91,7 +91,7 @@ export function ServiceCustomerDetailView({
         contactResult.error ?? serviceResult.error ?? invoiceResult.error;
       if (loadError || !contactResult.data) {
         setError(
-          loadError?.message ?? 'Customer not found or no longer accessible.'
+          loadError?.message ?? 'Could not find this person, or you no longer have access.'
         );
         setLoading(false);
         return;
@@ -124,12 +124,12 @@ export function ServiceCustomerDetailView({
               />
               <div className="min-w-0 flex-1">
                 <SheetTitle className="truncate">
-                  {contact?.name || 'Service customer'}
+                  {contact?.name || 'Service only'}
                 </SheetTitle>
                 <SheetDescription>
                   {(contact?.phone ? fmt.phone(contact.phone) : null) ||
                     contact?.email ||
-                    'Contact-backed customer'}
+                    'Has services but no membership'}
                 </SheetDescription>
               </div>
               {contact ? (
@@ -159,7 +159,7 @@ export function ServiceCustomerDetailView({
                   </CardHeader>
                   <CardContent>
                     <TableSkeleton
-                      label="Loading customer services"
+                      label="Loading services"
                       rows={4}
                       columns={[
                         { label: 'Service', variant: 'stacked' },
@@ -179,11 +179,11 @@ export function ServiceCustomerDetailView({
                   </CardHeader>
                   <CardContent>
                     <TableSkeleton
-                      label="Loading customer billing"
+                      label="Loading invoices"
                       rows={4}
                       columns={[
                         { label: 'Invoice', variant: 'stacked' },
-                        { label: 'Issued' },
+                        { label: 'Date' },
                         { label: 'Total', headClassName: 'text-right' },
                         { label: 'Due', headClassName: 'text-right' },
                       ]}
@@ -254,7 +254,7 @@ export function ServiceCustomerDetailView({
                         <TableHeader>
                           <TableRow>
                             <TableHead>Invoice</TableHead>
-                            <TableHead>Issued</TableHead>
+                            <TableHead>Date</TableHead>
                             <TableHead className="text-right">Total</TableHead>
                             <TableHead className="text-right">Due</TableHead>
                           </TableRow>

@@ -54,21 +54,21 @@ export function NeedsAttentionCard() {
     ? [
         {
           label: 'May leave',
-          detail: 'Active members marked as at risk',
+          detail: 'Members your team marked as "May leave"',
           value: attention.churnRisk,
           icon: ShieldAlert,
           href: '/members?view=all',
         },
         {
           label: 'Trials to follow up',
-          detail: 'Trials ending soon or already ended',
+          detail: 'Trials ending soon or already over',
           value: attention.trialFollowups,
           icon: FlaskConical,
           href: '/members?view=trials',
         },
         {
-          label: 'Auto-pay problems',
-          detail: 'Auto-pay needs to be fixed',
+          label: 'AutoPay problems',
+          detail: 'AutoPay payments that failed',
           value: attention.failedMandates,
           icon: CreditCard,
           href: '/members?view=payments',

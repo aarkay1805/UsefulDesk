@@ -27,7 +27,7 @@ function InvoiceDetailsHead() {
     <SettingsSectionHead
       id="invoice-details-heading"
       title="Invoice details"
-      description="Only this branch's new invoices. The invoice name and contact details can differ from your gym brand and branch name. Issued invoices stay the same."
+      description="Only this branch's new invoices. The invoice name and contact details can differ from your gym name and branch name. Issued invoices stay the same."
     />
   );
 }
@@ -168,7 +168,7 @@ function InvoiceDetailsCardForAccount({
       setLoading(true);
       setLoadError(null);
       try {
-        if (!accountId) throw new Error('No account is selected.');
+        if (!accountId) throw new Error('No branch is selected.');
 
         const profileQuery = supabase
           .from('invoice_profiles')
@@ -188,7 +188,7 @@ function InvoiceDetailsCardForAccount({
         if (prefillResult.error) throw prefillResult.error;
         const prefill = asPrefill(prefillResult.data);
         if (!prefill) {
-          throw new Error('Invoice details are unavailable for this account.');
+          throw new Error('Invoice details are not available for this branch.');
         }
         if (cancelled || requestToken.current !== token) return;
 
@@ -215,7 +215,7 @@ function InvoiceDetailsCardForAccount({
       } catch (error) {
         if (!cancelled && requestToken.current === token) {
           setLoadError(
-            getErrorMessage(error, "Invoice details couldn't load. Try again.")
+            getErrorMessage(error, "Could not load invoice details. Try again.")
           );
         }
       } finally {
@@ -284,7 +284,7 @@ function InvoiceDetailsCardForAccount({
       }
       const message = getErrorMessage(
         error,
-        "Invoice details couldn't be saved. Try again."
+        "Could not save invoice details. Try again."
       );
       setSaveError(message);
       toast.error(message);
@@ -335,7 +335,7 @@ function InvoiceDetailsCardForAccount({
             >
               {!mayManage ? (
                 <p className="text-muted-foreground text-sm">
-                  Ask an admin or owner to change invoice details.
+                  Ask the owner or an admin to change invoice details.
                 </p>
               ) : null}
               {!profile.legal_name && !loading ? (
@@ -398,7 +398,7 @@ function InvoiceDetailsCardForAccount({
                       {field === 'business_name' ? (
                         <p className="text-muted-foreground text-xs">
                           Customers see this name on the invoice. It can differ
-                          from your gym brand, branch, and registered business.
+                          from your gym name, branch, and registered business.
                         </p>
                       ) : null}
                     </div>

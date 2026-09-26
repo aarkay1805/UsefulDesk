@@ -34,16 +34,16 @@ export function AccountAccessAlert() {
       <TriangleAlert />
       <AlertTitle>
         {unlinked
-          ? 'Your login is not linked to an account'
-          : 'Could not load your account access'}
+          ? 'Your login is not linked to a gym'
+          : 'Could not load your gym'}
       </AlertTitle>
       <AlertDescription>
         {unlinked
-          ? 'Changes cannot be saved until access is restored. Ask your UsefulDesk owner or admin to re-invite you or restore your branch access.'
-          : 'Your account details did not load, so business data and actions are unavailable. Check your connection and try again.'}
+          ? 'You cannot save changes right now. Ask your gym owner or admin to invite you again.'
+          : 'Your gym details did not load. Check your internet and try again.'}
         {accountStatusDetail ? (
           <span className="mt-1 block font-mono text-xs opacity-70">
-            Support detail: {accountStatusDetail}
+            For support: {accountStatusDetail}
           </span>
         ) : null}
       </AlertDescription>
@@ -55,7 +55,7 @@ export function AccountAccessAlert() {
           disabled={retrying}
         >
           {retrying ? <Loader2 className="animate-spin" /> : null}
-          Retry
+          Try again
         </Button>
       </AlertAction>
     </Alert>

@@ -86,7 +86,7 @@ const STANDARD_TARGETS: TargetField[] = [
 const LEAD_TARGETS: TargetField[] = [
   {
     key: 'lead_status',
-    label: 'Status',
+    label: 'Stage',
     kind: 'option',
     required: false,
     optionsField: 'status',

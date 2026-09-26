@@ -237,7 +237,7 @@ describe('DashboardActionsProvider consolidated request path', () => {
     );
     await waitFor(() => expect(h.useReminderReadiness).toHaveBeenCalledOnce());
 
-    fireEvent.click(screen.getByRole('button', { name: /Leads/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Enquiries/ }));
     expect(await screen.findByText('Lead One')).toBeTruthy();
     expect(screen.queryByText('Member One')).toBeNull();
     expect(fetch).toHaveBeenCalledOnce();

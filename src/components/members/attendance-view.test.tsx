@@ -212,7 +212,7 @@ describe('AttendanceView bounded data path', () => {
     );
   });
 
-  it('shows the assigned arrival beside actual attendance times', async () => {
+  it('shows the usual time beside actual attendance times', async () => {
     loadAttendanceSnapshot.mockResolvedValueOnce({
       ...snapshot,
       rows: [
@@ -231,7 +231,7 @@ describe('AttendanceView bounded data path', () => {
     render(<AttendanceView {...props} />);
     expect(await screen.findByText('07:30')).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Sort Assigned arrival' })
+      screen.getByRole('button', { name: 'Sort Usual time' })
     ).toBeTruthy();
   });
 
@@ -376,7 +376,7 @@ describe('AttendanceView bounded data path', () => {
     );
   });
 
-  it('combines an assigned arrival period with attendance status and sorts its rows by time', async () => {
+  it('combines a usual time period with attendance status and sorts its rows by time', async () => {
     loadAttendanceSnapshot.mockResolvedValue({
       ...snapshot,
       totalCount: 26,
@@ -393,7 +393,7 @@ describe('AttendanceView bounded data path', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: 'Filter by assigned arrival: All times',
+        name: 'Filter by usual time: All times',
       })
     );
     fireEvent.click(screen.getByRole('menuitemradio', { name: /Morning/ }));
@@ -408,7 +408,7 @@ describe('AttendanceView bounded data path', () => {
     );
     expect(
       screen.getByRole('button', {
-        name: 'Filter by assigned arrival: Morning',
+        name: 'Filter by usual time: Morning',
       }).textContent
     ).toContain('Morning');
 
@@ -427,6 +427,6 @@ describe('AttendanceView bounded data path', () => {
 
     const checkIn = await screen.findByRole('button', { name: 'Check in' });
     expect((checkIn as HTMLButtonElement).disabled).toBe(true);
-    expect(checkIn.getAttribute('title')).toContain('Read-only');
+    expect(checkIn.getAttribute('title')).toContain('Your role cannot');
   });
 });

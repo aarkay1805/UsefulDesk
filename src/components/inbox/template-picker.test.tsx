@@ -352,7 +352,7 @@ describe('TemplatePicker', () => {
       )
     ).toBeTruthy();
     expect(
-      screen.getByText('Ready to send using Asha Rao’s membership details.')
+      screen.getByText('Ready to send, using Asha Rao’s membership details.')
     ).toBeTruthy();
     expect(screen.queryByLabelText('Member name')).toBeNull();
     expect(
@@ -393,7 +393,7 @@ describe('TemplatePicker', () => {
         name: /Legacy membership renewal/i,
       })
     ).toBeTruthy();
-    expect(screen.getByText('Legacy')).toBeTruthy();
+    expect(screen.getByText('Old')).toBeTruthy();
   });
 
   it('does not present a retired payment-due template as a current contract', async () => {
@@ -437,7 +437,7 @@ describe('TemplatePicker', () => {
       )
     ).toBeTruthy();
     expect(
-      screen.getByText('Ready to send using Asha Rao’s renewable service.')
+      screen.getByText('Ready to send, using Asha Rao’s service details.')
     ).toBeTruthy();
     expect(screen.queryByLabelText('Service name')).toBeNull();
   });

@@ -254,7 +254,7 @@ describe('member profile template action', () => {
     );
 
     expect(
-      await screen.findByRole('button', { name: 'Template' })
+      await screen.findByRole('button', { name: 'Send message' })
     ).toBeTruthy();
     expect(await screen.findByText('Loading billing history…')).toBeTruthy();
   });
@@ -279,13 +279,13 @@ describe('member profile template action', () => {
       />
     );
 
-    const action = await screen.findByRole('button', { name: 'Template' });
+    const action = await screen.findByRole('button', { name: 'Send message' });
     expect(within(action).getByTestId('provider-mark-whatsapp')).toBeTruthy();
 
     await user.click(action);
     expect(
       await screen.findByText(
-        'Pick an approved WhatsApp template to send to this contact.'
+        'Pick a WhatsApp-approved message to send.'
       )
     ).toBeTruthy();
 
@@ -326,13 +326,13 @@ describe('member profile template action', () => {
     );
 
     await user.click(
-      await screen.findByRole('button', { name: 'Cancel auto-pay' })
+      await screen.findByRole('button', { name: 'Cancel AutoPay' })
     );
     await user.type(
       screen.getByLabelText('Reason'),
       'Member requested cancellation'
     );
-    await user.click(screen.getByRole('button', { name: 'Cancel auto-pay' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel AutoPay' }));
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];

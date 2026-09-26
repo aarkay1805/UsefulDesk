@@ -101,7 +101,7 @@ export async function POST(request: Request) {
         skipped.push({
           id: page.id,
           name: page.name,
-          reason: 'Failed to save.',
+          reason: 'Could not save.',
         });
         continue;
       }
@@ -213,7 +213,7 @@ export async function POST(request: Request) {
         skipped.push({
           id: page.id,
           name: page.name,
-          reason: 'Failed to save.',
+          reason: 'Could not save.',
         });
         continue;
       }
@@ -268,7 +268,7 @@ export async function DELETE(request: Request) {
       .select('id');
     if (error || !deleted?.length) {
       return NextResponse.json(
-        { error: 'Failed to disconnect' },
+        { error: 'Could not disconnect' },
         { status: 500 }
       );
     }

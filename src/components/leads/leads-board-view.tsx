@@ -106,7 +106,7 @@ export function LeadsBoardView({
         .eq('id', contactId)
         .select('id');
       if (error || !data || data.length === 0) {
-        toast.error('Failed to update lead status');
+        toast.error('Could not change the stage');
         setLeads(leadsProp); // revert to the last fetched set
         return;
       }

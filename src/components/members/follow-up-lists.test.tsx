@@ -194,7 +194,7 @@ describe('FollowUpLists bounded data path', () => {
       })
     );
     expect(
-      await screen.findByText('No open member follow-ups in My work.')
+      await screen.findByText('You have no open member follow-ups.')
     ).toBeTruthy();
   });
 

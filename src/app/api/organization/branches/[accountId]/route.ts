@@ -171,7 +171,7 @@ export async function PATCH(
         p_name: name,
       });
       if (error) {
-        return rpcErrorToResponse(error, 'Failed to rename the branch.');
+        return rpcErrorToResponse(error, 'Could not rename the branch.');
       }
 
       return NextResponse.json({
@@ -206,8 +206,8 @@ export async function PATCH(
       return rpcErrorToResponse(
         error,
         action === 'archive'
-          ? 'Failed to archive the branch.'
-          : 'Failed to restore the branch.'
+          ? 'Could not archive the branch.'
+          : 'Could not restore the branch.'
       );
     }
 
@@ -477,7 +477,7 @@ export async function DELETE(
               error:
                 stage === 'database'
                   ? 'Stored media was removed, but database deletion failed. Retry the branch deletion.'
-                  : 'Failed to delete the branch. Database data was not removed.',
+                  : 'Could not delete the branch. Database data was not removed.',
             },
         { status: 500 }
       );

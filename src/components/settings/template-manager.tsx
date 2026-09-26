@@ -394,7 +394,7 @@ function TemplateGalleryCard({
           {template?.quality_score && (
             <Badge
               variant={qualityVariant(template.quality_score)}
-              title="Meta quality score"
+              title="WhatsApp quality score"
             >
               Quality: {template.quality_score.toLowerCase()}
             </Badge>
@@ -984,7 +984,7 @@ export function TemplateManager({
             (item) => item.id === setupContractId
           );
           if (!contract || !preset)
-            throw new Error('The required template preset is unavailable.');
+            throw new Error('This ready-made message is not available.');
           const existing = data?.find(
             (item) =>
               item.name === contract.payload.name && item.language === 'en_US'
@@ -1003,7 +1003,7 @@ export function TemplateManager({
         }
       } catch (err) {
         if (cancelled) return;
-        const message = getErrorMessage(err, 'Failed to load templates');
+        const message = getErrorMessage(err, 'Could not load templates');
         console.error('Failed to fetch templates:', err);
         setLoadError(message);
       } finally {
@@ -1130,7 +1130,7 @@ export function TemplateManager({
       if (!res.ok) {
         throw new Error(
           data?.error ||
-            `${isEdit ? 'Edit' : 'Submit'} failed (HTTP ${res.status})`
+            `Could not ${isEdit ? 'save' : 'send'} (error ${res.status})`
         );
       }
       setReloadNonce((nonce) => nonce + 1);
@@ -1175,7 +1175,7 @@ export function TemplateManager({
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data?.error || `Sync failed (HTTP ${res.status})`);
+      throw new Error(data?.error || `Could not check WhatsApp (error ${res.status})`);
     }
     if (announceSuccess) {
       toast.success(
@@ -1239,7 +1239,7 @@ export function TemplateManager({
       const data = await response.json();
       if (!response.ok) {
         throw new Error(
-          data?.error || `Submission failed (HTTP ${response.status})`
+          data?.error || `Could not send for review (error ${response.status})`
         );
       }
       const summary = data as RequiredTemplateSubmissionSummary;
@@ -1301,7 +1301,7 @@ export function TemplateManager({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || `Delete failed (HTTP ${res.status})`);
+        throw new Error(data?.error || `Could not delete (error ${res.status})`);
       }
       toast.success('Template deleted');
       setTemplates((prev) => prev.filter((t) => t.id !== target.id));
@@ -1309,7 +1309,7 @@ export function TemplateManager({
       setTemplateToDelete(null);
     } catch (err) {
       console.error('Delete error:', err);
-      toast.error(getErrorMessage(err, 'Failed to delete template'));
+      toast.error(getErrorMessage(err, 'Could not delete template'));
     } finally {
       setDeletingId(null);
     }
@@ -1398,12 +1398,12 @@ export function TemplateManager({
 
   async function handleHeaderImageFile(file: File) {
     if (!['image/jpeg', 'image/png'].includes(file.type)) {
-      toast.error('Header image must be a JPEG or PNG.');
+      toast.error('The image must be a JPEG or PNG.');
       return;
     }
     if (file.size > MEDIA_MAX_BYTES_BY_KIND.image) {
       toast.error(
-        `Image is ${(file.size / 1024 / 1024).toFixed(1)} MB — Meta's limit is 5 MB.`
+        `This image is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 5 MB.`
       );
       return;
     }
@@ -1413,7 +1413,7 @@ export function TemplateManager({
       setForm((f) => ({ ...f, header_media_url: publicUrl }));
       toast.success('Image uploaded.');
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Upload failed'));
+      toast.error(getErrorMessage(err, 'Could not upload'));
     } finally {
       setUploadingHeader(false);
     }
@@ -1454,7 +1454,7 @@ export function TemplateManager({
           <div className="space-y-4">
             {loadError || (!loading && !accountId) ? (
               <Alert variant="destructive">
-                <AlertTitle>Template couldn’t load</AlertTitle>
+                <AlertTitle>Could not load this template</AlertTitle>
                 <AlertDescription>
                   {loadError || 'Select a branch to set up this template.'}
                 </AlertDescription>
@@ -1658,7 +1658,7 @@ export function TemplateManager({
                       type="button"
                       loading={syncing}
                       canAct={canEditSettings}
-                      gateReason="sync the WhatsApp approval status"
+                      gateReason="check the WhatsApp status"
                       onClick={handleSyncFromMeta}
                     >
                       Check status
@@ -1795,7 +1795,7 @@ export function TemplateManager({
                 <Label htmlFor="template-name">Template name</Label>
                 <Input
                   id="template-name"
-                  placeholder="e.g. renewal_reminder"
+                  placeholder="Example: renewal_reminder"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
                   disabled={editingId !== null || contractLocked}
@@ -2014,7 +2014,7 @@ export function TemplateManager({
                 <Label htmlFor="template-body">Message text</Label>
                 <Textarea
                   id="template-body"
-                  placeholder="Hello {{1}}, your order {{2}} is confirmed."
+                  placeholder="Hello {{1}}, your membership ends on {{2}}."
                   value={form.body_text}
                   disabled={contractLocked}
                   onChange={(e) =>
@@ -2044,7 +2044,7 @@ export function TemplateManager({
                         <Input
                           key={i}
                           id={inputId}
-                          aria-label={`Sample value for body variable {{${i + 1}}}`}
+                          aria-label={`Example for {{${i + 1}}}`}
                           placeholder={`Sample for {{${i + 1}}}`}
                           value={
                             i === formLegalSampleIndex
@@ -2167,7 +2167,7 @@ export function TemplateManager({
                             size="icon-sm"
                             onClick={() => removeButton(i)}
                             disabled={contractLocked}
-                            aria-label="Remove template button"
+                            aria-label="Remove button"
                             className="col-start-2 row-start-1 sm:col-start-3"
                           >
                             <X />
@@ -2307,7 +2307,7 @@ export function TemplateManager({
                   }
                   title={
                     !canEditSettings
-                      ? "Read-only — your role can't submit required message templates"
+                      ? "Your role cannot send messages for review"
                       : undefined
                   }
                 >
@@ -2324,7 +2324,7 @@ export function TemplateManager({
                   }
                   title={
                     !canEditSettings
-                      ? "Read-only — your role can't sync message templates from Meta"
+                      ? "Your role cannot update templates from WhatsApp"
                       : 'Get templates from your WhatsApp account'
                   }
                 >
@@ -2361,7 +2361,7 @@ export function TemplateManager({
                   .filter((result) => result.outcome === 'failed')
                   .map((result) => (
                     <li key={result.contract_id}>
-                      {result.name} — {result.error ?? 'Submission failed.'}
+                      {result.name} — {result.error ?? 'Could not send for review.'}
                     </li>
                   ))}
               </ul>
@@ -2418,9 +2418,9 @@ export function TemplateManager({
 
       {!canEditSettings ? (
         <Alert>
-          <AlertTitle>Read-only</AlertTitle>
+          <AlertTitle>View only</AlertTitle>
           <AlertDescription>
-            Ask an admin or owner to change message templates.
+            Ask the owner or an admin to change message templates.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -2437,7 +2437,7 @@ export function TemplateManager({
       ) : loadError ? (
         <Alert variant="destructive">
           <AlertCircle />
-          <AlertTitle>Templates couldn&apos;t load</AlertTitle>
+          <AlertTitle>Could not load templates</AlertTitle>
           <AlertDescription>
             <p>{loadError}</p>
             <Button
@@ -2462,7 +2462,7 @@ export function TemplateManager({
               [
                 ['all', 'All'],
                 ['approved', 'Approved'],
-                ['pending', 'Pending'],
+                ['pending', 'In review'],
                 ['not_approved', 'Not approved'],
               ] as const
             ).map(([value, label]) => (

@@ -119,7 +119,7 @@ const SORT_COLUMNS: { key: FinanceExpenseSortKey; label: string }[] = [
 
 const QUICK_VIEWS: { value: FinanceExpenseQuickView; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'recurring', label: 'Recurring' },
+  { value: 'recurring', label: 'Every month' },
   { value: 'one_time', label: 'One-time' },
 ];
 
@@ -172,7 +172,7 @@ export function FinanceExpenses({
       } catch (reason) {
         if (!cancelled) {
           setCategoryError(
-            getErrorMessage(reason, 'Expense categories could not be loaded')
+            getErrorMessage(reason, 'Could not load expense categories')
           );
         }
       }
@@ -216,7 +216,7 @@ export function FinanceExpenses({
         if (!cancelled) setResult(next);
       } catch (reason) {
         if (!cancelled) {
-          setError(getErrorMessage(reason, 'Expenses could not be loaded'));
+          setError(getErrorMessage(reason, 'Could not load expenses'));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -303,7 +303,7 @@ export function FinanceExpenses({
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (reason) {
-      toast.error(getErrorMessage(reason, 'Expense export failed'));
+      toast.error(getErrorMessage(reason, 'Could not download expenses'));
     } finally {
       setExporting(false);
     }
@@ -323,7 +323,7 @@ export function FinanceExpenses({
             gateReason="record expenses"
             title={
               categories.length === 0
-                ? 'Expense categories are loading or unavailable'
+                ? 'Expense categories are still loading'
                 : undefined
             }
             onClick={() => setAddOpen(true)}
@@ -347,7 +347,7 @@ export function FinanceExpenses({
             className="mt-2 w-fit"
             onClick={() => setRetryKey((key) => key + 1)}
           >
-            <RefreshCw /> Retry
+            <RefreshCw /> Try again
           </Button>
         </Alert>
       ) : null}
@@ -361,29 +361,27 @@ export function FinanceExpenses({
               title="Total expenses"
               value={fmt.money(result.summary.postedAmount)}
               icon={ReceiptIndianRupee}
-              subtitle="Posted cash-out in this view"
+              subtitle="Money spent in this view"
             />
             <MetricCard
               title="Recurring"
               value={fmt.money(result.summary.recurringAmount)}
               icon={Repeat2}
               subtitle={`${fmt.number(result.summary.recurringCount)} ${
-                result.summary.recurringCount === 1 ? 'record' : 'records'
-              } · ${fmt.number(recurringShare)}% of spend`}
+                result.summary.recurringCount === 1 ? 'expense' : 'expenses' } · ${fmt.number(recurringShare)}% of spend`}
             />
             <MetricCard
               title="One-time"
               value={fmt.money(result.summary.oneTimeAmount)}
               icon={CircleDot}
               subtitle={`${fmt.number(result.summary.oneTimeCount)} ${
-                result.summary.oneTimeCount === 1 ? 'record' : 'records'
-              } · ${fmt.number(oneTimeShare)}% of spend`}
+                result.summary.oneTimeCount === 1 ? 'expense' : 'expenses' } · ${fmt.number(oneTimeShare)}% of spend`}
             />
             <MetricCard
-              title="Largest category"
+              title="Biggest category"
               value={largestCategory ? fmt.money(largestCategory.amount) : '—'}
               icon={Tags}
-              subtitle={largestCategory?.categoryName ?? 'No posted spend'}
+              subtitle={largestCategory?.categoryName ?? 'No expenses yet'}
             />
           </div>
 
@@ -447,19 +445,19 @@ export function FinanceExpenses({
                 title={
                   hasQuery
                     ? 'No expenses match these filters'
-                    : 'No expenses were recorded in this month'
+                    : 'No expenses this month'
                 }
                 hint={
                   hasQuery
-                    ? 'Clear a filter or search term to see more ledger records.'
-                    : 'Use Add expense to record the first auditable cash-out entry.'
+                    ? 'Clear a filter or search to see more.'
+                    : 'Click Add expense to save your first expense.'
                 }
               />
             ) : (
               <div className="overflow-x-auto">
                 <Table className="min-w-[1320px] table-fixed">
                   <TableCaption className="sr-only">
-                    Account-wide expense ledger
+                    All expenses
                   </TableCaption>
                   <colgroup>
                     <col className="w-36" />
@@ -583,15 +581,15 @@ export function FinanceExpenses({
                                 disabled={!mayVoid || row.status === 'void'}
                                 title={
                                   !mayVoid
-                                    ? "Read-only — your role can't void expenses"
+                                    ? "Your role cannot cancel expenses"
                                     : undefined
                                 }
                                 onClick={() => setVoidTarget(row)}
                               >
                                 <RotateCcw />
                                 {row.status === 'void'
-                                  ? 'Already voided'
-                                  : 'Void expense'}
+                                  ? 'Already cancelled'
+                                  : 'Cancel expense'}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
@@ -727,9 +725,9 @@ function ExpenseTrendCard({
   return (
     <Card className="h-full">
       <CardHeader className="border-b">
-        <CardTitle>Expense trend · {fmt.month(`${month}-01`)}</CardTitle>
+        <CardTitle>Expenses · {fmt.month(`${month}-01`)}</CardTitle>
         <CardAction>
-          <Toolbar aria-label="Expense trend grouping">
+          <Toolbar aria-label="Show by">
             <ToolbarToggleGroup<ExpenseTrendGrouping>
               value={[grouping]}
               onValueChange={(values) => values[0] && setGrouping(values[0])}
@@ -745,7 +743,7 @@ function ExpenseTrendCard({
           <div
             className="h-64 w-full"
             role="group"
-            aria-label={`${grouping === 'daily' ? 'Daily' : 'Weekly'} expense trend chart`}
+            aria-label={`${grouping === 'daily' ? 'Day' : 'Week'} expense trend chart`}
           >
             <ResponsiveContainer
               width="100%"
@@ -805,8 +803,8 @@ function ExpenseTrendCard({
           <EmptyState
             icon={ReceiptIndianRupee}
             className="h-64"
-            title="No posted expense trend"
-            hint="Posted expenses will appear here by day."
+            title="No expenses yet"
+            hint="Expenses you save will show here by day."
           />
         )}
       </CardContent>
@@ -855,8 +853,8 @@ function ExpenseCategoryCard({
           <EmptyState
             icon={Tags}
             className="h-64"
-            title="No category spend yet"
-            hint="Posted expenses will be grouped here automatically."
+            title="No expenses yet"
+            hint="Expenses will be grouped by category here."
           />
         )}
       </CardContent>

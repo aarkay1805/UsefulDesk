@@ -39,71 +39,71 @@ interface MemberCommunicationProps {
 const TEMPLATE_REASONS: Record<string, { type: string; subject: string }> = {
   gym_membership_renewal: {
     type: 'Renewal reminder',
-    subject: 'Membership renewal invitation — plan, end date and price',
+    subject: 'Asks the member to renew. Shows plan, end date, and price.',
   },
   gym_service_renewal: {
     type: 'Service renewal',
-    subject: 'Service renewal invitation — service, end date and price',
+    subject: 'Asks the member to renew a service. Shows service, end date, and price.',
   },
   gym_installment_reminder: {
     type: 'Installment reminder',
-    subject: 'Existing installment — amount, membership and due date',
+    subject: 'Reminds about the next installment. Shows amount and due date.',
   },
   gym_payment_link: {
     type: 'Payment link',
-    subject: 'Existing invoice — amount, reference and secure payment link',
+    subject: 'Sends a link to pay an invoice online.',
   },
   gym_payment_due: {
     type: 'Payment due',
-    subject: 'Existing membership balance — amount and plan',
+    subject: 'Tells the member how much fee is due.',
   },
   gym_payment_receipt: {
     type: 'Payment receipt',
-    subject: 'Recorded payment — amount, plan and active-until date',
+    subject: 'Confirms a payment. Shows amount and valid-till date.',
   },
   gym_payment_confirmation: {
     type: 'Payment confirmation',
-    subject: 'Recorded payment — exact amount and transaction outcome',
+    subject: 'Confirms that a payment was received.',
   },
   gym_payment_membership_renewal_confirmation: {
     type: 'Renewal payment confirmation',
-    subject: 'Recorded renewal payment — invoice and new membership end date',
+    subject: 'Confirms a renewal payment. Shows the new end date.',
   },
   gym_payment_promise_upcoming: {
-    type: 'Payment promise reminder',
-    subject: 'Upcoming promised payment — invoice, amount and planned date',
+    type: 'Promised payment reminder',
+    subject: 'Reminds the member about money they promised to pay.',
   },
   gym_payment_promise_missed: {
-    type: 'Missed payment promise',
-    subject: 'Past promised payment date — balance remains unpaid',
+    type: 'Promised payment missed',
+    subject: 'Tells the member the promised date has passed.',
   },
   gym_autopay_retry_update: {
-    type: 'AutoPay retry update',
-    subject: 'Verified AutoPay retry — no manual payment requested',
+    type: 'AutoPay will try again',
+    subject: 'Tells the member AutoPay will try again. No action needed.',
   },
   gym_autopay_payment_help: {
     type: 'AutoPay payment help',
-    subject: 'Verified terminal AutoPay failure — current invoice help',
+    subject: 'Tells the member AutoPay failed and offers help to pay.',
   },
   gym_membership_activation: {
-    type: 'Membership activation',
-    subject: 'Activated membership — plan, gym and membership dates',
+    type: 'Membership started',
+    subject: 'Welcomes the member. Shows plan and dates.',
   },
   gym_win_back: {
-    type: 'Win-back campaign',
-    subject: 'Return invitation for a lapsed member',
+    type: 'Come back offer',
+    subject: 'Invites a past member to come back.',
   },
   gym_festival_offer: {
     type: 'Festival offer',
-    subject: 'Time-bound promotional gym offer',
+    subject: 'A limited-time gym offer.',
   },
   gym_membership_expiry_notice: {
-    type: 'Legacy renewal message',
-    subject: 'Retired membership-expiry template',
+    type: 'Old renewal message',
+    subject: 'An old message that is no longer used.',
   },
   gym_renewal_reminder: {
-    type: 'Legacy renewal message',
-    subject: 'Retired renewal template',
+    type: 'Old renewal message',
+    subject: 'An old message that is no longer used.',
   },
 };
 
@@ -117,7 +117,7 @@ function templateReason(m: Message): { type: string; subject: string } {
   if (known) return known;
   const label = m.template_name
     ? humaniseTemplateName(m.template_name)
-    : 'Template message';
+    : 'WhatsApp message';
   // Some send paths store the rendered body; prefer it as the subject.
   return { type: label, subject: m.content_text || label };
 }
@@ -205,7 +205,7 @@ export function MemberCommunication({
               href={`/inbox?c=${conversationId}`}
               className="text-primary-text inline-flex items-center gap-1 text-xs font-medium hover:underline"
             >
-              Open in Inbox
+              Open chat
               <ArrowUpRight className="size-3.5" />
             </Link>
           </CardAction>

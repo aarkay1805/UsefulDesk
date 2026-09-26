@@ -887,7 +887,7 @@ function rebuildCandidate(
         'assignee-unmatched',
         'notice',
         `assignee:${normalizeGroupValue(values.assignedTo)}`,
-        `“${trim(values.assignedTo)}” is not a teammate on this account, so a new member is assigned to whoever runs the import instead.`,
+        `“${trim(values.assignedTo)}” is not a team member on this account, so a new member is assigned to whoever runs the import instead.`,
         'Invite them from Settings → Members, then re-import, or reassign the member later.',
         true
       )
@@ -899,8 +899,8 @@ function rebuildCandidate(
         'churn-risk-unmatched',
         'notice',
         `churn-risk:${normalizeGroupValue(values.churnRisk)}`,
-        `“${trim(values.churnRisk)}” could not be read as yes or no, so these members import without a churn risk.`,
-        'Use yes/no, true/false, 1/0, or high/low in the source column, or set churn risk on the member later.',
+        `“${trim(values.churnRisk)}” could not be read as yes or no, so these members are added without the “May leave” mark.`,
+        'Use yes/no, true/false, 1/0, or high/low in the source column, or set “may leave” on the member later.',
         true
       )
     );

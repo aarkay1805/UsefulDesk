@@ -79,7 +79,7 @@ export function GatedButton({
 }: GatedButtonProps) {
   const effectivelyDisabled = disabled || !canAct;
   const tooltip =
-    !canAct && gateReason ? `Read-only — your role can't ${gateReason}` : title;
+    !canAct && gateReason ? `Your role cannot ${gateReason}` : title;
 
   return (
     <span

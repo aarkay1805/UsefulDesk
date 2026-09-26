@@ -320,7 +320,7 @@ export function MemberForm({
   ): Promise<boolean> {
     const value = rawValue.trim();
     if (column === 'phone' && !value) {
-      toast.error('Phone number is required');
+      toast.error('Enter a phone number');
       return false;
     }
     if (column === 'email' && value && !EMAIL_RE.test(value)) {
@@ -350,7 +350,7 @@ export function MemberForm({
           existing.id !== seedContact.id &&
           isExactMatch(existing, value)
         ) {
-          toast.error('This phone number belongs to another contact');
+          toast.error('This phone number belongs to someone else');
           return false;
         }
       }
@@ -362,7 +362,7 @@ export function MemberForm({
         .select('id');
       if (error) throw error;
       if (!data?.length) {
-        throw new Error("You don't have permission to update this contact.");
+        throw new Error("You do not have permission to change this person’s details.");
       }
 
       if (column === 'name') setName(value);
@@ -370,7 +370,7 @@ export function MemberForm({
       if (column === 'email') setEmail(value);
       return true;
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update contact details'));
+      toast.error(getErrorMessage(error, 'Could not save contact details'));
       return false;
     }
   }
@@ -392,13 +392,13 @@ export function MemberForm({
         .select('id');
       if (error) throw error;
       if (!data?.length) {
-        throw new Error("You don't have permission to update measurements.");
+        throw new Error("You do not have permission to change measurements.");
       }
       if (column === 'height_cm') setHeightCm(value);
       if (column === 'weight_kg') setWeightKg(value);
       return true;
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update measurements'));
+      toast.error(getErrorMessage(error, 'Could not save measurements'));
       return false;
     }
   }
@@ -424,13 +424,13 @@ export function MemberForm({
         .select('id');
       if (error) throw error;
       if (!data?.length) {
-        throw new Error("You don't have permission to update this contact.");
+        throw new Error("You do not have permission to change this person’s details.");
       }
       if (column === 'gender') setGender(value);
       if (column === 'date_of_birth') setDateOfBirth(value);
       return true;
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update personal details'));
+      toast.error(getErrorMessage(error, 'Could not save personal details'));
       return false;
     }
   }
@@ -479,12 +479,12 @@ export function MemberForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!phone.trim()) return toast.error('Phone number is required');
+    if (!phone.trim()) return toast.error('Enter a phone number');
     if (email.trim() && !EMAIL_RE.test(email.trim())) {
       return toast.error('Enter a valid email address');
     }
     if (!accountId || !user)
-      return toast.error('Your profile is not linked to an account.');
+      return toast.error('Your login is not linked to a gym.');
     // Known-member dedupe hit: the membership insert would fail on
     // UNIQUE(account_id, contact_id) anyway — send staff to the member
     // instead of letting them fill out a form that can't save.
@@ -500,19 +500,19 @@ export function MemberForm({
       if (!Number.isFinite(trialLen) || trialLen <= 0)
         return toast.error('Enter a valid trial length in days');
     } else if (!planId) {
-      return toast.error('Pick a membership plan (or Trial / free pass)');
+      return toast.error('Pick a plan, or pick Trial for a free pass');
     }
 
     // Plan + billing option are required for a paid member; a legacy
     // edit (no option on the row) may proceed on the plan's frozen days.
     const plan = plans.find((p) => p.id === planId);
-    if (!isTrial && !plan) return toast.error('Selected plan is unavailable');
+    if (!isTrial && !plan) return toast.error('This plan cannot be used now. Pick another plan.');
     const endForPaid = standardPaidEndDate();
     if (!isTrial && !selectedOption && isCreate) {
-      return toast.error('Pick a billing option for this plan');
+      return toast.error('Pick a price for this plan');
     }
     if (!isTrial && !endForPaid && isEdit) {
-      return toast.error('Pick a billing option for this plan');
+      return toast.error('Pick a price for this plan');
     }
 
     let checkoutQuote = null;
@@ -531,7 +531,7 @@ export function MemberForm({
             : [],
         });
       } catch (error) {
-        return toast.error(getErrorMessage(error, 'Invalid checkout details'));
+        return toast.error(getErrorMessage(error, 'Some details are missing or wrong. Check and try again.'));
       }
     }
 
@@ -605,7 +605,7 @@ export function MemberForm({
             .select('id');
           if (uErr) throw uErr;
           if (!updated?.length) {
-            throw new Error('You do not have access to update this contact.');
+            throw new Error('You do not have permission to change this person’s details.');
           }
         }
       } else {
@@ -643,7 +643,7 @@ export function MemberForm({
               .select('id');
             if (uErr) throw uErr;
             if (!updated?.length)
-              throw new Error('You do not have access to update this contact.');
+              throw new Error('You do not have permission to change this person’s details.');
           }
         } else {
           const { data, error } = await supabase
@@ -710,11 +710,11 @@ export function MemberForm({
         const result = (await response.json()) as CheckoutResult & {
           error?: string;
         };
-        if (!response.ok) throw new Error(result.error || 'Checkout failed');
+        if (!response.ok) throw new Error(result.error || 'Could not add the membership');
 
         toast.success(
           isConvert
-            ? `Converted to member · Member ID ${result.member_number}`
+            ? `Added as member · Member ID ${result.member_number}`
             : `Member added · Member ID ${result.member_number}`,
           {
             action: onViewExisting
@@ -760,7 +760,7 @@ export function MemberForm({
         isTrial
           ? `Trial added · Member ID ${mRow.member_number}`
           : isConvert
-            ? `Converted to member · Member ID ${mRow.member_number}`
+            ? `Added as member · Member ID ${mRow.member_number}`
             : `Member added · Member ID ${mRow.member_number}`,
         {
           // One tap to the new member's sheet (photo, auto-pay, notes).
@@ -773,10 +773,10 @@ export function MemberForm({
       onSaved();
     } catch (err) {
       if (isUniqueViolation(err)) {
-        toast.error('A contact with this phone number already exists.');
+        toast.error('Someone with this phone number is already saved.');
         return;
       }
-      toast.error(err instanceof Error ? err.message : 'Failed to save member');
+      toast.error(err instanceof Error ? err.message : 'Could not save member');
     } finally {
       setSaving(false);
     }
@@ -796,14 +796,14 @@ export function MemberForm({
             {isEdit
               ? 'Edit member'
               : isConvert
-                ? 'Convert to member'
+                ? 'Add as member'
                 : 'Add member'}
           </DialogTitle>
           <DialogDescription>
             {isEdit
               ? "Update this member's details."
               : isConvert
-                ? 'Review the lead and set up their membership.'
+                ? 'Check their details and start their membership.'
                 : 'Add a member and start their membership.'}
           </DialogDescription>
         </DialogHeader>
@@ -847,7 +847,7 @@ export function MemberForm({
                       <p className="text-muted-foreground truncate text-sm">
                         {phone.trim()
                           ? fmt.phone(phone)
-                          : 'Add contact details below'}
+                          : 'Add their details below'}
                       </p>
                     ) : null}
                   </div>
@@ -919,7 +919,7 @@ export function MemberForm({
                         displayValue={
                           gender ? fieldOptions.genderLabel(gender) : '—'
                         }
-                        placeholder="Not specified"
+                        placeholder="Not given"
                         options={fieldOptions.genders.map((option) => ({
                           value: option.key,
                           label: option.label,
@@ -935,10 +935,10 @@ export function MemberForm({
                         <div className="space-y-1">
                           <p>
                             {dupMatch.isMember
-                              ? `${dupMatch.contact.name || 'This person'} already has a membership — open their profile to renew or edit it.`
+                              ? `${dupMatch.contact.name || 'This person'} already has a membership. Open their profile to renew or edit it.`
                               : dupMatch.exact
-                                ? `This number already belongs to ${dupMatch.contact.name || 'an existing contact'}. No duplicate is created — the membership attaches to that record, and details added here update it.`
-                                : 'A contact with a very similar number already exists.'}
+                                ? `This number is already saved for ${dupMatch.contact.name || 'someone'}. The membership will be added to them, and any details you add here will update their profile.`
+                                : 'Someone with a very similar number is already saved. Check the number.'}
                           </p>
                           {onViewExisting && (
                             <button
@@ -1035,10 +1035,10 @@ export function MemberForm({
                         <div className="space-y-1">
                           <p>
                             {dupMatch.isMember
-                              ? `${dupMatch.contact.name || 'This person'} already has a membership — open their profile to renew or edit it.`
+                              ? `${dupMatch.contact.name || 'This person'} already has a membership. Open their profile to renew or edit it.`
                               : dupMatch.exact
-                                ? `This number already belongs to ${dupMatch.contact.name || 'an existing contact'}. No duplicate is created — the membership attaches to that record, and any details you change here update it.`
-                                : 'A contact with a very similar number already exists.'}
+                                ? `This number is already saved for ${dupMatch.contact.name || 'someone'}. The membership will be added to them, and any details you change here will update their profile.`
+                                : 'Someone with a very similar number is already saved. Check the number.'}
                           </p>
                           {onViewExisting && (
                             <button
@@ -1057,7 +1057,7 @@ export function MemberForm({
                       </div>
                     ) : (
                       <p className="text-muted-foreground text-xs">
-                        Include country code
+                        Include the country code
                         {locale.phoneCountryCode
                           ? `, e.g. ${locale.phoneCountryCode}`
                           : ', e.g. +91'}
@@ -1116,7 +1116,7 @@ export function MemberForm({
                         {fmt.date(
                           istAddDays(startDate, Number(trialDays) || 0)
                         )}{' '}
-                        · free pass, no fee — convert to a paid plan later.
+                        · free pass, no fee. You can add them as a paid member later.
                       </p>
                     </div>
                   )}
@@ -1170,7 +1170,7 @@ export function MemberForm({
                         {fmt.date(
                           istAddDays(startDate, Number(trialDays) || 0)
                         )}{' '}
-                        · free pass, no fee — convert to a paid plan later.
+                        · free pass, no fee. You can add them as a paid member later.
                       </p>
                     </div>
                   ) : (
@@ -1219,7 +1219,7 @@ export function MemberForm({
                     <p className="text-muted-foreground text-xs">
                       {fmt.date(startDate)} –{' '}
                       {fmt.date(istAddDays(startDate, Number(trialDays) || 0))}{' '}
-                      · {trialDays || '0'}-day trial · No fee
+                      · {trialDays || '0'} day trial · No fee
                     </p>
                   </>
                 ) : footerQuote && selectedPlan && selectedOption ? (
@@ -1251,7 +1251,7 @@ export function MemberForm({
               disabled={saving || checkingDup}
               loading={saving}
             >
-              {isEdit ? 'Save' : isConvert ? 'Convert to member' : 'Add member'}
+              {isEdit ? 'Save' : isConvert ? 'Add as member' : 'Add member'}
             </Button>
           </DialogFooter>
         </form>

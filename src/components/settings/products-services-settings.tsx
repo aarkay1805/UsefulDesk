@@ -131,7 +131,7 @@ function catalogOptionLabel(
 ): string {
   return option.duration_count && option.duration_unit
     ? durationLabel(option.duration_count, option.duration_unit)
-    : 'Unit price';
+    : 'Price';
 }
 
 export function ProductsServicesSettings() {
@@ -198,7 +198,7 @@ export function ProductsServicesSettings() {
         if (itemResult.error) throw itemResult.error;
         if (trainerResult.error) throw trainerResult.error;
         if (!memberResponse.ok) {
-          throw new Error('The team roster could not be loaded.');
+          throw new Error('Could not load your team.');
         }
         const memberPayload = (await memberResponse.json()) as {
           members: AccountMember[];
@@ -212,7 +212,7 @@ export function ProductsServicesSettings() {
         setLoadError(
           getErrorMessage(
             error,
-            "Products and services couldn't load. Try again."
+            "Could not load products and services. Try again."
           )
         );
       } finally {
@@ -247,11 +247,11 @@ export function ProductsServicesSettings() {
           ? table === 'catalog_items'
             ? 'An active item with this name already exists.'
             : optionItemKind === 'merchandise'
-              ? 'This item already has an active unit price.'
+              ? 'This item already has a price.'
               : 'This duration already exists.'
           : getErrorMessage(
               error,
-              "You don't have permission to make this change"
+              "You do not have permission to make this change"
             )
       );
       return false;
@@ -290,7 +290,7 @@ export function ProductsServicesSettings() {
           ? `${deleteTarget.name} has past sales. Stop selling it instead.`
           : getErrorMessage(
               error,
-              "You don't have permission to delete this item"
+              "You do not have permission to delete this item"
             )
       );
       return;
@@ -309,7 +309,7 @@ export function ProductsServicesSettings() {
     if (!linkedTrainer && !active) return;
 
     setPendingTrainerUserId(member.user_id);
-    const displayName = member.full_name.trim() || 'Teammate';
+    const displayName = member.full_name.trim() || 'Team member';
     const result = linkedTrainer
       ? await supabase
           .from('trainers')
@@ -336,7 +336,7 @@ export function ProductsServicesSettings() {
       toast.error(
         result.error?.code === '23505'
           ? 'A trainer with this name or team account already exists.'
-          : getErrorMessage(result.error, 'Trainer status was not updated')
+          : getErrorMessage(result.error, 'Could not change the trainer setting')
       );
       refresh();
       return;
@@ -374,7 +374,7 @@ export function ProductsServicesSettings() {
       toast.error(
         getErrorMessage(
           error,
-          "You don't have permission to delete this trainer"
+          "You do not have permission to delete this trainer"
         )
       );
       refresh();
@@ -408,7 +408,7 @@ export function ProductsServicesSettings() {
       ) : loadError ? (
         <Alert variant="destructive">
           <AlertCircle aria-hidden="true" />
-          <AlertTitle>Products and services couldn&apos;t load</AlertTitle>
+          <AlertTitle>Could not load products and services</AlertTitle>
           <AlertDescription>
             <p>{loadError}</p>
             <Button
@@ -454,7 +454,7 @@ export function ProductsServicesSettings() {
                               {item.kind === 'service' ? 'Service' : 'Product'}
                             </Badge>
                             {item.requires_trainer ? (
-                              <Badge variant="info">Trainer priced</Badge>
+                              <Badge variant="info">Price depends on trainer</Badge>
                             ) : null}
                             {!item.is_active ? (
                               <Badge variant="neutral">Not for sale</Badge>
@@ -617,7 +617,7 @@ export function ProductsServicesSettings() {
                         <TrainerSwitchRow
                           key={member.user_id}
                           switchId={switchId}
-                          name={member.full_name || 'Teammate'}
+                          name={member.full_name || 'Team member'}
                           avatarUrl={member.avatar_url}
                           context={`${ROLE_META[member.role].label} access`}
                           checked={linkedTrainer?.is_active ?? false}
@@ -698,7 +698,7 @@ export function ProductsServicesSettings() {
 
       {!canManageCatalog && !canManageTrainers ? (
         <p className="text-muted-foreground mt-4 text-xs">
-          Ask an admin or owner to change products, trainers, or prices.
+          Ask the owner or an admin to change products, trainers, or prices.
         </p>
       ) : null}
 
@@ -1194,7 +1194,7 @@ function OptionDialog({
   const duplicateMessage = duplicateOption
     ? item?.kind === 'service'
       ? 'This duration already exists.'
-      : 'This item already has an active unit price.'
+      : 'This item already has a price.'
     : null;
   const canSave =
     !!item && durationIsValid && priceIsValid && !duplicateOption && !saving;
@@ -1227,14 +1227,14 @@ function OptionDialog({
         error.code === '23505'
           ? item.kind === 'service'
             ? 'This duration already exists.'
-            : 'This item already has an active unit price.'
-          : getErrorMessage(error, 'The sellable option could not be added.')
+            : 'This item already has a price.'
+          : getErrorMessage(error, 'Could not add this option.')
       );
     }
     toast.success(
       item.requires_trainer
-        ? 'Duration added — set trainer fees next'
-        : 'Sellable option added'
+        ? 'Duration added. Now set trainer fees.'
+        : 'Option added'
     );
     onOpenChange(false);
     onSaved();
@@ -1244,11 +1244,11 @@ function OptionDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            Add {item?.kind === 'service' ? 'duration' : 'unit price'}
+            Add {item?.kind === 'service' ? 'duration' : 'price'}
           </DialogTitle>
           <DialogDescription>
             {item?.requires_trainer
-              ? 'This duration stays unavailable until at least one trainer rate is configured.'
+              ? 'You can sell this duration after you set at least one trainer fee.'
               : item?.name}
           </DialogDescription>
         </DialogHeader>
@@ -1380,7 +1380,7 @@ function TrainerDialog({
       return toast.error(
         error.code === '23505'
           ? 'An active trainer with this name already exists.'
-          : getErrorMessage(error, 'The trainer could not be added.')
+          : getErrorMessage(error, 'Could not add the trainer.')
       );
     }
     toast.success('Trainer added');
@@ -1491,12 +1491,12 @@ function RateMatrixDialog({
       return toast.error(
         getErrorMessage(
           upsertError || archiveError,
-          'Trainer fees could not be saved.'
+          'Could not save trainer fees.'
         )
       );
     }
     if (ratesToArchive.length && archived?.length !== ratesToArchive.length) {
-      return toast.error("You don't have permission to remove these fees");
+      return toast.error("You do not have permission to remove these fees");
     }
     toast.success('Trainer fees saved');
     onOpenChange(false);

@@ -87,7 +87,7 @@ export function CopyUpiLinkButton({
       note,
     });
     await navigator.clipboard.writeText(link);
-    toast.success('UPI payment link copied — paste it into the chat');
+    toast.success('UPI payment link copied. Paste it in the chat.');
   }
 
   return (

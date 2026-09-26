@@ -96,8 +96,8 @@ describe('DashboardShell account boundary', () => {
       </DashboardShell>
     );
 
-    expect(markup).toContain('Could not load your account access');
-    expect(markup).toContain('Retry');
+    expect(markup).toContain('Could not load your gym');
+    expect(markup).toContain('Try again');
     expect(markup).not.toContain('Business content');
     expect(markup).not.toContain('Sidebar');
   });
@@ -111,7 +111,7 @@ describe('DashboardShell account boundary', () => {
       </DashboardShell>
     );
 
-    expect(markup).toContain('Loading...');
+    expect(markup).toContain('Loading…');
     expect(markup).not.toContain('Business content');
   });
 
@@ -126,7 +126,7 @@ describe('DashboardShell account boundary', () => {
 
     expect(markup).toContain('Business content');
     expect(markup).toContain('Sidebar');
-    expect(markup).not.toContain('Could not load your account access');
+    expect(markup).not.toContain('Could not load your gym');
     expect(reminderRingtone).toHaveBeenCalledWith('account-1', true);
   });
 

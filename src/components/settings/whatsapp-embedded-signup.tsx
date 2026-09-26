@@ -112,7 +112,7 @@ export function WhatsAppEmbeddedSignup({
       const data = await res.json();
       if (!res.ok) {
         toast.error(
-          data.error || 'Failed to complete the WhatsApp connection.'
+          data.error || 'Could not complete the WhatsApp connection.'
         );
         return;
       }
@@ -125,7 +125,7 @@ export function WhatsAppEmbeddedSignup({
       } else {
         toast.success(
           data.phone_info?.verified_name
-            ? `WhatsApp connected — ${data.phone_info.verified_name} is live.`
+            ? `WhatsApp connected — ${data.phone_info.verified_name} is ready.`
             : 'WhatsApp connected. New messages may take a minute to appear.'
         );
       }

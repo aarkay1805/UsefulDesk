@@ -92,22 +92,22 @@ export function GatewayRefundDialog({
   const allocationError = !targetingLines
     ? null
     : allocationOptions.length === 0
-      ? 'No eligible original payment lines are available.'
+      ? 'There is nothing in this payment that can be refunded.'
       : normalizedAllocations === null
-        ? 'Enter a positive amount with no more than two decimal places.'
+        ? 'Enter an amount above zero, like 500 or 499.50.'
         : exceedsLineCapacity
-          ? 'A line amount exceeds the payment originally assigned to it.'
+          ? 'An amount is more than what was paid for that item.'
           : allocatedPaise !== targetPaise
             ? `Assigned ${fmt.money(allocatedPaise / 100)} of ${fmt.money(amount)}.`
             : null;
 
   async function submit() {
     if (reason.trim().length < 3) {
-      toast.error('Enter a clear refund reason');
+      toast.error('Write why you are refunding');
       return;
     }
     if (allocationError || !normalizedAllocations) {
-      toast.error(allocationError ?? 'Choose exact invoice-line allocations');
+      toast.error(allocationError ?? 'Split the refund across the invoice items');
       return;
     }
     setSaving(true);
@@ -139,21 +139,21 @@ export function GatewayRefundDialog({
       );
       const body = (await response.json()) as { error?: string };
       if (!response.ok) {
-        throw new Error(body.error ?? 'Refund request failed');
+        throw new Error(body.error ?? 'Could not refund');
       }
       toast.success(
         targetingLines
-          ? 'Refund lines assigned and review cleared'
+          ? 'Refund sorted. Check is done.'
           : classifying
-            ? 'Refund classified and invoice balances recalculated'
-            : 'Full refund submitted to Razorpay'
+            ? 'Refund sorted. Invoice balance updated.'
+            : 'Full refund sent to Razorpay'
       );
       setReason('');
       setIdempotencyKey(crypto.randomUUID());
       onOpenChange(false);
       onCompleted();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Refund request failed'));
+      toast.error(getErrorMessage(error, 'Could not refund'));
     } finally {
       setSaving(false);
     }
@@ -165,17 +165,17 @@ export function GatewayRefundDialog({
         <DialogHeader>
           <DialogTitle>
             {targetingLines
-              ? 'Resolve refund review'
+              ? 'Sort out refund'
               : classifying
-                ? 'Classify refund'
+                ? 'Sort out refund'
                 : 'Issue full refund?'}
           </DialogTitle>
           <DialogDescription>
             {targetingLines
-              ? 'Assign every refunded paise to its original invoice line, then choose the accounting outcome.'
+              ? 'Split the refund across the invoice items. Then choose what happens to the invoice.'
               : classifying
-                ? 'Choose how this provider-processed refund changes the invoice.'
-                : 'This sends an irreversible full remaining-payment refund to Razorpay.'}
+                ? 'Choose what this Razorpay refund does to the invoice.'
+                : 'This refunds the full remaining amount through Razorpay. You cannot undo this.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -192,18 +192,16 @@ export function GatewayRefundDialog({
         {targetingLines ? (
           <div className="space-y-3">
             <div>
-              <p className="text-sm font-medium">Invoice line targeting</p>
+              <p className="text-sm font-medium">Refund per item</p>
               <p className="text-muted-foreground mt-1 text-xs">
-                These allocations are append-only. Enter zero by leaving an
-                unrelated line blank.
+                You cannot change this later. Leave an item blank if nothing is refunded for it.
               </p>
             </div>
             {allocationOptions.length === 0 ? (
               <Alert variant="destructive">
-                <AlertTitle>Line targeting unavailable</AlertTitle>
+                <AlertTitle>Could not load invoice items</AlertTitle>
                 <AlertDescription>
-                  Reload the invoice. If this persists, keep the refund under
-                  review for reconciliation.
+                  Reload the invoice. If this keeps happening, leave the refund for checking.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -253,7 +251,7 @@ export function GatewayRefundDialog({
         ) : null}
 
         <div className="space-y-1.5">
-          <Label htmlFor="gateway-refund-disposition">Invoice outcome</Label>
+          <Label htmlFor="gateway-refund-disposition">What happens to the invoice</Label>
           <Select
             value={disposition}
             onValueChange={(value) =>
@@ -264,14 +262,14 @@ export function GatewayRefundDialog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="reopen_balance">Reopen balance</SelectItem>
-              <SelectItem value="reduce_charge">Reduce charge</SelectItem>
+              <SelectItem value="reopen_balance">Member still owes this</SelectItem>
+              <SelectItem value="reduce_charge">Reduce the bill</SelectItem>
             </SelectContent>
           </Select>
           <p className="text-muted-foreground text-xs">
             {disposition === 'reopen_balance'
-              ? 'The charge remains valid, so the refunded amount becomes collectible again.'
-              : 'An equal invoice adjustment reduces the charge, so the member is not chased.'}
+              ? 'The fee is still owed, so the refunded amount becomes due again.'
+              : 'The bill goes down by the refund, so the member owes nothing more.'}
           </p>
         </div>
 
@@ -289,11 +287,9 @@ export function GatewayRefundDialog({
         {!classifying ? (
           <Alert>
             <RotateCcw />
-            <AlertTitle>Provider processing is not customer receipt</AlertTitle>
+            <AlertTitle>The member may not get the money today</AlertTitle>
             <AlertDescription>
-              A processed refund may still take several working days to reach
-              the original payment method. Razorpay may not return the original
-              transaction fee.
+              A refund can take a few working days to reach the member. Razorpay may keep its fee.
             </AlertDescription>
           </Alert>
         ) : null}
@@ -321,9 +317,9 @@ export function GatewayRefundDialog({
               <RotateCcw className="size-4" />
             )}
             {targetingLines
-              ? 'Resolve refund review'
+              ? 'Sort out refund'
               : classifying
-                ? 'Apply classification'
+                ? 'Save'
                 : 'Issue full refund'}
           </Button>
         </DialogFooter>

@@ -339,13 +339,13 @@ export function financePaymentReference(id: string): string {
 }
 
 export function financePaymentRecordedBy(row: FinancePaymentRow): string {
-  if (row.source === 'auto') return 'Auto-pay';
+  if (row.source === 'auto') return 'AutoPay';
   if (row.source === 'payment_link') return 'Razorpay payment link';
   return row.recorded_by_name?.trim() || 'Staff';
 }
 
 function paymentSourceLabel(row: FinancePaymentRow): string {
-  if (row.source === 'auto') return 'Auto-pay';
+  if (row.source === 'auto') return 'AutoPay';
   if (row.source === 'payment_link') return 'Payment link';
   return 'Manual';
 }
@@ -395,7 +395,7 @@ export function financePaymentsCsv(
       row.method,
       paymentSourceLabel(row),
       row.payment_purpose,
-      row.status === 'void' ? 'Voided' : row.status === 'due' ? 'Due' : 'Paid',
+      row.status === 'void' ? 'Cancelled' : row.status === 'due' ? 'Due' : 'Paid',
       number(row.gross_amount ?? row.amount),
       number(row.processed_refund_amount),
       number(row.net_amount ?? row.amount),

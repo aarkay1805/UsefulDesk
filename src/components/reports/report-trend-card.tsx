@@ -63,7 +63,7 @@ export function ActivityTrendCard({
       <CardHeader>
         <CardTitle>Member activity</CardTitle>
         <CardAction>
-          <Toolbar aria-label="Member activity grouping">
+          <Toolbar aria-label="Show by">
             <ToolbarToggleGroup<Grouping>
               value={[grouping]}
               onValueChange={(values) => values[0] && setGrouping(values[0])}
@@ -79,7 +79,7 @@ export function ActivityTrendCard({
           <div
             className="h-72 w-full"
             role="group"
-            aria-label={`${grouping === 'daily' ? 'Daily' : 'Weekly'} attendance and joins chart`}
+            aria-label={`${grouping === 'daily' ? 'Day' : 'Week'} attendance and joins chart`}
           >
             <ResponsiveContainer
               width="100%"
@@ -161,8 +161,8 @@ export function ActivityTrendCard({
           <EmptyState
             icon={Activity}
             className="h-72"
-            title="No member activity in this period"
-            hint="Check-ins and new member joins will appear here."
+            title="No member activity in these dates"
+            hint="Check-ins and new members will show here."
           />
         )}
       </CardContent>

@@ -194,7 +194,7 @@ export async function POST(request: Request) {
     }
     console.error('Error in WhatsApp send POST:', error);
     return NextResponse.json(
-      { error: 'Failed to send message' },
+      { error: 'Could not send message' },
       { status: 500 }
     );
   }

@@ -413,7 +413,7 @@ export async function disconnectRazorpayOAuthConnection(
   }
   const disconnectBlocks: Record<string, string> = {
     active_mandate:
-      'Disconnect is blocked while an active auto-pay mandate needs Razorpay',
+      'Disconnect is blocked while an active AutoPay mandate needs Razorpay',
     active_payment_link:
       'Disconnect is blocked while an active payment link needs Razorpay',
     active_refund:
@@ -421,7 +421,7 @@ export async function disconnectRazorpayOAuthConnection(
     pending_webhook:
       'Disconnect is blocked while Razorpay webhook recovery is pending',
     open_charge_exception:
-      'Disconnect is blocked while an auto-pay charge needs reconciliation',
+      'Disconnect is blocked while an AutoPay charge needs reconciliation',
     open_payment_exception:
       'Disconnect is blocked while a payment needs reconciliation',
     open_refund_exception:

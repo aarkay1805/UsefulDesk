@@ -39,8 +39,8 @@ const PURPOSE_ROWS: Array<{
   { key: 'joining', label: 'New memberships' },
   { key: 'renewal', label: 'Renewals' },
   { key: 'sale', label: 'Products & services' },
-  { key: 'due', label: 'Due payments recovered' },
-  { key: 'other', label: 'Other collections' },
+  { key: 'due', label: 'Old dues collected' },
+  { key: 'other', label: 'Other money received' },
 ];
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -62,10 +62,10 @@ function paymentContext(
     return `Joined ${fmt.date(payment.membershipStartDate)}`;
   }
   if (purpose === 'renewal' && payment.periodEnd) {
-    return `Renewed through ${fmt.date(payment.periodEnd)}`;
+    return `Renewed till ${fmt.date(payment.periodEnd)}`;
   }
   if (purpose === 'due' && payment.periodEnd) {
-    return `Billing period ended ${fmt.date(payment.periodEnd)}`;
+    return `For period ending ${fmt.date(payment.periodEnd)}`;
   }
   return null;
 }
@@ -99,7 +99,7 @@ export function FinanceRevenueBreakdownCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Revenue sources</CardTitle>
+        <CardTitle>Where money came from</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
         {total > 0 ? (
@@ -113,7 +113,7 @@ export function FinanceRevenueBreakdownCard({
                   <span
                     className={`grid min-w-0 flex-1 items-center ${REVENUE_GRID_COLUMNS}`}
                   >
-                    <span className="pl-10">Revenue source</span>
+                    <span className="pl-10">Source</span>
                     <span className="text-right">Payments</span>
                     <span className="text-right">Share</span>
                     <span className="text-right">Revenue</span>
@@ -294,7 +294,7 @@ export function FinanceRevenueBreakdownCard({
                           </>
                         ) : (
                           <p className="text-muted-foreground py-3 pr-4 pl-14 text-sm">
-                            No collections in this revenue source.
+                            No money received from this source.
                           </p>
                         )}
                       </AccordionContent>
@@ -309,7 +309,7 @@ export function FinanceRevenueBreakdownCard({
             <EmptyState
               icon={Banknote}
               className="min-h-52"
-              title="No revenue in this month"
+              title="No money received this month"
             />
           </div>
         )}

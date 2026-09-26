@@ -25,7 +25,7 @@ const TEMPLATE: ActionBlocker = {
 };
 
 const PERMISSION: ActionBlocker = {
-  title: 'Admin access required',
+  title: 'You do not have permission',
   description:
     'Only an agent, admin, or owner can send invoice documents from this account.',
 };

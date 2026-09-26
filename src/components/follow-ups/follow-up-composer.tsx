@@ -21,7 +21,7 @@ import { FollowUpFields, type FollowUpDraft } from './follow-up-fields';
 
 /** One example for every manual composer — leads and members alike. */
 export const NOTE_PLACEHOLDER =
-  'e.g. Called about renewal — will decide after payday';
+  'Example: Called about renewal. Will decide after payday.';
 
 interface FollowUpComposerProps {
   text: string;

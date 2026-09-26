@@ -356,7 +356,7 @@ export async function requirePaymentGatewayAccess(
   const ctx = await getCurrentAccount(accountId);
   if (!canConfigurePaymentGateway(ctx.role)) {
     throw new ForbiddenError(
-      'This action requires payment gateway configuration access'
+      'You need permission to change payment settings to do this'
     );
   }
   return ctx;

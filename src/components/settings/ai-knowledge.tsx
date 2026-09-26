@@ -58,9 +58,9 @@ export function AiKnowledgeCard({
       const res = await fetch('/api/ai/knowledge');
       const data = await res.json();
       if (res.ok) setDocs(data.documents ?? []);
-      else toast.error(data.error ?? 'Failed to load knowledge base');
+      else toast.error(data.error ?? 'Could not load knowledge base');
     } catch {
-      toast.error('Failed to load knowledge base');
+      toast.error('Could not load knowledge base');
     } finally {
       setLoading(false);
     }
@@ -84,14 +84,14 @@ export function AiKnowledgeCard({
       const res = await fetch(`/api/ai/knowledge/${id}`);
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? 'Failed to open document');
+        toast.error(data.error ?? 'Could not open document');
         return;
       }
       setEditing(id);
       setTitle(data.title ?? '');
       setContent(data.content ?? '');
     } catch {
-      toast.error('Failed to open document');
+      toast.error('Could not open document');
     } finally {
       setPendingDocumentAction(null);
     }
@@ -105,7 +105,7 @@ export function AiKnowledgeCard({
 
   const save = async () => {
     if (!title.trim() || !content.trim()) {
-      toast.error('Title and content are required.');
+      toast.error('Enter a title and content.');
       return;
     }
     setSaving(true);
@@ -130,10 +130,10 @@ export function AiKnowledgeCard({
         cancelEdit();
         await fetchDocs();
       } else {
-        toast.error(data.error ?? 'Failed to save.');
+        toast.error(data.error ?? 'Could not save.');
       }
     } catch {
-      toast.error('Failed to save.');
+      toast.error('Could not save.');
     } finally {
       setSaving(false);
     }
@@ -148,10 +148,10 @@ export function AiKnowledgeCard({
         setDocs((d) => d.filter((x) => x.id !== id));
       } else {
         const data = await res.json();
-        toast.error(data.error ?? 'Failed to remove.');
+        toast.error(data.error ?? 'Could not remove.');
       }
     } catch {
-      toast.error('Failed to remove.');
+      toast.error('Could not remove.');
     } finally {
       setPendingDocumentAction(null);
     }
@@ -163,12 +163,12 @@ export function AiKnowledgeCard({
       const res = await fetch('/api/ai/knowledge/reindex', { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.success) {
-        toast.success(`Reindexed ${data.reindexed} document(s).`);
+        toast.success(`Search updated for ${data.reindexed} documents.`);
       } else {
-        toast.error(data.error ?? 'Reindex failed.');
+        toast.error(data.error ?? 'Could not update search.');
       }
     } catch {
-      toast.error('Reindex failed.');
+      toast.error('Could not update search.');
     } finally {
       setReindexing(false);
     }
@@ -181,12 +181,10 @@ export function AiKnowledgeCard({
           <BookOpen className="text-primary-text h-4 w-4" /> Knowledge base
         </CardTitle>
         <CardDescription>
-          Add FAQs, policies, or product details. The assistant retrieves the
-          relevant pieces when drafting and auto-replying, so it can answer
-          instead of handing off.
+          Add common questions, rules, and plan details. The AI reads these when it replies, so it can answer instead of passing the chat to your team.
           {hasEmbeddingsKey
-            ? ' Semantic search is on (embeddings key set).'
-            : ' Using keyword search — add an embeddings key above for semantic search.'}
+            ? ' Smart search is on.'
+            : ' Using simple word search. Add a search key above for smart search.'}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -250,7 +248,7 @@ export function AiKnowledgeCard({
                     id="kb-title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Returns & refunds policy"
+                    placeholder="Example: Refund rules"
                     disabled={saving}
                   />
                 </div>
@@ -260,7 +258,7 @@ export function AiKnowledgeCard({
                     id="kb-content"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Paste the FAQ answer, policy text, or product details…"
+                    placeholder="Paste the answer, rule, or plan details…"
                     rows={8}
                     disabled={saving}
                   />
@@ -293,14 +291,14 @@ export function AiKnowledgeCard({
                       size="sm"
                       onClick={reindex}
                       disabled={reindexing}
-                      title="Re-embed all documents (e.g. after adding an embeddings key)"
+                      title="Update search for all documents (for example, after adding a search key)"
                     >
                       {reindexing ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       ) : (
                         <RefreshCw className="mr-2 h-4 w-4" />
                       )}
-                      Reindex
+                      Update search
                     </Button>
                   )}
                 </div>

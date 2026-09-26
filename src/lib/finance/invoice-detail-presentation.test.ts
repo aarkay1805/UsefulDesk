@@ -246,7 +246,7 @@ describe('invoice detail presentation', () => {
         accounting_balance: 35,
         requires_refund_review: true,
       }),
-      headline: ['Accounting balance', 35, 'refund_review'],
+      headline: ['Balance', 35, 'refund_review'],
       rows: ['invoice_total', 'balance'],
     },
   ])('covers the $name state', ({ input, headline, rows }) => {
@@ -267,7 +267,7 @@ describe('invoice detail presentation', () => {
       { key: 'invoice_total', label: 'Invoice total', amount: 100 },
       {
         key: 'collection',
-        label: 'Net collected',
+        label: 'Money received',
         amount: 0,
         collectionBreakdown: { gross: 100, refunded: 100 },
       },
@@ -321,7 +321,7 @@ describe('invoice document action presentation', () => {
         ...complete,
         seller_snapshot: null,
       }).download.reason
-    ).toBe('Finish Invoice details in Settings -> Payments first.');
+    ).toBe('Add your invoice details in Settings → Payments first.');
     expect(
       invoiceDocumentActionPresentation({
         ...complete,
@@ -339,7 +339,7 @@ describe('invoice document action presentation', () => {
         ...complete,
         template_ready: false,
       }).share.reason
-    ).toBe('Approve and sync gym_invoice_document in en_US before sending.');
+    ).toBe('Get the invoice message approved by WhatsApp before sending.');
   });
 
   it.each([
@@ -435,8 +435,8 @@ describe('invoice document action presentation', () => {
 
 describe('refund event presentation', () => {
   it.each([
-    ['reopen_balance', 'Balance reopened'],
-    ['reduce_charge', 'Charge reduced'],
+    ['reopen_balance', 'Amount due again'],
+    ['reduce_charge', 'Bill reduced'],
   ] as const)('names the %s accounting outcome', (disposition, label) => {
     expect(
       paymentRefundOutcome(refund({ status: 'processed', disposition }))
@@ -445,16 +445,16 @@ describe('refund event presentation', () => {
 
   it.each([
     [{ status: 'creating' as const }, 'Sending to Razorpay'],
-    [{ status: 'pending' as const }, 'Awaiting Razorpay'],
-    [{ status: 'failed' as const }, 'No balance changed'],
-    [{ status: 'orphaned' as const }, 'Manual review required'],
+    [{ status: 'pending' as const }, 'Waiting for Razorpay'],
+    [{ status: 'failed' as const }, 'Balance not changed'],
+    [{ status: 'orphaned' as const }, 'Needs checking by hand'],
     [
       { status: 'processed' as const, allocation_complete: true },
-      'Classification required',
+      'Needs sorting out',
     ],
     [
       { status: 'processed' as const, allocation_complete: false },
-      'Line targeting required',
+      'Needs splitting across items',
     ],
   ])('describes the non-terminal or unresolved state', (patch, label) => {
     expect(paymentRefundOutcome(refund(patch))).toBe(label);

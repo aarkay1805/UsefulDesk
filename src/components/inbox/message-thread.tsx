@@ -109,7 +109,7 @@ interface MessageThreadProps {
    * The header's avatar/identity block fires the SAME toggle. It used to
    * have a reveal-only handler of its own, which made the most obvious
    * affordance on the surface a one-way door: clicking the avatar again
-   * did nothing, and dismissing meant finding "Hide contact panel" in the
+   * did nothing, and dismissing meant finding "Hide details" in the
    * ⋮ menu. One handler, one mental model.
    */
   contactPanelOpen?: boolean;
@@ -329,7 +329,7 @@ export function MessageThread({
       .find((m) => m.sender_type === 'customer');
 
     if (!lastCustomerMsg)
-      return { expired: true, remaining: 'No customer messages' };
+      return { expired: true, remaining: 'No message from them yet' };
 
     const hoursSince = differenceInHours(
       new Date(),
@@ -338,14 +338,14 @@ export function MessageThread({
     const expired = hoursSince >= 24;
 
     if (expired) {
-      return { expired: true, remaining: 'Expired' };
+      return { expired: true, remaining: 'Over' };
     }
 
     const hoursLeft = 24 - hoursSince;
     const remaining =
       hoursLeft >= 1
-        ? `${Math.floor(hoursLeft)}h remaining`
-        : `${Math.floor(hoursLeft * 60)}m remaining`;
+        ? `${Math.floor(hoursLeft)} hr left`
+        : `${Math.floor(hoursLeft * 60)} min left`;
 
     return { expired, remaining };
   }, [messages]);
@@ -740,7 +740,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
           console.error('Failed to send message:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error(`Could not send: ${reason}`);
           // Mark the optimistic bubble as failed so the user sees what happened
           onUpdateMessage(tempId, { status: 'failed' });
           return;
@@ -752,8 +752,8 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send message:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
+        const reason = err instanceof Error ? err.message : 'no internet connection';
+        toast.error(`Could not send: ${reason}`);
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
@@ -806,7 +806,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = data?.error || `HTTP ${res.status}`;
           console.error('Failed to send media:', reason);
-          toast.error(`Failed to send: ${reason}`);
+          toast.error(`Could not send: ${reason}`);
           onUpdateMessage(tempId, { status: 'failed' });
           // The upload never reached the recipient — GC the orphaned
           // object rather than leaving it in the public bucket forever.
@@ -819,8 +819,8 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send media:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send: ${reason}`);
+        const reason = err instanceof Error ? err.message : 'no internet connection';
+        toast.error(`Could not send: ${reason}`);
         onUpdateMessage(tempId, { status: 'failed' });
         void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
           () => {}
@@ -911,7 +911,7 @@ export function MessageThread({
         if (!res.ok) {
           const reason = payload?.error || `HTTP ${res.status}`;
           console.error('Failed to send template:', reason);
-          toast.error(`Failed to send template: ${reason}`);
+          toast.error(`Could not send the template: ${reason}`);
           onUpdateMessage(tempId, { status: 'failed' });
           return;
         }
@@ -919,8 +919,8 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send template:', err);
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Failed to send template: ${reason}`);
+        const reason = err instanceof Error ? err.message : 'no internet connection';
+        toast.error(`Could not send the template: ${reason}`);
         onUpdateMessage(tempId, { status: 'failed' });
       }
     },
@@ -1026,8 +1026,8 @@ export function MessageThread({
           throw new Error(payload?.error || `HTTP ${res.status}`);
         }
       } catch (err) {
-        const reason = err instanceof Error ? err.message : 'network error';
-        toast.error(`Reaction failed: ${reason}`);
+        const reason = err instanceof Error ? err.message : 'no internet connection';
+        toast.error(`Could not add reaction: ${reason}`);
         setReactions(snapshot);
       }
     },
@@ -1046,7 +1046,7 @@ export function MessageThread({
 
       if (error) {
         console.error('Failed to update assignment:', error);
-        toast.error('Failed to update assignment');
+        toast.error('Could not change who is assigned');
         return;
       }
 
@@ -1073,11 +1073,10 @@ export function MessageThread({
           <MessageSquare className="size-7" />
         </div>
         <h3 className="text-foreground relative mt-5 text-base font-medium">
-          Select a conversation
+          Select a chat
         </h3>
         <p className="text-chat-meta relative mt-1 max-w-sm text-sm">
-          Pick a member or lead on the left to read the thread and reply on
-          WhatsApp.
+          Pick a chat on the left to read and reply on WhatsApp.
         </p>
       </div>
     );
@@ -1118,7 +1117,7 @@ export function MessageThread({
               variant="ghost"
               size="icon-lg"
               onClick={onBack}
-              aria-label="Back to conversations"
+              aria-label="Back to chats"
               className="lg:hidden"
             >
               <ArrowLeft className="size-5" />
@@ -1165,7 +1164,7 @@ export function MessageThread({
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="sm" />}
-              aria-label={`Conversation status. ${currentStatus?.label ?? 'Status'}`}
+              aria-label={`Chat status. ${currentStatus?.label ?? 'Status'}`}
             >
               <span
                 aria-hidden
@@ -1199,7 +1198,7 @@ export function MessageThread({
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="sm" />}
-              aria-label={`Assign conversation. ${assignLabel}`}
+              aria-label={`Assign chat. ${assignLabel}`}
               title={assignLabel}
             >
               <UserPlus className="size-3" />
@@ -1217,7 +1216,7 @@ export function MessageThread({
                   disabled
                   className="text-muted-foreground text-sm"
                 >
-                  No teammates available
+                  No team members available
                 </DropdownMenuItem>
               ) : (
                 profiles.map((p) => {
@@ -1274,7 +1273,7 @@ export function MessageThread({
           <DropdownMenu>
             <DropdownMenuTrigger
               render={<Button variant="ghost" size="icon-lg" />}
-              aria-label="More conversation actions"
+              aria-label="More chat actions"
               title="More"
             >
               <MoreVertical className="size-5" />
@@ -1285,7 +1284,7 @@ export function MessageThread({
             >
               <div className="flex items-center justify-between gap-2 px-2 py-1.5">
                 <span className="text-muted-foreground text-xs">
-                  WhatsApp® session
+                  24-hour reply time
                 </span>
                 <Badge variant={sessionInfo.expired ? 'danger' : 'success'}>
                   <Clock />
@@ -1304,8 +1303,8 @@ export function MessageThread({
                     <PanelRightOpen className="mr-2 size-4" />
                   )}
                   {contactPanelOpen
-                    ? 'Hide contact panel'
-                    : 'Show contact panel'}
+                    ? 'Hide details'
+                    : 'Show details'}
                 </DropdownMenuItem>
               )}
               {onRefresh && (
@@ -1320,7 +1319,7 @@ export function MessageThread({
                       isRefreshing && 'animate-spin'
                     )}
                   />
-                  {isRefreshing ? 'Refreshing…' : 'Refresh conversation'}
+                  {isRefreshing ? 'Refreshing…' : 'Refresh chat'}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -1351,7 +1350,7 @@ export function MessageThread({
                 No messages yet
               </p>
               <p className="text-chat-meta text-xs">
-                Send a template to start the conversation.
+                Send a template to start the chat.
               </p>
             </div>
           ) : (

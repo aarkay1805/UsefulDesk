@@ -79,7 +79,7 @@ function StatusIcon({ status }: { status: Message['status'] }) {
     case 'failed':
       return (
         <XCircle
-          aria-label="Failed to send"
+          aria-label="Could not send"
           className="text-destructive size-3.5"
         />
       );
@@ -254,7 +254,7 @@ function MediaImage({ url, alt }: { url: string; alt: string }) {
     if (url.startsWith('/api/whatsapp/media/')) {
       try {
         const res = await fetch(url);
-        if (!res.ok) throw new Error('Failed to load media');
+        if (!res.ok) throw new Error('Could not load this file');
         const blob = await res.blob();
         const blobUrl = URL.createObjectURL(blob);
         setSrc(blobUrl);
@@ -341,7 +341,7 @@ function ReferralContext({ referral }: { referral: MessageReferral }) {
           rel="noopener noreferrer"
           className="text-primary-text inline-flex items-center gap-1 text-xs hover:underline"
         >
-          View source
+          Open original
           <ExternalLink className="size-3" aria-hidden />
         </a>
       )}

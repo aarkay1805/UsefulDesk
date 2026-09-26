@@ -195,7 +195,7 @@ const PAGE_SIZE_OPTIONS = [10, 20, 25, 30, 40, 50];
 type QuickMemberFilter = keyof MemberDirectoryQuickFilterCounts;
 
 const QUICK_MEMBER_FILTERS: { key: QuickMemberFilter; label: string }[] = [
-  { key: 'churnRisk', label: 'Churn risk' },
+  { key: 'churnRisk', label: 'May leave' },
   { key: 'feesDue', label: 'Fees due' },
   { key: 'followUps', label: 'Follow-ups' },
 ];
@@ -709,7 +709,7 @@ export function MembersTable({
         .maybeSingle();
 
       if (error || !data) {
-        toast.error(getErrorMessage(error, 'Failed to update churn risk'));
+        toast.error(getErrorMessage(error, 'Could not update “May leave”'));
         return;
       }
 
@@ -751,7 +751,7 @@ export function MembersTable({
         .eq('id', contact.id)
         .select('id');
       if (error || !data || data.length === 0) {
-        toast.error(getErrorMessage(error, 'Could not update the trainer'));
+        toast.error(getErrorMessage(error, 'Could not change the trainer'));
         return;
       }
       setRows((current) =>
@@ -761,7 +761,7 @@ export function MembersTable({
             : row
         )
       );
-      toast.success(target ? 'Trainer updated' : 'Trainer cleared');
+      toast.success(target ? 'Trainer updated' : 'Trainer removed');
     } finally {
       setSavingCell(false);
       setEditingCell(null);
@@ -793,7 +793,7 @@ export function MembersTable({
       );
       onChanged();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not update assigned arrival'));
+      toast.error(getErrorMessage(error, 'Could not update usual time'));
     } finally {
       setSavingCell(false);
       setEditingCell(null);
@@ -835,10 +835,10 @@ export function MembersTable({
         toast.success(target ? 'Member assigned' : 'Member unassigned');
       } else {
         await fetchAssignmentRequests();
-        toast.success('Sent to the contact owner for approval');
+        toast.success('Sent to the owner to approve');
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to update assignee'));
+      toast.error(getErrorMessage(error, 'Could not change who it is assigned to'));
     } finally {
       setSavingCell(false);
       setEditingCell(null);
@@ -864,7 +864,7 @@ export function MembersTable({
         target !== null &&
         !staff.some((member) => member.user_id === target)
       ) {
-        toast.error('Choose an active account teammate');
+        toast.error('Choose a team member');
         return false;
       }
 
@@ -877,7 +877,7 @@ export function MembersTable({
         .eq('account_id', accountId)
         .in('id', contactIds);
       if (readError) {
-        toast.error(getErrorMessage(readError, 'Failed to read assignments'));
+        toast.error(getErrorMessage(readError, 'Could not check who members are assigned to'));
         return false;
       }
 
@@ -937,7 +937,7 @@ export function MembersTable({
 
       if (completedCount === 0) {
         toast.error(
-          'No members were updated. Check access or existing assignment requests, then try again.'
+          'No members were changed. You may not have access, or a request may already be waiting. Try again.'
         );
         return false;
       }
@@ -958,7 +958,7 @@ export function MembersTable({
       patch = { trainer_id: target };
     } else {
       if (value !== 'yes' && value !== 'no') {
-        toast.error('Choose Yes or No for churn risk');
+        toast.error('Choose Yes or No for “May leave”');
         return false;
       }
       patch = { churn_risk: value === 'yes' };
@@ -973,7 +973,7 @@ export function MembersTable({
       .in('id', contactIds)
       .select('id');
     if (error) {
-      toast.error(getErrorMessage(error, 'Failed to update members'));
+      toast.error(getErrorMessage(error, 'Could not update members'));
       return false;
     }
 
@@ -1003,7 +1003,7 @@ export function MembersTable({
     );
 
     if (outcome.succeededIds.length === 0) {
-      toast.error('No members were updated. Check your access and try again.');
+      toast.error('No members were changed. You may not have access. Try again.');
       return false;
     }
 
@@ -1023,17 +1023,17 @@ export function MembersTable({
     try {
       if (action === 'cancel') {
         await cancelLeadAssignment(supabase, requestId);
-        toast.success('Request withdrawn');
+        toast.success('Request cancelled');
       } else {
         await respondLeadAssignment(supabase, requestId, action === 'approve');
         toast.success(
-          action === 'approve' ? 'Assignment approved' : 'Assignment rejected'
+          action === 'approve' ? 'Approved' : 'Rejected'
         );
       }
       await fetchAssignmentRequests();
       setAssignmentNonce((nonce) => nonce + 1);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Action failed'));
+      toast.error(getErrorMessage(error, 'Could not do this. Try again.'));
     }
   }
 
@@ -1047,7 +1047,7 @@ export function MembersTable({
     if (request) {
       const fromId = request.from_user_id ?? contact.assigned_to ?? null;
       const targetName = request.to_user_id
-        ? (nameById.get(request.to_user_id) ?? 'Teammate')
+        ? (nameById.get(request.to_user_id) ?? 'Team member')
         : 'Unassign';
       const badge = (
         <TransferPendingDisplay
@@ -1083,7 +1083,7 @@ export function MembersTable({
                   }
                 >
                   <Check className="size-4" />
-                  Approve assignment
+                  Approve
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() =>
@@ -1102,7 +1102,7 @@ export function MembersTable({
                 }
               >
                 <Ban className="size-4" />
-                Withdraw request
+                Cancel request
               </DropdownMenuItem>
             )}
           </DropdownMenuContent>
@@ -1118,7 +1118,7 @@ export function MembersTable({
     }
     return (
       <AssigneeDisplay
-        name={nameById.get(contact.assigned_to) ?? 'Teammate'}
+        name={nameById.get(contact.assigned_to) ?? 'Team member'}
         avatarUrl={avatarById.get(contact.assigned_to)}
       />
     );
@@ -1214,7 +1214,7 @@ export function MembersTable({
                 ) : (
                   <RefreshCw className="size-4" />
                 )}
-                {m.is_trial ? 'Convert to member' : 'Renew membership'}
+                {m.is_trial ? 'Add as member' : 'Renew membership'}
               </DropdownMenuItem>
             )}
             {canRecordPayment && (
@@ -1368,7 +1368,7 @@ export function MembersTable({
       setLoading(false);
     })().catch((error) => {
       if (cancelled || seq !== fetchSeq.current) return;
-      toast.error(getErrorMessage(error, 'Failed to load members'));
+      toast.error(getErrorMessage(error, 'Could not load members'));
       setRows([]);
       setTotalCount(0);
       setQuickFilterCounts(EMPTY_MEMBER_DIRECTORY_QUICK_FILTER_COUNTS);
@@ -1420,7 +1420,7 @@ export function MembersTable({
       page: 0,
       pageSize: null,
     }).catch((error) => {
-      toast.error(getErrorMessage(error, 'Failed to select members'));
+      toast.error(getErrorMessage(error, 'Could not select members'));
       return null;
     });
     if (!result) return;
@@ -1444,7 +1444,7 @@ export function MembersTable({
       page: 0,
       pageSize: null,
     }).catch((error) => {
-      toast.error(getErrorMessage(error, 'Export failed'));
+      toast.error(getErrorMessage(error, 'Could not download'));
       return null;
     });
     if (!result) return;
@@ -1462,8 +1462,8 @@ export function MembersTable({
         'Assigned to',
         'Fee',
         'Fee status',
-        'Churn risk',
-        'Assigned arrival',
+        'May leave',
+        'Usual time',
       ],
       all.map((customer) => {
         const membership = asMembership(customer);
@@ -1475,10 +1475,10 @@ export function MembersTable({
           membership?.plan?.name ?? '',
           membership?.start_date ?? '',
           customer.display_expiry ?? '',
-          membership ? effectiveStatus(membership, today) : 'Service customer',
+          membership ? effectiveStatus(membership, today) : 'Service only',
           customer.contact?.pending_assignee_name ??
             (customer.contact?.assigned_to
-              ? (nameById.get(customer.contact.assigned_to) ?? 'Teammate')
+              ? (nameById.get(customer.contact.assigned_to) ?? 'Team member')
               : 'Unassigned'),
           fmt.money(membership?.fee_amount ?? customer.generic_balance),
           membership?.fee_status ?? '',
@@ -1491,7 +1491,7 @@ export function MembersTable({
     );
     downloadCsv(`members-${today}.csv`, csv);
     toast.success(
-      `Exported ${all.length} member${all.length === 1 ? '' : 's'}`
+      `Downloaded ${all.length} ${all.length === 1 ? 'member' : 'members'}`
     );
   }
 
@@ -1580,7 +1580,7 @@ export function MembersTable({
     setRemindOpen(false);
 
     const parts = [`${sent} reminder${sent === 1 ? '' : 's'} sent`];
-    if (noPhone) parts.push(`${noPhone} without a phone skipped`);
+    if (noPhone) parts.push(`${noPhone} skipped (no phone number)`);
     if (failed) parts.push(`${failed} failed`);
     (sent === 0 && failed ? toast.error : toast.success)(parts.join(' · '));
     setSelected(retainFailedMemberSelection(selection, failedContactIds));
@@ -1638,11 +1638,11 @@ export function MembersTable({
       );
     } else if (deletedCount > 0) {
       toast.success(
-        `${deletedCount} member${deletedCount === 1 ? '' : 's'} deleted · ${failed.length} failed`
+        `${deletedCount} deleted. ${failed.length} could not be deleted.`
       );
     } else {
       toast.error(
-        getErrorMessage(failed[0]?.error, 'Failed to delete members')
+        getErrorMessage(failed[0]?.error, 'Could not delete members')
       );
     }
   }
@@ -1653,7 +1653,7 @@ export function MembersTable({
   ): ActionBlocker | null {
     if (!canAct) {
       return {
-        title: 'Read-only access',
+        title: 'View only',
         description: permissionDescription,
       };
     }
@@ -1661,15 +1661,15 @@ export function MembersTable({
 
     const serviceNoun =
       selectionSummary.serviceOnlyCount === 1
-        ? 'service-only customer has'
-        : 'service-only customers have';
+        ? 'person has'
+        : 'people have';
     const membershipNoun =
-      selectionSummary.membershipCount === 1 ? 'customer' : 'customers';
+      selectionSummary.membershipCount === 1 ? 'member' : 'members';
     return {
-      title: 'Membership customers only',
-      description: `${selectionSummary.serviceOnlyCount} selected ${serviceNoun} no membership. Change the selection before running this membership action.`,
+      title: 'Only for members with a membership',
+      description: `${selectionSummary.serviceOnlyCount} selected ${serviceNoun} only a service, no membership. Remove them from your selection first.`,
       resolution: {
-        label: `Keep ${selectionSummary.membershipCount} membership ${membershipNoun}`,
+        label: `Keep only ${selectionSummary.membershipCount} ${membershipNoun} with a membership`,
         onResolve: () =>
           setSelected((current) => membershipOnlyMemberSelection(current)),
       },
@@ -1847,7 +1847,7 @@ export function MembersTable({
                   onAction={() => setRemindOpen(true)}
                   blocker={membershipBulkActionBlocker(
                     canEdit,
-                    'Only an agent, admin, or owner can send renewal reminders.'
+                    'Only staff, admins, or the owner can send renewal reminders.'
                   )}
                 />
                 <ResolvableAction
@@ -1860,7 +1860,7 @@ export function MembersTable({
                   onAction={() => setPayOpen(true)}
                   blocker={membershipBulkActionBlocker(
                     canEdit,
-                    'Only an agent, admin, or owner can record payments.'
+                    'Only staff, admins, or the owner can record payments.'
                   )}
                 />
                 <ResolvableAction
@@ -1873,7 +1873,7 @@ export function MembersTable({
                   onAction={() => setDeleteOpen(true)}
                   blocker={membershipBulkActionBlocker(
                     canDeleteSelected,
-                    'Only an owner or admin can delete members.'
+                    'Only the owner or an admin can delete members.'
                   )}
                 />
               </>
@@ -2074,7 +2074,7 @@ export function MembersTable({
                             <Checkbox
                               checked={selected.has(customer.contact_id)}
                               onCheckedChange={() => toggleSelect(customer)}
-                              aria-label={`Select ${customer.contact?.name || 'customer'}`}
+                              aria-label={`Select ${customer.contact?.name || 'member'}`}
                             />
                           </div>
                         </TableCell>
@@ -2234,7 +2234,7 @@ export function MembersTable({
           <p className="text-muted-foreground text-xs">
             {recordRange
               ? `Showing ${recordRange.start}–${recordRange.end} of ${totalCount}`
-              : 'No records'}
+              : 'Nothing to show'}
           </p>
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5">
@@ -2242,7 +2242,7 @@ export function MembersTable({
                 id="members-page-size-label"
                 className="text-muted-foreground text-xs whitespace-nowrap"
               >
-                Records per page
+                Rows per page
               </span>
               <Select
                 value={String(pageSize)}
@@ -2360,10 +2360,9 @@ export function MembersTable({
               {selected.size === 1 ? '' : 's'}?
             </DialogTitle>
             <DialogDescription>
-              This permanently removes the selected member profiles,
-              memberships, attendance, and notes. Payment ledger entries are
-              retained without member links for accounting. This action cannot
-              be undone.
+              This deletes their profile, memberships, attendance, and notes.
+              Their payments stay in your records, without their name. You
+              cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -2398,9 +2397,9 @@ export function MembersTable({
           <DialogHeader>
             <DialogTitle>Send renewal reminders</DialogTitle>
             <DialogDescription>
-              Send the WhatsApp renewal template to {selected.size} selected
-              member{selected.size === 1 ? '' : 's'}? Members without a phone
-              number are skipped.
+              Send the WhatsApp renewal reminder to {selected.size}{' '}
+              {selected.size === 1 ? 'member' : 'members'}? Members with no phone
+              number will be skipped.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

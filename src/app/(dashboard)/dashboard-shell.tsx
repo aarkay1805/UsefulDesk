@@ -74,7 +74,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <div className="bg-background flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
+          <p className="text-muted-foreground text-sm">Loading…</p>
         </div>
       </div>
     );
@@ -94,7 +94,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
           <BuildingBranchError />
           <div>
             <h1 className="text-foreground text-lg font-semibold">
-              Branch unavailable
+              Cannot open this branch
             </h1>
             <p className="text-muted-foreground mt-1 text-sm">
               {branchAccessError}
@@ -114,7 +114,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
               loading={retryingBranchAccess}
               disabled={retryingBranchAccess}
             >
-              {retryingBranchAccess ? 'Retrying...' : 'Retry'}
+              {retryingBranchAccess ? 'Trying again…' : 'Try again'}
             </Button>
           </div>
         </div>
@@ -130,7 +130,7 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
       <div className="bg-background flex h-screen items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
+          <p className="text-muted-foreground text-sm">Loading…</p>
         </div>
       </div>
     );

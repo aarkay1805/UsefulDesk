@@ -183,17 +183,17 @@ describe('ImportMembersPreview worksheet', () => {
       />
     );
 
-    expect(screen.getByText('Every row is excluded')).toBeTruthy();
+    expect(screen.getByText('Every row is skipped')).toBeTruthy();
     await user.click(
-      screen.getByRole('button', { name: 'Review excluded rows' })
+      screen.getByRole('button', { name: 'See skipped rows' })
     );
     await user.click(
       within(screen.getByTestId('member-import-mobile')).getByRole('button', {
-        name: 'Review Member 2, source row 2',
+        name: 'Review Member 2, row 2',
       })
     );
     await user.click(
-      screen.getByRole('button', { name: 'Include Member 2, source row 2' })
+      screen.getByRole('button', { name: 'Add back Member 2, row 2' })
     );
     expect(props.onSetDisposition).toHaveBeenCalledWith('sheet:2', 'included');
   });
@@ -204,7 +204,7 @@ describe('ImportMembersPreview worksheet', () => {
     const { rerender, ...props } = renderPreview(rows);
     await user.click(
       within(screen.getByTestId('member-import-mobile')).getByRole('button', {
-        name: 'Review Member 2, source row 2',
+        name: 'Review Member 2, row 2',
       })
     );
     const corrected = resolvePaymentConflict(
@@ -215,9 +215,9 @@ describe('ImportMembersPreview worksheet', () => {
       { plans, dateOrder: 'DMY', today: '2026-07-11' }
     );
     rerender(<ImportMembersPreview {...props} candidates={corrected} />);
-    expect(screen.getByText('All included rows are ready')).toBeTruthy();
-    expect(screen.queryByRole('region', { name: 'Row inspector' })).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Review ready rows' }));
+    expect(screen.getByText('All rows are ready')).toBeTruthy();
+    expect(screen.queryByRole('region', { name: 'Row details' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'See ready rows' }));
     expect(
       within(screen.getByRole('table')).getByText('Member 2')
     ).toBeTruthy();
@@ -228,10 +228,10 @@ describe('ImportMembersPreview worksheet', () => {
     renderPreview(
       candidates([input(2, { phone: '' }), input(3, { name: 'Ready member' })])
     );
-    const table = screen.getByRole('table', { name: 'Import rows' });
+    const table = screen.getByRole('table', { name: 'Rows' });
     expect(within(table).getByText('Member 2')).toBeTruthy();
     expect(within(table).queryByText('Ready member')).toBeNull();
-    expect(screen.getByRole('region', { name: 'Focused issue' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Problem' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Ready 1' }));
     expect(
       within(screen.getByRole('table')).getByText('Ready member')
@@ -245,7 +245,7 @@ describe('ImportMembersPreview worksheet', () => {
   ])('shows %s honestly in the row inspector', (phone, display) => {
     renderPreview(candidates([input(2, { phone })]));
     expect(
-      within(screen.getByRole('region', { name: 'Row inspector' })).getByText(
+      within(screen.getByRole('region', { name: 'Row details' })).getByText(
         display
       )
     ).toBeTruthy();
@@ -275,14 +275,14 @@ describe('ImportMembersPreview worksheet', () => {
         input(3, { phone: '+15550000044', name: 'Neha Rao' }),
       ])
     );
-    const issue = screen.getByRole('region', { name: 'Focused issue' });
+    const issue = screen.getByRole('region', { name: 'Problem' });
     const phones = within(issue).getAllByRole('textbox');
     expect(phones).toHaveLength(2);
     await user.clear(phones[1]);
     await user.type(phones[1], '5550000055');
     await user.click(
       within(
-        screen.getByRole('group', { name: 'Resolution actions' })
+        screen.getByRole('group', { name: 'Fix options' })
       ).getByRole('button', { name: 'Save phone changes' })
     );
     expect(onPatch).toHaveBeenCalledWith('sheet:3', { phone: '+15550000055' });
@@ -299,24 +299,24 @@ describe('ImportMembersPreview worksheet', () => {
     ).toBeTruthy();
     expect(
       screen
-        .getByRole('button', { name: 'Missing phones 1' })
+        .getByRole('button', { name: 'No phone number 1' })
         .getAttribute('aria-expanded')
     ).toBe('true');
-    await user.click(screen.getByRole('button', { name: 'Invalid phones 1' }));
+    await user.click(screen.getByRole('button', { name: 'Wrong phone numbers 1' }));
     expect(
       screen
-        .getByRole('button', { name: 'Missing phones 1' })
+        .getByRole('button', { name: 'No phone number 1' })
         .getAttribute('aria-expanded')
     ).toBe('false');
     expect(
       screen
-        .getByRole('button', { name: 'Invalid phones 1' })
+        .getByRole('button', { name: 'Wrong phone numbers 1' })
         .getAttribute('aria-expanded')
     ).toBe('true');
     expect(
-      screen.getByRole('heading', { name: 'Correct invalid phone number' })
+      screen.getByRole('heading', { name: 'Fix wrong phone number' })
     ).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Missing phones 1' }));
+    await user.click(screen.getByRole('button', { name: 'No phone number 1' }));
     expect(
       screen.getByRole('heading', { name: 'Add missing phone number' })
     ).toBeTruthy();
@@ -327,39 +327,39 @@ describe('ImportMembersPreview worksheet', () => {
     renderPreview(
       candidates([input(2, { phone: '' }), input(3, { phone: 'not-a-phone' })])
     );
-    await user.click(screen.getByRole('button', { name: 'Missing phones 1' }));
+    await user.click(screen.getByRole('button', { name: 'No phone number 1' }));
     expect(
       screen
-        .getByRole('button', { name: 'Missing phones 1' })
+        .getByRole('button', { name: 'No phone number 1' })
         .getAttribute('aria-expanded')
     ).toBe('false');
     expect(
       screen
-        .getByRole('button', { name: 'Invalid phones 1' })
+        .getByRole('button', { name: 'Wrong phone numbers 1' })
         .getAttribute('aria-expanded')
     ).toBe('false');
     expect(screen.queryByRole('table')).toBeNull();
     const inspector = within(
-      screen.getByRole('region', { name: 'Row inspector' })
+      screen.getByRole('region', { name: 'Row details' })
     );
-    expect(inspector.getByText('Choose a row to review')).toBeTruthy();
+    expect(inspector.getByText('Choose a row to check')).toBeTruthy();
     expect(
       inspector.getByText(
-        'Open a group on the left, then choose a row. This panel shows what needs fixing and how to fix it.'
+        'Open a group on the left and choose a row. You will see what is wrong and how to fix it here.'
       )
     ).toBeTruthy();
     expect(inspector.queryByRole('textbox')).toBeNull();
     expect(
-      inspector.queryByRole('group', { name: 'Resolution actions' })
+      inspector.queryByRole('group', { name: 'Fix options' })
     ).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Missing phones 1' }));
+    await user.click(screen.getByRole('button', { name: 'No phone number 1' }));
     expect(
       within(screen.getByRole('table')).getByText('Member 2')
     ).toBeTruthy();
     expect(
       screen.getByRole('textbox', { name: 'Phone for Member 2' })
     ).toBeTruthy();
-    expect(screen.queryByText('Choose a row to review')).toBeNull();
+    expect(screen.queryByText('Choose a row to check')).toBeNull();
   });
 
   it('counts each row once per issue type and focuses that type on multi-issue rows', async () => {
@@ -386,22 +386,22 @@ describe('ImportMembersPreview worksheet', () => {
     );
     const table = screen.getByRole('table');
     expect(
-      screen.getByRole('button', { name: 'Billing issues 2' })
+      screen.getByRole('button', { name: 'Payment problems 2' })
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Needs review 5' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Needs fixing 5' })).toBeTruthy();
     expect(within(table).getByText('Member 2')).toBeTruthy();
     expect(within(table).getByText('Member 3')).toBeTruthy();
     expect(within(table).queryByText('Member 4')).toBeNull();
     await user.click(
       within(table).getByRole('button', {
-        name: 'Review Member 3, source row 3',
+        name: 'Review Member 3, row 3',
       })
     );
     expect(
-      screen.getByRole('combobox', { name: 'Resolve payment for source row 3' })
+      screen.getByRole('combobox', { name: 'Fix payment for row 3' })
     ).toBeTruthy();
     await user.click(
-      screen.getByRole('button', { name: 'Duplicate phones 2' })
+      screen.getByRole('button', { name: 'Repeated phone numbers 2' })
     );
     expect(
       within(screen.getByRole('table')).getByText('Member 3')
@@ -420,7 +420,7 @@ describe('ImportMembersPreview worksheet', () => {
     ).toBeTruthy();
     expect(
       screen.queryByRole('combobox', {
-        name: 'Resolve payment for source row 3',
+        name: 'Fix payment for row 3',
       })
     ).toBeNull();
   });
@@ -444,11 +444,11 @@ describe('ImportMembersPreview worksheet', () => {
     await user.type(screen.getByRole('searchbox'), 'Member 53');
     expect(
       screen
-        .getByRole('button', { name: 'Plan matching 1' })
+        .getByRole('button', { name: 'Match plans 1' })
         .getAttribute('aria-expanded')
     ).toBe('true');
-    await user.click(screen.getByRole('button', { name: 'Plan matching 1' }));
-    await user.click(screen.getByRole('button', { name: 'Plan matching 1' }));
+    await user.click(screen.getByRole('button', { name: 'Match plans 1' }));
+    await user.click(screen.getByRole('button', { name: 'Match plans 1' }));
     expect((screen.getByRole('searchbox') as HTMLInputElement).value).toBe(
       'Member 53'
     );
@@ -460,7 +460,7 @@ describe('ImportMembersPreview worksheet', () => {
     ).toBeNull();
     screen.getByRole('combobox', { name: 'Map Legacy Gold · Monthly' }).focus();
     await user.keyboard('{ArrowDown}{Enter}');
-    await user.click(screen.getByRole('button', { name: 'Apply to 2 rows' }));
+    await user.click(screen.getByRole('button', { name: 'Use for 2 rows' }));
     expect(onResolveGroupedPlan).toHaveBeenCalledWith(
       ['sheet:53', 'sheet:55'],
       {
@@ -482,7 +482,7 @@ describe('ImportMembersPreview worksheet', () => {
     ]);
     const props = renderPreview(rows);
     expect(
-      screen.getByRole('button', { name: 'Billing issues 1' })
+      screen.getByRole('button', { name: 'Payment problems 1' })
     ).toBeTruthy();
     const corrected = resolvePaymentConflict(
       rows,
@@ -497,16 +497,16 @@ describe('ImportMembersPreview worksheet', () => {
       }
     );
     props.rerender(<ImportMembersPreview {...props} candidates={corrected} />);
-    expect(screen.queryByRole('button', { name: /Billing issues/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Payment problems/ })).toBeNull();
     expect(
       screen
-        .getByRole('button', { name: 'Duplicate phones 2' })
+        .getByRole('button', { name: 'Repeated phone numbers 2' })
         .getAttribute('aria-expanded')
     ).toBe('true');
     expect(
       screen.getByRole('textbox', { name: 'Phone for Member 2' })
     ).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Needs review 2' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Needs fixing 2' })).toBeTruthy();
   });
 
   it('finds a problem beyond the first unfiltered page and recovers from empty search', async () => {
@@ -518,7 +518,7 @@ describe('ImportMembersPreview worksheet', () => {
       screen.getByRole('textbox', { name: 'Phone for Member 52' })
     ).toBeTruthy();
     await user.type(screen.getByRole('searchbox'), 'missing-search-value');
-    expect(screen.queryByRole('region', { name: 'Row inspector' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Row details' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Show all rows' }));
     expect(
       within(screen.getByRole('table')).getByText('Member 2')
@@ -540,7 +540,7 @@ describe('ImportMembersPreview worksheet', () => {
     screen.getByRole('combobox', { name: 'Map Legacy Gold · Monthly' }).focus();
     await user.keyboard('{ArrowDown}{Enter}');
     expect(onResolveGroupedPlan).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Apply to 2 rows' }));
+    await user.click(screen.getByRole('button', { name: 'Use for 2 rows' }));
     expect(onResolveGroupedPlan).toHaveBeenCalledWith(['sheet:2', 'sheet:3'], {
       planId: 'plan-gold',
       pricingOptionId: 'gold-month',
@@ -555,22 +555,22 @@ describe('ImportMembersPreview worksheet', () => {
       ])
     );
     expect(
-      within(screen.getByRole('region', { name: 'Focused issue' })).getByText(
+      within(screen.getByRole('region', { name: 'Problem' })).getByText(
         '$600'
       )
     ).toBeTruthy();
     screen
-      .getByRole('combobox', { name: 'Resolve payment for source row 2' })
+      .getByRole('combobox', { name: 'Fix payment for row 2' })
       .focus();
     await user.keyboard('{ArrowDown}{Enter}');
-    const preview = screen.getByRole('region', { name: 'After correction' });
+    const preview = screen.getByRole('region', { name: 'After fixing' });
     expect(within(preview).getByText('$1200')).toBeTruthy();
     expect(within(preview).getByText('$700')).toBeTruthy();
     expect(within(preview).getByText('$500')).toBeTruthy();
     expect(onResolvePayment).not.toHaveBeenCalled();
     const save = within(
-      screen.getByRole('group', { name: 'Resolution actions' })
-    ).getByRole('button', { name: 'Save payment correction' });
+      screen.getByRole('group', { name: 'Fix options' })
+    ).getByRole('button', { name: 'Save' });
     expect(save.closest('[data-slot="scroll-area-viewport"]')).toBeNull();
     await user.click(save);
     expect(onResolvePayment).toHaveBeenCalledWith('sheet:2', 'manual', {
@@ -589,15 +589,15 @@ describe('ImportMembersPreview worksheet', () => {
     const props = renderPreview(rows);
     await user.click(
       within(screen.getByRole('table')).getByRole('button', {
-        name: 'Review Member 51, source row 51',
+        name: 'Review Member 51, row 51',
       })
     );
     screen
-      .getByRole('combobox', { name: 'Resolve payment for source row 51' })
+      .getByRole('combobox', { name: 'Fix payment for row 51' })
       .focus();
     await user.keyboard('{ArrowDown}{Enter}');
     await user.click(
-      screen.getByRole('button', { name: 'Save payment correction' })
+      screen.getByRole('button', { name: 'Save' })
     );
     const corrected = resolvePaymentConflict(
       rows,
@@ -614,7 +614,7 @@ describe('ImportMembersPreview worksheet', () => {
     props.rerender(<ImportMembersPreview {...props} candidates={corrected} />);
     expect(
       screen.getByRole('combobox', {
-        name: 'Resolve payment for source row 52',
+        name: 'Fix payment for row 52',
       })
     ).toBeTruthy();
     expect(
@@ -630,16 +630,16 @@ describe('ImportMembersPreview worksheet', () => {
       ])
     );
     screen
-      .getByRole('combobox', { name: 'Resolve payment for source row 2' })
+      .getByRole('combobox', { name: 'Fix payment for row 2' })
       .focus();
     await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}{Enter}');
-    const paid = screen.getByRole('textbox', { name: 'Corrected paid' });
+    const paid = screen.getByRole('textbox', { name: 'Right paid amount' });
     await user.clear(paid);
     await user.type(paid, 'unknown');
     expect(
       (
         screen.getByRole('button', {
-          name: 'Save payment correction',
+          name: 'Save',
         }) as HTMLButtonElement
       ).disabled
     ).toBe(true);
@@ -651,7 +651,7 @@ describe('ImportMembersPreview worksheet', () => {
       candidates([input(2, { status: 'ALIEN' })])
     );
     const status = screen.getByRole('textbox', {
-      name: 'Status for source row 2',
+      name: 'Status for row 2',
     });
     fireEvent.change(status, { target: { value: 'Active' } });
     fireEvent.blur(status);
@@ -684,7 +684,7 @@ describe('ImportMembersPreview worksheet', () => {
     }));
     const { onResolveMembershipTerm } = renderPreview(rows);
     const choice = screen.getByRole('combobox', {
-      name: 'Choose current membership term for LEG-SAME',
+      name: 'Choose current membership for LEG-SAME',
     });
     choice.focus();
     await userEvent.setup().keyboard('{ArrowDown}{Enter}');
@@ -697,7 +697,7 @@ describe('ImportMembersPreview worksheet', () => {
     });
     expect(
       screen.getByText(
-        'This row already has a saved import attempt. Its details are locked so a retry can use the exact recorded payload.'
+        'We already tried to import this row. Its details are locked so we can try again with the same details.'
       )
     ).toBeTruthy();
     expect(
@@ -718,7 +718,7 @@ describe('ImportMembersPreview worksheet', () => {
     );
     await user.click(
       screen.getByRole('button', {
-        name: 'Record membership balance write-off',
+        name: 'Mark balance as not collected',
       })
     );
     expect(onResolveCancelledDebt).toHaveBeenCalledWith('sheet:2');
@@ -731,10 +731,10 @@ describe('ImportMembersPreview worksheet', () => {
       ])
     );
     expect(
-      screen.getByRole('textbox', { name: 'List price for source row 2' })
+      screen.getByRole('textbox', { name: 'Normal price for row 2' })
     ).toBeTruthy();
     const discount = screen.getByRole('textbox', {
-      name: 'Discount for source row 2',
+      name: 'Discount for row 2',
     });
     fireEvent.change(discount, { target: { value: '300' } });
     fireEvent.blur(discount);
@@ -759,16 +759,16 @@ describe('ImportMembersPreview worksheet', () => {
       ),
       { catalogItems: services }
     );
-    const inspector = screen.getByRole('region', { name: 'Row inspector' });
+    const inspector = screen.getByRole('region', { name: 'Row details' });
     expect(within(inspector).getByText('Service')).toBeTruthy();
     expect(within(inspector).getByText('$3500')).toBeTruthy();
     expect(within(inspector).getByText('2026-09-01')).toBeTruthy();
-    const actions = screen.getByRole('group', { name: 'Resolution actions' });
+    const actions = screen.getByRole('group', { name: 'Fix options' });
     expect(
       within(actions)
         .getAllByRole('button')
         .map((button) => button.textContent)
-    ).toEqual(['Edit phone', 'Exclude this row']);
+    ).toEqual(['Edit phone', 'Skip this row']);
   });
 
   it.each(['membership-history', 'summary-row', 'existing-member'] as const)(
@@ -783,10 +783,10 @@ describe('ImportMembersPreview worksheet', () => {
       };
       renderPreview(rows);
       expect(
-        screen.getByRole('region', { name: 'Row inspector' })
+        screen.getByRole('region', { name: 'Row details' })
       ).toBeTruthy();
       expect(
-        screen.queryByRole('group', { name: 'Resolution actions' })
+        screen.queryByRole('group', { name: 'Fix options' })
       ).toBeNull();
       expect(screen.queryByRole('button', { name: /^Include / })).toBeNull();
     }
@@ -802,10 +802,10 @@ describe('ImportMembersPreview worksheet', () => {
       isReady: false,
     };
     const { onSetDisposition } = renderPreview(rows);
-    const actions = screen.getByRole('group', { name: 'Resolution actions' });
+    const actions = screen.getByRole('group', { name: 'Fix options' });
     const buttons = within(actions).getAllByRole('button');
     expect(buttons).toHaveLength(1);
-    expect(buttons[0].textContent).toBe('Include this row');
+    expect(buttons[0].textContent).toBe('Add this row back');
     await user.click(buttons[0]);
     expect(onSetDisposition).toHaveBeenCalledWith('sheet:2', 'included');
   });
@@ -823,14 +823,14 @@ describe('ImportMembersPreview worksheet', () => {
       ])
     );
     expect(
-      screen.getByText(/No active service option matches this row/)
+      screen.getByText(/No service matches this row/)
     ).toBeTruthy();
-    const actions = screen.getByRole('group', { name: 'Resolution actions' });
+    const actions = screen.getByRole('group', { name: 'Fix options' });
     expect(
       within(actions)
         .getAllByRole('button')
         .map((button) => button.textContent)
-    ).toEqual(['Edit phone', 'Exclude this row']);
+    ).toEqual(['Edit phone', 'Skip this row']);
   });
 
   it('offers corrections for an invalid service purchase total', () => {
@@ -850,7 +850,7 @@ describe('ImportMembersPreview worksheet', () => {
       { catalogItems: services }
     );
     const total = screen.getByRole('textbox', {
-      name: 'Row total for source row 2',
+      name: 'Row total for row 2',
     });
     fireEvent.change(total, { target: { value: '4000' } });
     fireEvent.blur(total);
@@ -864,10 +864,10 @@ describe('ImportMembersPreview worksheet', () => {
     expect(notice).toBeTruthy();
     renderPreview(rows);
     expect(
-      screen.getByRole('heading', { name: 'Import notices' })
+      screen.getByRole('heading', { name: 'Notes' })
     ).toBeTruthy();
     expect(screen.queryByText(notice!.explanation)).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Import notices' }));
+    await user.click(screen.getByRole('button', { name: 'Notes' }));
     expect(screen.getByText(notice!.explanation)).toBeTruthy();
   });
 
@@ -883,12 +883,12 @@ describe('ImportMembersPreview worksheet', () => {
     renderPreview(rows);
     await user.type(screen.getByRole('searchbox'), 'Member 3');
     await user.click(screen.getByRole('button', { name: 'Clear search' }));
-    await user.click(screen.getByRole('button', { name: /^Excluded/ }));
+    await user.click(screen.getByRole('button', { name: /^Skipped/ }));
     expect(
       within(screen.getByRole('table')).getByText('=unsafe formula')
     ).toBeTruthy();
     await user.click(
-      screen.getByRole('button', { name: 'Download excluded rows' })
+      screen.getByRole('button', { name: 'Download skipped rows' })
     );
     expect(downloadCsv).toHaveBeenCalledWith(
       'member-import-excluded.csv',
@@ -896,7 +896,7 @@ describe('ImportMembersPreview worksheet', () => {
     );
     expect(downloadCsv).toHaveBeenCalledWith(
       'member-import-excluded.csv',
-      expect.stringContaining('Excluded by you')
+      expect.stringContaining('Skipped by you')
     );
   });
 });

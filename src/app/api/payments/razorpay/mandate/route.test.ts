@@ -121,7 +121,7 @@ describe('Razorpay mandate route safeguards', () => {
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: 'Auto-pay can be set up only for an active, non-trial membership',
+      error: 'AutoPay can be set up only for an active, non-trial membership',
     });
     expect(mocks.getConnection).not.toHaveBeenCalled();
   });

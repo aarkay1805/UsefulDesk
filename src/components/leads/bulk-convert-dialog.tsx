@@ -112,7 +112,7 @@ export function BulkConvertDialog({
   async function handleConvert() {
     if (!plan || !option || count === 0) return;
     if (!accountId || !user) {
-      toast.error('Not authenticated');
+      toast.error('Your login has expired. Log in again.');
       return;
     }
     if (!startDate) {
@@ -157,14 +157,14 @@ export function BulkConvertDialog({
 
     if (created) {
       const parts = [
-        `${created} lead${created === 1 ? '' : 's'} converted to member${created === 1 ? '' : 's'}`,
+        `${created} added as ${created === 1 ? 'member' : 'members'}`,
       ];
-      if (skipped) parts.push(`${skipped} already a member`);
+      if (skipped) parts.push(`${skipped} already members`);
       if (failed) parts.push(`${failed} failed`);
       toast.success(parts.join(' · '));
     } else {
       toast.error(
-        skipped ? 'Those leads are already members' : 'Failed to convert leads'
+        skipped ? 'They are already members' : 'Could not add them as members'
       );
     }
 
@@ -180,12 +180,13 @@ export function BulkConvertDialog({
       <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-popover-foreground">
-            Convert {count} {count === 1 ? 'lead' : 'leads'} to{' '}
+            Add {count} {count === 1 ? 'enquiry' : 'enquiries'} as{' '}
             {count === 1 ? 'a member' : 'members'}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Start a membership for {count === 1 ? 'this lead' : 'these leads'}.
-            They move to the Members list.
+            Start a membership for{' '}
+            {count === 1 ? 'this enquiry' : 'these enquiries'}. They will move
+            to the Members list.
           </DialogDescription>
         </DialogHeader>
 
@@ -241,20 +242,19 @@ export function BulkConvertDialog({
             </DropdownMenu>
             {plans.length === 0 && (
               <p className="text-muted-foreground text-xs">
-                No active plans. Create one in Settings → Membership plans.
+                No plans yet. Add a plan in Settings → Membership plans.
               </p>
             )}
             {plan && options.length === 0 && (
               <p className="text-destructive text-xs">
-                This plan has no active billing option — add one in Settings →
-                Membership plans.
+                This plan has no price yet. Add a price in Settings → Membership plans.
               </p>
             )}
           </div>
 
           {plan && options.length > 1 && (
             <div className="space-y-2">
-              <Label className="text-popover-foreground">Billing option</Label>
+              <Label className="text-popover-foreground">Price</Label>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={<button type="button" className={TRIGGER_CLASS} />}
@@ -307,7 +307,7 @@ export function BulkConvertDialog({
           </Button>
           <Button onClick={handleConvert} disabled={!plan || !option || saving}>
             {saving && <Loader2 className="size-4 animate-spin" />}
-            Convert
+            Add as members
           </Button>
         </DialogFooter>
       </DialogContent>

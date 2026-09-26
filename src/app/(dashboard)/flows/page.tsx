@@ -110,7 +110,7 @@ export default function FlowsPage() {
           fetch('/api/flows/templates'),
         ]);
         if (!flowsRes.ok) {
-          throw new Error(`Failed to load flows: ${flowsRes.status}`);
+          throw new Error(`Could not load flows: ${flowsRes.status}`);
         }
         const flowsJson = (await flowsRes.json()) as { flows: FlowRow[] };
         if (!cancelled) setFlows(flowsJson.flows ?? []);
@@ -125,7 +125,7 @@ export default function FlowsPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error("Couldn't load flows.");
+          toast.error("Could not load flows.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -150,13 +150,13 @@ export default function FlowsPage() {
           trigger_config: { keywords: [] },
         }),
       });
-      if (!res.ok) throw new Error(`Create failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Could not create (error ${res.status})`);
       const json = (await res.json()) as { flow: FlowRow };
       navigate(`/flows/${json.flow.id}`);
       navigationStarted = true;
     } catch (err) {
       console.error(err);
-      toast.error("Couldn't create flow.");
+      toast.error("Could not create flow.");
     } finally {
       if (!navigationStarted) setCreating(false);
     }
@@ -174,13 +174,13 @@ export default function FlowsPage() {
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json.error ?? `Clone failed: ${res.status}`);
+        throw new Error(json.error ?? `Could not copy (error ${res.status})`);
       }
       const json = (await res.json()) as { flow: FlowRow };
       navigate(`/flows/${json.flow.id}`);
       navigationStarted = true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Clone failed';
+      const msg = err instanceof Error ? err.message : 'Could not copy';
       toast.error(msg);
     } finally {
       if (!navigationStarted) {
@@ -192,18 +192,18 @@ export default function FlowsPage() {
 
   async function handleDelete(flow: FlowRow) {
     const yes = window.confirm(
-      `Delete "${flow.name}"? Any active runs will end immediately.`
+      `Delete "${flow.name}"? Chats running this flow will stop now.`
     );
     if (!yes) return;
     setDeletingFlowId(flow.id);
     try {
       const res = await fetch(`/api/flows/${flow.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      if (!res.ok) throw new Error(`Could not delete (error ${res.status})`);
       setFlows((prev) => prev.filter((f) => f.id !== flow.id));
       toast.success('Flow deleted.');
     } catch (err) {
       console.error(err);
-      toast.error("Couldn't delete flow.");
+      toast.error("Could not delete flow.");
     } finally {
       setDeletingFlowId(null);
     }
@@ -228,8 +228,7 @@ export default function FlowsPage() {
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
-            Build branching, button-driven WhatsApp conversations. Useful for
-            menus, FAQs, and triage before a human steps in.
+            Build WhatsApp chats where people tap buttons to get answers. Good for menus and common questions before your team replies.
           </p>
         </div>
         <GatedButton
@@ -290,14 +289,14 @@ export default function FlowsPage() {
           <DialogHeader>
             <DialogTitle>Create a new flow</DialogTitle>
             <DialogDescription className="text-muted-foreground">
-              Start from a template or build from scratch.
+              Start from a ready-made flow, or build your own.
             </DialogDescription>
           </DialogHeader>
 
           {templates.length > 0 && (
             <div className="space-y-3">
               <p className="text-muted-foreground text-xs tracking-wide uppercase">
-                Start from a template
+                Start from a ready-made flow
               </p>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {templates.map((t) => {
@@ -342,7 +341,7 @@ export default function FlowsPage() {
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="e.g. Welcome menu"
+              placeholder="Example: Welcome menu"
               className="bg-muted"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleCreate();
@@ -388,9 +387,7 @@ function EmptyState({
         No flows yet
       </h2>
       <p className="text-muted-foreground mt-1 max-w-md text-sm">
-        Build your first conversation — a welcome menu, an order lookup, an FAQ
-        bot. Customers tap buttons; the bot routes them to the right answer (or
-        the right agent).
+        Build your first flow, like a welcome menu or common questions. People tap buttons and get the right answer, or are passed to your team.
       </p>
       <GatedButton
         canAct={canCreate}
@@ -494,11 +491,11 @@ function describeTrigger(flow: FlowRow): string {
     const keywords = Array.isArray(flow.trigger_config.keywords)
       ? (flow.trigger_config.keywords as string[])
       : [];
-    if (keywords.length === 0) return 'Triggers on keyword (none set)';
-    return `Triggers on: ${keywords.join(', ')}`;
+    if (keywords.length === 0) return 'Starts on a word (none set)';
+    return `Starts when a message has: ${keywords.join(', ')}`;
   }
   if (flow.trigger_type === 'first_inbound_message') {
-    return "Triggers on a contact's first-ever inbound message";
+    return 'Starts on a person’s first message';
   }
-  return 'Manual trigger';
+  return 'Starts by hand';
 }

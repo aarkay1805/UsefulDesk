@@ -82,26 +82,26 @@ type IssueCode = MemberImportCandidate['issues'][number]['code'];
  */
 const ISSUE_TITLES: Partial<Record<IssueCode, string>> = {
   'missing-phone': 'Add missing phone number',
-  'invalid-phone': 'Correct invalid phone number',
-  'shared-phone': 'Phone number used by multiple members',
-  'plan-needs-resolution': 'Match plan and billing option',
-  'pricing-option-needs-resolution': 'Match plan and billing option',
-  'pricing-mismatch': 'Correct membership pricing',
+  'invalid-phone': 'Fix wrong phone number',
+  'shared-phone': 'Same phone number for many members',
+  'plan-needs-resolution': 'Match plan and price',
+  'pricing-option-needs-resolution': 'Match plan and price',
+  'pricing-mismatch': 'Fix membership price',
   'offering-needs-classification': 'Choose plan or service',
   'service-needs-resolution': 'Match service, option, and trainer',
-  'service-values-invalid': 'Correct service dates or price',
-  'duplicate-service': 'Resolve duplicate service purchase',
-  'purchase-total-mismatch': 'Correct purchase total',
-  'payment-conflict': 'Payment figures conflict',
+  'service-values-invalid': 'Fix service dates or price',
+  'duplicate-service': 'Same service added twice',
+  'purchase-total-mismatch': 'Fix total amount',
+  'payment-conflict': 'Payment amounts do not add up',
   'existing-contact': 'Choose which contact details to keep',
-  'invalid-membership-values': 'Correct membership details',
-  'expiry-not-after-start': 'Correct membership dates',
+  'invalid-membership-values': 'Fix membership details',
+  'expiry-not-after-start': 'Fix membership dates',
   'trainer-unmatched': 'Trainer not found',
-  'assignee-unmatched': 'Teammate not found',
-  'churn-risk-unmatched': 'Churn risk not recognised',
-  'profile-value-invalid': 'Height or weight not readable',
-  'cancelled-dues-written-off': 'Cancelled member has unpaid balance',
-  'membership-term-needs-resolution': 'Choose the current membership term',
+  'assignee-unmatched': 'Team member not found',
+  'churn-risk-unmatched': '“May leave” value not recognised',
+  'profile-value-invalid': 'Could not read height or weight',
+  'cancelled-dues-written-off': 'Cancelled member still owes money',
+  'membership-term-needs-resolution': 'Choose the current membership',
 };
 
 interface ImportMembersPreviewProps {
@@ -168,13 +168,13 @@ interface IssueSection {
 }
 
 const ISSUE_SECTION_LABELS: Partial<Record<IssueCode, string>> = {
-  'missing-phone': 'Missing phones',
-  'invalid-phone': 'Invalid phones',
-  'shared-phone': 'Duplicate phones',
+  'missing-phone': 'No phone number',
+  'invalid-phone': 'Wrong phone numbers',
+  'shared-phone': 'Repeated phone numbers',
   'offering-needs-classification': 'Plan or service',
-  'service-needs-resolution': 'Service matching',
+  'service-needs-resolution': 'Match services',
   'service-values-invalid': 'Service details',
-  'duplicate-service': 'Duplicate services',
+  'duplicate-service': 'Repeated services',
   'existing-contact': 'Contact details',
   'membership-term-needs-resolution': 'Membership history',
   'cancelled-dues-written-off': 'Cancelled memberships',
@@ -197,9 +197,9 @@ function issueSections(groups: IssueGroup[]): IssueSection[] {
     ].includes(group.code);
     const key = billing ? 'billing' : plan ? 'plans' : group.code;
     const title = billing
-      ? 'Billing issues'
+      ? 'Payment problems'
       : plan
-        ? 'Plan matching'
+        ? 'Match plans'
         : (ISSUE_SECTION_LABELS[group.code] ?? group.title);
     let section = sections.get(key);
     if (!section) {
@@ -237,7 +237,7 @@ function unresolvedGroups(candidates: MemberImportCandidate[]): IssueGroup[] {
         groups.set(issue.groupKey, {
           key: issue.groupKey,
           code: issue.code,
-          title: ISSUE_TITLES[issue.code] ?? 'Correct membership details',
+          title: ISSUE_TITLES[issue.code] ?? 'Fix membership details',
           explanation: issue.explanation,
           nextAction: issue.nextAction,
           candidates: [candidate],
@@ -341,11 +341,11 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
           title:
             detailEditor === 'phone'
               ? 'Edit phone'
-              : 'Change plan and billing option',
+              : 'Change plan and price',
           explanation:
             detailEditor === 'phone'
               ? 'Use this member’s own phone number.'
-              : 'Choose the plan and billing option for this row.',
+              : 'Choose the plan and price for this row.',
           nextAction: '',
           candidates: [selected],
         }
@@ -408,7 +408,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
       'member-import-excluded.csv',
       toCsv(
         [
-          'Source row',
+          'Row',
           'Member ID',
           'Name',
           'Phone',
@@ -432,7 +432,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             safe(row.originalValues.amountPaid),
             safe(effectiveBalance(row.originalValues)),
             row.issues.map((issue) => issue.explanation).join(' ') ||
-              'Excluded by you',
+              'Skipped by you',
           ])
       )
     );
@@ -476,7 +476,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             reviewingIssues && 'max-h-[min(24rem,45dvh)]'
           )}
           className="min-w-[780px] table-fixed"
-          aria-label="Import rows"
+          aria-label="Rows"
           data-testid="member-import-desktop"
         >
           <TableHeader>
@@ -502,7 +502,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                 <TableCell className="py-3 pl-6">
                   <MemberIdentity
                     name={candidateName(row)}
-                    secondary={`Source row ${row.sourceRow}`}
+                    secondary={`Row ${row.sourceRow}`}
                   />
                 </TableCell>
                 <TableCell>
@@ -523,7 +523,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      aria-label={`Review ${candidateName(row)}, source row ${row.sourceRow}`}
+                      aria-label={`Review ${candidateName(row)}, row ${row.sourceRow}`}
                       aria-pressed={selected?.sourceKey === row.sourceKey}
                       onClick={(event) => {
                         event.stopPropagation();
@@ -559,7 +559,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                         ? fmt.phone(row.draftValues.phone)
                         : 'No phone'
                     }
-                    meta={`Source row ${row.sourceRow}`}
+                    meta={`Row ${row.sourceRow}`}
                   />
                   <CandidateOffering candidate={row} wrap />
                   <dl className="grid grid-cols-3 gap-3 text-sm">
@@ -586,7 +586,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => selectRow(row)}
-                      aria-label={`Review ${candidateName(row)}, source row ${row.sourceRow}`}
+                      aria-label={`Review ${candidateName(row)}, row ${row.sourceRow}`}
                     >
                       Review row
                     </Button>
@@ -632,7 +632,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
         <ScrollArea
           key={selected.sourceKey}
           className="min-h-0 flex-1"
-          aria-label="Resolution details"
+          aria-label="How to fix"
         >
           <div className="@container space-y-4 px-4 py-5 sm:px-6">
             {rowGroups.length > 1 && (
@@ -642,7 +642,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                   value && (setDetailEditor(null), setSelectedIssueKey(value))
                 }
               >
-                <SelectTrigger className="w-full" aria-label="Choose issue">
+                <SelectTrigger className="w-full" aria-label="Choose problem">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -655,7 +655,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               </Select>
             )}
             {activeGroup ? (
-              <section aria-label="Focused issue" className="space-y-3">
+              <section aria-label="Problem" className="space-y-3">
                 <h3 className="flex items-start gap-2 text-sm font-semibold">
                   <AlertTriangle
                     className="text-amber-foreground mt-0.5 size-4 shrink-0"
@@ -674,7 +674,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             {selected.issues.some((issue) => issue.severity === 'notice') && (
               <Accordion>
                 <AccordionItem value="notices">
-                  <AccordionTrigger>Import notices</AccordionTrigger>
+                  <AccordionTrigger>Notes</AccordionTrigger>
                   <AccordionContent>
                     <div className="space-y-3">
                       {selected.issues
@@ -702,7 +702,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
             <Separator />
             <div
               role="group"
-              aria-label="Resolution actions"
+              aria-label="Fix options"
               className="flex shrink-0 flex-col gap-2 px-4 py-4 sm:px-6"
             >
               {action}
@@ -763,7 +763,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
   return (
     <div
       className="flex h-full min-h-0 flex-1 flex-col"
-      aria-label="Import worksheet"
+      aria-label="Your file"
     >
       <div
         className={cn(
@@ -773,7 +773,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
       >
         <div
           role="region"
-          aria-label="Import rows panel"
+          aria-label="Rows"
           className={cn(
             'min-h-0 min-w-0 flex-1 flex-col',
             inspectorOpen && selected ? 'hidden xl:flex' : 'flex'
@@ -807,20 +807,20 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                 setDetailEditor(null);
               }}
               placeholder="Search name, phone, or ID"
-              aria-label="Search import rows"
+              aria-label="Search rows"
             />
             <ChipGroup<MemberImportCandidateFilter>
               className="basis-full sm:basis-0"
               selectionMode="single"
               value={[filter]}
               onValueChange={(values) => values[0] && changeFilter(values[0])}
-              aria-label="Import row filters"
+              aria-label="Row filters"
             >
               {(
                 [
-                  ['needs-resolution', 'Needs review'],
+                  ['needs-resolution', 'Needs fixing'],
                   ['ready', 'Ready'],
-                  ['excluded', 'Excluded'],
+                  ['excluded', 'Skipped'],
                   ['all', 'All'],
                 ] as const
               ).map(([value, label]) => (
@@ -839,14 +839,14 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                 role="status"
               >
                 {filter === 'ready'
-                  ? 'Ready rows have no blocking issues. Review any import notices before confirming.'
-                  : 'All file rows, including rows that will not be imported.'}
+                  ? 'Ready rows have no problems. Read any notes before you confirm.'
+                  : 'All rows in the file, including skipped rows.'}
               </p>
             )}
           {reviewingIssues && sections.length > 0 ? (
             <ScrollArea
               className="min-h-0 flex-1"
-              aria-label="Issue accordions"
+              aria-label="Problems"
             >
               <Accordion
                 multiple={false}
@@ -887,11 +887,11 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-6 py-3">
                 <Info className="text-muted-foreground size-4" aria-hidden />
                 <p className="text-muted-foreground text-xs">
-                  {fmt.number(summary.exclusions)} rows will not be imported.
+                  {fmt.number(summary.exclusions)} rows will be skipped.
                 </p>
                 <Button variant="link" size="sm" onClick={exportExcluded}>
                   <Download />
-                  Download excluded rows
+                  Download skipped rows
                 </Button>
               </div>
             </>
@@ -903,7 +903,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
         )}
         <div
           role={showInspector ? 'region' : undefined}
-          aria-label={showInspector ? 'Row inspector' : undefined}
+          aria-label={showInspector ? 'Row details' : undefined}
           className={cn(
             'min-h-0 min-w-0 flex-1 flex-col',
             !showInspector
@@ -985,18 +985,16 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                   <div className="space-y-4">
                     {selectedLocked ? (
                       <p className="text-muted-foreground text-sm">
-                        This row already has a saved import attempt. Its details
-                        are locked so a retry can use the exact recorded
-                        payload.
+                        We already tried to import this row. Its details are locked so we can try again with the same details.
                       </p>
                     ) : null}
                     <CandidateStatus candidate={selected} />
                     <p className="text-muted-foreground text-sm">
                       {selected.disposition === 'included'
-                        ? 'This row is ready for confirmation. It has not been imported yet.'
+                        ? 'This row is ready. It is not saved yet.'
                         : selected.exclusionReason === 'manual'
-                          ? 'You excluded this row. Include it again to check it for issues.'
-                          : 'This row is excluded automatically. Open Import notices to see why.'}
+                          ? 'You skipped this row. Add it back to check it for problems.'
+                          : 'This row was skipped automatically. Open Notes to see why.'}
                     </p>
                     {selected.disposition === 'included' && (
                       <>
@@ -1031,8 +1029,8 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               <div className="flex min-h-0 flex-1 items-center px-4 py-5 sm:px-6">
                 <EmptyState
                   icon={ListChecks}
-                  title="Choose a row to review"
-                  hint="Open a group on the left, then choose a row. This panel shows what needs fixing and how to fix it."
+                  title="Choose a row to check"
+                  hint="Open a group on the left and choose a row. You will see what is wrong and how to fix it here."
                   className="h-auto w-full"
                 />
               </div>
@@ -1058,7 +1056,7 @@ function SourceMoney({ value }: { value?: string }) {
 }
 
 function candidateName(candidate: MemberImportCandidate) {
-  return candidate.draftValues.name || 'Unnamed member';
+  return candidate.draftValues.name || 'No name';
 }
 
 /**
@@ -1074,7 +1072,7 @@ function CandidateIdentity({
     <MemberIdentity
       name={candidateName(candidate)}
       secondary={candidate.draftValues.phone || 'No phone'}
-      meta={`Source row ${candidate.sourceRow}`}
+      meta={`Row ${candidate.sourceRow}`}
     />
   );
 }
@@ -1095,7 +1093,7 @@ function ExcludeAction({
       variant="outline"
       size="sm"
       className={className}
-      aria-label={`Exclude ${name}, source row ${candidate.sourceRow}`}
+      aria-label={`Skip ${name}, row ${candidate.sourceRow}`}
       onClick={() => onSetDisposition(candidate.sourceKey, 'excluded')}
     >
       Exclude
@@ -1123,7 +1121,7 @@ function ExcludeGroupAction({
         }
       }}
     >
-      {count === 1 ? 'Exclude this row' : `Exclude these ${count} rows`}
+      {count === 1 ? 'Skip this row' : `Skip these ${count} rows`}
     </Button>
   );
 }
@@ -1246,7 +1244,7 @@ function GroupChoice({
             {sourceLabel}
           </p>
           <p className="text-muted-foreground text-xs">
-            Affects {affected.length} source row
+            Affects {affected.length} row
             {affected.length === 1 ? '' : 's'}: {shown}
             {remaining > 0 ? ` +${remaining} more` : ''}
           </p>
@@ -1268,8 +1266,8 @@ function GroupChoice({
         onClick={() => choice && onValueChange(choice)}
       >
         {group.candidates.length > 1
-          ? `Apply to ${group.candidates.length} rows`
-          : 'Apply match'}
+          ? `Use for ${group.candidates.length} rows`
+          : 'Use this'}
         <ArrowRight />
       </Button>
     )
@@ -1324,7 +1322,7 @@ function PhoneIssueResolver({
 
       <p className="text-muted-foreground text-xs">
         {changedCandidates.length === 0
-          ? 'Edit the phone number, then save to check it again.'
+          ? 'Fix the phone number and save to check it again.'
           : `${changedCandidates.length} phone ${changedCandidates.length === 1 ? 'change' : 'changes'} ready to save.`}
       </p>
     </div>,
@@ -1454,28 +1452,28 @@ function PaymentConflictResolver({
       <Separator />
       <div className="space-y-2">
         <Label htmlFor={`payment-choice-${candidate.sourceKey}`}>
-          Use these figures
+          Use these amounts
         </Label>
         <Select value={choice} onValueChange={setChoice}>
           <SelectTrigger
             id={`payment-choice-${candidate.sourceKey}`}
             className="w-full"
-            aria-label={`Resolve payment for source row ${candidate.sourceRow}`}
+            aria-label={`Fix payment for row ${candidate.sourceRow}`}
           >
-            <SelectValue placeholder="Choose which figures to keep" />
+            <SelectValue placeholder="Choose which amounts are right" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem
               value="keep_fee_paid"
               disabled={fee === null || paid === null || paid > fee}
             >
-              Keep fee and paid amount
+              Fee and paid amount are right
             </SelectItem>
-            <SelectItem value="trust_balance">Keep fee and balance</SelectItem>
+            <SelectItem value="trust_balance">Fee and balance are right</SelectItem>
             <SelectItem value="trust_paid">
-              Keep paid and balance, recalculate fee
+              Paid and balance are right. Work out the fee.
             </SelectItem>
-            <SelectItem value="manual">Enter corrected figures</SelectItem>
+            <SelectItem value="manual">Type the right amounts</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1483,7 +1481,7 @@ function PaymentConflictResolver({
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label size="sm" htmlFor={`paid-${candidate.sourceKey}`}>
-              Corrected paid
+              Right paid amount
             </Label>
             <Input
               id={`paid-${candidate.sourceKey}`}
@@ -1496,7 +1494,7 @@ function PaymentConflictResolver({
           </div>
           <div className="space-y-1.5">
             <Label size="sm" htmlFor={`balance-${candidate.sourceKey}`}>
-              Corrected balance
+              Right balance
             </Label>
             <Input
               id={`balance-${candidate.sourceKey}`}
@@ -1510,9 +1508,9 @@ function PaymentConflictResolver({
         </div>
       )}
       {preview && (
-        <section aria-label="After correction" className="space-y-3">
+        <section aria-label="After fixing" className="space-y-3">
           <Separator />
-          <h4 className="text-sm font-medium">After correction</h4>
+          <h4 className="text-sm font-medium">After fixing</h4>
           <dl className="space-y-2 text-sm">
             {(
               [
@@ -1535,12 +1533,11 @@ function PaymentConflictResolver({
           {figuresValid ? (
             <p className="text-emerald-foreground flex items-center gap-2 text-sm">
               <CheckCircle className="size-4" />
-              Paid + balance matches the fee.
+              Paid + balance = fee. Correct.
             </p>
           ) : (
             <p role="alert" className="text-amber-foreground text-sm">
-              These figures still conflict. Check the fee, paid amount, and
-              balance.
+              These amounts still do not add up. Check the fee, paid amount, and balance.
             </p>
           )}
           {choice !== 'manual' && (
@@ -1549,7 +1546,7 @@ function PaymentConflictResolver({
               size="sm"
               onClick={() => setChoice('manual')}
             >
-              Enter amounts manually
+              Type amounts yourself
             </Button>
           )}
         </section>
@@ -1563,7 +1560,7 @@ function PaymentConflictResolver({
           onResolvePayment(candidate.sourceKey, resolution, correction);
       }}
     >
-      Save payment correction
+      Save
       <ArrowRight />
     </Button>
   );
@@ -1594,7 +1591,7 @@ function FieldCorrectionResolver({
   return renderLayout(
     <div className="space-y-3">
       <p className="text-muted-foreground text-xs">
-        Changes apply to this import draft when you leave a field.
+        Changes are saved when you move to the next box.
       </p>
       <IssueRows
         group={group}
@@ -1611,7 +1608,7 @@ function FieldCorrectionResolver({
                   </Label>
                   <Input
                     id={id}
-                    aria-label={`${field.label} for source row ${candidate.sourceRow}`}
+                    aria-label={`${field.label} for row ${candidate.sourceRow}`}
                     inputMode={field.inputMode}
                     defaultValue={
                       (candidate.draftValues[field.key] as
@@ -1638,7 +1635,7 @@ const SERVICE_CORRECTION_FIELDS = [
   { key: 'serviceEnd', label: 'Service expiry' },
   {
     key: 'serviceListPrice',
-    label: 'Service list price',
+    label: 'Service normal price',
     inputMode: 'decimal',
   },
   {
@@ -1653,7 +1650,7 @@ const SERVICE_CORRECTION_FIELDS = [
   },
   {
     key: 'serviceSoldPrice',
-    label: 'Service sold price',
+    label: 'Service price paid',
     inputMode: 'decimal',
   },
   { key: 'fee', label: 'Row total', inputMode: 'decimal' },
@@ -1723,8 +1720,7 @@ function GroupResolver({
     return renderLayout(
       <div className="space-y-3">
         <p className="text-muted-foreground text-xs">
-          Choose the one membership term that should be current. Other terms
-          remain as import history.
+          Choose the membership that is running now. The others are saved as history.
         </p>
         <Select
           value={selected?.sourceKey ?? null}
@@ -1733,16 +1729,16 @@ function GroupResolver({
           }
         >
           <SelectTrigger
-            aria-label={`Choose current membership term for ${legacyMemberId || `source row ${first.sourceRow}`}`}
+            aria-label={`Choose current membership for ${legacyMemberId || `row ${first.sourceRow}`}`}
           >
-            <SelectValue placeholder="Choose a membership term" />
+            <SelectValue placeholder="Choose a membership" />
           </SelectTrigger>
           <SelectContent>
             {group.candidates.map((candidate) => (
               <SelectItem key={candidate.sourceKey} value={candidate.sourceKey}>
-                Source row {candidate.sourceRow} ·{' '}
-                {candidate.built.membership?.start_date ?? 'Unknown start'} to{' '}
-                {candidate.built.membership?.end_date ?? 'Unknown expiry'}
+                Row {candidate.sourceRow} ·{' '}
+                {candidate.built.membership?.start_date ?? 'Start not known'} to{' '}
+                {candidate.built.membership?.end_date ?? 'Expiry not known'}
               </SelectItem>
             ))}
           </SelectContent>
@@ -1755,8 +1751,7 @@ function GroupResolver({
     return renderLayout(
       <div className="space-y-3">
         <p className="text-muted-foreground text-xs">
-          This records a write-off only for the membership balance shown in this
-          row. Any service balance remains unchanged.
+          This marks the membership balance in this row as not collected. Service balances do not change.
         </p>
         <IssueRows
           group={group}
@@ -1767,7 +1762,7 @@ function GroupResolver({
               variant="outline"
               onClick={() => onResolveCancelledDebt(candidate.sourceKey)}
             >
-              Record membership balance write-off
+              Mark balance as not collected
             </Button>
           )}
         />
@@ -1796,7 +1791,7 @@ function GroupResolver({
       <GroupChoice
         group={group}
         sourceLabel={sourceLabel}
-        ariaLabel={`Classify ${sourceLabel}`}
+        ariaLabel={`Choose type for ${sourceLabel}`}
         placeholder="Choose plan or service"
         renderLayout={renderLayout}
         onValueChange={(value) => {
@@ -1896,8 +1891,7 @@ function GroupResolver({
         unavailable={
           serviceChoices.length === 0 ? (
             <p className="text-amber-foreground text-sm">
-              No active service option matches this row. Add one in Settings →
-              Products &amp; services, then reopen this import.
+              No service matches this row. Add it in Settings → Products &amp; services, then open this import again.
             </p>
           ) : undefined
         }
@@ -1920,13 +1914,13 @@ function GroupResolver({
     group.code === 'plan-needs-resolution' ||
     group.code === 'pricing-option-needs-resolution'
   ) {
-    const sourceLabel = `${first.originalValues.planName || '(blank)'} · ${first.originalValues.pricingOption || '(no billing option)'}`;
+    const sourceLabel = `${first.originalValues.planName || '(blank)'} · ${first.originalValues.pricingOption || '(no price)'}`;
     return (
       <GroupChoice
         group={group}
         sourceLabel={sourceLabel}
         ariaLabel={`Map ${sourceLabel}`}
-        placeholder="Choose plan and billing option"
+        placeholder="Choose plan and price"
         renderLayout={renderLayout}
         onValueChange={(value) => {
           const [planId, pricingOptionId] = value.split('::');
@@ -1987,7 +1981,7 @@ function GroupResolver({
         renderLayout={renderLayout}
         group={group}
         fields={[
-          { key: 'listPrice', label: 'List price', inputMode: 'decimal' },
+          { key: 'listPrice', label: 'Normal price', inputMode: 'decimal' },
           { key: 'discountAmount', label: 'Discount', inputMode: 'decimal' },
           { key: 'discountPercent', label: 'Discount %', inputMode: 'decimal' },
           { key: 'fee', label: 'Fee', inputMode: 'decimal' },
@@ -2013,8 +2007,7 @@ function GroupResolver({
     return renderLayout(
       <div className="space-y-3">
         <p className="text-muted-foreground text-xs">
-          Your choice applies to this draft now. Contact details change when you
-          select Import.
+          Your choice is saved in this draft. Contact details change only when you click Import.
         </p>
         <IssueRows
           group={group}
@@ -2032,7 +2025,7 @@ function GroupResolver({
             >
               <SelectTrigger
                 className="w-full"
-                aria-label={`Resolve existing contact for source row ${candidate.sourceRow}`}
+                aria-label={`Fix saved contact for row ${candidate.sourceRow}`}
               >
                 <SelectValue placeholder="Choose which details to keep" />
               </SelectTrigger>
@@ -2088,11 +2081,11 @@ function CandidateOffering({
   const unmatched = candidate.outcomeKind === 'none' && label.length > 0;
   const exception =
     candidate.outcomeKind === 'membership_service'
-      ? 'Membership + service'
+      ? 'Membership and service'
       : candidate.outcomeKind === 'service'
         ? 'Service'
         : unmatched
-          ? 'Unmatched'
+          ? 'Not matched'
           : null;
   return (
     <span
@@ -2114,7 +2107,7 @@ function CandidateOffering({
         )}
         title={wrap ? undefined : label || undefined}
       >
-        {label || 'No offering'}
+        {label || 'No plan or service'}
       </span>
     </span>
   );
@@ -2164,7 +2157,7 @@ const AUTOMATIC_EXCLUSION_LABELS: Partial<
   Record<MemberImportCandidateExclusionReason, string>
 > = {
   'membership-history': 'Older membership',
-  'summary-row': 'Summary row',
+  'summary-row': 'Total row',
   'existing-member': 'Already a member',
 };
 
@@ -2192,7 +2185,7 @@ function CandidateStatus({ candidate }: { candidate: MemberImportCandidate }) {
       <span className="text-emerald-foreground inline-flex items-center gap-1.5 text-xs">
         <CheckCircle className="size-3.5 shrink-0" /> Ready
         {noticeCount > 0 &&
-          ` · ${noticeCount} notice${noticeCount === 1 ? '' : 's'}`}
+          ` · ${noticeCount} ${noticeCount === 1 ? 'note' : 'notes'}`}
       </span>
     );
   }
@@ -2203,8 +2196,8 @@ function CandidateStatus({ candidate }: { candidate: MemberImportCandidate }) {
         {candidate.issues.find(
           (issue) => issue.severity !== 'notice' && !issue.resolved
         )?.code === 'payment-conflict'
-          ? 'Payment mismatch'
-          : 'Needs review'}
+          ? 'Amounts do not add up'
+          : 'Needs fixing'}
       </span>
     </span>
   );
@@ -2222,10 +2215,10 @@ function IncludeAction({
     <Button
       type="button"
       className="w-full"
-      aria-label={`Include ${name}, source row ${candidate.sourceRow}`}
+      aria-label={`Add back ${name}, row ${candidate.sourceRow}`}
       onClick={() => onSetDisposition(candidate.sourceKey, 'included')}
     >
-      Include this row
+      Add this row back
     </Button>
   );
 }
@@ -2254,26 +2247,26 @@ function EmptyRows({
       {ready && <CheckCircle className="text-emerald-foreground size-5" />}
       <p className="text-sm font-medium">
         {ready
-          ? 'All included rows are ready'
+          ? 'All rows are ready'
           : allExcluded
-            ? 'Every row is excluded'
+            ? 'Every row is skipped'
             : 'No rows match this view'}
       </p>
       <p className="text-muted-foreground max-w-sm text-sm">
         {ready
-          ? 'Review your ready rows or continue to confirm the import.'
+          ? 'Check your ready rows, or continue to confirm.'
           : allExcluded
-            ? 'Nothing is ready to import. Review the excluded rows to see why.'
+            ? 'Nothing is ready to import. Check the skipped rows to see why.'
             : filtered
               ? 'Try another search or show all rows.'
-              : 'This import has no rows to review.'}
+              : 'This file has no rows to check.'}
       </p>
       {filtered ? (
         <Button type="button" variant="outline" size="sm" onClick={onReset}>
           {ready
-            ? 'Review ready rows'
+            ? 'See ready rows'
             : allExcluded
-              ? 'Review excluded rows'
+              ? 'See skipped rows'
               : 'Show all rows'}
         </Button>
       ) : null}
@@ -2294,7 +2287,7 @@ function Pagination({
   if (pageCount <= 1) return null;
   return (
     <nav
-      aria-label="Import row pages"
+      aria-label="Pages"
       className="border-border flex h-11 shrink-0 items-center justify-end border-t px-3"
     >
       <div className="flex items-center gap-1">

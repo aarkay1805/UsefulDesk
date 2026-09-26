@@ -76,10 +76,10 @@ describe('FollowUpActivityCard completion permission', () => {
     await userEvent.click(complete);
 
     const blocker = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You do not have permission',
     });
     expect(
-      within(blocker).getByText('Ask an admin or owner to complete follow-ups.')
+      within(blocker).getByText('Ask the owner or an admin to complete follow-ups.')
     ).toBeTruthy();
     expect(onMarkDone).not.toHaveBeenCalled();
   });

@@ -266,13 +266,13 @@ describe('owner reporting helpers', () => {
 
     expect(csv).toContain('"Gold, annual"');
     expect(csv).toContain('"Gold, annual",1 year,9000');
-    expect(csv).toContain('Average Sale Price,0,0');
+    expect(csv).toContain('Average price paid,0,0');
     expect(csv).toContain('Date,Revenue,Visits,New members');
     expect(csv).toContain(
-      'Lead source,Open leads,Members,Revenue,Conversion (%)'
+      'Enquiry source,Open enquiries,Members,Revenue,Conversion (%)'
     );
     expect(csv).toContain('Ad performance,Value');
-    expect(csv).toContain('Return on ad spend,2');
+    expect(csv).toContain('Money earned for every 1 spent,2');
     expect(csv).toContain('Expenses,1500,700');
     expect(csv).toContain('Net cash,-1500,-700');
     expect(ownerReportCsv(report)).not.toContain('Expenses,');

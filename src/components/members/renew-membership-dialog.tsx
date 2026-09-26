@@ -100,7 +100,7 @@ export function RenewMembershipDialog({
       if (cancelled) return;
       if (error) {
         setCreditError(
-          getErrorMessage(error, 'Member credit could not be loaded')
+          getErrorMessage(error, 'Could not load credit from earlier')
         );
         setCreditLoading(false);
         return;
@@ -127,7 +127,7 @@ export function RenewMembershipDialog({
     selectedPlan?.pricing_options?.find(
       (option) => option.id === draft.optionId && option.is_active
     ) ?? null;
-  const displayName = membership.contact?.name || 'Unnamed member';
+  const displayName = membership.contact?.name || 'No name';
   const currentPlan =
     membership.plan ?? plans.find((plan) => plan.id === membership.plan_id);
   const mode = isConvert ? 'convert' : 'membership_renewal';
@@ -135,11 +135,11 @@ export function RenewMembershipDialog({
   async function handleCheckout() {
     if (creditLoading || creditError) {
       return toast.error(
-        creditError || 'Wait for member credit to finish loading'
+        creditError || 'Still loading. Try again in a moment.'
       );
     }
     if (!selectedPlan || !selectedOption) {
-      return toast.error('Pick a plan and billing option');
+      return toast.error('Pick a plan and price');
     }
 
     let quote;
@@ -156,7 +156,7 @@ export function RenewMembershipDialog({
         availableCredit,
       });
     } catch (error) {
-      return toast.error(getErrorMessage(error, 'Invalid checkout details'));
+      return toast.error(getErrorMessage(error, 'Some details are missing or wrong. Check and try again.'));
     }
 
     setSaving(true);
@@ -193,15 +193,15 @@ export function RenewMembershipDialog({
         }),
       });
       const result = (await response.json()) as { error?: string };
-      if (!response.ok) throw new Error(result.error || 'Checkout failed');
+      if (!response.ok) throw new Error(result.error || 'Could not renew');
 
       toast.success(
-        isConvert ? 'Trial converted to member' : 'Membership renewed'
+        isConvert ? 'Added as member' : 'Membership renewed'
       );
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to renew'));
+      toast.error(getErrorMessage(error, 'Could not renew'));
     } finally {
       setSaving(false);
     }
@@ -212,12 +212,12 @@ export function RenewMembershipDialog({
       <DialogContent className="flex h-[min(96vh,900px)] max-h-[96vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(960px,calc(100vw-2rem))]">
         <DialogHeader className="border-border shrink-0 border-b p-5">
           <DialogTitle size="lg">
-            {isConvert ? 'Convert trial to member' : 'Renew membership'}
+            {isConvert ? 'Add as member' : 'Renew membership'}
           </DialogTitle>
           <DialogDescription>
             {isConvert
-              ? 'Start this trial on a paid plan and record the first payment.'
-              : "Extend this member's plan and record the renewal."}
+              ? 'Put this trial member on a paid plan and record their first payment.'
+              : "Renew this member’s plan and record the payment."}
           </DialogDescription>
         </DialogHeader>
 
@@ -290,8 +290,7 @@ export function RenewMembershipDialog({
                     {fmt.money(outstandingBalance)} still due
                   </p>
                   <p className="mt-1 text-xs leading-relaxed">
-                    Existing invoices stay due. This renewal creates a separate
-                    invoice for the next term.
+                    Old dues stay due. This renewal makes a new invoice for the next period.
                   </p>
                 </div>
               ) : null}
@@ -301,14 +300,14 @@ export function RenewMembershipDialog({
               {creditLoading ? (
                 <div className="text-muted-foreground flex min-h-40 items-center justify-center gap-2 text-sm">
                   <Loader2 className="size-4 animate-spin" />
-                  Loading member credit…
+                  Loading credit from earlier…
                 </div>
               ) : creditError ? (
                 <div
                   role="alert"
                   className="text-destructive rounded-lg border p-4 text-sm"
                 >
-                  Member credit could not be loaded. Close and try again.
+                  Could not load credit from earlier. Close and try again.
                 </div>
               ) : (
                 <MembershipCheckoutPanel
@@ -323,7 +322,7 @@ export function RenewMembershipDialog({
                   renewalStartExplanation={
                     isConvert
                       ? 'Paid membership starts today.'
-                      : 'Renewal starts after the current term, or today if expired.'
+                      : 'Renewal starts after the current expiry, or today if already expired.'
                   }
                 />
               )}
@@ -332,7 +331,7 @@ export function RenewMembershipDialog({
 
           <DialogFooter className="border-border m-0 shrink-0">
             <p className="text-muted-foreground mr-auto hidden self-center text-xs sm:block">
-              {isConvert ? 'Paid membership' : 'New term'} starts{' '}
+              {isConvert ? 'Paid membership' : 'New period'} starts{' '}
               {fmt.date(startDate)}
             </p>
             <Button
@@ -354,7 +353,7 @@ export function RenewMembershipDialog({
               }
             >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
-              {isConvert ? 'Convert trial to member' : 'Renew membership'}
+              {isConvert ? 'Add as member' : 'Renew membership'}
             </Button>
           </DialogFooter>
         </form>

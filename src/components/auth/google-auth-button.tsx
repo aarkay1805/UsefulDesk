@@ -107,7 +107,7 @@ export function GoogleAuthButton({
         onErrorChange(
           getErrorMessage(
             error,
-            'Could not secure Google sign-in. Refresh and try again.'
+            'Google sign-in did not work. Refresh the page and try again.'
           )
         );
         phaseRef.current = 'script-error';
@@ -129,7 +129,7 @@ export function GoogleAuthButton({
 
       try {
         if (!response.credential) {
-          throw new Error('Google did not return a sign-in credential.');
+          throw new Error('Google sign-in did not work. Try again.');
         }
 
         const supabase = createClient();
@@ -137,7 +137,7 @@ export function GoogleAuthButton({
           ? signupGymNameAttemptRef.current
           : null;
         if (requiresSignupCompletion && !signupGymName) {
-          throw new Error('Enter a valid gym brand before continuing.');
+          throw new Error('Enter your gym name first.');
         }
         if (signupGymName) saveGymNameDraft(signupGymName);
 
@@ -153,7 +153,7 @@ export function GoogleAuthButton({
         if (requiresSignupCompletion && signupGymName) {
           try {
             if (!data.user) {
-              throw new Error('Google sign-in did not return a user.');
+              throw new Error('Google sign-in did not work. Try again.');
             }
             completedAccountId = await resolveAuthenticatedDefaultBranch(
               supabase,
@@ -333,7 +333,7 @@ export function GoogleAuthButton({
           phaseRef.current = 'script-error';
           setPhase('script-error');
           onErrorChange(
-            'Google sign-in could not load. Check your connection or use email.'
+            'Google sign-in did not load. Check your internet, or use email.'
           );
         }}
       />
@@ -363,7 +363,7 @@ export function GoogleAuthButton({
             className="w-full"
             disabled
           >
-            Enter a valid gym brand to continue with Google
+            Enter your gym name to continue with Google
           </Button>
         ) : phase === 'waiting' ? (
           <div className="flex flex-col items-center gap-2">
@@ -387,7 +387,7 @@ export function GoogleAuthButton({
           </div>
         ) : phase === 'script-error' ? (
           <p className="text-muted-foreground text-center text-sm">
-            Google sign-in is unavailable. Continue with email below.
+            Google sign-in is not working. Use email below.
           </p>
         ) : phase !== 'ready' ? (
           <Button

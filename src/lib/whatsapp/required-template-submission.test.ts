@@ -82,7 +82,7 @@ describe('required automated template submission', () => {
         ['payment_link', 'blocked'],
       ]
     );
-    expect(plan.at(-1)?.error).toMatch(/still reviewing/i);
+    expect(plan.at(-1)?.error).toMatch(/still checking an older version/i);
   });
 
   it('continues after an individual failure and returns exact aggregates', async () => {

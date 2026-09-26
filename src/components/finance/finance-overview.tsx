@@ -66,7 +66,7 @@ export function FinanceOverview({
       } catch (reason) {
         if (cancelled) return;
         setError(
-          getErrorMessage(reason, 'Business overview could not be loaded')
+          getErrorMessage(reason, 'Could not load the overview')
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -185,7 +185,7 @@ function FinanceMetricGrid({
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
-        title="Net collections"
+        title="Money received"
         value={fmt.money(data.revenue.current)}
         icon={Banknote}
         {...(revenueChange === null
@@ -195,33 +195,33 @@ function FinanceMetricGrid({
                 sign: revenueChange,
                 label:
                   revenueChange === 0
-                    ? 'No change vs previous month'
+                    ? 'Same as last month'
                     : `${revenueChange > 0 ? '+' : ''}${fmt.number(
                         Math.round(revenueChange * 10) / 10
-                      )}% vs previous month`,
+                      )}% from last month`,
               },
             })}
-        subtitle={`${fmt.money(data.revenue.grossCurrent ?? data.revenue.current)} gross − ${fmt.money(data.revenue.refundsCurrent ?? 0)} refunds`}
+        subtitle={`${fmt.money(data.revenue.grossCurrent ?? data.revenue.current)} received − ${fmt.money(data.revenue.refundsCurrent ?? 0)} refunded`}
       />
       <MetricCard
         title="Expenses"
         value={fmt.money(data.expenses.current)}
         icon={ReceiptText}
-        subtitle="Posted expenses this month"
+        subtitle="Money spent this month"
       />
       <MetricCard
         title="Profit"
         value={fmt.money(data.profit.current)}
         icon={TrendingUp}
-        subtitle="Revenue minus posted expenses"
+        subtitle="Money received minus money spent"
       />
       <MetricCard
-        title="Next month projected"
+        title="Expected next month"
         value={fmt.money(data.projection.amount)}
         icon={CalendarClock}
         subtitle={`Based on ${fmt.number(
           data.projection.renewals
-        )} active renewals`}
+        )} renewals due`}
       />
     </div>
   );

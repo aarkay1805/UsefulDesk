@@ -118,7 +118,7 @@ describe('GoogleAuthButton', () => {
 
     expect(
       await screen.findByRole('button', {
-        name: 'Enter a valid gym brand to continue with Google',
+        name: 'Enter your gym name to continue with Google',
       })
     ).not.toBeNull();
     expect(renderButton).not.toHaveBeenCalled();

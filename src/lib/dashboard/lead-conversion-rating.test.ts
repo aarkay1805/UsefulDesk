@@ -119,7 +119,7 @@ describe('lead conversion rating', () => {
     expect(source.confidence).toBe('low');
     expect(result.allLeads).toMatchObject({
       key: ALL_LEADS_RATING_KEY,
-      label: 'All leads',
+      label: 'All enquiries',
       cohortSize: 2,
       rating: source.rating,
     });
@@ -140,7 +140,7 @@ describe('lead conversion rating', () => {
     expect(result.sources).toHaveLength(2);
     expect(result.sources.map((source) => source.label)).toEqual([
       'Instagram ads',
-      'Unknown',
+      'No source',
     ]);
     expect(result.allLeads.cohortSize).toBe(2);
     expect(result.allLeads.metrics).toEqual(

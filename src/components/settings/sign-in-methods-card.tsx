@@ -39,7 +39,7 @@ function AddPasswordAction({ email }: { email: string | null }) {
       setSent(true);
     } catch (error) {
       setError(
-        getErrorMessage(error, 'A secure password link could not be sent.')
+        getErrorMessage(error, 'Could not send the password link. Try again.')
       );
     } finally {
       setSending(false);

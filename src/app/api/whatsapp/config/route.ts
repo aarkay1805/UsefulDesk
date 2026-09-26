@@ -64,7 +64,7 @@ export async function GET() {
         {
           connected: false,
           reason: 'db_error',
-          message: 'Failed to fetch configuration',
+          message: 'Could not fetch configuration',
         },
         { status: 200 }
       );
@@ -186,7 +186,7 @@ export async function POST(request: Request) {
     if (claimedError) {
       console.error('Error checking phone_number_id ownership:', claimedError);
       return NextResponse.json(
-        { error: 'Failed to validate configuration' },
+        { error: 'Could not validate configuration' },
         { status: 500 }
       );
     }
@@ -231,7 +231,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            'Failed to encrypt token. Check that ENCRYPTION_KEY is a valid 64-character hex string in your environment variables.',
+            'Could not encrypt token. Check that ENCRYPTION_KEY is a valid 64-character hex string in your environment variables.',
         },
         { status: 500 }
       );
@@ -344,7 +344,7 @@ export async function POST(request: Request) {
       if (updateError) {
         console.error('Error updating whatsapp_config:', updateError);
         return NextResponse.json(
-          { error: 'Failed to update configuration' },
+          { error: 'Could not update configuration' },
           { status: 500 }
         );
       }
@@ -364,7 +364,7 @@ export async function POST(request: Request) {
       if (insertError) {
         console.error('Error inserting whatsapp_config:', insertError);
         return NextResponse.json(
-          { error: 'Failed to save configuration' },
+          { error: 'Could not save configuration' },
           { status: 500 }
         );
       }
@@ -429,7 +429,7 @@ export async function DELETE() {
     if (deleteError) {
       console.error('Error deleting whatsapp_config:', deleteError);
       return NextResponse.json(
-        { error: 'Failed to delete configuration' },
+        { error: 'Could not delete configuration' },
         { status: 500 }
       );
     }

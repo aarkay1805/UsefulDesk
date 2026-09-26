@@ -197,7 +197,7 @@ describe('deriveCanvasEdges — send_buttons (per-button)', () => {
     expect(edges[0].label).toBe('raw');
   });
 
-  it("skips buttons whose target doesn't exist", () => {
+  it("skips buttons whose target does not exist", () => {
     const edges = deriveCanvasEdges(
       nodes(
         {
@@ -393,7 +393,7 @@ describe('applyEdgeConnection', () => {
     });
   });
 
-  it("returns null when the source handle isn't recognised on the type", () => {
+  it("returns null when the source handle is not recognised on the type", () => {
     const node: BuilderNode = {
       node_key: 'a',
       node_type: 'send_message',
@@ -443,7 +443,7 @@ describe('applyEdgeConnection', () => {
     });
   });
 
-  it("returns null when the button reply_id doesn't exist on the node", () => {
+  it("returns null when the button reply_id does not exist on the node", () => {
     const node: BuilderNode = {
       node_key: 'm',
       node_type: 'send_buttons',

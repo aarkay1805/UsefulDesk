@@ -37,7 +37,7 @@ function rpcErrorToResponse(err: PostgrestError): NextResponse {
   }
   console.error('[transfer-ownership] unexpected RPC error:', err);
   return NextResponse.json(
-    { error: 'Failed to transfer ownership' },
+    { error: 'Could not transfer ownership' },
     { status: 500 }
   );
 }

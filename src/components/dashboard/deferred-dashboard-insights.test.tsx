@@ -45,7 +45,7 @@ describe('DeferredDashboardInsights', () => {
     render(<DeferredDashboardInsights />);
 
     expect(screen.queryByText('Insights loaded')).toBeNull();
-    expect(screen.getByLabelText('Dashboard insights loading')).toBeTruthy();
+    expect(screen.getByLabelText('Loading reports')).toBeTruthy();
 
     act(() => {
       notifyIntersection(

@@ -53,7 +53,7 @@ export function MemberIdentity({
   };
 }) {
   const { fmt } = useLocale();
-  const display = name?.trim() || 'Unnamed';
+  const display = name?.trim() || 'No name';
   const avatarPreviewTriggerId = useId();
   // Two lines (name + phone) → centre the avatar against the pair. Three
   // or more (a `meta` context line is present) → top-align it to the

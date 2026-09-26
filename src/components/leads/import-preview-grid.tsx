@@ -172,7 +172,7 @@ function UnmatchedChip({
   if (!onClick) {
     return (
       <span
-        title="Doesn't match your options — fix it in the panel on the right"
+        title="Not in your list. Fix it in the panel on the right."
         className={UNMATCHED_CHIP_CLASS}
       >
         {body}
@@ -186,7 +186,7 @@ function UnmatchedChip({
         e.stopPropagation();
         onClick();
       }}
-      title="Doesn't match — click to pick a value"
+      title="Not in your list. Click to pick one."
       className={cn(
         UNMATCHED_CHIP_CLASS,
         'underline decoration-dashed underline-offset-2'
@@ -281,7 +281,7 @@ export function ImportPreviewGrid({
           r.base.name ? (
             <span className="text-foreground font-medium">{r.base.name}</span>
           ) : (
-            <span className="text-muted-foreground italic">Unnamed</span>
+            <span className="text-muted-foreground italic">No name</span>
           ),
         edit: {
           kind: 'text',
@@ -314,7 +314,7 @@ export function ImportPreviewGrid({
     if (mappedKeys.has('lead_status')) {
       cols.push({
         key: 'status',
-        label: 'Status',
+        label: 'Stage',
         render: (r) => {
           if (r.unmatched.has('status')) {
             return <UnmatchedChip raw={r.base.leadStatus ?? ''} />;
@@ -420,13 +420,13 @@ export function ImportPreviewGrid({
           if (!r.assignedTo) {
             return (
               <span className="text-muted-foreground text-sm">
-                You (importer)
+                You
               </span>
             );
           }
           return (
             <AssigneeDisplay
-              name={nameById.get(r.assignedTo) ?? 'Teammate'}
+              name={nameById.get(r.assignedTo) ?? 'Team member'}
               avatarUrl={avatarById.get(r.assignedTo)}
             />
           );
@@ -541,26 +541,26 @@ export function ImportPreviewGrid({
       <div className="flex flex-wrap items-center gap-2">
         <SummaryChip label="new" count={newCount} tone="ok" />
         {updateCount > 0 && (
-          <SummaryChip label="already exist" count={updateCount} tone="info" />
+          <SummaryChip label="already added" count={updateCount} tone="info" />
         )}
         {skipped > 0 && (
           <SummaryChip
             label="skipped"
             count={skipped}
             tone="muted"
-            title={`${skippedNoPhone} without a phone · ${skippedDupes} duplicate${skippedDupes === 1 ? '' : 's'} in the file`}
+            title={`${skippedNoPhone} with no phone number · ${skippedDupes} repeated in the file`}
           />
         )}
         {unmatchedRowCount > 0 ? (
           <span className="text-amber-foreground inline-flex h-6 items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 text-xs font-medium">
             <AlertTriangle className="size-3" />
-            {unmatchedRowCount} value{unmatchedRowCount === 1 ? '' : 's'} to fix
-            →
+            {unmatchedRowCount} {unmatchedRowCount === 1 ? 'value' : 'values'}{' '}
+            to fix →
           </span>
         ) : (
           <span className="text-emerald-foreground inline-flex h-6 items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 text-xs font-medium">
             <Check className="size-3" />
-            All values match your options
+            All values are correct
           </span>
         )}
       </div>
@@ -591,7 +591,7 @@ export function ImportPreviewGrid({
                       {row.exists ? (
                         <span className="text-cyan-foreground inline-flex items-center gap-1 text-[11px] font-semibold">
                           <span className="size-1.5 rounded-full bg-current" />
-                          UPDATE
+                          Update
                         </span>
                       ) : (
                         <span className="text-emerald-foreground inline-flex items-center gap-1 text-[11px] font-semibold">
@@ -638,8 +638,8 @@ export function ImportPreviewGrid({
           </div>
           {rows.length > PREVIEW_CAP && (
             <p className="border-border bg-background/50 text-muted-foreground shrink-0 border-t px-3 py-1.5 text-[11px]">
-              Showing the first {PREVIEW_CAP} of {rows.length} rows — all{' '}
-              {rows.length} will be imported, and value fixes apply to every
+              Showing the first {PREVIEW_CAP} of {rows.length} rows. All{' '}
+              {rows.length} rows will be added, and your fixes apply to every
               row.
             </p>
           )}
@@ -667,8 +667,7 @@ export function ImportPreviewGrid({
       </div>
 
       <p className="text-muted-foreground shrink-0 text-xs">
-        Every cell is editable — click one to fix it. Changes live in this
-        preview only; nothing is written until you confirm.
+        Click any cell to change it. Nothing is saved until you confirm.
       </p>
     </div>
   );
@@ -747,7 +746,7 @@ function FixValuesPanel({
         <div className="min-w-0 flex-1">
           <p className="text-foreground text-sm font-semibold">Fix values</p>
           <p className="text-muted-foreground text-[11px] leading-snug">
-            Fix each value once — it applies to every row carrying it.
+            Fix a value once. It changes in every row.
           </p>
         </div>
         <span className="text-amber-foreground rounded-lg bg-amber-500/10 px-2 py-1 text-center">
@@ -791,10 +790,10 @@ function FixValuesPanel({
           className="border-border text-muted-foreground hover:bg-muted w-full"
         >
           <Sparkles className="size-3.5" />
-          Auto-match remaining
+          Match the rest for me
         </Button>
         <p className="text-muted-foreground mt-1.5 text-center text-[10px] leading-snug">
-          Unfixed values still import safely — stored as-is, shown muted.
+          Values you do not fix are still saved as they are.
         </p>
       </div>
     </aside>
@@ -941,7 +940,7 @@ function FixValueCard({
             <UserPlus className="size-3 shrink-0" />
           )}
           <span className="truncate">
-            Invite &quot;{value.raw}&quot; as a teammate
+            Invite &quot;{value.raw}&quot; to your team
           </span>
         </Button>
       )}

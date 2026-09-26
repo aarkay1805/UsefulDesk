@@ -97,7 +97,7 @@ export function OrganizationReportsView({
           error: rpcError
             ? rpcError.message
             : !next?.ok
-              ? 'Organization owner access is required.'
+              ? 'Only the owner of the gym group can see this.'
               : null,
         });
       } catch (reason) {
@@ -108,7 +108,7 @@ export function OrganizationReportsView({
           error:
             reason instanceof Error
               ? reason.message
-              : 'Could not load organization reporting.',
+              : 'Could not load the report.',
         });
       }
     })();
@@ -142,7 +142,7 @@ export function OrganizationReportsView({
             if (value === 'branch') onShowSelectedBranch();
           }}
         >
-          <SelectTrigger aria-label="Performance scope" className="w-44">
+          <SelectTrigger aria-label="Show report for" className="w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent align="end">
@@ -155,7 +155,7 @@ export function OrganizationReportsView({
       {error ? (
         <Alert variant="destructive">
           <AlertCircle />
-          <AlertTitle>Could not load consolidated performance</AlertTitle>
+          <AlertTitle>Could not load the report for all branches</AlertTitle>
           <AlertDescription>{error}</AlertDescription>
           <Button
             size="sm"
@@ -163,7 +163,7 @@ export function OrganizationReportsView({
             onClick={() => setNonce((value) => value + 1)}
             className="mt-2 w-fit"
           >
-            <RefreshCw /> Retry
+            <RefreshCw /> Try again
           </Button>
         </Alert>
       ) : null}
@@ -197,7 +197,7 @@ export function OrganizationReportsView({
 
       <Card>
         <CardHeader>
-          <CardTitle>Revenue by currency</CardTitle>
+          <CardTitle>Money received, by currency</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-4">
           {report?.currencyTotals.map((total) => (
@@ -210,7 +210,7 @@ export function OrganizationReportsView({
           ))}
           {!loading && report?.currencyTotals.length === 0 ? (
             <p className="text-muted-foreground text-sm">
-              No revenue recorded.
+              No money received yet.
             </p>
           ) : null}
         </CardContent>
@@ -218,15 +218,15 @@ export function OrganizationReportsView({
 
       <Card>
         <CardHeader>
-          <CardTitle>Branch breakdown</CardTitle>
+          <CardTitle>By branch</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Branch</TableHead>
-                <TableHead>Legal entity</TableHead>
-                <TableHead>Revenue</TableHead>
+                <TableHead>Company name</TableHead>
+                <TableHead>Money received</TableHead>
                 <TableHead>New members</TableHead>
                 <TableHead>Visits</TableHead>
               </TableRow>
@@ -234,7 +234,7 @@ export function OrganizationReportsView({
             <TableBody>
               {loading ? (
                 <TableSkeletonRows
-                  label="Loading branch breakdown"
+                  label="Loading branches"
                   rows={6}
                   columns={[
                     { variant: 'identity' },

@@ -15,14 +15,14 @@ import { cn } from '@/lib/utils';
 // in SEARCHABLE currently support the `?search=` query on their list page;
 // the rest just navigate to the section (search wiring comes later).
 const MODULES = [
-  { label: 'All Modules', href: '/leads' },
-  { label: 'Leads', href: '/leads' },
-  { label: 'Inbox', href: '/inbox' },
+  { label: 'All pages', href: '/leads' },
+  { label: 'Enquiries', href: '/leads' },
+  { label: 'Chats', href: '/inbox' },
   { label: 'Broadcasts', href: '/broadcasts' },
   { label: 'Automations', href: '/automations' },
 ] as const;
 
-const SEARCHABLE = new Set<string>(['All Modules', 'Leads']);
+const SEARCHABLE = new Set<string>(['All pages', 'Enquiries']);
 
 export function GlobalSearch() {
   const router = useRouter();
@@ -31,7 +31,7 @@ export function GlobalSearch() {
   // the full search field with the module selector on click.
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [module, setModule] = useState<string>('All Modules');
+  const [module, setModule] = useState<string>('All pages');
   const [moduleOpen, setModuleOpen] = useState(false);
   const [moduleFilter, setModuleFilter] = useState('');
 
@@ -76,11 +76,11 @@ export function GlobalSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Search records"
+        aria-label="Search"
         className="border-border bg-muted/50 text-muted-foreground hover:bg-muted flex w-full max-w-xs items-center gap-2 rounded-lg border px-3 py-1.5 text-sm transition-colors"
       >
         <Search className="size-4 shrink-0" />
-        <span className="truncate">Search records</span>
+        <span className="truncate">Search</span>
       </button>
     );
   }
@@ -112,14 +112,14 @@ export function GlobalSearch() {
             <Input
               value={moduleFilter}
               onChange={(e) => setModuleFilter(e.target.value)}
-              placeholder="Search Modules"
+              placeholder="Find a page"
               className="bg-card h-8"
             />
           </div>
           <div className="max-h-64 overflow-y-auto py-1">
             {filteredModules.length === 0 ? (
               <p className="text-muted-foreground px-3 py-4 text-center text-sm">
-                No modules found.
+                No page found.
               </p>
             ) : (
               filteredModules.map((m) => {
@@ -166,7 +166,7 @@ export function GlobalSearch() {
             if (e.key === 'Enter') submit();
             if (e.key === 'Escape') setOpen(false);
           }}
-          placeholder="Search records..."
+          placeholder="Search by name or phone"
           className="text-foreground placeholder:text-muted-foreground w-full rounded-r-lg bg-transparent py-2 pr-3 pl-9 text-sm focus:outline-none"
         />
       </div>

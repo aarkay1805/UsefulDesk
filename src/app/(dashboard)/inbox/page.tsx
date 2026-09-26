@@ -606,7 +606,7 @@ export default function InboxPage() {
         <div className="flex shrink-0 items-center justify-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2">
           <WifiOff className="text-amber-foreground h-4 w-4" />
           <p className="text-amber-foreground text-xs">
-            WhatsApp® is not connected. Go to Settings to connect your account.
+            WhatsApp® is not connected. Go to Settings → WhatsApp to connect it.
           </p>
         </div>
       )}

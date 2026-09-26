@@ -64,10 +64,10 @@ const EXPIRY_OPTIONS: { value: string; label: string }[] = [
 
 const ROLE_DESCRIPTIONS: Record<InviteRole, string> = {
   admin:
-    'Can invite teammates, change settings, send messages, and edit records.',
+    'Can do everything: invite team members, change settings, send messages, and edit details.',
   agent:
-    'Can help members and leads, send messages, and record payments. Cannot change gym settings.',
-  viewer: 'Can see gym records but cannot send messages or change anything.',
+    'Can handle members and enquiries, send messages, and record payments. Cannot change gym settings.',
+  viewer: 'Can see gym details but cannot send messages or change anything.',
 };
 
 // Server caps label at 80 chars (see src/app/api/account/invitations/route.ts).
@@ -130,7 +130,7 @@ export function InviteMemberDialog({
 
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to create invitation');
+        toast.error(payload.error || 'Could not make the invite');
         return;
       }
 
@@ -153,7 +153,7 @@ export function InviteMemberDialog({
       onCreated();
     } catch (err) {
       console.error('[InviteMemberDialog] create error:', err);
-      toast.error('Could not reach the server. Try again?');
+      toast.error('No internet connection. Try again.');
     } finally {
       setSubmitting(false);
     }
@@ -168,7 +168,7 @@ export function InviteMemberDialog({
       // Most likely "not in a secure context" — happens on http://
       // local IPs. Surface the link in the toast so the admin can
       // hand-copy it.
-      toast.error('Clipboard blocked — copy the link manually');
+      toast.error('Could not copy. Select the link and copy it.');
     }
   }
 
@@ -202,7 +202,7 @@ export function InviteMemberDialog({
                 Invite created
               </DialogTitle>
               <DialogDescription>
-                Send this link to your teammate. They can join with the{' '}
+                Send this link to your team member. They can join with the{' '}
                 <span className="font-medium">
                   {ROLE_META[result.role].label}
                 </span>{' '}
@@ -235,7 +235,7 @@ export function InviteMemberDialog({
                 <AlertTitle>Copy this link now</AlertTitle>
                 <AlertDescription>
                   You will not see this link again after closing this window. To
-                  send it later, make a new link from Pending invitations.
+                  send it later, make a new link from Pending invites.
                 </AlertDescription>
               </Alert>
 
@@ -271,9 +271,9 @@ export function InviteMemberDialog({
             }}
           >
             <DialogHeader>
-              <DialogTitle>Invite a teammate</DialogTitle>
+              <DialogTitle>Invite a team member</DialogTitle>
               <DialogDescription>
-                Create a link and send it to your teammate on WhatsApp or
+                Create a link and send it to your team member on WhatsApp or
                 another app.
               </DialogDescription>
             </DialogHeader>
@@ -294,8 +294,8 @@ export function InviteMemberDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="agent">Agent</SelectItem>
-                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="agent">Staff</SelectItem>
+                    <SelectItem value="viewer">View only</SelectItem>
                   </SelectContent>
                 </Select>
                 <p
@@ -326,7 +326,7 @@ export function InviteMemberDialog({
                 <Label htmlFor="invite-label">Note (optional)</Label>
                 <Input
                   id="invite-label"
-                  placeholder="e.g. Sara — support team"
+                  placeholder="Example: Sara, front desk"
                   value={label}
                   onChange={(e) => setLabel(e.target.value)}
                   maxLength={MAX_LABEL_LEN}
@@ -352,7 +352,7 @@ export function InviteMemberDialog({
                     Creating...
                   </>
                 ) : (
-                  'Generate link'
+                  'Make link'
                 )}
               </Button>
             </DialogFooter>

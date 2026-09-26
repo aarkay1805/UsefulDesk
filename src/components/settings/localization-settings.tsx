@@ -153,7 +153,7 @@ export function LocalizationSettings() {
       .select('id');
     if (error || !data?.length) {
       setSaving(false);
-      toast.error('Failed to save regional settings');
+      toast.error('Could not save regional settings');
       return;
     }
     await refreshProfile();
@@ -454,7 +454,7 @@ export function LocalizationSettings() {
           <CardFooter className="justify-between gap-3">
             <p className="text-muted-foreground text-xs">
               {!canEditSettings
-                ? 'Ask an admin or owner to change these settings.'
+                ? 'Ask the owner or an admin to change these settings.'
                 : dirty
                   ? 'You have unsaved changes.'
                   : 'All changes saved.'}

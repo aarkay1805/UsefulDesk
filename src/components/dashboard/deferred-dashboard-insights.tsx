@@ -10,7 +10,7 @@ function DashboardInsightsPlaceholder() {
   return (
     <div
       role="status"
-      aria-label="Dashboard insights loading"
+      aria-label="Loading reports"
       className="space-y-8"
     >
       <div className="grid gap-4 lg:grid-cols-2">

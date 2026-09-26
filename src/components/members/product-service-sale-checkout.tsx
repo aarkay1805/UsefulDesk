@@ -139,7 +139,7 @@ export function ProductServiceSaleCheckout({
   async function checkout() {
     if (selections.length === 0)
       return toast.error('Add at least one product or service');
-    if (!contactId) return toast.error('Customer contact is required');
+    if (!contactId) return toast.error('Pick a person first');
     if (collectAmountError) return toast.error(collectAmountError);
     const amount = validCollectAmount;
     setSaving(true);
@@ -166,22 +166,22 @@ export function ProductServiceSaleCheckout({
         credit_applied?: number;
         balance?: number;
       };
-      if (!response.ok) throw new Error(result.error || 'Checkout failed');
+      if (!response.ok) throw new Error(result.error || 'Could not save the sale');
       const credit = Number(result.credit_applied ?? 0);
       const balance = Number(result.balance ?? 0);
       toast.success(
         balance > 0
-          ? `Sale saved · ${fmt.money(balance)} remains due`
+          ? `Sale saved · ${fmt.money(balance)} still due`
           : credit > 0
-            ? `Sale saved · ${fmt.money(credit)} credit applied`
-            : 'Sale paid in full'
+            ? `Sale saved · ${fmt.money(credit)} credit used`
+            : 'Sale saved and fully paid'
       );
       setSelections([]);
       setCollectionTiming('later');
       setCollectAmount('');
       onSaved();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Checkout failed'));
+      toast.error(getErrorMessage(error, 'Could not save the sale'));
     } finally {
       setSaving(false);
       onSavingChange?.(false);
@@ -202,7 +202,7 @@ export function ProductServiceSaleCheckout({
       <div className="-mx-1 min-h-0 min-w-0 flex-1 overflow-y-auto px-1 py-1">
         <div
           role="group"
-          aria-label="Purchase checkout"
+          aria-label="New purchase"
           className="min-w-0 space-y-4 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(20rem,3fr)] lg:items-start lg:gap-5 lg:space-y-0"
         >
           <section aria-label="Products & services" className="min-w-0">
@@ -215,7 +215,7 @@ export function ProductServiceSaleCheckout({
               description={
                 mode === 'sale'
                   ? ''
-                  : 'Add one or more products or services to this invoice.'
+                  : 'Add products or services to this invoice.'
               }
               presentation={mode === 'sale' ? 'catalogue' : 'builder'}
             />
@@ -240,7 +240,7 @@ export function ProductServiceSaleCheckout({
                         </div>
                         <div className="flex items-center justify-between gap-4">
                           <span className="text-muted-foreground">
-                            Member credit
+                            Credit from earlier
                           </span>
                           <span className="tabular-nums">
                             −{fmt.money(creditApplied)}
@@ -248,7 +248,7 @@ export function ProductServiceSaleCheckout({
                         </div>
                         <Separator />
                         <div className="flex items-center justify-between gap-4 font-medium">
-                          <span>Due now</span>
+                          <span>To pay now</span>
                           <span className="tabular-nums">
                             {fmt.money(cashDue)}
                           </span>
@@ -268,7 +268,7 @@ export function ProductServiceSaleCheckout({
                   {cashDue > 0 ? (
                     <>
                       <RadioGroup
-                        aria-label="Collection timing"
+                        aria-label="When will they pay?"
                         value={collectionTiming}
                         onValueChange={(value) => {
                           if (!value) return;
@@ -282,11 +282,11 @@ export function ProductServiceSaleCheckout({
                       >
                         <Label className="cursor-pointer">
                           <RadioGroupItem value="now" />
-                          Collect now
+                          Pay now
                         </Label>
                         <Label className="cursor-pointer">
                           <RadioGroupItem value="later" />
-                          Collect later
+                          Pay later
                         </Label>
                       </RadioGroup>
                       {collectionTiming === 'now' ? (
@@ -354,7 +354,7 @@ export function ProductServiceSaleCheckout({
                               <span className="text-foreground font-medium tabular-nums">
                                 {fmt.money(amountRemaining)}
                               </span>{' '}
-                              remains due
+                              still due
                             </p>
                           ) : null}
                         </>
@@ -362,8 +362,7 @@ export function ProductServiceSaleCheckout({
                     </>
                   ) : (
                     <p className="text-muted-foreground text-sm">
-                      Member credit covers this invoice. No payment is needed
-                      today.
+                      Their credit from earlier pays this invoice. Nothing to pay today.
                     </p>
                   )}
                 </CardContent>
@@ -387,10 +386,10 @@ export function ProductServiceSaleCheckout({
                       <Loader2 className="size-4 animate-spin" />
                     ) : null}
                     {saving ? (
-                      'Creating invoice…'
+                      'Saving…'
                     ) : (
                       <>
-                        Create invoice
+                        Save sale
                         <span className="tabular-nums">
                           · {fmt.money(total)}
                         </span>

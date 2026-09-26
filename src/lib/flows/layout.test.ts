@@ -77,7 +77,7 @@ describe('autoLayout', () => {
     expect(left.x).not.toBe(right.x);
   });
 
-  it("ignores edges whose endpoints aren't in the node list", () => {
+  it("ignores edges whose endpoints are not in the node list", () => {
     // Defensive — the canvas filters dangling edges but the helper
     // shouldn't blow up if a stale edge slips through.
     const positions = autoLayout(

@@ -206,7 +206,7 @@ describe('InvoiceDocumentActions', () => {
 
     await userEvent.click(share);
     const blocker = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You do not have permission',
     });
     expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
@@ -328,7 +328,7 @@ describe('InvoiceDocumentActions', () => {
     );
 
     const blocker = screen.getByRole('dialog', {
-      name: 'Invoice setup required',
+      name: 'Finish invoice setup',
     });
     expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
@@ -376,7 +376,7 @@ describe('InvoiceDocumentActions', () => {
     );
 
     const blocker = screen.getByRole('dialog', {
-      name: 'Phone number required',
+      name: 'No phone number',
     });
     expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
@@ -394,7 +394,7 @@ describe('InvoiceDocumentActions', () => {
       'unavailable template',
       true,
       false,
-      'Open template setup',
+      'Open message templates',
       '/settings?tab=templates',
     ],
   ])(
@@ -451,8 +451,8 @@ describe('InvoiceDocumentActions', () => {
   });
 
   it.each([
-    [false, true, "WhatsApp isn't connected"],
-    [true, false, "Invoice template isn't ready"],
+    [false, true, "WhatsApp is not connected"],
+    [true, false, "Invoice message is not ready"],
   ])(
     'keeps unresolved readiness inert, then exposes the settled blocker without an agent CTA',
     async (connected, approved, title) => {
@@ -607,7 +607,7 @@ describe('InvoiceDocumentActions', () => {
     expect(share.hasAttribute('disabled')).toBe(false);
     await userEvent.click(share);
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
+      screen.getByRole('dialog', { name: 'You do not have permission' })
     ).toBeTruthy();
   });
 
@@ -615,12 +615,12 @@ describe('InvoiceDocumentActions', () => {
     [
       'void invoice',
       { state: 'void' as const },
-      'Voided invoices cannot generate documents',
+      'Cancelled invoices cannot be made into a PDF',
     ],
     [
       'refund-review invoice',
       { requires_refund_review: true },
-      'Resolve the invoice refund review before generating a document',
+      'Sort out the refund before making the invoice PDF',
     ],
   ])('blocks generation and sharing for a %s', async (_name, patch, reason) => {
     render(
@@ -675,7 +675,7 @@ describe('InvoiceDocumentActions', () => {
       screen.getByRole('button', { name: 'Download invoice' })
     );
     await userEvent.click(
-      screen.getByRole('button', { name: 'Resolve refund review' })
+      screen.getByRole('button', { name: 'Sort out refund' })
     );
 
     expect(onResolveRefundReview).toHaveBeenCalledOnce();
@@ -707,9 +707,9 @@ describe('InvoiceDocumentActions', () => {
       screen.getByRole('button', { name: 'Download invoice' })
     );
 
-    expect(screen.getByText('Refund review required')).toBeTruthy();
+    expect(screen.getByText('Sort out the refund first')).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Resolve refund review' })
+      screen.queryByRole('button', { name: 'Sort out refund' })
     ).toBeNull();
     expect(onResolveRefundReview).not.toHaveBeenCalled();
   });

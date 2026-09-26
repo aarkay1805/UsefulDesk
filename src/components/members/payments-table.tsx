@@ -162,7 +162,7 @@ export function PaymentsTable({
         setLoadedOnce(true);
       } catch (error) {
         if (controller.signal.aborted || seq !== fetchSeq.current) return;
-        setDueError(getErrorMessage(error, 'Failed to load payment dues'));
+        setDueError(getErrorMessage(error, 'Could not load payment dues'));
       } finally {
         if (!controller.signal.aborted && seq === fetchSeq.current) {
           setDueLoading(false);
@@ -252,7 +252,7 @@ export function PaymentsTable({
               setDuePage(1);
             }}
             placeholder="Search by name or ID"
-            aria-label="Search payment dues by name or Member ID"
+            aria-label="Search dues by name or Member ID"
           />
 
           <div className="flex shrink-0 items-center gap-2">
@@ -284,7 +284,7 @@ export function PaymentsTable({
               selectionMode="single"
               value={dueFilters.buckets}
               onValueChange={setDueBuckets}
-              aria-label="Payment due quick filters"
+              aria-label="Quick filters"
             >
               {DUE_BUCKETS.map(({ key, label }) => (
                 <Chip key={key} value={key}>
@@ -327,14 +327,14 @@ export function PaymentsTable({
             <CheckCircle2 className="text-emerald-foreground size-7" />
             <p className="text-muted-foreground text-sm">
               {snapshot.outstandingCount === 0
-                ? 'No outstanding payments.'
-                : 'No payment dues match your filters.'}
+                ? 'Nobody owes money right now.'
+                : 'No dues match your filters.'}
             </p>
           </div>
         ) : (
           <Table className="min-w-[1040px] table-fixed">
             <TableCaption className="sr-only">
-              Outstanding member payments
+              Money members owe
             </TableCaption>
             <colgroup>
               {DUE_COLUMNS.map((column) => (
@@ -513,7 +513,7 @@ function PaymentSummary({
       icon: <Wallet className="text-emerald-foreground size-4" />,
     },
     {
-      label: 'Outstanding',
+      label: 'Total due',
       value: totals.outstanding,
       icon: <AlertTriangle className="text-amber-foreground size-4" />,
       accent: true,
@@ -597,5 +597,7 @@ function DueStatusBadge({
 }) {
   if (bucket === null) return <Badge variant="neutral">Upcoming</Badge>;
   if (bucket === 'due_today') return <Badge variant="warning">Due today</Badge>;
-  return <Badge variant="danger">{days}d overdue</Badge>;
+  return <Badge variant="danger">
+      {days} {days === 1 ? 'day' : 'days'} late
+    </Badge>;
 }

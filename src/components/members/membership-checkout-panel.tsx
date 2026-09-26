@@ -177,12 +177,12 @@ export function MembershipCheckoutPanel({
   const quoteBlockedReason = quote
     ? null
     : !selectedOption
-      ? 'Select a plan and billing option to calculate the amount due.'
+      ? 'Pick a plan and price to see the amount.'
       : discountError
-        ? 'Complete the discount above to calculate the amount due.'
+        ? 'Finish the discount above to see the amount.'
         : bonusError
-          ? 'Complete the bonus months above to calculate the amount due.'
-          : 'Review the membership details above to calculate the amount due.';
+          ? 'Finish the bonus months above to see the amount.'
+          : 'Check the membership details above to see the amount.';
 
   useEffect(() => {
     if (value.discountKind !== 'amount' || value.discountValue) return;
@@ -258,7 +258,7 @@ export function MembershipCheckoutPanel({
               <p className="text-muted-foreground text-xs">Loading plans…</p>
             ) : plans.length === 0 ? (
               <p className="text-muted-foreground text-xs">
-                No active plans are available.
+                No plans yet. Add a plan in Settings → Membership plans.
               </p>
             ) : null
           }
@@ -387,7 +387,7 @@ export function MembershipCheckoutPanel({
                               setDiscountTouched(true);
                               update({ discountValue });
                             }}
-                            aria-label="Common discount percentages"
+                            aria-label="Quick discount choices"
                           >
                             {DISCOUNT_PERCENTAGE_PRESETS.map((preset) => (
                               <Chip key={preset} value={preset}>
@@ -473,7 +473,7 @@ export function MembershipCheckoutPanel({
                           setBonusTouched(true);
                           update({ bonusMonths });
                         }}
-                        aria-label="Common bonus month offers"
+                        aria-label="Quick bonus month choices"
                       >
                         {BONUS_MONTH_PRESETS.map((preset) => (
                           <Chip key={preset} value={preset}>
@@ -517,15 +517,15 @@ export function MembershipCheckoutPanel({
                   {quote && quote.bonusMonths > 0 ? (
                     <div className="border-border space-y-2 border-t pt-4">
                       <SummaryRow
-                        label="Regular expiry"
+                        label="Normal expiry"
                         value={fmt.date(quote.standardEndDate)}
                       />
                       <SummaryRow
-                        label="Bonus time"
+                        label="Bonus months"
                         value={`+${quote.bonusMonths} ${quote.bonusMonths === 1 ? 'month' : 'months'}`}
                       />
                       <SummaryRow
-                        label="Final expiry"
+                        label="New expiry"
                         value={fmt.date(quote.periodEnd)}
                         strong
                       />
@@ -593,14 +593,14 @@ export function MembershipCheckoutPanel({
                     ) : null}
                     {quote.creditApplied > 0 ? (
                       <SummaryRow
-                        label="Member credit"
+                        label="Credit from earlier"
                         value={`−${fmt.money(quote.creditApplied)}`}
                       />
                     ) : null}
                   </>
                 ) : null}
                 <SummaryRow
-                  label={value.collectNow ? 'Cash due' : 'Amount due'}
+                  label={value.collectNow ? 'To pay' : 'To pay'}
                   value={fmt.money(quote.cashDue)}
                   total
                 />
@@ -609,7 +609,7 @@ export function MembershipCheckoutPanel({
 
             {quote && quote.cashDue <= 0 ? (
               <p className="text-foreground text-sm font-medium">
-                No payment required
+                Nothing to pay
               </p>
             ) : null}
 
@@ -699,7 +699,7 @@ export function MembershipCheckoutPanel({
                         />
                         <span className="min-w-0 space-y-0.5">
                           <span className="text-foreground block text-sm font-medium">
-                            Part now, part later
+                            Pay in 2 parts
                           </span>
                           <span className="text-muted-foreground block text-xs">
                             <span className="tabular-nums">
@@ -719,7 +719,7 @@ export function MembershipCheckoutPanel({
 
                   <div className="space-y-2">
                     <Label htmlFor={`${idPrefix}-payment-method`}>
-                      Today&apos;s payment method
+                      How are they paying today?
                     </Label>
                     <Select
                       value={value.paymentMethod}

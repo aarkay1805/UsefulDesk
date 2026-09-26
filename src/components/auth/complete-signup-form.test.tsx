@@ -36,7 +36,7 @@ describe('CompleteSignupForm', () => {
 
     await waitFor(() =>
       expect(
-        (screen.getByLabelText('Gym brand') as HTMLInputElement).value
+        (screen.getByLabelText('Gym name') as HTMLInputElement).value
       ).toBe('  Iron House  ')
     );
     await user.click(
@@ -57,8 +57,8 @@ describe('CompleteSignupForm', () => {
     await user.click(
       screen.getByRole('button', { name: 'Continue to UsefulDesk' })
     );
-    expect(await screen.findByText(/between 1 and 80/)).not.toBeNull();
-    expect(screen.getByLabelText('Gym brand').getAttribute('aria-invalid')).toBe(
+    expect(await screen.findByText(/1 to 80 letters/)).not.toBeNull();
+    expect(screen.getByLabelText('Gym name').getAttribute('aria-invalid')).toBe(
       'true'
     );
     expect(completeSignup).not.toHaveBeenCalled();
@@ -69,7 +69,7 @@ describe('CompleteSignupForm', () => {
     const user = userEvent.setup();
     render(<CompleteSignupForm accountId="branch-id" />);
 
-    await user.type(screen.getByLabelText('Gym brand'), 'Iron House');
+    await user.type(screen.getByLabelText('Gym name'), 'Iron House');
     await user.click(
       screen.getByRole('button', { name: 'Continue to UsefulDesk' })
     );

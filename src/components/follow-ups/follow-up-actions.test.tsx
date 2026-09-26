@@ -60,10 +60,10 @@ describe('FollowUpButton', () => {
 
     expect(onClick).not.toHaveBeenCalled();
     const blocker = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You do not have permission',
     });
     expect(
-      within(blocker).getByText('Ask an admin or owner to create follow-ups.')
+      within(blocker).getByText('Ask the owner or an admin to create follow-ups.')
     ).toBeTruthy();
     expect(blockerControls(blocker)).toHaveLength(0);
   });
@@ -104,11 +104,11 @@ describe('FollowUpCompletionControl', () => {
 
     expect(onMarkDone).not.toHaveBeenCalled();
     const blocker = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You do not have permission',
     });
     expect(
       within(blocker).getByText(
-        'Ask an admin or owner to close assigned follow-ups.'
+        'Ask the owner or an admin to close assigned follow-ups.'
       )
     ).toBeTruthy();
     expect(blockerControls(blocker)).toHaveLength(0);
@@ -129,7 +129,7 @@ describe('FollowUpCompletionControl', () => {
 
     expect(
       within(screen.getByRole('dialog')).getByText(
-        'Ask an admin or owner to complete follow-ups.'
+        'Ask the owner or an admin to complete follow-ups.'
       )
     ).toBeTruthy();
   });
@@ -184,7 +184,7 @@ describe('FollowUpCompletionButton queue semantics', () => {
 
     expect(onComplete).not.toHaveBeenCalled();
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
+      screen.getByRole('dialog', { name: 'You do not have permission' })
     ).toBeTruthy();
   });
 
@@ -235,7 +235,7 @@ describe('FollowUpCompletionButton queue semantics', () => {
     expect(onOpenBulkComplete).not.toHaveBeenCalled();
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
+      screen.getByRole('dialog', { name: 'You do not have permission' })
     ).toBeTruthy();
   });
 });

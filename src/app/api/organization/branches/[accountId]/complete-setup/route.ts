@@ -63,7 +63,7 @@ export async function POST(
     if (error) {
       return branchSetupRpcErrorResponse(
         error,
-        'Failed to complete branch setup'
+        'Could not complete branch setup'
       );
     }
 

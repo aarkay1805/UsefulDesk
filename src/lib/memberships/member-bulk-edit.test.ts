@@ -7,7 +7,7 @@ import {
 } from './member-bulk-edit';
 
 describe('All Members bulk edit', () => {
-  it('exposes only Assigned to, active Trainer choices, and canonical Churn risk values', () => {
+  it('exposes only Assigned to, active Trainer choices, and canonical May leave values', () => {
     const properties = buildMemberBulkEditProperties(
       [{ user_id: 'staff-1', full_name: 'Asha' }],
       [
@@ -19,7 +19,7 @@ describe('All Members bulk edit', () => {
     expect(properties.map(({ key, label }) => ({ key, label }))).toEqual([
       { key: 'assignee', label: 'Assigned to' },
       { key: 'trainer', label: 'Trainer' },
-      { key: 'churnRisk', label: 'Churn risk' },
+      { key: 'churnRisk', label: 'May leave' },
     ]);
     expect(
       properties.every((property) => property.group === 'Member fields')

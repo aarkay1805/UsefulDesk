@@ -204,15 +204,15 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
 
     expect(await screen.findByRole('alert')).toHaveProperty(
       'textContent',
-      expect.stringContaining('The saved file could not be opened.')
+      expect.stringContaining('Could not open the saved file.')
     );
     await user.click(
       screen.getByRole('button', { name: 'Reload saved draft' })
     );
     expect(draftHook.reload).toHaveBeenCalledOnce();
-    await user.click(screen.getByRole('button', { name: 'Start fresh' }));
+    await user.click(screen.getByRole('button', { name: 'Start again' }));
     expect(
-      screen.getByRole('button', { name: 'Delete draft and start fresh' })
+      screen.getByRole('button', { name: 'Delete and start again' })
     ).toBeTruthy();
     expect(draftHook.discard).not.toHaveBeenCalled();
   });
@@ -255,11 +255,11 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
         )
       );
       await user.click(
-        await screen.findByRole('button', { name: 'Map manually' })
+        await screen.findByRole('button', { name: 'Match by hand' })
       );
       await user.click(screen.getByRole('button', { name: 'Review 2 rows' }));
       await user.click(
-        await screen.findByRole('button', { name: 'Review import' })
+        await screen.findByRole('button', { name: 'Check import' })
       );
       expect(supabase.rpc).not.toHaveBeenCalled();
       await user.click(screen.getByRole('checkbox'));
@@ -271,15 +271,15 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
         await screen.findByRole('heading', {
           name:
             successful === 0
-              ? 'No members imported'
-              : `${successful} member${successful === 1 ? '' : 's'} imported`,
+              ? 'No members added'
+              : `${successful} ${successful === 1 ? 'member' : 'members'} added`,
         })
       ).toBeTruthy();
       expect(supabase.rpc).toHaveBeenCalledTimes(2);
       expect(
-        screen.getByRole('button', { name: 'Download import report' })
+        screen.getByRole('button', { name: 'Download report' })
       ).toBeTruthy();
-      expect(Boolean(screen.queryByText('Review incomplete records'))).toBe(
+      expect(Boolean(screen.queryByText('Some rows need fixing'))).toBe(
         successful < 2
       );
       expect(onSaved).toHaveBeenCalledTimes(successful > 0 ? 1 : 0);
@@ -300,10 +300,10 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       )
     );
     await user.click(
-      await screen.findByRole('button', { name: 'Map manually' })
+      await screen.findByRole('button', { name: 'Match by hand' })
     );
     expect(
-      screen.getByRole('heading', { name: 'All 4 columns mapped' })
+      screen.getByRole('heading', { name: 'All 4 columns matched' })
     ).toBeTruthy();
 
     const dateOrder = screen.getByRole('combobox', { name: 'Date order' });
@@ -323,7 +323,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     expect(dateOrder.textContent).toContain('Month / day');
 
     await user.click(screen.getByRole('button', { name: 'Back' }));
-    await user.click(screen.getByRole('button', { name: 'Map manually' }));
+    await user.click(screen.getByRole('button', { name: 'Match by hand' }));
     expect(
       screen.getByRole('combobox', { name: 'Date order' }).textContent
     ).toContain('Month / day');
@@ -350,7 +350,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     );
 
     await user.click(
-      await screen.findByRole('button', { name: 'Map manually' })
+      await screen.findByRole('button', { name: 'Match by hand' })
     );
 
     expect(
@@ -378,10 +378,10 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       )
     );
     expect(
-      await screen.findByText('1 source row excluded automatically')
+      await screen.findByText('1 row skipped automatically')
     ).toBeTruthy();
     await user.click(
-      screen.getByRole('button', { name: 'Inspect excluded source rows' })
+      screen.getByRole('button', { name: 'See skipped rows' })
     );
     expect(screen.getByText('repeated header')).toBeTruthy();
     expect(screen.getByText('Name | Phone | Plan')).toBeTruthy();
@@ -494,16 +494,16 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
         expect(onOpenChange).not.toHaveBeenCalledWith(false);
         const draft = screen.getByRole('group', { name: 'Import draft' });
         expect(
-          within(draft).getByRole('button', { name: 'Retry saving' })
+          within(draft).getByRole('button', { name: 'Try saving again' })
         ).toBeTruthy();
         expect(
-          within(draft).getByRole('button', { name: 'Discard draft' })
+          within(draft).getByRole('button', { name: 'Delete draft' })
         ).toBeTruthy();
       }
     }
   );
 
-  it('names the private workbook in Start fresh confirmation', async () => {
+  it('names the private workbook in Start again confirmation', async () => {
     const user = userEvent.setup();
     draftHook.draft = {
       id: 'draft-1',
@@ -516,11 +516,11 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       <ImportMembersCsvDialog open onOpenChange={vi.fn()} onSaved={vi.fn()} />
     );
 
-    await user.click(screen.getByRole('button', { name: 'Start fresh' }));
+    await user.click(screen.getByRole('button', { name: 'Start again' }));
 
     expect(screen.getByText(/August members\.xlsx/)).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Delete draft and start fresh' })
+      screen.getByRole('button', { name: 'Delete and start again' })
     ).toBeTruthy();
   });
 
@@ -544,29 +544,29 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     );
 
     await user.click(
-      await screen.findByRole('button', { name: 'Map manually' })
+      await screen.findByRole('button', { name: 'Match by hand' })
     );
     await user.click(screen.getByRole('button', { name: 'Review 1 row' }));
 
-    const table = await screen.findByRole('table', { name: 'Import rows' });
+    const table = await screen.findByRole('table', { name: 'Rows' });
     expect(table.parentElement?.className).toContain('overflow-auto');
-    const inspector = screen.getByRole('region', { name: 'Row inspector' });
+    const inspector = screen.getByRole('region', { name: 'Row details' });
     expect(
       inspector.querySelector('[data-slot="scroll-area-viewport"]')
     ).toBeTruthy();
 
-    const rowsPanel = screen.getByRole('region', { name: 'Import rows panel' });
+    const rowsPanel = screen.getByRole('region', { name: 'Rows' });
     expect(
       within(rowsPanel).getByRole('heading', { name: 'Import members' })
     ).toBeTruthy();
     expect(
       within(rowsPanel).getByText(
-        'Fix each issue or exclude its rows before continuing.'
+        'Fix each problem, or skip those rows.'
       )
     ).toBeTruthy();
     const importDraft = screen.getByRole('group', { name: 'Import draft' });
     expect(
-      within(importDraft).getByText('members.csv · 1 source rows')
+      within(importDraft).getByText('members.csv · 1 rows in file')
     ).toBeTruthy();
     expect(
       within(rowsPanel).getByRole('button', { name: 'Back' })
@@ -577,7 +577,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     // Step 3 is a two-pane workspace: the step frame itself must not scroll,
     // or the tab strip and both panes ride one shared column scroll.
     const frameClasses = screen
-      .getByRole('region', { name: 'Resolve issues content' })
+      .getByRole('region', { name: 'Problems to fix' })
       .className.split(/\s+/);
     expect(frameClasses).toContain('overflow-hidden');
     expect(frameClasses).not.toContain('overflow-y-auto');
@@ -590,14 +590,14 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     const expectDraftUtilities = (upload = false) => {
       const draft = screen.getByRole('group', { name: 'Import draft' });
       expect(
-        within(draft).getByRole('button', { name: 'Start fresh' })
+        within(draft).getByRole('button', { name: 'Start again' })
       ).toBeTruthy();
       expect(
         screen.getByRole('button', {
-          name: upload ? 'File requirements & import rules' : 'Import rules',
+          name: upload ? 'What your file needs' : 'How import works',
         })
       ).toBeTruthy();
-      expect(within(draft).getByText('Draft saved')).toBeTruthy();
+      expect(within(draft).getByText('Progress saved')).toBeTruthy();
     };
     const input =
       document.querySelector<HTMLInputElement>('input[type="file"]');
@@ -626,20 +626,20 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     expect(screen.queryByRole('button', { name: 'Back' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
     await user.click(
-      screen.getByRole('button', { name: 'File requirements & import rules' })
+      screen.getByRole('button', { name: 'What your file needs' })
     );
     expect(
-      await screen.findByText(/Resolve every included row before confirming/)
+      await screen.findByText(/Fix every row before you confirm/)
     ).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Download sample CSV' })
+      screen.getByRole('button', { name: 'Download sample file' })
     ).toBeTruthy();
     await user.click(
-      screen.getByRole('button', { name: 'File requirements & import rules' })
+      screen.getByRole('button', { name: 'What your file needs' })
     );
 
     await user.click(
-      await screen.findByRole('button', { name: 'Map manually' })
+      await screen.findByRole('button', { name: 'Match by hand' })
     );
     expectDraftUtilities();
     expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
@@ -649,23 +649,23 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       name: /^Map /,
     });
     expectDraftUtilities();
-    expect(screen.queryByRole('button', { name: 'Review import' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Check import' })).toBeNull();
     planSelect.focus();
     await user.keyboard('{ArrowDown}{Enter}');
-    await user.click(screen.getByRole('button', { name: 'Apply match' }));
+    await user.click(screen.getByRole('button', { name: 'Use this' }));
     await waitFor(() =>
       expect(
         (
           screen.getByRole('button', {
-            name: 'Review import',
+            name: 'Check import',
           }) as HTMLButtonElement
         ).disabled
       ).toBe(false)
     );
 
-    await user.click(screen.getByRole('button', { name: 'Review import' }));
+    await user.click(screen.getByRole('button', { name: 'Check import' }));
     expect(
-      screen.getByText('Review the totals, then import the included rows.')
+      screen.getByText('Check the totals, then import.')
     ).toBeTruthy();
     expectDraftUtilities();
     const submit = screen.getByRole('button', {
@@ -675,9 +675,9 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     await user.click(screen.getByRole('checkbox'));
     expect(submit.disabled).toBe(false);
     await user.click(
-      screen.getByRole('button', { name: 'Source rows & invoice details' })
+      screen.getByRole('button', { name: 'Row and invoice details' })
     );
-    expect(screen.getByText('Automatically excluded')).toBeTruthy();
+    expect(screen.getByText('Skipped automatically')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Back' }));
 
     expect(

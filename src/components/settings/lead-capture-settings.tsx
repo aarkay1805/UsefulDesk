@@ -91,7 +91,7 @@ export function LeadCaptureSettings() {
         setLoadError(
           getErrorMessage(
             error,
-            "Lead capture settings couldn't load. Try again."
+            "Could not load enquiry form settings. Try again."
           )
         );
         setLoading(false);
@@ -132,7 +132,7 @@ export function LeadCaptureSettings() {
     try {
       const res = await fetch('/api/lead-forms', { method: 'POST' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? 'Failed to create the form');
+      if (!res.ok) throw new Error(data?.error ?? 'Could not create the form');
       const nextForm = data.form as CaptureForm;
       setForm(nextForm);
       setHeadline(nextForm.headline ?? '');
@@ -141,7 +141,7 @@ export function LeadCaptureSettings() {
       setSubmissionCount(0);
       toast.success('Enquiry form created');
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to create the form'));
+      toast.error(getErrorMessage(error, 'Could not create the form'));
     } finally {
       setCreating(false);
     }
@@ -156,12 +156,12 @@ export function LeadCaptureSettings() {
         body: JSON.stringify({ rotate: true }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error ?? 'Failed to rotate the link');
+      if (!res.ok) throw new Error(data?.error ?? 'Could not make a new link');
       setForm(data.form as CaptureForm);
       setRotateOpen(false);
-      toast.success('New link generated — the old one no longer works');
+      toast.success('New link made. The old link no longer works.');
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Failed to rotate the link'));
+      toast.error(getErrorMessage(error, 'Could not make a new link'));
     } finally {
       setRotating(false);
     }
@@ -173,7 +173,7 @@ export function LeadCaptureSettings() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error('Could not copy — select the link and copy it manually');
+      toast.error('Could not copy. Select the link and copy it.');
     }
   }, [formUrl]);
 
@@ -195,11 +195,11 @@ export function LeadCaptureSettings() {
           .maybeSingle();
 
         if (error || !data) {
-          toast.error(getErrorMessage(error, 'Failed to update the form'));
+          toast.error(getErrorMessage(error, 'Could not update the form'));
           return;
         }
         setForm({ ...form, is_active: next });
-        toast.success(next ? 'Form is live' : 'Form turned off');
+        toast.success(next ? 'Form is on' : 'Form turned off');
       } finally {
         setUpdatingStatus(false);
       }
@@ -211,7 +211,7 @@ export function LeadCaptureSettings() {
     if (!form) return;
     const consent = consentText.trim();
     if (!consent) {
-      toast.error('Permission message cannot be empty');
+      toast.error('Write the permission message');
       return;
     }
     setSaving(true);
@@ -228,7 +228,7 @@ export function LeadCaptureSettings() {
         .maybeSingle();
 
       if (error || !data) {
-        toast.error(getErrorMessage(error, 'Failed to save'));
+        toast.error(getErrorMessage(error, 'Could not save'));
         return;
       }
       setForm({
@@ -240,7 +240,7 @@ export function LeadCaptureSettings() {
       toast.success('Enquiry form saved');
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "The enquiry form couldn't be saved. Try again.")
+        getErrorMessage(error, "Could not save the enquiry form. Try again.")
       );
     } finally {
       setSaving(false);
@@ -255,7 +255,7 @@ export function LeadCaptureSettings() {
         aria-live="polite"
       >
         <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-        Loading lead capture settings…
+        Loading enquiry form settings…
       </div>
     );
   }
@@ -264,7 +264,7 @@ export function LeadCaptureSettings() {
     return (
       <Alert variant="destructive">
         <AlertCircle aria-hidden="true" />
-        <AlertTitle>Lead capture settings couldn&apos;t load</AlertTitle>
+        <AlertTitle>Could not load enquiry form settings</AlertTitle>
         <AlertDescription>
           <p>{loadError}</p>
           <Button
@@ -286,7 +286,7 @@ export function LeadCaptureSettings() {
         <CardHeader>
           <CardTitle>Enquiry form</CardTitle>
           <CardDescription>
-            Create a form link. New enquiries will appear in Leads.
+            Create a form link. New enquiries will show in Enquiries.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -310,8 +310,7 @@ export function LeadCaptureSettings() {
         <CardHeader>
           <CardTitle>Enquiry form</CardTitle>
           <CardDescription>
-            Share this link where people ask about your gym. Their details will
-            appear in Leads with the goal tag you chose.
+            Share this link where people ask about your gym. Their details will show in Enquiries with the goal tag you chose.
             {submissionCount !== null && submissionCount > 0 && (
               <>
                 {' '}
@@ -345,7 +344,7 @@ export function LeadCaptureSettings() {
           <div className="border-border flex items-center justify-between gap-4 rounded-lg border p-3">
             <div className="space-y-0.5">
               <p className="text-foreground text-sm font-medium">
-                {form.is_active ? 'Form is live' : 'Form is turned off'}
+                {form.is_active ? 'Form is on' : 'Form is turned off'}
               </p>
               <p
                 id="lead-capture-status-description"
@@ -360,7 +359,7 @@ export function LeadCaptureSettings() {
               checked={form.is_active}
               onCheckedChange={handleToggleActive}
               disabled={!canEdit || updatingStatus}
-              aria-label="Form is live"
+              aria-label="Form is on"
               aria-describedby="lead-capture-status-description"
             />
           </div>
@@ -372,7 +371,7 @@ export function LeadCaptureSettings() {
                 id="lc-headline"
                 value={headline}
                 onChange={(e) => setHeadline(e.target.value)}
-                placeholder="Enquire at Iron Gym"
+                placeholder="Example: Enquire at Iron Gym"
                 disabled={!canEdit}
               />
             </div>
@@ -418,7 +417,7 @@ export function LeadCaptureSettings() {
               </GatedButton>
               <GatedButton
                 canAct={canEdit}
-                gateReason="rotate the enquiry link"
+                gateReason="replace the enquiry link"
                 variant="outline"
                 onClick={() => setRotateOpen(true)}
               >
@@ -436,7 +435,7 @@ export function LeadCaptureSettings() {
             <DialogTitle>Replace the enquiry link?</DialogTitle>
             <DialogDescription>
               The old link will stop working. Replace it wherever you shared it.
-              Leads already saved will stay.
+              Enquiries already saved will stay.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

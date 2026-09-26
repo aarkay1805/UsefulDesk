@@ -540,7 +540,7 @@ describe('TemplateManager gym preset library', () => {
     );
     await user.type(
       screen.getByRole('textbox', {
-        name: 'Sample value for body variable {{1}}',
+        name: 'Example for {{1}}',
       }),
       'INV-1024'
     );
@@ -673,7 +673,7 @@ describe('TemplateManager gym preset library', () => {
     const filters = screen.getByRole('group', {
       name: 'Filter message templates by approval status',
     });
-    await user.click(within(filters).getByText('Pending'));
+    await user.click(within(filters).getByText('In review'));
     expect(
       screen.getByRole('heading', { name: 'Service renewal' })
     ).toBeTruthy();

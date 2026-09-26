@@ -14,7 +14,7 @@
  *     "true" / "false", list row title) so a branching flow reads
  *     as a real decision tree.
  *   - Click a node → side-sheet opens with the same per-node form
- *     the list view uses, plus "Set as entry" / "Delete".
+ *     the list view uses, plus "Make first step" / "Delete".
  *   - Drag from a source handle on one node to a target handle on
  *     another → wires that slot's `next_node_key`. Per-slot handles
  *     for multi-outgoing types (condition, send_buttons, send_list)
@@ -22,7 +22,7 @@
  *   - Backspace / Delete on a selected node → removes it AND clears
  *     every inbound `next_node_key` reference (no dangling arrows).
  *   - Delete on a selected edge → clears just that slot.
- *   - "+ Add node" floating button drops a new node at the visible
+ *   - "+ Add step" floating button drops a new node at the visible
  *     viewport center.
  *   - Runs dagre auto-layout once on mount for flows whose
  *     `position_x` / `position_y` are all zero (pre-canvas flows
@@ -514,7 +514,7 @@ function FlowCanvasInner() {
   if (rfNodes.length === 0) {
     return (
       <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 text-sm">
-        <p>No nodes yet.</p>
+        <p>No steps yet.</p>
         <CanvasAddNodeButton />
       </div>
     );
@@ -662,14 +662,14 @@ function NodeEditSheet({
         <SheetFooter className="border-border border-t px-5 py-3 sm:flex-row sm:justify-between">
           {!isEntry ? (
             <Button variant="ghost" size="sm" onClick={onSetEntry}>
-              Set as entry
+              Make first step
             </Button>
           ) : (
             <span />
           )}
           <Button variant="destructive-ghost" size="sm" onClick={onDelete}>
             <Trash2 className="h-3.5 w-3.5" />
-            Delete node
+            Delete step
           </Button>
         </SheetFooter>
       </SheetContent>
@@ -729,10 +729,10 @@ function CanvasAddNodeButton() {
     <DropdownMenu>
       <DropdownMenuTrigger
         className="bg-primary text-primary-foreground hover:bg-primary-hover inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-medium shadow-[0_6px_20px_-8px_rgba(0,0,0,0.5)] transition-colors"
-        aria-label="Add node"
+        aria-label="Add step"
       >
         <Plus className="h-4 w-4" />
-        Add node
+        Add step
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"

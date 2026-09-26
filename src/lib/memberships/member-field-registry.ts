@@ -563,7 +563,8 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'agent',
     'staff',
   ]),
-  field('churn_risk', 'Churn risk', 'member', 'member', [
+  field('churn_risk', 'May leave', 'member', 'member', [
+    'may leave',
     'churn risk',
     'at risk',
     'risk',
@@ -635,8 +636,11 @@ export const MEMBER_IMPORT_FIELDS: MemberImportField[] = [
     'zip code',
   ]),
   field('country', 'Country', 'profile', 'profile', ['country', 'nation']),
-  field('assigned_arrival_time', 'Assigned arrival', 'profile', 'profile', [
+  field('assigned_arrival_time', 'Usual time', 'profile', 'profile', [
+    'usual time',
     'assigned arrival',
+    'batch time',
+    'batch timing',
     'arrival time',
     'gym time',
     'gym timing',
@@ -771,7 +775,7 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
   },
   {
     key: 'churnRisk',
-    label: 'Churn risk',
+    label: 'May leave',
     defaultWidth: 120,
     minWidth: 100,
     filterDim: 'churnRisk',
@@ -779,7 +783,7 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
   },
   {
     key: 'assignedArrival',
-    label: 'Assigned arrival',
+    label: 'Usual time',
     defaultWidth: 150,
     minWidth: 125,
     importPolicy: { kind: 'fields', fields: ['assigned_arrival_time'] },

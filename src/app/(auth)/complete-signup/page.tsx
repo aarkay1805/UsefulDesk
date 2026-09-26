@@ -48,7 +48,7 @@ export default async function CompleteSignupPage({
   }
 
   if (hasExplicitBranch && !explicitBranch) {
-    return <CompleteSignupAccessError message="This branch link is invalid." />;
+    return <CompleteSignupAccessError message="This branch link is not correct." />;
   }
 
   const account = context.bootstrap.account;
@@ -58,7 +58,7 @@ export default async function CompleteSignupPage({
       <CompleteSignupAccessError
         message={
           lookupFailed
-            ? "We couldn't verify access to this branch right now. Please retry."
+            ? "We could not check your access to this branch. Try again."
             : 'You do not have access to this branch.'
         }
         retryHref={
@@ -74,7 +74,7 @@ export default async function CompleteSignupPage({
     if (!account) {
       return (
         <CompleteSignupAccessError
-          message="Could not load your default branch. Please retry."
+          message="Could not load your branch. Try again."
           retryHref="/complete-signup"
         />
       );
@@ -93,7 +93,7 @@ export default async function CompleteSignupPage({
   ) {
     return (
       <CompleteSignupAccessError
-        message="We couldn't verify your gym setup right now. Please retry."
+        message="We could not check your gym setup. Try again."
         retryHref={retryHref}
       />
     );
@@ -114,7 +114,7 @@ export default async function CompleteSignupPage({
     )
   ) {
     return (
-      <CompleteSignupAccessError message="Only this organization's owner can name the gym." />
+      <CompleteSignupAccessError message="Only the gym owner can name the gym." />
     );
   }
 
@@ -127,8 +127,7 @@ export default async function CompleteSignupPage({
           </div>
           <CardTitle>Name your gym</CardTitle>
           <CardDescription>
-            This brand is shown to your team and suggested as your first branch
-            name. Add your legal business name later in Business details.
+            Your team will see this name. It is also your first branch name. You can add your legal business name later in Settings → Business details.
           </CardDescription>
         </CardHeader>
         <CardContent>

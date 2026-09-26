@@ -131,7 +131,7 @@ export function BulkRecordPaymentDialog({
   async function recordPayments() {
     if (!accountId || !user || due.length === 0) return;
     if (paidOn > fmt.today())
-      return toast.error('The payment date cannot be in the future');
+      return toast.error('Payment date cannot be after today');
     setSaving(true);
     // Anchor the picked calendar day at noon in the ACCOUNT's zone so it
     // reads back on the same day (same recipe as RecordPaymentDialog).
@@ -153,7 +153,7 @@ export function BulkRecordPaymentDialog({
         p_amount: balance,
         p_method: method,
         p_paid_at: paidAt,
-        p_note: 'Bulk payment',
+        p_note: 'Payment for many members',
         p_receipt_path: null,
         p_idempotency_key: crypto.randomUUID(),
       });
@@ -162,7 +162,7 @@ export function BulkRecordPaymentDialog({
         failedNames.push(
           membership.contact?.name ||
             fmt.phone(membership.contact?.phone) ||
-            'Unnamed member'
+            'No name'
         );
         continue;
       }
@@ -172,7 +172,7 @@ export function BulkRecordPaymentDialog({
     setSaving(false);
 
     const parts = [`${recorded} payment${recorded === 1 ? '' : 's'} recorded`];
-    if (settled) parts.push(`${settled} already settled`);
+    if (settled) parts.push(`${settled} already fully paid`);
     if (failedNames.length) {
       // Name WHO failed — "2 failed" leaves the owner hunting.
       const shown = failedNames.slice(0, 3).join(', ');
@@ -201,9 +201,8 @@ export function BulkRecordPaymentDialog({
         <DialogHeader>
           <DialogTitle>Record payments</DialogTitle>
           <DialogDescription>
-            Settle the outstanding balance for {membershipIds.length} selected
-            member
-            {membershipIds.length === 1 ? '' : 's'}.
+            Record the full balance due for {membershipIds.length}{' '}
+            {membershipIds.length === 1 ? 'member' : 'members'}.
           </DialogDescription>
         </DialogHeader>
 
@@ -215,7 +214,7 @@ export function BulkRecordPaymentDialog({
           <div className="space-y-4">
             <div className="border-border bg-muted/40 rounded-lg border px-3 py-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Outstanding</span>
+                <span className="text-muted-foreground">Total due</span>
                 <span className="text-amber-foreground font-medium tabular-nums">
                   {fmt.money(totalDue)} · {due.length} member
                   {due.length === 1 ? '' : 's'}
@@ -223,7 +222,7 @@ export function BulkRecordPaymentDialog({
               </div>
               {settled > 0 && (
                 <p className="text-muted-foreground mt-1 text-xs">
-                  {settled} selected member{settled === 1 ? ' has' : 's have'}{' '}
+                  {settled} {settled === 1 ? 'member has' : 'members have'}{' '}
                   nothing due and will be skipped.
                 </p>
               )}
@@ -242,7 +241,7 @@ export function BulkRecordPaymentDialog({
                       <span className="text-foreground min-w-0 truncate">
                         {membership.contact?.name ||
                           fmt.phone(membership.contact?.phone) ||
-                          'Unnamed member'}
+                          'No name'}
                       </span>
                       <span className="shrink-0 font-medium tabular-nums">
                         {fmt.money(balance)}
@@ -288,8 +287,7 @@ export function BulkRecordPaymentDialog({
             </div>
 
             <p className="text-muted-foreground text-xs">
-              Each member&apos;s payment is recorded for their own outstanding
-              balance and immediately reconciled to their billing period.
+              Each member’s full balance due is recorded as paid.
             </p>
           </div>
         )}

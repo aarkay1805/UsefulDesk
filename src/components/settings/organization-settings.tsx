@@ -45,7 +45,7 @@ export function OrganizationSettings() {
     <section className="animate-in fade-in-50 max-w-3xl duration-200 motion-reduce:animate-none">
       <SettingsPanelHead
         title="Branches"
-        description="Switch between branches under your gym brand. Each branch keeps its own members, payments, and connections."
+        description="Switch between branches under your gym name. Each branch keeps its own members, payments, and connections."
       />
 
       <Card>

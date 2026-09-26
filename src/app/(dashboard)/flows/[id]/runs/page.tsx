@@ -74,17 +74,17 @@ const STATUS_META: Record<
     icon: CircleCheck,
   },
   handed_off: {
-    label: 'Handed off',
+    label: 'Passed to team',
     classes: 'border-amber-600/40 bg-amber-500/10 text-amber-foreground',
     icon: UserPlus,
   },
   timed_out: {
-    label: 'Timed out',
+    label: 'No reply in time',
     classes: 'border-border bg-muted/60 text-muted-foreground',
     icon: Clock,
   },
   paused_by_agent: {
-    label: 'Paused by agent',
+    label: 'Paused by staff',
     classes: 'border-border bg-muted text-muted-foreground',
     icon: PauseCircle,
   },
@@ -130,7 +130,7 @@ export default function FlowRunsPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error("Couldn't load runs.");
+          toast.error("Could not load runs.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -198,14 +198,12 @@ export default function FlowRunsPage() {
       </button>
       <h1 className="text-foreground text-xl font-semibold">Runs</h1>
       <p className="text-muted-foreground mt-1 text-sm">
-        The 50 most recent times this flow ran. Expand a row to see the
-        engine&apos;s per-step log.
+        The last 50 times this flow ran. Open a row to see each step.
       </p>
 
       {runs.length === 0 ? (
         <div className="border-border bg-card/50 text-muted-foreground mt-6 rounded-lg border border-dashed px-6 py-12 text-center text-sm">
-          No runs yet. Trigger the flow from a personal WhatsApp number to see
-          it appear here.
+          Not run yet. Send a message from your own WhatsApp number to test it.
         </div>
       ) : (
         <div className="mt-6 flex flex-col gap-2">
@@ -241,7 +239,7 @@ function RunCard({
   const contactLabel =
     run.contact?.name?.trim() ||
     fmt.phone(run.contact?.phone) ||
-    'Unknown contact';
+    'Unknown person';
   const duration = run.ended_at
     ? formatDistanceToNow(new Date(run.ended_at), {
         addSuffix: false,
@@ -288,7 +286,7 @@ function RunCard({
           {Object.keys(run.vars).length > 0 && (
             <details className="mb-3">
               <summary className="text-muted-foreground cursor-pointer text-xs">
-                Captured vars ({Object.keys(run.vars).length})
+                Saved answers ({Object.keys(run.vars).length})
               </summary>
               <pre className="bg-background text-muted-foreground mt-2 overflow-x-auto rounded-md p-2 text-[11px]">
                 {JSON.stringify(run.vars, null, 2)}
@@ -298,7 +296,7 @@ function RunCard({
           <div className="flex flex-col gap-1">
             {events.length === 0 ? (
               <p className="text-muted-foreground text-xs">
-                No events recorded for this run.
+                No steps saved for this run.
               </p>
             ) : (
               events.map((ev, ix) => <EventLine key={ix} ev={ev} />)

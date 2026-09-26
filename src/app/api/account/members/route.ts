@@ -38,7 +38,7 @@ export async function GET() {
     if (error) {
       console.error('[GET /api/account/members] fetch error:', error);
       return NextResponse.json(
-        { error: 'Failed to load members' },
+        { error: 'Could not load members' },
         { status: 500 }
       );
     }

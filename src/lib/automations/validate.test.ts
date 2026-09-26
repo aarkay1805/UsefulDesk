@@ -7,10 +7,10 @@ import {
 describe('validateStepsForActivation', () => {
   it('rejects empty or missing step lists', () => {
     expect(validateStepsForActivation([])).toEqual([
-      { path: 'steps', message: 'active automations need at least one step' },
+      { path: 'steps', message: 'Add at least one step before turning this on' },
     ]);
     expect(validateStepsForActivation(undefined as unknown as never[])).toEqual(
-      [{ path: 'steps', message: 'active automations need at least one step' }]
+      [{ path: 'steps', message: 'Add at least one step before turning this on' }]
     );
   });
 
@@ -70,7 +70,7 @@ describe('validateStepsForActivation', () => {
     const noUrl = validateStepsForActivation([
       { step_type: 'send_webhook', step_config: {} },
     ]);
-    expect(noUrl.map((i) => i.message)).toContain('webhook URL is required');
+    expect(noUrl.map((i) => i.message)).toContain('Enter the webhook link');
 
     const wrongProtocol = validateStepsForActivation([
       {
@@ -79,14 +79,14 @@ describe('validateStepsForActivation', () => {
       },
     ]);
     expect(wrongProtocol.map((i) => i.message)).toContain(
-      'webhook URL must use http or https'
+      'The webhook link must start with https://'
     );
 
     const garbage = validateStepsForActivation([
       { step_type: 'send_webhook', step_config: { url: 'not a url' } },
     ]);
     expect(garbage.map((i) => i.message)).toContain(
-      'webhook URL is not a valid URL'
+      'The webhook link is not correct'
     );
   });
 
@@ -216,7 +216,7 @@ describe('validateTriggerForActivation', () => {
       match_type: 'contains',
     });
     expect(issues.map((i) => i.message)).toContain(
-      'keywords cannot be empty strings'
+      'Remove empty words'
     );
   });
 
@@ -245,7 +245,7 @@ describe('validateTriggerForActivation', () => {
 
   it('requires schedule on time_based triggers', () => {
     expect(validateTriggerForActivation('time_based', {})).toEqual([
-      { path: 'trigger.schedule', message: 'schedule is required' },
+      { path: 'trigger.schedule', message: 'Enter a time' },
     ]);
     expect(
       validateTriggerForActivation('time_based', { schedule: '0 9 * * *' })
@@ -254,7 +254,7 @@ describe('validateTriggerForActivation', () => {
 
   it('requires tag_id on tag_added triggers', () => {
     expect(validateTriggerForActivation('tag_added', {})).toEqual([
-      { path: 'trigger.tag_id', message: 'tag is required' },
+      { path: 'trigger.tag_id', message: 'Pick a tag' },
     ]);
     expect(
       validateTriggerForActivation('tag_added', { tag_id: 'tag-uuid' })

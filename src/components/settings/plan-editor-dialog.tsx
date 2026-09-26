@@ -44,18 +44,18 @@ import {
 const PLAN_TYPES: { value: PlanType; label: string; hint: string }[] = [
   {
     value: 'recurring',
-    label: 'Recurring',
-    hint: 'Members pay again at each renewal. Reminders and AutoPay can be used.',
+    label: 'Renewing',
+    hint: 'Members pay again every month or period. You can send renewal reminders and use AutoPay.',
   },
   {
     value: 'non_recurring',
-    label: 'Fixed term',
-    hint: 'Members pay once. UsefulDesk will not send renewal reminders.',
+    label: 'One-time',
+    hint: 'Members pay once for a fixed time. No renewal reminders are sent.',
   },
   {
     value: 'session_pack',
     label: 'Session pack',
-    hint: 'Members buy a set number of visits. Each check-in uses one.',
+    hint: 'Members buy a number of visits. Each check-in uses one visit.',
   },
 ];
 
@@ -78,19 +78,19 @@ const PLAN_COPY: Record<
   { section: string; duration: string; add: string; rowNoun: string }
 > = {
   recurring: {
-    section: 'Billing options',
-    duration: 'Bill every',
-    add: 'Add billing option',
-    rowNoun: 'billing option',
+    section: 'Prices',
+    duration: 'Charge every',
+    add: 'Add price',
+    rowNoun: 'price',
   },
   non_recurring: {
-    section: 'Pricing & expiry',
-    duration: 'Expire plan in',
+    section: 'Prices and length',
+    duration: 'Plan ends after',
     add: 'Add another price',
     rowNoun: 'price',
   },
   session_pack: {
-    section: 'Pricing & validity',
+    section: 'Prices and validity',
     duration: 'Valid for',
     add: 'Add another price',
     rowNoun: 'price',
@@ -104,7 +104,7 @@ function limitIntervals(
   return [
     {
       value: 'period',
-      label: planType === 'non_recurring' ? 'per term' : 'per billing period',
+      label: planType === 'non_recurring' ? 'for the whole plan' : 'per payment period',
     },
     { value: 'week', label: 'per week' },
     { value: 'month', label: 'per month' },
@@ -255,7 +255,7 @@ export function PlanEditorDialog({
     if (!accountId) return;
     const noun = PLAN_COPY[planType].rowNoun;
     const trimmed = name.trim();
-    if (!trimmed) return toast.error('Plan name is required');
+    if (!trimmed) return toast.error('Enter a plan name');
     if (options.length === 0) return toast.error(`Add at least one ${noun}`);
 
     const parsedOptions = options.map((o) => ({
@@ -267,7 +267,7 @@ export function PlanEditorDialog({
     }));
     for (const o of parsedOptions) {
       if (!Number.isInteger(o.duration_count) || o.duration_count <= 0) {
-        return toast.error(`Each ${noun} needs a whole-number duration`);
+        return toast.error(`Each ${noun} needs a length in whole numbers, like 1 or 3`);
       }
       if (!Number.isFinite(o.price) || o.price < 0) {
         return toast.error(`Enter a valid price for each ${noun}`);
@@ -278,13 +278,13 @@ export function PlanEditorDialog({
       !limitEnabled || limitCount === '' ? null : Number(limitCount);
     if (limitEnabled && planType !== 'session_pack') {
       if (limit === null || !Number.isInteger(limit) || limit <= 0) {
-        return toast.error('The visit limit must be a whole number');
+        return toast.error('Visit limit must be a whole number, like 12');
       }
     }
     const sessions = sessionsCount === '' ? null : Number(sessionsCount);
     if (planType === 'session_pack') {
       if (sessions === null || !Number.isInteger(sessions) || sessions <= 0) {
-        return toast.error('A session pack needs a whole-number session count');
+        return toast.error('Enter the number of sessions, like 10');
       }
     }
 
@@ -316,7 +316,7 @@ export function PlanEditorDialog({
           .select('id');
         if (error) throw error;
         if (!data?.length)
-          throw new Error("You don't have permission to edit plans");
+          throw new Error("You do not have permission to edit plans");
       } else {
         const { data, error } = await supabase
           .from('membership_plans')
@@ -351,7 +351,7 @@ export function PlanEditorDialog({
             .select('id');
           if (error) throw error;
           if (!data?.length)
-            throw new Error("You don't have permission to edit plans");
+            throw new Error("You do not have permission to edit plans");
         } else {
           const { error } = await supabase
             .from('plan_pricing_options')
@@ -374,7 +374,7 @@ export function PlanEditorDialog({
             .select('id');
           if (error) throw error;
           if (!data?.length)
-            throw new Error("You don't have permission to edit plans");
+            throw new Error("You do not have permission to edit plans");
         } else {
           const { data, error } = await supabase
             .from('plan_pricing_options')
@@ -383,7 +383,7 @@ export function PlanEditorDialog({
             .select('id');
           if (error) throw error;
           if (!data?.length)
-            throw new Error("You don't have permission to edit plans");
+            throw new Error("You do not have permission to edit plans");
         }
       }
 
@@ -391,7 +391,7 @@ export function PlanEditorDialog({
       onOpenChange(false);
       onSaved();
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Failed to save the plan'));
+      toast.error(getErrorMessage(err, 'Could not save the plan'));
     } finally {
       setSaving(false);
     }
@@ -407,7 +407,7 @@ export function PlanEditorDialog({
           <DialogTitle>{isEdit ? 'Edit plan' : 'New plan'}</DialogTitle>
           <DialogDescription>
             {isEdit
-              ? 'Change this plan for future sales. Current members keep their present period.'
+              ? 'Changes apply to new sales. Current members keep what they bought.'
               : 'Choose how long this plan lasts and what members pay.'}
           </DialogDescription>
         </DialogHeader>
@@ -470,7 +470,7 @@ export function PlanEditorDialog({
               id="pe-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Gold"
+              placeholder="Example: Gold"
             />
           </div>
 
@@ -584,8 +584,7 @@ export function PlanEditorDialog({
                 className="sm:w-32"
               />
               <p className="text-muted-foreground text-xs">
-                Each visit uses one session. Staff can see how many are left.
-                Check-in still works after they run out.
+                Each visit uses one session. Staff can see how many are left. Members can still check in after they run out.
               </p>
             </div>
           ) : (

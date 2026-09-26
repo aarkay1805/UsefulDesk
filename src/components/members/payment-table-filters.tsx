@@ -58,7 +58,7 @@ export function PaymentDueFilters({
       onClear={() => onChange(EMPTY_PAYMENT_DUE_FILTERS)}
     >
       <CheckGroup
-        label="Due status"
+        label="Due"
         options={DUE_BUCKETS.map(({ key, label }) => ({ value: key, label }))}
         selected={value.buckets}
         onToggle={toggleBucket}

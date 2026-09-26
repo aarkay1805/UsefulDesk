@@ -29,10 +29,10 @@ describe('AccountAccessAlert', () => {
 
     const markup = renderToStaticMarkup(<AccountAccessAlert />);
 
-    expect(markup).toContain('Could not load your account access');
-    expect(markup).toContain('business data and actions are unavailable');
-    expect(markup).toContain('Support detail: connection unavailable');
-    expect(markup).toContain('Retry');
+    expect(markup).toContain('Could not load your gym');
+    expect(markup).toContain('Your gym details did not load');
+    expect(markup).toContain('For support: connection unavailable');
+    expect(markup).toContain('Try again');
   });
 
   it('explains an unlinked account without granting access', () => {
@@ -40,9 +40,9 @@ describe('AccountAccessAlert', () => {
 
     const markup = renderToStaticMarkup(<AccountAccessAlert />);
 
-    expect(markup).toContain('Your login is not linked to an account');
+    expect(markup).toContain('Your login is not linked to a gym');
     expect(markup).toContain(
-      'Changes cannot be saved until access is restored'
+      'You cannot save changes right now'
     );
   });
 });

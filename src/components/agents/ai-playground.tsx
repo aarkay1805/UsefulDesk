@@ -50,9 +50,9 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.code === 'ai_not_configured') {
-          toast.error('No agent configured yet — finish Setup first.');
+          toast.error('The AI agent is not set up yet. Finish Setup first.');
         } else {
-          toast.error(data.error ?? "Couldn't get a reply.");
+          toast.error(data.error ?? "Could not get a reply.");
         }
         // Roll the unsent user turn back so the transcript stays clean.
         setTurns(turns);
@@ -71,7 +71,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         },
       ]);
     } catch {
-      toast.error("Couldn't reach the agent.");
+      toast.error("Could not reach the AI agent.");
       setTurns(turns);
       setInput(text);
     } finally {
@@ -96,7 +96,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
             Playground
           </span>
           <span className="text-muted-foreground text-xs">
-            — test replies as if you were a customer
+            — test replies as if you were a member
           </span>
         </div>
         <Button
@@ -115,10 +115,9 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         {turns.length === 0 && (
           <div className="text-muted-foreground flex h-full flex-col items-center justify-center text-center text-sm">
             <Bot className="text-muted-foreground/60 mb-2 h-8 w-8" />
-            <p>Send a message to see how your agent would reply.</p>
+            <p>Send a message to see how your AI agent would reply.</p>
             <p className="mt-1 text-xs">
-              It uses your knowledge base and behaves exactly like the
-              auto-reply bot — including handoff.
+              It uses your knowledge base and replies just like the real AI auto-reply, including passing the chat to your team.
             </p>
             {onGoToSetup && (
               <Button
@@ -162,7 +161,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
                   )}
                 >
                   <UserCircle2 className="h-3.5 w-3.5" />
-                  Would hand off to a human here
+                  Would pass the chat to your team here
                 </p>
               )}
             </div>
@@ -186,7 +185,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a customer message…"
+          placeholder="Type a message like a member would…"
           rows={1}
           className="border-border bg-muted text-foreground placeholder-muted-foreground focus:border-primary/50 flex-1 resize-none rounded-xl border px-4 py-2.5 text-sm outline-none"
         />

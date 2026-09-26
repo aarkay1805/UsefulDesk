@@ -66,7 +66,7 @@ export async function addContactTagIfAbsent(
   if (error?.code === '23505') return false;
   if (error) {
     throw new ContactTagWriteError(
-      `Failed to add contact tag: ${error.message}`
+      `Could not add contact tag: ${error.message}`
     );
   }
   return true;
@@ -88,7 +88,7 @@ export async function removeContactTag(
 
   if (error) {
     throw new ContactTagWriteError(
-      `Failed to remove contact tag: ${error.message}`
+      `Could not remove contact tag: ${error.message}`
     );
   }
   if (!data) {

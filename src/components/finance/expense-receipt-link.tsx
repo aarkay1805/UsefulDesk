@@ -44,11 +44,11 @@ export function ExpenseReceiptLink({
       if (popup) popup.location.href = url;
       else
         toast.info(
-          'Receipt link ready. Select the receipt action again to open it.'
+          'Receipt ready. Tap again to open it.'
         );
     } catch (reason) {
       popup?.close();
-      toast.error(getErrorMessage(reason, 'Could not open expense receipt'));
+      toast.error(getErrorMessage(reason, 'Could not open the receipt'));
     } finally {
       setLoading(false);
     }
@@ -61,8 +61,8 @@ export function ExpenseReceiptLink({
       size="sm"
       onClick={() => void openReceipt()}
       disabled={loading}
-      aria-label="View expense receipt"
-      title="View expense receipt"
+      aria-label="View receipt"
+      title="View receipt"
     >
       {loading ? <Loader2 className="animate-spin" /> : <ExternalLink />}
       View

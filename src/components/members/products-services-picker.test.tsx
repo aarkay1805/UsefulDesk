@@ -262,7 +262,7 @@ describe('ProductsServicesPicker catalogue layout', () => {
     ).toBeTruthy();
 
     const adjustPrice = screen.getByRole('button', {
-      name: 'Adjust price for Protein powder',
+      name: 'Change price for Protein powder',
     });
     const displayedPrice = screen.getByText('₹1500');
     expect(displayedPrice.nextElementSibling).toBe(adjustPrice);

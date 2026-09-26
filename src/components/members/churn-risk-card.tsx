@@ -47,11 +47,11 @@ export function ChurnRiskCard({
 
     if (error || !data) {
       setRisk(previous);
-      toast.error(getErrorMessage(error, 'Failed to update churn risk'));
+      toast.error(getErrorMessage(error, 'Could not update “May leave”'));
       return;
     }
 
-    toast.success(next ? 'Marked as churn risk' : 'Churn risk cleared');
+    toast.success(next ? 'Marked as “May leave”' : '“May leave” removed');
     onSaved();
   }
 
@@ -59,13 +59,13 @@ export function ChurnRiskCard({
     <Card size="sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-1.5">
-          Churn risk
+          May leave
           <Tooltip>
             <TooltipTrigger
               render={
                 <button
                   type="button"
-                  aria-label="What churn risk means"
+                  aria-label="What “May leave” means"
                   className="text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-ring inline-flex size-5 cursor-help items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 />
               }
@@ -73,7 +73,7 @@ export function ChurnRiskCard({
               <Info aria-hidden="true" className="size-3.5" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 text-pretty">
-              Churn risk flags a member who may cancel or not renew, helping
+              May leave flags a member who may cancel or not renew, helping
               your team prioritise retention follow-up.
             </TooltipContent>
           </Tooltip>
@@ -86,7 +86,7 @@ export function ChurnRiskCard({
             checked={risk}
             onCheckedChange={updateRisk}
             disabled={!canEdit || savingRisk}
-            aria-label="Churn risk"
+            aria-label="May leave"
           />
         </CardAction>
       </CardHeader>

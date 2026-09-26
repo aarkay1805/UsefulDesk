@@ -55,7 +55,7 @@ export async function GET(
   } catch (error) {
     console.error('Error in WhatsApp media GET:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch media' },
+      { error: 'Could not fetch media' },
       { status: 500 }
     );
   }

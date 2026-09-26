@@ -267,8 +267,8 @@ export function RenewalActionLists({
       : (queues[otherKey]?.total ?? null);
   const emptyLabel =
     bucket === 'expiring'
-      ? 'No memberships expiring in this window.'
-      : 'No expired memberships in this window.';
+      ? 'No memberships expire in these dates.'
+      : 'No memberships expired in these dates.';
   const sourceControl = (
     <Toolbar aria-label="Renewal source">
       <ToolbarToggleGroup<'memberships' | 'services'>

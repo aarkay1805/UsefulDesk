@@ -114,7 +114,7 @@ export function BranchSwitcher({ collapsed }: { collapsed: boolean }) {
                     <span className="text-muted-foreground block truncate text-xs">
                       {legalName ?? 'Registered business name not set'} ·{' '}
                       {branch.role}
-                      {archived ? ' · Archived' : ''}
+                      {archived ? ' · Closed' : ''}
                     </span>
                   </span>
                   {selected ? <Check className="size-4" /> : null}

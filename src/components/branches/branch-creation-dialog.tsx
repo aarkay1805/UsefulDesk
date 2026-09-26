@@ -75,8 +75,8 @@ const PACK_META: Record<
     description: 'Active plans, prices, products, and services',
   },
   lead_setup: {
-    label: 'Lead fields & tags',
-    description: 'Lead fields, tags, custom fields, and a disabled form',
+    label: 'Enquiry details and tags',
+    description: 'Enquiry details, tags, extra details, and the enquiry form (turned off)',
   },
   reminders: {
     label: 'Reminder schedule',
@@ -88,7 +88,7 @@ const PACK_META: Record<
   },
   flows: {
     label: 'Flows',
-    description: 'Supported conversation flows copied as drafts',
+    description: 'Supported chat flows copied as drafts',
   },
 };
 
@@ -100,15 +100,15 @@ type PackAvailability = Partial<
 >;
 
 const REASON_COPY: Record<BranchSetupReasonCode, string> = {
-  SOURCE_NOT_ACTIVE: 'The source branch is not active.',
-  SNAPSHOT_TOO_LARGE: 'The selected setup is too large to copy safely.',
-  ROW_LIMIT_EXCEEDED: 'The selected setup exceeds the copy row limit.',
+  SOURCE_NOT_ACTIVE: 'The branch you copy from is closed.',
+  SNAPSHOT_TOO_LARGE: 'This is too much to copy at once. Pick fewer settings.',
+  ROW_LIMIT_EXCEEDED: 'This is too much to copy at once. Pick fewer settings.',
   CURRENCY_MISMATCH:
     'Memberships and products cannot be copied across currencies.',
 };
 
 function sourceIneligibility(branch: BranchAccount): string | null {
-  if (branch.branch_status !== 'active') return 'Source branch must be active';
+  if (branch.branch_status !== 'active') return 'The branch you copy from must be open';
   return null;
 }
 
@@ -278,7 +278,7 @@ export function BranchCreationDialog({
           if (!response.ok || !('eligible' in payload)) {
             throw new Error(
               ('error' in payload && payload.error) ||
-                'Could not preview branch setup'
+                'Could not check what can be copied'
             );
           }
           if (sequence !== previewSequenceRef.current) return;
@@ -322,7 +322,7 @@ export function BranchCreationDialog({
           }
           setPreview(null);
           setPreviewError(
-            getErrorMessage(error, 'Could not preview branch setup.')
+            getErrorMessage(error, 'Could not check what can be copied.')
           );
         } finally {
           if (sequence === previewSequenceRef.current) {
@@ -430,7 +430,7 @@ export function BranchCreationDialog({
       await switchBranch(accountId);
     } catch (error) {
       console.error('[BranchCreationDialog] switch failed:', error);
-      setSwitchError('The branch was created, but switching failed.');
+      setSwitchError('The branch was created, but we could not open it. Try switching again.');
       setSwitching(false);
     }
   }
@@ -472,7 +472,7 @@ export function BranchCreationDialog({
 
       setCreated(payload);
       toast.success(
-        payload.replayed ? 'Branch creation recovered' : 'Branch created'
+        payload.replayed ? 'Branch created' : 'Branch created'
       );
       setSubmitting(false);
       submitRef.current = false;
@@ -530,7 +530,7 @@ export function BranchCreationDialog({
           {optionsError ? (
             <Alert variant="destructive">
               <CircleAlert />
-              <AlertTitle>Branches could not be loaded</AlertTitle>
+              <AlertTitle>Could not load branches</AlertTitle>
               <AlertDescription>{optionsError}</AlertDescription>
             </Alert>
           ) : !options ? (
@@ -553,19 +553,18 @@ export function BranchCreationDialog({
                   value={branchName}
                   onChange={(event) => setBranchName(event.target.value)}
                   maxLength={80}
-                  placeholder="Koramangala"
+                  placeholder="Example: Koramangala"
                   autoFocus
                 />
                 <p className="text-muted-foreground text-xs">
-                  Use a location or operating name your team recognizes. This
-                  only names the new branch; your gym brand keeps its own name.
+                  Use the area name your team knows. This only names the new branch. Your gym name does not change.
                 </p>
               </div>
 
               {options.legalEntities.length > 1 ? (
                 <div className="space-y-2">
                   <Label htmlFor="new-branch-legal-entity">
-                    Billing business
+                    Business for invoices
                   </Label>
                   <Select
                     value={legalEntityId}
@@ -598,7 +597,7 @@ export function BranchCreationDialog({
                       id="new-branch-legal-entity"
                       className="w-full"
                     >
-                      <SelectValue placeholder="Select billing business" />
+                      <SelectValue placeholder="Pick a business" />
                     </SelectTrigger>
                     <SelectContent>
                       {options.legalEntities.map((entity) => (
@@ -609,19 +608,17 @@ export function BranchCreationDialog({
                     </SelectContent>
                   </Select>
                   <p className="text-muted-foreground text-xs">
-                    This links the branch to a business record and currency. Set
-                    its registered name separately in Business details.
+                    This sets which business and currency the branch uses. Set the legal name in Business details.
                   </p>
                 </div>
               ) : selectedEntity ? (
                 <div className="space-y-1 text-sm">
-                  <p className="font-medium">Billing business</p>
+                  <p className="font-medium">Business for invoices</p>
                   <p className="text-muted-foreground">
                     {selectedEntity.name} · {selectedEntity.defaultCurrency}
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    The new branch uses this business record and currency. Its
-                    registered name is managed in Business details.
+                    The new branch uses this business and currency. Change the legal name in Business details.
                   </p>
                 </div>
               ) : null}
@@ -646,7 +643,7 @@ export function BranchCreationDialog({
                   >
                     <RadioGroupItem value="blank" className="mt-0.5" />
                     <span>
-                      <span className="block font-medium">Start fresh</span>
+                      <span className="block font-medium">Start empty</span>
                       <span className="text-muted-foreground mt-1 block text-xs font-normal">
                         Create an empty branch. Add plans and settings later.
                       </span>
@@ -801,9 +798,7 @@ export function BranchCreationDialog({
                     <ShieldCheck />
                     <AlertTitle>Your branch data stays separate</AlertTitle>
                     <AlertDescription>
-                      Members, leads, payments, attendance, team access,
-                      WhatsApp, and Razorpay stay separate. Reminders and
-                      automations are copied off.
+                      Members, enquiries, payments, attendance, team access, WhatsApp, and Razorpay stay separate. Reminders and automations are copied but turned off.
                     </AlertDescription>
                   </Alert>
                 </>
@@ -939,7 +934,7 @@ function PreviewProblem({
     return (
       <Alert variant="destructive">
         <CircleAlert />
-        <AlertTitle>Branch setup could not be checked</AlertTitle>
+        <AlertTitle>Could not check the branch setup</AlertTitle>
         <AlertDescription>{error}</AlertDescription>
       </Alert>
     );
@@ -975,7 +970,7 @@ function CreationSuccess({
       </span>
       <div>
         <p className="font-semibold">
-          {result.replayed ? 'Branch creation recovered' : 'Branch created'}
+          {result.replayed ? 'Branch created' : 'Branch created'}
         </p>
         <p className="text-muted-foreground mt-1 text-sm">
           {result.setup.startMode === 'copy'
@@ -991,7 +986,7 @@ function CreationSuccess({
         <>
           <p className="text-amber-foreground text-sm">{switchError}</p>
           <Button onClick={onRetry}>
-            <RefreshCw /> Retry switch
+            <RefreshCw /> Try switching again
           </Button>
         </>
       ) : null}

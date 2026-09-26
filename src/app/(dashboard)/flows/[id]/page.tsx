@@ -56,7 +56,7 @@ export default function FlowEditorPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error("Couldn't load flow.");
+          toast.error("Could not load flow.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -104,7 +104,7 @@ export default function FlowEditorPage() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
         <p className="text-foreground text-sm font-medium">
-          Only the flow author can edit or activate it.
+          Only the person who made this flow can edit or turn it on.
         </p>
         <div className="flex gap-2">
           <Button
@@ -118,7 +118,7 @@ export default function FlowEditorPage() {
             onClick={() => navigate(`/flows/${flow.id}/runs`)}
             loading={isPending(`/flows/${flow.id}/runs`)}
           >
-            View runs
+            View run history
           </Button>
         </div>
       </div>

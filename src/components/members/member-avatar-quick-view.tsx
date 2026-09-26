@@ -44,7 +44,7 @@ function MemberAvatarQuickView({
   onFollowUp,
   onReminderSent,
 }: MemberAvatarQuickViewProps) {
-  const name = membership.contact?.name?.trim() || 'Unnamed';
+  const name = membership.contact?.name?.trim() || 'No name';
 
   return (
     <div

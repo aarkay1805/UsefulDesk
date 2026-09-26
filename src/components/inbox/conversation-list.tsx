@@ -64,7 +64,7 @@ const FILTER_OPTIONS: { label: string; value: InboxFilter }[] = [
   { label: 'All', value: 'all' },
   { label: 'Unread', value: 'unread' },
   { label: 'Members', value: 'member' },
-  { label: 'Leads', value: 'lead' },
+  { label: 'Enquiries', value: 'lead' },
   { label: 'Open', value: 'open' },
   { label: 'Pending', value: 'pending' },
   { label: 'Closed', value: 'closed' },
@@ -411,7 +411,7 @@ export function ConversationList({
           value={search}
           onValueChange={handleSearchChange}
           placeholder="Search or start a new chat"
-          aria-label="Search conversations"
+          aria-label="Search chats"
           containerClassName="w-full"
         />
 
@@ -463,7 +463,7 @@ export function ConversationList({
             selectionMode="single"
             value={[filter]}
             onValueChange={(values) => values[0] && setFilter(values[0])}
-            aria-label="Conversation filters"
+            aria-label="Chat filters"
           >
             {FILTER_OPTIONS.map((opt) => (
               <Chip key={opt.value} value={opt.value} size="sm">
@@ -518,13 +518,13 @@ export function ConversationList({
           <div className="flex flex-col items-center px-6 py-12 text-center">
             <p className="text-foreground text-sm font-medium">
               {conversations.length === 0
-                ? 'No conversations yet'
-                : 'No conversations match'}
+                ? 'No chats yet'
+                : 'No chats match'}
             </p>
             <p className="text-muted-foreground mt-1 max-w-56 text-xs">
               {conversations.length === 0
-                ? 'New WhatsApp® conversations will appear here.'
-                : 'Try a different search or clear the active filters.'}
+                ? 'New WhatsApp® chats will appear here.'
+                : 'Try another search, or clear the filters.'}
             </p>
             {conversations.length > 0 && (
               <Button
@@ -557,7 +557,7 @@ export function ConversationList({
                   loading={loadingMore}
                   onClick={() => void loadMore()}
                 >
-                  Load more conversations
+                  Load more chats
                 </Button>
               </div>
             )}
@@ -587,7 +587,7 @@ function ConversationItem({
 }: ConversationItemProps) {
   const { fmt } = useLocale();
   const contact = conversation.contact;
-  const displayName = contact?.name || fmt.phone(contact?.phone) || 'Unknown';
+  const displayName = contact?.name || fmt.phone(contact?.phone) || 'No name';
   const unread = conversation.unread_count > 0;
 
   const handleClick = useCallback(() => {

@@ -71,13 +71,13 @@ describe('GetStartedView dismissed state', () => {
   it('uses integration-safe seven-step copy without a readiness gate', () => {
     render(<GetStartedView />);
 
-    expect(screen.getByText('Core checklist complete')).toBeTruthy();
+    expect(screen.getByText('Setup done')).toBeTruthy();
     expect(
-      screen.getByText(/The seven-step checklist is complete/)
+      screen.getByText(/All setup steps are done/)
     ).toBeTruthy();
     expect(
       screen.getByText(
-        /integrations separately before relying on them operationally/
+        /check that WhatsApp, payments, and reminders work/
       )
     ).toBeTruthy();
     expect(screen.queryByText(/payments are ready to run/)).toBeNull();
@@ -90,7 +90,7 @@ describe('GetStartedView dismissed state', () => {
 
     expect(
       screen
-        .getByRole('button', { name: 'Go to dashboard' })
+        .getByRole('button', { name: 'Go to Home' })
         .getAttribute('href')
     ).toBe('/dashboard?branch=00000000-0000-4000-8000-000000000001');
   });
@@ -122,7 +122,7 @@ describe('GetStartedView dismissed state', () => {
         .getAttribute('href')
     ).toBe(expectedHref);
 
-    const setup = screen.getByRole('button', { name: 'Set up' });
+    const setup = screen.getByRole('button', { name: 'Start' });
     expect(setup.getAttribute('href')).toBe(expectedHref);
 
     setup.addEventListener('click', (event) => event.preventDefault());
@@ -149,9 +149,9 @@ describe('GetStartedView template guidance', () => {
 
     render(<GetStartedView />);
 
-    expect(screen.getByText(/Submission starts Meta review/)).toBeTruthy();
+    expect(screen.getByText(/WhatsApp checks every message/)).toBeTruthy();
     expect(
-      screen.getByText(/approval and delivery are not guaranteed/)
+      screen.getByText(/WhatsApp may say no/)
     ).toBeTruthy();
   });
 });

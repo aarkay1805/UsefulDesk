@@ -69,7 +69,7 @@ export function BulkAddNoteDialog({
 
     setSaving(true);
     if (!user || !accountId) {
-      toast.error('Your session has expired. Sign in again to save this note.');
+      toast.error('Your login has expired. Log in again to save this note.');
       setSaving(false);
       return;
     }
@@ -91,7 +91,7 @@ export function BulkAddNoteDialog({
       toast.error(
         getErrorMessage(
           error,
-          "Couldn't add the note. Check your connection and try again."
+          "Could not add the note. Check your connection and try again."
         )
       );
       setSaving(false);
@@ -106,13 +106,13 @@ export function BulkAddNoteDialog({
     const failedContactIds = contactIds.filter((id) => !succeeded.has(id));
     const n = succeededContactIds.length;
     if (n === 0) {
-      toast.error("The note wasn't added. Refresh and try again.");
+      toast.error("The note was not added. Refresh the page and try again.");
       setSaving(false);
       return;
     }
     if (n < count) {
       toast.warning(
-        `Note added to ${n} of ${count} ${noun}s. Refresh and try the rest again.`
+        `Note added to ${n} of ${count}. Refresh the page and try the rest again.`
       );
     } else {
       toast.success(`Note added to ${n} ${noun}${n === 1 ? '' : 's'}`);
@@ -143,7 +143,7 @@ export function BulkAddNoteDialog({
             autoFocus
             value={text}
             onChange={(event) => setText(event.target.value)}
-            placeholder="e.g. Called about the festive offer — no answer"
+            placeholder="Example: Called about Diwali offer. No answer."
             aria-label="Note"
             className="min-h-28 resize-none"
           />

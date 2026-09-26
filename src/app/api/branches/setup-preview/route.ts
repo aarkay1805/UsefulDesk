@@ -78,7 +78,7 @@ export async function GET(request: Request) {
     if (error) {
       return branchSetupRpcErrorResponse(
         error,
-        'Failed to preview branch setup'
+        'Could not preview branch setup'
       );
     }
     return NextResponse.json(data as BranchSetupPreview);

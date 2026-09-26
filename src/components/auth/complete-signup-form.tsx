@@ -71,7 +71,7 @@ export function CompleteSignupForm({ accountId }: { accountId: string }) {
       ) : null}
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="gymName">Gym brand</Label>
+        <Label htmlFor="gymName">Gym name</Label>
         <Input
           id="gymName"
           name="gymName"
@@ -91,8 +91,7 @@ export function CompleteSignupForm({ accountId }: { accountId: string }) {
           disabled={loading}
         />
         <p id="gym-name-help" className="text-muted-foreground text-xs">
-          Suggested as your first branch name. Add your legal business name
-          later in Business details.
+          This is also your first branch name. You can add your legal business name later in Settings → Business details.
         </p>
         {fieldError ? (
           <p id="gym-name-error" className="text-red-foreground text-xs">

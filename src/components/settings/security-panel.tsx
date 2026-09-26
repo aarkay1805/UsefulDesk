@@ -53,7 +53,7 @@ export function SecurityPanel() {
         ) : error ? (
           <Alert variant="destructive">
             <CircleAlert />
-            <AlertTitle>Couldn’t load sign-in options</AlertTitle>
+            <AlertTitle>Could not load sign-in options</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
             <AlertAction>
               <Button
@@ -62,7 +62,7 @@ export function SecurityPanel() {
                 size="sm"
                 onClick={refresh}
               >
-                Retry
+                Try again
               </Button>
             </AlertAction>
           </Alert>

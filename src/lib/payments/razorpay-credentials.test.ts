@@ -81,7 +81,7 @@ describe('Razorpay OAuth credential resolver', () => {
 
     await expect(
       disconnectRazorpayOAuthConnection(admin, 'account')
-    ).rejects.toThrow(/active auto-pay mandate/i);
+    ).rejects.toThrow(/active AutoPay mandate/i);
   });
 
   it('does not let co-branded enrollment replace a bound merchant', async () => {

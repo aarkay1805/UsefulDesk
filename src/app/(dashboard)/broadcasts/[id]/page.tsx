@@ -106,7 +106,7 @@ function FunnelChart({
   const max = Math.max(...steps.map((s) => s.value), 1);
   return (
     <div className="border-border bg-card rounded-xl border p-4">
-      <h3 className="text-foreground mb-4 text-sm font-medium">Funnel</h3>
+      <h3 className="text-foreground mb-4 text-sm font-medium">How many got it</h3>
       <div className="space-y-2">
         {steps.map((step) => {
           const pctOfMax = Math.max(5, Math.round((step.value / max) * 100));
@@ -188,7 +188,7 @@ export default function BroadcastDetailPage() {
       } catch (err) {
         if (cancelled) return;
         setError(
-          err instanceof Error ? err.message : 'Failed to load broadcast'
+          err instanceof Error ? err.message : 'Could not load broadcast'
         );
       } finally {
         if (!cancelled) setLoading(false);
@@ -289,10 +289,10 @@ export default function BroadcastDetailPage() {
         'Contact',
         'Phone',
         'Status',
-        'Sent At',
-        'Delivered At',
-        'Read At',
-        'Replied At',
+        'Sent at',
+        'Delivered at',
+        'Read at',
+        'Replied at',
         'Error',
       ];
       const rows = allRecipients.map((r) => [
@@ -316,7 +316,7 @@ export default function BroadcastDetailPage() {
       const message =
         exportError instanceof Error
           ? exportError.message
-          : 'Failed to export broadcast recipients';
+          : 'Could not download the list';
       toast.error(message);
     } finally {
       setExporting(false);
@@ -338,7 +338,7 @@ export default function BroadcastDetailPage() {
     if (delErr || !deleted?.length) {
       setDeleting(false);
       toast.error(
-        `Failed to delete: ${delErr?.message ?? 'Broadcast was not found or access was denied'}`
+        `Could not delete: ${delErr?.message ?? 'This broadcast was not found, or you do not have access'}`
       );
       return;
     }
@@ -377,7 +377,7 @@ export default function BroadcastDetailPage() {
           onClick={() => navigate('/broadcasts')}
           loading={isPending('/broadcasts')}
         >
-          Back to Broadcasts
+          Back to broadcasts
         </Button>
       </div>
     );
@@ -453,7 +453,7 @@ export default function BroadcastDetailPage() {
               disabled={deleting}
               className="h-7"
             >
-              {deleting ? 'Deleting…' : 'Confirm'}
+              {deleting ? 'Deleting…' : 'Delete broadcast'}
             </Button>
           </div>
         ) : (
@@ -464,7 +464,7 @@ export default function BroadcastDetailPage() {
             onClick={() => setConfirmDelete(true)}
             title={
               broadcast.status === 'sending'
-                ? 'Cannot delete while a broadcast is actively sending'
+                ? 'You cannot delete a broadcast while it is sending'
                 : 'Delete this broadcast'
             }
           >
@@ -477,7 +477,7 @@ export default function BroadcastDetailPage() {
       {/* Stats — 6 cards: Total / Sent / Delivered / Read / Replied / Failed */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
-          label="Total Recipients"
+          label="Sent to"
           value={broadcast.total_recipients}
           total={broadcast.total_recipients}
           icon={<Users className="h-4 w-4" />}
@@ -588,7 +588,7 @@ export default function BroadcastDetailPage() {
               className="border-border text-muted-foreground hover:bg-muted"
             >
               <Download className="h-3.5 w-3.5" />
-              Export CSV
+              Download CSV
             </Button>
           </div>
         </div>
@@ -617,15 +617,15 @@ export default function BroadcastDetailPage() {
               size="sm"
               onClick={() => setRecipientRequest((current) => current + 1)}
             >
-              Retry
+              Try again
             </Button>
           </div>
         ) : recipients.length === 0 ? (
           <div className="flex h-32 items-center justify-center">
             <p className="text-muted-foreground text-sm">
               {statusFilter === 'all'
-                ? 'No recipients found.'
-                : 'No recipients match this filter.'}
+                ? 'No one in this list.'
+                : 'No one matches this filter.'}
             </p>
           </div>
         ) : (
@@ -691,7 +691,7 @@ export default function BroadcastDetailPage() {
                   loading={loadingMoreRecipients}
                   onClick={() => void loadMoreRecipients()}
                 >
-                  Load more recipients
+                  Load more
                 </Button>
               </div>
             )}

@@ -28,8 +28,8 @@ const METHODS: { value: PaymentMethod; label: string }[] = [
 ];
 
 const STATUSES: { value: ExpenseStatus; label: string }[] = [
-  { value: 'posted', label: 'Posted' },
-  { value: 'void', label: 'Voided' },
+  { value: 'posted', label: 'Saved' },
+  { value: 'void', label: 'Cancelled' },
 ];
 
 export function FinanceExpenseFilters({
@@ -101,7 +101,7 @@ export function FinanceExpenseFilters({
             }))}
             selected={value.categoryIds}
             onToggle={(choice) => toggle('categoryIds', choice)}
-            emptyHint="No active categories."
+            emptyHint="No categories yet."
           />
           <Separator className="my-3" />
           <FilterGroup
@@ -123,7 +123,7 @@ export function FinanceExpenseFilters({
             options={staff}
             selected={value.recordedBy}
             onToggle={(choice) => toggle('recordedBy', choice)}
-            emptyHint="No teammates yet."
+            emptyHint="No team members yet."
           />
           <Separator className="my-3" />
           <div className="grid gap-3">

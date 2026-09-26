@@ -356,7 +356,7 @@ export async function loadActivity(
     items.push({
       id: `contact-${c.id}`,
       kind: 'contact',
-      text: `New lead: ${c.name || accountQualifiedPhoneDisplayValue(c.phone, phoneCountryCode)}`,
+      text: `New enquiry: ${c.name || accountQualifiedPhoneDisplayValue(c.phone, phoneCountryCode)}`,
       at: c.created_at,
       href: '/leads',
     });

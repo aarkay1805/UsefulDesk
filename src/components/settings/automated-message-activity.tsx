@@ -121,8 +121,8 @@ const OUTCOMES: Record<
   blocked: { label: 'Blocked', variant: 'warning', group: 'attention' },
   stopped: { label: 'Stopped', variant: 'neutral', group: 'other' },
   failed: { label: 'Failed', variant: 'danger', group: 'attention' },
-  ambiguous: { label: 'Needs review', variant: 'warning', group: 'attention' },
-  unconfirmed: { label: 'Unconfirmed', variant: 'neutral', group: 'other' },
+  ambiguous: { label: 'Needs checking', variant: 'warning', group: 'attention' },
+  unconfirmed: { label: 'Not confirmed', variant: 'neutral', group: 'other' },
 };
 
 /**
@@ -299,7 +299,7 @@ function ScheduleReadiness({
         <CardContent>
           {failed ? (
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <p className="text-destructive">Couldn’t check reminders.</p>
+              <p className="text-destructive">Could not check reminders.</p>
               <Button
                 variant="outline"
                 size="sm"
@@ -461,7 +461,7 @@ function MessageHistory({
           setItems([]);
           setNextCursor(null);
           setError(
-            getErrorMessage(cause, 'Check your connection, then try again.')
+            getErrorMessage(cause, 'Check your internet, then try again.')
           );
         }
       } finally {
@@ -487,7 +487,7 @@ function MessageHistory({
     } catch (cause) {
       if (version === requestVersion.current)
         setLoadMoreError(
-          getErrorMessage(cause, 'Older messages couldn’t load. Try again.')
+          getErrorMessage(cause, 'Older messages could not load. Try again.')
         );
     } finally {
       setLoadingMore(false);
@@ -609,7 +609,7 @@ function MessageHistory({
       {error ? (
         <Alert variant="destructive">
           <AlertCircle />
-          <AlertTitle>Message history couldn’t load</AlertTitle>
+          <AlertTitle>Message history could not load</AlertTitle>
           <AlertDescription>
             <p>{error}</p>
             <Button

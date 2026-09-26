@@ -33,7 +33,7 @@ export function validateStepsForActivation(
   if (!Array.isArray(steps) || steps.length === 0) {
     issues.push({
       path: 'steps',
-      message: 'active automations need at least one step',
+      message: 'Add at least one step before turning this on',
     });
     return issues;
   }
@@ -67,7 +67,7 @@ function validateOne(
       if (!nonEmpty(c.text)) {
         issues.push({
           path: `${path}.text`,
-          message: 'message text is required',
+          message: 'Enter the message text',
         });
       }
       break;
@@ -75,21 +75,21 @@ function validateOne(
       if (!nonEmpty(c.template_name)) {
         issues.push({
           path: `${path}.template_name`,
-          message: 'template name is required',
+          message: 'Pick a template',
         });
       }
       break;
     case 'add_tag':
     case 'remove_tag':
       if (!nonEmpty(c.tag_id)) {
-        issues.push({ path: `${path}.tag_id`, message: 'tag is required' });
+        issues.push({ path: `${path}.tag_id`, message: 'Pick a tag' });
       }
       break;
     case 'assign_conversation':
       if (c.mode === 'specific' && !nonEmpty(c.agent_id)) {
         issues.push({
           path: `${path}.agent_id`,
-          message: 'agent is required when mode is "specific"',
+          message: 'Pick a team member',
         });
       }
       break;
@@ -97,13 +97,13 @@ function validateOne(
       if (!nonEmpty(c.field)) {
         issues.push({
           path: `${path}.field`,
-          message: 'field name is required',
+          message: 'Pick a detail',
         });
       }
       if (c.value === undefined || c.value === null || c.value === '') {
         issues.push({
           path: `${path}.value`,
-          message: 'field value is required',
+          message: 'Enter a value',
         });
       }
       break;
@@ -115,7 +115,7 @@ function validateOne(
       if (!nonEmpty(c.status)) {
         issues.push({
           path: `${path}.status`,
-          message: 'a lead status is required',
+          message: 'Pick an enquiry stage',
         });
       }
       break;
@@ -129,7 +129,7 @@ function validateOne(
       if (c.mode === 'specific' && !nonEmpty(c.agent_id)) {
         issues.push({
           path: `${path}.agent_id`,
-          message: 'agent is required when mode is "specific"',
+          message: 'Pick a team member',
         });
       }
       break;
@@ -147,7 +147,7 @@ function validateOne(
       ) {
         issues.push({
           path: `${path}.due_in_days`,
-          message: 'due in days must be 0 or more',
+          message: 'Due in days must be 0 or more',
         });
       }
       if (c.assign_mode !== 'lead_owner' && c.assign_mode !== 'specific') {
@@ -159,7 +159,7 @@ function validateOne(
       if (c.assign_mode === 'specific' && !nonEmpty(c.agent_id)) {
         issues.push({
           path: `${path}.agent_id`,
-          message: 'agent is required when assign mode is "specific"',
+          message: 'Pick a team member',
         });
       }
       break;
@@ -167,14 +167,14 @@ function validateOne(
       if (!nonEmpty(c.pipeline_id)) {
         issues.push({
           path: `${path}.pipeline_id`,
-          message: 'pipeline is required',
+          message: 'Pick a pipeline',
         });
       }
       if (!nonEmpty(c.stage_id)) {
-        issues.push({ path: `${path}.stage_id`, message: 'stage is required' });
+        issues.push({ path: `${path}.stage_id`, message: 'Pick a stage' });
       }
       if (!nonEmpty(c.title)) {
-        issues.push({ path: `${path}.title`, message: 'title is required' });
+        issues.push({ path: `${path}.title`, message: 'Enter a title' });
       }
       break;
     case 'wait':
@@ -185,7 +185,7 @@ function validateOne(
       ) {
         issues.push({
           path: `${path}.amount`,
-          message: 'wait amount must be greater than 0',
+          message: 'Wait time must be more than 0',
         });
       }
       if (!['minutes', 'hours', 'days'].includes(String(c.unit))) {
@@ -199,13 +199,13 @@ function validateOne(
       if (!nonEmpty(c.subject)) {
         issues.push({
           path: `${path}.subject`,
-          message: 'condition subject is required',
+          message: 'Pick what to check',
         });
       }
       if (!nonEmpty(c.operand)) {
         issues.push({
           path: `${path}.operand`,
-          message: 'condition operand is required',
+          message: 'Enter what to compare with',
         });
       }
       break;
@@ -213,7 +213,7 @@ function validateOne(
       if (!nonEmpty(c.url)) {
         issues.push({
           path: `${path}.url`,
-          message: 'webhook URL is required',
+          message: 'Enter the webhook link',
         });
         break;
       }
@@ -222,13 +222,13 @@ function validateOne(
         if (u.protocol !== 'http:' && u.protocol !== 'https:') {
           issues.push({
             path: `${path}.url`,
-            message: 'webhook URL must use http or https',
+            message: 'The webhook link must start with https://',
           });
         }
       } catch {
         issues.push({
           path: `${path}.url`,
-          message: 'webhook URL is not a valid URL',
+          message: 'The webhook link is not correct',
         });
       }
       break;
@@ -252,12 +252,12 @@ export function validateTriggerForActivation(
     if (!Array.isArray(k) || k.length === 0) {
       issues.push({
         path: 'trigger.keywords',
-        message: 'at least one keyword is required',
+        message: 'Enter at least one word',
       });
     } else if (k.some((v) => typeof v !== 'string' || v.trim() === '')) {
       issues.push({
         path: 'trigger.keywords',
-        message: 'keywords cannot be empty strings',
+        message: 'Remove empty words',
       });
     }
     // A missing match_type defaults to "contains" at runtime (see
@@ -281,12 +281,12 @@ export function validateTriggerForActivation(
     if (!nonEmpty(cfg.schedule)) {
       issues.push({
         path: 'trigger.schedule',
-        message: 'schedule is required',
+        message: 'Enter a time',
       });
     }
   } else if (triggerType === 'tag_added') {
     if (!nonEmpty(cfg.tag_id)) {
-      issues.push({ path: 'trigger.tag_id', message: 'tag is required' });
+      issues.push({ path: 'trigger.tag_id', message: 'Pick a tag' });
     }
   }
 

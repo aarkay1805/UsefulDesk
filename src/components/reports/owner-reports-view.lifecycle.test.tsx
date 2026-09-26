@@ -314,7 +314,7 @@ describe('OwnerReportsView request lifecycle', () => {
     render(<OwnerReportsView month="2026-08" onMonthChange={vi.fn()} />);
 
     await userEvent.click(
-      await screen.findByRole('button', { name: /retry/i })
+      await screen.findByRole('button', { name: /try again/i })
     );
     await waitFor(() =>
       expect(lifecycle.loadSnapshot).toHaveBeenCalledTimes(2)

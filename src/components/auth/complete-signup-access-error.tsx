@@ -14,7 +14,7 @@ export function CompleteSignupAccessError({
   message,
   retryHref,
   retryCurrent = false,
-  actionLabel = 'Retry',
+  actionLabel = 'Try again',
 }: {
   message: string;
   retryHref?: string;
@@ -28,7 +28,7 @@ export function CompleteSignupAccessError({
           <div className="bg-muted mb-2 flex size-12 items-center justify-center rounded-xl">
             <Building2 className="text-muted-foreground size-6" />
           </div>
-          <CardTitle>Gym setup unavailable</CardTitle>
+          <CardTitle>Cannot open gym setup right now</CardTitle>
           <CardDescription>{message}</CardDescription>
         </CardHeader>
         {retryHref || retryCurrent ? (

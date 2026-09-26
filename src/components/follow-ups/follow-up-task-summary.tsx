@@ -33,7 +33,7 @@ function resolveTask(
       label ??
       (taskType
         ? (FOLLOW_UP_TASK_TYPES.find((task) => task.value === taskType)
-            ?.label ?? 'Task')
+            ?.label ?? 'Follow-up')
         : 'Not scheduled'),
   };
 }

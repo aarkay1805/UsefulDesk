@@ -79,7 +79,7 @@ function UpiCard() {
       setLoading(true);
       setLoadError(null);
       try {
-        if (!accountId) throw new Error('No account is selected.');
+        if (!accountId) throw new Error('No branch is selected.');
         const { data, error } = await supabase
           .from('accounts')
           .select('upi_vpa, upi_payee_name')
@@ -97,7 +97,7 @@ function UpiCard() {
       } catch (error) {
         if (!cancelled) {
           setLoadError(
-            getErrorMessage(error, "UPI details couldn't load. Try again.")
+            getErrorMessage(error, "Could not load UPI details. Try again.")
           );
         }
       } finally {
@@ -142,7 +142,7 @@ function UpiCard() {
       toast.success('UPI details updated');
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "UPI details couldn't be saved. Try again.")
+        getErrorMessage(error, "Could not save UPI details. Try again.")
       );
     } finally {
       setSaving(false);
@@ -176,7 +176,7 @@ function UpiCard() {
         ) : loadError ? (
           <Alert variant="destructive">
             <AlertCircle aria-hidden="true" />
-            <AlertTitle>UPI details couldn&apos;t load</AlertTitle>
+            <AlertTitle>Could not load UPI details</AlertTitle>
             <AlertDescription>
               <p>{loadError}</p>
               <Button
@@ -194,9 +194,9 @@ function UpiCard() {
           <form className="space-y-4" onSubmit={handleSave} noValidate>
             {!canEditSettings ? (
               <Alert>
-                <AlertTitle>Read-only</AlertTitle>
+                <AlertTitle>View only</AlertTitle>
                 <AlertDescription>
-                  Ask an admin or owner to change the UPI details.
+                  Ask the owner or an admin to change the UPI details.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -227,12 +227,12 @@ function UpiCard() {
                 ) : null}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="upi-payee">Name shown to payer</Label>
+                <Label htmlFor="upi-payee">Name members see when paying</Label>
                 <Input
                   id="upi-payee"
                   value={payeeName}
                   onChange={(e) => setPayeeName(e.target.value)}
-                  placeholder="Iron Fitness"
+                  placeholder="Example: Iron Fitness"
                   disabled={!canEditSettings}
                 />
                 <p className="text-muted-foreground text-xs">

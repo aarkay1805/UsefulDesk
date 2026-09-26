@@ -153,7 +153,7 @@ describe('Razorpay recurring payment hardening contract', () => {
     );
   });
 
-  it('keeps manual allocation proportional while restricting auto-pay', () => {
+  it('keeps manual allocation proportional while restricting AutoPay', () => {
     expect(effectiveAllocatorMigration).toBeDefined();
     expect(effectiveAllocatorMigration!.sql).toMatch(
       /IF NEW\.source = 'auto' THEN[\s\S]*period\.period_end = NEW\.period_end/

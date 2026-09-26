@@ -68,7 +68,7 @@ export function FollowUpQueueControls({
   scope,
   onScopeChange,
   counts,
-  searchPlaceholder = 'Search follow-ups…',
+  searchPlaceholder = 'Search name or phone',
   searchAriaLabel = 'Search follow-ups',
   actions,
 }: FollowUpQueueControlsProps) {
@@ -115,7 +115,7 @@ export function FollowUpQueueControls({
               value="all"
               label="All"
               count={counts.all}
-              helpText="All open follow-ups in this owner scope."
+              helpText="All open follow-ups."
             />
             {FOLLOW_UP_BUCKET_OPTIONS.map((option) => (
               <QueueChip
@@ -136,11 +136,11 @@ export function FollowUpQueueControls({
         </TooltipProvider>
       </div>
 
-      <Toolbar className="ml-auto" aria-label="Follow-up owner scope">
+      <Toolbar className="ml-auto" aria-label="Whose follow-ups">
         <ToolbarToggleGroup<FollowUpQueueScope>
           value={[scope]}
           onValueChange={(values) => values[0] && onScopeChange(values[0])}
-          aria-label="Owner scope"
+          aria-label="Whose follow-ups"
         >
           <ToolbarToggleItem value="mine">
             <UserRoundSearch className="size-4" />

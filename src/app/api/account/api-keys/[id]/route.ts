@@ -52,7 +52,7 @@ export async function DELETE(
     if (error) {
       console.error('[DELETE /api/account/api-keys/[id]] error:', error);
       return NextResponse.json(
-        { error: 'Failed to revoke API key' },
+        { error: 'Could not revoke API key' },
         { status: 500 }
       );
     }

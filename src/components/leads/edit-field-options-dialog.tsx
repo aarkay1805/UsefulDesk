@@ -43,7 +43,7 @@ import {
 } from '@/lib/semantic-colors';
 
 const FIELD_TITLES: Record<LeadFieldKind, string> = {
-  status: 'status',
+  status: 'stage',
   source: 'source',
   gender: 'gender',
 };
@@ -187,7 +187,7 @@ function OptionsEditor({
       return;
     }
     if (draft.some((o) => !o.label.trim())) {
-      toast.error('Every option needs a label');
+      toast.error('Every option needs a name');
       return;
     }
     setSaving(true);
@@ -206,7 +206,7 @@ function OptionsEditor({
         if ((count ?? 0) > 0) {
           const label = current.find((o) => o.key === key)?.label ?? key;
           toast.error(
-            `Can't remove "${label}" — ${count} lead${count === 1 ? '' : 's'} still use it`
+            `Cannot remove "${label}". ${count} ${count === 1 ? 'enquiry uses' : 'enquiries use'} it.`
           );
           setSaving(false);
           return;
@@ -240,7 +240,7 @@ function OptionsEditor({
       onSaved();
       onClose();
     } catch {
-      toast.error('Failed to save options');
+      toast.error('Could not save options');
     } finally {
       setSaving(false);
     }
@@ -254,8 +254,8 @@ function OptionsEditor({
         </DialogTitle>
         <DialogDescription className="text-muted-foreground">
           {isStatus
-            ? 'These are your pipeline stages — they define the board columns. Leads keep their stage when you rename it.'
-            : 'The choices offered in this column’s dropdown, the add-lead form and the filters.'}
+            ? 'These are your enquiry stages. Each stage is a column on the board. Renaming a stage keeps enquiries in it.'
+            : 'The choices shown in this column, the add enquiry form, and the filters.'}
         </DialogDescription>
       </DialogHeader>
 
@@ -399,7 +399,7 @@ function OptionRow({
       <Input
         value={option.label}
         onChange={(e) => onLabel(e.target.value)}
-        aria-label={`Option ${index + 1} label`}
+        aria-label={`Option ${index + 1} name`}
         className={cn(
           'h-7 flex-1 rounded-full border-transparent px-3.5 font-medium',
           isStatus
@@ -448,7 +448,7 @@ function ColorSwatchPicker({
     <div
       className="flex items-center gap-1"
       role="radiogroup"
-      aria-label="Pill colour"
+      aria-label="Colour"
     >
       {STATUS_COLORS.map((c) => {
         const displayColor = resolveSemanticColorPreset(c)?.tint ?? c;

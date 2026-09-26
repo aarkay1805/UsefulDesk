@@ -18,7 +18,7 @@ describe('QuickActions branch navigation', () => {
     render(<QuickActions />);
 
     const expected = {
-      'Add lead':
+      'Add enquiry':
         '/leads?action=new&branch=00000000-0000-4000-8000-000000000001',
       'Add member':
         '/members?action=new&branch=00000000-0000-4000-8000-000000000001',

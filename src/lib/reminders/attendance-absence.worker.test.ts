@@ -186,7 +186,7 @@ describe('six-day absence delivery', () => {
     expect(result.accepted).toBe(1);
   });
 
-  it('uses the assigned arrival on a repeat reminder day', async () => {
+  it('uses the usual time on a repeat reminder day', async () => {
     const { args, result } = setup([], {
       streakEnabled: true,
       lastVisit: [{ checked_in_at: '2026-09-18T08:00:00.000Z' }],

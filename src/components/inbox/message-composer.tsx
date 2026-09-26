@@ -170,16 +170,16 @@ export function MessageComposer({
   const inputsDisabled = readOnly || sessionExpired;
   const permissionBlocker: ActionBlocker | null = readOnly
     ? {
-        title: 'Admin access required',
+        title: 'You cannot send messages',
         description:
-          'Only an admin or owner can send WhatsApp messages from this account.',
+          'Your role cannot send WhatsApp messages. Ask the owner or an admin.',
       }
     : null;
   const closedSessionBlocker: ActionBlocker | null = sessionExpired
     ? {
-        title: 'WhatsApp session has closed',
+        title: '24-hour reply time is over',
         description:
-          'Send an approved template to reopen the 24-hour WhatsApp session.',
+          'WhatsApp lets you type freely only within 24 hours of their last message. Send a template (a message WhatsApp approved) to start again.',
         resolution: { label: 'Send template', onResolve: onOpenTemplates },
       }
     : null;
@@ -281,16 +281,16 @@ export function MessageComposer({
       if (!res.ok) {
         if (data.code === 'ai_not_configured') {
           toast.error(
-            "AI isn't set up yet — enable it in Settings → AI Assistant."
+            "AI is not set up. Turn it on in AI Agents → Setup."
           );
         } else {
-          toast.error(data.error ?? "Couldn't draft a reply.");
+          toast.error(data.error ?? "Could not draft a reply.");
         }
         return;
       }
       const draftText = typeof data.draft === 'string' ? data.draft.trim() : '';
       if (!draftText) {
-        toast.error("The assistant didn't return a reply.");
+        toast.error("The AI did not write a reply. Try again.");
         return;
       }
       setText(draftText);
@@ -305,7 +305,7 @@ export function MessageComposer({
         }
       });
     } catch {
-      toast.error("Couldn't reach the AI assistant.");
+      toast.error("Could not reach the AI assistant.");
     } finally {
       setDrafting(false);
     }
@@ -320,9 +320,7 @@ export function MessageComposer({
       const max = MEDIA_MAX_BYTES_BY_KIND[kind];
       if (file.size > max) {
         toast.error(
-          `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — ${kind} limit is ${Math.round(
-            max / 1024 / 1024
-          )} MB.`
+          `This file is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit for a ${kind} is ${Math.round(max / 1024 / 1024)} MB.`
         );
         return;
       }
@@ -342,7 +340,7 @@ export function MessageComposer({
           caption: '',
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed.');
+        toast.error(err instanceof Error ? err.message : 'Could not upload. Try again.');
       } finally {
         setBusy(false);
       }
@@ -374,7 +372,7 @@ export function MessageComposer({
       );
       if (file.size === 0) return; // cancelled / empty take
       if (file.size > MEDIA_MAX_BYTES_BY_KIND.audio) {
-        toast.error('Recording is too long (over 16 MB).');
+        toast.error('This recording is too long. Record a shorter one.');
         return;
       }
       setBusy(true);
@@ -392,7 +390,7 @@ export function MessageComposer({
           caption: '',
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Upload failed.');
+        toast.error(err instanceof Error ? err.message : 'Could not upload. Try again.');
       } finally {
         setBusy(false);
       }
@@ -406,7 +404,7 @@ export function MessageComposer({
       !navigator.mediaDevices?.getUserMedia ||
       typeof AudioContext === 'undefined'
     ) {
-      toast.error("Voice recording isn't supported in this browser.");
+      toast.error("This browser cannot record voice notes.");
       return;
     }
     try {
@@ -436,7 +434,7 @@ export function MessageComposer({
     } catch {
       void recorderRef.current?.stop().catch(() => {});
       recorderRef.current = null;
-      toast.error('Microphone access denied or unavailable.');
+      toast.error('Cannot use the microphone. Allow microphone access and try again.');
     }
   }, [inputsDisabled, busy, recording, finalizeRecording]);
 
@@ -550,8 +548,8 @@ export function MessageComposer({
           )}
         >
           <p className="text-amber-foreground text-xs">
-            The 24-hour WhatsApp® session has closed. Send an approved template
-            to reopen it.
+            The 24-hour reply time is over. Send a template to start the chat
+            again.
           </p>
           <ResolvableAction
             trigger={
@@ -678,8 +676,8 @@ export function MessageComposer({
                             render={<div />}
                             variant="ghost"
                             size="icon-lg"
-                            aria-label="Attach media"
-                            title={sendBlocker ? undefined : 'Attach media'}
+                            aria-label="Attach file"
+                            title={sendBlocker ? undefined : 'Attach file'}
                           />
                         }
                       >
@@ -730,9 +728,9 @@ export function MessageComposer({
                   onKeyDown={handleKeyDown}
                   placeholder={
                     readOnly
-                      ? 'Read-only — viewers can browse but not reply'
+                      ? 'View only: you can read chats but cannot reply'
                       : sessionExpired
-                        ? 'Send a template to reopen the session'
+                        ? 'Send a template to start the chat again'
                         : 'Type a message'
                   }
                   aria-label="Message"
@@ -743,7 +741,7 @@ export function MessageComposer({
                   // The placeholder text also surfaces the read-only state.
                   title={
                     readOnly
-                      ? "Read-only — your role can't send messages"
+                      ? "Your role cannot send messages"
                       : undefined
                   }
                   className={cn(

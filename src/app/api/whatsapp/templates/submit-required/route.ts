@@ -20,7 +20,7 @@ export async function POST() {
         error:
           error instanceof Error
             ? error.message
-            : 'Failed to submit required templates.',
+            : 'Could not submit required templates.',
       },
       { status: 500 }
     );

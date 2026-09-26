@@ -81,7 +81,7 @@ export function ConversationsChart({
         {/* Header holds the range control only — the card's title lives in the
             section heading above it. */}
         <CardHeader className="flex flex-wrap items-center gap-2 border-b">
-          <Toolbar aria-label="Conversation range">
+          <Toolbar aria-label="Days to show">
             <ToolbarToggleGroup<RangeValue>
               value={[String(range) as RangeValue]}
               onValueChange={(values) => {
@@ -104,7 +104,7 @@ export function ConversationsChart({
           ) : data.every((p) => p.incoming === 0 && p.outgoing === 0) ? (
             <EmptyState
               icon={MessageSquare}
-              title="No messages in this time"
+              title="No messages in these days"
               hint="Sent and received messages will show here."
             />
           ) : (

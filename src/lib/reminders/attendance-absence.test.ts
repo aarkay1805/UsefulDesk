@@ -10,7 +10,7 @@ import {
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 describe('missed visit reminder timing', () => {
-  it('sends an assigned arrival one hour later in the branch timezone', () => {
+  it('sends one hour after the usual time in the branch timezone', () => {
     expect(
       absenceDueAt('2026-09-24', '07:30:00', 19, 'Asia/Kolkata')?.toISOString()
     ).toBe('2026-09-24T03:00:00.000Z');

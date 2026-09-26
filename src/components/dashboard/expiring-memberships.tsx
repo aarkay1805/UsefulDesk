@@ -76,7 +76,7 @@ export function ExpiringMemberships() {
             ) : expiring.length === 0 ? (
               <QueueEmpty
                 icon={CalendarClock}
-                text={`No memberships expiring in the next ${DASHBOARD_RENEWAL_WINDOW_DAYS} days.`}
+                text={`No memberships expire in the next ${DASHBOARD_RENEWAL_WINDOW_DAYS} days.`}
               />
             ) : (
               <ul className={`${QUEUE_LIST} -my-2`}>

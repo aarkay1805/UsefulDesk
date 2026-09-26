@@ -117,7 +117,7 @@ const CARD_TAG_LIMIT = 2;
 // Order the cards inside one status column. created_at / updated_at are
 // stored ISO, so a string compare is chronological. Newest is the default
 // (matches the pre-settings board); oldest surfaces stale leads to the top
-// (the action-list use). Name sorts blanks (Unnamed) last, both empty = tie.
+// (the action-list use). Name sorts blanks (No name) last, both empty = tie.
 function sortColumnLeads(
   list: BoardLead[],
   mode: BoardSortWithin
@@ -174,13 +174,13 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
   const assignmentReq = ctx.assignmentRequests[lead.id];
   if (assignmentReq) {
     const targetName = assignmentReq.to_user_id
-      ? (ctx.nameById.get(assignmentReq.to_user_id) ?? 'Teammate')
+      ? (ctx.nameById.get(assignmentReq.to_user_id) ?? 'Team member')
       : 'Unassign';
     return (
       <Badge
         variant="warning"
         className="shrink-0 gap-0.5"
-        title={`Assignment pending the owner's approval → ${targetName}`}
+        title={`Waiting for the owner to approve → ${targetName}`}
       >
         <ArrowRight className="size-3" />
         {targetName}
@@ -192,8 +192,8 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
   if (transfer) {
     const incoming = transfer.to_user_id === ctx.currentUserId;
     const targetName = transfer.to_user_id
-      ? (ctx.nameById.get(transfer.to_user_id) ?? 'Teammate')
-      : 'Teammate';
+      ? (ctx.nameById.get(transfer.to_user_id) ?? 'Team member')
+      : 'Team member';
     return (
       <Badge
         variant="warning"
@@ -215,7 +215,7 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
   if (lead.pending_invitation_id && lead.pending_assignee_name) {
     return (
       <span
-        title={`Invite pending — ${lead.pending_assignee_name} hasn't joined yet`}
+        title={`Invite sent. ${lead.pending_assignee_name} has not joined yet.`}
       >
         <UserAvatar
           name={lead.pending_assignee_name}
@@ -229,7 +229,7 @@ function CardOwner({ lead, ctx }: { lead: BoardLead; ctx: LeadCardContext }) {
   }
 
   if (lead.assigned_to) {
-    const name = ctx.nameById.get(lead.assigned_to) ?? 'Teammate';
+    const name = ctx.nameById.get(lead.assigned_to) ?? 'Team member';
     return (
       <span title={`Assigned to ${name}`}>
         <UserAvatar
@@ -380,7 +380,7 @@ const LeadCard = memo(function LeadCard({
           className="text-foreground min-w-0 truncate text-left text-sm font-medium hover:underline"
         >
           {lead.name || (
-            <span className="text-muted-foreground italic">Unnamed</span>
+            <span className="text-muted-foreground italic">No name</span>
           )}
         </button>
         {!isOverlay && <CardMenu lead={lead} ctx={ctx} />}
@@ -428,7 +428,7 @@ const LeadCard = memo(function LeadCard({
             )}
             <span
               className="text-muted-foreground text-[11px]"
-              title={`Created ${fmt.date(lead.created_at)}`}
+              title={`Added ${fmt.date(lead.created_at)}`}
             >
               {formatCardDate(lead.created_at, locale.locale)}
             </span>
@@ -574,7 +574,7 @@ function StatusColumn({
       >
         {leads.length === 0 ? (
           <div className="border-border text-muted-foreground flex flex-1 items-center justify-center rounded-lg border-2 border-dashed py-10 text-xs">
-            {ctx.canEdit ? 'Drop a lead here' : 'No leads'}
+            {ctx.canEdit ? 'Drop an enquiry here' : 'No enquiries'}
           </div>
         ) : (
           <ColumnCards leads={leads} ctx={ctx} />

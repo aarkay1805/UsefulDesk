@@ -64,8 +64,8 @@ export function EditorHeader() {
           onClick={() => navigate('/flows')}
           aria-busy={isPending('/flows') || undefined}
           disabled={isPending('/flows')}
-          title="Back to Flows"
-          aria-label="Back to Flows"
+          title="Back to flows"
+          aria-label="Back to flows"
           className="text-muted-foreground hover:bg-muted hover:text-foreground inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors"
         >
           {isPending('/flows') ? (
@@ -89,7 +89,7 @@ export function EditorHeader() {
         {dirty && (
           <span
             className="text-amber-foreground inline-flex shrink-0 items-center gap-1.5 text-[10px] font-medium tracking-wide uppercase"
-            title="Unsaved changes — hit Save to persist"
+            title="Changes not saved. Click Save."
             aria-live="polite"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
@@ -139,7 +139,7 @@ export function EditorHeader() {
               disabled={!canActivate}
               title={
                 !canActivate
-                  ? 'Fix the issues below before activating'
+                  ? 'Fix the problems below before turning it on'
                   : undefined
               }
             >
@@ -160,8 +160,8 @@ export function EditorHeader() {
         onChange={(e) =>
           setState((s) => ({ ...s, description: e.target.value }))
         }
-        placeholder="Add a short description (internal — customers don't see this)"
-        aria-label="Flow description"
+        placeholder="Add a short note (members do not see this)"
+        aria-label="Flow note"
         className="text-muted-foreground placeholder:text-muted-foreground/60 hover:bg-muted/50 focus:border-primary focus:text-foreground w-full max-w-[78ch] rounded-md border border-transparent bg-transparent px-2 py-1 text-[13px] transition-colors outline-none focus:bg-transparent"
       />
     </div>

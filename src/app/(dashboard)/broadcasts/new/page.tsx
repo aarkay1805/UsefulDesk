@@ -16,7 +16,7 @@ import { usePendingNavigation } from '@/hooks/use-pending-navigation';
 const steps = [
   { label: 'Template', key: 'template' },
   { label: 'Audience', key: 'audience' },
-  { label: 'Personalize', key: 'personalize' },
+  { label: 'Fill details', key: 'personalize' },
   { label: 'Send', key: 'send' },
 ] as const;
 
@@ -69,7 +69,7 @@ export default function NewBroadcastPage() {
     } catch (err) {
       // Previously swallowed with console.error — the wizard would
       // just no-op, leaving the user confused. Surface the reason.
-      const message = err instanceof Error ? err.message : 'Broadcast failed';
+      const message = err instanceof Error ? err.message : 'Could not send the broadcast';
       console.error('Broadcast failed:', err);
       toast.error(message);
     }
@@ -86,7 +86,7 @@ export default function NewBroadcastPage() {
    */
   async function handleSaveDraft() {
     if (!template || !name.trim()) {
-      toast.error('Give the broadcast a name before saving a draft.');
+      toast.error('Give the broadcast a name first.');
       return;
     }
     setSavingDraft(true);
@@ -97,11 +97,11 @@ export default function NewBroadcastPage() {
       } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) {
-        toast.error('Not signed in.');
+        toast.error('Your login has expired. Log in again.');
         return;
       }
       if (!accountId) {
-        toast.error('Your profile is not linked to an account.');
+        toast.error('Your login is not linked to a gym.');
         return;
       }
 
@@ -126,7 +126,7 @@ export default function NewBroadcastPage() {
       });
 
       if (error) {
-        toast.error(`Failed to save draft: ${error.message}`);
+        toast.error(`Could not save draft: ${error.message}`);
         return;
       }
       toast.success('Draft saved');
@@ -140,9 +140,9 @@ export default function NewBroadcastPage() {
     <div className="mx-auto max-w-3xl space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-foreground text-2xl font-bold">New Broadcast</h1>
+        <h1 className="text-foreground text-2xl font-bold">New broadcast</h1>
         <p className="text-muted-foreground mt-1 text-sm">
-          Create and send a broadcast message to your contacts.
+          Send one WhatsApp message to many people at once.
         </p>
       </div>
 

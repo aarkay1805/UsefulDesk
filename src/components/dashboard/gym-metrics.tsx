@@ -42,7 +42,7 @@ export function GymMetrics() {
           href="/finance?view=performance"
           className={buttonVariants({ variant: 'link', size: 'xs' })}
         >
-          See business report
+          See full report
         </Link>
       }
     >
@@ -73,7 +73,7 @@ export function GymMetrics() {
               }
               icon={Wallet}
               subtitle={`${fmt.number(stats.feesDueCount)} ${
-                stats.feesDueCount === 1 ? 'payment is' : 'payments are'
+                stats.feesDueCount === 1 ? 'member has' : 'members have'
               } not paid`}
             />
           </TileLink>
@@ -82,7 +82,7 @@ export function GymMetrics() {
               title="Renewals due"
               value={<AnimatedNumber value={stats.expiring7} />}
               icon={CalendarClock}
-              subtitle="Memberships ending in 7 days"
+              subtitle="Memberships ending in the next 7 days"
             />
           </TileLink>
           <TileLink href="/members?view=retention">
@@ -139,17 +139,17 @@ function riskContext(
   formatNumber: (value: number) => string
 ): string {
   if (stats.missedVisitRisk > 0 && stats.neverVisitedRisk > 0) {
-    return `${formatNumber(stats.missedVisitRisk)} missed visits · ${formatNumber(
+    return `${formatNumber(stats.missedVisitRisk)} not coming · ${formatNumber(
       stats.neverVisitedRisk
-    )} never checked in`;
+    )} never came`;
   }
   if (stats.missedVisitRisk > 0) {
-    return `${formatNumber(stats.missedVisitRisk)} absent for 10+ days`;
+    return `${formatNumber(stats.missedVisitRisk)} not seen for 10+ days`;
   }
   if (stats.neverVisitedRisk > 0) {
-    return `${formatNumber(stats.neverVisitedRisk)} never checked in`;
+    return `${formatNumber(stats.neverVisitedRisk)} joined but never came`;
   }
-  return 'No attendance risks to follow up';
+  return 'Everyone is coming regularly';
 }
 
 function collectionComparison(
@@ -160,13 +160,13 @@ function collectionComparison(
   if (Math.abs(difference) < 0.5) {
     return {
       sign: 0,
-      label: `${formatMoney(stats.collectionDailyAverage7d)} 7-day daily average`,
+      label: `Same as a usual day (${formatMoney(stats.collectionDailyAverage7d)})`,
     };
   }
   return {
     sign: difference,
     label: `${formatMoney(Math.abs(difference))} ${
-      difference > 0 ? 'above' : 'below'
-    } your usual day this week`,
+      difference > 0 ? 'more' : 'less'
+    } than a usual day`,
   };
 }

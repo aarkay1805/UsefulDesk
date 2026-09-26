@@ -170,7 +170,7 @@ describe('dashboard request context', () => {
         organizationNameSetupState,
         branchAccessError:
           organizationNameSetupState === 'unavailable'
-            ? 'Could not verify your gym setup. Please retry.'
+            ? 'We could not check your gym setup. Try again.'
             : null,
       });
 

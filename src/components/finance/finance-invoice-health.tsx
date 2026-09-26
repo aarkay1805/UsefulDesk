@@ -29,7 +29,7 @@ const STATUS_ROWS = [
   },
   {
     key: 'refundReview',
-    label: 'Refund review',
+    label: 'Check refund',
     color: 'var(--color-blue-500)',
     dot: 'bg-blue-500',
   },
@@ -57,7 +57,7 @@ export function FinanceInvoiceHealthCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Invoice health</CardTitle>
+        <CardTitle>Invoice status</CardTitle>
       </CardHeader>
       <CardContent>
         {invoiceCount > 0 ? (
@@ -122,7 +122,7 @@ export function FinanceInvoiceHealthCard({
               <div className="flex items-center gap-2 border-t px-3 py-2.5">
                 <span className="bg-muted-foreground size-2 rounded-full" />
                 <span className="text-muted-foreground flex-1">
-                  Outstanding
+                  Total due
                 </span>
                 <span className="font-medium tabular-nums">
                   {fmt.money(health.outstanding)}
@@ -134,7 +134,7 @@ export function FinanceInvoiceHealthCard({
           <EmptyState
             icon={ReceiptText}
             className="min-h-52"
-            title="No invoices issued in this month"
+            title="No invoices this month"
           />
         )}
       </CardContent>

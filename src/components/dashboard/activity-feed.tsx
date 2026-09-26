@@ -71,7 +71,7 @@ export function ActivityFeed({
   return (
     <DashboardSection
       id="recent-work"
-      title="Recent work"
+      title="Recent activity"
       className={DASHBOARD_PAIRED_SECTION}
       action={
         <Link
@@ -79,7 +79,7 @@ export function ActivityFeed({
           href="/inbox"
           className={buttonVariants({ variant: 'link', size: 'xs' })}
         >
-          Open inbox
+          Open chats
         </Link>
       }
     >
@@ -89,7 +89,7 @@ export function ActivityFeed({
           <CardContent>
             <EmptyState
               icon={AlertCircle}
-              title="Could not load recent work"
+              title="Could not load recent activity"
               hint="Reload the page to try again."
               className="min-h-32"
             />
@@ -105,7 +105,7 @@ export function ActivityFeed({
             <EmptyState
               icon={Inbox}
               title="No activity yet"
-              hint="Messages, leads, broadcasts, and automations will show here."
+              hint="New messages, enquiries, and broadcasts will show here."
             />
           </CardContent>
         ) : (

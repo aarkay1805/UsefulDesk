@@ -282,7 +282,7 @@ export function financeExpensesCsv(
       'Amount',
       'Status',
       'Recorded by',
-      'Void reason',
+      'Why cancelled',
     ],
     ...rows.map((row) => [
       row.reference,
@@ -292,7 +292,7 @@ export function financeExpensesCsv(
       row.method,
       row.expense_kind === 'recurring' ? 'Recurring' : 'One-time',
       row.amount,
-      row.status === 'void' ? 'Voided' : 'Posted',
+      row.status === 'void' ? 'Cancelled' : 'Saved',
       row.recorded_by_name?.trim() || 'Staff',
       row.void_reason ?? '',
     ]),

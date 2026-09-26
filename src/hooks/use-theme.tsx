@@ -135,7 +135,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         .catch((error: unknown) => {
           console.error('[ThemeProvider] appearance save failed:', error);
           toast.error(
-            getErrorMessage(error, 'Appearance could not be synced'),
+            getErrorMessage(error, 'Could not save your look settings'),
             {
               description:
                 'Your choice is still active on this device. Try again.',

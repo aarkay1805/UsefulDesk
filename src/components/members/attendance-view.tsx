@@ -148,7 +148,7 @@ export function AttendanceView({
       const start = dayStartInTz(selectedDate, locale.timeZone);
       const end = dayStartInTz(istAddDays(selectedDate, 1), locale.timeZone);
       if (!start || !end) {
-        setLoadError('This attendance date could not be loaded.');
+        setLoadError('Could not load attendance for this date.');
         setLoading(false);
         return;
       }
@@ -186,7 +186,7 @@ export function AttendanceView({
         );
       } catch (error) {
         if (controller.signal.aborted) return;
-        setLoadError(getErrorMessage(error, 'Attendance could not be loaded'));
+        setLoadError(getErrorMessage(error, 'Could not load attendance'));
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -251,7 +251,7 @@ export function AttendanceView({
       );
       onAttendanceChanged?.();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not update assigned arrival'));
+      toast.error(getErrorMessage(error, 'Could not update usual time'));
     } finally {
       setSavingArrival(false);
       setEditingArrivalId(null);
@@ -313,7 +313,7 @@ export function AttendanceView({
       toast.success(`${membership.contact?.name || 'Member'} checked in`);
       onAttendanceChanged?.();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Check-in failed'));
+      toast.error(getErrorMessage(error, 'Could not check in'));
     } finally {
       setBusyId(null);
     }
@@ -361,7 +361,7 @@ export function AttendanceView({
         .select('id')
         .maybeSingle();
       if (error) throw error;
-      if (!data) throw new Error('This visit was already checked out.');
+      if (!data) throw new Error('This member is already checked out.');
 
       setRows((current) =>
         current.map((row) =>
@@ -376,7 +376,7 @@ export function AttendanceView({
       toast.success(`${membership.contact?.name || 'Member'} checked out`);
       onAttendanceChanged?.();
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Check-out failed'));
+      toast.error(getErrorMessage(error, 'Could not check out'));
     } finally {
       setBusyId(null);
     }
@@ -390,7 +390,7 @@ export function AttendanceView({
     if (bucket === 'present') {
       return `No members checked in on ${fmt.date(selectedDate)}.`;
     }
-    return `Everyone was present on ${fmt.date(selectedDate)}.`;
+    return `Everyone came on ${fmt.date(selectedDate)}.`;
   }
 
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -419,14 +419,14 @@ export function AttendanceView({
                 <Button
                   variant="pill"
                   aria-pressed={arrivalBucket !== 'all'}
-                  aria-label={`Filter by assigned arrival: ${arrivalBucketLabel}`}
+                  aria-label={`Filter by usual time: ${arrivalBucketLabel}`}
                 />
               }
             >
               <Clock3 className="size-4" />
               {arrivalBucket === 'all'
-                ? 'Assigned arrival'
-                : `Assigned arrival: ${arrivalBucketLabel}`}
+                ? 'Usual time'
+                : `Usual time: ${arrivalBucketLabel}`}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-52">
               <DropdownMenuRadioGroup
@@ -437,7 +437,7 @@ export function AttendanceView({
                   setSort({ key: 'assigned_arrival_time', dir: 'asc' });
                 }}
               >
-                <DropdownMenuLabel>Assigned arrival</DropdownMenuLabel>
+                <DropdownMenuLabel>Usual time</DropdownMenuLabel>
                 {ATTENDANCE_ARRIVAL_BUCKETS.map((option) => (
                   <DropdownMenuRadioItem
                     key={option.value}
@@ -523,7 +523,7 @@ export function AttendanceView({
                 setPage(0);
               }}
               aria-label="Next day"
-              title={isToday ? 'Today is the latest date' : 'Next day'}
+              title={isToday ? 'You cannot go past today' : 'Next day'}
             >
               <ChevronRight className="size-4" />
             </Button>
@@ -562,7 +562,7 @@ export function AttendanceView({
               </TableHead>
               <TableHead className="w-[15%]">
                 <ColumnHeader
-                  label="Assigned arrival"
+                  label="Usual time"
                   sortable
                   sortDir={
                     sort.key === 'assigned_arrival_time' ? sort.dir : null
@@ -689,7 +689,7 @@ export function AttendanceView({
                                 ? fmt.timeOfDay(
                                     membership.contact.assigned_arrival_time
                                   )
-                                : 'Not assigned'}
+                                : 'Not set'}
                             </span>
                           }
                           onStart={() =>
@@ -732,7 +732,7 @@ export function AttendanceView({
                           </span>
                         ) : attendance?.checked_out_at ? (
                           <span className="text-muted-foreground inline-flex items-center gap-1 text-xs">
-                            <Check className="size-3.5" /> Complete
+                            <Check className="size-3.5" /> Done
                           </span>
                         ) : attendance ? (
                           <Button
@@ -743,7 +743,7 @@ export function AttendanceView({
                             title={
                               canSendMessages
                                 ? 'Check member out'
-                                : "Read-only — your role can't change attendance"
+                                : "Your role cannot change attendance"
                             }
                             onClick={() =>
                               void checkOut(membership, attendance)
@@ -765,7 +765,7 @@ export function AttendanceView({
                             title={
                               canSendMessages
                                 ? 'Check member in'
-                                : "Read-only — your role can't change attendance"
+                                : "Your role cannot change attendance"
                             }
                             onClick={() => void checkIn(membership)}
                           >

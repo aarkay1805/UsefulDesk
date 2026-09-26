@@ -40,8 +40,7 @@ export default function AgentsPage() {
         </h1>
       </div>
       <p className="text-muted-foreground mt-1 text-sm">
-        Your bring-your-own-key AI agent — set it up, then test it in the
-        playground before it replies to customers in the inbox.
+        Set up an AI agent with your own AI key. Test it in the Playground before it replies to members in Chats.
       </p>
 
       {decided && (

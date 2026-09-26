@@ -158,7 +158,7 @@ export function MemberPersonalInfo({
 
     if (error) return toast.error(error.message);
     if (!data || data.length === 0)
-      return toast.error("You don't have permission to edit this member.");
+      return toast.error("You do not have permission to edit this member.");
     toast.success('Details saved');
     onSaved();
   }
@@ -219,7 +219,7 @@ export function MemberPersonalInfo({
               disabled={!canEdit}
             >
               <SelectTrigger size="sm" className="w-full">
-                <SelectValue placeholder="Not specified" />
+                <SelectValue placeholder="Not given" />
               </SelectTrigger>
               <SelectContent>
                 {GENDER_OPTIONS.map((o) => (
@@ -254,13 +254,13 @@ export function MemberPersonalInfo({
               disabled={!canEdit}
             />
             <Field
-              label="State / Province"
+              label="State"
               value={draft.state}
               onChange={set('state')}
               disabled={!canEdit}
             />
             <Field
-              label="Zip / Postal code"
+              label="Postal code"
               value={draft.postal_code}
               onChange={set('postal_code')}
               disabled={!canEdit}

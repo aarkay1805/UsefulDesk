@@ -175,7 +175,7 @@ describe('warnings reach the operator as notices', () => {
     ).toBe(false);
   });
 
-  it('surfaces an unreadable churn risk value', () => {
+  it('surfaces an unreadable “may leave” value', () => {
     const [candidate] = build([
       source(2, { original: { churnRisk: 'maybe' } }),
     ]);

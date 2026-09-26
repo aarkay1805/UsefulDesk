@@ -254,7 +254,7 @@ export function ContactNotesThread({
     } = await supabase.auth.getSession();
     const authUser = session?.user;
     if (!authUser || !accountId) {
-      toast.error('Your session has expired. Sign in again to save this note.');
+      toast.error('Your login has expired. Log in again to save this note.');
       setSavingNote(false);
       return;
     }
@@ -274,7 +274,7 @@ export function ContactNotesThread({
       toast.error(
         getErrorMessage(
           error,
-          "Couldn't add the note. Check your connection and try again."
+          "Could not add the note. Check your connection and try again."
         )
       );
       setSavingNote(false);
@@ -306,11 +306,11 @@ export function ContactNotesThread({
       if (taskError) {
         if (isUniqueViolation(taskError)) {
           toast.error(
-            'Note added. Only one open follow-up at a time — complete the current one first.'
+            'Note added. There is already an open follow-up. Mark it done first.'
           );
         } else {
           toast.error(
-            "Note added, but the follow-up wasn't created. Edit the note to try again."
+            "Note added, but the follow-up was not added. Edit the note to try again."
           );
         }
       } else {
@@ -375,7 +375,7 @@ export function ContactNotesThread({
         toast.error(
           getErrorMessage(
             error,
-            "Couldn't delete the note. Refresh and try again."
+            "Could not delete the note. Refresh and try again."
           )
         );
       } else {
@@ -412,7 +412,7 @@ export function ContactNotesThread({
     if (!contactId) return false;
     const trimmed = text.trim();
     if (!trimmed) {
-      toast.error('Write something before saving.');
+      toast.error('Write a note first.');
       return false;
     }
     const due = resolveDueDate(draft, fmt.today());
@@ -427,7 +427,7 @@ export function ContactNotesThread({
     const authUser = session?.user;
     if (!authUser || !accountId) {
       toast.error(
-        'Your session has expired. Sign in again to save your changes.'
+        'Your login has expired. Log in again to save your changes.'
       );
       return false;
     }
@@ -440,7 +440,7 @@ export function ContactNotesThread({
       toast.error(
         getErrorMessage(
           error,
-          "Couldn't save the note. Check your connection and try again."
+          "Could not save the note. Check your connection and try again."
         )
       );
       return false;
@@ -467,7 +467,7 @@ export function ContactNotesThread({
           .eq('id', existing.id);
         if (taskError) {
           toast.error(
-            "Note saved, but the follow-up wasn't updated. Try again."
+            "Note saved, but the follow-up was not changed. Try again."
           );
         }
       } else {
@@ -490,11 +490,11 @@ export function ContactNotesThread({
         if (taskError) {
           if (isUniqueViolation(taskError)) {
             toast.error(
-              'Note saved. Only one open follow-up at a time — complete the current one first.'
+              'Note saved. There is already an open follow-up. Mark it done first.'
             );
           } else {
             toast.error(
-              "Note saved, but the follow-up wasn't created. Try again."
+              "Note saved, but the follow-up was not added. Try again."
             );
           }
         }
@@ -511,7 +511,7 @@ export function ContactNotesThread({
         .maybeSingle();
       if (!cancelled) {
         toast.error(
-          "Note saved, but the follow-up wasn't cancelled. Refresh and try again."
+          "Note saved, but the follow-up was not cancelled. Refresh the page and try again."
         );
       }
     }
@@ -581,8 +581,8 @@ export function ContactNotesThread({
                   variant="destructive-ghost"
                   size="icon-sm"
                   onClick={discardDraft}
-                  aria-label="Discard draft"
-                  title="Discard draft"
+                  aria-label="Delete draft"
+                  title="Delete draft"
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -603,8 +603,7 @@ export function ContactNotesThread({
               No notes or follow-ups yet
             </p>
             <p className="text-muted-foreground mx-auto max-w-sm text-sm">
-              Record what happened — a call, a visit, a payment promise — and
-              add a follow-up so it doesn&apos;t get missed.
+              Write what happened, like a call, a visit, or a payment promise. Add a follow-up so nobody forgets.
             </p>
           </div>
         ) : (
@@ -615,7 +614,7 @@ export function ContactNotesThread({
                   <NoteCard
                     note={item.note}
                     followUp={noteFollowUps[item.note.id]}
-                    authorName={nameById.get(item.note.user_id) ?? 'Teammate'}
+                    authorName={nameById.get(item.note.user_id) ?? 'Team member'}
                     authorAvatarUrl={avatarById.get(item.note.user_id) ?? null}
                     currentUserId={user?.id ?? ''}
                     nameById={nameById}
@@ -636,7 +635,7 @@ export function ContactNotesThread({
                   <StandaloneFollowUpCard
                     followUp={item.followUp}
                     authorName={
-                      nameById.get(item.followUp.created_by) ?? 'Teammate'
+                      nameById.get(item.followUp.created_by) ?? 'Team member'
                     }
                     authorAvatarUrl={
                       avatarById.get(item.followUp.created_by) ?? null
@@ -704,7 +703,7 @@ export function FollowUpActivityCard({
   const assigneeName = followUp.assigned_to
     ? followUp.assigned_to === currentUserId
       ? `${nameById.get(followUp.assigned_to) ?? 'Me'} (Me)`
-      : (nameById.get(followUp.assigned_to) ?? 'Teammate')
+      : (nameById.get(followUp.assigned_to) ?? 'Team member')
     : null;
   // The icon carries the task type, so the heading can keep the product's
   // one noun for the thing itself and give the row to its urgency instead.
@@ -754,7 +753,7 @@ export function FollowUpActivityCard({
               className="shrink-0"
               title={fmt.dateTime(followUp.created_at)}
             >
-              Created on {fmt.date(followUp.created_at)}
+              Added on {fmt.date(followUp.created_at)}
             </span>
             {assigneeName && (
               <span className="flex min-w-0 items-center gap-1">
@@ -1091,7 +1090,7 @@ function NoteCard({
             The author is the avatar's job; this strip only dates the note. */}
         <div className="text-muted-foreground border-border/50 flex items-center justify-between gap-2 border-t px-3 py-2 text-xs">
           <span className="shrink-0" title={fmt.dateTime(note.created_at)}>
-            Created on {createdOn}
+            Added on {createdOn}
           </span>
           {cardActions}
         </div>

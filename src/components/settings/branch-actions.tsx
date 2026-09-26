@@ -108,7 +108,7 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
         warningCount?: number;
       };
       if (!response.ok) {
-        toast.error(payload.error || `Failed to ${action} the branch`);
+        toast.error(payload.error || `Could not ${action} the branch`);
         setBusy(false);
         return;
       }
@@ -119,10 +119,10 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
       if (action === 'delete') {
         if (payload.warningCount) {
           toast.warning(
-            'Branch deleted, but some unused teammate logins need administrator cleanup.'
+            'Branch deleted. Some old team logins still need to be cleaned up by support.'
           );
         } else {
-          toast.success('Branch permanently deleted');
+          toast.success('Branch deleted');
         }
       }
 
@@ -143,7 +143,7 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
       window.location.reload();
     } catch (error) {
       console.error('[BranchActions] lifecycle action failed:', error);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
       setBusy(false);
     }
   }
@@ -158,12 +158,12 @@ export function BranchActions({ branch, selected }: BranchActionsProps) {
           : `Delete ${branch.account_name}?`;
   const description =
     action === 'rename'
-      ? 'Only this branch changes. Your team sees the new name in the branch menu; the gym brand, registered business, and invoices keep their own names.'
+      ? 'Only this branch changes. Your team sees the new name in the branch menu; the gym name, registered business, and invoices keep their own names.'
       : action === 'archive'
         ? 'Your team cannot use this branch until you reopen it. Members, chats, and payment records will stay.'
         : action === 'restore'
           ? 'Your team can use this branch again. Check its WhatsApp and payment connections before you start.'
-          : 'This deletes the branch, its members, leads, chats, payments, and files for good. You cannot undo this.';
+          : 'This deletes the branch, its members, enquiries, chats, payments, and files for good. You cannot undo this.';
 
   return (
     <>

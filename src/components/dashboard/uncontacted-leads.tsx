@@ -54,7 +54,7 @@ export function UncontactedLeads() {
             {sectionFailed ? (
               <EmptyState
                 icon={AlertCircle}
-                title="Could not load uncontacted leads"
+                title="Could not load these enquiries"
                 hint="Reload the page to try again."
                 className="min-h-32"
               />
@@ -63,12 +63,12 @@ export function UncontactedLeads() {
             ) : leads.length === 0 ? (
               <QueueEmpty
                 icon={UserRoundSearch}
-                text={`Every lead older than ${DASHBOARD_UNCONTACTED_HOURS} hours has been picked up.`}
+                text={`Your team has contacted every enquiry older than ${DASHBOARD_UNCONTACTED_HOURS} hours.`}
               />
             ) : (
               <ul className={`${QUEUE_LIST} -my-2.5`}>
                 {leads.map((lead) => {
-                  const displayName = lead.name?.trim() || 'Unnamed lead';
+                  const displayName = lead.name?.trim() || 'No name';
                   return (
                     <li key={lead.id}>
                       <Link
@@ -89,7 +89,7 @@ export function UncontactedLeads() {
                           </p>
                         </div>
                         <Badge variant="info">
-                          Waiting {lead.waitingDays}d
+                          Waiting {lead.waitingDays} {lead.waitingDays === 1 ? 'day' : 'days'}
                         </Badge>
                       </Link>
                     </li>

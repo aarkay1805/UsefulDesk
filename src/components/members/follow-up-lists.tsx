@@ -97,7 +97,7 @@ const SORT_COLUMNS: { key: string; label: string }[] = [
   { key: 'customer', label: 'Name' },
   { key: 'due_date', label: 'Due date' },
   { key: 'reason', label: 'Reason' },
-  { key: 'created_at', label: 'Created' },
+  { key: 'created_at', label: 'Added' },
 ];
 
 type FollowUpFilterDim = 'buckets' | 'reasons' | 'assignees';
@@ -389,7 +389,7 @@ export function FollowUpLists({
         .select('id')
         .maybeSingle();
       if (error || !data) {
-        toast.error(getErrorMessage(error, 'Failed to reassign follow-up'));
+        toast.error(getErrorMessage(error, 'Could not reassign follow-up'));
         return;
       }
       setRows((current) =>
@@ -397,7 +397,7 @@ export function FollowUpLists({
           row.id === followUp.id ? { ...row, assigned_to: assignedTo } : row
         )
       );
-      toast.success('Follow-up reassigned');
+      toast.success('Follow-up given to new person');
       onChanged();
     } finally {
       setSavingCell(false);
@@ -411,7 +411,7 @@ export function FollowUpLists({
     }
     return (
       <AssigneeDisplay
-        name={nameById.get(followUp.assigned_to) ?? 'Teammate'}
+        name={nameById.get(followUp.assigned_to) ?? 'Team member'}
         avatarUrl={avatarById.get(followUp.assigned_to)}
       />
     );
@@ -538,7 +538,7 @@ export function FollowUpLists({
         setBucketCounts(result.bucketCounts);
       } catch (error) {
         if (controller.signal.aborted || seq !== fetchSeq.current) return;
-        toast.error(getErrorMessage(error, 'Failed to load follow-ups'));
+        toast.error(getErrorMessage(error, 'Could not load follow-ups'));
       } finally {
         if (!controller.signal.aborted && seq === fetchSeq.current) {
           setLoading(false);
@@ -590,7 +590,7 @@ export function FollowUpLists({
     if (scope === 'mine' && !userId) return;
     const searchResolution = await resolveMemberSearch(supabase, search).catch(
       (error) => {
-        toast.error(getErrorMessage(error, 'Failed to select follow-ups'));
+        toast.error(getErrorMessage(error, 'Could not select follow-ups'));
         return null;
       }
     );
@@ -615,7 +615,7 @@ export function FollowUpLists({
     }
     const { data, error } = await query;
     if (error) {
-      toast.error(getErrorMessage(error, 'Failed to select follow-ups'));
+      toast.error(getErrorMessage(error, 'Could not select follow-ups'));
       return;
     }
     setSelected(
@@ -783,8 +783,8 @@ export function FollowUpLists({
                 ? search.trim()
                   ? 'No member follow-ups match your search.'
                   : scope === 'mine'
-                    ? 'No open member follow-ups in My work.'
-                    : 'No open member follow-ups for the team.'
+                    ? 'You have no open member follow-ups.'
+                    : 'Your team has no open member follow-ups.'
                 : 'No follow-ups match your filters.'}
             </p>
           </div>

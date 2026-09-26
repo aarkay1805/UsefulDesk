@@ -74,9 +74,8 @@ function ForgotPasswordPageInner() {
               Check your email
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              We&apos;ve sent a password reset link to{' '}
-              <span className="text-foreground">{email}</span>. Please check
-              your inbox.
+              We sent a link to reset your password to{' '}
+              <span className="text-foreground">{email}</span>. Check your email.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -107,7 +106,7 @@ function ForgotPasswordPageInner() {
             Reset password
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            Enter your email and we&apos;ll send you a reset link
+            Enter your email. We will send you a link to reset your password.
           </CardDescription>
         </CardHeader>
         <CardContent>

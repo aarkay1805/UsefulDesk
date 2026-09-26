@@ -94,9 +94,9 @@ describe('InvoiceRecordPaymentAction', () => {
     expect(action.getAttribute('aria-disabled')).toBe('true');
     await userEvent.click(action);
 
-    expect(screen.getByText('Refund review blocks collection')).toBeTruthy();
+    expect(screen.getByText('Sort out the refund first')).toBeTruthy();
     await userEvent.click(
-      screen.getByRole('button', { name: 'Resolve refund review' })
+      screen.getByRole('button', { name: 'Sort out refund' })
     );
     expect(onResolveRefundReview).toHaveBeenCalledOnce();
   });
@@ -119,9 +119,9 @@ describe('InvoiceRecordPaymentAction', () => {
     await userEvent.click(
       screen.getByRole('button', { name: 'Record payment' })
     );
-    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.getByText('You do not have permission')).toBeTruthy();
     expect(
-      screen.queryByRole('button', { name: 'Resolve refund review' })
+      screen.queryByRole('button', { name: 'Sort out refund' })
     ).toBeNull();
   });
 
@@ -174,7 +174,7 @@ describe('invoice-list refund-review resolution', () => {
 
       await userEvent.click(screen.getByRole('button', { name: actionName }));
       await userEvent.click(
-        screen.getByRole('button', { name: 'Resolve refund review' })
+        screen.getByRole('button', { name: 'Sort out refund' })
       );
       expect(onOpenRefundReview).toHaveBeenCalledWith(row);
     }
@@ -301,10 +301,10 @@ describe('InvoicePaymentActions', () => {
       />
     );
 
-    const action = screen.getByRole('button', { name: 'Void' });
+    const action = screen.getByRole('button', { name: 'Cancel payment' });
     expect(action.getAttribute('aria-disabled')).toBe('true');
     await userEvent.click(action);
-    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.getByText('You do not have permission')).toBeTruthy();
   });
 
   it('routes unresolved line targeting to the existing classification control', async () => {
@@ -328,7 +328,7 @@ describe('InvoicePaymentActions', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Refund' }));
     await userEvent.click(
-      screen.getByRole('button', { name: 'Resolve refund review' })
+      screen.getByRole('button', { name: 'Sort out refund' })
     );
     expect(onResolveLineTarget).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -83,7 +83,7 @@ export function ExpenseCategoriesCard() {
       setLoadError(null);
 
       if (!accountId) {
-        setLoadError('No account is selected.');
+        setLoadError('No branch is selected.');
         setLoading(false);
         return;
       }
@@ -101,7 +101,7 @@ export function ExpenseCategoriesCard() {
       if (cancelled) return;
       if (error) {
         setLoadError(
-          getErrorMessage(error, "Expense categories couldn't load. Try again.")
+          getErrorMessage(error, "Could not load expense categories. Try again.")
         );
       } else {
         setCategories((data as ExpenseCategory[] | null) ?? []);
@@ -204,7 +204,7 @@ export function ExpenseCategoriesCard() {
         toast.error(
           getErrorMessage(
             error,
-            "The expense category couldn't be saved. Try again."
+            "Could not save the category. Try again."
           )
         );
       }
@@ -248,7 +248,7 @@ export function ExpenseCategoriesCard() {
           ? EXPENSE_CATEGORY_DUPLICATE_MESSAGE
           : getErrorMessage(
               error,
-              "The expense category couldn't be updated. Try again."
+              "Could not update the category. Try again."
             )
       );
     } finally {
@@ -284,9 +284,9 @@ export function ExpenseCategoriesCard() {
         <CardContent className="space-y-4">
           {!mayManage && !profileLoading ? (
             <Alert>
-              <AlertTitle>Read-only</AlertTitle>
+              <AlertTitle>View only</AlertTitle>
               <AlertDescription>
-                Ask an admin or owner to change expense categories.
+                Ask the owner or an admin to change expense categories.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -303,7 +303,7 @@ export function ExpenseCategoriesCard() {
           ) : loadError ? (
             <Alert variant="destructive">
               <AlertCircle aria-hidden="true" />
-              <AlertTitle>Expense categories couldn&apos;t load</AlertTitle>
+              <AlertTitle>Could not load expense categories</AlertTitle>
               <AlertDescription>
                 <p>{loadError}</p>
                 <Button

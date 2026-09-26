@@ -120,20 +120,20 @@ function invoiceActionBlocker(
 ): ActionBlocker | null {
   if (blocker === 'permission') {
     return {
-      title: 'Admin access required',
+      title: 'You do not have permission',
       description:
-        'Only an agent, admin, or owner can record payments for this invoice.',
+        'Only staff, admins, or the owner can record payments for this invoice.',
     };
   }
   if (blocker === 'refund_review') {
     return {
-      title: 'Refund review blocks collection',
+      title: 'Sort out the refund first',
       description:
-        'An admin must resolve the processed refund before this invoice can collect another payment.',
+        'An admin must sort out the refund before you can collect money on this invoice.',
       ...(canResolveRefundReview
         ? {
             resolution: {
-              label: 'Resolve refund review',
+              label: 'Sort out refund',
               onResolve: onResolveRefundReview,
             },
           }
@@ -212,19 +212,19 @@ export function InvoicePaymentActions({
     (refund) => refund.status === 'processed' && !refund.allocation_complete
   );
   const permissionBlocker: ActionBlocker = {
-    title: 'Admin access required',
-    description: 'Only an admin or owner can correct recorded payments.',
+    title: 'You do not have permission',
+    description: 'Only the owner or an admin can fix recorded payments.',
   };
   const refundBlocker: ActionBlocker | null =
     refundState.blocker === 'permission'
       ? permissionBlocker
       : refundState.blocker === 'line_target_required' && unresolvedRefund
         ? {
-            title: 'Refund review required',
+            title: 'Sort out the refund first',
             description:
-              'Assign the processed refund to invoice lines before issuing another refund.',
+              'Split the last refund across the invoice items before giving another refund.',
             resolution: {
-              label: 'Resolve refund review',
+              label: 'Sort out refund',
               onResolve: () => onResolveLineTarget(unresolvedRefund),
             },
           }
@@ -236,7 +236,7 @@ export function InvoicePaymentActions({
         <ResolvableAction
           trigger={
             <Button type="button" variant="ghost" size="sm">
-              <RotateCcw className="size-3.5" /> Void
+              <RotateCcw className="size-3.5" /> Cancel payment
             </Button>
           }
           onAction={onVoid}
@@ -385,7 +385,7 @@ function InvoiceDetailBody({
         invoiceResult.error;
       if (error) {
         setLoadError(
-          getErrorMessage(error, 'Invoice details could not be loaded')
+          getErrorMessage(error, 'Could not load invoice details')
         );
         setLoading(false);
         return;
@@ -436,7 +436,7 @@ function InvoiceDetailBody({
             error?: string;
           };
           if (!response.ok) {
-            throw new Error(body.error ?? 'Refund history could not be loaded');
+            throw new Error(body.error ?? 'Could not load refund history');
           }
           return { paymentId: payment.id, ...body };
         })
@@ -460,7 +460,7 @@ function InvoiceDetailBody({
     })().catch((error: unknown) => {
       if (cancelled) return;
       setLoadError(
-        getErrorMessage(error, 'Invoice details could not be loaded')
+        getErrorMessage(error, 'Could not load invoice details')
       );
       setLoading(false);
     });
@@ -478,7 +478,7 @@ function InvoiceDetailBody({
     member?.contact?.name ??
     currentInvoice.membership?.contact?.name ??
     currentInvoice.contact?.name ??
-    'Deleted customer';
+    'Deleted member';
   const customer =
     member?.contact ??
     currentInvoice.membership?.contact ??
@@ -493,15 +493,15 @@ function InvoiceDetailBody({
   // which is what made one number read as three different facts.
   const headlineDetail = (() => {
     if (headline.detail === 'refund_review') {
-      return 'Collection is paused pending review';
+      return 'Collecting is paused until this is checked';
     }
     if (headline.detail === 'void') {
-      return 'This invoice is not collectible';
+      return 'Nothing can be collected on this invoice';
     }
     if (headline.detail === 'balance_reopened') {
-      return 'A refund reopened this balance';
+      return 'This amount is due again because of a refund';
     }
-    if (headline.detail === 'nothing_to_collect') return 'Nothing to collect';
+    if (headline.detail === 'nothing_to_collect') return 'Nothing due';
     return null;
   })();
 
@@ -534,12 +534,11 @@ function InvoiceDetailBody({
       {currentInvoice.requires_refund_review ? (
         <Alert id={`invoice-refund-review-${currentInvoice.id}`} tabIndex={-1}>
           <ShieldAlert />
-          <AlertTitle>Refund review</AlertTitle>
+          <AlertTitle>Check refund</AlertTitle>
           <AlertDescription>
-            Razorpay has processed a refund that is not fully classified. The
-            invoice is not collectible, and payment links, reminders, and due
-            follow-ups stay blocked until an admin assigns any missing invoice
-            lines and classifies the accounting outcome.
+            Razorpay made a refund that is not sorted out yet. Until an admin
+            sorts it out, you cannot collect money, send payment links, or send
+            reminders for this invoice.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -599,7 +598,7 @@ function InvoiceDetailBody({
           <div className="divide-border border-border divide-y border-y">
             {lines.length === 0 ? (
               <p className="text-muted-foreground py-3">
-                No invoice lines are available.
+                No items on this invoice.
               </p>
             ) : (
               lines.map((line) => {
@@ -629,7 +628,7 @@ function InvoiceDetailBody({
                           {line.quantity > 1 ? ` × ${line.quantity}` : ''}
                         </p>
                         {line.state === 'void' ? (
-                          <Badge variant="neutral">Void</Badge>
+                          <Badge variant="neutral">Cancelled</Badge>
                         ) : null}
                       </div>
                       {line.service_start && line.service_end ? (
@@ -640,14 +639,14 @@ function InvoiceDetailBody({
                       ) : null}
                       {bonusMonths > 0 && period?.standard_period_end ? (
                         <p className="text-muted-foreground mt-1 text-xs">
-                          Regular expiry {fmt.date(period.standard_period_end)}{' '}
+                          Normal expiry {fmt.date(period.standard_period_end)}{' '}
                           · +{bonusMonths}{' '}
                           {bonusMonths === 1 ? 'month' : 'months'}
                         </p>
                       ) : null}
                       {line.override_reason ? (
                         <p className="text-muted-foreground mt-1 text-xs">
-                          Price override: {line.override_reason}
+                          Price changed: {line.override_reason}
                         </p>
                       ) : null}
                     </div>
@@ -796,7 +795,7 @@ function InvoiceDetailBody({
                                   </span>
                                 </span>
                               ) : (
-                                <span>Recorded by Former teammate</span>
+                                <span>Recorded by Former team member</span>
                               )}
                             </>
                           ) : payment.source ===
@@ -809,7 +808,7 @@ function InvoiceDetailBody({
                           ) : (
                             <>
                               <span aria-hidden="true">·</span>
-                              <span>Recorder unavailable</span>
+                              <span>Recorded by: not known</span>
                             </>
                           )}
                         </div>
@@ -829,7 +828,7 @@ function InvoiceDetailBody({
                             {payment.status === 'void' &&
                             payment.void_reason ? (
                               <span className="text-muted-foreground">
-                                Void reason: {payment.void_reason}
+                                Why it was cancelled: {payment.void_reason}
                               </span>
                             ) : null}
                           </div>
@@ -935,7 +934,7 @@ function InvoiceDetailBody({
                                     {refund.gateway_refund_id ? (
                                       <div className="min-w-0">
                                         <dt className="text-muted-foreground">
-                                          Provider reference
+                                          Razorpay reference
                                         </dt>
                                         <dd className="mt-0.5 font-mono break-all">
                                           {refund.gateway_refund_id}
@@ -950,7 +949,7 @@ function InvoiceDetailBody({
                                         <dd className="mt-0.5">
                                           {staffNameById.get(
                                             refund.requested_by
-                                          ) ?? 'Former teammate'}
+                                          ) ?? 'Former team member'}
                                         </dd>
                                       </div>
                                     ) : null}
@@ -971,8 +970,8 @@ function InvoiceDetailBody({
                                     }
                                   >
                                     {refund.allocation_complete
-                                      ? 'Classify refund'
-                                      : 'Resolve refund review'}
+                                      ? 'Sort out refund'
+                                      : 'Sort out refund'}
                                   </Button>
                                 ) : null}
                               </div>

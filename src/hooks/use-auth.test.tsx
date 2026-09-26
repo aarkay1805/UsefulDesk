@@ -171,7 +171,7 @@ describe('AuthProvider account hydration', () => {
     expect(screen.getByTestId('account-role').textContent).toBe('none');
     expect(screen.getByTestId('can-edit').textContent).toBe('false');
     expect(screen.getByTestId('organization-owner').textContent).toBe('false');
-    expect(screen.getByText('Could not load your account access')).toBeTruthy();
+    expect(screen.getByText('Could not load your gym')).toBeTruthy();
     expect(
       screen.getByText(/account lookup failed: network unavailable/)
     ).toBeTruthy();
@@ -201,7 +201,7 @@ describe('AuthProvider account hydration', () => {
       error: null,
     };
 
-    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('status').textContent).toBe('ready');
@@ -212,7 +212,7 @@ describe('AuthProvider account hydration', () => {
     expect(screen.getByTestId('organization-owner').textContent).toBe('true');
     expect(screen.getByTestId('currency').textContent).toBe('AED');
     expect(screen.getByTestId('timezone').textContent).toBe('Asia/Dubai');
-    expect(screen.queryByText('Could not load your account access')).toBeNull();
+    expect(screen.queryByText('Could not load your gym')).toBeNull();
   });
 
   it('reports an unreadable or missing account row distinctly', async () => {

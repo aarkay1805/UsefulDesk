@@ -112,7 +112,7 @@ function localizedRange(
   end: string | null,
   fmt: LocaleFormatters
 ): string {
-  if (!start || !end) return 'No matching date';
+  if (!start || !end) return 'No data for this date';
   return start === end
     ? fmt.date(start)
     : `${fmt.date(start)} – ${fmt.date(end)}`;
@@ -321,7 +321,7 @@ export function FinanceCashFlowChart({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Cash flow · {monthLabel}</CardTitle>
+        <CardTitle>Money in and out · {monthLabel}</CardTitle>
         {/* Below sm the controls take their own row: side by side they
             outgrow a phone-width card, and the card clips its overflow, so
             the Weekly toggle was cut off at the edge. */}
@@ -331,9 +331,9 @@ export function FinanceCashFlowChart({
               checked={comparePrevious}
               onCheckedChange={setComparePrevious}
             />
-            <span>Compare previous month</span>
+            <span>Compare with last month</span>
           </label>
-          <Toolbar aria-label="Cash flow grouping">
+          <Toolbar aria-label="Show by">
             <ToolbarToggleGroup<Grouping>
               value={[grouping]}
               onValueChange={(values) => values[0] && setGrouping(values[0])}
@@ -352,7 +352,7 @@ export function FinanceCashFlowChart({
           <div
             className="h-full min-h-72 w-full"
             role="group"
-            aria-label={`${grouping === 'daily' ? 'Daily' : 'Weekly'} cash flow chart${comparePrevious ? ' comparing the selected and previous months' : ''}`}
+            aria-label={`${grouping === 'daily' ? 'Day' : 'Week'} cash flow chart${comparePrevious ? ' comparing this month and last month' : ''}`}
           >
             <ResponsiveContainer
               width="100%"
@@ -421,7 +421,7 @@ export function FinanceCashFlowChart({
                   <>
                     <Bar
                       dataKey="previousIncome"
-                      name="Previous income"
+                      name="Last month income"
                       fill={PREVIOUS_INCOME_FILL}
                       radius={BAR_RADIUS}
                       maxBarSize={20}
@@ -429,7 +429,7 @@ export function FinanceCashFlowChart({
                     />
                     <Bar
                       dataKey="currentIncome"
-                      name="Selected income"
+                      name="This month income"
                       fill={INCOME_FILL}
                       radius={BAR_RADIUS}
                       maxBarSize={20}
@@ -437,7 +437,7 @@ export function FinanceCashFlowChart({
                     />
                     <Bar
                       dataKey="previousExpenses"
-                      name="Previous expenses"
+                      name="Last month expenses"
                       fill={PREVIOUS_EXPENSE_FILL}
                       radius={BAR_RADIUS}
                       maxBarSize={20}
@@ -445,7 +445,7 @@ export function FinanceCashFlowChart({
                     />
                     <Bar
                       dataKey="currentExpenses"
-                      name="Selected expenses"
+                      name="This month expenses"
                       fill={EXPENSE_FILL}
                       radius={BAR_RADIUS}
                       maxBarSize={20}
@@ -479,8 +479,8 @@ export function FinanceCashFlowChart({
           <EmptyState
             icon={BarChart3}
             className="h-full min-h-72"
-            title="No cash movement in either month"
-            hint="Recorded income and expenses will appear here by day for comparison."
+            title="No money in or out in these months"
+            hint="Income and expenses you record will show here by day."
           />
         )}
       </CardContent>
@@ -488,10 +488,10 @@ export function FinanceCashFlowChart({
       <CardFooter className="text-muted-foreground flex-wrap gap-x-4 gap-y-1.5 text-xs">
         {comparePrevious ? (
           <>
-            <LegendItem label="Previous income" tone="income" previous />
-            <LegendItem label="Selected income" tone="income" />
-            <LegendItem label="Previous expenses" tone="expenses" previous />
-            <LegendItem label="Selected expenses" tone="expenses" />
+            <LegendItem label="Last month income" tone="income" previous />
+            <LegendItem label="This month income" tone="income" />
+            <LegendItem label="Last month expenses" tone="expenses" previous />
+            <LegendItem label="This month expenses" tone="expenses" />
           </>
         ) : (
           <>

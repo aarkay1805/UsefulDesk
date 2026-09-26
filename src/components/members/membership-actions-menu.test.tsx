@@ -94,7 +94,7 @@ const ACTION_CASES: Array<{
     callback: 'onFreeze',
   },
   {
-    item: 'Resume membership',
+    item: 'Unfreeze membership',
     status: 'frozen',
     isTrial: false,
     callback: 'onResume',
@@ -106,7 +106,7 @@ const ACTION_CASES: Array<{
     callback: 'onCancel',
   },
   {
-    item: 'Reactivate membership',
+    item: 'Restart membership',
     status: 'cancelled',
     isTrial: false,
     callback: 'onReactivate',
@@ -152,13 +152,13 @@ describe('MembershipActionsMenu', () => {
       label: 'frozen membership',
       status: 'frozen' as const,
       isTrial: false,
-      items: ['Edit membership', 'Resume membership', 'Cancel membership'],
+      items: ['Edit membership', 'Unfreeze membership', 'Cancel membership'],
     },
     {
       label: 'cancelled membership',
       status: 'cancelled' as const,
       isTrial: false,
-      items: ['Edit membership', 'Reactivate membership'],
+      items: ['Edit membership', 'Restart membership'],
     },
     {
       label: 'expired membership',
@@ -214,7 +214,7 @@ describe('MembershipActionsMenu', () => {
     expect(trigger.getAttribute('aria-disabled')).toBe('true');
     expect(trigger.getAttribute('aria-haspopup')).toBe('dialog');
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
-    expect(screen.getByText('AutoPay must be resolved first')).toBeTruthy();
+    expect(screen.getByText('Finish or cancel AutoPay first')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Open billing' }));
     expect(actions.onOpenBilling).toHaveBeenCalledOnce();
   });
@@ -266,7 +266,7 @@ describe('MembershipActionsMenu', () => {
       await userEvent.click(menuItem);
 
       expectNoBusinessCallbacks(actions);
-      expect(screen.getByText('AutoPay must be resolved first')).toBeTruthy();
+      expect(screen.getByText('Finish or cancel AutoPay first')).toBeTruthy();
       const dialog = screen.getByRole('dialog');
       expect(
         blockerControls(dialog).map((button) => button.textContent?.trim())
@@ -297,7 +297,7 @@ describe('MembershipActionsMenu', () => {
 
       expectNoBusinessCallbacks(actions);
       expect(actions.onOpenBilling).not.toHaveBeenCalled();
-      expect(screen.getByText('Admin access required')).toBeTruthy();
+      expect(screen.getByText('You do not have permission')).toBeTruthy();
       expect(blockerControls(screen.getByRole('dialog'))).toHaveLength(0);
       expect(screen.queryByRole('button', { name: 'Open billing' })).toBeNull();
     }
@@ -319,7 +319,7 @@ describe('MembershipActionsMenu', () => {
 
     expectNoBusinessCallbacks(actions);
     expect(actions.onOpenBilling).not.toHaveBeenCalled();
-    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.getByText('You do not have permission')).toBeTruthy();
     expect(blockerControls(screen.getByRole('dialog'))).toHaveLength(0);
   });
 
@@ -349,7 +349,7 @@ describe('MembershipActionsMenu', () => {
     await userEvent.click(
       screen.getByRole('menuitem', { name: 'Renew membership' })
     );
-    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.getByText('You do not have permission')).toBeTruthy();
 
     view.rerender(
       <MembershipActionsMenu
@@ -361,8 +361,8 @@ describe('MembershipActionsMenu', () => {
         {...actions}
       />
     );
-    expect(screen.queryByText('Admin access required')).toBeNull();
-    expect(screen.getByText('AutoPay must be resolved first')).toBeTruthy();
+    expect(screen.queryByText('You do not have permission')).toBeNull();
+    expect(screen.getByText('Finish or cancel AutoPay first')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Open billing' })).toBeTruthy();
 
     view.rerender(

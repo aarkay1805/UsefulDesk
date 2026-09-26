@@ -64,7 +64,7 @@ const MemberForm = dynamic(() =>
 
 const SCOPES: { value: DashboardFollowUpScope; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'lead', label: 'Leads' },
+  { value: 'lead', label: 'Enquiries' },
   { value: 'member', label: 'Members' },
 ];
 
@@ -159,7 +159,7 @@ export function FollowUpQueue() {
       new Map(
         (followUps?.staff ?? []).map((staff) => [
           staff.user_id,
-          staff.full_name || 'Teammate',
+          staff.full_name || 'Team member',
         ])
       ),
     [followUps?.staff]
@@ -214,7 +214,7 @@ export function FollowUpQueue() {
             selectionMode="single"
             value={[scope]}
             onValueChange={(values) => values[0] && setScope(values[0])}
-            aria-label="Follow-up scope"
+            aria-label="Show follow-ups for"
           >
             {SCOPES.map((option) => (
               <Chip key={option.value} value={option.value}>
@@ -245,10 +245,10 @@ export function FollowUpQueue() {
                 icon={ClipboardCheck}
                 text={
                   scope === 'lead'
-                    ? 'No open lead follow-ups.'
+                    ? 'No open enquiry follow-ups.'
                     : scope === 'member'
                       ? 'No open member follow-ups.'
-                      : 'No open follow-ups. Nothing is waiting on you.'
+                      : 'No open follow-ups. You are all done.'
                 }
               />
             ) : (
@@ -262,9 +262,9 @@ export function FollowUpQueue() {
                   const who =
                     followUp.contact?.name?.trim() ||
                     fmt.phone(followUp.contact?.phone) ||
-                    (isMember ? 'Member' : 'Lead');
+                    (isMember ? 'Member' : 'Enquiry');
                   const assignee = followUp.assigned_to
-                    ? (nameById.get(followUp.assigned_to) ?? 'Teammate')
+                    ? (nameById.get(followUp.assigned_to) ?? 'Team member')
                     : null;
                   const reason = followUpReason(followUp, scope);
                   const dueState = followUpDueState(

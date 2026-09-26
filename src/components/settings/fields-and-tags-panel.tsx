@@ -21,14 +21,14 @@ export function FieldsAndTagsPanel() {
   return (
     <section className="animate-in fade-in-50 max-w-3xl space-y-4 duration-200">
       <SettingsPanelHead
-        title="Tags & contact details"
-        description="Use tags to group contacts. Save any extra details your team needs."
+        title="Tags & extra details"
+        description="Use tags to group people. Save any extra details your team needs."
       />
       {!profileLoading && !canEditSettings ? (
         <Alert>
-          <AlertTitle>Read-only</AlertTitle>
+          <AlertTitle>View only</AlertTitle>
           <AlertDescription>
-            Ask an admin or owner to change tags or contact details.
+            Ask the owner or an admin to change tags or extra details.
           </AlertDescription>
         </Alert>
       ) : null}

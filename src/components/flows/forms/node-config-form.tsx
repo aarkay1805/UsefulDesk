@@ -67,7 +67,7 @@ export function NodeConfigForm({
           allNodes={allNodes}
           currentKey={node.node_key}
           onChange={(v) => onUpdateConfig({ next_node_key: v })}
-          label="Advances to"
+          label="Then go to"
         />
       );
 
@@ -75,7 +75,7 @@ export function NodeConfigForm({
       return (
         <>
           <TextRow
-            label="Text sent to the customer"
+            label="Text sent to the person"
             value={(cfg as { text?: string }).text ?? ''}
             onChange={(v) => onUpdateConfig({ text: v })}
           />
@@ -84,7 +84,7 @@ export function NodeConfigForm({
             allNodes={allNodes}
             currentKey={node.node_key}
             onChange={(v) => onUpdateConfig({ next_node_key: v })}
-            label="Advances to"
+            label="Then go to"
           />
         </>
       );
@@ -125,14 +125,14 @@ export function NodeConfigForm({
       return (
         <>
           <TextRow
-            label="Prompt sent to the customer"
+            label="Question sent to the person"
             value={(cfg as { prompt_text?: string }).prompt_text ?? ''}
             onChange={(v) => onUpdateConfig({ prompt_text: v })}
             rows={2}
           />
           <div>
             <label className="text-muted-foreground mb-1 block text-xs">
-              Variable key (stored in flow_runs.vars; alphanumeric + underscore)
+              Save the answer as (letters, numbers, and _ only)
             </label>
             <Input
               value={(cfg as { var_key?: string }).var_key ?? ''}
@@ -141,11 +141,11 @@ export function NodeConfigForm({
                   var_key: e.target.value.replace(/[^a-zA-Z0-9_]/g, ''),
                 })
               }
-              placeholder="e.g. name, email, company"
+              placeholder="Example: name, goal"
               className="font-mono text-xs"
             />
             <p className="text-muted-foreground mt-1 text-[10px]">
-              Interpolate in downstream prompts and handoff notes with{' '}
+              Use the answer in later messages with{' '}
               <code className="bg-muted rounded px-1">
                 {'{{vars.'}
                 {(cfg as { var_key?: string }).var_key || 'name'}
@@ -159,7 +159,7 @@ export function NodeConfigForm({
             allNodes={allNodes}
             currentKey={node.node_key}
             onChange={(v) => onUpdateConfig({ next_node_key: v })}
-            label="After capturing, advance to"
+            label="After the answer, go to"
           />
         </>
       );
@@ -187,7 +187,7 @@ export function NodeConfigForm({
     case 'handoff':
       return (
         <TextRow
-          label="Internal note (for the agent picking up)"
+          label="Note for your team (members do not see this)"
           value={(cfg as { note?: string }).note ?? ''}
           onChange={(v) => onUpdateConfig({ note: v })}
           rows={2}
@@ -197,8 +197,7 @@ export function NodeConfigForm({
     case 'end':
       return (
         <p className="text-muted-foreground text-xs">
-          Terminal node. When the runner reaches this node the run is marked
-          complete. No config needed.
+          The flow ends here. Nothing to set up.
         </p>
       );
   }
@@ -259,14 +258,14 @@ function SendButtonsForm({
         rows={3}
       />
       <TextRow
-        label="Footer (optional, 60 chars)"
+        label="Bottom text (optional, up to 60 letters)"
         value={cfg.footer_text ?? ''}
         onChange={(v) => onUpdateConfig({ footer_text: v })}
       />
       <div>
         <div className="mb-2 flex items-center justify-between">
           <label className="text-muted-foreground text-xs">
-            Buttons (1–3) — each one routes to a different next node
+            Buttons (1 to 3). Each button can go to a different step.
           </label>
         </div>
         <div className="flex flex-col gap-3">
@@ -295,7 +294,7 @@ function SendButtonsForm({
               <Input
                 value={b.title}
                 onChange={(e) => updateButton(i, { title: e.target.value })}
-                placeholder="Visible title (≤20 chars)"
+                placeholder="Button text (up to 20 letters)"
                 maxLength={20}
               />
               <NodeKeySelect
@@ -303,7 +302,7 @@ function SendButtonsForm({
                 nodes={allNodes}
                 excludeKey={currentKey}
                 onChange={(v) => updateButton(i, { next_node_key: v ?? '' })}
-                placeholder="Next node…"
+                placeholder="Next step…"
               />
               <Button
                 variant="destructive-ghost"
@@ -443,12 +442,12 @@ function SendListForm({
       />
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextRow
-          label="Tap-to-expand button label (≤20 chars)"
+          label="Button text that opens the list (up to 20 letters)"
           value={cfg.button_label ?? ''}
           onChange={(v) => onUpdateConfig({ button_label: v })}
         />
         <TextRow
-          label="Footer (optional, 60 chars)"
+          label="Bottom text (optional, up to 60 letters)"
           value={cfg.footer_text ?? ''}
           onChange={(v) => onUpdateConfig({ footer_text: v })}
         />
@@ -456,7 +455,7 @@ function SendListForm({
 
       <div className="mt-2">
         <label className="text-muted-foreground mb-2 block text-xs">
-          Rows (1–10 total across all sections)
+          Options (1 to 10 in total)
         </label>
         {sections.map((section, sIdx) => (
           <div
@@ -509,7 +508,7 @@ function SendListForm({
                   onChange={(e) =>
                     updateRow(sIdx, rIdx, { title: e.target.value })
                   }
-                  placeholder="Row title (≤24)"
+                  placeholder="Option text (up to 24 letters)"
                   maxLength={24}
                 />
                 <NodeKeySelect
@@ -519,7 +518,7 @@ function SendListForm({
                   onChange={(v) =>
                     updateRow(sIdx, rIdx, { next_node_key: v ?? '' })
                   }
-                  placeholder="Next node…"
+                  placeholder="Next step…"
                 />
                 <Button
                   variant="destructive-ghost"
@@ -608,16 +607,16 @@ function ConditionForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="var">Captured variable</SelectItem>
-              <SelectItem value="tag">Contact has tag</SelectItem>
-              <SelectItem value="contact_field">Contact field</SelectItem>
+              <SelectItem value="var">Saved answer</SelectItem>
+              <SelectItem value="tag">Person has tag</SelectItem>
+              <SelectItem value="contact_field">Person’s detail</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="md:col-span-2">
           <label className="text-muted-foreground mb-1 block text-xs">
             {subject === 'var'
-              ? 'var name'
+              ? 'answer name'
               : subject === 'tag'
                 ? 'Tag'
                 : 'Field'}
@@ -657,7 +656,7 @@ function ConditionForm({
             <Input
               value={cfg.subject_key ?? ''}
               onChange={(e) => onUpdateConfig({ subject_key: e.target.value })}
-              placeholder={subject === 'var' ? 'e.g. email' : 'tag UUID'}
+              placeholder={subject === 'var' ? 'Example: goal' : 'tag UUID'}
               className="font-mono text-xs"
             />
           )}
@@ -672,7 +671,7 @@ function ConditionForm({
       >
         <div>
           <label className="text-muted-foreground mb-1 block text-xs">
-            Operator
+            Check
           </label>
           <Select
             value={operator}
@@ -684,8 +683,8 @@ function ConditionForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="present">is present</SelectItem>
-              <SelectItem value="absent">is absent</SelectItem>
+              <SelectItem value="present">has a value</SelectItem>
+              <SelectItem value="absent">is empty</SelectItem>
               <SelectItem value="equals">equals</SelectItem>
               <SelectItem value="contains">contains</SelectItem>
             </SelectContent>
@@ -710,14 +709,14 @@ function ConditionForm({
           allNodes={allNodes}
           currentKey={currentKey}
           onChange={(v) => onUpdateConfig({ true_next: v })}
-          label="If true → advance to"
+          label="If yes, go to"
         />
         <NextNodeRow
           value={cfg.false_next ?? ''}
           allNodes={allNodes}
           currentKey={currentKey}
           onChange={(v) => onUpdateConfig({ false_next: v })}
-          label="If false → advance to"
+          label="If no, go to"
         />
       </div>
     </>
@@ -804,7 +803,7 @@ function SetTagForm({
         allNodes={allNodes}
         currentKey={currentKey}
         onChange={(v) => onUpdateConfig({ next_node_key: v })}
-        label="Then advance to"
+        label="Then go to"
       />
     </>
   );
@@ -812,7 +811,7 @@ function SetTagForm({
 
 /**
  * Shared loader for both `condition` (subject=tag) and `set_tag`.
- * Falls back to raw UUID input if the endpoint is absent on older
+ * Falls back to raw UUID input if the endpoint is empty on older
  * deployments — the form remains authorable in that case.
  */
 function useUserTags(): UserTag[] {
@@ -885,7 +884,7 @@ function SendMediaForm({
     async (file: File) => {
       if (file.size > MEDIA_MAX_BYTES) {
         toast.error(
-          `File is ${(file.size / 1024 / 1024).toFixed(1)} MB — limit is 16 MB.`
+          `This file is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 16 MB.`
         );
         return;
       }
@@ -902,7 +901,7 @@ function SendMediaForm({
         });
         toast.success('File uploaded.');
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Upload failed.';
+        const msg = err instanceof Error ? err.message : 'Could not upload.';
         toast.error(msg);
       } finally {
         setUploading(false);
@@ -1006,7 +1005,7 @@ function SendMediaForm({
       </div>
 
       <TextRow
-        label="Caption (optional, shown under the media)"
+        label="Caption (optional, shown under the file)"
         value={cfg.caption ?? ''}
         onChange={(v) => onUpdateConfig({ caption: v })}
         rows={2}
@@ -1015,7 +1014,7 @@ function SendMediaForm({
       {isDocument && (
         <div>
           <label className="text-muted-foreground mb-1 block text-xs">
-            Filename shown to the customer (documents only)
+            File name the person sees (documents only)
           </label>
           <Input
             value={cfg.filename ?? ''}
@@ -1031,7 +1030,7 @@ function SendMediaForm({
         allNodes={allNodes}
         currentKey={currentKey}
         onChange={(v) => onUpdateConfig({ next_node_key: v })}
-        label="After sending, advance to"
+        label="After sending, go to"
       />
     </>
   );

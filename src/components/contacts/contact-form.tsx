@@ -191,14 +191,14 @@ export function ContactForm({
     e.preventDefault();
 
     if (!phone.trim()) {
-      toast.error('Phone number is required');
+      toast.error('Enter a phone number');
       return;
     }
 
     // Hard-block an exact duplicate on create (the DB unique index is
     // the real backstop; this avoids a round-trip + a raw error toast).
     if (!isEdit && dupMatch?.exact) {
-      toast.error('A contact with this phone number already exists');
+      toast.error('Someone with this phone number is already saved');
       return;
     }
 
@@ -305,7 +305,7 @@ export function ContactForm({
       // normalizes equal). Surface it as the friendly duplicate notice
       // and, for new contacts, point the user at the existing record.
       if (isUniqueViolation(err)) {
-        toast.error('A contact with this phone number already exists');
+        toast.error('Someone with this phone number is already saved');
         if (!isEdit && accountId) {
           const existing = await findExistingContact(
             supabase,
@@ -316,7 +316,7 @@ export function ContactForm({
         }
         return;
       }
-      toast.error(getErrorMessage(err, 'Failed to save contact'));
+      toast.error(getErrorMessage(err, 'Could not save contact'));
     } finally {
       setSaving(false);
     }
@@ -346,7 +346,7 @@ export function ContactForm({
                 id="cf-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="John Doe"
+                placeholder="Full name"
                 className="border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
@@ -378,7 +378,7 @@ export function ContactForm({
                   <div className="space-y-1">
                     <p>
                       {dupMatch.exact
-                        ? 'A contact with this phone number already exists.'
+                        ? 'Someone with this phone number is already saved.'
                         : 'A contact with a very similar number already exists.'}
                     </p>
                     {onViewExisting && (
@@ -396,7 +396,7 @@ export function ContactForm({
                 </div>
               ) : (
                 <p className="text-muted-foreground text-xs">
-                  Country code is set in Settings → Regional settings
+                  To change the country code, go to Settings → Regional settings
                 </p>
               )}
             </div>
@@ -410,14 +410,14 @@ export function ContactForm({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="john@example.com"
+                placeholder="name@example.com"
                 className="border-border text-foreground placeholder:text-muted-foreground"
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="cf-lead-status" className="text-muted-foreground">
-                Lead status
+                Stage
               </Label>
               {/* '' means the default 'new' status — modelled as the null item,
                 with the new-status label as the placeholder shown for it. */}
@@ -497,11 +497,11 @@ export function ContactForm({
               {loadingTags ? (
                 <div className="text-muted-foreground flex items-center gap-2 text-sm">
                   <Loader2 className="size-3 animate-spin" />
-                  Loading tags...
+                  Loading tags…
                 </div>
               ) : tags.length === 0 ? (
                 <p className="text-muted-foreground text-xs">
-                  No tags available. Create tags in Settings.
+                  No tags yet. Add tags in Settings.
                 </p>
               ) : (
                 <div className="flex flex-wrap gap-1.5">
@@ -528,7 +528,7 @@ export function ContactForm({
 
             {!loadingCustom && customFields.length > 0 && (
               <div className="space-y-2">
-                <Label className="text-muted-foreground">Custom Fields</Label>
+                <Label className="text-muted-foreground">Extra details</Label>
                 <div className="space-y-2">
                   {customFields.map((field) => (
                     <div key={field.id} className="space-y-1.5">
@@ -549,7 +549,7 @@ export function ContactForm({
                               [field.id]: e.target.value,
                             }))
                           }
-                          placeholder={`Enter ${field.field_name}...`}
+                          placeholder={`Enter ${field.field_name}`}
                           className="border-border text-foreground placeholder:text-muted-foreground"
                         />
                       ) : field.field_type === 'phone' ? (
@@ -562,7 +562,7 @@ export function ContactForm({
                               [field.id]: value,
                             }))
                           }
-                          placeholder={`Enter ${field.field_name}...`}
+                          placeholder={`Enter ${field.field_name}`}
                           className="border-border text-foreground placeholder:text-muted-foreground"
                         />
                       ) : (
@@ -576,7 +576,7 @@ export function ContactForm({
                               [field.id]: e.target.value,
                             }))
                           }
-                          placeholder={`Enter ${field.field_name}...`}
+                          placeholder={`Enter ${field.field_name}`}
                           className="border-border text-foreground placeholder:text-muted-foreground"
                         />
                       )}

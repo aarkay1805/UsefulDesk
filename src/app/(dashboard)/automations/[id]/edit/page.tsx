@@ -32,7 +32,7 @@ export default function EditAutomationPage({
     async function load() {
       const res = await fetch(`/api/automations/${id}`);
       if (!res.ok) {
-        if (!cancelled) setError(`Failed to load (${res.status})`);
+        if (!cancelled) setError(`Could not load (${res.status})`);
         return;
       }
       const body = await res.json();
@@ -70,7 +70,7 @@ export default function EditAutomationPage({
               aria-hidden="true"
             />
           ) : null}
-          Back to Automations
+          Back to automations
         </button>
       </div>
     );
@@ -91,14 +91,14 @@ export default function EditAutomationPage({
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 text-center">
         <p className="text-foreground text-sm font-medium">
-          Only the automation author can edit or activate it.
+          Only the person who made this automation can edit or turn it on.
         </p>
         <Button
           variant="outline"
           onClick={() => navigate('/automations')}
           loading={isPending('/automations')}
         >
-          Back to Automations
+          Back to automations
         </Button>
       </div>
     );

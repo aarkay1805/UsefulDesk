@@ -53,7 +53,7 @@ export function FinanceCollectionMixCard({
   return (
     <Card className="h-full">
       <CardHeader>
-        <CardTitle>Collection mix</CardTitle>
+        <CardTitle>How members paid</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {total > 0 ? (
@@ -61,7 +61,7 @@ export function FinanceCollectionMixCard({
             <div
               className="h-6 w-full"
               role="group"
-              aria-label="Collections by payment method"
+              aria-label="Money received by payment method"
             >
               <ResponsiveContainer
                 width="100%"
@@ -118,7 +118,7 @@ export function FinanceCollectionMixCard({
           <EmptyState
             icon={Banknote}
             className="min-h-52"
-            title="No collections in this month"
+            title="No money received this month"
           />
         )}
       </CardContent>

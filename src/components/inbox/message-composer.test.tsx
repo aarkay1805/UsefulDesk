@@ -118,7 +118,7 @@ describe('MessageComposer blocked actions', () => {
     await user.click(send);
 
     const blocker = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You cannot send messages',
     });
     expect(blockerControls(blocker)).toHaveLength(0);
     expect(onSend).not.toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe('MessageComposer blocked actions', () => {
       />
     );
 
-    const attach = screen.getByRole('button', { name: 'Attach media' });
+    const attach = screen.getByRole('button', { name: 'Attach file' });
     await user.click(attach);
     expect(screen.getByRole('menuitem', { name: 'Photo' })).toBeTruthy();
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -172,7 +172,7 @@ describe('MessageComposer blocked actions', () => {
       />
     );
 
-    const attach = screen.getByRole('button', { name: 'Attach media' });
+    const attach = screen.getByRole('button', { name: 'Attach file' });
     expect(attach.getAttribute('disabled')).toBeNull();
     expect(attach.getAttribute('tabindex')).toBe('0');
     expect(attach.getAttribute('aria-disabled')).toBe('true');
@@ -180,7 +180,7 @@ describe('MessageComposer blocked actions', () => {
     await user.keyboard(' ');
 
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
+      screen.getByRole('dialog', { name: 'You cannot send messages' })
     ).toBeTruthy();
     expect(screen.queryByRole('menu')).toBeNull();
     expect(screen.queryByRole('button', { name: /ask|request/i })).toBeNull();
@@ -200,7 +200,7 @@ describe('MessageComposer blocked actions', () => {
     // A closed window refuses free-form text, media, and a drafted reply
     // alike, so the row is removed rather than left standing as four controls
     // that all open the same explanation.
-    expect(screen.queryByRole('button', { name: 'Attach media' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Attach file' })).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Message' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Send message' })).toBeNull();
     expect(
@@ -258,7 +258,7 @@ describe('MessageComposer blocked actions', () => {
     expect(sendAttachment.getAttribute('aria-disabled')).toBe('true');
     await user.click(sendAttachment);
 
-    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.getByText('You cannot send messages')).toBeTruthy();
     expect(onSendMedia).not.toHaveBeenCalled();
   });
 
@@ -302,7 +302,7 @@ describe('MessageComposer blocked actions', () => {
     await user.click(screen.getByRole('button', { name: 'Send attachment' }));
 
     const blocker = screen.getByRole('dialog', {
-      name: 'WhatsApp session has closed',
+      name: '24-hour reply time is over',
     });
     expect(onSendMedia).not.toHaveBeenCalled();
     await user.click(
@@ -354,7 +354,7 @@ describe('MessageComposer blocked actions', () => {
     await user.keyboard('{Enter}');
 
     const blocker = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You cannot send messages',
     });
     expect(sendAttachment.getAttribute('aria-expanded')).toBe('true');
     expect(blockerControls(blocker)).toHaveLength(0);
@@ -401,7 +401,7 @@ describe('MessageComposer blocked actions', () => {
     await user.keyboard('{Enter}');
 
     const blocker = screen.getByRole('dialog', {
-      name: 'WhatsApp session has closed',
+      name: '24-hour reply time is over',
     });
     expect(onSendMedia).not.toHaveBeenCalled();
     expect(blockerControls(blocker)).toHaveLength(1);
@@ -454,7 +454,7 @@ describe('MessageComposer blocked actions', () => {
     });
     await user.click(permissionTrigger);
     const permissionDialog = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You cannot send messages',
     });
     expect(
       permissionDialog.contains(document.activeElement) ||
@@ -500,7 +500,7 @@ describe('MessageComposer blocked actions', () => {
     });
     await user.click(returningPermissionTrigger);
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
+      screen.getByRole('dialog', { name: 'You cannot send messages' })
     ).toBeTruthy();
 
     await user.click(caption);
@@ -512,7 +512,7 @@ describe('MessageComposer blocked actions', () => {
 
     await user.click(returningPermissionTrigger);
     expect(
-      screen.getByRole('dialog', { name: 'Admin access required' })
+      screen.getByRole('dialog', { name: 'You cannot send messages' })
     ).toBeTruthy();
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -565,7 +565,7 @@ describe('MessageComposer blocked actions', () => {
     });
     await user.click(permissionTrigger);
     const permissionDialog = screen.getByRole('dialog', {
-      name: 'Admin access required',
+      name: 'You cannot send messages',
     });
     expect(
       permissionDialog.contains(document.activeElement) ||
@@ -596,7 +596,7 @@ describe('MessageComposer blocked actions', () => {
     await user.keyboard('{Enter}');
 
     const blocker = screen.getByRole('dialog', {
-      name: 'WhatsApp session has closed',
+      name: '24-hour reply time is over',
     });
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
     expect(blockerControls(blocker)).toHaveLength(1);
@@ -607,7 +607,7 @@ describe('MessageComposer blocked actions', () => {
 
     await user.keyboard('{Enter}');
     const reopenedBlocker = screen.getByRole('dialog', {
-      name: 'WhatsApp session has closed',
+      name: '24-hour reply time is over',
     });
     await user.click(
       within(reopenedBlocker).getByRole('button', { name: 'Send template' })
@@ -688,7 +688,7 @@ describe('MessageComposer blocked actions', () => {
     const dialogs = screen.getAllByRole('dialog');
     expect(dialogs).toHaveLength(1);
     expect(dialogs[0].getAttribute('aria-labelledby')).toBeTruthy();
-    expect(within(dialogs[0]).getByText('Admin access required')).toBeTruthy();
+    expect(within(dialogs[0]).getByText('You cannot send messages')).toBeTruthy();
     expect(blockerControls(dialogs[0])).toHaveLength(0);
     expect(onOpenTemplates).not.toHaveBeenCalled();
   });
@@ -728,7 +728,7 @@ describe('MessageComposer blocked actions', () => {
 
     await user.click(screen.getByRole('button', { name: 'Send template' }));
 
-    expect(screen.getByText('Admin access required')).toBeTruthy();
+    expect(screen.getByText('You cannot send messages')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /ask|request/i })).toBeNull();
   });
 });

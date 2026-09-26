@@ -6,11 +6,11 @@ import {
 } from './member-field-registry';
 
 describe('member field registry', () => {
-  it('makes assigned arrival a member column with an import mapping', () => {
+  it('makes usual time a member column with an import mapping', () => {
     const column = MEMBER_TABLE_COLUMNS.find(
       (entry) => entry.key === 'assignedArrival'
     );
-    expect(column?.label).toBe('Assigned arrival');
+    expect(column?.label).toBe('Usual time');
     expect(column?.importPolicy).toEqual({
       kind: 'fields',
       fields: ['assigned_arrival_time'],

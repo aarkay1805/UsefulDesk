@@ -61,7 +61,7 @@ function PhoneInput({
       <span id={descriptionId} className="sr-only">
         {displayCountryCode !== '—'
           ? `Country code ${displayCountryCode}, set in Regional settings.`
-          : 'No country code is set. Configure it in Regional settings.'}
+          : 'No country code is set. Add it in Settings → Regional settings.'}
       </span>
       <Input
         type="tel"

@@ -54,7 +54,7 @@ export async function saveAssignedArrivalTime(
     .select('id');
   if (error) throw error;
   if (!data?.some((row) => row.id === contactId)) {
-    throw new Error('Could not update assigned arrival');
+    throw new Error('Could not update usual time');
   }
   return value;
 }

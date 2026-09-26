@@ -72,7 +72,7 @@ interface ManageColumnsDialogProps {
 // "Edit columns" — a two-pane picker (HubSpot-style). Left: the searchable
 // catalogue of lead fields + custom fields (with inline field CRUD for
 // admins). Right: the ordered "selected columns" list — drag to reorder,
-// × to hide, and a "Frozen columns" count that pins the leading N.
+// × to hide, and a "Fixed columns" count that pins the leading N.
 // Column order / visibility / freeze are drafts committed on Apply; custom
 // field create/rename/delete hit the DB immediately (they can't be undone
 // by Cancel).
@@ -238,7 +238,7 @@ export function ManageColumnsDialog({
     const name = newName.trim();
     if (!name) return;
     if (!accountId || !user) {
-      toast.error('Your profile is not linked to an account.');
+      toast.error('Your login is not linked to a gym.');
       return;
     }
     if (customLabels.has(name.toLowerCase())) {
@@ -254,7 +254,7 @@ export function ManageColumnsDialog({
     });
     setCreating(false);
     if (error) {
-      toast.error('Could not create field. You may not have permission.');
+      toast.error('Could not add this detail. You may not have permission.');
       return;
     }
     setNewName('');
@@ -266,7 +266,7 @@ export function ManageColumnsDialog({
     if (!editField) return;
     const nm = name.trim();
     if (!nm) {
-      toast.error('Field name is required.');
+      toast.error('Enter a name.');
       return;
     }
     if (
@@ -286,7 +286,7 @@ export function ManageColumnsDialog({
       .eq('id', editField.id);
     setSavingEdit(false);
     if (error) {
-      toast.error('Could not save field.');
+      toast.error('Could not save.');
       return;
     }
     setEditField(null);
@@ -296,7 +296,7 @@ export function ManageColumnsDialog({
   async function deleteField(fieldId: string, label: string) {
     if (
       !window.confirm(
-        `Delete "${label}"? This also removes its stored value on every lead. This cannot be undone.`
+        `Delete "${label}"? Its value will be removed from every enquiry. You cannot undo this.`
       )
     ) {
       return;
@@ -308,7 +308,7 @@ export function ManageColumnsDialog({
       .eq('id', fieldId);
     setBusyId(null);
     if (error) {
-      toast.error('Could not delete field.');
+      toast.error('Could not delete.');
       return;
     }
     toast.success(`Deleted "${label}".`);
@@ -338,9 +338,9 @@ export function ManageColumnsDialog({
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-                <GroupLabel>Lead fields</GroupLabel>
+                <GroupLabel>Enquiry details</GroupLabel>
                 {builtinCols.length === 0 ? (
-                  <Empty>No matching fields.</Empty>
+                  <Empty>Nothing found.</Empty>
                 ) : (
                   <ul className="mb-4">
                     {builtinCols.map((c) => (
@@ -355,10 +355,10 @@ export function ManageColumnsDialog({
                   </ul>
                 )}
 
-                <GroupLabel>Custom fields</GroupLabel>
+                <GroupLabel>Extra details</GroupLabel>
                 {customCols.length === 0 ? (
                   <Empty>
-                    {term ? 'No matching fields.' : 'No custom fields yet.'}
+                    {term ? 'Nothing found.' : 'No custom fields yet.'}
                   </Empty>
                 ) : (
                   <ul>
@@ -396,22 +396,22 @@ export function ManageColumnsDialog({
                             void createField();
                           }
                         }}
-                        placeholder="New field name…"
-                        aria-label="New field name"
+                        placeholder="New detail name…"
+                        aria-label="New detail name"
                         className="text-foreground placeholder:text-muted-foreground h-full min-w-0 flex-1 bg-transparent px-2.5 text-sm outline-none"
                       />
                       <span
                         className="bg-border h-4 w-px shrink-0"
                         aria-hidden
                       />
-                      {/* Data type — drives future type-aware formatting. */}
+                      {/* Type — drives future type-aware formatting. */}
                       <Select
                         value={newType}
                         onValueChange={(v) => setNewType(v ?? 'text')}
                       >
                         <SelectTrigger
                           size="sm"
-                          aria-label="Field data type"
+                          aria-label="Type"
                           className="text-muted-foreground h-full shrink-0 rounded-l-none border-0 bg-transparent shadow-none hover:bg-transparent focus-visible:ring-0 dark:bg-transparent dark:hover:bg-transparent"
                         >
                           <SelectValue />
@@ -436,7 +436,7 @@ export function ManageColumnsDialog({
                       ) : (
                         <Plus className="size-4" />
                       )}
-                      Create field
+                      Add detail
                     </Button>
                   </div>
                 )}
@@ -450,7 +450,7 @@ export function ManageColumnsDialog({
                   Selected columns ({visibleOrder.length})
                 </span>
                 <label className="text-muted-foreground flex items-center gap-2 text-xs">
-                  Frozen columns
+                  Fixed columns
                   <Select
                     value={String(frozen)}
                     onValueChange={(v) => setFrozen(Number(v))}
@@ -578,7 +578,7 @@ function CatalogueRow({
           checked={checked}
           disabled={required}
           onCheckedChange={onToggle}
-          aria-label={`Toggle ${label} column`}
+          aria-label={`Show or hide ${label}`}
         />
         <span className="text-foreground">
           {label}
@@ -625,7 +625,7 @@ function CustomCatalogueRow({
       <Checkbox
         checked={checked}
         onCheckedChange={onToggle}
-        aria-label={`Toggle ${column.label} column`}
+        aria-label={`Show or hide ${column.label}`}
       />
       <span className="text-foreground min-w-0 flex-1 truncate text-sm">
         {column.label}
@@ -635,7 +635,7 @@ function CustomCatalogueRow({
         size="icon-sm"
         disabled={busy}
         onClick={onEdit}
-        title="Edit field"
+        title="Edit detail"
         className="text-muted-foreground hover:text-foreground shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
       >
         <Pencil className="size-4" />
@@ -645,7 +645,7 @@ function CustomCatalogueRow({
         size="icon-sm"
         disabled={busy}
         onClick={onDelete}
-        title="Delete field"
+        title="Delete detail"
         className={cn(
           'shrink-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
           // Stay visible while the delete is in flight.
@@ -681,12 +681,12 @@ function CustomFieldEditDialog({
     <Dialog open onOpenChange={(o) => !o && onCancel()}>
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>Edit field</DialogTitle>
+          <DialogTitle>Edit detail</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="edit-field-name" className="text-muted-foreground">
-              Field name
+              Name
             </Label>
             <Input
               id="edit-field-name"
@@ -698,12 +698,12 @@ function CustomFieldEditDialog({
                   onSave(name, type);
                 }
               }}
-              placeholder="Field name…"
+              placeholder="Detail name…"
               className="bg-card"
             />
           </div>
           <div className="space-y-2">
-            <Label className="text-muted-foreground">Data type</Label>
+            <Label className="text-muted-foreground">Type</Label>
             <Select value={type} onValueChange={(v) => setType(v ?? 'text')}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -800,7 +800,7 @@ function FrozenDivider() {
     <div className="my-1.5 flex items-center gap-2" aria-hidden>
       <span className="bg-border h-px flex-1" />
       <span className="text-muted-foreground text-[11px]">
-        Above column(s) are frozen
+        Columns above this line stay fixed when you scroll
       </span>
       <span className="bg-border h-px flex-1" />
     </div>

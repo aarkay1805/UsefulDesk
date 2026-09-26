@@ -44,14 +44,14 @@ export const BRANCH_SETUP_WARNING_REGISTRY: Record<
   BranchSetupWarningCode,
   string
 > = {
-  PACK_EMPTY: 'The selected setup pack has no configuration to copy.',
+  PACK_EMPTY: 'There is nothing to copy in what you picked.',
   PLAN_WITHOUT_ACTIVE_PRICE: 'A membership plan has no active pricing option.',
   CATALOG_TRAINER_REQUIRED:
     'A catalog item requires a trainer assignment in the new branch.',
   CATALOG_STANDARD_PRICE_MISSING:
     'A catalog pricing option has no standard price.',
   LEAD_FORM_DISABLED:
-    'The copied lead form is disabled and must be reviewed before use.',
+    'The copied enquiry form is turned off. Check it before you use it.',
   REMINDERS_DISABLED:
     'Copied reminder timing is disabled until it is reviewed.',
   AUTOMATION_SKIPPED_UNSUPPORTED_TRIGGER:
@@ -59,7 +59,7 @@ export const BRANCH_SETUP_WARNING_REGISTRY: Record<
   AUTOMATION_SKIPPED_UNSUPPORTED_STEP:
     'An automation with an unsupported step was skipped.',
   AUTOMATION_SKIPPED_INVALID_CONFIG:
-    'An automation with invalid configuration was skipped.',
+    'An automation with wrong settings was skipped.',
   AUTOMATION_SKIPPED_UNRESOLVED_REFERENCE:
     'An automation with an unresolved reference was skipped.',
   AUTOMATION_ASSIGNMENT_RESET:

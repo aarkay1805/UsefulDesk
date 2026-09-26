@@ -83,7 +83,7 @@ export function LeadFunnel({
   return (
     <DashboardSection
       id={sectionId}
-      title="Leads by stage"
+      title="Enquiries by stage"
       // The lead total moved here from the retired status ring, which was the
       // only thing that view carried beyond these bars. "total" rather than a
       // bare numeral: on its own the number read as a stage count.
@@ -101,7 +101,7 @@ export function LeadFunnel({
           href="/leads"
           className={buttonVariants({ variant: 'link', size: 'xs' })}
         >
-          See all leads
+          See all enquiries
         </Link>
       }
     >
@@ -133,8 +133,8 @@ export function LeadFunnel({
           <CardContent>
             <EmptyState
               icon={Filter}
-              title="No leads yet"
-              hint="Add or import leads to see stage and conversion numbers here."
+              title="No enquiries yet"
+              hint="Add enquiries to see how many join as members."
             />
           </CardContent>
         ) : (
@@ -154,7 +154,7 @@ export function LeadFunnel({
                   <span aria-hidden="true" />
                   <span aria-hidden="true" />
                   <span className="text-muted-foreground text-right text-xs">
-                    Avg. time
+                    Average days
                   </span>
                   <span className="hidden sm:block" aria-hidden="true" />
                 </>
@@ -233,7 +233,7 @@ export function LeadFunnel({
                 </div>
                 <div>
                   <p className="text-muted-foreground text-xs">
-                    Leads who joined
+                    Enquiries who joined
                   </p>
                   <p className="text-foreground mt-1 text-xl leading-none font-semibold tabular-nums">
                     {data.conversionRate == null
@@ -266,7 +266,7 @@ export function LeadFunnel({
                 </p>
                 {data.topSources.length === 0 ? (
                   <p className="text-muted-foreground text-sm">
-                    No sources recorded yet.
+                    No enquiry sources saved yet.
                   </p>
                 ) : (
                   /* No caption row: "Source" restated the heading above it,

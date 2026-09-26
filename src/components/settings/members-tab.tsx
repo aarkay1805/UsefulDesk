@@ -103,9 +103,9 @@ interface Invitation {
 // Editable roles in the inline dropdown. Owner is never an option —
 // promotions go through the (deferred) Transfer Ownership flow.
 const EDITABLE_ROLES: { value: AccountRole; label: string; hint: string }[] = [
-  { value: 'admin', label: 'Admin', hint: 'Manage members + everything' },
-  { value: 'agent', label: 'Agent', hint: 'Use features; no settings' },
-  { value: 'viewer', label: 'Viewer', hint: 'Read-only across the app' },
+  { value: 'admin', label: 'Admin', hint: 'Can do everything, including settings' },
+  { value: 'agent', label: 'Staff', hint: 'Daily work. Cannot change settings' },
+  { value: 'viewer', label: 'View only', hint: 'Can see everything but cannot change anything' },
 ];
 
 // Per-role chip metadata (icon / label / colour) lives in the shared
@@ -151,7 +151,7 @@ export function MembersTab() {
 
       if (!mres.ok) {
         const payload = await mres.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to load members');
+        toast.error(payload.error || 'Could not load members');
         return;
       }
       const mdata = (await mres.json()) as { members: Member[] };
@@ -160,7 +160,7 @@ export function MembersTab() {
       if (ires) {
         if (!ires.ok) {
           const payload = await ires.json().catch(() => ({}));
-          toast.error(payload.error || 'Failed to load invitations');
+          toast.error(payload.error || 'Could not load invitations');
           return;
         }
         const idata = (await ires.json()) as { invitations: Invitation[] };
@@ -170,7 +170,7 @@ export function MembersTab() {
       }
     } catch (err) {
       console.error('[MembersTab] load error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
     } finally {
       setLoading(false);
     }
@@ -217,10 +217,12 @@ export function MembersTab() {
           )
         );
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to update role');
+        toast.error(payload.error || 'Could not update role');
         return;
       }
-      toast.success(`Updated ${member.full_name || 'member'} to ${nextRole}`);
+      toast.success(
+        `${member.full_name || 'Team member'} is now ${ROLE_META[nextRole].label}`
+      );
     } catch (err) {
       // Same revert on network failure.
       setMembers((prev) =>
@@ -229,7 +231,7 @@ export function MembersTab() {
         )
       );
       console.error('[MembersTab] role change error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
     } finally {
       setPendingMemberAction(null);
     }
@@ -245,7 +247,7 @@ export function MembersTab() {
       );
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to remove member');
+        toast.error(payload.error || 'Could not remove member');
         return;
       }
       toast.success(`Removed ${removingMember.full_name || 'member'}`);
@@ -255,7 +257,7 @@ export function MembersTab() {
       setRemovingMember(null);
     } catch (err) {
       console.error('[MembersTab] remove error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
     } finally {
       setPendingMemberAction(null);
     }
@@ -269,14 +271,14 @@ export function MembersTab() {
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to revoke invitation');
+        toast.error(payload.error || 'Could not cancel the invite');
         return;
       }
-      toast.success('Invitation revoked');
+      toast.success('Invite cancelled');
       setInvitations((prev) => prev.filter((i) => i.id !== invite.id));
     } catch (err) {
       console.error('[MembersTab] revoke error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
     } finally {
       setRevokingInvitationId(null);
     }
@@ -296,7 +298,7 @@ export function MembersTab() {
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
-        toast.error(payload.error || 'Failed to generate link');
+        toast.error(payload.error || 'Could not make a link');
         return;
       }
       const { url } = (await res.json()) as { url: string };
@@ -305,15 +307,15 @@ export function MembersTab() {
         setCopiedId(invite.id);
         window.setTimeout(() => setCopiedId(null), 2000);
         toast.success(
-          'Invite link copied — this replaces any link shared before.'
+          'Invite link copied. Older links for this invite stop working.'
         );
       } catch {
         // Clipboard blocked (insecure context / permissions) — show the URL.
-        toast.message('Invite link (copy it):', { description: url });
+        toast.message('Invite link (copy this):', { description: url });
       }
     } catch (err) {
       console.error('[MembersTab] copy-link error:', err);
-      toast.error('Could not reach the server');
+      toast.error('No internet connection. Try again.');
     } finally {
       setLinkingId(null);
     }
@@ -332,7 +334,7 @@ export function MembersTab() {
           <RequireRole min="admin">
             <Button onClick={() => setInviteOpen(true)}>
               <Plus className="size-4" />
-              Invite teammate
+              Invite team member
             </Button>
           </RequireRole>
         }
@@ -428,7 +430,7 @@ export function MembersTab() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="text-foreground truncate text-sm font-medium">
-                              {member.full_name || 'Unnamed'}
+                              {member.full_name || 'No name'}
                             </span>
                             {isSelf && <Badge variant="neutral">You</Badge>}
                           </div>
@@ -507,21 +509,21 @@ export function MembersTab() {
             </CardContent>
           </Card>
 
-          {/* Pending invitations — admin+ only */}
+          {/* Pending invites — admin+ only */}
           <RequireRole min="admin">
             <Card>
               <CardHeader className="border-b">
                 <CardTitle className="flex items-center gap-2">
                   <Mail className="text-primary-text size-4" />
-                  Pending invitations
+                  Pending invites
                   <Badge variant="neutral" size="count">
                     {invitations.length}
                   </Badge>
                 </CardTitle>
                 <CardDescription>
                   {invitations.length > 0
-                    ? 'Copy link creates a fresh link and invalidates the previous one. Share only the newest link.'
-                    : 'Invite links stay here until a teammate joins or you revoke them.'}
+                    ? 'Copy link makes a new link. The old link stops working.'
+                    : 'Invite links stay here until a team member joins or you cancel them.'}
                 </CardDescription>
               </CardHeader>
 
@@ -531,7 +533,7 @@ export function MembersTab() {
                     <Mail className="text-muted-foreground size-5" />
                   </span>
                   <p className="mt-3 text-sm font-medium">
-                    No pending invitations
+                    No pending invites
                   </p>
                   <p className="text-muted-foreground mt-1 max-w-sm text-xs">
                     Invites stay here until someone uses them or you cancel
@@ -554,7 +556,7 @@ export function MembersTab() {
                               <span className="truncate text-sm font-medium">
                                 {inv.full_name ||
                                   inv.label ||
-                                  'Untitled invite'}
+                                  'Invite'}
                               </span>
                               <SettingsChip variant={inviteRoleMeta.variant}>
                                 <InviteRoleIcon />
@@ -596,7 +598,7 @@ export function MembersTab() {
                               className="flex-1 sm:flex-none"
                             >
                               <MailX className="size-4" />
-                              Revoke
+                              Cancel invite
                             </Button>
                           </div>
                         </li>
@@ -631,7 +633,7 @@ export function MembersTab() {
             <DialogDescription>
               Remove{' '}
               <span className="font-medium">
-                {removingMember?.full_name || 'this teammate'}
+                {removingMember?.full_name || 'this team member'}
               </span>{' '}
               from this gym? They will lose access to it. They can still sign in
               to their own UsefulDesk account.

@@ -82,8 +82,8 @@ export type NodeCategory = 'messaging' | 'logic' | 'flow';
 /** Category labels + the order they render in the add-step menu. */
 export const NODE_CATEGORIES: { id: NodeCategory; label: string }[] = [
   { id: 'messaging', label: 'Messaging' },
-  { id: 'logic', label: 'Logic & data' },
-  { id: 'flow', label: 'Flow control' },
+  { id: 'logic', label: 'Rules and data' },
+  { id: 'flow', label: 'Start and end' },
 ];
 
 export const NODE_META: Record<
@@ -100,7 +100,7 @@ export const NODE_META: Record<
     label: 'Start',
     icon: PlayCircle,
     color: 'text-emerald-foreground',
-    blurb: 'Entry point of the flow',
+    blurb: 'Where the flow starts',
     category: 'flow',
   },
   send_message: {
@@ -132,31 +132,31 @@ export const NODE_META: Record<
     category: 'messaging',
   },
   collect_input: {
-    label: 'Collect input',
+    label: 'Ask a question',
     icon: Inbox,
     color: 'text-teal-foreground',
-    blurb: 'Asks a question, saves the reply',
+    blurb: 'Asks a question and saves the answer',
     category: 'logic',
   },
   condition: {
     label: 'If / else',
     icon: GitFork,
     color: 'text-fuchsia-foreground',
-    blurb: 'Branches on a rule',
+    blurb: 'Goes one way or another based on a rule',
     category: 'logic',
   },
   set_tag: {
-    label: 'Tag contact',
+    label: 'Tag person',
     icon: Tag,
     color: 'text-pink-foreground',
-    blurb: 'Adds or removes a contact tag',
+    blurb: 'Adds or removes a tag',
     category: 'logic',
   },
   handoff: {
-    label: 'Handoff to agent',
+    label: 'Pass to your team',
     icon: UserPlus,
     color: 'text-amber-foreground',
-    blurb: 'Hands the conversation to a human',
+    blurb: 'Passes the chat to a person on your team',
     category: 'flow',
   },
   end: {

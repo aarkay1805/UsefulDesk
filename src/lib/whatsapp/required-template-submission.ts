@@ -69,8 +69,8 @@ export function planRequiredTemplateSubmissions(
 
     const error =
       row.status === 'PENDING'
-        ? 'Meta is still reviewing an outdated copy. Sync and retry after that review finishes.'
-        : `Meta does not allow templates in ${row.status ?? 'unknown'} status to be edited. Resolve it in WhatsApp Manager, sync, and retry.`;
+        ? 'WhatsApp is still checking an older version. Check the status and try again after that.'
+        : `WhatsApp does not allow editing a template in ${row.status ?? 'unknown'} status. Fix it in WhatsApp Manager, then check the status and try again.`;
     return { contract, row, action: 'blocked', error };
   });
 }
@@ -127,7 +127,7 @@ export async function submitRequiredTemplates({
         ...base,
         outcome: 'failed',
         status: item.row?.status,
-        error: error instanceof Error ? error.message : 'Submission failed.',
+        error: error instanceof Error ? error.message : 'Could not send for review.',
       });
     }
   }

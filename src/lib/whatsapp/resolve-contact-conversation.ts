@@ -4,7 +4,7 @@ import { isUniqueViolation } from '@/lib/contacts/dedupe';
 import { SendMessageError } from '@/lib/whatsapp/send-message-error';
 
 const OPEN_CONVERSATION_ERROR =
-  'Failed to open a conversation for this contact';
+  'Could not open a conversation for this contact';
 
 async function findOldestConversation(
   db: SupabaseClient,

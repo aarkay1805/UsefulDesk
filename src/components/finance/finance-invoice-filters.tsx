@@ -33,7 +33,7 @@ const COLLECTION_MODES: {
   label: string;
 }[] = [
   { value: 'manual', label: 'Manual' },
-  { value: 'auto', label: 'Auto-pay' },
+  { value: 'auto', label: 'AutoPay' },
 ];
 
 export function FinanceInvoiceFilters({
@@ -107,11 +107,11 @@ export function FinanceInvoiceFilters({
             }))}
             selected={value.planIds}
             onToggle={(choice) => toggle('planIds', choice)}
-            emptyHint="No plans in this month."
+            emptyHint="No plans this month."
           />
           <Separator className="my-3" />
           <FilterGroup
-            label="Collection mode"
+            label="How it is collected"
             options={COLLECTION_MODES}
             selected={value.collectionModes}
             onToggle={(choice) =>
