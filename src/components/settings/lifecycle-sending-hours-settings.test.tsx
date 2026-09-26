@@ -103,16 +103,10 @@ describe('Lifecycle sending hours', () => {
     );
 
     expect(
-      screen.getByText(
-        'Choose when UsefulDesk may send follow-up and payment messages each day.'
-      )
+      screen.getByText('Send follow-up and payment messages between')
     ).toBeTruthy();
     expect(screen.queryAllByRole('listitem')).toHaveLength(0);
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Which messages follow these hours?',
-      })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Which messages?' }));
     expect(
       screen.getAllByRole('listitem').map((item) => item.textContent)
     ).toEqual([
@@ -127,9 +121,7 @@ describe('Lifecycle sending hours', () => {
       'Invite members to renew a service',
     ]);
     expect(
-      screen.getByText(
-        /Membership, service, and installment reminders start after/i
-      )
+      screen.getByText(/Membership, service, and installment reminders start/i)
     ).toBeTruthy();
     expect(
       screen.getByText(

@@ -492,22 +492,23 @@ describe('Automated messages catalogue', () => {
     ).toBeTruthy();
     fireEvent.click(
       within(sendingHours).getByRole('button', {
-        name: 'Which messages follow these hours?',
+        name: 'Which messages?',
       })
     );
+    const sendingScope = await screen.findByRole('dialog');
     expect(
-      within(sendingHours).getByText('Unpaid invoice reminders')
+      within(sendingScope).getByText('Unpaid invoice reminders')
     ).toBeTruthy();
     expect(
-      within(sendingHours).getByText('Invite members to renew a service')
+      within(sendingScope).getByText('Invite members to renew a service')
     ).toBeTruthy();
     expect(
-      within(sendingHours).getByText(
-        /Membership, service, and installment reminders start after/i
+      within(sendingScope).getByText(
+        /Membership, service, and installment reminders start/i
       )
     ).toBeTruthy();
     expect(
-      within(sendingHours).getByText(
+      within(sendingScope).getByText(
         /Payment confirmations and AutoPay updates send as soon as the payment changes/i
       )
     ).toBeTruthy();
@@ -1496,7 +1497,10 @@ describe('Automated messages setup guidance', () => {
       name: 'Get ready to send',
     });
     expect(
-      within(setup).getByText('1 of 2 messages ready to send')
+      within(setup).getByRole('listitem', { current: 'step' }).textContent
+    ).toContain('Get approved · 1 of 2 ready');
+    expect(
+      within(setup).getByText(/1 message is not sent for review yet/)
     ).toBeTruthy();
     fireEvent.click(
       within(setup).getByRole('button', { name: 'Send 1 message for review' })

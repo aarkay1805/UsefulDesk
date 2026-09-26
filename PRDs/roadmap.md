@@ -8,7 +8,9 @@ unapproved. Rows name their exact WhatsApp state (Not sent for review, In
 WhatsApp review, Rejected by WhatsApp, …) with a matching action, and reminder
 days are visible Chips. The open configuration tile was distilled on
 2026-09-26: the row subtitle reads back unsaved schedule changes, so the tile
-holds only controls, one-line notes, and the preview. Deferred: turning a rule on automatically once
+holds only controls, one-line notes, and the preview. The same day, Get ready
+to send and Sending hours were compacted into single-line strips so messages
+start in the first fold. Deferred: turning a rule on automatically once
 WhatsApp approves it (needs an opt-in intent flag and worker/webhook support).
 Application rollout is pending.
 
@@ -361,7 +363,7 @@ sending hours for renewal, installment, confirmation, or AutoPay messages.
 
 The branch-level **Sending hours** editor keeps its two controls visible and
 moves the exact in-scope message list plus timing exceptions into a single
-**Which messages use these hours?** disclosure. This is a presentation-only
+**Which messages?** popover beside them (one line since 2026-09-26). This is a presentation-only
 distillation; scope and persistence are unchanged.
 
 ## Shipped in code — Automated messages catalogue and activity (2026-09-12)

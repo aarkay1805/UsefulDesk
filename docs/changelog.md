@@ -6,6 +6,25 @@
 
 ---
 
+## 2026-09-26 — Automated messages setup strips compacted (built in code)
+
+**Get ready to send** and **Sending hours** were taking the first fold, so the
+message list started below it. Both are now `Card size="sm"` strips with no
+section description. The setup guide (`automated-message-setup.tsx`) shows its
+three steps on one line (Connect WhatsApp · Get approved · N of M ready · Turn
+on · N on) with the current-step action on the right and one status sentence;
+the progress bar and per-step descriptions are gone. `ApprovalSteps` for the
+dialogs is unchanged. Sending hours (`lifecycle-sending-hours-settings.tsx`)
+reads as one sentence with the two `size="sm"` Selects inline (visible Labels
+dropped; `aria-label`s kept, and `goToSendingHours` still targets them), and
+the scope list moved from an Accordion into a **Which messages?** link Popover.
+The popover is portaled, so tests must query it by `dialog` role, not
+`within(section)`. Copy follows the row badges: done steps read in past tense
+(WhatsApp connected, N turned on), the status says "not sent for review" / "in
+WhatsApp review" plus a short review-time note, and the popover splits "Sent
+only in these hours" from "Sent on their own timing" (Missed gym visits: one
+hour after assigned arrival, else the end hour at :30).
+
 ## 2026-09-26 — Automated message configuration distilled (built in code)
 
 The open rule tile in `renewal-reminders-settings.tsx` drops its repeated

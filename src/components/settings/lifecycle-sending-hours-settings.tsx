@@ -3,15 +3,13 @@
 import { forwardRef, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -19,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { useLocale } from '@/hooks/use-locale';
 import { getErrorMessage } from '@/lib/errors';
 import { timeInTzToUtc } from '@/lib/locale/format';
@@ -135,100 +134,117 @@ export const LifecycleSendingHoursSettings = forwardRef<
       <SettingsSectionHead
         id="lifecycle-sending-hours-title"
         title="Sending hours"
-        description="Choose when UsefulDesk may send follow-up and payment messages each day."
       />
-      <Card>
-        <CardContent className="space-y-4">
-          <div className="grid max-w-xl gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="lifecycle-send-window-start">
-                Start sending at
-              </Label>
-              <Select
-                value={String(start)}
-                onValueChange={(next) => {
-                  if (next == null) return;
-                  changeDraft({ ...draft, start: Number(next) });
-                }}
-                disabled={!canEdit || saving}
+      <Card size="sm">
+        <CardContent className="space-y-3">
+          {/* One sentence with the hours inline, so the section stays a
+              single line and the messages below start above the fold. */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-sm">
+            <span>Send follow-up and payment messages between</span>
+            <Select
+              value={String(start)}
+              onValueChange={(next) => {
+                if (next == null) return;
+                changeDraft({ ...draft, start: Number(next) });
+              }}
+              disabled={!canEdit || saving}
+            >
+              <SelectTrigger
+                id="lifecycle-send-window-start"
+                size="sm"
+                aria-label="Start sending at"
               >
-                <SelectTrigger
-                  id="lifecycle-send-window-start"
-                  className="w-full"
-                  aria-label="Start sending at"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {hours
-                    .filter((hour) => hour <= end)
-                    .map((hour) => (
-                      <SelectItem key={hour} value={String(hour)}>
-                        {localTime(hour)}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lifecycle-send-window-end">
-                Stop sending after
-              </Label>
-              <Select
-                value={String(end)}
-                onValueChange={(next) => {
-                  if (next == null) return;
-                  changeDraft({ ...draft, end: Number(next) });
-                }}
-                disabled={!canEdit || saving}
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {hours
+                  .filter((hour) => hour <= end)
+                  .map((hour) => (
+                    <SelectItem key={hour} value={String(hour)}>
+                      {localTime(hour)}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <span>and</span>
+            <Select
+              value={String(end)}
+              onValueChange={(next) => {
+                if (next == null) return;
+                changeDraft({ ...draft, end: Number(next) });
+              }}
+              disabled={!canEdit || saving}
+            >
+              <SelectTrigger
+                id="lifecycle-send-window-end"
+                size="sm"
+                aria-label="Stop sending after"
               >
-                <SelectTrigger
-                  id="lifecycle-send-window-end"
-                  className="w-full"
-                  aria-label="Stop sending after"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {hours
-                    .filter((hour) => hour >= start)
-                    .map((hour) => (
-                      <SelectItem key={hour} value={String(hour)}>
-                        {localTime(hour, '59')}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Accordion>
-            <AccordionItem value="sending-hours-scope">
-              <AccordionTrigger>
-                Which messages follow these hours?
-              </AccordionTrigger>
-              <AccordionContent className="px-1">
-                <div className="text-muted-foreground max-w-3xl space-y-2 text-sm leading-5">
-                  <ul className="grid list-disc gap-x-8 gap-y-1 pl-5 sm:grid-cols-2">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {hours
+                  .filter((hour) => hour >= start)
+                  .map((hour) => (
+                    <SelectItem key={hour} value={String(hour)}>
+                      {localTime(hour, '59')}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Popover>
+              <PopoverTrigger
+                render={
+                  // -ml-2.5 lines the label up with the sentence when it
+                  // wraps; from sm it sits at the card's right edge.
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="-ml-2.5 sm:ml-auto"
+                  />
+                }
+              >
+                Which messages?
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                aria-label="Which messages follow Sending hours"
+                className="w-80 max-w-[calc(100vw-2rem)] gap-3"
+              >
+                <div className="space-y-1.5">
+                  <div className="text-foreground font-medium">
+                    Sent only in these hours
+                  </div>
+                  <ul className="text-muted-foreground list-disc space-y-0.5 pl-5">
                     {LIFECYCLE_MESSAGE_TYPES.map((messageType) => (
                       <li key={messageType}>{messageType}</li>
                     ))}
                   </ul>
-                  <p>
-                    Membership, service, and installment reminders start after{' '}
-                    {localTime(9)}. Payment confirmations and AutoPay updates
-                    send as soon as the payment changes.
-                  </p>
-                  <p>
-                    Missed gym visits sends after six absent days, then once
-                    more six days later if still absent. It uses{' '}
-                    {localTime(end, '30')}
-                    without an Assigned arrival, or one hour after that time.
-                  </p>
                 </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+                <Separator />
+                <div className="space-y-1.5">
+                  <div className="text-foreground font-medium">
+                    Sent on their own timing
+                  </div>
+                  <div className="text-muted-foreground space-y-1">
+                    <div>
+                      Membership, service, and installment reminders start after{' '}
+                      {localTime(9)}.
+                    </div>
+                    <div>
+                      Payment confirmations and AutoPay updates send as soon as
+                      the payment changes.
+                    </div>
+                    <div>
+                      Missed gym visits sends one hour after the member’s
+                      assigned arrival, or at {localTime(end, '30')} if none is
+                      set.
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
 
           {error ? (
             <Alert variant="destructive">

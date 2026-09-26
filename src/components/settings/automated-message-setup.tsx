@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { invalidateApprovedMessageTemplates } from '@/components/inbox/use-approved-message-templates';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import {
   ResolvableAction,
   type ActionBlocker,
@@ -33,6 +32,10 @@ export const SUBMITTABLE_READINESS_CODES = new Set([
 /** How long Meta takes, said once so every surface promises the same thing. */
 export const WHATSAPP_REVIEW_TIME =
   'WhatsApp usually reviews a message within minutes, sometimes up to 24 hours.';
+
+/** The same promise, short enough to follow a sentence that already names
+ *  WhatsApp review. */
+const REVIEW_TIME = 'It usually takes minutes, up to 24 hours.';
 
 type SetupRule = {
   id: string;
@@ -62,36 +65,41 @@ function StepMarker({ index, done }: { index: number; done: boolean }) {
   );
 }
 
+/** One step of the setup strip: a marker, a name, and an optional count.
+ *  Only the current step is set in the foreground colour. */
 function SetupStep({
   index,
   done,
+  current,
   title,
-  description,
-  action,
+  count,
 }: {
   index: number;
   done: boolean;
+  current: boolean;
   title: string;
-  description: ReactNode;
-  action?: ReactNode;
+  count?: string;
 }) {
   return (
-    <li className="flex flex-wrap items-start gap-x-3 gap-y-2">
+    <li
+      className="flex items-center gap-2"
+      aria-current={current ? 'step' : undefined}
+    >
       <StepMarker index={index} done={done} />
-      <div className="min-w-48 flex-1 space-y-0.5">
-        <div
-          className={cn(
-            'text-sm font-medium',
-            done ? 'text-muted-foreground' : 'text-foreground'
-          )}
-        >
-          {title}
-        </div>
-        <div className="text-muted-foreground text-sm text-pretty">
-          {description}
-        </div>
-      </div>
-      {action ? <div className="ml-8 sm:ml-0">{action}</div> : null}
+      <span
+        className={cn(
+          'text-sm',
+          current ? 'text-foreground font-medium' : 'text-muted-foreground'
+        )}
+      >
+        {title}
+        {count ? (
+          <span className="text-muted-foreground font-normal tabular-nums">
+            {' '}
+            · {count}
+          </span>
+        ) : null}
+      </span>
     </li>
   );
 }
@@ -152,9 +160,11 @@ export function ApprovalSteps({ current }: { current: 1 | 2 | 3 }) {
 
 /**
  * The "am I set up?" answer for Automated messages: three steps in the
- * order WhatsApp imposes them — connect, get approved, turn on — with the
- * one action that moves the current step. Sending every required message
- * for review is one click here instead of one dialog per message.
+ * order WhatsApp imposes them — connect, get approved, turn on — on one
+ * line, with the one action that moves the current step and one sentence
+ * about it. It stays a strip so the messages themselves start above the
+ * fold. Sending every required message for review is one click here
+ * instead of one dialog per message.
  */
 export function AutomatedMessageSetup({
   rules,
@@ -287,65 +297,60 @@ export function AutomatedMessageSetup({
     />
   ) : null;
 
-  const reviewDescription = !connected
-    ? 'Available once WhatsApp is connected.'
+  // One sentence about the current step, in the same words as the row
+  // badges below (Not sent for review, In WhatsApp review).
+  const turnOnNote =
+    enabledCount > 0 ? '' : ' Nothing sends until you turn it on below.';
+  const statusDescription = !connected
+    ? 'Automated messages send from your WhatsApp Business number. Connect it to send them for review.'
     : needsReview > 0
-      ? `${plural(needsReview, 'message')} ${needsReview === 1 ? 'hasn’t' : 'haven’t'} been sent for approval yet.${inReview > 0 ? ` ${inReview} ${inReview === 1 ? 'is' : 'are'} already in review.` : ''} ${WHATSAPP_REVIEW_TIME}`
+      ? `${plural(needsReview, 'message')} ${needsReview === 1 ? 'is' : 'are'} not sent for review yet${inReview > 0 ? `; ${inReview} ${inReview === 1 ? 'is' : 'are'} in WhatsApp review` : ''}. ${REVIEW_TIME}`
       : inReview > 0
-        ? `${plural(inReview, 'message')} ${inReview === 1 ? 'is' : 'are'} waiting for WhatsApp. ${WHATSAPP_REVIEW_TIME}`
-        : needsAttention > 0
-          ? `${plural(needsAttention, 'message')} ${needsAttention === 1 ? 'needs' : 'need'} attention. Open ${needsAttention === 1 ? 'it' : 'them'} below to see why.`
-          : 'Every message is approved.';
+        ? `${plural(inReview, 'message')} ${inReview === 1 ? 'is' : 'are'} in WhatsApp review. ${REVIEW_TIME}${turnOnNote}`
+        : `${plural(needsAttention, 'message')} ${needsAttention === 1 ? 'needs' : 'need'} attention — ${needsAttention === 1 ? 'its row says' : 'their rows say'} what to fix.${turnOnNote}`;
 
   return (
     <section aria-labelledby="automated-message-setup" className="space-y-3">
       <SettingsSectionHead
         id="automated-message-setup"
         title="Get ready to send"
-        description="WhatsApp approves every automated message once. After that, you choose which ones to turn on."
       />
-      <Card>
-        <CardContent className="space-y-5">
-          <div className="space-y-2">
-            <div className="text-sm font-medium tabular-nums">
-              {readyCount} of {total} messages ready to send
-            </div>
-            <Progress
-              value={readyCount}
-              max={total}
-              aria-label="Messages ready to send"
-            />
+      <Card size="sm">
+        <CardContent className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+            <ol
+              aria-label="Setup steps"
+              className="flex flex-wrap items-center gap-x-5 gap-y-1.5"
+            >
+              <SetupStep
+                index={1}
+                done={connected}
+                current={!connected}
+                title={connected ? 'WhatsApp connected' : 'Connect WhatsApp'}
+              />
+              <SetupStep
+                index={2}
+                done={connected && readyCount === total}
+                current={connected && readyCount < total}
+                title="Get approved"
+                count={`${readyCount} of ${total} ready`}
+              />
+              <SetupStep
+                index={3}
+                done={enabledCount > 0}
+                current={false}
+                title={
+                  enabledCount > 0
+                    ? `${enabledCount} turned on`
+                    : 'Turn messages on'
+                }
+              />
+            </ol>
+            {connectAction ?? reviewAction}
           </div>
-          <ol className="space-y-4">
-            <SetupStep
-              index={1}
-              done={connected}
-              title="Connect WhatsApp"
-              description={
-                connected
-                  ? 'Connected.'
-                  : 'Messages are sent from your WhatsApp Business number.'
-              }
-              action={connectAction}
-            />
-            <SetupStep
-              index={2}
-              done={connected && readyCount === total}
-              title="Get messages approved by WhatsApp"
-              description={reviewDescription}
-              action={reviewAction}
-            />
-            <SetupStep
-              index={3}
-              done={enabledCount > 0}
-              title="Turn on the messages you want"
-              description={
-                enabledCount > 0
-                  ? `${plural(enabledCount, 'message')} on. Nothing else sends until you turn it on.`
-                  : 'Use the switch on each approved message below. Nothing sends until you turn it on.'
-              }
-            />
-          </ol>
+          <p className="text-muted-foreground text-sm text-pretty">
+            {statusDescription}
+          </p>
         </CardContent>
       </Card>
     </section>
