@@ -9,8 +9,8 @@ const TECHNICAL_ERRORS: ReadonlyArray<{
 }> = [
   {
     test: (m) =>
-      /failed to fetch|networkerror|network request failed|load failed|fetch failed|err_internet_disconnected/i.test(
-        m
+      /^(?:(?:typeerror|fetcherror):\s*)?(?:failed to fetch|networkerror(?: when attempting to fetch resource\.?)?|network request failed|load failed|fetch failed|(?:net::)?err_internet_disconnected)$/i.test(
+        m.trim()
       ),
     text: 'No internet connection. Check your internet and try again.',
   },
@@ -21,7 +21,9 @@ const TECHNICAL_ERRORS: ReadonlyArray<{
   {
     test: (m, c) =>
       c === '42501' ||
-      /row-level security|permission denied for|insufficient_privilege/i.test(m),
+      /row-level security|permission denied for|insufficient_privilege/i.test(
+        m
+      ),
     text: 'You do not have permission to do this. Ask the owner or an admin.',
   },
   {

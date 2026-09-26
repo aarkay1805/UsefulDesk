@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-09-26 — Plain-language product terminology and audit repairs (built in code)
+
+The web product uses the gym-owner glossary in `docs/ux-copy.md`, including
+Enquiries, Chats, Home, Staff, and Usual time; internal routes, database keys,
+roles, and provider identifiers remain stable. Starter automation keywords and
+flow questions now use gym-specific content.
+
+Audit repairs make membership-import debt cancellation explicit
+(`import-members-preview.tsx`), distinguish broadcast audience from sent counts,
+label historical cash-flow comparisons by their actual periods, remove the
+ad-return label's INR assumption, and name report CSV duration columns accurately.
+`src/lib/errors.ts` recognizes complete network-error messages without mistaking
+provider upload/download failures for lost internet. The branch-creation test
+uses the current Start empty label. No data migration; application rollout pending.
+
 ## 2026-09-26 — Lifecycle reminder delivery evidence repaired (shipped)
 
 - **Delivery reconciliation** is one RPC,

@@ -38,9 +38,51 @@ describe('getErrorMessage', () => {
   });
 
   it('turns browser network failures into plain language', () => {
-    expect(getErrorMessage(new TypeError('Failed to fetch'), 'Fallback')).toBe(
-      'No internet connection. Check your internet and try again.'
-    );
+    for (const message of [
+      'Failed to fetch',
+      'Load failed',
+      'fetch failed',
+      'NetworkError when attempting to fetch resource.',
+      'Network request failed',
+      'net::ERR_INTERNET_DISCONNECTED',
+    ]) {
+      expect(getErrorMessage(new TypeError(message), 'Fallback')).toBe(
+        'No internet connection. Check your internet and try again.'
+      );
+    }
+  });
+
+  it('turns Supabase-wrapped browser network failures into plain language', () => {
+    for (const message of [
+      'TypeError: Failed to fetch',
+      'TypeError: Load failed',
+      'FetchError: fetch failed',
+    ]) {
+      expect(getErrorMessage({ code: '', message }, 'Fallback')).toBe(
+        'No internet connection. Check your internet and try again.'
+      );
+    }
+  });
+
+  it('keeps provider failure details instead of reporting no internet', () => {
+    for (const message of [
+      'Resumable upload failed: 413',
+      'Media download failed: 404',
+      'Media fetch failed: 404',
+      'TypeError: Resumable upload failed: 413',
+      'FetchError: Media download failed: 404',
+    ]) {
+      expect(getErrorMessage(new Error(message), 'Fallback')).toBe(message);
+    }
+  });
+
+  it('uses the caller fallback for a technical failure containing network words', () => {
+    expect(
+      getErrorMessage(
+        { code: 'PGRST202', message: 'Media download failed: 404' },
+        'Could not download the file'
+      )
+    ).toBe('Could not download the file');
   });
 
   it('turns permission failures into plain language', () => {

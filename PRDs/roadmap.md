@@ -1,5 +1,14 @@
 # Roadmap
 
+## Built in code — Plain-language product terminology (2026-09-26)
+
+The web product adopts the gym-owner glossary in `docs/ux-copy.md`: Enquiries,
+Chats, Home, Staff, and other everyday terms, while preserving internal data and
+integration identifiers. Audit repairs clarify imported-debt cancellation,
+broadcast audience counts, historical chart periods, currency-neutral ad return,
+and report CSV durations. Network-error translation preserves provider failure
+context. Application rollout is pending.
+
 ## Shipped — Lifecycle reminder queue send contract repair (2026-09-26)
 
 Payment confirmations and AutoPay retry notices can now reach WhatsApp once

@@ -93,7 +93,7 @@ export function FinanceAdPerformanceCard({
           </div>
           <div className="flex items-center gap-3 py-2.5">
             <span className="text-muted-foreground flex-1">
-              Money earned for every ₹1 spent
+              Money earned for every 1 spent
             </span>
             <span className="font-medium tabular-nums">{returnOnSpend}</span>
           </div>

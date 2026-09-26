@@ -317,6 +317,10 @@ export function FinanceCashFlowChart({
     animationDuration: 420,
     animationEasing: 'ease-out' as const,
   };
+  const previousIncomeLabel = `${previousMonthLabel} income`;
+  const currentIncomeLabel = `${monthLabel} income`;
+  const previousExpensesLabel = `${previousMonthLabel} expenses`;
+  const currentExpensesLabel = `${monthLabel} expenses`;
 
   return (
     <Card className="h-full">
@@ -331,7 +335,7 @@ export function FinanceCashFlowChart({
               checked={comparePrevious}
               onCheckedChange={setComparePrevious}
             />
-            <span>Compare with last month</span>
+            <span>Compare with {previousMonthLabel}</span>
           </label>
           <Toolbar aria-label="Show by">
             <ToolbarToggleGroup<Grouping>
@@ -352,7 +356,7 @@ export function FinanceCashFlowChart({
           <div
             className="h-full min-h-72 w-full"
             role="group"
-            aria-label={`${grouping === 'daily' ? 'Day' : 'Week'} cash flow chart${comparePrevious ? ' comparing this month and last month' : ''}`}
+            aria-label={`${grouping === 'daily' ? 'Day' : 'Week'} cash flow chart${comparePrevious ? ` comparing ${monthLabel} and ${previousMonthLabel}` : ''}`}
           >
             <ResponsiveContainer
               width="100%"
@@ -421,7 +425,7 @@ export function FinanceCashFlowChart({
                   <>
                     <Bar
                       dataKey="previousIncome"
-                      name="Last month income"
+                      name={previousIncomeLabel}
                       fill={PREVIOUS_INCOME_FILL}
                       radius={BAR_RADIUS}
                       maxBarSize={20}
@@ -429,7 +433,7 @@ export function FinanceCashFlowChart({
                     />
                     <Bar
                       dataKey="currentIncome"
-                      name="This month income"
+                      name={currentIncomeLabel}
                       fill={INCOME_FILL}
                       radius={BAR_RADIUS}
                       maxBarSize={20}
@@ -437,7 +441,7 @@ export function FinanceCashFlowChart({
                     />
                     <Bar
                       dataKey="previousExpenses"
-                      name="Last month expenses"
+                      name={previousExpensesLabel}
                       fill={PREVIOUS_EXPENSE_FILL}
                       radius={BAR_RADIUS}
                       maxBarSize={20}
@@ -445,7 +449,7 @@ export function FinanceCashFlowChart({
                     />
                     <Bar
                       dataKey="currentExpenses"
-                      name="This month expenses"
+                      name={currentExpensesLabel}
                       fill={EXPENSE_FILL}
                       radius={BAR_RADIUS}
                       maxBarSize={20}
@@ -488,10 +492,14 @@ export function FinanceCashFlowChart({
       <CardFooter className="text-muted-foreground flex-wrap gap-x-4 gap-y-1.5 text-xs">
         {comparePrevious ? (
           <>
-            <LegendItem label="Last month income" tone="income" previous />
-            <LegendItem label="This month income" tone="income" />
-            <LegendItem label="Last month expenses" tone="expenses" previous />
-            <LegendItem label="This month expenses" tone="expenses" />
+            <LegendItem label={previousIncomeLabel} tone="income" previous />
+            <LegendItem label={currentIncomeLabel} tone="income" />
+            <LegendItem
+              label={previousExpensesLabel}
+              tone="expenses"
+              previous
+            />
+            <LegendItem label={currentExpensesLabel} tone="expenses" />
           </>
         ) : (
           <>

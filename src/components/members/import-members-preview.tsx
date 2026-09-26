@@ -1751,7 +1751,7 @@ function GroupResolver({
     return renderLayout(
       <div className="space-y-3">
         <p className="text-muted-foreground text-xs">
-          This marks the membership balance in this row as not collected. Service balances do not change.
+          This membership balance will no longer be due. Service balances do not change.
         </p>
         <IssueRows
           group={group}
@@ -1762,7 +1762,7 @@ function GroupResolver({
               variant="outline"
               onClick={() => onResolveCancelledDebt(candidate.sourceKey)}
             >
-              Mark balance as not collected
+              Clear this balance
             </Button>
           )}
         />

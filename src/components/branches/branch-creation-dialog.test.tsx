@@ -219,7 +219,7 @@ describe('BranchCreationDialog', () => {
     expect(screen.getByText('Business for invoices')).toBeTruthy();
     expect(screen.getByText('Useful Fitness Pvt Ltd · INR')).toBeTruthy();
     expect(screen.getByText(/This only names the new branch/)).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /Start fresh/ })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Start empty/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Create branch' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /Continue/ })).toBeNull();
     expect(screen.queryByText('Legal entity')).toBeNull();

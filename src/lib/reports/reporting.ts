@@ -1526,7 +1526,7 @@ export function ownerReportCsv(
     '',
     csvRow([
       'Plan',
-      'Price',
+      'Duration',
       'Normal fee',
       'Active members',
       'New members',
@@ -1539,7 +1539,7 @@ export function ownerReportCsv(
           plan.name,
           option.durationCount && option.durationUnit
             ? durationLabel(option.durationCount, option.durationUnit)
-            : 'No price picked',
+            : 'No duration set',
           option.price ?? '',
           option.activeMembers,
           option.newMembers,

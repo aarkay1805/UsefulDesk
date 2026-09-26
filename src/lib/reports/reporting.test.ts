@@ -247,6 +247,12 @@ describe('owner reporting helpers', () => {
               durationUnit: 'year',
               price: 9000,
             },
+            {
+              id: 'missing-duration',
+              durationCount: null,
+              durationUnit: null,
+              price: 7500,
+            },
           ],
         },
       ],
@@ -265,7 +271,11 @@ describe('owner reporting helpers', () => {
     );
 
     expect(csv).toContain('"Gold, annual"');
+    expect(csv).toContain(
+      'Plan,Duration,Normal fee,Active members,New members,Revenue,Visits'
+    );
     expect(csv).toContain('"Gold, annual",1 year,9000');
+    expect(csv).toContain('"Gold, annual",No duration set,7500');
     expect(csv).toContain('Average price paid,0,0');
     expect(csv).toContain('Date,Revenue,Visits,New members');
     expect(csv).toContain(

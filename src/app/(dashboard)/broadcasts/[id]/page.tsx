@@ -106,7 +106,9 @@ function FunnelChart({
   const max = Math.max(...steps.map((s) => s.value), 1);
   return (
     <div className="border-border bg-card rounded-xl border p-4">
-      <h3 className="text-foreground mb-4 text-sm font-medium">How many got it</h3>
+      <h3 className="text-foreground mb-4 text-sm font-medium">
+        How many got it
+      </h3>
       <div className="space-y-2">
         {steps.map((step) => {
           const pctOfMax = Math.max(5, Math.round((step.value / max) * 100));
@@ -474,10 +476,10 @@ export default function BroadcastDetailPage() {
         )}
       </div>
 
-      {/* Stats — 6 cards: Total / Sent / Delivered / Read / Replied / Failed */}
+      {/* Stats — 6 cards: Audience / Sent / Delivered / Read / Replied / Failed */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
-          label="Sent to"
+          label="Audience"
           value={broadcast.total_recipients}
           total={broadcast.total_recipients}
           icon={<Users className="h-4 w-4" />}

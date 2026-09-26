@@ -716,10 +716,13 @@ describe('ImportMembersPreview worksheet', () => {
         }),
       ])
     );
+    expect(
+      screen.getByText(
+        'This membership balance will no longer be due. Service balances do not change.'
+      )
+    ).toBeTruthy();
     await user.click(
-      screen.getByRole('button', {
-        name: 'Mark balance as not collected',
-      })
+      screen.getByRole('button', { name: 'Clear this balance' })
     );
     expect(onResolveCancelledDebt).toHaveBeenCalledWith('sheet:2');
   });
