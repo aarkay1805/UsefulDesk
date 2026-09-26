@@ -1,7 +1,14 @@
 import type { TargetKind } from '@/lib/contacts/field-mapping';
 
 export type MemberFilterDim =
-  'plans' | 'statuses' | 'assignees' | 'trainers' | 'feeStatus' | 'churnRisk';
+  | 'plans'
+  | 'statuses'
+  | 'assignees'
+  | 'trainers'
+  | 'feeStatus'
+  | 'churnRisk'
+  | 'expiry'
+  | 'usualTimes';
 
 export type MemberColumnKey =
   | 'name'
@@ -708,6 +715,7 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     defaultWidth: 130,
     minWidth: 100,
     sortKey: 'end_date',
+    filterDim: 'expiry',
     importPolicy: {
       kind: 'fields',
       fields: ['start_date', 'end_date', 'service_start', 'service_end'],
@@ -786,6 +794,8 @@ export const MEMBER_TABLE_COLUMNS: MemberColumn[] = [
     label: 'Usual time',
     defaultWidth: 150,
     minWidth: 125,
+    sortKey: 'assigned_arrival_time',
+    filterDim: 'usualTimes',
     importPolicy: { kind: 'fields', fields: ['assigned_arrival_time'] },
   },
   {

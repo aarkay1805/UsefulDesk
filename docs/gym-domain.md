@@ -151,6 +151,10 @@ The `memberships` row stays the current-cycle pointer (its start/end/fee mirror 
 
 **View `membership_period_invoices`** preserves the legacy column contract but now derives `amount_paid` / `balance` from allocations on its linked membership line. Combined service and merchandise lines never change membership dues, plan revenue, or `fee_status`.
 
+All members' **Fee** column is the current membership `fee_amount` and derived
+`fee_status`. It is empty for service-only customers; their combined open invoice
+balance belongs to billing surfaces, not this membership-fee column.
+
 **Status is derived in TS**, not SQL — it needs the account's tz "today", so the view stays tz-agnostic. `periodStatus()` in `src/lib/memberships/periods.ts`.
 
 ### Lifecycle — who creates/moves a period

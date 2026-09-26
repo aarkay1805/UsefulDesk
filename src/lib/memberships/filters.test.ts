@@ -190,5 +190,12 @@ describe('activeMemberFilterCount', () => {
         trainers: [NO_TRAINER_MEMBER_FILTER],
       })
     ).toBe(2);
+    expect(
+      activeMemberFilterCount({
+        ...EMPTY_MEMBER_FILTERS,
+        expiry: ['today', 'next7'],
+        usualTimes: ['morning', 'time:06:30'],
+      })
+    ).toBe(2);
   });
 });

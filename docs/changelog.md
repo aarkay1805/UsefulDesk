@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-09-26 — All members filters and recovery (built in code)
+
+All members now filters the displayed expiry, including service-only dates,
+and the contact's usual time through shared header/panel state. Active filters
+have individual removal and Clear all; no results can clear search and filters.
+The Fee cell and CSV now show membership fees only. The single paged directory
+RPC also applies the new facets to totals, quick counts, export, and select-all.
+Key code: `members-table.tsx`, `members-filters.tsx`, `member-directory.ts`;
+migration `20260926110000_member_directory_expiry_usual_time_filters.sql` is
+live on UsefulDesk as `20260926123022`. Existing clients remain compatible
+through trailing default arguments. Application rollout is pending.
+
 ## 2026-09-26 — Plain-language copy for the phone app, docs, and narrow screens (built in code)
 
 The Expo app (`apps/mobile`) now uses the `docs/ux-copy.md` glossary: the

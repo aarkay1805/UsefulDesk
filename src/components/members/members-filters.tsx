@@ -9,13 +9,18 @@ import {
   PopoverContent,
 } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
   activeMemberFilterCount,
   CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
+  EXPIRY_OPTIONS,
   MEMBER_STATUS_OPTIONS,
+  USUAL_TIME_PERIODS,
   type MemberFilters,
 } from '@/lib/memberships/filters';
 import type { MembershipPlan } from '@/types';
@@ -36,6 +41,8 @@ interface MembersFiltersProps {
   plans: MembershipPlan[];
   assignedOptions: { value: string; label: string }[];
   trainerOptions: { value: string; label: string }[];
+  usualTimeOptions: { value: string; label: string }[];
+  today: string;
 }
 
 /**
@@ -50,6 +57,8 @@ export function MembersFilters({
   plans,
   assignedOptions,
   trainerOptions,
+  usualTimeOptions,
+  today,
 }: MembersFiltersProps) {
   const count = activeMemberFilterCount(value);
   const reduceMotion = useReducedMotion();
@@ -80,9 +89,7 @@ export function MembersFilters({
               }}
               className="inline-flex origin-left"
             >
-              <span className="bg-primary text-primary-foreground inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold">
-                {count}
-              </span>
+              <Badge size="count">{count}</Badge>
             </motion.span>
           )}
         </AnimatePresence>
@@ -93,13 +100,13 @@ export function MembersFilters({
             Filters
           </span>
           {count > 0 && (
-            <button
-              type="button"
+            <Button
+              variant="link"
+              size="xs"
               onClick={() => onChange(EMPTY_MEMBER_FILTERS)}
-              className="text-muted-foreground hover:text-foreground cursor-pointer text-xs underline-offset-4 hover:underline"
             >
               Clear all
-            </button>
+            </Button>
           )}
         </div>
 
@@ -110,6 +117,65 @@ export function MembersFilters({
             selected={value.statuses}
             onToggle={(v) => toggle('statuses', v)}
           />
+
+          <Separator className="my-3" />
+          <CheckGroup
+            label="Expiry"
+            options={EXPIRY_OPTIONS}
+            selected={value.expiry}
+            onToggle={(v) => {
+              const next = value.expiry.includes(
+                v as MemberFilters['expiry'][number]
+              )
+                ? value.expiry.filter((item) => item !== v)
+                : [...value.expiry, v as MemberFilters['expiry'][number]];
+              onChange({
+                ...value,
+                expiry: next,
+                expiryFrom:
+                  v === 'custom' && next.includes('custom') && !value.expiryFrom
+                    ? today
+                    : value.expiryFrom,
+                expiryTo:
+                  v === 'custom' && next.includes('custom') && !value.expiryTo
+                    ? today
+                    : value.expiryTo,
+              });
+            }}
+          />
+          {value.expiry.includes('custom') && (
+            <div className="mt-2 space-y-2">
+              <div>
+                <Label htmlFor="member-expiry-from" size="sm">
+                  From
+                </Label>
+                <DatePicker
+                  id="member-expiry-from"
+                  value={value.expiryFrom}
+                  max={value.expiryTo || undefined}
+                  onChange={(expiryFrom) =>
+                    onChange({
+                      ...value,
+                      expiryFrom: expiryFrom || value.expiryFrom,
+                    })
+                  }
+                />
+              </div>
+              <div>
+                <Label htmlFor="member-expiry-to" size="sm">
+                  To
+                </Label>
+                <DatePicker
+                  id="member-expiry-to"
+                  value={value.expiryTo}
+                  min={value.expiryFrom || undefined}
+                  onChange={(expiryTo) =>
+                    onChange({ ...value, expiryTo: expiryTo || value.expiryTo })
+                  }
+                />
+              </div>
+            </div>
+          )}
 
           <Separator className="my-3" />
           <CheckGroup
@@ -142,6 +208,14 @@ export function MembersFilters({
             options={FEE_STATUS_OPTIONS}
             selected={value.feeStatus}
             onToggle={(v) => toggle('feeStatus', v)}
+          />
+
+          <Separator className="my-3" />
+          <CheckGroup
+            label="Usual time"
+            options={[...USUAL_TIME_PERIODS, ...usualTimeOptions]}
+            selected={value.usualTimes}
+            onToggle={(v) => toggle('usualTimes', v)}
           />
 
           <Separator className="my-3" />

@@ -95,6 +95,17 @@ describe('All Members table parity contract', () => {
     );
   });
 
+  it('wires Expiry and Usual time to the shared filter state and keeps service-only Fee empty', () => {
+    expect(MEMBER_COLUMN_BY_KEY.expiry.filterDim).toBe('expiry');
+    expect(MEMBER_COLUMN_BY_KEY.assignedArrival.filterDim).toBe('usualTimes');
+    expect(MEMBER_COLUMN_BY_KEY.assignedArrival.sortKey).toBe(
+      'assigned_arrival_time'
+    );
+    expect(source).toContain('usualTimeOptions={usualTimeOptions}');
+    expect(source).toContain('fmt.money(membership.fee_amount) :');
+    expect(source).toContain('Clear search and filters');
+  });
+
   it('wires the shared bulk editor to the selected member count and safe member property allowlist', () => {
     expect(source).toContain('buildMemberBulkEditProperties(staff, trainers)');
     expect(source).toMatch(

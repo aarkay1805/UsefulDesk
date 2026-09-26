@@ -2,6 +2,8 @@
 // select/export actions, and membership-backed queues so their controls cannot
 // drift. Each database path owns the matching query representation.
 
+import { ATTENDANCE_ARRIVAL_BUCKETS } from './attendance-snapshot';
+
 /**
  * The status facet filters on the DERIVED lifecycle state, not the raw
  * `memberships.status` column: "expired" is computed at read time from
@@ -27,6 +29,21 @@ export const MEMBER_STATUS_OPTIONS: {
 export type ChurnRiskFilter = 'yes' | 'no';
 
 export type FollowUpFilter = 'open';
+export type ExpiryFilter =
+  'today' | 'next7' | 'next30' | 'expired' | 'custom' | 'no_expiry';
+
+export const EXPIRY_OPTIONS: { value: ExpiryFilter; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'next7', label: 'Next 7 days' },
+  { value: 'next30', label: 'Next 30 days' },
+  { value: 'expired', label: 'Already expired' },
+  { value: 'custom', label: 'Custom range' },
+  { value: 'no_expiry', label: 'No expiry' },
+];
+
+export const USUAL_TIME_PERIODS = ATTENDANCE_ARRIVAL_BUCKETS.filter(
+  (bucket) => bucket.value !== 'all'
+).map(({ value, label }) => ({ value, label }));
 
 /** Nullable contact ownership buckets used by both member filter surfaces. */
 export const UNASSIGNED_MEMBER_FILTER = '__unassigned__';
@@ -49,6 +66,10 @@ export interface MemberFilters {
   /** trainers.id values plus NO_TRAINER_MEMBER_FILTER. */
   trainers: string[];
   feeStatus: ('paid' | 'due')[];
+  expiry: ExpiryFilter[];
+  expiryFrom: string;
+  expiryTo: string;
+  usualTimes: string[];
   churnRisk: ChurnRiskFilter[];
   followUps: FollowUpFilter[];
 }
@@ -59,6 +80,10 @@ export const EMPTY_MEMBER_FILTERS: MemberFilters = {
   assignees: [],
   trainers: [],
   feeStatus: [],
+  expiry: [],
+  expiryFrom: '',
+  expiryTo: '',
+  usualTimes: [],
   churnRisk: [],
   followUps: [],
 };
@@ -71,6 +96,8 @@ export function activeMemberFilterCount(f: MemberFilters): number {
     (f.assignees.length ? 1 : 0) +
     (f.trainers.length ? 1 : 0) +
     (f.feeStatus.length ? 1 : 0) +
+    (f.expiry.length ? 1 : 0) +
+    (f.usualTimes.length ? 1 : 0) +
     (f.churnRisk.length ? 1 : 0) +
     (f.followUps.length ? 1 : 0)
   );

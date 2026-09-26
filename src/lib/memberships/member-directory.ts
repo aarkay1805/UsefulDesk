@@ -55,6 +55,8 @@ export function memberDirectorySortKey(key: string): string {
       return 'membership_fee_status';
     case 'start_date':
       return 'membership_start_date';
+    case 'assignedArrival':
+      return 'assigned_arrival_time';
     default:
       return key;
   }
@@ -81,6 +83,10 @@ export function memberDirectoryRpcArgs(query: MemberDirectoryQuery) {
     p_include_no_trainer: trainers.includeNull,
     p_churn_risk: query.filters.churnRisk,
     p_follow_ups: query.filters.followUps,
+    p_expiry_filters: query.filters.expiry,
+    p_expiry_from: query.filters.expiryFrom || null,
+    p_expiry_to: query.filters.expiryTo || null,
+    p_usual_times: query.filters.usualTimes,
     p_sort_key: query.sort ? memberDirectorySortKey(query.sort.key) : null,
     p_sort_direction: query.sort?.dir ?? null,
     p_page: query.page,

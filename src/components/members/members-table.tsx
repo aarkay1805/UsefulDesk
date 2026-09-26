@@ -48,9 +48,11 @@ import {
 import {
   CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
+  EXPIRY_OPTIONS,
   MEMBER_STATUS_OPTIONS,
   NO_TRAINER_MEMBER_FILTER,
   UNASSIGNED_MEMBER_FILTER,
+  USUAL_TIME_PERIODS,
   type MemberFilters,
 } from '@/lib/memberships/filters';
 import {
@@ -208,6 +210,7 @@ const SORT_COLUMNS: { key: string; label: string }[] = [
   { key: 'contact_name', label: 'Name' },
   { key: 'member_number', label: 'Member ID' },
   { key: 'display_expiry', label: 'Expiry' },
+  { key: 'assigned_arrival_time', label: 'Usual time' },
   { key: 'membership_fee_amount', label: 'Fee' },
   { key: 'membership_fee_status', label: 'Fee status' },
   { key: 'membership_start_date', label: 'Start date' },
@@ -218,7 +221,7 @@ const CHECKBOX_COL_WIDTH = 40;
 // Fee status options for the fee column's header Filter submenu.
 const FEE_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'paid', label: 'Paid' },
-  { value: 'due', label: 'Due' },
+  { value: 'due', label: 'Fee due' },
 ];
 
 const CHURN_RISK_CELL_OPTIONS = CHURN_RISK_OPTIONS.map((option) => ({
@@ -306,6 +309,14 @@ export function MembersTable({
   const arrivalOptions = useMemo(
     () => assignedArrivalOptions(fmt.timeOfDay),
     [fmt]
+  );
+  const usualTimeOptions = useMemo(
+    () =>
+      arrivalOptions.slice(1).map((option) => ({
+        value: `time:${option.value}`,
+        label: option.label,
+      })),
+    [arrivalOptions]
   );
   const reduceMotion = useReducedMotion();
   const { user, profile, accountId } = useAuth();
@@ -417,6 +428,60 @@ export function MembersTable({
     ],
     [trainers]
   );
+  const filterSummaries: {
+    dim: MemberFilterDim | 'followUps';
+    value: string;
+    label: string;
+  }[] = [
+    ...filters.statuses.map((value) => ({
+      dim: 'statuses' as const,
+      value,
+      label: `Status: ${MEMBER_STATUS_OPTIONS.find((option) => option.value === value)?.label ?? value}`,
+    })),
+    ...filters.plans.map((value) => ({
+      dim: 'plans' as const,
+      value,
+      label: `Plan: ${plans.find((plan) => plan.id === value)?.name ?? 'Archived plan'}`,
+    })),
+    ...filters.expiry.map((value) => ({
+      dim: 'expiry' as const,
+      value,
+      label:
+        value === 'custom'
+          ? `Expiry: ${fmt.date(filters.expiryFrom)}–${fmt.date(filters.expiryTo)}`
+          : `Expiry: ${EXPIRY_OPTIONS.find((option) => option.value === value)?.label ?? value}`,
+    })),
+    ...filters.assignees.map((value) => ({
+      dim: 'assignees' as const,
+      value,
+      label: `Assigned to: ${assignedFilterOptions.find((option) => option.value === value)?.label ?? 'Team member'}`,
+    })),
+    ...filters.trainers.map((value) => ({
+      dim: 'trainers' as const,
+      value,
+      label: `Trainer: ${trainerFilterOptions.find((option) => option.value === value)?.label ?? 'Trainer'}`,
+    })),
+    ...filters.feeStatus.map((value) => ({
+      dim: 'feeStatus' as const,
+      value,
+      label: `Fee: ${FEE_STATUS_OPTIONS.find((option) => option.value === value)?.label ?? value}`,
+    })),
+    ...filters.usualTimes.map((value) => ({
+      dim: 'usualTimes' as const,
+      value,
+      label: `Usual time: ${[...USUAL_TIME_PERIODS, ...usualTimeOptions].find((option) => option.value === value)?.label ?? value}`,
+    })),
+    ...filters.followUps.map((value) => ({
+      dim: 'followUps' as const,
+      value,
+      label: 'Open follow-up',
+    })),
+    ...filters.churnRisk.map((value) => ({
+      dim: 'churnRisk' as const,
+      value,
+      label: `May leave: ${CHURN_RISK_OPTIONS.find((option) => option.value === value)?.label ?? value}`,
+    })),
+  ];
   const bulkEditProperties = useMemo(
     () => buildMemberBulkEditProperties(staff, trainers),
     [staff, trainers]
@@ -607,13 +672,25 @@ export function MembersTable({
   // Toggle a value in one of the shared MemberFilters facets — used by
   // each column's header Filter submenu so it stays in sync with the
   // Filters panel (single source of truth, leads pattern).
-  function toggleColumnFilter(dim: MemberFilterDim, value: string) {
+  function toggleColumnFilter(
+    dim: MemberFilterDim | 'followUps',
+    value: string
+  ) {
     setFilters((f) => {
       const arr = f[dim] as string[];
       const next = arr.includes(value)
         ? arr.filter((v) => v !== value)
         : [...arr, value];
-      return { ...f, [dim]: next };
+      return {
+        ...f,
+        [dim]: next,
+        ...(dim === 'expiry' && value === 'custom' && next.includes('custom')
+          ? {
+              expiryFrom: f.expiryFrom || fmt.today(),
+              expiryTo: f.expiryTo || fmt.today(),
+            }
+          : {}),
+      };
     });
   }
 
@@ -661,7 +738,7 @@ export function MembersTable({
   }
 
   // Build the header Filter submenu prop for a column, or undefined for
-  // free-text columns (name/expiry).
+  // free-text columns (name and Member ID).
   function filterFor(col: MemberColumn): ColumnFilterProp | undefined {
     if (!col.filterDim) return undefined;
     let options: { value: string; label: string }[];
@@ -683,6 +760,12 @@ export function MembersTable({
         break;
       case 'churnRisk':
         options = CHURN_RISK_OPTIONS;
+        break;
+      case 'expiry':
+        options = EXPIRY_OPTIONS;
+        break;
+      case 'usualTimes':
+        options = [...USUAL_TIME_PERIODS, ...usualTimeOptions];
         break;
     }
     return {
@@ -838,7 +921,9 @@ export function MembersTable({
         toast.success('Sent to the owner to approve');
       }
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not change who it is assigned to'));
+      toast.error(
+        getErrorMessage(error, 'Could not change who it is assigned to')
+      );
     } finally {
       setSavingCell(false);
       setEditingCell(null);
@@ -877,7 +962,12 @@ export function MembersTable({
         .eq('account_id', accountId)
         .in('id', contactIds);
       if (readError) {
-        toast.error(getErrorMessage(readError, 'Could not check who members are assigned to'));
+        toast.error(
+          getErrorMessage(
+            readError,
+            'Could not check who members are assigned to'
+          )
+        );
         return false;
       }
 
@@ -1003,7 +1093,9 @@ export function MembersTable({
     );
 
     if (outcome.succeededIds.length === 0) {
-      toast.error('No members were changed. You may not have access. Try again.');
+      toast.error(
+        'No members were changed. You may not have access. Try again.'
+      );
       return false;
     }
 
@@ -1026,9 +1118,7 @@ export function MembersTable({
         toast.success('Request cancelled');
       } else {
         await respondLeadAssignment(supabase, requestId, action === 'approve');
-        toast.success(
-          action === 'approve' ? 'Approved' : 'Rejected'
-        );
+        toast.success(action === 'approve' ? 'Approved' : 'Rejected');
       }
       await fetchAssignmentRequests();
       setAssignmentNonce((nonce) => nonce + 1);
@@ -1307,7 +1397,7 @@ export function MembersTable({
         if (!m) {
           return (
             <span className="text-muted-foreground text-sm tabular-nums">
-              {fmt.money(customer.generic_balance)}
+              —
             </span>
           );
         }
@@ -1480,7 +1570,7 @@ export function MembersTable({
             (customer.contact?.assigned_to
               ? (nameById.get(customer.contact.assigned_to) ?? 'Team member')
               : 'Unassigned'),
-          fmt.money(membership?.fee_amount ?? customer.generic_balance),
+          membership ? fmt.money(membership.fee_amount) : '',
           membership?.fee_status ?? '',
           customer.contact?.churn_risk ? 'Yes' : 'No',
           customer.contact?.assigned_arrival_time
@@ -1660,9 +1750,7 @@ export function MembersTable({
     if (selectionSummary.membershipActionState !== 'blocked') return null;
 
     const serviceNoun =
-      selectionSummary.serviceOnlyCount === 1
-        ? 'person has'
-        : 'people have';
+      selectionSummary.serviceOnlyCount === 1 ? 'person has' : 'people have';
     const membershipNoun =
       selectionSummary.membershipCount === 1 ? 'member' : 'members';
     return {
@@ -1685,8 +1773,8 @@ export function MembersTable({
           <SearchInput
             value={searchInput}
             onValueChange={setSearchInput}
-            placeholder="Search by name or ID"
-            aria-label="Search members by name or Member ID"
+            placeholder="Name, ID, phone, email"
+            aria-label="Search members by name, Member ID, phone or email"
           />
 
           {/* Data controls stay beside search; column management is the
@@ -1699,6 +1787,8 @@ export function MembersTable({
                 plans={plans}
                 assignedOptions={assignedFilterOptions}
                 trainerOptions={trainerFilterOptions}
+                usualTimeOptions={usualTimeOptions}
+                today={todayDisplay}
               />
               <motion.div
                 data-slot="member-filter-following-controls"
@@ -1784,6 +1874,33 @@ export function MembersTable({
             </DropdownMenu>
           </div>
         </div>
+
+        {filterSummaries.length > 0 && (
+          <div
+            className="border-border flex shrink-0 flex-wrap items-center gap-1.5 border-b px-2 py-1.5"
+            aria-label="Active filters"
+          >
+            {filterSummaries.map(({ dim, value, label }) => (
+              <Button
+                key={`${dim}:${value}`}
+                variant="pill"
+                size="xs"
+                onClick={() => toggleColumnFilter(dim, value)}
+                aria-label={`Remove ${label} filter`}
+              >
+                {label}
+                <X className="size-3" aria-hidden="true" />
+              </Button>
+            ))}
+            <Button
+              variant="link"
+              size="xs"
+              onClick={() => setFilters(EMPTY_MEMBER_FILTERS)}
+            >
+              Clear all
+            </Button>
+          </div>
+        )}
 
         {/* Bulk-selection toolbar (leads pattern — Collapse + frozen count). */}
         <Collapse open={selected.size > 0}>
@@ -1965,10 +2082,24 @@ export function MembersTable({
             <div className="flex min-h-48 flex-col items-center justify-center gap-2 py-12 text-center">
               <Dumbbell className="text-muted-foreground size-8" />
               <p className="text-muted-foreground text-sm">
-                {totalCount === 0 && !search.trim()
+                {totalCount === 0 &&
+                !search.trim() &&
+                filterSummaries.length === 0
                   ? 'No members yet. Add your first member.'
                   : 'No members match your search or filters.'}
               </p>
+              {(searchInput || filterSummaries.length > 0) && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => {
+                    setSearchInput('');
+                    setFilters(EMPTY_MEMBER_FILTERS);
+                  }}
+                >
+                  Clear search and filters
+                </Button>
+              )}
             </div>
           ) : (
             <div className="min-w-0">
@@ -2398,8 +2529,8 @@ export function MembersTable({
             <DialogTitle>Send renewal reminders</DialogTitle>
             <DialogDescription>
               Send the WhatsApp renewal reminder to {selected.size}{' '}
-              {selected.size === 1 ? 'member' : 'members'}? Members with no phone
-              number will be skipped.
+              {selected.size === 1 ? 'member' : 'members'}? Members with no
+              phone number will be skipped.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -36,6 +36,13 @@ const compatibilityMigration = readFileSync(
   ),
   'utf8'
 );
+const currentMigration = readFileSync(
+  resolve(
+    process.cwd(),
+    'supabase/migrations/20260926110000_member_directory_expiry_usual_time_filters.sql'
+  ),
+  'utf8'
+);
 const component = readFileSync(
   resolve(process.cwd(), 'src/components/members/members-table.tsx'),
   'utf8'
@@ -60,6 +67,10 @@ const query: MemberDirectoryQuery = {
       NO_TRAINER_MEMBER_FILTER,
     ],
     feeStatus: ['due'],
+    expiry: ['next7', 'custom'],
+    expiryFrom: '2026-08-29',
+    expiryTo: '2026-09-03',
+    usualTimes: ['morning', 'time:06:30'],
     churnRisk: ['yes'],
     followUps: ['open'],
   },
@@ -158,6 +169,39 @@ describe('member_customer_directory_page SQL contract', () => {
 });
 
 describe('All-members RPC client contract', () => {
+  it('uses display expiry with inclusive account-local ranges and the Attendance time buckets', () => {
+    expect(currentMigration).toContain(
+      'directory.display_expiry BETWEEN p_today AND p_today + 6'
+    );
+    expect(currentMigration).toContain(
+      'directory.display_expiry BETWEEN p_today AND p_today + 29'
+    );
+    expect(currentMigration).toContain(
+      'directory.display_expiry BETWEEN p_expiry_from AND p_expiry_to'
+    );
+    expect(currentMigration).toContain('directory.display_expiry IS NULL');
+    for (const bound of [
+      '05:00',
+      '11:30',
+      '12:00',
+      '16:30',
+      '17:00',
+      '23:30',
+      '00:00',
+      '04:30',
+    ]) {
+      expect(currentMigration).toContain(bound);
+    }
+    expect(
+      currentMigration.match(/AND evaluated\.expiry_matches/g)
+    ).toHaveLength(5);
+    expect(
+      currentMigration.match(/AND evaluated\.usual_time_matches/g)
+    ).toHaveLength(5);
+    expect(currentMigration).toContain("v_sort_key = 'assigned_arrival_time'");
+    expect(currentMigration).toContain('SECURITY INVOKER');
+  });
+
   it('maps every current UI query input to the single RPC', () => {
     expect(memberDirectoryRpcArgs(query)).toEqual({
       p_today: '2026-08-28',
@@ -171,6 +215,10 @@ describe('All-members RPC client contract', () => {
       p_include_no_trainer: true,
       p_churn_risk: ['yes'],
       p_follow_ups: ['open'],
+      p_expiry_filters: ['next7', 'custom'],
+      p_expiry_from: '2026-08-29',
+      p_expiry_to: '2026-09-03',
+      p_usual_times: ['morning', 'time:06:30'],
       p_sort_key: 'membership_fee_amount',
       p_sort_direction: 'desc',
       p_page: 2,

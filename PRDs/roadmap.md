@@ -1,5 +1,19 @@
 # Roadmap
 
+## Built in code — All members filters and table recovery (2026-09-26)
+
+All members filters the displayed Expiry by Today, the next 7 or 30 account-local
+days (including today), Already expired, an inclusive custom range, or No expiry.
+Usual time uses Attendance's four time groups, Not assigned, and exact half-hour
+choices, with sorting. Header menus and Filters share state; active selections can
+be removed individually, and an empty result can clear search and filters. Fee
+shows the membership charge/status only, leaving service-only rows blank. One
+RLS-invoker directory RPC owns rows, counts, select-all, and CSV. Migration
+`20260926110000_member_directory_expiry_usual_time_filters.sql` is live on the
+connected UsefulDesk database as Supabase `20260926123022`; application rollout
+is pending. Amount-range filtering remains deferred until a distinct balance
+surface has its own semantics.
+
 ## Built in code — Plain-language copy for the phone app and docs (2026-09-26)
 
 The Expo app, `docs/ui-patterns.md`, and `docs/gym-domain.md` follow the
