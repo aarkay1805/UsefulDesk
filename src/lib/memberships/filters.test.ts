@@ -7,10 +7,54 @@ import {
   NO_TRAINER_MEMBER_FILTER,
   memberStatusOrClause,
   splitNullableMemberFilterValues,
+  toggleUsualTimeGroup,
   UNASSIGNED_MEMBER_FILTER,
+  USUAL_TIME_GROUPS,
+  usualTimeGroupOptions,
+  usualTimeGroupSelection,
 } from './filters';
 
 const TODAY = '2026-07-11';
+
+describe('nested usual time filters', () => {
+  const options = Array.from({ length: 48 }, (_, index) => {
+    const value = `${String(Math.floor(index / 2)).padStart(2, '0')}:${index % 2 ? '30' : '00'}`;
+    return { value: `time:${value}`, label: value };
+  });
+  const morning = USUAL_TIME_GROUPS.find((group) => group.value === 'morning')!;
+
+  it('places each half-hour time under exactly one period', () => {
+    const grouped = USUAL_TIME_GROUPS.flatMap((group) =>
+      usualTimeGroupOptions(group, options)
+    );
+    expect(grouped).toHaveLength(48);
+    expect(new Set(grouped.map((option) => option.value)).size).toBe(48);
+    expect(usualTimeGroupOptions(morning, options)).toHaveLength(14);
+  });
+
+  it('selects all children, shows partial after one is removed, and restores all', () => {
+    const selected = toggleUsualTimeGroup(['unassigned'], morning, options);
+    expect(selected).toHaveLength(15);
+    expect(usualTimeGroupSelection(selected, morning, options)).toEqual({
+      checked: true,
+      indeterminate: false,
+      count: 14,
+    });
+
+    const partial = selected.filter((value) => value !== 'time:06:00');
+    expect(usualTimeGroupSelection(partial, morning, options)).toEqual({
+      checked: false,
+      indeterminate: true,
+      count: 13,
+    });
+    expect(toggleUsualTimeGroup(partial, morning, options).sort()).toEqual(
+      [...selected].sort()
+    );
+    expect(toggleUsualTimeGroup(selected, morning, options)).toEqual([
+      'unassigned',
+    ]);
+  });
+});
 
 describe('memberStatusOrClause', () => {
   it('returns null when no statuses selected', () => {

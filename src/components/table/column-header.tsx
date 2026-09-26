@@ -13,15 +13,17 @@
 // leads table passes the full set. The resize grip and any drag transform
 // live on the OWNING <th>, not here.
 
-import type React from 'react';
+import { useState, type HTMLAttributes } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   Check,
+  ChevronDown,
   ChevronsUpDown,
   EyeOff,
   Filter,
   ListChecks,
+  Minus,
   MoreVertical,
   Pin,
   Plus,
@@ -50,6 +52,14 @@ export interface ColumnFilterProp {
   options: { value: string; label: string }[];
   selected: string[];
   onToggle: (value: string) => void;
+  /** Optional parent choices whose children are the actual filter values. */
+  groups?: {
+    value: string;
+    label: string;
+    options: { value: string; label: string }[];
+  }[];
+  onToggleGroup?: (value: string) => void;
+  selectedCount?: number;
 }
 
 export interface ColumnHeaderProps {
@@ -76,7 +86,7 @@ export interface ColumnHeaderProps {
   smartPropertyPlaceholder?: boolean;
   /** Sortable drag listeners/attributes — spread on the label (the grab
    *  surface). Absent when column drag is disabled (e.g. members). */
-  dragHandleProps?: React.HTMLAttributes<HTMLSpanElement>;
+  dragHandleProps?: HTMLAttributes<HTMLSpanElement>;
 }
 
 export function ColumnHeader({
@@ -97,6 +107,17 @@ export function ColumnHeader({
   // Whether the menu carries a column-management group below the sort/
   // filter items (needs a divider above it).
   const hasManageGroup = Boolean(onToggleFreeze || onAddColumn || onHide);
+  const [expandedFilterGroups, setExpandedFilterGroups] = useState<string[]>(
+    []
+  );
+
+  function toggleGroupExpansion(value: string) {
+    setExpandedFilterGroups((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value]
+    );
+  }
 
   return (
     <div className="group/th flex items-center gap-0.5 pr-2">
@@ -191,43 +212,143 @@ export function ColumnHeader({
                 <Filter className="size-4" />
                 Filter
                 {filter.selected.length > 0 && (
-                  <span className="bg-primary text-primary-foreground ml-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-[10px] font-semibold">
-                    {filter.selected.length}
+                  <span className="bg-primary text-primary-foreground ml-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full px-1 text-xs font-semibold">
+                    {filter.selectedCount ?? filter.selected.length}
                   </span>
                 )}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent className="bg-popover border-border max-h-72 min-w-52 overflow-y-auto">
-                {filter.options.length === 0 ? (
+                {filter.options.length === 0 && !filter.groups?.length ? (
                   <div className="text-muted-foreground px-2 py-1.5 text-xs">
                     No values
                   </div>
                 ) : (
-                  filter.options.map((o) => {
-                    const checked = filter.selected.includes(o.value);
-                    return (
-                      // Plain item (not CheckboxItem) so we render an
-                      // always-visible left checkbox — the multi-select
-                      // affordance — and keep the menu open on click.
-                      <DropdownMenuItem
-                        key={o.value}
-                        closeOnClick={false}
-                        onClick={() => filter.onToggle(o.value)}
-                        className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
-                      >
-                        <span
-                          className={cn(
-                            'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
-                            checked
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-input-border bg-card'
+                  <>
+                    {filter.groups?.map((group) => {
+                      const expanded = expandedFilterGroups.includes(
+                        group.value
+                      );
+                      const count = group.options.filter((option) =>
+                        filter.selected.includes(option.value)
+                      ).length;
+                      const checked =
+                        group.options.length > 0 &&
+                        count === group.options.length;
+                      const partial = count > 0 && !checked;
+                      return (
+                        <div key={group.value}>
+                          <div className="flex items-center">
+                            <DropdownMenuItem
+                              closeOnClick={false}
+                              onClick={() => {
+                                filter.onToggleGroup?.(group.value);
+                                setExpandedFilterGroups((current) =>
+                                  current.includes(group.value)
+                                    ? current
+                                    : [...current, group.value]
+                                );
+                              }}
+                              role="menuitemcheckbox"
+                              aria-checked={partial ? 'mixed' : checked}
+                              className="text-popover-foreground focus:bg-muted focus:text-foreground min-w-0 flex-1 gap-2 font-medium"
+                            >
+                              <span
+                                className={cn(
+                                  'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
+                                  checked || partial
+                                    ? 'border-primary bg-primary text-primary-foreground'
+                                    : 'border-input-border bg-card'
+                                )}
+                              >
+                                {checked && <Check className="size-3.5" />}
+                                {partial && <Minus className="size-3.5" />}
+                              </span>
+                              <span className="truncate">{group.label}</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              closeOnClick={false}
+                              onClick={() => toggleGroupExpansion(group.value)}
+                              aria-label={`${expanded ? 'Hide' : 'Show'} ${group.label} times`}
+                              aria-expanded={expanded}
+                              className="text-muted-foreground focus:bg-muted focus:text-foreground"
+                            >
+                              <ChevronDown
+                                className={cn(
+                                  'size-4 transition-transform',
+                                  expanded && 'rotate-180'
+                                )}
+                              />
+                            </DropdownMenuItem>
+                          </div>
+                          {expanded && (
+                            <div className="border-border ml-3 border-l pl-1">
+                              {group.options.map((option) => {
+                                const childChecked = filter.selected.includes(
+                                  option.value
+                                );
+                                return (
+                                  <DropdownMenuItem
+                                    key={option.value}
+                                    closeOnClick={false}
+                                    onClick={() =>
+                                      filter.onToggle(option.value)
+                                    }
+                                    role="menuitemcheckbox"
+                                    aria-checked={childChecked}
+                                    className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
+                                  >
+                                    <span
+                                      className={cn(
+                                        'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
+                                        childChecked
+                                          ? 'border-primary bg-primary text-primary-foreground'
+                                          : 'border-input-border bg-card'
+                                      )}
+                                    >
+                                      {childChecked && (
+                                        <Check className="size-3.5" />
+                                      )}
+                                    </span>
+                                    <span className="truncate">
+                                      {option.label}
+                                    </span>
+                                  </DropdownMenuItem>
+                                );
+                              })}
+                            </div>
                           )}
+                        </div>
+                      );
+                    })}
+                    {filter.options.map((o) => {
+                      const checked = filter.selected.includes(o.value);
+                      return (
+                        // Plain item (not CheckboxItem) so we render an
+                        // always-visible left checkbox — the multi-select
+                        // affordance — and keep the menu open on click.
+                        <DropdownMenuItem
+                          key={o.value}
+                          closeOnClick={false}
+                          onClick={() => filter.onToggle(o.value)}
+                          role="menuitemcheckbox"
+                          aria-checked={checked}
+                          className="text-popover-foreground focus:bg-muted focus:text-foreground gap-2"
                         >
-                          {checked && <Check className="size-3.5" />}
-                        </span>
-                        <span className="truncate">{o.label}</span>
-                      </DropdownMenuItem>
-                    );
-                  })
+                          <span
+                            className={cn(
+                              'flex size-4 shrink-0 items-center justify-center rounded-[4px] border',
+                              checked
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'border-input-border bg-card'
+                            )}
+                          >
+                            {checked && <Check className="size-3.5" />}
+                          </span>
+                          <span className="truncate">{o.label}</span>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </>
                 )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>

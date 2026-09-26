@@ -11,6 +11,9 @@
 All members now filters the displayed expiry, including service-only dates,
 and the contact's usual time through shared header/panel state. Active filters
 have individual removal and Clear all; no results can clear search and filters.
+Usual time groups now contain their half-hour choices: selecting a group selects
+every child, while removing one leaves the parent partially selected. Full groups
+have one active-filter chip.
 The Fee cell and CSV now show membership fees only. The single paged directory
 RPC also applies the new facets to totals, quick counts, export, and select-all.
 Key code: `members-table.tsx`, `members-filters.tsx`, `member-directory.ts`;

@@ -1,6 +1,7 @@
 'use client';
 
-import { Filter } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown, Filter } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 
 import {
@@ -14,13 +15,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 import {
   activeMemberFilterCount,
   CHURN_RISK_OPTIONS,
   EMPTY_MEMBER_FILTERS,
   EXPIRY_OPTIONS,
   MEMBER_STATUS_OPTIONS,
-  USUAL_TIME_PERIODS,
+  USUAL_TIME_GROUPS,
+  USUAL_TIME_UNASSIGNED,
+  toggleUsualTimeGroup,
+  usualTimeGroupOptions,
+  usualTimeGroupSelection,
   type MemberFilters,
 } from '@/lib/memberships/filters';
 import type { MembershipPlan } from '@/types';
@@ -62,6 +68,15 @@ export function MembersFilters({
 }: MembersFiltersProps) {
   const count = activeMemberFilterCount(value);
   const reduceMotion = useReducedMotion();
+  const [expandedTimeGroups, setExpandedTimeGroups] = useState<string[]>([]);
+
+  function toggleTimeGroupExpansion(group: string) {
+    setExpandedTimeGroups((current) =>
+      current.includes(group)
+        ? current.filter((value) => value !== group)
+        : [...current, group]
+    );
+  }
 
   function toggle<K extends keyof MemberFilters>(key: K, v: string) {
     const cur = value[key] as string[];
@@ -211,12 +226,99 @@ export function MembersFilters({
           />
 
           <Separator className="my-3" />
-          <CheckGroup
-            label="Usual time"
-            options={[...USUAL_TIME_PERIODS, ...usualTimeOptions]}
-            selected={value.usualTimes}
-            onToggle={(v) => toggle('usualTimes', v)}
-          />
+          <div>
+            <p className="text-muted-foreground mb-1.5 text-[11px] font-semibold tracking-wider uppercase">
+              Usual time
+            </p>
+            <div className="space-y-1">
+              {USUAL_TIME_GROUPS.map((group) => {
+                const times = usualTimeGroupOptions(group, usualTimeOptions);
+                const expanded = expandedTimeGroups.includes(group.value);
+                const selection = usualTimeGroupSelection(
+                  value.usualTimes,
+                  group,
+                  usualTimeOptions
+                );
+                return (
+                  <div key={group.value}>
+                    <div className="flex items-center">
+                      <label className="hover:bg-muted/60 flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md px-1 py-1">
+                        <Checkbox
+                          checked={selection.checked}
+                          indeterminate={selection.indeterminate}
+                          onCheckedChange={() => {
+                            onChange({
+                              ...value,
+                              usualTimes: toggleUsualTimeGroup(
+                                value.usualTimes,
+                                group,
+                                usualTimeOptions
+                              ),
+                            });
+                            setExpandedTimeGroups((current) =>
+                              current.includes(group.value)
+                                ? current
+                                : [...current, group.value]
+                            );
+                          }}
+                        />
+                        <span className="text-popover-foreground text-sm font-medium">
+                          {group.label}
+                        </span>
+                      </label>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={`${expanded ? 'Hide' : 'Show'} ${group.label} times`}
+                        aria-expanded={expanded}
+                        onClick={() => toggleTimeGroupExpansion(group.value)}
+                      >
+                        <ChevronDown
+                          className={cn(
+                            'size-4 transition-transform',
+                            expanded && 'rotate-180'
+                          )}
+                        />
+                      </Button>
+                    </div>
+                    {expanded && (
+                      <div className="border-border ml-2 space-y-0.5 border-l pl-3">
+                        {times.map((time) => (
+                          <label
+                            key={time.value}
+                            className="hover:bg-muted/60 flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1"
+                          >
+                            <Checkbox
+                              checked={value.usualTimes.includes(time.value)}
+                              onCheckedChange={() =>
+                                toggle('usualTimes', time.value)
+                              }
+                            />
+                            <span className="text-popover-foreground text-sm">
+                              {time.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <label className="hover:bg-muted/60 flex cursor-pointer items-center gap-2.5 rounded-md px-1 py-1">
+                <Checkbox
+                  checked={value.usualTimes.includes(
+                    USUAL_TIME_UNASSIGNED.value
+                  )}
+                  onCheckedChange={() =>
+                    toggle('usualTimes', USUAL_TIME_UNASSIGNED.value)
+                  }
+                />
+                <span className="text-popover-foreground text-sm">
+                  {USUAL_TIME_UNASSIGNED.label}
+                </span>
+              </label>
+            </div>
+          </div>
 
           <Separator className="my-3" />
           <CheckGroup

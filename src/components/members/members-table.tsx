@@ -52,7 +52,12 @@ import {
   MEMBER_STATUS_OPTIONS,
   NO_TRAINER_MEMBER_FILTER,
   UNASSIGNED_MEMBER_FILTER,
-  USUAL_TIME_PERIODS,
+  USUAL_TIME_GROUPS,
+  USUAL_TIME_UNASSIGNED,
+  clearUsualTimeGroup,
+  toggleUsualTimeGroup,
+  usualTimeGroupOptions,
+  usualTimeGroupSelection,
   type MemberFilters,
 } from '@/lib/memberships/filters';
 import {
@@ -428,6 +433,42 @@ export function MembersTable({
     ],
     [trainers]
   );
+  const usualTimeSummaries = [
+    ...USUAL_TIME_GROUPS.flatMap((group) => {
+      const selected = usualTimeGroupOptions(group, usualTimeOptions).filter(
+        (option) => filters.usualTimes.includes(option.value)
+      );
+      if (selected.length === 0) return [];
+      if (selected.length > 3) {
+        const allSelected = usualTimeGroupSelection(
+          filters.usualTimes,
+          group,
+          usualTimeOptions
+        ).checked;
+        return [
+          {
+            dim: 'usualTimes' as const,
+            value: `group:${group.value}`,
+            label: `Usual time: ${group.label}${allSelected ? '' : ` (${selected.length} times)`}`,
+          },
+        ];
+      }
+      return selected.map((option) => ({
+        dim: 'usualTimes' as const,
+        value: option.value,
+        label: `Usual time: ${option.label}`,
+      }));
+    }),
+    ...(filters.usualTimes.includes(USUAL_TIME_UNASSIGNED.value)
+      ? [
+          {
+            dim: 'usualTimes' as const,
+            value: USUAL_TIME_UNASSIGNED.value,
+            label: `Usual time: ${USUAL_TIME_UNASSIGNED.label}`,
+          },
+        ]
+      : []),
+  ];
   const filterSummaries: {
     dim: MemberFilterDim | 'followUps';
     value: string;
@@ -466,11 +507,7 @@ export function MembersTable({
       value,
       label: `Fee: ${FEE_STATUS_OPTIONS.find((option) => option.value === value)?.label ?? value}`,
     })),
-    ...filters.usualTimes.map((value) => ({
-      dim: 'usualTimes' as const,
-      value,
-      label: `Usual time: ${[...USUAL_TIME_PERIODS, ...usualTimeOptions].find((option) => option.value === value)?.label ?? value}`,
-    })),
+    ...usualTimeSummaries,
     ...filters.followUps.map((value) => ({
       dim: 'followUps' as const,
       value,
@@ -677,6 +714,21 @@ export function MembersTable({
     value: string
   ) {
     setFilters((f) => {
+      if (dim === 'usualTimes' && value.startsWith('group:')) {
+        const group = USUAL_TIME_GROUPS.find(
+          (item) => item.value === value.slice(6)
+        );
+        return group
+          ? {
+              ...f,
+              usualTimes: clearUsualTimeGroup(
+                f.usualTimes,
+                group,
+                usualTimeOptions
+              ),
+            }
+          : f;
+      }
       const arr = f[dim] as string[];
       const next = arr.includes(value)
         ? arr.filter((v) => v !== value)
@@ -741,6 +793,40 @@ export function MembersTable({
   // free-text columns (name and Member ID).
   function filterFor(col: MemberColumn): ColumnFilterProp | undefined {
     if (!col.filterDim) return undefined;
+    if (col.filterDim === 'usualTimes') {
+      return {
+        options: [USUAL_TIME_UNASSIGNED],
+        groups: USUAL_TIME_GROUPS.map((group) => ({
+          value: group.value,
+          label: group.label,
+          options: usualTimeGroupOptions(group, usualTimeOptions),
+        })),
+        selected: filters.usualTimes,
+        selectedCount:
+          USUAL_TIME_GROUPS.filter(
+            (group) =>
+              usualTimeGroupSelection(
+                filters.usualTimes,
+                group,
+                usualTimeOptions
+              ).count > 0
+          ).length +
+          Number(filters.usualTimes.includes(USUAL_TIME_UNASSIGNED.value)),
+        onToggle: (value) => toggleColumnFilter('usualTimes', value),
+        onToggleGroup: (value) => {
+          const group = USUAL_TIME_GROUPS.find((item) => item.value === value);
+          if (!group) return;
+          setFilters((current) => ({
+            ...current,
+            usualTimes: toggleUsualTimeGroup(
+              current.usualTimes,
+              group,
+              usualTimeOptions
+            ),
+          }));
+        },
+      };
+    }
     let options: { value: string; label: string }[];
     switch (col.filterDim) {
       case 'plans':
@@ -763,9 +849,6 @@ export function MembersTable({
         break;
       case 'expiry':
         options = EXPIRY_OPTIONS;
-        break;
-      case 'usualTimes':
-        options = [...USUAL_TIME_PERIODS, ...usualTimeOptions];
         break;
     }
     return {

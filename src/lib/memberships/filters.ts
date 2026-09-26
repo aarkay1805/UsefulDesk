@@ -41,9 +41,74 @@ export const EXPIRY_OPTIONS: { value: ExpiryFilter; label: string }[] = [
   { value: 'no_expiry', label: 'No expiry' },
 ];
 
-export const USUAL_TIME_PERIODS = ATTENDANCE_ARRIVAL_BUCKETS.filter(
-  (bucket) => bucket.value !== 'all'
-).map(({ value, label }) => ({ value, label }));
+export const USUAL_TIME_GROUPS = ATTENDANCE_ARRIVAL_BUCKETS.flatMap((bucket) =>
+  'range' in bucket
+    ? [{ value: bucket.value, label: bucket.label, range: bucket.range }]
+    : []
+);
+export const USUAL_TIME_UNASSIGNED = {
+  value: 'unassigned',
+  label: 'Not assigned',
+};
+
+export type UsualTimeGroup = (typeof USUAL_TIME_GROUPS)[number];
+export type UsualTimeOption = { value: string; label: string };
+
+export function usualTimeGroupOptions(
+  group: UsualTimeGroup,
+  options: UsualTimeOption[]
+): UsualTimeOption[] {
+  return options.filter((option) => {
+    const time = option.value.slice(5);
+    return (
+      option.value.startsWith('time:') &&
+      time >= group.range[0] &&
+      time <= group.range[1]
+    );
+  });
+}
+
+export function usualTimeGroupSelection(
+  selected: string[],
+  group: UsualTimeGroup,
+  options: UsualTimeOption[]
+): { checked: boolean; indeterminate: boolean; count: number } {
+  const times = usualTimeGroupOptions(group, options);
+  const count = times.filter((option) =>
+    selected.includes(option.value)
+  ).length;
+  return {
+    checked: times.length > 0 && count === times.length,
+    indeterminate: count > 0 && count < times.length,
+    count,
+  };
+}
+
+export function clearUsualTimeGroup(
+  selected: string[],
+  group: UsualTimeGroup,
+  options: UsualTimeOption[]
+): string[] {
+  const values = new Set(
+    usualTimeGroupOptions(group, options).map((o) => o.value)
+  );
+  return selected.filter((value) => !values.has(value));
+}
+
+export function toggleUsualTimeGroup(
+  selected: string[],
+  group: UsualTimeGroup,
+  options: UsualTimeOption[]
+): string[] {
+  const times = usualTimeGroupOptions(group, options);
+  if (times.length === 0) return selected;
+  if (times.every((option) => selected.includes(option.value))) {
+    return clearUsualTimeGroup(selected, group, options);
+  }
+  const values = new Set(selected);
+  times.forEach((option) => values.add(option.value));
+  return [...values];
+}
 
 /** Nullable contact ownership buckets used by both member filter surfaces. */
 export const UNASSIGNED_MEMBER_FILTER = '__unassigned__';

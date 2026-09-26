@@ -4,9 +4,11 @@
 
 All members filters the displayed Expiry by Today, the next 7 or 30 account-local
 days (including today), Already expired, an inclusive custom range, or No expiry.
-Usual time uses Attendance's four time groups, Not assigned, and exact half-hour
-choices, with sorting. Header menus and Filters share state; active selections can
-be removed individually, and an empty result can clear search and filters. Fee
+Usual time nests exact half-hour choices under Attendance's four time groups,
+with Not assigned separate. A parent selects all its times, and individual times
+can be deselected; parents show partial selection. Header menus and Filters share
+state, with sorting and removable active selections. An empty result can clear
+search and filters. Fee
 shows the membership charge/status only, leaving service-only rows blank. One
 RLS-invoker directory RPC owns rows, counts, select-all, and CSV. Migration
 `20260926110000_member_directory_expiry_usual_time_filters.sql` is live on the
