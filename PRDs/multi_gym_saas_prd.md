@@ -2,6 +2,8 @@
 
 > **Status:** Draft · **Owner:** Platform · **Last updated:** 2026-07-28
 >
+> **Subscription planning update (2026-09-27):** [UsefulDesk subscriptions](usefuldesk-subscriptions.md) records the approved 14-day full-feature trial with plan choice after expiry and the Starter/Growth/Ultimate names. The account-level status machine, provisional plan names, quotas, checkout return activation, and other billing proposals below are historical draft ideas, not current implementation instructions.
+>
 > **Architecture update:** Phase 4 multi-branch now uses **organization → existing account branches**, not a `branches` table beneath one account. In this PRD, SaaS tenant billing/lifecycle may attach to the organization, while operational isolation and one WhatsApp number/inbox remain per account branch. The older one-account-per-user statements below describe the pre-migration baseline, not the current membership model.
 > **Context docs:** [india_gym_crm_pain_points.md](./india_gym_crm_pain_points.md) · `CLAUDE.md` · `AGENTS.md`
 

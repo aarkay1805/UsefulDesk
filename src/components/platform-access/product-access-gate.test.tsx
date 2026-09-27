@@ -79,6 +79,30 @@ describe('ProductAccessGate', () => {
     fireEvent.focus(window);
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(1));
   });
+  it('lets a trial user compare all three plans without selecting a tier', async () => {
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: 'branch-1',
+          organizationId: 'org-1',
+          snapshot,
+        }}
+      >
+        <div>Operations</div>
+      </ProductAccessGate>
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Compare plans' }));
+    expect(screen.getByText('Starter')).toBeTruthy();
+    expect(screen.getByText('Growth')).toBeTruthy();
+    expect(screen.getByText('Ultimate')).toBeTruthy();
+    expect(
+      screen.getByText(/Your trial includes features from every plan/)
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: /pay|buy|subscribe/i })
+    ).toBeNull();
+    expect(screen.queryByText('₹799')).toBeNull();
+  });
   it('does not reuse the server snapshot for a different branch', async () => {
     auth.accountId = 'branch-2';
     rpc.mockResolvedValue({
@@ -200,6 +224,8 @@ describe('ProductAccessGate', () => {
     );
     expect(screen.queryByText('Operations')).toBeNull();
     expect(screen.getByText('Sign out')).toBeTruthy();
+    expect(screen.getByText('Starter')).toBeTruthy();
+    expect(screen.getByText('Recommended')).toBeTruthy();
     rpc.mockResolvedValue({ data: snapshot, error: null });
     fireEvent.focus(window);
     await waitFor(() => expect(screen.getByText('Operations')).toBeTruthy());

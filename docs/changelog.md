@@ -6,6 +6,48 @@
 
 ---
 
+## 2026-09-27 — Subscription packaging foundation (code only; paid rollout disabled)
+
+The owner confirmed Usefulmade is currently not GST-registered and chose to
+prepare billing without adding GST. `src/lib/subscriptions/no-gst-billing.ts`
+produces review-only software amounts with ₹0 GST for monthly plans and
+base-tier upgrades. The commercial gate and no-checkout rule remain in place;
+the owner-reported Punjab location and zero current turnover are recorded in
+the brief, while eligibility and quote/receipt treatment still need review.
+
+`src/lib/subscriptions/plans.ts` defines the approved three tiers, monthly listed
+software prices, active-branch create/restore projections, the five-active-branch
+trial limit, verified-slot allowance checks, and approved capability predicates.
+`src/lib/subscriptions/branch-slots.ts` models pending/failed/verified add-on
+orders, duplicate-safe confirmation, and capacity from verified purchases; it
+does not verify a provider payment. `src/lib/subscriptions/conversion.ts` and
+`SubscriptionConversionReviewDialog` preview the owner's exact archive selection
+or sufficient verified capacity without mutating branches. The product-access
+gate compares plans during the shared trial and after trial
+expiry, with support still available and no price or checkout action while the
+commercial gate is closed. `src/lib/subscriptions/billing-transitions.ts` models
+actual-period paise proration, upgrade activation after a trusted verified-payment
+event, and downgrade/cancellation at renewal. A downgrade requires a verified
+renewal and a post-archive roster within capacity; provider verification and
+the atomic database commit are still to be built. `src/lib/subscriptions/renewal-grace.ts`
+models one 72-hour failed-paid-renewal grace from the original paid-through end,
+keeps the old tier without unpaid expansion, and restores paid access only on a
+trusted verified renewal event. It has no runtime caller or provider verifier.
+`src/lib/subscriptions/refund-policy.ts` evaluates a first-payment full-refund
+request through local day seven in the frozen billing timezone and reserves one
+claim per organization with idempotent replay. It does not authorize or issue a
+provider refund. `src/lib/subscriptions/refund-outcome.ts` models the approved
+end of paid access and required renewal stop after a matching confirmed full
+refund; pending/failed events keep access and exact retries are idempotent.
+Provider cancellation, persisted entitlement changes, and refunded paid-account
+plan recovery are not wired. Data, branches, and authentication are untouched.
+`BranchExpansionPrompt` is a tested, dismissible
+explanation for a future server-verified tier; it is not mounted on branch
+creation. The trial branch rule is a pure model only; no paid entitlement,
+runtime branch cap, capability restriction, charge, or
+production migration was activated. See `PRDs/usefuldesk-subscriptions.md`
+for the database enforcement boundary and remaining policy decisions.
+
 ## 2026-09-27 — Signup continuity and regional settings (migration applied)
 
 Google signup now carries the selected country through ID-token exchange and

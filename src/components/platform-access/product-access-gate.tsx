@@ -17,6 +17,14 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { accessSupportMessage, accessSupportWhatsApp } from './ui-contract';
+import { SubscriptionPlanCards } from './subscription-plan-cards';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectTrigger,
@@ -82,6 +90,7 @@ function AccountProductAccess({
   const [now, setNow] = useState(() => Date.now());
   const [pending, setPending] = useState('');
   const [requested, setRequested] = useState(false);
+  const [plansOpen, setPlansOpen] = useState(false);
   const organizationName =
     branches.find((branch) => branch.account_id === accountId)
       ?.organization_name ||
@@ -189,6 +198,8 @@ function AccountProductAccess({
   const resolved = snapshot?.access
     ? resolveProductAccess(snapshot.access, now)
     : null;
+  const expiredTrial =
+    resolved?.status === 'expired' && snapshot?.access.mode === 'trial';
   const allowed =
     snapshot &&
     snapshot.access.organization_id === organizationId &&
@@ -235,7 +246,14 @@ function AccountProductAccess({
                 Math.ceil((Date.parse(deadline) - now) / 86_400_000)
               )}{' '}
               days remaining · Ends {fmt.dateTime(deadline)}
-              <div className="mt-2">
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPlansOpen(true)}
+                >
+                  Compare plans
+                </Button>
                 {whatsappHref || emailHref ? (
                   <a
                     className={buttonVariants({
@@ -264,11 +282,27 @@ function AccountProductAccess({
           </Alert>
         ) : null}
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        <Dialog open={plansOpen} onOpenChange={setPlansOpen}>
+          <DialogContent className="sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Compare plans</DialogTitle>
+              <DialogDescription>
+                Your trial includes features from every plan. Choose a plan
+                after the trial.
+              </DialogDescription>
+            </DialogHeader>
+            <SubscriptionPlanCards formatMoney={fmt.money} />
+            <p className="text-muted-foreground text-sm">
+              Plan prices and payment are not available yet. Contact support for
+              help.
+            </p>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-xl">
+      <Card className={expiredTrial ? 'w-full max-w-5xl' : 'w-full max-w-xl'}>
         <CardContent className="space-y-4">
           <Alert>
             <AlertTitle>Contact support</AlertTitle>
@@ -277,10 +311,19 @@ function AccountProductAccess({
                 (resolved?.status === 'suspended'
                   ? 'Your organization’s access is suspended. Contact support to restore access.'
                   : resolved?.status === 'expired'
-                    ? 'Your organization’s access has ended. Contact support to continue using UsefulDesk.'
+                    ? 'Your trial or access term has ended. Compare plans and contact support to continue.'
                     : 'We are confirming your organization’s access.')}
             </AlertDescription>
           </Alert>
+          {expiredTrial ? (
+            <>
+              <SubscriptionPlanCards formatMoney={fmt.money} />
+              <p className="text-muted-foreground text-sm">
+                Plan prices and payment are not available yet. Contact support
+                for help.
+              </p>
+            </>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             {snapshot?.support_email ? (
               <a

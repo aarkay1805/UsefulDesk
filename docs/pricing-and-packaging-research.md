@@ -1,5 +1,31 @@
 # UsefulDesk pricing and packaging research
 
+> Historical research, not the approved launch offer. The owner has since chosen
+> three tier names — Starter, Growth, Ultimate — and a 14-day full-feature trial
+> with tier choice after expiry and up to five active branches during trial. Ultimate includes five branches and charges
+> extra for more. Growth includes one branch plus an option for one paid extra
+> branch (two total). Starter includes one branch with no add-on; expansion
+> requires an upgrade. Approved provisional monthly software prices for
+> launch/pilot planning are Starter ₹799, Growth ₹1,499, Ultimate ₹3,999, plus
+> ₹499/month per eligible additional branch. Growth with its one add-on is
+> ₹1,998/month in listed software charges; Ultimate with six branches is
+> ₹4,498/month. Annual prices, tax treatment, other
+> limits, and remaining feature gates are undecided; see
+> `PRDs/usefuldesk-subscriptions.md`. In
+> particular, the GST-exclusive pricing and 30-day-trial recommendations below
+> must not be published as current UsefulDesk terms.
+> Growth and Ultimate include Razorpay Payment Links and AutoPay through each
+> gym's own eligible merchant, subject to provider and mandate readiness; the
+> gym bears its provider fees. Other feature allocations below remain research.
+> At launch, the three UsefulDesk tiers will have no monthly message-count cap
+> or message overage charge. Meta messaging charges apply separately to each
+> gym; provider limits and technical rate limits still apply. Historical
+> 1,000/5,000/25,000 message-count ideas are not approved.
+> Starter includes automatic renewal reminders on a standard schedule; Growth
+> adds custom reminder schedules, bulk campaigns, and configurable automation
+> rules, inherited by Ultimate. Exact standard days and times remain open. Older
+> rows that exclude all automatic reminders from the entry tier are superseded.
+
 **Compiled:** 31 August 2026  
 **Market research conducted:** 24 August 2026  
 **Primary market:** Indian gyms and fitness studios  

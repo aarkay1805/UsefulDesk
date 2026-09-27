@@ -741,6 +741,59 @@ checkout, recurring subscription billing, scheduled cancellation, tax invoicing,
 and customer self-service remain deferred; the first pilots use the documented
 manual commercial ledger and access workflow.
 
+**Approved subscription direction (foundation in code, paid rollout pending):** every new verified
+organization receives the existing 14-day full-feature trial with up to five
+active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
+to continue. The current checkout's trial and expired-trial screens compare the
+three plans and retain support, but do not show prices or offer checkout while
+commercial readiness is closed. Pure tier/branch/capability, verified-add-on
+state, owner-choice conversion rules, and pure base-tier billing transitions are coded and tested. The transition model prorates the listed base-price difference in paise over the actual paid period, keeps an upgrade pending until a trusted payment event, and projects downgrades/cancellations at the paid-through boundary. A pure renewal model keeps the old tier for one fixed 72-hour window after a failed paid renewal, denies new unpaid tier/branch capacity during grace, and resumes paid access only after a trusted verified renewal event. It does not verify provider payments or persist entitlements. The
+no-GST amount draft records listed software, ₹0 GST, and the matching draft total for monthly plans and base-tier upgrades; it is not wired to checkout. The reusable
+first-payment refund model evaluates the request date in the frozen billing-account timezone and reserves one full-refund request per organization. A separate pure confirmed-refund model ends paid access at full-refund confirmation and requires renewal to stop; pending/failed events leave access intact. Neither model calls a provider or changes runtime access. The reusable
+branch-upgrade prompt and conversion review dialog are not mounted in the live
+flow because verified paid tiers, activated slots, and conversion transactions
+are absent.
+No paid tier gates, SaaS checkout, or automatic paid access have shipped. The separate
+[subscription brief](usefuldesk-subscriptions.md) records the customer journey,
+merchant separation, implementation order, and unresolved package, pricing,
+tax, and payment policies. Older Core/Scale and 30-day-trial recommendations in
+the pricing research are historical candidates, not approved launch terms.
+Ultimate includes five branches, with additional branches at an extra charge;
+Starter includes one branch with no add-on. A second branch requires Growth plus
+its paid branch add-on, or another suitable higher tier; a future add-branch
+attempt should explain this and show the exact price before confirmation.
+Growth includes one branch and permits exactly one paid additional branch, for
+a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The transaction and post-expiry recovery UI remain to be built. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration remain pending. Add-on billing changes and quote expiry remain undecided.
+These choices are packaging direction, not a validated cost calculation.
+Growth includes gym-member Razorpay Payment Links and automatic recurring
+collection through AutoPay when the gym's own eligible merchant and mandate
+setup are ready; Ultimate inherits both. The gym bears Razorpay merchant fees
+under its own terms. Usefulmade's support, processing, storage, and any funded
+message costs have not been quantified. SaaS billing uses Usefulmade's separate
+merchant. Other feature allocations and annual prices are still proposals.
+Provisional monthly INR software prices are approved for launch/pilot planning:
+Starter ₹799, Growth ₹1,499, Ultimate ₹3,999, and an eligible additional branch
+₹499/month. Growth with its one paid extra branch has ₹1,998/month in listed
+software charges; Ultimate with six branches has ₹4,498/month. The owner
+confirmed on 2026-09-27 that Usefulmade is currently not GST-registered and
+chose to prepare billing without adding GST;
+they report operating in Punjab, Usefulmade as their only business, zero
+current business turnover, and UsefulDesk as the only intended revenue product.
+Eligibility to collect subscription payments and the proper tax/receipt
+treatment are not established by that fact alone. Annual prices, tax treatment, and add-on billing mechanics
+remain open; these figures are not a live checkout offer or validated margins.
+At launch, no tier will have a UsefulDesk monthly message-count cap or message
+overage charge. Meta messaging charges, free allowances, and sending limits stay
+separate and are borne by each gym; technical rate limits, abuse controls, and
+usage monitoring remain.
+Starter includes automatic renewal reminders on a standard schedule, inherited
+by Growth and Ultimate. Growth adds custom reminder schedules, bulk campaigns,
+and configurable automation rules; Ultimate inherits them. The exact standard
+days and times remain open. This decision does not remove all automatic sends
+from Starter. Existing
+WhatsApp connection, Approved-template, and send-readiness gates still apply,
+and gyms bear their own Meta charges.
+
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 
 UsefulDesk now has one direct-cutover contract library for wired gym messages.
