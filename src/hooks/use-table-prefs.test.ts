@@ -52,9 +52,10 @@ describe('table preference hydration readiness', () => {
   });
 
   it('cancels database work on a real unmount without breaking strict replay sharing', () => {
-    expect(leadsPage).toContain('const run = ++listingEffectRun.current;');
+    expect(leadsPage).toContain('const effectRuns = listingEffectRun;');
+    expect(leadsPage).toContain('const run = ++effectRuns.current;');
     expect(leadsPage).toContain('queueMicrotask(() => {');
-    expect(leadsPage).toContain('listingEffectRun.current === run');
+    expect(leadsPage).toContain('effectRuns.current === run');
     expect(leadsPage).toContain('listingCoordinatorRef.current?.abort()');
   });
 
