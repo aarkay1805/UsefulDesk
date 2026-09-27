@@ -716,10 +716,10 @@ headings and announced errors.
 Missing completion-state data fails closed through a membership-scoped read.
 The reviewed spec is `docs/superpowers/specs/2026-09-21-gym-name-signup-design.md`.
 Production connector migration `20260921184441` and its rollback verification
-passed; all three existing organizations remain complete. Application rollout
-is pending; the completion API retains the existing product-access gate.
+passed; all three existing organizations remain complete. The gym-name signup
+flow is live, and the completion API retains the existing product-access gate.
 The regional completion migration `20260927170000` is applied as Production
-connector version `20260927125734`; scoped application rollout follows.
+connector version `20260927125734`.
 
 ## Operations-ready in code — founder-led paid pilots (2026-09-20)
 
