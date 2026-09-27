@@ -118,7 +118,7 @@ describe('GoogleAuthButton', () => {
 
     expect(
       await screen.findByRole('button', {
-        name: 'Enter your gym name to continue with Google',
+        name: 'Add gym name for Google',
       })
     ).not.toBeNull();
     expect(renderButton).not.toHaveBeenCalled();
@@ -339,6 +339,7 @@ describe('GoogleAuthButton', () => {
       <GoogleAuthButton
         inviteToken={null}
         gymName="  Iron House  "
+        countryCode="AE"
         onErrorChange={vi.fn()}
       />
     );
@@ -350,6 +351,7 @@ describe('GoogleAuthButton', () => {
       <GoogleAuthButton
         inviteToken={null}
         gymName="Changed While Popup Open"
+        countryCode="IN"
         onErrorChange={vi.fn()}
       />
     );
@@ -359,7 +361,9 @@ describe('GoogleAuthButton', () => {
     config.callback({ credential: 'google-id-token' });
 
     await waitFor(() =>
-      expect(completeSignup).toHaveBeenCalledWith('branch-id', 'Iron House')
+      expect(completeSignup).toHaveBeenCalledWith('branch-id', 'Iron House', {
+        countryCode: 'AE',
+      })
     );
     expect(resolveAuthenticatedDefaultBranch).toHaveBeenCalledWith(
       expect.anything(),
@@ -396,7 +400,7 @@ describe('GoogleAuthButton', () => {
     config.callback({ credential: 'google-id-token' });
 
     await waitFor(() =>
-      expect(navigateToCompletion).toHaveBeenCalledWith('branch-id')
+      expect(navigateToCompletion).toHaveBeenCalledWith('branch-id', undefined)
     );
     expect(navigateAfterLogin).not.toHaveBeenCalled();
     expect(generateGoogleNonce).toHaveBeenCalledTimes(1);
@@ -428,7 +432,9 @@ describe('GoogleAuthButton', () => {
     };
     config.callback({ credential: 'google-id-token' });
 
-    await waitFor(() => expect(navigateToCompletion).toHaveBeenCalledWith());
+    await waitFor(() =>
+      expect(navigateToCompletion).toHaveBeenCalledWith(undefined, undefined)
+    );
     expect(completeSignup).not.toHaveBeenCalled();
   });
 });

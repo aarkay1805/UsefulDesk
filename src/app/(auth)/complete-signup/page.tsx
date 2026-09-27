@@ -15,6 +15,8 @@ import { UnauthorizedError } from '@/lib/auth/account';
 import { isBranchAccountId } from '@/lib/auth/branch-context';
 import { getDashboardAuthRequestContext } from '@/lib/auth/dashboard-request-context';
 import { canCompleteOrganizationNameSetup } from '@/lib/auth/roles';
+import { COUNTRY_PRESETS } from '@/lib/locale/config';
+import { completionPath } from '@/lib/auth/complete-signup-client';
 
 export const metadata: Metadata = {
   title: 'Name your gym',
@@ -22,6 +24,7 @@ export const metadata: Metadata = {
 
 type CompleteSignupSearchParams = Promise<{
   branch?: string | string[];
+  country?: string | string[];
 }>;
 
 export default async function CompleteSignupPage({
@@ -38,6 +41,11 @@ export default async function CompleteSignupPage({
     typeof query.branch === 'string' && isBranchAccountId(query.branch)
       ? query.branch
       : null;
+  const countryCode =
+    typeof query.country === 'string' &&
+    Object.prototype.hasOwnProperty.call(COUNTRY_PRESETS, query.country)
+      ? query.country
+      : null;
 
   let context;
   try {
@@ -48,7 +56,9 @@ export default async function CompleteSignupPage({
   }
 
   if (hasExplicitBranch && !explicitBranch) {
-    return <CompleteSignupAccessError message="This branch link is not correct." />;
+    return (
+      <CompleteSignupAccessError message="This branch link is not correct." />
+    );
   }
 
   const account = context.bootstrap.account;
@@ -58,12 +68,12 @@ export default async function CompleteSignupPage({
       <CompleteSignupAccessError
         message={
           lookupFailed
-            ? "We could not check your access to this branch. Try again."
+            ? 'We could not check your access to this branch. Try again.'
             : 'You do not have access to this branch.'
         }
         retryHref={
           lookupFailed && explicitBranch
-            ? `/complete-signup?branch=${encodeURIComponent(explicitBranch)}`
+            ? completionPath(explicitBranch, countryCode ?? undefined)
             : undefined
         }
       />
@@ -75,18 +85,20 @@ export default async function CompleteSignupPage({
       return (
         <CompleteSignupAccessError
           message="Could not load your branch. Try again."
-          retryHref="/complete-signup"
+          retryHref={completionPath(undefined, countryCode ?? undefined)}
         />
       );
     }
-    redirect(`/complete-signup?branch=${encodeURIComponent(account.id)}`);
+    const destination = new URLSearchParams({ branch: account.id });
+    if (countryCode) destination.set('country', countryCode);
+    redirect(`/complete-signup?${destination}`);
   }
 
   if (!account || !explicitBranch) {
     return <CompleteSignupAccessError message="Could not load this branch." />;
   }
 
-  const retryHref = `/complete-signup?branch=${encodeURIComponent(account.id)}`;
+  const retryHref = completionPath(account.id, countryCode ?? undefined);
   if (
     context.bootstrap.branchAccessError ||
     context.bootstrap.organizationNameSetupState === 'unavailable'
@@ -125,13 +137,20 @@ export default async function CompleteSignupPage({
           <div className="bg-primary/10 mb-2 flex size-12 items-center justify-center rounded-xl">
             <Building2 className="text-primary-text size-6" />
           </div>
-          <CardTitle>Name your gym</CardTitle>
+          <CardTitle>
+            <h1>Name your gym</h1>
+          </CardTitle>
           <CardDescription>
-            Your team will see this name. It is also your first branch name. You can add your legal business name later in Settings → Business details.
+            Your team will see this name. It is also your first branch name. You
+            can add your legal business name later in Settings → Business
+            details.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <CompleteSignupForm accountId={account.id} />
+          <CompleteSignupForm
+            accountId={account.id}
+            countryCode={countryCode}
+          />
         </CardContent>
       </Card>
     </main>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -71,11 +72,12 @@ function ForgotPasswordPageInner() {
               <CheckCircle className="text-primary-text h-6 w-6" />
             </div>
             <CardTitle className="text-foreground text-xl">
-              Check your email
+              <h1>Check your email</h1>
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              We sent a link to reset your password to{' '}
-              <span className="text-foreground">{email}</span>. Check your email.
+              If an account uses{' '}
+              <span className="text-foreground">{email}</span>, look for a
+              password reset link there.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -103,7 +105,7 @@ function ForgotPasswordPageInner() {
             <MessageSquare className="text-primary-text h-6 w-6" />
           </div>
           <CardTitle className="text-foreground text-xl">
-            Reset password
+            <h1>Reset password</h1>
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             Enter your email. We will send you a link to reset your password.
@@ -112,9 +114,9 @@ function ForgotPasswordPageInner() {
         <CardContent>
           <form onSubmit={handleReset} className="flex flex-col gap-4">
             {error && (
-              <div className="text-red-foreground rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm">
-                {error}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             <div className="flex flex-col gap-2">

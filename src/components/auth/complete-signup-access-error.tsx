@@ -28,7 +28,9 @@ export function CompleteSignupAccessError({
           <div className="bg-muted mb-2 flex size-12 items-center justify-center rounded-xl">
             <Building2 className="text-muted-foreground size-6" />
           </div>
-          <CardTitle>Cannot open gym setup right now</CardTitle>
+          <CardTitle>
+            <h1>Cannot open gym setup right now</h1>
+          </CardTitle>
           <CardDescription>{message}</CardDescription>
         </CardHeader>
         {retryHref || retryCurrent ? (

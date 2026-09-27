@@ -9,6 +9,11 @@ import {
 import { isBranchAccountId } from '@/lib/auth/branch-context';
 import { requireSameOriginRequest } from '@/lib/auth/csrf';
 import { GYM_NAME_ERROR, normalizeGymName } from '@/lib/auth/gym-name';
+import {
+  COUNTRY_PRESETS,
+  presetFor,
+  toAccountColumns,
+} from '@/lib/locale/config';
 import { ProductAccessError } from '@/lib/platform-access/server';
 import {
   checkRateLimit,
@@ -76,12 +81,19 @@ export async function POST(request: Request) {
     if (!limit.success) return rateLimitResponse(limit);
 
     const body = (await request.json().catch(() => null)) as unknown;
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      return NextResponse.json({ error: GYM_NAME_ERROR }, { status: 400 });
+    }
+
+    const fields = Object.keys(body);
+    const hasCountry = Object.prototype.hasOwnProperty.call(
+      body,
+      'countryCode'
+    );
     if (
-      typeof body !== 'object' ||
-      body === null ||
-      Array.isArray(body) ||
-      Object.keys(body).length !== 1 ||
-      !Object.prototype.hasOwnProperty.call(body, 'gymName')
+      !Object.prototype.hasOwnProperty.call(body, 'gymName') ||
+      fields.length !== (hasCountry ? 2 : 1) ||
+      fields.some((field) => field !== 'gymName' && field !== 'countryCode')
     ) {
       return NextResponse.json({ error: GYM_NAME_ERROR }, { status: 400 });
     }
@@ -91,13 +103,32 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: GYM_NAME_ERROR }, { status: 400 });
     }
 
-    const { data, error } = await context.supabase.rpc(
-      'complete_organization_name_setup',
-      {
-        p_account_id: branch,
-        p_gym_name: gymName,
-      }
-    );
+    const countryCode = (body as Record<string, unknown>).countryCode;
+    if (
+      hasCountry &&
+      (typeof countryCode !== 'string' ||
+        !Object.prototype.hasOwnProperty.call(COUNTRY_PRESETS, countryCode))
+    ) {
+      return NextResponse.json(
+        { error: 'Choose a valid country for your gym.' },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } =
+      hasCountry && typeof countryCode === 'string'
+        ? await context.supabase.rpc(
+            'complete_organization_name_setup_with_locale',
+            {
+              p_account_id: branch,
+              p_gym_name: gymName,
+              p_locale: toAccountColumns(presetFor(countryCode)),
+            }
+          )
+        : await context.supabase.rpc('complete_organization_name_setup', {
+            p_account_id: branch,
+            p_gym_name: gymName,
+          });
     if (error) return rpcErrorResponse(error);
     if (!isCompletionStatus(data)) {
       console.error('[complete signup] invalid RPC response');

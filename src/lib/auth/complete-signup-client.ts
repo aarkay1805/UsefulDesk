@@ -75,14 +75,17 @@ export async function resolveAuthenticatedDefaultBranch(
 export async function completeSignup(
   accountId: string,
   gymName: string,
-  request: typeof fetch = fetch
+  options: { countryCode?: string; request?: typeof fetch } = {}
 ): Promise<CompleteSignupStatus> {
-  const response = await request(
+  const response = await (options.request ?? fetch)(
     `/api/auth/complete-signup?branch=${encodeURIComponent(accountId)}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gymName }),
+      body: JSON.stringify({
+        gymName,
+        ...(options.countryCode ? { countryCode: options.countryCode } : {}),
+      }),
     }
   );
 
@@ -110,10 +113,14 @@ export async function completeSignup(
   throw new Error('Could not confirm that gym setup finished. Try again.');
 }
 
-export function completionPath(accountId?: string): string {
-  return accountId
-    ? `/complete-signup?branch=${encodeURIComponent(accountId)}`
-    : '/complete-signup';
+export function completionPath(
+  accountId?: string,
+  countryCode?: string
+): string {
+  const params = new URLSearchParams();
+  if (accountId) params.set('branch', accountId);
+  if (countryCode) params.set('country', countryCode);
+  return params.size ? `/complete-signup?${params}` : '/complete-signup';
 }
 
 export function dashboardBranchPath(accountId: string): string {
@@ -122,9 +129,10 @@ export function dashboardBranchPath(accountId: string): string {
 
 export function navigateToCompletion(
   accountId?: string,
+  countryCode?: string,
   location: Pick<Location, 'href'> = window.location
 ): void {
-  location.href = completionPath(accountId);
+  location.href = completionPath(accountId, countryCode);
 }
 
 export function navigateToCompletedBranch(

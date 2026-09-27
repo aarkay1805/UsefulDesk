@@ -53,9 +53,12 @@ function bootstrap(
   };
 }
 
-function render(branch?: string | string[]) {
+function render(branch?: string | string[], country?: string) {
   return CompleteSignupPage({
-    searchParams: Promise.resolve(branch === undefined ? {} : { branch }),
+    searchParams: Promise.resolve({
+      ...(branch === undefined ? {} : { branch }),
+      ...(country === undefined ? {} : { country }),
+    }),
   });
 }
 
@@ -79,6 +82,29 @@ describe('/complete-signup server page', () => {
     await expect(render()).rejects.toThrow(
       `redirect:/complete-signup?branch=${ACCOUNT_ID}`
     );
+  });
+
+  it('preserves the selected country on canonicalization and retry', async () => {
+    await expect(render(undefined, 'AE')).rejects.toThrow(
+      `redirect:/complete-signup?branch=${ACCOUNT_ID}&country=AE`
+    );
+    h.getContext.mockResolvedValue({
+      user: { id: 'user-1' },
+      bootstrap: bootstrap('unavailable'),
+    });
+    const result = await render(ACCOUNT_ID, 'AE');
+    expect(result.props.retryHref).toBe(
+      `/complete-signup?branch=${ACCOUNT_ID}&country=AE`
+    );
+  });
+
+  it('passes a valid country to the pending setup form', async () => {
+    const result = await render(ACCOUNT_ID, 'AE');
+    const content = result.props.children.props.children[1];
+    expect(content.props.children.props).toEqual({
+      accountId: ACCOUNT_ID,
+      countryCode: 'AE',
+    });
   });
 
   it.each([['invalid'], [[ACCOUNT_ID, OTHER_ACCOUNT_ID]]])(
@@ -129,7 +155,10 @@ describe('/complete-signup server page', () => {
 
     const card = result.props.children;
     const content = card.props.children[1];
-    expect(content.props.children.props).toEqual({ accountId: ACCOUNT_ID });
+    expect(content.props.children.props).toEqual({
+      accountId: ACCOUNT_ID,
+      countryCode: null,
+    });
   });
 
   it('blocks pending setup for a caller without both owner relationships', async () => {

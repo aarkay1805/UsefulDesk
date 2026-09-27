@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { normalizeSignupFullName } from '@/lib/auth/signup';
+import { navigateAfterLogin } from '@/lib/auth/post-login-navigation';
 import { GYM_NAME_ERROR, normalizeGymName } from '@/lib/auth/gym-name';
 import {
   invitationJoinPath,
@@ -17,6 +18,7 @@ import {
   toAccountColumns,
 } from '@/lib/locale/config';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -35,6 +37,7 @@ import {
 } from '@/components/ui/card';
 import { MessageSquare, CheckCircle, UsersRound } from 'lucide-react';
 import { GoogleAuthButton } from '@/components/auth/google-auth-button';
+import { getErrorMessage } from '@/lib/errors';
 
 // `useSearchParams` opts the component out of static prerendering
 // unless wrapped in Suspense — same pattern as /login.
@@ -111,27 +114,37 @@ function SignupPageInner() {
     // (regex-guarded) into the new account's localization columns.
     // Invitees who end up joining another account simply leave their
     // auto-created personal account carrying these defaults.
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: trimmedFullName,
-          ...(normalizedGymName ? { gym_name: normalizedGymName } : {}),
-          ...toAccountColumns(presetFor(country)),
+    try {
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: trimmedFullName,
+            ...(normalizedGymName ? { gym_name: normalizedGymName } : {}),
+            ...toAccountColumns(presetFor(country)),
+          },
+          emailRedirectTo,
         },
-        emailRedirectTo,
-      },
-    });
+      });
 
-    if (error) {
-      setError(error.message);
+      if (signupError) throw signupError;
+      if (data.session) {
+        navigateAfterLogin(inviteToken);
+        return;
+      }
+
+      setSuccess(true);
       setLoading(false);
-      return;
+    } catch (signupError) {
+      setError(
+        getErrorMessage(
+          signupError,
+          'Could not create account. Check your internet and try again.'
+        )
+      );
+      setLoading(false);
     }
-
-    setSuccess(true);
-    setLoading(false);
   };
 
   if (success) {
@@ -143,11 +156,13 @@ function SignupPageInner() {
               <CheckCircle className="text-primary-text h-6 w-6" />
             </div>
             <CardTitle className="text-foreground text-xl">
-              Check your email
+              <h1>Check your email</h1>
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              We sent a link to{' '}
-              <span className="text-foreground">{email}</span>. Open your email and click the link to confirm your account.
+              Look for a confirmation link at{' '}
+              <span className="text-foreground">{email}</span>. If none arrives,
+              you may already have an account. Try signing in or resetting your
+              password.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -160,6 +175,12 @@ function SignupPageInner() {
               >
                 Back to sign in
               </Button>
+            </Link>
+            <Link
+              href={withInvitation('/forgot-password', inviteToken)}
+              className="text-primary-text mt-3 block text-center text-sm"
+            >
+              Reset password
             </Link>
           </CardContent>
         </Card>
@@ -179,7 +200,7 @@ function SignupPageInner() {
             )}
           </div>
           <CardTitle className="text-foreground text-xl">
-            {inviteToken ? 'Create account & join' : 'Create account'}
+            <h1>{inviteToken ? 'Create account & join' : 'Create account'}</h1>
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
@@ -211,7 +232,8 @@ function SignupPageInner() {
                 required
               />
               <p id="gym-name-help" className="text-muted-foreground text-xs">
-                Your team will see this name. You can add your legal business name later in Settings → Business details.
+                Your team will see this name. You can add your legal business
+                name later in Settings → Business details.
               </p>
               {gymNameError ? (
                 <p id="gym-name-error" className="text-red-foreground text-xs">
@@ -224,7 +246,7 @@ function SignupPageInner() {
           <GoogleAuthButton
             inviteToken={inviteToken}
             onErrorChange={setError}
-            {...(!inviteToken ? { gymName } : {})}
+            {...(!inviteToken ? { gymName, countryCode: country } : {})}
           />
 
           <form
@@ -233,9 +255,9 @@ function SignupPageInner() {
             className="flex flex-col gap-4"
           >
             {error && (
-              <div className="text-red-foreground rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm">
-                {error}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             <div className="flex flex-col gap-2">
@@ -270,7 +292,8 @@ function SignupPageInner() {
                 </SelectContent>
               </Select>
               <p className="text-muted-foreground text-xs">
-                This sets your currency, time zone, and date style. You can change it later in Settings.
+                This sets your currency, time zone, and date style. You can
+                change it later in Settings.
               </p>
             </div>
 

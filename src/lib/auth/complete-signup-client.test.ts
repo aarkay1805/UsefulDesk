@@ -81,10 +81,10 @@ describe('complete signup client', () => {
       );
 
     await expect(
-      completeSignup('branch/id', 'Iron House', request)
+      completeSignup('branch/id', 'Iron House', { request })
     ).resolves.toBe('completed');
     await expect(
-      completeSignup('branch/id', 'Iron House', request)
+      completeSignup('branch/id', 'Iron House', { request })
     ).resolves.toBe('already_complete');
     expect(request).toHaveBeenCalledWith(
       '/api/auth/complete-signup?branch=branch%2Fid',
@@ -96,29 +96,41 @@ describe('complete signup client', () => {
     );
   });
 
+  it('includes the selected country only when supplied', async () => {
+    const request = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ status: 'completed' }), { status: 200 })
+      );
+    await completeSignup('branch-id', 'Iron House', {
+      countryCode: 'AE',
+      request,
+    });
+    expect(JSON.parse(request.mock.calls[0][1].body)).toEqual({
+      gymName: 'Iron House',
+      countryCode: 'AE',
+    });
+  });
+
   it('surfaces the API error and rejects an unknown success payload', async () => {
     await expect(
-      completeSignup(
-        'branch-id',
-        'Iron House',
-        vi.fn().mockResolvedValue(
+      completeSignup('branch-id', 'Iron House', {
+        request: vi.fn().mockResolvedValue(
           new Response(JSON.stringify({ error: 'Owner access required' }), {
             status: 403,
           })
-        )
-      )
+        ),
+      })
     ).rejects.toThrow('Owner access required');
 
     await expect(
-      completeSignup(
-        'branch-id',
-        'Iron House',
-        vi.fn().mockResolvedValue(
+      completeSignup('branch-id', 'Iron House', {
+        request: vi.fn().mockResolvedValue(
           new Response(JSON.stringify({ status: 'unexpected' }), {
             status: 200,
           })
-        )
-      )
+        ),
+      })
     ).rejects.toThrow('Could not confirm');
   });
 
@@ -157,6 +169,9 @@ describe('complete signup client', () => {
     expect(completionPath()).toBe('/complete-signup');
     expect(completionPath('branch/id')).toBe(
       '/complete-signup?branch=branch%2Fid'
+    );
+    expect(completionPath('branch/id', 'AE')).toBe(
+      '/complete-signup?branch=branch%2Fid&country=AE'
     );
     expect(dashboardBranchPath('branch/id')).toBe(
       '/dashboard?branch=branch%2Fid'

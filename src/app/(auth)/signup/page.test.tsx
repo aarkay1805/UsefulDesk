@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const INVITE_TOKEN = 'abcdefghijklmnopqrstuvwxyzABCDEFGH123456789';
 const signUp = vi.hoisted(() => vi.fn());
+const navigateAfterLogin = vi.hoisted(() => vi.fn());
 let searchParams = new URLSearchParams({ invite: INVITE_TOKEN });
 
 vi.mock('next/navigation', () => ({
@@ -15,16 +16,23 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/lib/supabase/client', () => ({
   createClient: () => ({ auth: { signUp } }),
 }));
+vi.mock('@/lib/auth/post-login-navigation', () => ({ navigateAfterLogin }));
 
 vi.mock('@/components/auth/google-auth-button', () => ({
   GoogleAuthButton: ({
     inviteToken,
     gymName,
+    countryCode,
   }: {
     inviteToken: string | null;
     gymName?: string;
+    countryCode?: string;
   }) => (
-    <button data-invite-token={inviteToken ?? ''} data-gym-name={gymName ?? ''}>
+    <button
+      data-invite-token={inviteToken ?? ''}
+      data-gym-name={gymName ?? ''}
+      data-country-code={countryCode ?? ''}
+    >
       Continue with Google
     </button>
   ),
@@ -34,7 +42,10 @@ const { default: SignupPage } = await import('./page');
 
 beforeEach(() => {
   searchParams = new URLSearchParams({ invite: INVITE_TOKEN });
-  signUp.mockReset().mockResolvedValue({ error: null });
+  signUp
+    .mockReset()
+    .mockResolvedValue({ data: { session: null }, error: null });
+  navigateAfterLogin.mockReset();
 });
 
 afterEach(cleanup);
@@ -125,7 +136,9 @@ describe('new organization signup', () => {
     render(<SignupPage />);
 
     const gymName = screen.getByLabelText('Gym name');
-    expect(screen.getByText(/add your legal business name later/)).not.toBeNull();
+    expect(
+      screen.getByText(/add your legal business name later/)
+    ).not.toBeNull();
     const google = screen.getByRole('button', {
       name: 'Continue with Google',
     });
@@ -135,6 +148,7 @@ describe('new organization signup', () => {
 
     await user.type(gymName, '  Iron House  ');
     expect(google.getAttribute('data-gym-name')).toBe('  Iron House  ');
+    expect(google.getAttribute('data-country-code')).toBe('IN');
     await user.type(screen.getByLabelText('Full name'), 'Owner Person');
     await user.type(screen.getByLabelText('Email'), 'owner@example.com');
     await user.type(screen.getByLabelText('Password'), 'password-123');
@@ -160,5 +174,42 @@ describe('new organization signup', () => {
 
     expect(await screen.findByText(/1 to 80 letters/)).not.toBeNull();
     expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it('gives account recovery options after an email signup without a session', async () => {
+    const user = userEvent.setup();
+    render(<SignupPage />);
+    await user.type(screen.getByLabelText('Gym name'), 'Iron House');
+    await user.type(screen.getByLabelText('Full name'), 'Owner Person');
+    await user.type(screen.getByLabelText('Email'), 'owner@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password-123');
+    await user.type(screen.getByLabelText('Confirm password'), 'password-123');
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Check your email' })
+    ).not.toBeNull();
+    expect(screen.getByText(/may already have an account/)).not.toBeNull();
+    expect(screen.getByRole('link', { name: 'Reset password' })).not.toBeNull();
+  });
+
+  it('continues immediately if email signup returns a session', async () => {
+    signUp.mockResolvedValue({
+      data: { session: { access_token: 'test' } },
+      error: null,
+    });
+    const user = userEvent.setup();
+    render(<SignupPage />);
+    await user.type(screen.getByLabelText('Gym name'), 'Iron House');
+    await user.type(screen.getByLabelText('Full name'), 'Owner Person');
+    await user.type(screen.getByLabelText('Email'), 'owner@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password-123');
+    await user.type(screen.getByLabelText('Confirm password'), 'password-123');
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    await waitFor(() => expect(navigateAfterLogin).toHaveBeenCalledWith(null));
+    expect(
+      screen.queryByRole('heading', { name: 'Check your email' })
+    ).toBeNull();
   });
 });

@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-09-27 — Signup continuity and regional settings (migration applied)
+
+Google signup now carries the selected country through ID-token exchange and
+authenticated gym-name recovery. `complete-signup` applies the preset with the
+name in one owner-authorized transaction via
+`20260927170000_google_signup_locale_completion.sql` (Production connector
+version `20260927125734`); an already-complete gym keeps its existing settings.
+The auth pages have semantic headings and announced errors, and email signup
+gives account-recovery guidance when Supabase returns success without a session.
+The client flow lives in `src/components/auth/google-auth-button.tsx`,
+`src/lib/auth/complete-signup-client.ts`, and `src/app/(auth)/signup/page.tsx`.
+Gotcha: Google ID-token sign-in cannot carry signup metadata, so the selected
+country is applied only after authentication. No real signup was made during
+verification.
+
 ## 2026-09-27 — Unused tag-filter read removed (migration applied)
 
 `20260927160000_drop_filter_contacts_by_tags.sql` (Production connector

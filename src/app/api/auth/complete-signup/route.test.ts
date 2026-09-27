@@ -63,6 +63,41 @@ describe('POST /api/auth/complete-signup', () => {
     });
   });
 
+  it('applies the selected country preset in the same completion call', async () => {
+    const response = await POST(
+      request(
+        { gymName: 'Useful Fitness', countryCode: 'AE' },
+        { branch: ACCOUNT_ID }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(h.rpc).toHaveBeenCalledWith(
+      'complete_organization_name_setup_with_locale',
+      {
+        p_account_id: ACCOUNT_ID,
+        p_gym_name: 'Useful Fitness',
+        p_locale: expect.objectContaining({
+          country_code: 'AE',
+          default_currency: 'AED',
+          timezone: 'Asia/Dubai',
+        }),
+      }
+    );
+  });
+
+  it('rejects an unknown country before calling the completion function', async () => {
+    const response = await POST(
+      request(
+        { gymName: 'Useful Fitness', countryCode: 'XX' },
+        { branch: ACCOUNT_ID }
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
   it('accepts an already-complete result for staff without an endpoint role gate', async () => {
     h.getCurrentAccount.mockResolvedValue({
       supabase: { rpc: h.rpc },

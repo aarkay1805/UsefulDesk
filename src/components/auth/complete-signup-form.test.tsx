@@ -32,7 +32,7 @@ describe('CompleteSignupForm', () => {
   it('prefills the same-tab draft, completes the explicit branch, and clears the draft', async () => {
     sessionStorage.setItem('usefuldesk.signup.gym-name', '  Iron House  ');
     const user = userEvent.setup();
-    render(<CompleteSignupForm accountId="branch-id" />);
+    render(<CompleteSignupForm accountId="branch-id" countryCode="AE" />);
 
     await waitFor(() =>
       expect(
@@ -44,7 +44,9 @@ describe('CompleteSignupForm', () => {
     );
 
     await waitFor(() =>
-      expect(completeSignup).toHaveBeenCalledWith('branch-id', 'Iron House')
+      expect(completeSignup).toHaveBeenCalledWith('branch-id', 'Iron House', {
+        countryCode: 'AE',
+      })
     );
     expect(sessionStorage.getItem('usefuldesk.signup.gym-name')).toBeNull();
     expect(navigateToCompletedBranch).toHaveBeenCalledWith('branch-id');

@@ -707,12 +707,19 @@ its provisional organization through an owner-authorized transaction, with an
 authenticated completion screen for interrupted flows. The organization, legal
 entity, legal name, and first branch start with the same gym name. Invitations
 skip business naming; existing staff can sign in without owner permissions, and
-completion preserves the selected branch through retries and navigation.
+completion preserves the selected branch and country through retries and navigation.
+The selected Google-signup regional preset is applied in the same completion
+transaction and never overwrites an already-complete gym. Email signup handles
+both confirmation-required and immediately authenticated responses, with
+account-recovery guidance for an existing email. Auth screens have semantic
+headings and announced errors.
 Missing completion-state data fails closed through a membership-scoped read.
 The reviewed spec is `docs/superpowers/specs/2026-09-21-gym-name-signup-design.md`.
 Production connector migration `20260921184441` and its rollback verification
 passed; all three existing organizations remain complete. Application rollout
 is pending; the completion API retains the existing product-access gate.
+The regional completion migration `20260927170000` is applied as Production
+connector version `20260927125734`; scoped application rollout follows.
 
 ## Operations-ready in code — founder-led paid pilots (2026-09-20)
 

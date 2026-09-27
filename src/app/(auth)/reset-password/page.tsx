@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -134,7 +135,7 @@ function ResetPasswordPageInner() {
               <KeyRound className="text-red-foreground h-6 w-6" />
             </div>
             <CardTitle className="text-foreground text-xl">
-              Reset link expired
+              <h1>Reset link expired</h1>
             </CardTitle>
             <CardDescription className="text-muted-foreground">
               This link does not work anymore. Ask for a new link.
@@ -165,7 +166,7 @@ function ResetPasswordPageInner() {
               <CheckCircle className="text-primary-text h-6 w-6" />
             </div>
             <CardTitle className="text-foreground text-xl">
-              {addingPassword ? 'Password added' : 'Password updated'}
+              <h1>{addingPassword ? 'Password added' : 'Password updated'}</h1>
             </CardTitle>
             <CardDescription className="text-muted-foreground">
               {addingPassword
@@ -193,7 +194,7 @@ function ResetPasswordPageInner() {
             <KeyRound className="text-primary-text h-6 w-6" />
           </div>
           <CardTitle className="text-foreground text-xl">
-            {addingPassword ? 'Add a password' : 'Set new password'}
+            <h1>{addingPassword ? 'Add a password' : 'Set new password'}</h1>
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {addingPassword
@@ -204,9 +205,9 @@ function ResetPasswordPageInner() {
         <CardContent>
           <form onSubmit={handleUpdate} className="flex flex-col gap-4">
             {error && (
-              <div className="text-red-foreground rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm">
-                {error}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             <div className="flex flex-col gap-2">

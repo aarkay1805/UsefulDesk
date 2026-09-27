@@ -64,12 +64,14 @@ type GoogleAuthButtonProps = {
   inviteToken: string | null;
   onErrorChange: (message: string | null) => void;
   gymName?: string;
+  countryCode?: string;
 };
 
 export function GoogleAuthButton({
   inviteToken,
   onErrorChange,
   gymName,
+  countryCode,
 }: GoogleAuthButtonProps) {
   const { mode } = useTheme();
   const [phase, setPhase] = useState<Phase>('loading');
@@ -80,6 +82,7 @@ export function GoogleAuthButton({
   const preparationRef = useRef(0);
   const popupBlurredRef = useRef(false);
   const signupGymNameAttemptRef = useRef<string | null>(null);
+  const signupCountryAttemptRef = useRef<string | null>(null);
 
   const enabled = process.env.NEXT_PUBLIC_GOOGLE_AUTH_ENABLED === 'true';
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
@@ -95,6 +98,7 @@ export function GoogleAuthButton({
       setPhase('loading');
       popupBlurredRef.current = false;
       signupGymNameAttemptRef.current = null;
+      signupCountryAttemptRef.current = null;
 
       try {
         const nextAttempt = await generateGoogleNonce();
@@ -136,6 +140,9 @@ export function GoogleAuthButton({
         const signupGymName = requiresSignupCompletion
           ? signupGymNameAttemptRef.current
           : null;
+        const signupCountry = requiresSignupCompletion
+          ? signupCountryAttemptRef.current
+          : null;
         if (requiresSignupCompletion && !signupGymName) {
           throw new Error('Enter your gym name first.');
         }
@@ -160,14 +167,19 @@ export function GoogleAuthButton({
               data.user.id
             );
           } catch {
-            navigateToCompletion();
+            navigateToCompletion(undefined, signupCountry ?? undefined);
             return;
           }
 
           try {
-            await completeSignup(completedAccountId, signupGymName);
+            await completeSignup(completedAccountId, signupGymName, {
+              countryCode: signupCountry ?? undefined,
+            });
           } catch {
-            navigateToCompletion(completedAccountId);
+            navigateToCompletion(
+              completedAccountId,
+              signupCountry ?? undefined
+            );
             return;
           }
 
@@ -264,6 +276,7 @@ export function GoogleAuthButton({
         click_listener: () => {
           if (normalizedGymName) {
             signupGymNameAttemptRef.current = normalizedGymName;
+            signupCountryAttemptRef.current = countryCode ?? null;
             saveGymNameDraft(normalizedGymName);
           }
           popupBlurredRef.current = false;
@@ -282,6 +295,7 @@ export function GoogleAuthButton({
   }, [
     attempt,
     clientId,
+    countryCode,
     handleCredential,
     mode,
     normalizedGymName,
@@ -363,7 +377,7 @@ export function GoogleAuthButton({
             className="w-full"
             disabled
           >
-            Enter your gym name to continue with Google
+            Add gym name for Google
           </Button>
         ) : phase === 'waiting' ? (
           <div className="flex flex-col items-center gap-2">

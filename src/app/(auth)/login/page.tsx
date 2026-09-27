@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -86,11 +87,11 @@ function LoginPageInner() {
             )}
           </div>
           <CardTitle className="text-foreground text-xl">
-            {inviteToken ? 'Sign in to accept' : 'Welcome back'}
+            <h1>{inviteToken ? 'Sign in to accept' : 'Welcome back'}</h1>
           </CardTitle>
           <CardDescription className="text-muted-foreground">
             {inviteToken
-              ? "Sign in and we will take you to the invite."
+              ? 'Sign in and we will take you to the invite.'
               : 'Sign in to your account'}
           </CardDescription>
         </CardHeader>
@@ -102,9 +103,9 @@ function LoginPageInner() {
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             {error && (
-              <div className="text-red-foreground rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm">
-                {error}
-              </div>
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
             )}
 
             <div className="flex flex-col gap-2">

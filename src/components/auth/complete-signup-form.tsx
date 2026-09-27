@@ -15,7 +15,13 @@ import {
 import { GYM_NAME_ERROR, normalizeGymName } from '@/lib/auth/gym-name';
 import { getErrorMessage } from '@/lib/errors';
 
-export function CompleteSignupForm({ accountId }: { accountId: string }) {
+export function CompleteSignupForm({
+  accountId,
+  countryCode,
+}: {
+  accountId: string;
+  countryCode?: string | null;
+}) {
   const [gymName, setGymName] = useState('');
   const [fieldError, setFieldError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
@@ -48,7 +54,9 @@ export function CompleteSignupForm({ accountId }: { accountId: string }) {
     setLoading(true);
 
     try {
-      await completeSignup(accountId, normalizedGymName);
+      await completeSignup(accountId, normalizedGymName, {
+        countryCode: countryCode ?? undefined,
+      });
       clearGymNameDraft();
       navigateToCompletedBranch(accountId);
     } catch (error) {
@@ -91,7 +99,8 @@ export function CompleteSignupForm({ accountId }: { accountId: string }) {
           disabled={loading}
         />
         <p id="gym-name-help" className="text-muted-foreground text-xs">
-          This is also your first branch name. You can add your legal business name later in Settings → Business details.
+          This is also your first branch name. You can add your legal business
+          name later in Settings → Business details.
         </p>
         {fieldError ? (
           <p id="gym-name-error" className="text-red-foreground text-xs">
