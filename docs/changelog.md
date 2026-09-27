@@ -6,6 +6,37 @@
 
 ---
 
+## 2026-09-27 — Unused tag-filter read removed (migration applied)
+
+`20260927160000_drop_filter_contacts_by_tags.sql` (Production connector
+version `20260927104633`) drops `filter_contacts_by_tags(UUID[], TEXT,
+INTEGER, INTEGER, BOOLEAN)`, the tag filter the Contacts page (025) and then
+the Leads list (039) called until `088553a5` (2026-07-07); the Leads listing
+now filters tags in `lead_listing_snapshot`. It still had 039's leftover anon
+and service_role EXECUTE, and its member check predates the service-customer
+exclusion. `src/lib/leads/filter-contacts-by-tags-drop-contract.test.ts` pins
+the one DROP (the last CREATE's signature, no CASCADE), that every signature
+ever created is dropped later, that no later migration touches it, and that no
+web, mobile, or script code names it. Gotchas: `DROP FUNCTION IF EXISTS` with a
+wrong signature silently does nothing; Production's body was 039's without its
+comments; re-running 039 alone would bring back service_role EXECUTE from the
+retained schema default, so a rollback must revoke it too.
+
+## 2026-09-27 — Enquiries by stage read is authenticated-only (migration applied)
+
+`20260927150000_lead_funnel_stats_authenticated_only.sql` (Production
+connector version `20260927102310`) revokes `lead_funnel_stats` EXECUTE from
+PUBLIC, anon, and service_role and keeps authenticated, the
+`lead_listing_snapshot` pattern. Grants only; the body is unchanged. Its one
+caller, `enquiry-stages-card.tsx` through `loadEnquiryStages`, uses the
+browser client. `enquiry-stages-grants-contract.test.ts` pins the pair, that
+the latest migration touching the function restates it, and that caller.
+Gotchas: new public functions still get PUBLIC EXECUTE from PostgreSQL's
+global default, which `20260725221657`'s per-schema revoke cannot remove, and
+service_role EXECUTE from the retained schema default, so every function
+migration must revoke both itself. `filter_contacts_by_tags` had the same
+leftover anon/service_role EXECUTE and no caller; the entry above drops it.
+
 ## 2026-09-27 — Home queue definitions contract step (migration applied)
 
 `20260927140000_home_queue_definitions_contract.sql` (Production connector

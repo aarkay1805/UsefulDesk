@@ -1,5 +1,64 @@
 # Roadmap
 
+## Shipped — Unused tag-filter read removed (2026-09-27)
+
+**Status: shipped; migration applied to Production. No app change.**
+`filter_contacts_by_tags`, the tag filter the Contacts page and then the Leads
+list called until July, no longer exists; Leads now filters by tag in
+`lead_listing_snapshot`. It had the same leftover anon and service_role
+EXECUTE as `lead_funnel_stats`, so a server-side call would bypass RLS, and
+its member check predates the service-customer exclusion. Nothing uses it, so
+it is dropped rather than tightened.
+
+**Rollout:** `20260927160000_drop_filter_contacts_by_tags.sql` is
+connector-applied to Production as version `20260927104633`: one
+`DROP FUNCTION IF EXISTS` for its only signature, without CASCADE. Its last
+app caller left in `088553a5` (2026-07-07) and the mobile app never called
+it, so no deployed app version can. Rollback: re-run only its statements from
+`039_leads.sql`, then revoke EXECUTE from anon and service_role.
+
+**Acceptance evidence:** no caller in the web, mobile, or script code of any
+local worktree, committed or not, or in Production's functions, views,
+policies, cron jobs, or dependencies, and no edge functions are deployed.
+None of about 98,000 API requests in the last eight days of logs called it;
+`pg_stat_statements` (since 2026-06-29) holds only nine signed-in calls, all
+in the old Contacts page's four-argument shape. A rollback-only dry run of the
+exact file on Production dropped it with nothing depending on it; a later call
+failed with `42883`, and a re-run was a no-op. Before the drop, service_role
+read tagged contacts with no session and anon got `42501`. After applying, no
+function of that name exists, the recorded migration text matches the file
+byte for byte, the live API answers `PGRST202`, and the security advisors
+report nothing about it. The contract test passes and fails on each
+regression it guards: CASCADE, a wrong signature, a later re-create, and a web
+or mobile caller. Typecheck passes.
+
+## Shipped — Enquiries by stage read is authenticated-only (2026-09-27)
+
+**Status: shipped; migration applied to Production. No app change.**
+`lead_funnel_stats`, the read behind Business → Performance, Enquiries by
+stage, now has the Leads listing's grants: signed-in staff only. 047 had
+revoked only PUBLIC, and the later body replacements kept its anon and
+service_role grants. Anon's call already failed, but service_role bypasses
+RLS and could count every branch's enquiries together.
+
+**Rollout:** `20260927150000_lead_funnel_stats_authenticated_only.sql` is
+connector-applied to Production as version `20260927102310`. Only the grants
+changed, so the deployed app needs nothing. Rollback: grant EXECUTE on
+`public.lead_funnel_stats()` back to anon and service_role.
+
+**Acceptance evidence:** a rollback-only dry run, then the applied migration,
+on Production. The ACL is `{postgres=X/postgres,authenticated=X/postgres}`,
+the body is unchanged, and the recorded migration text matches the file. As
+each of the four active branches' owners under RLS, Enquiries by stage returns
+the same counts as before; anon and service_role get permission denied
+(`42501`). The security advisors report nothing about this function. The new
+contract test passes and fails on the regressions it guards; typecheck passes
+with only this change applied.
+
+**Resolved:** `filter_contacts_by_tags` had the same leftover grants and no
+caller in the app or database; it is dropped (see Unused tag-filter read
+removed, above).
+
 ## Shipped — Enquiry reads exclude service customers (2026-09-27)
 
 **Status: shipped; migration applied to Production and app `564eb0a3`

@@ -1,0 +1,25 @@
+-- Drop public.filter_contacts_by_tags, the retired server-side tag filter.
+--
+-- 025_filter_contacts_by_tags.sql added it for the Contacts page, and
+-- 039_leads.sql re-created it with p_exclude_members for the Leads list. Its
+-- last app caller left in 088553a5 (2026-07-07); the mobile app never called
+-- it, and the Leads listing now filters by tag inside
+-- public.lead_listing_snapshot. No code in this repository, database function,
+-- view, policy, or cron job calls it.
+--
+-- Like lead_funnel_stats before 20260927150000, it kept the anon and
+-- service_role EXECUTE that Supabase's default privileges then gave every new
+-- public function, because 039 revoked only PUBLIC. It is SECURITY INVOKER,
+-- so anon's call fails, but service_role bypasses RLS, so a server-side call
+-- would return any branch's tagged contacts. Its member check also predates
+-- 20260927130000_enquiry_reads_exclude_service_customers.sql and would list a
+-- service customer as a lead. Dropping it retires both instead of tightening
+-- a read nothing uses.
+--
+-- Rollback: re-run only the filter_contacts_by_tags statements of
+-- 039_leads.sql (Production ran that body without its comments), then
+-- REVOKE ALL ON FUNCTION public.filter_contacts_by_tags(UUID[], TEXT, INTEGER,
+-- INTEGER, BOOLEAN) FROM PUBLIC, anon, service_role; new public functions
+-- still get service_role EXECUTE by default.
+
+DROP FUNCTION IF EXISTS public.filter_contacts_by_tags(UUID[], TEXT, INTEGER, INTEGER, BOOLEAN);
