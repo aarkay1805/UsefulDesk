@@ -2,10 +2,10 @@
 
 ## Shipped — Enquiry reads exclude service customers (2026-09-27)
 
-**Status: migration applied to Production; the app changes ship with it.** An
-enquiry is a contact with neither a membership nor a service purchase: exactly
-the contacts All members does not list. Home's Not contacted yet already used
-this; the other enquiry reads now do too:
+**Status: shipped; migration applied to Production and app `564eb0a3`
+deployed.** An enquiry is a contact with neither a membership nor a service
+purchase: exactly the contacts All members does not list. Home's Not
+contacted yet already used this; the other enquiry reads now do too:
 
 - **Leads:** All enquiries (table, board, total, the **No follow-up**,
   **Unassigned**, **Mine**, and **Today** counts, select-all, and CSV export)
@@ -21,11 +21,12 @@ this; the other enquiry reads now do too:
 connector-applied to Production as version `20260927093826`. Signatures,
 return shapes, and grants are unchanged, so either app version works against
 it; the Follow-ups, Inbox, and automation reads change with the app.
-`lead_source_conversion`, which only the previous app calls, now counts a
-service customer in neither column. Rollback: re-apply `lead_listing_snapshot`
-from `20260829010000_consolidate_leads_listing.sql` and `lead_funnel_stats` /
-`lead_source_conversion` from `047_lead_ownership_ops.sql`; Production ran
-exactly those bodies before this change.
+`lead_source_conversion`, which only the previous app called, counted a
+service customer in neither column until the Home contract step dropped it.
+Rollback: re-apply `lead_listing_snapshot` from
+`20260829010000_consolidate_leads_listing.sql` and `lead_funnel_stats` from
+`047_lead_ownership_ops.sql`; Production ran exactly those bodies before this
+change.
 
 **Acceptance evidence:** SQL text-contract tests (the listing differs from its
 previous definition only by the new check), enquiry-scope and automation
@@ -42,10 +43,10 @@ advisors show nothing new. The new PostgREST embed resolves on the live API.
 Not yet verified: the deployed Follow-ups, Inbox chip, and automation reads in
 a signed-in session.
 
-## Built in code — Home queue definitions and simpler Home (2026-09-27)
+## Shipped — Home queue definitions and simpler Home (2026-09-27)
 
-**Status: built in code; database expand step applied to Production;
-app deploy, contract step, and owner validation pending.** Implements the [dashboard benchmark](../docs/dashboard-benchmark-2026-09-27.md)'s
+**Status: shipped; app `50e15710` deployed, and the expand and contract
+migrations applied to Production. Owner validation pending.** Implements the [dashboard benchmark](../docs/dashboard-benchmark-2026-09-27.md)'s
 high-confidence set: exact queue populations (Batch 2) and the reductions that
 needed no owner validation (Batch 3). The choices the benchmark marks for
 validation stay unchanged; see the Proposed entry below.
@@ -71,14 +72,22 @@ validation stay unchanged; see the Proposed entry below.
   Performance. Not contacted yet now pairs with Needs attention. Short queues no
   longer show a scrollbar with nothing to scroll.
 
-**Rollout:** `20260927120000_home_queue_definitions.sql` is an expand step,
-connector-applied to Production as version `20260927074233`. It also returns
-the fields the previous app parses (`waitingDays`, `churnRisk`,
-`trialFollowups`, `failedMandates`), so either app version works and the app
-can deploy at any time. Contract after the new app is live everywhere: remove
-those fields and drop `dashboard_action_attention`,
-`dashboard_conversation_series`, and `dashboard_lead_rating_inputs`. Rollback:
-re-apply the snapshot from `20260828200000_avoid_dashboard_timezone_catalog_scans.sql`.
+**Rollout:** the expand step, `20260927120000_home_queue_definitions.sql`
+(Production connector version `20260927074233`), also returned the fields the
+previous app parsed (`waitingDays`, `churnRisk`, `trialFollowups`,
+`failedMandates`), so either app version worked while `50e15710` deployed.
+With the new app live, the contract step,
+`20260927140000_home_queue_definitions_contract.sql` (connector version
+`20260927095155`), removed those fields and dropped
+`dashboard_action_attention`, `dashboard_conversation_series`,
+`dashboard_lead_rating_inputs`, and `lead_source_conversion`. Nothing in the
+repository, the database, or the API logs since the deploy called them.
+Rollback: re-apply the snapshot from `20260927120000_home_queue_definitions.sql`
+(both app versions work against it). An app rollback to before `50e15710` also
+needs the four dropped reads re-created with their grants, as the contract
+migration's header lists. Re-applying the older snapshot from
+`20260828200000_avoid_dashboard_timezone_catalog_scans.sql` needs
+`dashboard_action_attention` first, because that snapshot calls it.
 
 **Acceptance evidence:** SQL text-contract, parser, label, trial, filter-set,
 stage, and render tests; full suite (478 files) and production build pass;
@@ -87,13 +96,18 @@ phone (375px) and desktop checks on `/preview/dashboard-queues` and
 applied function ran as each of the four active branches' owners under RLS:
 no section errors, both app versions' field contracts hold, and per-branch
 timings match the previous definition. Grants are `authenticated` only; the
-security advisors show nothing new. Not yet verified: the deployed app or any
-owner session.
+security advisors show nothing new. The contract step's dry run and applied
+function ran the same way: no section errors, and each branch's payload equals
+the expand step's minus exactly the four fields. The applied body matches the
+file, grants are unchanged, the dropped reads are gone, and the security
+advisors show nothing new. The text contract pins the new snapshot as the
+expand step minus those fields, and a source scan fails if app code names a
+dropped read. Not yet verified: an owner session on the deployed app.
 
 ## Proposed — Home simplification after the first fold (2026-09-27)
 
-**Status: queue definitions and the high-confidence reductions are built (see
-above); the rest waits on owner validation.** Evidence is public vendor
+**Status: queue definitions and the high-confidence reductions are shipped
+(see above); the rest waits on owner validation.** Evidence is public vendor
 documentation plus local source inspection, not live competitor testing or
 customer validation. Keep the existing first-fold summary and quick actions
 outside this change's scope.
@@ -133,9 +147,6 @@ content does not improve task completion.
   service-only customer added in the period under Enquiries, not joined.
   Decide whether a service purchase counts as joining before changing
   **Joined (%)**.
-- After the app deploys, run the contract migration described above
-  (compatibility fields, the three unused dashboard SQL functions, and
-  `lead_source_conversion`, which only the previous app calls).
 
 ### Rollout and deferred choices
 

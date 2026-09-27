@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 const snapshotMigration = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260927120000_home_queue_definitions.sql'
+    'supabase/migrations/20260927140000_home_queue_definitions_contract.sql'
   ),
   'utf8'
 );

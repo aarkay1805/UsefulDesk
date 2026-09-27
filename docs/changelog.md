@@ -6,6 +6,20 @@
 
 ---
 
+## 2026-09-27 — Home queue definitions contract step (migration applied)
+
+`20260927140000_home_queue_definitions_contract.sql` (Production connector
+version `20260927095155`) re-creates `dashboard_action_snapshot` as the expand
+step's definition minus `waitingDays`, `churnRisk`, `trialFollowups`, and
+`failedMandates`, and drops `dashboard_action_attention`,
+`dashboard_conversation_series`, `dashboard_lead_rating_inputs`, and
+`lead_source_conversion`, which only the app before `50e15710` read.
+`home-queue-definitions-rpc.test.ts` pins the new snapshot as the expand text
+minus those lines, the exact DROP list, and that no `src/` code names a dropped
+read; `action-snapshot-rpc.test.ts` reads the new file. Gotcha: re-applying the
+pre-expand snapshot (`20260828200000`) now needs `dashboard_action_attention`
+re-created first, because that snapshot calls it.
+
 ## 2026-09-27 — Enquiry reads exclude service customers (migration applied)
 
 Migration `20260927130000_enquiry_reads_exclude_service_customers.sql`
