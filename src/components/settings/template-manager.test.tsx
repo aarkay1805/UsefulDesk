@@ -300,7 +300,9 @@ describe('TemplateManager gym preset library', () => {
       screen.queryByRole('combobox', { name: 'Message language' })
     ).toBeNull();
     expect(screen.queryByText('What members will see')).toBeNull();
-    expect(screen.getByText('Needs WhatsApp review')).toBeTruthy();
+    expect(
+      await screen.findByText('Needs WhatsApp review', {}, { timeout: 5000 })
+    ).toBeTruthy();
     expect(screen.getByText(/will not turn on by itself/)).toBeTruthy();
     expect(screen.getByText('What it does')).toBeTruthy();
     // Sending for review reads as step one of three, not the finish line.
