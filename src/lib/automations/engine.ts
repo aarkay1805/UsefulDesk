@@ -23,6 +23,7 @@ import type {
 import { istAddDays } from '@/lib/memberships/expiry';
 import { todayInTz } from '@/lib/locale/format';
 import { DEFAULT_FIELD_OPTIONS } from '@/lib/leads/field-options';
+import { onlyEnquiries, selectForEnquiries } from '@/lib/leads/enquiry-scope';
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
 import { addContactTagIfAbsent } from '@/lib/contacts/tag-write';
 import {
@@ -653,8 +654,8 @@ async function runStep(
 
       let agentId = cfg.agent_id;
       if (cfg.mode === 'round_robin') {
-        // Least-loaded pick: whoever currently owns the fewest leads
-        // (contacts without a membership) gets the next one. This is
+        // Least-loaded pick: whoever currently owns the fewest enquiries
+        // (no membership, no service purchase) gets the next one. This is
         // what owners expect "round robin" to mean — a visibly even
         // spread — and unlike a hash spread it can't clump a small
         // batch onto one teammate. Ties break by user_id (sorted), so
@@ -670,15 +671,16 @@ async function runStep(
         if (roster.length === 0) return 'no agent resolved';
         const loads = await Promise.all(
           roster.map((r) =>
-            db
-              .from('contacts')
-              .select('id, memberships!left(id)', {
-                count: 'exact',
-                head: true,
-              })
-              .eq('account_id', args.automation.account_id)
-              .eq('assigned_to', r.user_id)
-              .is('memberships', null)
+            onlyEnquiries(
+              db
+                .from('contacts')
+                .select(selectForEnquiries('id'), {
+                  count: 'exact',
+                  head: true,
+                })
+                .eq('account_id', args.automation.account_id)
+                .eq('assigned_to', r.user_id)
+            )
           )
         );
         let best = 0;

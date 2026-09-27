@@ -6,6 +6,7 @@ import {
   CONVERSATION_SELECT,
   normalizeConversations,
 } from '@/lib/inbox/conversations';
+import { onlyEnquiries, selectForEnquiries } from '@/lib/leads/enquiry-scope';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus, Tag } from '@/types';
 import { ChevronDown, Loader2, X } from 'lucide-react';
@@ -169,11 +170,9 @@ export function ConversationList({
         );
       }
       if (filter === 'lead') {
-        const { data } = await supabase
-          .from('contacts')
-          .select('id, memberships!left(id)')
-          .is('memberships.id', null)
-          .limit(500);
+        const { data } = await onlyEnquiries(
+          supabase.from('contacts').select(selectForEnquiries('id'))
+        ).limit(500);
         contactIds = intersectIds(
           contactIds,
           (data ?? []).map((contact) => contact.id)
@@ -281,11 +280,9 @@ export function ConversationList({
       );
     }
     if (filter === 'lead') {
-      const { data } = await supabase
-        .from('contacts')
-        .select('id, memberships!left(id)')
-        .is('memberships.id', null)
-        .limit(500);
+      const { data } = await onlyEnquiries(
+        supabase.from('contacts').select(selectForEnquiries('id'))
+      ).limit(500);
       contactIds = intersectIds(
         contactIds,
         (data ?? []).map((contact) => contact.id)
@@ -517,9 +514,7 @@ export function ConversationList({
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center px-6 py-12 text-center">
             <p className="text-foreground text-sm font-medium">
-              {conversations.length === 0
-                ? 'No chats yet'
-                : 'No chats match'}
+              {conversations.length === 0 ? 'No chats yet' : 'No chats match'}
             </p>
             <p className="text-muted-foreground mt-1 max-w-56 text-xs">
               {conversations.length === 0

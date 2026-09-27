@@ -1,5 +1,47 @@
 # Roadmap
 
+## Shipped — Enquiry reads exclude service customers (2026-09-27)
+
+**Status: migration applied to Production; the app changes ship with it.** An
+enquiry is a contact with neither a membership nor a service purchase: exactly
+the contacts All members does not list. Home's Not contacted yet already used
+this; the other enquiry reads now do too:
+
+- **Leads:** All enquiries (table, board, total, the **No follow-up**,
+  **Unassigned**, **Mine**, and **Today** counts, select-all, and CSV export)
+  and Follow-ups.
+- **Business → Performance:** Enquiries by stage.
+- **Inbox:** the **Enquiries** chip. It had filtered only the embedded
+  membership rows, so it matched conversations with any contact, members
+  included.
+- **Automations:** least-loaded lead assignment counts only enquiries as each
+  teammate's load.
+
+**Rollout:** `20260927130000_enquiry_reads_exclude_service_customers.sql` is
+connector-applied to Production as version `20260927093826`. Signatures,
+return shapes, and grants are unchanged, so either app version works against
+it; the Follow-ups, Inbox, and automation reads change with the app.
+`lead_source_conversion`, which only the previous app calls, now counts a
+service customer in neither column. Rollback: re-apply `lead_listing_snapshot`
+from `20260829010000_consolidate_leads_listing.sql` and `lead_funnel_stats` /
+`lead_source_conversion` from `047_lead_ownership_ops.sql`; Production ran
+exactly those bodies before this change.
+
+**Acceptance evidence:** SQL text-contract tests (the listing differs from its
+previous definition only by the new check), enquiry-scope and automation
+tests, typecheck, and the full suite (480 files) pass. On Production, a
+rollback-only dry run and the applied functions ran as each of the four active
+branches' owners under RLS: the Leads total, board, select-all, and export,
+Enquiries by stage, and source enquiries each equal the branch's enquiries,
+and enquiries plus All members equal its contacts. No live customer is
+service-only, so live counts did not change. In a rolled-back run, a
+synthetic service-only customer counted as an enquiry under the old
+functions and in no enquiry read under the new ones, while All members listed
+it. The applied bodies match the file, grants are unchanged, and the security
+advisors show nothing new. The new PostgREST embed resolves on the live API.
+Not yet verified: the deployed Follow-ups, Inbox chip, and automation reads in
+a signed-in session.
+
 ## Built in code — Home queue definitions and simpler Home (2026-09-27)
 
 **Status: built in code; database expand step applied to Production;
@@ -84,10 +126,16 @@ content does not improve task completion.
 - Queue exactness gaps found while building: Follow-ups **See all** pages drop
   Not joining enquiries and converted contacts that Home still counts; Renewals
   inner-joins plans, so legacy no-plan memberships count on Home but not there;
-  the Enquiries page and stage counts still include service-only customers;
   public API sends are stored as staff messages and count as contact attempts.
+- Service customers outside the enquiry reads: the Inbox **Members** chip and
+  Member badge cover membership holders only, so a service-only customer shows
+  under All and in neither chip; Performance → Enquiry sources counts a
+  service-only customer added in the period under Enquiries, not joined.
+  Decide whether a service purchase counts as joining before changing
+  **Joined (%)**.
 - After the app deploys, run the contract migration described above
-  (compatibility fields and the three unused dashboard SQL functions).
+  (compatibility fields, the three unused dashboard SQL functions, and
+  `lead_source_conversion`, which only the previous app calls).
 
 ### Rollout and deferred choices
 

@@ -31,6 +31,7 @@ import {
   type LeadAccountabilityScope,
   type LeadAccountabilityView,
 } from '@/lib/leads/accountability';
+import { onlyEnquiries, selectForEnquiries } from '@/lib/leads/enquiry-scope';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
@@ -240,12 +241,15 @@ async function fetchAllActiveLeads(
 ): Promise<AccountabilityLead[]> {
   const rows: AccountabilityLead[] = [];
   for (let from = 0; ; from += FETCH_BATCH) {
-    const { data, error } = await supabase
-      .from('contacts')
-      .select(
-        'id, name, phone, avatar_url, lead_status, lead_status_changed_at, assigned_to, created_at, memberships!left(id)'
-      )
-      .is('memberships', null)
+    const { data, error } = await onlyEnquiries(
+      supabase
+        .from('contacts')
+        .select(
+          selectForEnquiries(
+            'id, name, phone, avatar_url, lead_status, lead_status_changed_at, assigned_to, created_at'
+          )
+        )
+    )
       .or('lead_status.is.null,lead_status.neq.lost')
       .order('created_at', { ascending: true })
       .range(from, from + FETCH_BATCH - 1);

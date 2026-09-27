@@ -87,7 +87,8 @@ function issueRank(issue: LeadAccountabilityIssue): number {
  * Build one actionable row per active lead. The open follow-up owns the work
  * when one exists; otherwise the lead assignee owns the missing-follow-up
  * exception. "Won" leads are already removed from the lead pool by gaining a
- * membership, while Lost is the only terminal lead status kept in contacts.
+ * membership or a service purchase, while Lost is the only terminal lead
+ * status kept in contacts.
  */
 export function buildLeadAccountabilityRows(
   leads: AccountabilityLead[],

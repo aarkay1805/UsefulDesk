@@ -2,8 +2,8 @@
 
 // Leads — the merged Contacts + Pipelines section. A lead IS a
 // contacts row (no separate entity); contacts that hold a membership
-// are members and live under /members instead, so every query here
-// anti-joins memberships. Two views over the same list:
+// or a service purchase are customers and live under /members instead,
+// so every listing read excludes both. Two views over the same list:
 //   table — the former Contacts table, plus a Status column
 //   board — kanban by lead_status (the former pipeline board's role)
 

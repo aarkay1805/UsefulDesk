@@ -13,6 +13,11 @@ const h = vi.hoisted(() => ({
     roster: [] as { user_id: string }[],
     // Per-teammate lead-load counts (assign_lead least-loaded pick).
     assignedCounts: {} as Record<string, number>,
+    // The head-count queries behind those loads, as issued.
+    leadLoadQueries: [] as {
+      columns: unknown;
+      filters: [string, string, unknown][];
+    }[],
     // When set, follow_ups inserts fail with this error (23505 tests).
     followUpInsertError: null as { code: string; message: string } | null,
     followUpInserts: [] as unknown[],
@@ -37,6 +42,7 @@ vi.mock('./admin-client', () => {
     table: string;
     type: string;
     head?: boolean;
+    columns?: unknown;
     payload?: unknown;
     filters: [string, string, unknown][];
   }) {
@@ -52,6 +58,10 @@ vi.mock('./admin-client', () => {
       }
       // Head-count of one teammate's leads (assign_lead least-loaded).
       if (ops.head) {
+        state.leadLoadQueries.push({
+          columns: ops.columns,
+          filters: ops.filters,
+        });
         const byAgent = ops.filters.find(
           ([op, col]) => op === 'eq' && col === 'assigned_to'
         );
@@ -114,11 +124,13 @@ vi.mock('./admin-client', () => {
       table,
       type: 'select',
       head: false,
+      columns: undefined as unknown,
       payload: undefined as unknown,
       filters: [] as [string, string, unknown][],
     };
     const b: Record<string, unknown> = {
-      select: (_cols?: unknown, opts?: { head?: boolean }) => (
+      select: (cols?: unknown, opts?: { head?: boolean }) => (
+        (ops.columns = cols),
         (ops.head = !!opts?.head),
         b
       ),
@@ -129,7 +141,7 @@ vi.mock('./admin-client', () => {
       eq: (k: string, v: unknown) => (ops.filters.push(['eq', k, v]), b),
       in: (k: string, v: unknown) => (ops.filters.push(['in', k, v]), b),
       gte: () => b,
-      is: () => b,
+      is: (k: string, v: unknown) => (ops.filters.push(['is', k, v]), b),
       order: () => b,
       limit: () => b,
       single: () => Promise.resolve(resolve(ops)),
@@ -167,6 +179,7 @@ beforeEach(() => {
   h.state.leadFieldOptions = [];
   h.state.roster = [];
   h.state.assignedCounts = {};
+  h.state.leadLoadQueries = [];
   h.state.followUpInsertError = null;
   h.state.followUpInserts = [];
   h.state.automations = [];
@@ -714,6 +727,16 @@ describe('assign_lead', () => {
     ).toBe('u-b');
     expect(h.state.fromCalls).toContain('account_memberships');
     expect(h.state.fromCalls).not.toContain('profiles');
+    // Load is open enquiries only: a contact with a membership or a service
+    // purchase is a customer, not lead work.
+    expect(h.state.leadLoadQueries).toHaveLength(2);
+    for (const query of h.state.leadLoadQueries) {
+      expect(query.columns).toBe(
+        'id, memberships!left(id), member_services!left(id)'
+      );
+      expect(query.filters).toContainEqual(['is', 'memberships', null]);
+      expect(query.filters).toContainEqual(['is', 'member_services', null]);
+    }
   });
 
   it('round-robin breaks ties deterministically (first by sorted user_id)', async () => {

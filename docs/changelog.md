@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-09-27 — Enquiry reads exclude service customers (migration applied)
+
+Migration `20260927130000_enquiry_reads_exclude_service_customers.sql`
+(Production connector version `20260927093826`) replaces
+`lead_listing_snapshot`, `lead_funnel_stats`, and
+`lead_source_conversion` in place (same signatures, SECURITY INVOKER, and
+grants): an enquiry has no `memberships` row and no `member_services` row,
+both joined on account and contact exactly as `member_customer_directory`
+admits a customer. The listing gains one `NOT EXISTS` in `filtered_leads`, so
+the table, board, total, quick-filter counts, select-all, and export all
+follow; `lead_source_conversion.members` stays membership-only. Client
+anti-joins use `selectForEnquiries` + `onlyEnquiries`
+(`src/lib/leads/enquiry-scope.ts`): Leads Follow-ups, the Inbox Enquiries chip,
+and least-loaded `assign_lead`. Gotcha: null-filter the embed itself
+(`memberships IS NULL`); the Inbox chip's `memberships.id IS NULL` trimmed only
+the embedded rows and matched every contact. `listing-contract.test.ts` now
+reads the latest listing function and the latest `contact_tags` policies from
+their own migrations. Verified on Production as each active branch's owner
+under RLS, including a rolled-back synthetic service-only customer (roadmap
+has the evidence). Gotcha: 047's `REVOKE ... FROM PUBLIC` never removed
+Supabase's default `anon`/`service_role` EXECUTE on `lead_funnel_stats`;
+harmless under SECURITY INVOKER and RLS, but not authenticated-only like later
+functions.
+
 ## 2026-09-27 — Home queue definitions and simpler Home (built in code; expand migration applied)
 
 Migration `20260927120000_home_queue_definitions.sql` (Production connector

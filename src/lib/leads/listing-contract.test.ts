@@ -19,9 +19,30 @@ function latestMigrationContaining(fragment: string) {
   return readFileSync(join(migrationsDir, name), 'utf8');
 }
 
-const migration = latestMigrationContaining(
-  'CREATE OR REPLACE FUNCTION public.lead_listing_snapshot('
+// The latest function definition and the latest child-table policies live in
+// different migrations, so each contract reads its own. A migration that
+// redefines several functions contributes only this function's statements.
+function listingDefinition(source: string) {
+  const start = source.indexOf(
+    'CREATE OR REPLACE FUNCTION public.lead_listing_snapshot('
+  );
+  const comment = source.indexOf(
+    'COMMENT ON FUNCTION public.lead_listing_snapshot(',
+    start
+  );
+  const end = source.indexOf("';", comment);
+  if (start < 0 || comment < 0 || end < 0) {
+    throw new Error('Incomplete lead_listing_snapshot definition');
+  }
+  return source.slice(start, end + 2);
+}
+
+const migration = listingDefinition(
+  latestMigrationContaining(
+    'CREATE OR REPLACE FUNCTION public.lead_listing_snapshot('
+  )
 );
+const policies = latestMigrationContaining('CREATE POLICY contact_tags_select');
 const page = readFileSync(
   join(process.cwd(), 'src/app/(dashboard)/leads/page.tsx'),
   'utf8'
@@ -87,6 +108,9 @@ describe('lead listing SQL contract', () => {
     expect(migration).toContain('FROM filtered_leads AS filtered');
     expect(migration).toContain('FROM public.memberships AS membership');
     expect(migration).toContain('membership.contact_id = contact.id');
+    // An enquiry has no service purchase either; All members lists those.
+    expect(migration).toContain('FROM public.member_services AS service');
+    expect(migration).toContain('service.contact_id = contact.id');
     expect(migration).toContain("'new' = ANY(v_lead_statuses)");
     expect(migration).toContain('contact.lead_status IS NULL');
     expect(migration).toContain(
@@ -123,16 +147,16 @@ describe('lead listing SQL contract', () => {
   });
 
   it('keeps child-table reads selected-account scoped without broad modify policies', () => {
-    expect(migration).toContain(
+    expect(policies).toContain(
       'SELECT private.authorized_selected_account_id()'
     );
-    expect(migration).toContain('CREATE POLICY contact_tags_insert');
-    expect(migration).toContain('CREATE POLICY contact_tags_update');
-    expect(migration).toContain('CREATE POLICY contact_tags_delete');
-    expect(migration).toContain('CREATE POLICY contact_custom_values_insert');
-    expect(migration).toContain('CREATE POLICY contact_custom_values_update');
-    expect(migration).toContain('CREATE POLICY contact_custom_values_delete');
-    expect(migration).not.toMatch(
+    expect(policies).toContain('CREATE POLICY contact_tags_insert');
+    expect(policies).toContain('CREATE POLICY contact_tags_update');
+    expect(policies).toContain('CREATE POLICY contact_tags_delete');
+    expect(policies).toContain('CREATE POLICY contact_custom_values_insert');
+    expect(policies).toContain('CREATE POLICY contact_custom_values_update');
+    expect(policies).toContain('CREATE POLICY contact_custom_values_delete');
+    expect(policies).not.toMatch(
       /CREATE POLICY contact_(?:tags|custom_values)_modify[\s\S]*?FOR ALL/
     );
   });
