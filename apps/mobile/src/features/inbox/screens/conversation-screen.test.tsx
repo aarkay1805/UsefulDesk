@@ -219,6 +219,16 @@ jest.mock('../template-send-uncertainty', () => ({
   },
 }));
 
+jest.mock('../template-context', () => ({
+  ...jest.requireActual('../template-context'),
+  mobileTemplateContextSource: {
+    loadLegalName: jest
+      .fn()
+      .mockResolvedValue({ ok: true, name: 'Iron House Fitness' }),
+    loadMembership: jest.fn().mockResolvedValue(null),
+  },
+}));
+
 jest.mock('../media-picker', () => ({
   pickConversationMedia: (...args: unknown[]) =>
     mockPickConversationMedia(...args),
@@ -522,6 +532,7 @@ const staticTemplate: NativeTemplate = {
   language: 'en',
   category: 'Utility',
   bodyText: 'The gym opens at 6 AM.',
+  footerText: null,
   headerType: null,
   headerContent: null,
   headerMediaUrl: null,
@@ -531,6 +542,21 @@ const staticTemplate: NativeTemplate = {
   providerMissingSince: null,
   providerComponentsSyncRequiredAt: null,
 };
+
+/** Lets the picker finish loading the member's details inside act(). */
+async function settleTemplatePicker() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+}
+
+async function chooseStaticTemplate() {
+  await settleTemplatePicker();
+  fireEvent.press(
+    await screen.findByTestId(`template-option-${staticTemplate.id}`)
+  );
+  expect(await screen.findByTestId('template-compose')).toBeTruthy();
+}
 
 function readyThreadResult(
   overrides: Partial<UseMessageThreadResult> & {
@@ -984,6 +1010,7 @@ describe('ConversationScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Send attachment' }));
     expect(openThread.sendMedia).not.toHaveBeenCalled();
     expect(await screen.findByText('Choose a template')).toBeTruthy();
+    await settleTemplatePicker();
   });
 
   it('keeps a pending native picker mounted across window closure and releases it after cancellation', async () => {
@@ -1980,6 +2007,7 @@ describe('ConversationScreen', () => {
       await screen.findByRole('button', { name: 'Send a template' })
     );
     expect(screen.getByText('Choose a template')).toBeTruthy();
+    await chooseStaticTemplate();
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
     await waitFor(() => expect(sendConversationMessage).toHaveBeenCalled());
@@ -1993,6 +2021,7 @@ describe('ConversationScreen', () => {
     );
     await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
     expect(screen.queryByText('Choose a template')).toBeNull();
+    expect(screen.queryByTestId('template-compose')).toBeNull();
   });
 
   it('keeps the template picker open when the hook returns an equivalent readiness value on rerender', async () => {
@@ -2018,6 +2047,7 @@ describe('ConversationScreen', () => {
     );
 
     expect(screen.getByText('Choose a template')).toBeTruthy();
+    await settleTemplatePicker();
   });
 
   it('hydrates an ambiguous template outcome after remount and durably clears it only after acknowledgment', async () => {
@@ -2049,12 +2079,13 @@ describe('ConversationScreen', () => {
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send a template' })
     );
+    await chooseStaticTemplate();
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
     expect(
       await screen.findByText(/We cannot tell if it was sent/)
     ).toBeTruthy();
-    fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Check the chat' }));
     view.unmount();
 
     mockTemplateSendUncertaintyStore.hasMarker.mockResolvedValue(true);
@@ -2062,6 +2093,7 @@ describe('ConversationScreen', () => {
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send a template' })
     );
+    await settleTemplatePicker();
 
     expect(
       screen.getByText(
@@ -2070,8 +2102,20 @@ describe('ConversationScreen', () => {
     ).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Send template' })).toBeNull();
 
+    const lockedRow = await screen.findByTestId(
+      `template-option-${staticTemplate.id}`
+    );
+    expect(lockedRow.props.accessibilityState.disabled).toBe(true);
+
     fireEvent.press(screen.getByRole('button', { name: 'I checked the chat' }));
 
+    await waitFor(() =>
+      expect(
+        screen.getByTestId(`template-option-${staticTemplate.id}`).props
+          .accessibilityState.disabled
+      ).toBe(false)
+    );
+    await chooseStaticTemplate();
     expect(
       await screen.findByRole('button', { name: 'Send template' })
     ).toBeTruthy();
@@ -2106,11 +2150,12 @@ describe('ConversationScreen', () => {
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send a template' })
     );
+    await chooseStaticTemplate();
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
 
     expect(await screen.findByText(/Nothing was sent/)).toBeTruthy();
     expect(sendConversationMessage).not.toHaveBeenCalled();
-    fireEvent.press(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Check the chat' }));
     expect(await screen.findByText('Cannot send a template yet')).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: 'Send a template' })
@@ -2142,6 +2187,7 @@ describe('ConversationScreen', () => {
     fireEvent.press(
       await screen.findByRole('button', { name: 'Send a template' })
     );
+    await settleTemplatePicker();
     fireEvent.press(screen.getByRole('button', { name: 'I checked the chat' }));
 
     expect(
@@ -2187,11 +2233,12 @@ describe('ConversationScreen', () => {
       fireEvent.press(
         await screen.findByRole('button', { name: 'Send a template' })
       );
+      await chooseStaticTemplate();
       fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
       expect(
         await screen.findByText(/We cannot tell if it was sent/)
       ).toBeTruthy();
-      fireEvent.press(screen.getByRole('button', { name: 'Close' }));
+      fireEvent.press(screen.getByRole('button', { name: 'Check the chat' }));
 
       mockUseLocalSearchParams.mockReturnValue({
         conversationId: nextConversationId,
@@ -2201,6 +2248,7 @@ describe('ConversationScreen', () => {
       fireEvent.press(
         await screen.findByRole('button', { name: 'Send a template' })
       );
+      await chooseStaticTemplate();
 
       expect(
         screen.getByRole('button', { name: 'Send template' })

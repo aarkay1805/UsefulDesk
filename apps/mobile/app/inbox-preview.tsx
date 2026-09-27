@@ -12,6 +12,7 @@ import {
 } from '../src/ui';
 import { Notice } from '../src/ui/notice';
 import { ClosedWindowBar } from '../src/features/inbox/components/closed-window-bar';
+import { TemplatePicker } from '../src/features/inbox/components/template-picker';
 import { ConversationRow } from '../src/features/inbox/components/conversation-row';
 import { MessageBubble } from '../src/features/inbox/components/message-bubble';
 import {
@@ -23,7 +24,9 @@ import type {
   InboxConversation,
   InboxMessage,
   MessageStatus,
+  NativeTemplate,
 } from '../src/features/inbox/inbox-types';
+import type { TemplateContextSource } from '../src/features/inbox/template-context';
 import type { AccountSummary } from '../src/features/auth/branch-types';
 
 // Dev-only visual harness for the inbox row timestamp, the thread date
@@ -174,6 +177,91 @@ const THREAD: InboxMessage[] = [
   msg('m8', 'agent', 'Sending now…', ago(60_000), 'sending'),
 ];
 
+function template(
+  name: string,
+  category: NativeTemplate['category'],
+  bodyText: string,
+  extra: Partial<NativeTemplate> = {}
+): NativeTemplate {
+  return {
+    id: `preview-${name}`,
+    name,
+    language: 'en_US',
+    category,
+    bodyText,
+    footerText: null,
+    headerType: null,
+    headerContent: null,
+    headerMediaUrl: null,
+    buttons: [],
+    status: 'APPROVED',
+    parameterFormat: 'POSITIONAL',
+    providerMissingSince: null,
+    providerComponentsSyncRequiredAt: null,
+    ...extra,
+  };
+}
+
+// The approved copy a connected branch actually holds, plus one custom
+// template with a title, a link button and a code button.
+const TEMPLATES: NativeTemplate[] = [
+  template(
+    'gym_membership_renewal',
+    'Marketing',
+    'Hi {{1}}, your {{2}} membership ends on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.',
+    { buttons: [{ type: 'QUICK_REPLY', text: 'Help me renew' }] }
+  ),
+  template(
+    'gym_membership_post_expiry',
+    'Marketing',
+    'Hi {{1}}, your {{2}} membership ended on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.',
+    {
+      footerText: 'Tap Unsubscribe to stop promotional messages.',
+      buttons: [
+        { type: 'QUICK_REPLY', text: 'Help me renew' },
+        { type: 'QUICK_REPLY', text: 'Unsubscribe' },
+      ],
+    }
+  ),
+  template(
+    'gym_installment_reminder',
+    'Utility',
+    'Hi {{1}}, your remaining installment of {{2}} for your {{3}} membership is due on {{4}}. Reply to {{5}} for payment help.'
+  ),
+  template(
+    'gym_payment_confirmation',
+    'Utility',
+    'Hi {{1}}, we received {{2}} for invoice {{3}}. Reply to {{4}} if anything looks incorrect. Thank you.'
+  ),
+  template(
+    'gym_extended_absence',
+    'Marketing',
+    "Hi {{1}}, it's been a little while since we've seen you at {{2}}, so we wanted to check in. Hope you're doing okay. We'd love to see you again whenever you're ready."
+  ),
+  template(
+    'gym_diwali_offer',
+    'Marketing',
+    'Hi {{1}}, get {{2}} off any plan this Diwali. Offer ends {{3}}.',
+    {
+      headerType: 'text',
+      headerContent: 'Diwali at {{1}}',
+      buttons: [
+        { type: 'URL', text: 'See plans', url: 'https://gym.example/{{1}}' },
+        { type: 'COPY_CODE', text: 'Copy code', example: 'DIWALI20' },
+      ],
+    }
+  ),
+];
+
+const TEMPLATE_CONTEXT: TemplateContextSource = {
+  loadLegalName: async () => ({ ok: true, name: 'Iron House Fitness Pvt Ltd' }),
+  loadMembership: async () => ({
+    end_date: '2026-10-04',
+    fee_amount: 4500,
+    plan: { name: 'Gold 3 months' },
+  }),
+};
+
 function Label({ children }: { children: string }) {
   return (
     <Text className="text-muted px-4 pt-6 pb-2 text-xs font-semibold uppercase">
@@ -190,6 +278,7 @@ const FILTERS: readonly FilterMenuOption<'all' | 'unread'>[] = [
 export default function InboxPreview() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   if (!__DEV__) return <Redirect href="/" />;
 
@@ -265,7 +354,7 @@ export default function InboxPreview() {
            * inbound message is over 24 hours old, which is why it lives here.
            */}
           <Label>Closed reply window</Label>
-          <ClosedWindowBar onOpenTemplates={() => {}} />
+          <ClosedWindowBar onOpenTemplates={() => setTemplatesOpen(true)} />
 
           {/*
            * The `Notice` emphasis axis, which is the choice a call site
@@ -303,6 +392,31 @@ export default function InboxPreview() {
           </View>
         </ScrollView>
       </ScreenSafeAreaView>
+      {/*
+       * The picker against fixed templates and member details. Its send is
+       * refused before the network, because no branch is selected here.
+       */}
+      {templatesOpen ? (
+        <TemplatePicker
+          accountId={ACCOUNT.id}
+          contextSource={TEMPLATE_CONTEXT}
+          conversationId="preview"
+          formatters={fmt}
+          onAttemptStarted={async () => {}}
+          onClose={() => setTemplatesOpen(false)}
+          onOutcomeAcknowledged={async () => {}}
+          onOutcomeConfirmed={async () => {}}
+          onSent={() => {}}
+          outcomeUnknown={false}
+          recipient={{
+            contactId: 'preview-contact',
+            displayName: 'Rahul Sharma',
+            name: 'Rahul Sharma',
+          }}
+          recoverUnauthorizedSession={async () => {}}
+          templates={TEMPLATES}
+        />
+      ) : null}
     </ScreenSafeAreaView>
   );
 }

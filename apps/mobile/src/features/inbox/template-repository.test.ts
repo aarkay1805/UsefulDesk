@@ -17,6 +17,7 @@ function rawTemplate(overrides: Record<string, unknown> = {}) {
     language: 'en_US',
     category: 'Utility',
     body_text: 'Hello there.',
+    footer_text: null,
     header_type: null,
     header_content: null,
     header_media_url: null,
@@ -97,38 +98,86 @@ describe('TemplateRepository', () => {
     ]);
   });
 
-  it('rejects malformed, cross-branch, and non-positional templates', async () => {
-    const cases = [
-      rawTemplate({ account_id: OTHER_BRANCH_ID }),
+  it('skips each template this app cannot send and keeps the rest', async () => {
+    const valid = rawTemplate({
+      id: '9b52d03c-9d8c-4cf4-b8c6-a10b9b233571',
+      name: 'zz_valid',
+    });
+    const unsendable = [
       rawTemplate({ parameter_format: 'NAMED' }),
       rawTemplate({ header_content: 'Hello {{1}}' }),
       rawTemplate({ header_media_url: 'https://x.test/a.jpg' }),
       rawTemplate({ buttons: [{ type: 'URL', text: 'Broken' }] }),
+      rawTemplate({ buttons: [{ type: 'FLOW', text: 'Book' }] }),
+      rawTemplate({ footer_text: 42 }),
+      rawTemplate({ body_text: 'Hi {{2}}' }),
+      rawTemplate({
+        header_type: 'image',
+        header_media_url: 'https://x.test/a.jpg',
+      }),
+      rawTemplate({
+        name: 'gym_invoice_document',
+        header_type: 'document',
+        header_media_url: 'https://x.test/a.pdf',
+      }),
+      // A payment link needs a live Razorpay link the phone cannot supply.
+      rawTemplate({
+        name: 'gym_payment_link',
+        body_text: 'Hi {{1}}, {{2}} is due for invoice {{3}}.',
+      }),
+    ];
+
+    for (const row of unsendable) {
+      const querySource = source();
+      querySource.listTemplates = jest.fn().mockResolvedValue([row, valid]);
+      await expect(
+        createTemplateRepository(querySource).listSendableTemplates(BRANCH_ID)
+      ).resolves.toEqual([expect.objectContaining({ name: 'zz_valid' })]);
+    }
+  });
+
+  it('keeps the approved footer customers will read', async () => {
+    const querySource = source();
+    querySource.listTemplates = jest
+      .fn()
+      .mockResolvedValue([
+        rawTemplate({ footer_text: '  Tap Unsubscribe to stop offers.  ' }),
+      ]);
+
+    await expect(
+      createTemplateRepository(querySource).listSendableTemplates(BRANCH_ID)
+    ).resolves.toMatchObject([
+      { footerText: 'Tap Unsubscribe to stop offers.' },
+    ]);
+  });
+
+  it('fails the whole list when a row has no identity or belongs to another branch', async () => {
+    const cases = [
+      rawTemplate({ account_id: OTHER_BRANCH_ID }),
+      rawTemplate({ id: 'not-a-uuid' }),
+      null,
     ];
 
     for (const row of cases) {
       const querySource = source();
-      querySource.listTemplates = jest.fn().mockResolvedValue([row]);
+      querySource.listTemplates = jest
+        .fn()
+        .mockResolvedValue([rawTemplate({ name: 'valid' }), row]);
       await expect(
         createTemplateRepository(querySource).listSendableTemplates(BRANCH_ID)
       ).rejects.toThrow('Could not load sendable templates');
     }
   });
 
-  it('reports that a media-header template is unavailable in this stage', async () => {
+  it('fails the whole list when the read itself fails', async () => {
     const querySource = source();
-    querySource.listTemplates = jest.fn().mockResolvedValue([
-      rawTemplate({
-        header_type: 'image',
-        header_media_url: 'https://x.test/a.jpg',
-      }),
-    ]);
+    querySource.listTemplates = jest
+      .fn()
+      .mockRejectedValue(new Error('network'));
 
     await expect(
       createTemplateRepository(querySource).listSendableTemplates(BRANCH_ID)
-    ).rejects.toThrow(
-      'Templates with media headers are not supported on mobile.'
-    );
+    ).rejects.toThrow('Could not load sendable templates');
   });
 
   it('describes absent, disconnected, and connected WhatsApp states for the selected branch', async () => {
@@ -181,6 +230,7 @@ describe('TemplateRepository', () => {
         language: 'en_US',
         category: 'Utility',
         bodyText: 'Hello there.',
+        footerText: null,
         headerType: null,
         headerContent: null,
         headerMediaUrl: null,
@@ -201,6 +251,7 @@ describe('TemplateRepository', () => {
         language: 'en_US',
         category: 'Utility',
         bodyText: 'Hi {{2}}, your order {{1}} is ready.',
+        footerText: null,
         headerType: 'text',
         headerContent: 'Hello {{1}}',
         headerMediaUrl: null,

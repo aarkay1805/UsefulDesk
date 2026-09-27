@@ -10,16 +10,21 @@ import Svg, { Path } from 'react-native-svg';
  * rather than reaching for `SymbolView` at a call site.
  */
 export const ANDROID_SYMBOL = {
+  'arrow.up.right.square': 'open_in_new',
+  'arrowshape.turn.up.left': 'reply',
   'chevron.down': 'expand_more',
   'chevron.left': 'arrow_back',
+  'chevron.right': 'chevron_right',
   clock: 'schedule',
   doc: 'description',
+  'doc.on.doc': 'content_copy',
   'exclamationmark.triangle': 'warning',
   paperclip: 'attach_file',
   'play.fill': 'play_arrow',
   'pause.fill': 'pause',
   'arrow.up.left.and.arrow.down.right': 'open_in_full',
   'person.crop.circle': 'account_circle',
+  phone: 'call',
   photo: 'image',
   video: 'videocam',
   waveform: 'graphic_eq',

@@ -90,6 +90,7 @@ export interface NativeTemplate {
   language: string;
   category: 'Marketing' | 'Utility';
   bodyText: string;
+  footerText: string | null;
   headerType: 'text' | null;
   headerContent: string | null;
   headerMediaUrl: null;

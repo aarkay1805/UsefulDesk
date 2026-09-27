@@ -1,5 +1,15 @@
 # Roadmap
 
+## Built in code — Phone app template sending (2026-09-26)
+
+In a closed chat, the phone app offers a searchable list of approved templates
+with readable names and member-specific previews. It then shows a chat-bubble
+preview with labelled details and a round send button. Member name, membership
+plan, end date, renewal price, and the gym's legal name fill automatically.
+One unsupported template no longer blocks all template sending. Payment links
+stay on invoices. Next: templates from the attach menu in an open chat, and
+service and invoice prefill on the phone. Mobile release is pending.
+
 ## Built in code — All members filters and table recovery (2026-09-26)
 
 All members filters the displayed Expiry by Today, the next 7 or 30 account-local

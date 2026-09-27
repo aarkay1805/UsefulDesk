@@ -1,4 +1,4 @@
-import type { AccountRole } from '@/lib/auth/roles';
+import type { AccountRole } from '../lib/auth/roles';
 
 export interface Profile {
   id: string;

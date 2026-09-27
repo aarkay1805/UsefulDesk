@@ -6,6 +6,35 @@
 
 ---
 
+## 2026-09-26 — Phone app template sending rebuilt (built in code)
+
+Sending an approved template from a closed chat in `apps/mobile` is now a
+two-step full-screen flow. First, a searchable list shows readable names and a
+preview written for this member. Then an outgoing-bubble preview shows labelled,
+prefilled details and a round send button. Benchmarked against WhatsApp Business
+quick replies, DoubleTick, Gallabox, WATI, and respond.io in
+`docs/mobile/template-send-benchmark.md`.
+
+Fixed: one media-header, malformed, or unsupported approved template made
+`listSendableTemplates` throw for the whole branch, blocking every chat past 24
+hours. Rows now fail closed individually. A failed read or a row from another
+branch still fails the list. The `Templates with media headers…` constant is
+gone. `gym_payment_link` is hidden on mobile: it needs a live Razorpay link and
+send evidence. A missing legal name is caught before send. It no longer becomes
+an unknown outcome that locks the chat.
+
+Key code: `template-presentation.ts` (contract labels/prefill/search),
+`template-context.ts` (legal name + membership, 8s timeout),
+`components/template-picker.tsx`, `components/template-message-preview.tsx`.
+Mobile imports `src/lib/whatsapp/template-contracts.ts` directly.
+`template-validators.ts` and `src/types/index.ts` use relative imports
+because mobile's `@/` alias points at `apps/mobile/src`. Keep them relative.
+Contract labels apply only when the approved body has the contract's variable
+count. Older approved copies keep "Message detail N". The picker's
+unknown-outcome lock is unchanged; the picker takes
+`recoverUnauthorizedSession` as a prop. `app/inbox-preview.tsx` opens it with
+fixtures.
+
 ## 2026-09-26 — All members filters and recovery (built in code)
 
 All members now filters the displayed expiry, including service-only dates,

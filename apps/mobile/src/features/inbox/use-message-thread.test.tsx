@@ -92,6 +92,7 @@ const sendableTemplate: NativeTemplate = {
   language: 'en',
   category: 'Utility',
   bodyText: 'The gym opens at 6 AM.',
+  footerText: null,
   headerType: null,
   headerContent: null,
   headerMediaUrl: null,

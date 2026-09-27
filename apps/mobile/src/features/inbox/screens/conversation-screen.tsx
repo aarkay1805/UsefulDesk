@@ -950,14 +950,20 @@ function ConversationThread({
       {templatePickerOpen ? (
         <TemplatePicker
           accountId={accountId}
-          blocker={null}
           conversationId={conversationId}
+          formatters={fmt}
           onAttemptStarted={markTemplateAttempt}
           onClose={() => setTemplatePickerFeed(null)}
           onOutcomeAcknowledged={clearTemplateAttempt}
           onOutcomeConfirmed={clearTemplateAttempt}
           onSent={thread.refresh}
           outcomeUnknown={templateSendSafety !== 'clear'}
+          recoverUnauthorizedSession={recoverUnauthorizedSession}
+          recipient={{
+            contactId: readyConversation.contactId,
+            displayName: title,
+            name: readyConversation.contact.name,
+          }}
           templates={thread.sendReadiness.templates}
         />
       ) : null}

@@ -1,3 +1,4 @@
+import { getTemplateContract } from '../../../../../src/lib/whatsapp/template-contracts';
 import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
 import { isStrictIsoTimestamp } from './inbox-normalizers';
 import type {
@@ -20,6 +21,7 @@ const TEMPLATE_SELECT = `
   language,
   category,
   body_text,
+  footer_text,
   header_type,
   header_content,
   header_media_url,
@@ -42,8 +44,17 @@ export interface TemplateRepository {
   ): Promise<ConnectionReadiness>;
 }
 
+/**
+ * Templates whose values only the system can supply. A payment link needs a
+ * live Razorpay link and records send evidence against it; nobody can type
+ * that on a phone, so these are sent from the invoice screens instead.
+ */
+const SYSTEM_FILLED_TEMPLATE_CONTRACTS = new Set(['payment_link']);
+
+class UnsendableTemplateError extends Error {}
+
 const invalidTemplate = (): never => {
-  throw new Error(TEMPLATE_LOAD_ERROR);
+  throw new UnsendableTemplateError(TEMPLATE_LOAD_ERROR);
 };
 
 const object = (value: unknown): Record<string, unknown> | null =>
@@ -137,7 +148,9 @@ function parseNativeTemplate(
     template.account_id !== accountId ||
     !isUuid(template.account_id)
   ) {
-    return invalidTemplate();
+    // A row without identity, or from another branch, means the read itself
+    // is wrong. That fails the whole list rather than one template.
+    throw new Error(TEMPLATE_LOAD_ERROR);
   }
 
   if (template.category === 'Authentication') return null;
@@ -157,6 +170,7 @@ function parseNativeTemplate(
     template.provider_missing_since !== null ||
     template.provider_components_sync_required_at !== null ||
     !nullableString(template.header_content) ||
+    !nullableString(template.footer_text) ||
     !nullableString(template.header_media_url) ||
     (template.header_type === null &&
       (template.header_content !== null || template.header_media_url !== null))
@@ -165,9 +179,14 @@ function parseNativeTemplate(
   }
 
   if (template.header_type !== null && template.header_type !== 'text') {
-    throw new Error(
-      'Templates with media headers are not supported on mobile.'
-    );
+    return invalidTemplate();
+  }
+  if (
+    SYSTEM_FILLED_TEMPLATE_CONTRACTS.has(
+      getTemplateContract(template.name)?.id ?? ''
+    )
+  ) {
+    return invalidTemplate();
   }
   if (
     template.header_type === 'text' &&
@@ -192,6 +211,7 @@ function parseNativeTemplate(
     language: template.language,
     category: template.category as NativeTemplate['category'],
     bodyText: template.body_text,
+    footerText: template.footer_text?.trim() || null,
     headerType: template.header_type,
     headerContent: template.header_content,
     headerMediaUrl: null,
@@ -280,25 +300,28 @@ export function createTemplateRepository(
 ): TemplateRepository {
   return {
     async listSendableTemplates(accountId) {
+      let rows: unknown[];
       try {
-        const rows = await source.listTemplates(accountId);
-        if (!Array.isArray(rows)) throw new Error(TEMPLATE_LOAD_ERROR);
-        return rows
-          .flatMap((row) => {
-            const template = parseNativeTemplate(row, accountId);
-            return template ? [template] : [];
-          })
-          .sort((left, right) => left.name.localeCompare(right.name));
-      } catch (error) {
-        if (
-          error instanceof Error &&
-          error.message ===
-            'Templates with media headers are not supported on mobile.'
-        ) {
-          throw error;
-        }
+        rows = await source.listTemplates(accountId);
+      } catch {
         throw new Error(TEMPLATE_LOAD_ERROR);
       }
+      if (!Array.isArray(rows)) throw new Error(TEMPLATE_LOAD_ERROR);
+      // Each row fails closed on its own. One template this app cannot send —
+      // a media header, a system-filled payment link, a malformed row — used
+      // to throw for the whole list, which left every chat past 24 hours with
+      // nothing to send at all.
+      return rows
+        .flatMap((row) => {
+          try {
+            const template = parseNativeTemplate(row, accountId);
+            return template ? [template] : [];
+          } catch (error) {
+            if (error instanceof UnsendableTemplateError) return [];
+            throw new Error(TEMPLATE_LOAD_ERROR);
+          }
+        })
+        .sort((left, right) => left.name.localeCompare(right.name));
     },
 
     async getWhatsAppConnectionReadiness(accountId) {
