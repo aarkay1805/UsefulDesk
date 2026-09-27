@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { Image } from 'expo-image';
 import { Linking, View } from 'react-native';
 import { router } from 'expo-router';
@@ -26,12 +26,14 @@ const MEDIA_LABEL: Record<
 interface MessageContentProps {
   message: InboxMessage;
   imageSize?: { height: number; width: number };
+  onTextLayout?: ComponentProps<typeof Text>['onTextLayout'];
   trailingMeta?: ReactNode;
 }
 
 export function MessageContent({
   message,
   imageSize = { height: 180, width: 240 },
+  onTextLayout,
   trailingMeta,
 }: MessageContentProps) {
   const [imageUnavailable, setImageUnavailable] = useState(false);
@@ -50,7 +52,11 @@ export function MessageContent({
     message.contentType === 'interactive'
   ) {
     return (
-      <Text className="text-foreground text-base" testID="message-text-content">
+      <Text
+        className="text-foreground text-base"
+        onTextLayout={onTextLayout}
+        testID="message-text-content"
+      >
         {caption ?? messagePreview(message)}
         {trailingMeta ? <> {trailingMeta}</> : null}
       </Text>

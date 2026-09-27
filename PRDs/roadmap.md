@@ -1,5 +1,161 @@
 # Roadmap
 
+## Built in code — Mobile UI audit repairs (2026-09-27)
+
+**Status: all three repair batches are built in code on main; native acceptance and release remain pending.** The physical iPhone
+development client exposed template safe-area/navigation failures, ambiguous
+legacy template fields, dark-mode navigation drift, and chat-list/readability
+issues. Evidence, source pointers, and coverage limits:
+[native mobile UI audit](../docs/mobile/ui-audit-2026-09-27.md).
+Finding IDs below refer to that report. P1 blocks or impairs important work;
+P2 degrades daily use; P3 is polish. This does not replace the existing release
+acceptance record or claim Android/large-text acceptance.
+
+**Implemented:** Batch 1 gives each native modal its own safe-area reference,
+compares known approved templates with the exact send contract, explains older
+formats without guessing their fields, keeps usable siblings, and focuses the
+first missing editable detail. Batch 2 bounds ordinary chat previews, adds
+distinct empty-state recovery, shows the active branch on Chats, and explains
+view-only and send-readiness states. Deeper chat and template screens retain
+recipient-focused headers. Batch 3
+shares native navigation colors/status-bar appearance, keeps delivery time and
+tick together, uses the native accent for quotes, and stacks App details values.
+The original implementation and acceptance checklist remains below.
+
+**Verified so far:** `npm run mobile:verify` passed (75 suites, 833 tests), as
+did the shared template contract/readiness tests (47 tests). On the physical
+notched iPhone development client with current JS, the template list and editor
+cleared system UI; Back → list → Close, incompatible-template explanation,
+compatible-template validation focus, Chats home branch, two-line chat preview,
+no-unread recovery, complete Supabase host, blue reply-quote bars, and adjacent
+time/read ticks were seen. Account/App details chrome was coherent in dark and
+light mode. At the largest standard Text Size, chat rows, quotes, template
+headers, previews, and editor fields remained visible with the keyboard closed.
+No customer send was used for validation.
+
+**Still to accept on devices:** the final home-only branch placement after the
+refinement, software-keyboard reachability and first-tap search navigation,
+largest accessibility text sizes, VoiceOver/TalkBack and 48pt targets, Android
+Back, Photo and transition animation, scrolling older
+messages, and controlled offline/reconnect, viewer/read-only, and uncertain-send
+states. The mirrored iPhone did not show its software keyboard. A current
+simulator development client built and installed with ExpoAudio, but this host
+has no Simulator GUI to inspect it; no Android device/emulator is connected.
+No new internal build or store release has been published.
+
+### Implementation order
+
+**Batch 1 — Make template review and exit reliable (F01–F02, P1, medium).**
+
+1. Reproduce the modal inset defect on build 2/current JS with measured top and
+   bottom insets. Repair `components/template-picker.tsx` at its native Modal
+   boundary, starting with a local `SafeAreaProvider` around the existing
+   `ScreenSafeAreaView` if measurements confirm the missing reference point.
+   Keep providers outside animated/scrolling children. Do not hard-code notch
+   dimensions or globally add padding to every screen. Inspect
+   `components/message-action-sheet.tsx` for the same modal-boundary risk.
+2. Give known-contract/approved-format mismatches an explicit readiness and
+   presentation result in `template-presentation.ts` and
+   `template-repository.ts`; render a clear update explanation in the picker.
+   A known incompatible template must not masquerade as a correctly prefilled
+   built-in template. Preserve usable siblings, exact approved contracts,
+   permissions, and uncertain-send locks. Define unknown/custom-template manual
+   entry separately; never guess a variable's meaning from its position.
+   Reuse the existing server contract validator where applicable, and verify
+   mobile presentation agrees with send validation without weakening either.
+3. Preserve selection/edits while fixing the shell. On validation failure,
+   focus/scroll to the first missing editable field; keep a readable reason near
+   the send bar. Do not send to test validation: use the existing local preview
+   or mocked transport. The recipient must remain visible in list and editor.
+
+**Acceptance:** on a notched iPhone, list/editor title, recipient, Back/Close, and
+Send clear system UI; Back → list → Close works without restarting; the last
+field remains reachable with the software keyboard. Repeat in light/dark and at
+largest supported accessibility text size, plus Android system Back. Component
+tests cover current versus older contract shapes, usable sibling templates,
+loading/missing context, field validation, and unknown-outcome locks. A unit test
+with zero mocked safe-area insets is not visual acceptance.
+
+**Batch 2 — Make the chat queue easy to scan and understand (F04–F06/F09,
+P2, medium).** Can be developed independently after the evidence fixture is ready.
+
+1. In `components/conversation-row.tsx`, bound ordinary-size previews to two
+   lines and preserve a deliberate reflow layout for accessibility text sizes.
+   Keep content-driven row height, full accessible context, and legible time/
+   unread indicators. Do not undo the earlier Dynamic Type measurement repair.
+2. In `screens/inbox-screen.tsx`, derive empty copy/action from query and filter:
+   true empty branch → **No chats yet**; no unread → **No unread chats** +
+   **Show all chats**; no search match → **No chats match** + **Clear search**.
+   Use existing `EmptyState`/`Button`, `SearchField`, and `FilterMenu` masters.
+   Keep the existing compact filter placement. Verify tapping a result while
+   search is focused opens it on the first tap; set list keyboard behavior only
+   if native testing confirms the default consumes that tap.
+3. Show active-branch context in `components/inbox-header.tsx`. Reuse Account
+   for switching, with clear current-branch text and a matching accessible
+   label. Keep conversation/template headers focused on the recipient. No new
+   picker. Keep the old branch's content cleared during switching; long names
+   must reflow.
+4. In `screens/conversation-screen.tsx`, explain viewer/read-only and readiness
+   states through existing `Notice`/loading treatments. Do not change capability
+   predicates or instantiate outbound dependencies for viewers.
+
+**Acceptance:** fixtures with 1/2/20 chats, multiline previews, long names,
+unread counts, empty branch, no unread, query misses, query+Unread, network error,
+and branch switch. Tests assert correct recovery behavior and role gates; native
+inspection covers row rhythm and large-text reflow. The active branch is
+identifiable from Chats before opening a conversation.
+
+**Batch 3 — Align native chrome and message details (F03/F07–F08/F10,
+P2/P3, small-to-medium).**
+
+1. In `app/(app)/_layout.tsx` / `src/core/mobile-app-providers.tsx`, map navigation
+   colors and status-bar appearance to the live native theme. Cover Account,
+   App details, Photo, push/pop transitions, and returning to custom chat chrome.
+   Prefer one shared mapping; reconcile Photo's existing header override.
+2. In `components/message-bubble.tsx` and `delivery-tick.tsx`, keep timestamp and
+   delivery glyph in an indivisible metadata unit. Keep inline placement when
+   it fits and move the complete unit together when it does not. Preserve the
+   separate failed state, fixed blue read signal, and VoiceOver announcements.
+3. In `components/reply-quote.tsx`, replace the unavailable web `primary` border
+   token with the existing native semantic accent token. Verify persisted and
+   staged quotes in both modes. No new palette or per-call-site styling.
+4. In `foundation/diagnostics-screen.tsx`, allow long connection values to stack
+   below labels at constrained widths. Keep complete hosts and exclude secrets.
+
+**Acceptance:** no white header/transition flash on dark screens; no detached
+delivery tick across short/long text, template, interactive, failed, and
+large-type message cases; quote bar visible in both modes; long support values
+read naturally at narrow widths. Use visual checks for color/wrapping and
+focused tests only for state/announcement behavior.
+
+### Shared-component and release gates
+
+- Feature code continues to use `apps/mobile/src/ui`. No new master is required
+  by this plan. If implementation proves an existing master must change, first
+  warn with its actual call-site list. In particular, do not globally rewrite
+  `ScreenSafeAreaView`, `Text`, `IconButton`, or `Notice` to solve one screen.
+- Build a current simulator development client before using it for acceptance:
+  the installed build 1 cannot load current `ExpoAudio`. Extend existing dev-only
+  fixtures for missing states and keep transport disabled; do not expose preview
+  routes or fixtures in production. Do not create real customer data for coverage.
+- Run `npm run mobile:verify` after implementation; run relevant shared
+  template-contract tests if shared validation changes. Then perform physical
+  iPhone acceptance and an Android device/emulator pass with software keyboards,
+  dark/light, normal/max text, VoiceOver/TalkBack, 48pt targets, scrolling older
+  messages, and safe back navigation. Record untested states explicitly.
+- Exercise offline → reconnect, loading/error/retry, viewer and read-only branch,
+  and uncertain-send flows with controlled fixtures. Visual acceptance does not
+  authorize a provider send. Keep branch isolation and no-duplicate-send behavior.
+- Each completed batch updates this status and `docs/changelog.md`, replacing
+  pending claims only with observed outcomes. Publish a new internal build only
+  after native acceptance; shipping/release remains a separate step.
+
+**Outside these batches:** new chat tabs/calling, an offline send queue, persistent
+drafts, service/invoice prefill, and open-window template entry. The last two are
+already pending below. Draft retention, one-line identity truncation, notification
+pending feedback, and the development-client launcher icon remain validation
+candidates from the audit, not confirmed release bugs.
+
 ## Built in code — Phone app template sending (2026-09-26)
 
 In a closed chat, the phone app offers a searchable list of approved templates

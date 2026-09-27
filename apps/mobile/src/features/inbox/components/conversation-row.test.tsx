@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
+import { Dimensions } from 'react-native';
 
 import { conversation } from '../inbox-test-fixtures';
 import { ConversationRow } from './conversation-row';
@@ -32,6 +33,24 @@ jest.mock('heroui-native', () => {
 });
 
 describe('ConversationRow', () => {
+  const initialWindow = Dimensions.get('window');
+  const initialScreen = Dimensions.get('screen');
+
+  beforeEach(() => {
+    act(() => {
+      Dimensions.set({
+        window: { ...initialWindow, fontScale: 1 },
+        screen: { ...initialScreen, fontScale: 1 },
+      });
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      Dimensions.set({ window: initialWindow, screen: initialScreen });
+    });
+  });
+
   it('renders a scannable row with formatted identity, preview, time, and unread count', () => {
     render(
       <ConversationRow
@@ -49,20 +68,20 @@ describe('ConversationRow', () => {
     expect(screen.queryByText('+919876543210')).toBeNull();
     expect(
       screen.getByRole('button', {
-        name: 'Open chat with Asha Rao, 3 unread messages',
+        name: 'Open chat with Asha Rao, Your membership expires tomorrow, 1:30 pm, 3 unread messages',
       })
     ).toBeTruthy();
     expect(screen.getByText('Asha Rao').props.numberOfLines).toBeUndefined();
     expect(
       screen.getByText('Your membership expires tomorrow').props.numberOfLines
-    ).toBeUndefined();
+    ).toBe(2);
     expect(screen.getByTestId('conversation-row-metadata')).toBeTruthy();
     expect(screen.getByText('1:30 pm').props.className).toContain(
       'text-accent'
     );
     expect(
       screen.getByRole('button', {
-        name: 'Open chat with Asha Rao, 3 unread messages',
+        name: 'Open chat with Asha Rao, Your membership expires tomorrow, 1:30 pm, 3 unread messages',
       }).props.className
     ).not.toContain('bg-accent-soft');
   });
@@ -88,9 +107,44 @@ describe('ConversationRow', () => {
     expect(screen.getByText('+91 98765 43210')).toBeTruthy();
     expect(
       screen.getByRole('button', {
-        name: 'Open chat with +91 98765 43210',
+        name: 'Open chat with +91 98765 43210, Your membership expires tomorrow, 1:30 pm',
       })
     ).toBeTruthy();
     expect(screen.queryByLabelText(/unread message/)).toBeNull();
+  });
+
+  it('keeps the complete preview accessible while large text can reflow', () => {
+    const preview =
+      'Your membership expires tomorrow. Please visit the desk before the evening class to renew your plan.';
+
+    render(
+      <ConversationRow
+        conversation={conversation({
+          lastMessageText: preview,
+          unreadCount: 20,
+        })}
+        formattedPhone="+91 98765 43210"
+        formattedTime="Yesterday"
+        onPress={jest.fn()}
+      />
+    );
+
+    expect(screen.getByText(preview).props.numberOfLines).toBe(2);
+    expect(
+      screen.getByRole('button', {
+        name: `Open chat with Asha Rao, ${preview}, Yesterday, 20 unread messages`,
+      })
+    ).toBeTruthy();
+
+    act(() => {
+      Dimensions.set({
+        window: { ...initialWindow, fontScale: 2.643 },
+        screen: { ...initialScreen, fontScale: 2.643 },
+      });
+    });
+
+    expect(screen.getByText(preview).props.numberOfLines).toBeUndefined();
+    expect(screen.getByText('20')).toBeTruthy();
+    expect(screen.getByText('Yesterday')).toBeTruthy();
   });
 });

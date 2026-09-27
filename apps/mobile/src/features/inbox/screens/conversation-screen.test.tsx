@@ -39,6 +39,12 @@ import {
   shouldFollowLatest,
   shouldLoadOlder,
 } from './conversation-screen';
+
+jest.mock('react-native-safe-area-context', () => ({
+  ...jest.requireActual('react-native-safe-area-context'),
+  SafeAreaProvider: jest.requireActual('react-native').View,
+}));
+
 jest.mock('../components/media-playback', () => ({
   AudioAttachment: () => null,
   VideoAttachment: () => null,
@@ -1257,6 +1263,7 @@ describe('ConversationScreen', () => {
     expect(screen.getByTestId('conversation-header-identity')).toBeTruthy();
     expect(screen.getAllByText('Asha Rao')).not.toHaveLength(0);
     expect(screen.getByText('+919876543210')).toBeTruthy();
+    expect(screen.queryByText('Branch: Indiranagar')).toBeNull();
     expect(screen.getByText('1 Sept 2026')).toBeTruthy();
     expect(screen.getByTestId('conversation-date-separator')).toBeTruthy();
     expect(
@@ -1384,6 +1391,8 @@ describe('ConversationScreen', () => {
       screen.queryByRole('button', { name: 'Send failed message again' })
     ).toBeNull();
     expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
+    expect(screen.getByText('View only')).toBeTruthy();
+    expect(screen.getByTestId('conversation-view-only')).toBeTruthy();
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: 'viewer', outbound: undefined })
     );
@@ -1421,6 +1430,8 @@ describe('ConversationScreen', () => {
       screen.queryByRole('button', { name: 'Send failed message again' })
     ).toBeNull();
     expect(screen.queryByTestId('conversation-action-blocker')).toBeNull();
+    expect(screen.getByText('This branch cannot send messages')).toBeTruthy();
+    expect(screen.getByTestId('conversation-branch-read-only')).toBeTruthy();
     expect(mockUseMessageThread).toHaveBeenLastCalledWith(
       expect.objectContaining({ role: 'agent', outbound: undefined })
     );
@@ -1666,11 +1677,14 @@ describe('ConversationScreen', () => {
 
     expect(screen.queryByLabelText('Message')).toBeNull();
     expect(screen.queryByRole('button', { name: /send/i })).toBeNull();
+    expect(screen.getByText('Checking WhatsApp')).toBeTruthy();
+    expect(screen.getByTestId('conversation-readiness-loading')).toBeTruthy();
 
     mockUseMessageThread.mockReturnValue(readyThreadResult());
     rerender(<ConversationScreen />);
 
     expect(screen.getByLabelText('Message')).toBeTruthy();
+    expect(screen.queryByTestId('conversation-readiness-loading')).toBeNull();
   });
 
   it('routes open-window send failure and Retry through the message hook', async () => {
@@ -2047,7 +2061,12 @@ describe('ConversationScreen', () => {
     );
 
     expect(screen.getByText('Choose a template')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('template-sheet-header')).queryByText(/Branch:/)
+    ).toBeNull();
     await settleTemplatePicker();
+    await chooseStaticTemplate();
+    expect(screen.getByText('Ready to send to Asha Rao')).toBeTruthy();
   });
 
   it('hydrates an ambiguous template outcome after remount and durably clears it only after acknowledgment', async () => {

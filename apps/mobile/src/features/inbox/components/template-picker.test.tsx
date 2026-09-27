@@ -6,6 +6,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react-native';
+import { ScrollView, TextInput } from 'react-native';
 
 import type { NativeTemplate } from '../inbox-types';
 import {
@@ -20,6 +21,16 @@ const CONVERSATION_ID = '7d6ec8ac-fb05-4df8-9e15-3ba7c5ba2141';
 const CONTACT_ID = '1b1f7d0e-7fd4-4a5d-9a0f-0c5b0d3c9f11';
 const LEGAL_NAME = 'Iron House Fitness Private Limited';
 const mockRecoverUnauthorizedSession = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  return {
+    ...jest.requireActual('react-native-safe-area-context'),
+    SafeAreaProvider: View,
+  };
+});
 
 jest.mock('heroui-native', () => {
   const React = jest.requireActual('react') as typeof import('react');
@@ -157,7 +168,7 @@ const renewalTemplate: NativeTemplate = {
   category: 'Marketing',
   bodyText:
     'Hi {{1}}, your {{2}} membership ends on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.',
-  footerText: 'Tap Unsubscribe to stop offers.',
+  footerText: null,
   headerType: null,
   headerContent: null,
   headerMediaUrl: null,
@@ -364,7 +375,6 @@ describe('TemplatePicker', () => {
     expect(screen.getByTestId('template-preview-body')).toHaveTextContent(
       `Hi Rahul Sharma, your Gold 3 months membership ends on 30 Sep 2026. Current renewal price: ₹4,500. Reply to ${LEGAL_NAME} for help renewing.`
     );
-    expect(screen.getByText('Tap Unsubscribe to stop offers.')).toBeTruthy();
     expect(screen.getByText('Help me renew')).toBeTruthy();
     expect(
       screen.getByText(
@@ -433,14 +443,84 @@ describe('TemplatePicker', () => {
     );
 
     fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
-    expect(screen.getByText('Enter the plan name.')).toBeTruthy();
+    expect(screen.getAllByText('Enter the plan name.')).toHaveLength(2);
+    expect(
+      within(screen.getByTestId('template-send-bar')).getByText(
+        'Enter the plan name.'
+      )
+    ).toBeTruthy();
     expect(screen.getByText('Enter the membership end date.')).toBeTruthy();
     expect(screen.getByText('Enter the current renewal price.')).toBeTruthy();
     expect(send).not.toHaveBeenCalled();
 
     fireEvent.changeText(screen.getByLabelText('Plan name'), 'Gold');
     expect(screen.queryByText('Enter the plan name.')).toBeNull();
-    expect(screen.getByText('2 details left to fill')).toBeTruthy();
+    expect(
+      within(screen.getByTestId('template-send-bar')).getByText(
+        'Enter the membership end date.'
+      )
+    ).toBeTruthy();
+  });
+
+  it('focuses and scrolls to the first missing detail on validation failure', async () => {
+    const focus = jest.spyOn(TextInput.prototype, 'focus');
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo');
+    const frame = jest
+      .spyOn(globalThis, 'requestAnimationFrame')
+      .mockImplementation(
+        (callback: Parameters<typeof requestAnimationFrame>[0]) => {
+          callback(0);
+          return 1;
+        }
+      );
+    try {
+      await renderPicker({
+        source: contextSource({
+          loadMembership: jest.fn().mockResolvedValue(null),
+        }),
+      });
+      await openTemplate('Membership renewal');
+      await waitForContext();
+
+      fireEvent.press(screen.getByRole('button', { name: 'Send template' }));
+
+      expect(scrollTo).toHaveBeenCalledWith({ y: 0, animated: true });
+      expect(focus).toHaveBeenCalled();
+      expect(send).not.toHaveBeenCalled();
+    } finally {
+      frame.mockRestore();
+      scrollTo.mockRestore();
+      focus.mockRestore();
+    }
+  });
+
+  it('explains an older known template and keeps a compatible sibling available', async () => {
+    const older = {
+      ...renewalTemplate,
+      id: 'template-older',
+      bodyText: 'Hi {{1}}, your {{2}} membership ends on {{3}}. Fee {{4}}.',
+    };
+    await renderPicker({
+      templates: [older, renewalTemplate],
+    });
+
+    const olderRow = screen.getByTestId('template-option-template-older');
+    expect(within(olderRow).getByText('Template needs an update')).toBeTruthy();
+    expect(within(olderRow).queryByText(/Message detail 1/)).toBeNull();
+    fireEvent.press(olderRow);
+
+    expect(screen.getByText('To Rahul Sharma')).toBeTruthy();
+    expect(screen.getByText('Template needs an update')).toBeTruthy();
+    expect(screen.queryByLabelText('Message detail 1')).toBeNull();
+    expect(screen.queryByTestId('template-send')).toBeNull();
+    expect(send).not.toHaveBeenCalled();
+
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Choose another template' })
+    );
+    fireEvent.press(screen.getByTestId('template-option-template-renewal'));
+    expect(screen.getByTestId('template-send')).toBeTruthy();
+    expect(screen.getByText('Ready to send to Rahul Sharma')).toBeTruthy();
   });
 
   it('blocks sending when the gym has no legal name, before WhatsApp can refuse it', async () => {
@@ -467,6 +547,12 @@ describe('TemplatePicker', () => {
     await renderPicker({ contactName: null });
     await openTemplate('Diwali offer');
 
+    expect(screen.getByText('Check each detail')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'This message has numbered blanks. Fill each one and check the preview.'
+      )
+    ).toBeTruthy();
     expect(
       screen.getByLabelText('Code for the “Copy offer” button').props.value
     ).toBe('WELCOME20');

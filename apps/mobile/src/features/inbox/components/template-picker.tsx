@@ -6,10 +6,12 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  TextInput,
   View,
 } from 'react-native';
 import type { ColorValue, KeyboardAvoidingViewProps } from 'react-native';
 import { useCSSVariable } from 'uniwind';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import type { LocaleFormatters } from '../../../../../../src/lib/locale/format';
 import {
@@ -166,7 +168,7 @@ function SheetHeader({
         >
           {title}
         </Text>
-        <Text className="text-muted text-sm" numberOfLines={1}>
+        <Text className="text-muted text-sm" numberOfLines={2}>
           {subtitle}
         </Text>
       </View>
@@ -180,6 +182,7 @@ interface TemplateRowProps {
   preview: string;
   template: NativeTemplate;
   title: string;
+  needsUpdate: boolean;
 }
 
 function TemplateRow({
@@ -188,11 +191,16 @@ function TemplateRow({
   preview,
   template,
   title,
+  needsUpdate,
 }: TemplateRowProps) {
   const muted = useCSSVariable('--color-muted') as ColorValue | undefined;
   return (
     <Pressable
-      accessibilityHint="Opens a preview before sending"
+      accessibilityHint={
+        needsUpdate
+          ? 'Opens why this message cannot be sent'
+          : 'Opens a preview before sending'
+      }
       accessibilityLabel={`${title}. ${preview}`}
       accessibilityRole="button"
       accessibilityState={{ disabled }}
@@ -208,6 +216,11 @@ function TemplateRow({
         <Text className="text-muted text-sm" numberOfLines={2}>
           {preview}
         </Text>
+        {needsUpdate ? (
+          <Text className="text-warning-soft-foreground text-sm font-medium">
+            Template needs an update
+          </Text>
+        ) : null}
       </View>
       <Glyph name="chevron.right" size={16} tintColor={muted} />
     </Pressable>
@@ -251,6 +264,11 @@ export function TemplatePicker({
     null
   );
   const inFlightRef = useRef(false);
+  const composeScrollRef = useRef<ScrollView>(null);
+  const fieldRefs = useRef<Record<string, TextInput | null>>({});
+  const fieldOffsets = useRef<Record<string, number>>({});
+  const detailsOffset = useRef(0);
+  const fieldGroupOffset = useRef(0);
   const currentAttemptOutcomeUnknown = sendFailure?.safeToRetry === false;
   const sendLocked =
     outcomeUnknown || currentAttemptOutcomeUnknown || safetyFailure !== null;
@@ -282,20 +300,25 @@ export function TemplatePicker({
     presentations.find(
       (presentation) => presentation.template.id === selectedTemplateId
     ) ?? null;
+  const needsUpdate = selected?.readiness === 'needs_update';
   const values: TemplateValues = selected
     ? { ...prefillTemplateValues(selected, context, formatters), ...edits }
     : {};
   const editableInputs = selected
-    ? selected.inputs.filter((input) => !input.automatic)
+    ? selected.inputs.filter((input) => !input.automatic && !needsUpdate)
     : [];
   const missingCount = editableInputs.filter(
     (input) => !values[input.key]?.trim()
   ).length;
+  const firstError = editableInputs
+    .map((input) => errors[input.key])
+    .find(Boolean);
   const legalNameMissing =
     selected?.inputs.some((input) => input.automatic) === true &&
     contextState?.legalName.status === 'missing';
   const contextLoading =
     selected !== null &&
+    !needsUpdate &&
     contextState === null &&
     (selected.usesMembership || selected.usesLegalName);
 
@@ -355,6 +378,7 @@ export function TemplatePicker({
       pending ||
       inFlightRef.current ||
       !selected ||
+      needsUpdate ||
       sendLocked ||
       legalNameMissing ||
       contextLoading
@@ -370,6 +394,24 @@ export function TemplatePicker({
     );
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
+      const firstMissing = editableInputs.find(
+        (input) => nextErrors[input.key]
+      );
+      if (firstMissing) {
+        requestAnimationFrame(() => {
+          composeScrollRef.current?.scrollTo({
+            y: Math.max(
+              0,
+              detailsOffset.current +
+                fieldGroupOffset.current +
+                (fieldOffsets.current[firstMissing.key] ?? 0) -
+                16
+            ),
+            animated: true,
+          });
+          fieldRefs.current[firstMissing.key]?.focus();
+        });
+      }
       return;
     }
 
@@ -502,12 +544,17 @@ export function TemplatePicker({
           <TemplateRow
             disabled={pending || sendLocked}
             onPress={() => selectTemplate(item)}
-            preview={previewText(
-              item.template.bodyText,
-              'body',
-              item,
-              prefillTemplateValues(item, context, formatters)
-            )}
+            needsUpdate={item.readiness === 'needs_update'}
+            preview={
+              item.readiness === 'needs_update'
+                ? 'Ask an owner or admin to update this message on the UsefulDesk website.'
+                : previewText(
+                    item.template.bodyText,
+                    'body',
+                    item,
+                    prefillTemplateValues(item, context, formatters)
+                  )
+            }
             template={item.template}
             title={item.title}
           />
@@ -556,16 +603,47 @@ export function TemplatePicker({
         contentContainerClassName="pb-6"
         keyboardDismissMode="interactive"
         keyboardShouldPersistTaps="handled"
+        ref={composeScrollRef}
         testID="template-compose"
       >
-        <View className="bg-chat-canvas px-3 py-5">
-          <TemplateMessagePreview presentation={selected} values={values} />
-        </View>
+        {!needsUpdate ? (
+          <View className="bg-chat-canvas px-3 py-5">
+            <TemplateMessagePreview presentation={selected} values={values} />
+          </View>
+        ) : null}
 
-        <View className="gap-4 px-4 pt-4">
-          {membershipNotice}
+        <View
+          className="gap-4 px-4 pt-4"
+          onLayout={(event) => {
+            detailsOffset.current = event.nativeEvent.layout.y;
+          }}
+        >
+          {needsUpdate ? (
+            <Notice
+              symbol="exclamationmark.triangle"
+              title="Template needs an update"
+            >
+              Ask an owner or admin to update this message on the UsefulDesk
+              website. You can send another template.
+            </Notice>
+          ) : (
+            <>
+              {selected.readiness === 'manual_entry' &&
+              selected.inputs.some((input) => input.field.kind === 'body') ? (
+                <Notice
+                  emphasis="outline"
+                  symbol="exclamationmark.triangle"
+                  title="Check each detail"
+                >
+                  This message has numbered blanks. Fill each one and check the
+                  preview.
+                </Notice>
+              ) : null}
+              {membershipNotice}
+            </>
+          )}
 
-          {legalNameMissing ? (
+          {!needsUpdate && legalNameMissing ? (
             <Notice
               symbol="exclamationmark.triangle"
               title="Legal name missing"
@@ -573,7 +651,8 @@ export function TemplatePicker({
               Add your gym’s legal name on the UsefulDesk website, in Settings →
               Business details. Then send this again.
             </Notice>
-          ) : selected.inputs.some((input) => input.automatic) &&
+          ) : !needsUpdate &&
+            selected.inputs.some((input) => input.automatic) &&
             contextState?.legalName.status !== 'ready' ? (
             <Text className="text-muted text-sm">
               Your gym’s legal name is added when you send.
@@ -581,7 +660,12 @@ export function TemplatePicker({
           ) : null}
 
           {editableInputs.length > 0 ? (
-            <View className="gap-3">
+            <View
+              className="gap-3"
+              onLayout={(event) => {
+                fieldGroupOffset.current = event.nativeEvent.layout.y;
+              }}
+            >
               <Text
                 accessibilityRole="header"
                 className="text-foreground text-sm font-semibold"
@@ -589,17 +673,29 @@ export function TemplatePicker({
                 Details
               </Text>
               {editableInputs.map((input) => (
-                <TextField
-                  autoCapitalize="sentences"
-                  className="text-base"
-                  error={errors[input.key]}
-                  isDisabled={pending || sendLocked}
+                <View
                   key={input.key}
-                  label={input.label}
-                  onChangeText={(value) => setFieldValue(input, value)}
-                  placeholder={input.label}
-                  value={values[input.key] ?? ''}
-                />
+                  onLayout={(event) => {
+                    fieldOffsets.current[input.key] =
+                      event.nativeEvent.layout.y;
+                  }}
+                >
+                  <TextField
+                    {...{
+                      ref: (node: TextInput | null) => {
+                        fieldRefs.current[input.key] = node;
+                      },
+                    }}
+                    autoCapitalize="sentences"
+                    className="text-base"
+                    error={errors[input.key]}
+                    isDisabled={pending || sendLocked}
+                    label={input.label}
+                    onChangeText={(value) => setFieldValue(input, value)}
+                    placeholder={input.label}
+                    value={values[input.key] ?? ''}
+                  />
+                </View>
               ))}
             </View>
           ) : null}
@@ -622,7 +718,16 @@ export function TemplatePicker({
         className="bg-inbox-panel border-border min-h-16 flex-row items-center gap-3 border-t px-4 py-2"
         testID="template-send-bar"
       >
-        {currentAttemptOutcomeUnknown || safetyFailure ? (
+        {needsUpdate ? (
+          <Button
+            accessibilityLabel="Choose another template"
+            className="flex-1"
+            onPress={backToList}
+            variant="outline"
+          >
+            Choose another template
+          </Button>
+        ) : currentAttemptOutcomeUnknown || safetyFailure ? (
           <Button
             accessibilityLabel="Check the chat"
             className="flex-1"
@@ -639,11 +744,13 @@ export function TemplatePicker({
             >
               {legalNameMissing
                 ? 'Cannot send yet'
-                : missingCount > 0
-                  ? `${missingCount} ${missingCount === 1 ? 'detail' : 'details'} left to fill`
-                  : sendFailure
-                    ? 'Nothing was sent. You can try again.'
-                    : `Ready to send to ${recipient.displayName}`}
+                : firstError
+                  ? firstError
+                  : missingCount > 0
+                    ? `${missingCount} ${missingCount === 1 ? 'detail' : 'details'} left to fill`
+                    : sendFailure
+                      ? 'Nothing was sent. You can try again.'
+                      : `Ready to send to ${recipient.displayName}`}
             </Text>
             <IconButton
               accessibilityLabel={sendFailure ? 'Try again' : 'Send template'}
@@ -668,25 +775,30 @@ export function TemplatePicker({
       statusBarTranslucent
       visible
     >
-      <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          behavior={keyboardAvoidingBehavior(Platform.OS)}
-          className="flex-1"
+      <SafeAreaProvider>
+        <ScreenSafeAreaView
+          className="bg-inbox-chrome"
+          edges={['top', 'bottom']}
         >
-          <View accessibilityViewIsModal className="flex-1">
-            <SheetHeader
-              leading={selected && !sendLocked ? 'back' : 'close'}
-              leadingDisabled={pending}
-              onLeadingPress={
-                selected && !sendLocked ? backToList : requestClose
-              }
-              subtitle={recipientLine}
-              title={selected ? selected.title : 'Choose a template'}
-            />
-            {selected ? composeStep : listStep}
-          </View>
-        </KeyboardAvoidingView>
-      </ScreenSafeAreaView>
+          <KeyboardAvoidingView
+            behavior={keyboardAvoidingBehavior(Platform.OS)}
+            className="flex-1"
+          >
+            <View accessibilityViewIsModal className="flex-1">
+              <SheetHeader
+                leading={selected && !sendLocked ? 'back' : 'close'}
+                leadingDisabled={pending}
+                onLeadingPress={
+                  selected && !sendLocked ? backToList : requestClose
+                }
+                subtitle={recipientLine}
+                title={selected ? selected.title : 'Choose a template'}
+              />
+              {selected ? composeStep : listStep}
+            </View>
+          </KeyboardAvoidingView>
+        </ScreenSafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

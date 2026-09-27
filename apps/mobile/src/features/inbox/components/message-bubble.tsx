@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SymbolView } from 'expo-symbols';
 import {
   AccessibilityInfo,
@@ -6,6 +6,9 @@ import {
   PlatformColor,
   Pressable,
   type ColorValue,
+  type LayoutChangeEvent,
+  type NativeSyntheticEvent,
+  type TextLayoutEventData,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -67,6 +70,7 @@ interface BubbleMetaProps {
   inline?: boolean;
   isOutbound: boolean;
   message: InboxMessage;
+  onLayout?: (event: LayoutChangeEvent) => void;
 }
 
 function BubbleMeta({
@@ -74,6 +78,7 @@ function BubbleMeta({
   inline = false,
   isOutbound,
   message,
+  onLayout,
 }: BubbleMetaProps) {
   const metaTone = isOutbound ? 'text-chat-meta-out' : 'text-chat-meta';
   const deliveryStatus =
@@ -81,23 +86,87 @@ function BubbleMeta({
   const deliveryLabel = deliveryStatus ? DELIVERY_LABEL[deliveryStatus] : null;
 
   return (
-    <Text
+    <View
+      accessible
       accessibilityLabel={
-        deliveryLabel ? `${formattedTime}, ${deliveryLabel}` : undefined
+        deliveryLabel ? `${formattedTime}, ${deliveryLabel}` : formattedTime
       }
-      className={`${metaTone} ${
-        inline ? 'text-xs' : 'self-end pt-0.5 text-xs'
-      }`}
+      className={
+        inline
+          ? 'flex-row items-center'
+          : 'flex-row items-center self-end pt-0.5'
+      }
+      onLayout={onLayout}
       testID="message-metadata"
     >
-      {formattedTime}
+      <Text className={`${metaTone} text-xs`}>{formattedTime}</Text>
       {deliveryStatus ? (
-        <>
-          {' '}
+        <View className="ml-1">
           <DeliveryTick isOutbound={isOutbound} status={deliveryStatus} />
-        </>
+        </View>
       ) : null}
-    </Text>
+    </View>
+  );
+}
+
+interface MeasuredTextContentProps extends BubbleMetaProps {
+  contentWidth: number;
+}
+
+function MeasuredTextContent({
+  contentWidth,
+  formattedTime,
+  isOutbound,
+  message,
+}: MeasuredTextContentProps) {
+  const [lastLineWidth, setLastLineWidth] = useState<number | null>(null);
+  const [metaWidth, setMetaWidth] = useState<number | null>(null);
+  // Start with the trailing row so the text is measured without metadata.
+  // An inline native View is one text attachment: its time and tick wrap
+  // together. Reserve a small gap so rounding cannot detach it at the edge.
+  const inline =
+    lastLineWidth !== null &&
+    metaWidth !== null &&
+    lastLineWidth + metaWidth + 8 <= contentWidth;
+
+  return (
+    <>
+      <MessageContent
+        message={message}
+        onTextLayout={
+          inline
+            ? undefined
+            : (event: NativeSyntheticEvent<TextLayoutEventData>) => {
+                const lines = event.nativeEvent.lines;
+                const width = lines[lines.length - 1]?.width ?? 0;
+                setLastLineWidth((current) =>
+                  current === width ? current : width
+                );
+              }
+        }
+        trailingMeta={
+          inline ? (
+            <BubbleMeta
+              formattedTime={formattedTime}
+              inline
+              isOutbound={isOutbound}
+              message={message}
+            />
+          ) : undefined
+        }
+      />
+      {!inline ? (
+        <BubbleMeta
+          formattedTime={formattedTime}
+          isOutbound={isOutbound}
+          message={message}
+          onLayout={(event) => {
+            const width = event.nativeEvent.layout.width;
+            setMetaWidth((current) => (current === width ? current : width));
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -181,6 +250,11 @@ export function MessageBubble({
     message.contentType
   );
   const inlineMetadata = shouldInlineBubbleMetadata(hasTrailingText, fontScale);
+  const textContentWidth = Math.max(
+    0,
+    (viewportWidth - THREAD_HORIZONTAL_PADDING * 2) * bubbleMaxWidthRatio -
+      BUBBLE_HORIZONTAL_PADDING * 2
+  );
   const accessibilityActions = [
     ...(onReply ? [{ name: 'reply', label: 'Reply to message' }] : []),
     ...(onOpenActions ? [{ name: 'react', label: 'React to message' }] : []),
@@ -249,27 +323,22 @@ export function MessageBubble({
               {marker ? (
                 <Text className={`${metaTone} text-xs`}>{marker}</Text>
               ) : null}
-              <MessageContent
-                imageSize={imageSize}
-                message={message}
-                trailingMeta={
-                  inlineMetadata ? (
-                    <BubbleMeta
-                      formattedTime={formattedTime}
-                      inline
-                      isOutbound={isOutbound}
-                      key={`${message.id}:${message.status}:metadata`}
-                      message={message}
-                    />
-                  ) : undefined
-                }
-              />
+              {inlineMetadata ? (
+                <MeasuredTextContent
+                  contentWidth={textContentWidth}
+                  formattedTime={formattedTime}
+                  isOutbound={isOutbound}
+                  key={`${message.id}:${message.status}:${formattedTime}:${fontScale}:${viewportWidth}:${message.contentText}`}
+                  message={message}
+                />
+              ) : (
+                <MessageContent imageSize={imageSize} message={message} />
+              )}
               {!inlineMetadata ? (
                 <View className={isMedia ? 'px-2 pb-1' : undefined}>
                   <BubbleMeta
                     formattedTime={formattedTime}
                     isOutbound={isOutbound}
-                    key={`${message.id}:${message.status}:metadata`}
                     message={message}
                   />
                 </View>

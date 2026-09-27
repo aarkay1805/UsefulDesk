@@ -34,7 +34,7 @@ jest.mock('expo-symbols', () => {
 });
 
 describe('ReplyQuote', () => {
-  it('renders author and preview with the deliberate primary marker and dismiss action', () => {
+  it('renders author and preview with the native accent marker and dismiss action', () => {
     const onDismiss = jest.fn();
     render(
       <ReplyQuote
@@ -50,7 +50,7 @@ describe('ReplyQuote', () => {
       'border-l-4'
     );
     expect(screen.getByTestId('reply-quote').props.className).toContain(
-      'border-l-primary'
+      'border-l-accent'
     );
     const dismiss = screen.getByRole('button', { name: 'Dismiss reply' });
     expect(dismiss.props.variant).toBe('ghost');

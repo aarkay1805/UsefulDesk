@@ -97,7 +97,7 @@ export function DiagnosticsScreen() {
             <View className="border-border bg-surface rounded-xl border px-4">
               {group.rows.map(([label, value], index) => (
                 <View
-                  className={`min-h-14 flex-row items-center justify-between gap-4 py-3 ${
+                  className={`min-h-14 gap-1 py-3 ${
                     index === group.rows.length - 1
                       ? ''
                       : 'border-separator border-b'
@@ -105,7 +105,10 @@ export function DiagnosticsScreen() {
                   key={label}
                 >
                   <Text className="text-muted text-sm">{label}</Text>
-                  <Text className="text-surface-foreground shrink text-right text-sm font-medium">
+                  <Text
+                    className="text-surface-foreground text-sm font-medium"
+                    selectable
+                  >
                     {value}
                   </Text>
                 </View>

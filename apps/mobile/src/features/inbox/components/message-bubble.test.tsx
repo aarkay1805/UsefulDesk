@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
-import { AccessibilityInfo, Platform } from 'react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { AccessibilityInfo, Dimensions, Platform } from 'react-native';
 
 import { message } from '../inbox-test-fixtures';
 import {
@@ -79,6 +79,15 @@ jest.mock('expo-image', () => {
 });
 
 describe('MessageBubble', () => {
+  const initialWindow = Dimensions.get('window');
+  const initialScreen = Dimensions.get('screen');
+
+  afterEach(() => {
+    act(() => {
+      Dimensions.set({ window: initialWindow, screen: initialScreen });
+    });
+  });
+
   it('opens actions on long press and exposes separate Reply and React accessibility actions', () => {
     const onReply = jest.fn();
     const onOpenActions = jest.fn();
@@ -336,7 +345,13 @@ describe('MessageBubble', () => {
     ).toHaveLength(0);
   });
 
-  it('keeps outbound time and delivery ticks in readable flow', () => {
+  it('keeps outbound time and delivery ticks in one measured inline unit', () => {
+    act(() => {
+      Dimensions.set({
+        window: { ...initialWindow, fontScale: 1, width: 320 },
+        screen: { ...initialScreen, fontScale: 1, width: 320 },
+      });
+    });
     render(
       <MessageBubble
         formattedTime="1:30 pm"
@@ -349,15 +364,59 @@ describe('MessageBubble', () => {
       />
     );
 
+    fireEvent(screen.getByTestId('message-text-content'), 'textLayout', {
+      nativeEvent: { lines: [{ width: 24 }] },
+    });
+    fireEvent(screen.getByTestId('message-metadata'), 'layout', {
+      nativeEvent: { layout: { width: 70 } },
+    });
     const metadata = screen.getByTestId('message-metadata');
 
     expect(
       screen
         .getByTestId('message-text-content')
         .findAllByProps({ testID: 'message-metadata' })
-    ).toHaveLength(0);
+    ).not.toHaveLength(0);
     expect(metadata.props.className).not.toContain('absolute');
+    expect(metadata.props.className).toContain('flex-row');
     expect(screen.queryByTestId('message-metadata-reservation')).toBeNull();
+    expect(screen.getByLabelText('1:30 pm, Read')).toBeTruthy();
+  });
+
+  it('moves the complete metadata unit below a full final text line', () => {
+    act(() => {
+      Dimensions.set({
+        window: { ...initialWindow, fontScale: 1, width: 320 },
+        screen: { ...initialScreen, fontScale: 1, width: 320 },
+      });
+    });
+    render(
+      <MessageBubble
+        formattedTime="1:30 pm"
+        message={message({
+          senderType: 'agent',
+          status: 'read',
+          contentText: 'Long message',
+        })}
+        startsRun
+      />
+    );
+
+    fireEvent(screen.getByTestId('message-text-content'), 'textLayout', {
+      nativeEvent: { lines: [{ width: 999 }] },
+    });
+    fireEvent(screen.getByTestId('message-metadata'), 'layout', {
+      nativeEvent: { layout: { width: 70 } },
+    });
+
+    expect(
+      screen
+        .getByTestId('message-text-content')
+        .findAllByProps({ testID: 'message-metadata' })
+    ).toHaveLength(0);
+    expect(screen.getByTestId('message-metadata').props.className).toContain(
+      'self-end'
+    );
     expect(screen.getByLabelText('1:30 pm, Read')).toBeTruthy();
   });
 
@@ -404,7 +463,7 @@ describe('MessageBubble', () => {
 
     expect(metadata.props.className).not.toContain('absolute');
     expect(metadataClasses).toEqual(
-      expect.arrayContaining(['text-xs', 'self-end', 'pt-0.5'])
+      expect.arrayContaining(['flex-row', 'self-end', 'pt-0.5'])
     );
     expect(screen.queryByTestId('message-text-content')).toBeNull();
     expect(screen.getByText('Document not available')).toBeTruthy();

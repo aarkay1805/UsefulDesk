@@ -1,5 +1,11 @@
 import { HERO_UI_CONFIG } from './mobile-app-providers';
 
+jest.mock('expo-router', () => ({
+  DarkTheme: { colors: {} },
+  DefaultTheme: { colors: {} },
+  ThemeProvider: ({ children }: import('react').PropsWithChildren) => children,
+}));
+
 jest.mock('heroui-native', () => ({
   HeroUINativeProvider: ({ children }: import('react').PropsWithChildren) =>
     children,

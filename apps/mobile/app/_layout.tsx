@@ -1,10 +1,8 @@
 import '../global.css';
 
-import { Stack } from 'expo-router';
+import { Stack, useTheme } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
-import { useColorScheme } from 'react-native';
 
 import { MobileAppProviders } from '../src/core/mobile-app-providers';
 import { preventSplashAutoHide } from '../src/core/splash-control';
@@ -16,11 +14,8 @@ WebBrowser.maybeCompleteAuthSession();
 void preventSplashAutoHide(SplashScreen);
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <MobileAppProviders>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
       <AuthProvider>
         <NotificationsProvider>
           <NotificationRouter />
@@ -33,10 +28,16 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { state } = useAuth();
+  const { colors } = useTheme();
   const resolved = state.status !== 'booting';
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        contentStyle: { backgroundColor: colors.background },
+        headerShown: false,
+      }}
+    >
       <Stack.Screen name="index" />
       <Stack.Protected guard={resolved && state.status !== 'ready'}>
         <Stack.Screen name="(auth)" />

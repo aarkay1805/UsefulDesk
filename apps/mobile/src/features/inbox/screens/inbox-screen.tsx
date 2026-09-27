@@ -4,6 +4,7 @@ import { ActivityIndicator, FlatList, View } from 'react-native';
 import { accountFormatters } from '../../../core/account-formatters';
 import {
   Button,
+  EmptyState,
   ErrorState,
   FilterMenu,
   type FilterMenuOption,
@@ -86,14 +87,35 @@ export function InboxScreen() {
       );
     }
 
+    const hasSearch = inbox.search.trim().length > 0;
+    const title = hasSearch
+      ? 'No chats match'
+      : inbox.filter === 'unread'
+        ? 'No unread chats'
+        : 'No chats yet';
+    const message = hasSearch
+      ? 'Try a different search or clear it.'
+      : inbox.filter === 'unread'
+        ? 'You have read all your chats.'
+        : 'New WhatsApp chats will appear here.';
+
     return (
-      <View className="items-center gap-1 px-5 py-12">
-        <Text className="text-foreground text-base font-semibold">
-          No chats yet
-        </Text>
-        <Text className="text-muted text-center text-sm">
-          New WhatsApp chats will appear here.
-        </Text>
+      <View className="gap-3 px-5 py-12">
+        <EmptyState title={title} message={message} />
+        {hasSearch || inbox.filter === 'unread' ? (
+          <Button
+            accessibilityLabel={hasSearch ? 'Clear search' : 'Show all chats'}
+            className="self-center"
+            onPress={() =>
+              hasSearch ? inbox.setSearch('') : inbox.setFilter('all')
+            }
+            size="sm"
+            testID="empty-chats-action"
+            variant="ghost"
+          >
+            {hasSearch ? 'Clear search' : 'Show all chats'}
+          </Button>
+        ) : null}
       </View>
     );
   };
@@ -135,7 +157,10 @@ export function InboxScreen() {
   return (
     <ScreenSafeAreaView className="bg-inbox-chrome" edges={['top']}>
       <Stack.Screen options={{ headerShown: false, title: 'Chats' }} />
-      <InboxHeader onOpenAccount={() => router.push('/(app)/account')} />
+      <InboxHeader
+        branchName={state.branch.account_name}
+        onOpenAccount={() => router.push('/(app)/account')}
+      />
 
       {/*
        * Search and the scope filter act on the list, so they sit in the chrome

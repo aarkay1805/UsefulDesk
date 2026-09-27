@@ -1,11 +1,13 @@
 import {
   createTemplateRepository,
   mobileTemplateQuerySource,
+  templateContractReadiness,
   templateFields,
   type TemplateQuerySource,
 } from './template-repository';
 import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
 import { BRANCH_ID, OTHER_BRANCH_ID } from './inbox-test-fixtures';
+import { TEMPLATE_CONTRACTS } from '../../../../../src/lib/whatsapp/template-contracts';
 
 const TEMPLATE_ID = '5b52d03c-9d8c-4cf4-b8c6-a10b9b233571';
 
@@ -136,7 +138,7 @@ describe('TemplateRepository', () => {
     }
   });
 
-  it('keeps the approved footer customers will read', async () => {
+  it('preserves approved footer copy for exact contract comparison', async () => {
     const querySource = source();
     querySource.listTemplates = jest
       .fn()
@@ -147,7 +149,42 @@ describe('TemplateRepository', () => {
     await expect(
       createTemplateRepository(querySource).listSendableTemplates(BRANCH_ID)
     ).resolves.toMatchObject([
-      { footerText: 'Tap Unsubscribe to stop offers.' },
+      { footerText: '  Tap Unsubscribe to stop offers.  ' },
+    ]);
+  });
+
+  it('separates exact contracts, older approved copy, and custom manual entry', async () => {
+    const contract = TEMPLATE_CONTRACTS.membership_renewal;
+    const querySource = source();
+    querySource.listTemplates = jest.fn().mockResolvedValue([
+      rawTemplate({
+        id: '0552d03c-9d8c-4cf4-b8c6-a10b9b233571',
+        name: contract.payload.name,
+        category: contract.category,
+        body_text: contract.payload.body_text,
+        buttons: contract.payload.buttons,
+      }),
+      rawTemplate({
+        id: '1552d03c-9d8c-4cf4-b8c6-a10b9b233571',
+        name: contract.payload.name,
+        category: contract.category,
+        body_text: 'Hi {{1}}, your {{2}} membership ends on {{3}}. Fee {{4}}.',
+      }),
+      rawTemplate({
+        id: '2552d03c-9d8c-4cf4-b8c6-a10b9b233571',
+        name: 'custom_update',
+      }),
+    ]);
+
+    const templates =
+      await createTemplateRepository(querySource).listSendableTemplates(
+        BRANCH_ID
+      );
+    expect(templates).toHaveLength(3);
+    expect(templates.map(templateContractReadiness)).toEqual([
+      'manual_entry',
+      'ready',
+      'needs_update',
     ]);
   });
 

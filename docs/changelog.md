@@ -6,6 +6,31 @@
 
 ---
 
+## 2026-09-27 — Native mobile UI audit repairs (built in code; release pending)
+
+`apps/mobile` now gives template modals local safe areas, blocks known templates
+whose approved copy differs from the exact send contract, and focuses missing
+details. Chats has bounded previews, distinct empty-state actions, home-screen
+branch context, and view-only/readiness notices. Deeper chat and template
+headers stay recipient-focused. Shared navigation chrome follows the
+native theme; message time/ticks stay together, reply quotes use native accent,
+and App details stacks long values. See `PRDs/roadmap.md` for the original
+three-batch plan and remaining device acceptance. Mobile lint, typecheck, and
+833 tests pass; shared template contract/readiness tests pass. Dark/light and
+largest standard Text Size physical iPhone checks are partial; no provider send, internal build, or
+release occurred. `template-readiness.ts` changed only its type import to a
+relative path so mobile can reuse the unchanged server validator.
+
+## 2026-09-27 — Native UI audit and repair plan (documentation only)
+
+Inspected the physical iPhone development client and current native source.
+`docs/mobile/ui-audit-2026-09-27.md` records ten prioritized findings and evidence
+limits; `PRDs/roadmap.md` owns the three implementation batches and acceptance
+gates. Template-modal safe areas and ambiguous older template formats lead.
+No app code, templates, or customer data changed. Screenshots stay outside Git;
+the old simulator client lacks the current audio module and is not acceptance
+evidence. Do not fix older template labels by guessing positional meaning.
+
 ## 2026-09-26 — Phone app template sending rebuilt (built in code)
 
 Sending an approved template from a closed chat in `apps/mobile` is now a

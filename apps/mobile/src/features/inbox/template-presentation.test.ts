@@ -6,6 +6,7 @@ import {
   previewSegments,
   previewText,
 } from './template-presentation';
+import { TEMPLATE_CONTRACTS } from '../../../../../src/lib/whatsapp/template-contracts';
 
 jest.mock('../../data/supabase', () => ({
   mobileSupabase: {},
@@ -53,6 +54,7 @@ describe('presentTemplate', () => {
     const presentation = presentTemplate(template());
 
     expect(presentation.title).toBe('Membership renewal');
+    expect(presentation.readiness).toBe('ready');
     expect(presentation.inputs.map((input) => input.label)).toEqual([
       'Member name',
       'Plan name',
@@ -74,6 +76,7 @@ describe('presentTemplate', () => {
     );
 
     expect(presentation.title).toBe('Membership renewal');
+    expect(presentation.readiness).toBe('needs_update');
     expect(presentation.inputs.map((input) => input.label)).toEqual([
       'Message detail 1',
       'Message detail 2',
@@ -84,12 +87,26 @@ describe('presentTemplate', () => {
     expect(presentation.inputs.some((input) => input.automatic)).toBe(false);
   });
 
+  it('does not treat matching blank counts as proof that approved copy matches', () => {
+    const presentation = presentTemplate(
+      template({
+        bodyText:
+          'Hi {{1}}, your {{2}} membership expires on {{3}}. Current renewal price: {{4}}. Reply to {{5}} for help renewing.',
+      })
+    );
+
+    expect(presentation.readiness).toBe('needs_update');
+    expect(presentation.inputs[0].label).toBe('Message detail 1');
+    expect(presentation.inputs.some((input) => input.automatic)).toBe(false);
+  });
+
   it('turns a custom template name into a readable title', () => {
     const presentation = presentTemplate(
       template({ name: 'gym_diwali_offer_2026', bodyText: 'Hello {{1}}' })
     );
 
     expect(presentation.title).toBe('Diwali offer 2026');
+    expect(presentation.readiness).toBe('manual_entry');
     expect(presentation.inputs[0].label).toBe('Message detail 1');
   });
 
@@ -97,8 +114,8 @@ describe('presentTemplate', () => {
     const presentation = presentTemplate(
       template({
         name: 'gym_festival_offer',
-        bodyText:
-          'Hi {{1}}, celebrate {{2}} at {{3}} with {{4}} off until {{5}}.',
+        bodyText: TEMPLATE_CONTRACTS.festival_offer.payload.body_text,
+        buttons: [{ type: 'QUICK_REPLY', text: 'Ask about offer' }],
       })
     );
 
@@ -163,6 +180,7 @@ describe('prefillTemplateValues', () => {
         name: 'gym_session_pack_low',
         bodyText:
           'Hi {{1}}, your {{2}} has {{3}} sessions left. Reply to {{4}} to ask about your next pack.',
+        buttons: [{ type: 'QUICK_REPLY', text: 'Ask about packs' }],
       })
     );
 

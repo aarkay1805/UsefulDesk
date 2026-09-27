@@ -1,12 +1,21 @@
-import { Stack } from 'expo-router';
+import { Stack, useTheme } from 'expo-router';
 
 import { useAuth } from '../../src/features/auth/auth-context';
 import { ProductAccessGate } from '../../src/features/product-access/product-access-gate';
 import { InboxRealtimeProvider } from '../../src/features/inbox/inbox-realtime-provider';
 
 function ProtectedAppStack({ guard }: { guard: boolean }) {
+  const { colors } = useTheme();
+
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        contentStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
+        headerStyle: { backgroundColor: colors.card },
+        headerTintColor: colors.text,
+      }}
+    >
       <Stack.Protected guard={guard}>
         <Stack.Screen name="index" options={{ title: 'Chats' }} />
         <Stack.Screen name="conversation/[conversationId]" />

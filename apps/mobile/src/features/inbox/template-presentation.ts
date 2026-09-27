@@ -5,7 +5,10 @@ import {
 } from '../../../../../src/lib/whatsapp/template-contracts';
 
 import type { NativeTemplate, TemplateField } from './inbox-types';
-import { templateFields } from './template-repository';
+import {
+  templateContractReadiness,
+  templateFields,
+} from './template-repository';
 
 export type TemplateValues = Record<string, string>;
 
@@ -31,6 +34,7 @@ export interface TemplateInput {
 export interface TemplatePresentation {
   template: NativeTemplate;
   title: string;
+  readiness: 'ready' | 'needs_update' | 'manual_entry';
   inputs: TemplateInput[];
   usesMembership: boolean;
   usesLegalName: boolean;
@@ -102,13 +106,16 @@ export function presentTemplate(
   template: NativeTemplate
 ): TemplatePresentation {
   const contract = getTemplateContract(template.name);
+  const readiness = templateContractReadiness(template);
   const fields = templateFields(template);
   const bodyCount = fields.filter((field) => field.kind === 'body').length;
   // A contract names the values only when this approved copy still has the
   // contract's shape. An older approved version keeps plain labels rather
   // than being told the wrong thing about each blank.
   const labels =
-    contract && contract.parameterLabels.length === bodyCount
+    readiness === 'ready' &&
+    contract &&
+    contract.parameterLabels.length === bodyCount
       ? contract.parameterLabels
       : null;
   const usesMembership =
@@ -158,6 +165,7 @@ export function presentTemplate(
   return {
     template,
     title: contract?.title ?? humanizeTemplateName(template.name),
+    readiness,
     inputs,
     usesMembership,
     usesLegalName: inputs.some((input) => input.source === 'legal_name'),

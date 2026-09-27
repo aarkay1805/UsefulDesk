@@ -1,4 +1,4 @@
-import type { MessageTemplate, TemplateButton } from '@/types';
+import type { MessageTemplate, TemplateButton } from '../../types';
 import {
   getTemplateContractById,
   type TemplateContract,

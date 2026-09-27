@@ -2,6 +2,8 @@ import { Pressable, View } from 'react-native';
 
 import { UserAvatar } from '../../../ui';
 import { Text } from '../../../ui/text';
+import { useTextScale } from '../../../ui/use-text-scale';
+import { isAccessibilityTextScale } from '../inbox-layout';
 import type { InboxConversation } from '../inbox-types';
 
 interface ConversationRowProps {
@@ -17,16 +19,22 @@ export function ConversationRow({
   formattedTime,
   onPress,
 }: ConversationRowProps) {
+  const accessibilityTextScale = isAccessibilityTextScale(useTextScale());
   const contactName = conversation.contact.name?.trim();
   const displayName = contactName || formattedPhone;
+  const preview = conversation.lastMessageText?.trim() || 'No messages yet';
   const unreadCount = conversation.unreadCount;
   const unreadLabel = `${unreadCount} unread ${
     unreadCount === 1 ? 'message' : 'messages'
   }`;
-  const accessibilityLabel =
-    unreadCount > 0
-      ? `Open chat with ${displayName}, ${unreadLabel}`
-      : `Open chat with ${displayName}`;
+  const accessibilityLabel = [
+    `Open chat with ${displayName}`,
+    preview,
+    formattedTime,
+    unreadCount > 0 ? unreadLabel : '',
+  ]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <Pressable
@@ -69,8 +77,9 @@ export function ConversationRow({
             className={`min-w-0 flex-1 text-sm ${
               unreadCount > 0 ? 'text-foreground' : 'text-muted'
             }`}
+            numberOfLines={accessibilityTextScale ? undefined : 2}
           >
-            {conversation.lastMessageText?.trim() || 'No messages yet'}
+            {preview}
           </Text>
           {unreadCount > 0 ? (
             <Text

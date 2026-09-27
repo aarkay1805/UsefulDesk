@@ -5,6 +5,16 @@ import {
   MessageActionSheet,
 } from './message-action-sheet';
 
+jest.mock('react-native-safe-area-context', () => {
+  const { View } = jest.requireActual(
+    'react-native'
+  ) as typeof import('react-native');
+  return {
+    ...jest.requireActual('react-native-safe-area-context'),
+    SafeAreaProvider: View,
+  };
+});
+
 jest.mock('heroui-native', () => {
   const React = jest.requireActual('react') as typeof import('react');
   const { Pressable, Text } = jest.requireActual(

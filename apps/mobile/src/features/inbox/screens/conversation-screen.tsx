@@ -53,6 +53,7 @@ import {
   LOCAL_LAYOUT_FIXTURE,
 } from '../inbox-test-fixtures';
 import type { InboxMessage, ThreadDisplayItem } from '../inbox-types';
+import { canSendMessages } from '../../../../../../src/lib/auth/roles';
 import { setMessageReaction } from '../reaction-client';
 import {
   mobileReactionRepository,
@@ -364,8 +365,12 @@ function ConversationThread({
       ? thread.sendReadiness.latestInboundAt
       : null;
   const renderClockMs = new Date().getTime();
-  let actionState: ConversationActionState | null = null;
-  if (outboundAllowed && thread.sendReadiness.status === 'error') {
+  let actionState: ConversationActionState;
+  if (!canSendMessages(role)) {
+    actionState = { kind: 'viewer' };
+  } else if (!outboundAllowed) {
+    actionState = { kind: 'inactive_branch' };
+  } else if (thread.sendReadiness.status === 'error') {
     actionState = { kind: 'blocked', blocker: SEND_READINESS_BLOCKER };
   } else if (
     thread.sendReadiness.status === 'ready' &&
@@ -379,6 +384,8 @@ function ConversationThread({
       templateReadiness: thread.sendReadiness.templateReadiness,
       connectionReadiness: thread.sendReadiness.connectionReadiness,
     });
+  } else {
+    actionState = { kind: 'loading' };
   }
   const templateSafetyRequired = actionState?.kind === 'closed_template';
   const templatePickerOpen =
@@ -709,13 +716,41 @@ function ConversationThread({
   };
 
   const actionFooter = (() => {
-    if (
-      !actionState ||
-      actionState.kind === 'viewer' ||
-      actionState.kind === 'inactive_branch' ||
-      actionState.kind === 'loading'
-    ) {
-      return null;
+    if (actionState.kind === 'viewer') {
+      return (
+        <View
+          className="bg-inbox-panel px-3 py-2"
+          testID="conversation-view-only"
+        >
+          <Notice emphasis="outline" title="View only">
+            You can read this chat, but you cannot send messages.
+          </Notice>
+        </View>
+      );
+    }
+    if (actionState.kind === 'inactive_branch') {
+      return (
+        <View
+          className="bg-inbox-panel px-3 py-2"
+          testID="conversation-branch-read-only"
+        >
+          <Notice emphasis="outline" title="This branch cannot send messages">
+            You can read this chat. Check Account for a branch that can send.
+          </Notice>
+        </View>
+      );
+    }
+    if (actionState.kind === 'loading') {
+      return (
+        <View
+          className="bg-inbox-panel px-3 py-2"
+          testID="conversation-readiness-loading"
+        >
+          <Notice emphasis="outline" loading title="Checking WhatsApp">
+            You can read this chat while we check sending.
+          </Notice>
+        </View>
+      );
     }
     if (actionState.kind === 'open_text') return null;
     if (actionState.kind === 'closed_template') {

@@ -320,7 +320,7 @@ function listResult(
   };
 }
 
-const emptyResult = () => listResult({ items: [] });
+const emptyResult = () => listResult({ items: [], unreadCount: 0 });
 const errorResult = () =>
   listResult({
     items: [],
@@ -339,7 +339,7 @@ describe('InboxScreen', () => {
     render(<InboxScreen />);
 
     fireEvent.press(
-      screen.getByRole('button', { name: 'Open chat with Asha Rao' })
+      screen.getByRole('button', { name: /Open chat with Asha Rao,/ })
     );
 
     expect(mockRouter.push).toHaveBeenCalledWith({
@@ -348,11 +348,44 @@ describe('InboxScreen', () => {
     });
   });
 
-  it('renders a Dynamic Type-safe Account icon in the native header and opens the Account route', () => {
+  it.each([1, 2, 20])('renders a queue of %i chats', (count) => {
+    mockUseConversationList.mockReturnValue(
+      listResult({
+        items: Array.from({ length: count }, (_, index) =>
+          conversation({
+            id: `chat-${index}`,
+            contact: {
+              id: `contact-${index}`,
+              name: `Member ${index + 1}`,
+              phone: `9876500${String(index).padStart(3, '0')}`,
+              avatarUrl: null,
+            },
+            unreadCount: index === 0 ? 20 : 0,
+          })
+        ),
+      })
+    );
+
     render(<InboxScreen />);
 
-    expect(screen.queryByText('Account')).toBeNull();
-    fireEvent.press(screen.getByRole('button', { name: 'Account' }));
+    expect(screen.getByTestId('conversation-list').props.data).toHaveLength(
+      count
+    );
+    expect(
+      screen.getAllByRole('button', { name: /^Open chat with Member/ })
+    ).toHaveLength(Math.min(count, 10));
+    expect(screen.getByLabelText('20 unread messages')).toBeTruthy();
+  });
+
+  it('shows the current branch in the header and opens Account', () => {
+    render(<InboxScreen />);
+
+    expect(screen.getByText('Branch: Indiranagar')).toBeTruthy();
+    fireEvent.press(
+      screen.getByRole('button', {
+        name: 'Account, current branch: Indiranagar',
+      })
+    );
     expect(mockRouter.push).toHaveBeenCalledWith('/(app)/account');
   });
 
@@ -369,15 +402,68 @@ describe('InboxScreen', () => {
     expect(result.setFilter).toHaveBeenCalledWith('unread');
   });
 
-  it('shows distinct empty and failed states', () => {
+  it('shows the empty branch without a misleading recovery action', () => {
     mockUseConversationList.mockReturnValue(emptyResult());
-    const { rerender } = render(<InboxScreen />);
+    render(<InboxScreen />);
     expect(screen.getByText('No chats yet')).toBeTruthy();
+    expect(screen.queryByTestId('empty-chats-action')).toBeNull();
+  });
 
+  it('shows no unread chats and returns to All without clearing search', () => {
+    const result = emptyResult();
+    result.filter = 'unread';
+    mockUseConversationList.mockReturnValue(result);
+    render(<InboxScreen />);
+
+    expect(screen.getByText('No unread chats')).toBeTruthy();
+    fireEvent.press(screen.getByTestId('empty-chats-action'));
+    expect(result.setFilter).toHaveBeenCalledWith('all');
+    expect(result.setSearch).not.toHaveBeenCalled();
+  });
+
+  it.each(['all', 'unread'] as const)(
+    'clears a %s search miss without changing the filter',
+    (filter) => {
+      const result = listResult({
+        items: [],
+        filter,
+        search: 'renewal',
+      });
+      mockUseConversationList.mockReturnValue(result);
+      render(<InboxScreen />);
+
+      expect(screen.getByText('No chats match')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('empty-chats-action'));
+      expect(result.setSearch).toHaveBeenCalledWith('');
+      expect(result.setFilter).not.toHaveBeenCalled();
+    }
+  );
+
+  it('keeps the retry action for a failed query', () => {
     mockUseConversationList.mockReturnValue(errorResult());
-    rerender(<InboxScreen />);
+    render(<InboxScreen />);
+
     expect(screen.getByRole('alert')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy();
+  });
+
+  it('shows the new branch without old results during a branch switch', () => {
+    const { rerender } = render(<InboxScreen />);
+    const nextAuth = readyAuthValue();
+    nextAuth.state.branch.account_id = 'ab92ad08-3808-4a3e-8d50-7a5fa2a6a770';
+    nextAuth.state.branch.account_name = 'A Long North Bengaluru Branch Name';
+    mockUseReadyAuth.mockReturnValue(nextAuth);
+    mockUseConversationList.mockReturnValue(
+      listResult({ items: [], status: 'loading' })
+    );
+
+    rerender(<InboxScreen />);
+
+    expect(
+      screen.getByText('Branch: A Long North Bengaluru Branch Name')
+    ).toBeTruthy();
+    expect(screen.queryByText('Asha Rao')).toBeNull();
+    expect(screen.getByLabelText('Loading chats')).toBeTruthy();
   });
 
   it('shows disconnected status and retries only the failed pagination request', () => {

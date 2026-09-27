@@ -1,4 +1,6 @@
 import { getTemplateContract } from '../../../../../src/lib/whatsapp/template-contracts';
+import { evaluateTemplateReadiness } from '../../../../../src/lib/whatsapp/template-readiness';
+import type { TemplateButton } from '../../../../../src/types';
 import { mobileSupabase, selectedBranchRef } from '../../data/supabase';
 import { isStrictIsoTimestamp } from './inbox-normalizers';
 import type {
@@ -113,7 +115,18 @@ function parseButtons(value: unknown): NativeTemplateButton[] {
         ) {
           return invalidTemplate();
         }
-        return { type: 'URL', text: button.text, url: button.url };
+        if (
+          button.example !== undefined &&
+          typeof button.example !== 'string'
+        ) {
+          return invalidTemplate();
+        }
+        return {
+          type: 'URL',
+          text: button.text,
+          url: button.url,
+          ...(button.example !== undefined ? { example: button.example } : {}),
+        };
       }
       case 'PHONE_NUMBER':
         if (typeof button.phone_number !== 'string') return invalidTemplate();
@@ -211,7 +224,7 @@ function parseNativeTemplate(
     language: template.language,
     category: template.category as NativeTemplate['category'],
     bodyText: template.body_text,
-    footerText: template.footer_text?.trim() || null,
+    footerText: template.footer_text || null,
     headerType: template.header_type,
     headerContent: template.header_content,
     headerMediaUrl: null,
@@ -221,6 +234,45 @@ function parseNativeTemplate(
     providerMissingSince: null,
     providerComponentsSyncRequiredAt: null,
   };
+}
+
+/** Match the same immutable approved contract that the send route enforces. */
+export function templateContractReadiness(
+  template: NativeTemplate
+): 'ready' | 'needs_update' | 'manual_entry' {
+  const contract = getTemplateContract(template.name);
+  if (!contract) return 'manual_entry';
+
+  const buttons: TemplateButton[] = template.buttons.map((button) =>
+    button.type === 'PHONE_NUMBER'
+      ? {
+          type: 'PHONE_NUMBER',
+          text: button.text,
+          phone_number: button.phoneNumber,
+        }
+      : button
+  );
+  const result = evaluateTemplateReadiness(
+    [
+      {
+        name: template.name,
+        language: template.language,
+        category: template.category,
+        status: template.status,
+        parameter_format: template.parameterFormat,
+        provider_components_sync_required_at:
+          template.providerComponentsSyncRequiredAt ?? undefined,
+        body_text: template.bodyText,
+        footer_text: template.footerText ?? undefined,
+        header_type: template.headerType ?? undefined,
+        header_content: template.headerContent ?? undefined,
+        buttons,
+      },
+    ],
+    contract.id,
+    template.language
+  );
+  return result.ready ? 'ready' : 'needs_update';
 }
 
 function parseConnection(row: unknown, accountId: string): ConnectionReadiness {

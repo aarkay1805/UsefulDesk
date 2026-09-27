@@ -28,15 +28,8 @@ export function ConversationHeaderIdentity({
         source={avatarUrl}
       />
       <View className="min-w-0 flex-1">
-        <Text
-          className="text-foreground text-base font-semibold"
-          numberOfLines={1}
-        >
-          {name}
-        </Text>
-        <Text className="text-muted text-xs" numberOfLines={1}>
-          {subtitle}
-        </Text>
+        <Text className="text-foreground text-base font-semibold">{name}</Text>
+        <Text className="text-muted text-xs">{subtitle}</Text>
       </View>
     </View>
   );
