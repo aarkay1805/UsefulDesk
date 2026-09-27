@@ -186,18 +186,6 @@ function verifySource() {
     'dashboard action snapshot'
   );
 
-  const actionAttention = read('src/lib/dashboard/action-attention.ts');
-  requireText(
-    actionAttention,
-    "db.rpc('dashboard_action_attention'",
-    'dashboard attention loader'
-  );
-  forbidText(
-    actionAttention,
-    'selected_branch_owner_report',
-    'dashboard attention loader'
-  );
-
   const dashboardActions = read(
     'src/components/dashboard/dashboard-actions.tsx'
   );
@@ -224,10 +212,13 @@ function verifySource() {
     forbidText(source, 'createClient(', `dashboard widget ${widget}`);
   }
 
-  const deferredInsights = read(
-    'src/components/dashboard/deferred-dashboard-insights.tsx'
+  // Home no longer carries historical charts at all (2026-09-27), so there is
+  // no deferred insights boundary left to verify.
+  forbidText(
+    read('src/app/(dashboard)/dashboard/page.tsx'),
+    'DeferredDashboardInsights',
+    'dashboard page'
   );
-  requireText(deferredInsights, 'IntersectionObserver', 'deferred insights');
 
   const changelog = read('docs/changelog.md');
   const roadmap = read('PRDs/roadmap.md');

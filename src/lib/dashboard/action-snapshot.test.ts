@@ -48,6 +48,7 @@ function validPayload() {
           end_date: '2026-08-29',
           contact: { name: 'Member One', phone: null, avatar_url: null },
           plan: { name: 'Monthly', plan_type: 'recurring' },
+          followUp: { dueDate: '2026-08-28', ownerName: 'Owner' },
         },
       ],
     },
@@ -59,11 +60,25 @@ function validPayload() {
           name: 'Lead Two',
           avatarUrl: null,
           messagePreview: 'No message yet',
-          waitingDays: 2,
+          waitingMinutes: 2880,
         },
       ],
     },
-    attention: { churnRisk: 3, trialFollowups: 2, failedMandates: 1 },
+    attention: {
+      mayLeave: 3,
+      trials: 2,
+      autoPay: {
+        total: 1,
+        rows: [
+          {
+            membershipId: 'membership-2',
+            name: 'Member Two',
+            avatarUrl: null,
+            problem: 'setup_failed',
+          },
+        ],
+      },
+    },
     errors: [],
   };
 }
@@ -142,6 +157,65 @@ describe('dashboard action snapshot', () => {
     expect(followUps.errors).toEqual([]);
     expect(expiring.expiringMemberships).toBeNull();
     expect(expiring.errors).toEqual(['expiringMemberships']);
+  });
+
+  it('accepts an enquiry that arrived this minute and a row with no open follow-up', () => {
+    const payload = validPayload();
+    payload.uncontactedLeads.rows[0].waitingMinutes = 0;
+    (payload.expiringMemberships.rows[0] as { followUp: unknown }).followUp =
+      null;
+
+    const snapshot = parseDashboardActionSnapshot(payload);
+
+    expect(snapshot.errors).toEqual([]);
+    expect(snapshot.uncontactedLeads?.rows[0].waitingMinutes).toBe(0);
+    expect(snapshot.expiringMemberships?.rows[0].followUp).toBeNull();
+  });
+
+  it('rejects an AutoPay problem it cannot name and an unbounded AutoPay list', () => {
+    const unnamed = validPayload();
+    unnamed.attention.autoPay.rows[0].problem = 'failed_charge';
+    expect(parseDashboardActionSnapshot(unnamed).errors).toEqual(['attention']);
+
+    const unbounded = validPayload();
+    unbounded.attention.autoPay.rows = Array.from(
+      { length: DASHBOARD_ACTION_LIST_LIMIT + 1 },
+      () => unbounded.attention.autoPay.rows[0]
+    );
+    const snapshot = parseDashboardActionSnapshot(unbounded);
+    expect(snapshot.attention).toBeNull();
+    expect(snapshot.errors).toEqual(['attention']);
+    expect(snapshot.uncontactedLeads).not.toBeNull();
+  });
+
+  it('reads the corrected fields while the compatibility fields ride along', () => {
+    const payload = validPayload();
+    const withCompatibility = {
+      ...payload,
+      uncontactedLeads: {
+        ...payload.uncontactedLeads,
+        rows: payload.uncontactedLeads.rows.map((row) => ({
+          ...row,
+          waitingDays: 2,
+        })),
+      },
+      attention: {
+        ...payload.attention,
+        churnRisk: 3,
+        trialFollowups: 2,
+        failedMandates: 1,
+      },
+    };
+
+    expect(parseDashboardActionSnapshot(withCompatibility)).toEqual(payload);
+  });
+
+  it('rejects the retired attention shape instead of reading it as zero', () => {
+    const payload = {
+      ...validPayload(),
+      attention: { churnRisk: 3, trialFollowups: 2, failedMandates: 1 },
+    };
+    expect(parseDashboardActionSnapshot(payload).errors).toEqual(['attention']);
   });
 
   it('preserves zero counts, empty queues, and null section failure semantics', () => {

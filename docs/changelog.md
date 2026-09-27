@@ -6,6 +6,26 @@
 
 ---
 
+## 2026-09-27 — Home queue definitions and simpler Home (built in code; expand migration applied)
+
+Migration `20260927120000_home_queue_definitions.sql` (Production connector
+version `20260927074233`) replaces `dashboard_action_snapshot` in place.
+Not contacted yet now means New-stage enquiries (no membership, no service)
+with no accepted staff (`agent`) message and no done follow-up; fresh enquiries
+show at once, newest first, as `waitingMinutes`. Expiring rows carry the open
+follow-up. Needs attention returns `mayLeave`, `trials` (Trials page window plus
+Not interested retirement, shared with `declinedTrialIds`), and named AutoPay
+rows split by `setup_error`. Home dropped Recent activity, the Messages chart,
+the Enquiry score, and the insights API; stage counts moved to
+`components/reports/enquiry-stages-card.tsx` on Performance. May leave links to
+`/members?view=all&filter=may-leave` (`memberFiltersFromUrl`). Gotchas: it is an
+expand step — it still returns the previous app's `waitingDays`, `churnRisk`,
+`trialFollowups`, and `failedMandates` and keeps `dashboard_action_attention`,
+so the contract migration must wait until the new app is live everywhere.
+Queue vertical inset now lives on the `ScrollArea` (`QUEUE_SCROLL_INSET`),
+because a negative margin on the list gave every short queue a phantom
+scrollbar.
+
 ## 2026-09-27 — Home dashboard benchmark and simplification plan (documentation only)
 
 `docs/dashboard-benchmark-2026-09-27.md` compares seven gym-software references

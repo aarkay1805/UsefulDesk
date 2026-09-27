@@ -298,6 +298,8 @@ interface MembersTableProps {
    *  app-bar header. The table hands up a caller (or null on unmount);
    *  the page's Export button invokes it. */
   onRegisterExport?: (fn: (() => void) | null) => void;
+  /** Filters to open with — a named set from a link (`memberFiltersFromUrl`). */
+  initialFilters?: MemberFilters;
 }
 
 export function MembersTable({
@@ -308,6 +310,7 @@ export function MembersTable({
   onChanged,
   canEdit,
   onRegisterExport,
+  initialFilters = EMPTY_MEMBER_FILTERS,
 }: MembersTableProps) {
   const supabase = useMemo(() => createClient(), []);
   const { fmt } = useLocale();
@@ -341,7 +344,7 @@ export function MembersTable({
   const [page, setPage] = useState(0);
   const [searchInput, setSearchInput] = useState('');
   const search = useDebounced(searchInput, 300);
-  const [filters, setFilters] = useState<MemberFilters>(EMPTY_MEMBER_FILTERS);
+  const [filters, setFilters] = useState<MemberFilters>(initialFilters);
   const [quickFilterCounts, setQuickFilterCounts] = useState<
     Record<QuickMemberFilter, number>
   >(EMPTY_MEMBER_DIRECTORY_QUICK_FILTER_COUNTS);

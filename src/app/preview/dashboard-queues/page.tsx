@@ -2,23 +2,23 @@
 
 import { notFound } from 'next/navigation';
 
-import { ActivityFeed } from '@/components/dashboard/activity-feed';
 import { DashboardActionsProvider } from '@/components/dashboard/dashboard-actions';
 import { ExpiringMemberships } from '@/components/dashboard/expiring-memberships';
 import { FollowUpQueue } from '@/components/dashboard/follow-up-queue';
+import { NeedsAttentionCard } from '@/components/dashboard/needs-attention-card';
 import { UncontactedLeads } from '@/components/dashboard/uncontacted-leads';
 import type {
   DashboardActionSection,
   DashboardActionSnapshot,
 } from '@/lib/dashboard/action-snapshot';
 import type { DashboardFollowUpRow } from '@/lib/dashboard/follow-ups';
-import type { ActivityItem } from '@/lib/dashboard/types';
 
 // Dev-only visual harness for the dashboard's two paired queue rows. The real
 // sections live behind auth on /dashboard, so this renders them against fixed
 // data — enough rows in each to overflow the 480px cap and prove the scroll
-// happens INSIDE the card rather than pushing the row below it down. Never
-// reachable in production.
+// happens INSIDE the card rather than pushing the row below it down. The
+// second Needs attention card shows the one quiet line a day with no
+// exceptions gets. Never reachable in production.
 //
 // `useAuth` falls back to a least-privileged value outside its provider, so
 // the queues render here without one: every `canX` is false, which is also the
@@ -107,34 +107,59 @@ const SNAPSHOT: DashboardActionSnapshot = {
         avatar_url: null,
       },
       plan: { name: 'Quarterly · Gym + Cardio', plan_type: 'membership' },
+      // Every third member already has work open: overdue, owned by Nikhil,
+      // then due later with no owner, so both context shapes render.
+      followUp:
+        index % 3 === 0
+          ? { dueDate: '2026-09-01', ownerName: 'Nikhil Rao' }
+          : index % 3 === 1
+            ? { dueDate: '2026-09-06', ownerName: null }
+            : null,
     })),
   },
   uncontactedLeads: {
     total: 14,
-    rows: Array.from({ length: 8 }, (_, index) => ({
-      id: `lead-${index}`,
-      name: `Enquiry ${index + 1}`,
-      avatarUrl: null,
-      messagePreview:
-        'Hi, what are your monthly charges and do you have a trial?',
-      waitingDays: index + 1,
-    })),
+    rows: [12, 95, 300, 1_500, 2_880, 5_000, 10_080, 44_000].map(
+      (waitingMinutes, index) => ({
+        id: `lead-${index}`,
+        name: `Enquiry ${index + 1}`,
+        avatarUrl: null,
+        messagePreview:
+          index === 2
+            ? 'Sent a voice message'
+            : 'Hi, what are your monthly charges and do you have a trial?',
+        waitingMinutes,
+      })
+    ),
   },
-  attention: null,
+  attention: {
+    trials: 5,
+    mayLeave: 3,
+    autoPay: {
+      total: 2,
+      rows: [
+        {
+          membershipId: 'membership-autopay-1',
+          name: 'Kavita Menon',
+          avatarUrl: null,
+          problem: 'stopped',
+        },
+        {
+          membershipId: 'membership-autopay-2',
+          name: 'Sanjay Gupta',
+          avatarUrl: null,
+          problem: 'setup_failed',
+        },
+      ],
+    },
+  },
   errors: [] as DashboardActionSection[],
 };
 
-// Fixed instants, never `Date.now()`: this module is evaluated once on the
-// server and again in the browser, so a clock-derived timestamp renders two
-// different relative labels and hydration fails on the harness itself.
-const ACTIVITY_ANCHOR = Date.parse(`${TODAY}T09:00:00.000Z`);
-
-const ACTIVITY: ActivityItem[] = Array.from({ length: 14 }, (_, index) => ({
-  id: `activity-${index}`,
-  kind: (['message', 'contact', 'broadcast', 'automation'] as const)[index % 4],
-  text: `Activity line ${index + 1} — a message, lead, broadcast, or automation`,
-  at: new Date(ACTIVITY_ANCHOR - index * 3_600_000).toISOString(),
-}));
+const QUIET_SNAPSHOT: DashboardActionSnapshot = {
+  ...SNAPSHOT,
+  attention: { trials: 0, mayLeave: 0, autoPay: { total: 0, rows: [] } },
+};
 
 export default function DashboardQueuesPreviewPage() {
   if (process.env.NODE_ENV === 'production') notFound();
@@ -155,7 +180,15 @@ export default function DashboardQueuesPreviewPage() {
           <DashboardActionsProvider initialSnapshot={SNAPSHOT}>
             <UncontactedLeads />
           </DashboardActionsProvider>
-          <ActivityFeed items={ACTIVITY} loading={false} />
+          <DashboardActionsProvider initialSnapshot={SNAPSHOT}>
+            <NeedsAttentionCard />
+          </DashboardActionsProvider>
+        </div>
+
+        <div className="grid grid-cols-1 gap-x-4 gap-y-8 lg:grid-cols-2">
+          <DashboardActionsProvider initialSnapshot={QUIET_SNAPSHOT}>
+            <NeedsAttentionCard />
+          </DashboardActionsProvider>
         </div>
       </div>
     </div>

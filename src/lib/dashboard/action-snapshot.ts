@@ -8,12 +8,10 @@ import type {
   DashboardFollowUpSnapshot,
   DashboardFollowUpStaffMember,
 } from './follow-ups';
-import type { DashboardActionAttention } from './action-attention';
 import { measureDashboardStage } from './timing';
 
 export const DASHBOARD_ACTION_LIST_LIMIT = 8;
 export const DASHBOARD_RENEWAL_WINDOW_DAYS = 7;
-export const DASHBOARD_UNCONTACTED_HOURS = 24;
 export const DASHBOARD_MESSAGE_PREVIEW_LIMIT = 160;
 
 export type DashboardActionSection =
@@ -36,6 +34,12 @@ export interface DashboardActionDateContext {
   today: string;
 }
 
+/** The contact's one open follow-up — shown so Home never invites a second. */
+export interface DashboardOpenFollowUp {
+  dueDate: string;
+  ownerName: string | null;
+}
+
 export interface DashboardMembershipPreview {
   id: string;
   end_date: string;
@@ -45,6 +49,7 @@ export interface DashboardMembershipPreview {
     avatar_url: string | null;
   } | null;
   plan: { name: string | null; plan_type: string | null } | null;
+  followUp: DashboardOpenFollowUp | null;
 }
 
 export interface DashboardMembershipQueue {
@@ -57,12 +62,35 @@ export interface DashboardUncontactedLead {
   name: string | null;
   avatarUrl: string | null;
   messagePreview: string;
-  waitingDays: number;
+  /** Since the enquiry arrived, measured at the snapshot's own `p_now`. */
+  waitingMinutes: number;
 }
 
 export interface DashboardUncontactedQueue {
   rows: DashboardUncontactedLead[];
   total: number;
+}
+
+/**
+ * `setup_failed` — Razorpay never created a working mandate.
+ * `stopped` — the provider halted AutoPay after its charges failed.
+ * Neither means money moved; an unpaid fee stays in Fees to collect.
+ */
+export type DashboardAutoPayProblem = 'setup_failed' | 'stopped';
+
+export interface DashboardAutoPayException {
+  membershipId: string;
+  name: string | null;
+  avatarUrl: string | null;
+  problem: DashboardAutoPayProblem;
+}
+
+export interface DashboardActionAttention {
+  /** Active members whose contact staff marked "May leave". */
+  mayLeave: number;
+  /** The Trials page's population: ending within 7 days or ended unjoined. */
+  trials: number;
+  autoPay: { total: number; rows: DashboardAutoPayException[] };
 }
 
 export interface DashboardActionSnapshot {
@@ -270,8 +298,21 @@ function membershipQueue(value: unknown): DashboardMembershipQueue {
               ),
             }
           : null,
+        followUp: openFollowUp(item.followUp, `${label}.followUp`),
       };
     }),
+  };
+}
+
+function openFollowUp(
+  value: unknown,
+  label: string
+): DashboardOpenFollowUp | null {
+  if (value === null) return null;
+  const row = record(value, label);
+  return {
+    dueDate: isoDate(row.dueDate, `${label}.dueDate`),
+    ownerName: nullableString(row.ownerName, `${label}.ownerName`),
   };
 }
 
@@ -293,25 +334,49 @@ function uncontactedQueue(value: unknown): DashboardUncontactedQueue {
       if (messagePreview.length > DASHBOARD_MESSAGE_PREVIEW_LIMIT) {
         throw new Error(`${label}.messagePreview is not bounded`);
       }
-      const waitingDays = count(item.waitingDays, `${label}.waitingDays`);
-      if (waitingDays < 1) throw new Error(`${label}.waitingDays is invalid`);
       return {
         id: string(item.id, `${label}.id`),
         name: nullableString(item.name, `${label}.name`),
         avatarUrl: nullableString(item.avatarUrl, `${label}.avatarUrl`),
         messagePreview,
-        waitingDays,
+        waitingMinutes: count(item.waitingMinutes, `${label}.waitingMinutes`),
       };
     }),
   };
 }
 
+const AUTO_PAY_PROBLEMS: DashboardAutoPayProblem[] = [
+  'setup_failed',
+  'stopped',
+];
+
 function attention(value: unknown): DashboardActionAttention {
   const row = record(value, 'attention');
+  const autoPay = record(row.autoPay, 'attention.autoPay');
+  const rows = list(autoPay.rows, 'attention.autoPay.rows');
+  if (rows.length > DASHBOARD_ACTION_LIST_LIMIT) {
+    throw new Error('attention.autoPay.rows is not bounded');
+  }
   return {
-    churnRisk: count(row.churnRisk, 'attention.churnRisk'),
-    trialFollowups: count(row.trialFollowups, 'attention.trialFollowups'),
-    failedMandates: count(row.failedMandates, 'attention.failedMandates'),
+    mayLeave: count(row.mayLeave, 'attention.mayLeave'),
+    trials: count(row.trials, 'attention.trials'),
+    autoPay: {
+      total: count(autoPay.total, 'attention.autoPay.total'),
+      rows: rows.map((value, index) => {
+        const label = `attention.autoPay.rows[${index}]`;
+        const item = record(value, label);
+        const problem = string(item.problem, `${label}.problem`);
+        if (!AUTO_PAY_PROBLEMS.includes(problem as DashboardAutoPayProblem)) {
+          throw new Error(`${label}.problem is invalid`);
+        }
+        return {
+          membershipId: string(item.membershipId, `${label}.membershipId`),
+          name: nullableString(item.name, `${label}.name`),
+          avatarUrl: nullableString(item.avatarUrl, `${label}.avatarUrl`),
+          problem: problem as DashboardAutoPayProblem,
+        };
+      }),
+    },
   };
 }
 

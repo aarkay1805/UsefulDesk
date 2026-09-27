@@ -2,10 +2,12 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+// The latest definition of the snapshot. Queue predicates are pinned in
+// home-queue-definitions-rpc.test.ts; this file pins the envelope.
 const snapshotMigration = readFileSync(
   resolve(
     process.cwd(),
-    'supabase/migrations/20260828200000_avoid_dashboard_timezone_catalog_scans.sql'
+    'supabase/migrations/20260927120000_home_queue_definitions.sql'
   ),
   'utf8'
 );
@@ -47,7 +49,7 @@ describe('dashboard_action_snapshot SQL contract', () => {
   });
 
   it('keeps every preview bounded and every section independently nullable', () => {
-    expect(snapshotMigration.match(/LIMIT p_limit/g)).toHaveLength(3);
+    expect(snapshotMigration.match(/LIMIT p_limit/g)).toHaveLength(4);
     expect(snapshotMigration).toContain('LIMIT p_limit * 2');
     expect(snapshotMigration).toContain('ranked.all_rank <= p_limit');
     expect(snapshotMigration).toContain('ranked.scope_rank <= p_limit');
@@ -79,14 +81,15 @@ describe('dashboard_action_snapshot SQL contract', () => {
       'profiles',
       'contacts',
       'conversations',
-      'dashboard_action_attention',
+      'messages',
+      'member_services',
+      'payment_mandates',
     ]) {
       expect(snapshotMigration).toContain(`public.${relation}`);
     }
     expect(snapshotMigration).toContain('due.balance >= 0.5');
     expect(snapshotMigration).toContain("plan.plan_type = 'recurring'");
     expect(snapshotMigration).toContain('contact.lead_status IS NULL');
-    expect(snapshotMigration).toContain("p_now - INTERVAL '24 hours'");
     expect(snapshotMigration).toContain('AT TIME ZONE p_time_zone');
     expect(snapshotMigration).toContain("payment.status = 'paid'");
   });

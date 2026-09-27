@@ -65,6 +65,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ActivityTrendCard } from './report-trend-card';
+import { EnquiryStagesCard } from './enquiry-stages-card';
 import { useAuth } from '@/hooks/use-auth';
 import { canExportFinance } from '@/lib/auth/roles';
 import { OrganizationReportsView } from './organization-reports-view';
@@ -383,6 +384,11 @@ export function OwnerReportsView({
       ) : !error ? (
         <ReportBodySkeleton />
       ) : null}
+
+      {/* Outside the month report on purpose: stage counts are today's state,
+          so they neither wait for nor reload with the month or staff choice,
+          and a failed report does not hide them. */}
+      <EnquiryStagesCard />
     </div>
   );
 }
@@ -604,9 +610,7 @@ function SourcePerformanceCard({
     <Card>
       <CardHeader>
         <CardTitle>Enquiry sources</CardTitle>
-        <CardDescription>
-          Enquiries added in these dates
-        </CardDescription>
+        <CardDescription>Enquiries added in these dates</CardDescription>
       </CardHeader>
       <CardContent className="px-0">
         {report.sources.length > 0 ? (

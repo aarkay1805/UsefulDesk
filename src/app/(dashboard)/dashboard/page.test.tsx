@@ -25,12 +25,6 @@ vi.mock('@/components/dashboard/dashboard-streaming', () => ({
   loadDashboardActionSnapshotForRequest: h.loadSnapshot,
 }));
 
-vi.mock('@/components/dashboard/deferred-dashboard-insights', () => ({
-  DeferredDashboardInsights: () => null,
-}));
-vi.mock('@/components/dashboard/deferred-activity-feed', () => ({
-  DeferredActivityFeed: () => <div data-feed="recent-work" />,
-}));
 vi.mock('@/components/dashboard/dashboard-section', () => ({
   DashboardSection: ({ children }: { children?: ReactNode }) => <>{children}</>,
 }));
@@ -73,10 +67,18 @@ describe('DashboardPage first response', () => {
     ]);
     expect(markup).toContain('data-stream="gymMetrics"');
     expect(markup).toContain('data-stream="attention"');
-    // Recent work sits beside the uncontacted queue, so it renders from the
-    // page rather than from the deferred insights below it.
-    expect(markup).toContain('data-feed="recent-work"');
     expect(h.loadSnapshot).toHaveBeenCalledOnce();
     expect(new Set(h.snapshots).size).toBe(1);
+  });
+
+  it('pairs the exceptions with uncontacted enquiries and ends the page there', () => {
+    const markup = renderToStaticMarkup(DashboardPage());
+
+    // One grid row holds exactly these two sections, and it is the last thing
+    // on Home: recent activity, the message chart, the enquiry score, and
+    // enquiry stages all left the page.
+    expect(markup).toMatch(
+      /<div class="[^"]*lg:grid-cols-2"><div data-stream="uncontactedLeads"><\/div><div data-stream="attention"><\/div><\/div><\/div>$/
+    );
   });
 });

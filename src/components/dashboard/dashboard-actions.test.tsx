@@ -50,6 +50,7 @@ vi.mock('@/hooks/use-locale', () => ({
     fmt: {
       today: () => '2026-08-27',
       date: (value: string) => value,
+      number: (value: number) => String(value),
       phone: (value?: string | null) => value ?? '',
     },
   }),
@@ -90,11 +91,15 @@ vi.mock('@/components/members/member-detail-view', () => ({
 vi.mock('@/components/members/member-form', () => ({ MemberForm: () => null }));
 vi.mock('@/components/ui/user-avatar', () => ({ UserAvatar: () => null }));
 
+import { ExpiringMemberships } from './expiring-memberships';
 import { FollowUpQueue } from './follow-up-queue';
+import { NeedsAttentionCard } from './needs-attention-card';
+import { UncontactedLeads } from './uncontacted-leads';
 import {
   DashboardActionsProvider,
   useDashboardActions,
 } from './dashboard-actions';
+import type { DashboardActionSnapshot } from '@/lib/dashboard/action-snapshot';
 
 const leadFollowUp = {
   id: 'follow-up-lead',
@@ -139,13 +144,9 @@ const payload = {
   expiringMemberships: { rows: [], total: 3 },
   uncontactedLeads: { rows: [], total: 4 },
   attention: {
-    renewalsDue: 0,
-    outstandingDues: 0,
-    outstandingAmount: 0,
-    inactiveMembers: 0,
-    churnRisk: 5,
-    trialFollowups: 6,
-    failedMandates: 7,
+    mayLeave: 5,
+    trials: 6,
+    autoPay: { total: 0, rows: [] },
   },
   errors: [],
 };
@@ -161,7 +162,7 @@ function SnapshotProbe() {
           snapshot.followUps?.counts.all,
           snapshot.expiringMemberships?.total,
           snapshot.uncontactedLeads?.total,
-          snapshot.attention?.churnRisk,
+          snapshot.attention?.mayLeave,
         ].join('|')}
       </output>
       <button onClick={refresh}>Refresh actions</button>
@@ -281,5 +282,183 @@ describe('DashboardActionsProvider consolidated request path', () => {
     expect(source).toContain('{detailContactId ? (');
     expect(source).toContain('{editing ? (');
     expect(source).not.toContain("from '@/components/members/member-form'");
+  });
+});
+
+function renderWith(section: ReactNode, snapshot: DashboardActionSnapshot) {
+  return render(
+    <DashboardActionsProvider initialSnapshot={snapshot}>
+      {section}
+    </DashboardActionsProvider>
+  );
+}
+
+const baseSnapshot = payload as unknown as DashboardActionSnapshot;
+
+describe('Home queues show exact populations', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'ResizeObserver',
+      class ResizeObserver {
+        observe() {}
+        disconnect() {}
+      }
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => Response.json(payload))
+    );
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('opens each attention count on the list that holds exactly those people', () => {
+    renderWith(<NeedsAttentionCard />, {
+      ...baseSnapshot,
+      attention: {
+        trials: 2,
+        mayLeave: 3,
+        autoPay: {
+          total: 2,
+          rows: [
+            {
+              membershipId: 'membership-stopped',
+              name: 'Kavita Menon',
+              avatarUrl: null,
+              problem: 'stopped',
+            },
+            {
+              membershipId: 'membership-setup',
+              name: 'Sanjay Gupta',
+              avatarUrl: null,
+              problem: 'setup_failed',
+            },
+          ],
+        },
+      },
+    });
+
+    expect(
+      screen
+        .getByRole('link', { name: /Trials to follow up/ })
+        .getAttribute('href')
+    ).toBe('/members?view=trials');
+    expect(
+      screen.getByRole('link', { name: /May leave/ }).getAttribute('href')
+    ).toBe('/members?view=all&filter=may-leave');
+    expect(
+      screen.getByRole('link', { name: /Kavita Menon/ }).textContent
+    ).toContain('AutoPay stopped after payments failed');
+    expect(
+      screen.getByRole('link', { name: /Sanjay Gupta/ }).getAttribute('href')
+    ).toBe('/members?view=all&member=membership-setup');
+    expect(
+      screen.getByRole('link', { name: /Sanjay Gupta/ }).textContent
+    ).toContain('AutoPay could not be set up');
+    // Two AutoPay problems are both on screen, so no truncation note.
+    expect(screen.queryByText(/AutoPay problems\./)).toBeNull();
+  });
+
+  it('gives a zero no row, and says so once when nothing needs attention', () => {
+    renderWith(<NeedsAttentionCard />, {
+      ...baseSnapshot,
+      attention: { trials: 0, mayLeave: 4, autoPay: { total: 0, rows: [] } },
+    });
+    expect(screen.queryByText('Trials to follow up')).toBeNull();
+    expect(screen.getByText('May leave')).toBeTruthy();
+    cleanup();
+
+    renderWith(<NeedsAttentionCard />, {
+      ...baseSnapshot,
+      attention: { trials: 0, mayLeave: 0, autoPay: { total: 0, rows: [] } },
+    });
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+    expect(
+      screen.getByText(
+        'No trials to follow up, AutoPay problems, or members marked “May leave”.'
+      )
+    ).toBeTruthy();
+  });
+
+  it('keeps a failed attention read distinct from an empty one', () => {
+    renderWith(<NeedsAttentionCard />, {
+      ...baseSnapshot,
+      attention: null,
+      errors: ['attention'],
+    });
+    expect(screen.getByText('Could not load these lists')).toBeTruthy();
+    expect(screen.queryByText(/No trials to follow up/)).toBeNull();
+  });
+
+  it('shows the open follow-up on an expiring row and saves warnings for the next two days', () => {
+    renderWith(<ExpiringMemberships />, {
+      ...baseSnapshot,
+      expiringMemberships: {
+        total: 2,
+        rows: [
+          {
+            id: 'membership-tomorrow',
+            end_date: '2026-08-28',
+            contact: { name: 'Asha Rao', phone: null, avatar_url: null },
+            plan: { name: 'Monthly', plan_type: 'recurring' },
+            followUp: { dueDate: '2026-08-26', ownerName: 'Nikhil' },
+          },
+          {
+            id: 'membership-later',
+            end_date: '2026-09-01',
+            contact: { name: 'Ravi Kumar', phone: null, avatar_url: null },
+            plan: { name: 'Monthly', plan_type: 'recurring' },
+            followUp: null,
+          },
+        ],
+      },
+    });
+
+    expect(
+      screen.getByText('Monthly · Follow-up overdue · Nikhil')
+    ).toBeTruthy();
+    expect(screen.getByText('Expires tomorrow')).toBeTruthy();
+    expect(screen.getByText('Expires in 5 days')).toBeTruthy();
+    expect(screen.queryByText(/\dd$/)).toBeNull();
+  });
+
+  it('lists a fresh enquiry with how long it has waited', () => {
+    renderWith(<UncontactedLeads />, {
+      ...baseSnapshot,
+      uncontactedLeads: {
+        total: 2,
+        rows: [
+          {
+            id: 'lead-fresh',
+            name: 'Neha',
+            avatarUrl: null,
+            messagePreview: 'What are the fees?',
+            waitingMinutes: 12,
+          },
+          {
+            id: 'lead-old',
+            name: 'Vikram',
+            avatarUrl: null,
+            messagePreview: 'No message yet',
+            waitingMinutes: 3 * 24 * 60,
+          },
+        ],
+      },
+    });
+
+    expect(screen.getByText('Waiting 12 minutes')).toBeTruthy();
+    expect(screen.getByText('Waiting 3 days')).toBeTruthy();
+    cleanup();
+
+    renderWith(<UncontactedLeads />, {
+      ...baseSnapshot,
+      uncontactedLeads: { total: 0, rows: [] },
+    });
+    expect(
+      screen.getByText('Your team has contacted every new enquiry.')
+    ).toBeTruthy();
   });
 });

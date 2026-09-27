@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Membership } from '@/types';
-import { trialBucket, partitionTrials } from './trials';
+import { declinedTrialIds, trialBucket, partitionTrials } from './trials';
 
 describe('trialBucket', () => {
   const today = '2026-07-05';
@@ -84,5 +84,42 @@ describe('partitionTrials', () => {
     expect(res.ending_today).toHaveLength(0);
     expect(res.ending_soon).toHaveLength(0);
     expect(res.expired_unconverted).toHaveLength(0);
+  });
+
+  it('retires a trial the person declined after it started', () => {
+    const declined = trial({
+      id: 'declined',
+      contact_id: 'c-declined',
+      end_date: '2026-06-20',
+    });
+    const earlier = trial({
+      id: 'earlier-decline',
+      contact_id: 'c-earlier',
+      start_date: '2026-07-01',
+      end_date: '2026-06-30',
+    });
+    const open = trial({
+      id: 'open',
+      contact_id: 'c-open',
+      end_date: '2026-06-25',
+    });
+    const ids = declinedTrialIds(
+      [declined, earlier, open],
+      [
+        // 00:30 IST on the trial's first day — inside the trial, although it
+        // is still the previous calendar day in UTC.
+        { contact_id: 'c-declined', completed_at: '2026-06-30T19:00:00.000Z' },
+        // A "no" before this trial began belongs to an earlier conversation.
+        { contact_id: 'c-earlier', completed_at: '2026-06-29T12:00:00.000Z' },
+      ],
+      'Asia/Kolkata'
+    );
+
+    expect([...ids]).toEqual(['declined']);
+    const res = partitionTrials([declined, earlier, open], today, ids);
+    expect(res.expired_unconverted.map((row) => row.id)).toEqual([
+      'earlier-decline',
+      'open',
+    ]);
   });
 });

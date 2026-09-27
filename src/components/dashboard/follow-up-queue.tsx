@@ -23,7 +23,12 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Chip, ChipCount, ChipGroup } from '@/components/ui/chip';
 import { UserAvatar } from '@/components/ui/user-avatar';
-import { QUEUE_LIST, QueueEmpty, QueueSkeleton } from './action-queue';
+import {
+  QUEUE_LIST,
+  QUEUE_SCROLL_INSET,
+  QueueEmpty,
+  QueueSkeleton,
+} from './action-queue';
 import { useDashboardActions } from './dashboard-actions';
 import {
   DASHBOARD_PAIRED_SECTION,
@@ -106,7 +111,7 @@ const followUpReason = (
  * left edge and a state cluster pinned to the right by `ml-auto`, so no two
  * rows agreed where the state column was and the queue could not be scanned
  * downward for what is late. Each row re-enters this template through
- * `subgrid`, the same way `lead-funnel` aligns its stage rows.
+ * `subgrid`, the same way `enquiry-stages-card` aligns its stage rows.
  *
  * `auto` for the meta tracks, never fixed widths — the due cell holds a badge
  * or a **localized** medium date, so only content sizing survives a change of
@@ -224,7 +229,13 @@ export function FollowUpQueue() {
             ))}
           </ChipGroup>
         </CardHeader>
-        <ScrollArea className={DASHBOARD_QUEUE_SCROLLER}>
+        <ScrollArea
+          className={
+            !sectionFailed && rows && rows.length > 0
+              ? `${DASHBOARD_QUEUE_SCROLLER} ${QUEUE_SCROLL_INSET}`
+              : DASHBOARD_QUEUE_SCROLLER
+          }
+        >
           {/* The row template answers to this column's width, not the
               viewport's — see FOLLOW_UP_GRID. */}
           <CardContent className="@container/follow-ups">
@@ -253,7 +264,7 @@ export function FollowUpQueue() {
               />
             ) : (
               <ul
-                className={`${QUEUE_LIST} -my-2 ${
+                className={`${QUEUE_LIST} ${
                   scope === 'lead' ? FOLLOW_UP_GRID_NO_REASON : FOLLOW_UP_GRID
                 }`}
               >

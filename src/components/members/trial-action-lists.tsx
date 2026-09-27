@@ -15,8 +15,10 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { daysUntil } from '@/lib/memberships/expiry';
 import {
+  declinedTrialIds,
   partitionTrials,
   type TrialBucket,
+  type TrialDecline,
   type PartitionedTrials,
 } from '@/lib/memberships/trials';
 import type { Membership } from '@/types';
@@ -40,6 +42,8 @@ interface TrialActionListsProps {
 }
 
 const SELECT = '*, contact:contacts(*), plan:membership_plans(*)';
+/** Contact ids per decline read — keeps each request URL comfortably short. */
+const DECLINE_BATCH = 100;
 
 const BUCKET_META: Record<
   TrialBucket,
@@ -74,8 +78,10 @@ export function TrialActionLists({
   reloadKey,
 }: TrialActionListsProps) {
   const { accountId, canSendMessages } = useAuth();
-  const { fmt } = useLocale();
+  const { fmt, locale } = useLocale();
+  const timeZone = locale.timeZone;
   const [trials, setTrials] = useState<Membership[]>([]);
+  const [declined, setDeclined] = useState<ReadonlySet<string>>(new Set());
   const [loading, setLoading] = useState(true);
   // Bumped after a convert/reminder to re-pull the lists.
   const [nonce, setNonce] = useState(0);
@@ -98,18 +104,52 @@ export function TrialActionLists({
         .is('converted_at', null)
         .neq('status', 'cancelled')
         .order('end_date', { ascending: true });
+      const rows = (data as Membership[]) ?? [];
+      // A trial the person declined — a follow-up marked done as Not
+      // interested after it started — is closed work. Home's Trials to follow
+      // up count applies the same rule, so both show the same people. The
+      // read is batched by contact so a long trial list stays one bounded
+      // request per batch instead of one URL too long to send.
+      const contactIds = [...new Set(rows.map((row) => row.contact_id))];
+      const batches = await Promise.all(
+        Array.from(
+          { length: Math.ceil(contactIds.length / DECLINE_BATCH) },
+          (_, index) =>
+            supabase
+              .from('follow_ups')
+              .select('contact_id, completed_at')
+              .eq('status', 'done')
+              .eq('outcome', 'not_interested')
+              .in(
+                'contact_id',
+                contactIds.slice(
+                  index * DECLINE_BATCH,
+                  (index + 1) * DECLINE_BATCH
+                )
+              )
+        )
+      );
+      const declines: TrialDecline[] = [];
+      for (const batch of batches) {
+        if (batch.error) {
+          console.error('[trials] declined follow-ups failed:', batch.error);
+          continue;
+        }
+        declines.push(...((batch.data as TrialDecline[]) ?? []));
+      }
       if (cancelled) return;
-      setTrials((data as Membership[]) ?? []);
+      setTrials(rows);
+      setDeclined(declinedTrialIds(rows, declines, timeZone));
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [reloadKey, nonce]);
+  }, [reloadKey, nonce, timeZone]);
 
   const buckets: PartitionedTrials = useMemo(
-    () => partitionTrials(trials, fmt.today()),
-    [trials, fmt]
+    () => partitionTrials(trials, fmt.today(), declined),
+    [trials, fmt, declined]
   );
 
   if (loading) {

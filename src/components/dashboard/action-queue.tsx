@@ -61,15 +61,23 @@ export function QueueEmpty({
 }
 
 /**
- * The class every queue list carries. `-mx-2` is the long-standing half of it:
- * it cancels half the card's `px-4` so each row's own `px-2` still lands text
- * at 16px while the dividers run wider than the text.
- *
- * `-my-*` is the vertical twin, and it must match the row's own `py-*`. A row
- * pads itself so the whole strip is a hover and click target, but that padding
- * used to ADD to the card's `py-4` — text sat 24-28px from the top edge against
- * 16px from the sides, so every queue read bottom- and top-heavy. Pulling the
- * list back by the row's own padding puts the first and last rows' text at the
- * same 16px as the sides while the hover strip keeps its full height.
+ * The class every queue list carries. `-mx-2` cancels half the card's `px-4`
+ * so each row's own `px-2` still lands text at 16px while the dividers run
+ * wider than the text. Every queue row pads itself `py-2`.
  */
 export const QUEUE_LIST = 'divide-border/60 -mx-2 divide-y';
+
+/**
+ * The vertical twin of `-mx-2`, and it must match the rows' `py-2`. A row pads
+ * itself so the whole strip is a hover and click target, but that padding
+ * used to ADD to the card's `py-4` — text sat 24px from the top edge against
+ * 16px from the sides. Pulling back by the row's own padding puts the first
+ * and last rows' text at the same 16px as the sides.
+ *
+ * It goes on the queue's `ScrollArea`, and only while a list is showing — never
+ * on the list. On the list, the negative bottom margin overflowed the scroll
+ * viewport by 8px, so every short queue showed a scrollbar with nothing to
+ * scroll. On the scroller it reaches into the card's padding instead, and an
+ * empty or failed queue keeps the card's full inset.
+ */
+export const QUEUE_SCROLL_INSET = '-my-2';

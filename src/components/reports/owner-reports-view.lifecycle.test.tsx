@@ -79,6 +79,10 @@ vi.mock('./report-trend-card', () => ({
   ActivityTrendCard: () => <div>Activity trend</div>,
 }));
 
+vi.mock('./enquiry-stages-card', () => ({
+  EnquiryStagesCard: () => <div>Enquiry stages</div>,
+}));
+
 vi.mock('./organization-reports-view', () => ({
   OrganizationReportsView: () => <div>Organization performance</div>,
 }));

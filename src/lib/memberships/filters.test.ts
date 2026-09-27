@@ -5,6 +5,7 @@ import {
   applyMemberFilters,
   EMPTY_MEMBER_FILTERS,
   NO_TRAINER_MEMBER_FILTER,
+  memberFiltersFromUrl,
   memberStatusOrClause,
   splitNullableMemberFilterValues,
   toggleUsualTimeGroup,
@@ -241,5 +242,21 @@ describe('activeMemberFilterCount', () => {
         usualTimes: ['morning', 'time:06:30'],
       })
     ).toBe(2);
+  });
+});
+
+describe('memberFiltersFromUrl', () => {
+  it('opens May leave on active members only, the population Home counts', () => {
+    expect(memberFiltersFromUrl('may-leave')).toEqual({
+      ...EMPTY_MEMBER_FILTERS,
+      statuses: ['active'],
+      churnRisk: ['yes'],
+    });
+  });
+
+  it('ignores an absent or unknown set, including inherited object keys', () => {
+    expect(memberFiltersFromUrl(null)).toEqual(EMPTY_MEMBER_FILTERS);
+    expect(memberFiltersFromUrl('fees-due')).toEqual(EMPTY_MEMBER_FILTERS);
+    expect(memberFiltersFromUrl('constructor')).toEqual(EMPTY_MEMBER_FILTERS);
   });
 });

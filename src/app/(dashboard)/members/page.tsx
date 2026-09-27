@@ -7,6 +7,7 @@ import { Download, Loader2, Plus, Upload } from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { createClient } from '@/lib/supabase/client';
+import { memberFiltersFromUrl } from '@/lib/memberships/filters';
 import { membershipIdForContact } from '@/lib/memberships/lookup';
 import {
   MEMBER_REALTIME_TABLES,
@@ -160,6 +161,9 @@ export default function MembersPage() {
   const view: MemberView = isMemberView(requestedView)
     ? requestedView
     : 'renewals';
+  // A link may open All members on a named filter set (Home's May leave
+  // count does). Keyed below so a new set remounts the table on it.
+  const filterSet = searchParams.get('filter');
   const [reloadKeys, setReloadKeys] =
     useState<Record<MemberView, number>>(INITIAL_RELOAD_KEYS);
   const [detailReloadKey, setDetailReloadKey] = useState(0);
@@ -466,6 +470,7 @@ export default function MembersPage() {
           />
         ) : view === 'all' ? (
           <MembersTable
+            key={filterSet ?? ''}
             readiness={readiness}
             onSelect={openDetail}
             onEdit={editFromDetail}
@@ -473,6 +478,7 @@ export default function MembersPage() {
             canEdit={canSendMessages}
             reloadKey={reloadKeys.all}
             onRegisterExport={registerExport}
+            initialFilters={memberFiltersFromUrl(filterSet)}
           />
         ) : (
           <AttendanceView

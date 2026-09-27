@@ -1,23 +1,60 @@
 # Roadmap
 
+## Built in code — Home queue definitions and simpler Home (2026-09-27)
+
+**Status: built in code; database expand step applied to Production;
+app deploy, contract step, and owner validation pending.** Implements the [dashboard benchmark](../docs/dashboard-benchmark-2026-09-27.md)'s
+high-confidence set: exact queue populations (Batch 2) and the reductions that
+needed no owner validation (Batch 3). The choices the benchmark marks for
+validation stay unchanged; see the Proposed entry below.
+
+- **Not contacted yet:** New-stage enquiries with no membership and no service
+  purchase, and no staff WhatsApp message WhatsApp accepted or follow-up marked
+  done. Automated (`bot`) messages never count. Fresh enquiries appear at once,
+  newest first, with minutes/hours/days waiting and the enquirer's own latest
+  message. An offline call is recorded by moving the enquiry out of New or
+  marking a follow-up done.
+- **Expiring memberships:** same seven-day renewal population; each row shows
+  the contact's open follow-up (when, and who). Only today/tomorrow are amber;
+  copy reads "Expires in 3 days".
+- **Needs attention:** Trials uses the Trials page window (7 days, or ended)
+  and both retire a trial once a follow-up is marked done as Not interested
+  after it started. AutoPay separates a failed setup from AutoPay stopped after
+  failed charges, lists the people, and retires on a newer mandate, a later
+  payment, or an inactive membership. May leave opens All members on
+  `?filter=may-leave` (Active + May leave), the exact counted population. Zero
+  exceptions take no row.
+- **Composition:** Recent activity, the Messages chart, the Enquiry score, and
+  Enquiries by stage left Home; stage counts and ages moved to Business →
+  Performance. Not contacted yet now pairs with Needs attention. Short queues no
+  longer show a scrollbar with nothing to scroll.
+
+**Rollout:** `20260927120000_home_queue_definitions.sql` is an expand step,
+connector-applied to Production as version `20260927074233`. It also returns
+the fields the previous app parses (`waitingDays`, `churnRisk`,
+`trialFollowups`, `failedMandates`), so either app version works and the app
+can deploy at any time. Contract after the new app is live everywhere: remove
+those fields and drop `dashboard_action_attention`,
+`dashboard_conversation_series`, and `dashboard_lead_rating_inputs`. Rollback:
+re-apply the snapshot from `20260828200000_avoid_dashboard_timezone_catalog_scans.sql`.
+
+**Acceptance evidence:** SQL text-contract, parser, label, trial, filter-set,
+stage, and render tests; full suite (478 files) and production build pass;
+phone (375px) and desktop checks on `/preview/dashboard-queues` and
+`/preview/enquiry-stages`. On Production, a rollback-only dry run and the
+applied function ran as each of the four active branches' owners under RLS:
+no section errors, both app versions' field contracts hold, and per-branch
+timings match the previous definition. Grants are `authenticated` only; the
+security advisors show nothing new. Not yet verified: the deployed app or any
+owner session.
+
 ## Proposed — Home simplification after the first fold (2026-09-27)
 
-**Status: benchmark and planning complete; redesign is proposed, not built.**
-The [dashboard benchmark](../docs/dashboard-benchmark-2026-09-27.md) compares
-seven reference products, audits current Home sections and queue definitions,
-and proposes real-life scenarios for owners with limited English/software
-experience. Evidence is public vendor documentation plus local source
-inspection, not live competitor testing or customer validation. Keep the
-existing first-fold summary and quick actions outside this change's scope.
-
-**Recommended direction:** prioritize Follow-ups and Expiring memberships;
-repair Not contacted yet; remove Recent activity's equal-sized action slot;
-move Messages, Enquiry score, and Enquiries by stage out of daily Home. Use
-Business → Performance for useful analysis without duplicating existing reports
-or treating the score's application-defined targets as validated benchmarks.
-Trials, reliable missed-visit signals, and correctly classified AutoPay issues
-become compact exceptions. A Fees to collect preview is conditional on proving
-it improves the existing first-fold link, not a requirement to fill empty space.
+**Status: queue definitions and the high-confidence reductions are built (see
+above); the rest waits on owner validation.** Evidence is public vendor
+documentation plus local source inspection, not live competitor testing or
+customer validation. Keep the existing first-fold summary and quick actions
+outside this change's scope.
 
 ### Batch 1 — Validate the information order and language
 
@@ -36,61 +73,21 @@ including regional-language needs. This is a qualitative target, not a claim
 of statistical validation. Prefer the version with fewer sections when extra
 content does not improve task completion.
 
-### Batch 2 — Make every queue's promise true
+### Remaining after Batch 1
 
-Before strengthening the visual emphasis, define and implement exact populations:
-
-- Not contacted yet must use real contact-attempt evidence, distinguish human
-  replies from automated messages, include fresh enquiries, and consistently
-  exclude membership/service customers. Specify how an offline call is recorded.
-- Preserve renewal eligibility and show existing follow-up context; the current
-  expiry SQL does not implement the component comment's “no follow-up yet” rule.
-  Respect the one-open-follow-up-per-contact invariant instead of creating a
-  separate task system. Define recently expired recovery explicitly if Home
-  later includes it; do not silently change the current seven-day window.
-- Separate failed AutoPay setup from failed charges and unpaid balances. Give
-  each real exception its matching recovery destination and accurate label.
-- Define how old trial work closes after a recorded outcome; distinguish saved
-  risk flags from attendance evidence, with concrete reasons and no double count.
-- Make every count open its exact filtered people, preserving branch and date
-  context. Verify totals and preview truncation against the same predicate.
-
-**Implementation anchors:** `src/lib/dashboard/action-snapshot.ts`, the latest
-dashboard snapshot/attention SQL definitions, existing member/enquiry listing
-contracts, and the shared follow-up flows. New migrations must sort after the
-then-latest migration, use the approved migration tool, and retain authorization.
-
-**Acceptance:** meaningful predicate/integration tests for fresh and contacted
-enquiries, service-only customers, overlapping issues, existing follow-ups,
-historical trials, failed mandates versus charges, exact deep links, selected
-branch isolation, and role gates. Validate source findings against the target
-schema before applying any correction; the benchmark did not inspect Production.
-
-### Batch 3 — Ship the simpler Home composition
-
-Use Batch 1's accepted order. Remove historical insight cards from Home; merge
-useful analysis into existing Business → Performance rather than adding a new
-reporting page. Audit existing report coverage first. Remove the generic activity
-feed's prominent slot while retaining the relevant histories in their owning
-surfaces. Keep a short, visible preview for each daily queue and a precise route
-to its full list. If the fee preview is accepted, use existing collectible-dues
-definitions and payment flows, explicitly state its membership/invoice scope,
-and suppress future, settled, cancelled, or refund-review amounts as appropriate.
-
-Use names, one short reason, a concrete date/amount, and a labelled action.
-Keep existing checkout, payment, member detail, enquiry detail, and follow-up
-components. Proposed short previews/due-only defaults intentionally revise the
-current Home rules: update `docs/ui-patterns.md` with the accepted behavior.
-Any new shared vocabulary belongs in `docs/ux-copy.md`; any required master
-change needs the affected-call-site warning before implementation.
-
-**Acceptance:** phone/desktop and large-text checks; zero/loading/error/stale
-states stay distinct; successful mutations refresh related counts and lists;
-failed/uncertain actions remain recoverable; WhatsApp readiness and capability
-gates remain intact. Preserve bounded server snapshots, independent section
-failures, and deferred report loading. Home should no longer fetch removed
-historical cards merely because the owner scrolls. Verify with fictional or
-approved test data without customer messages or payments.
+- Apply the accepted order and defaults: due-only versus all-open follow-up
+  preview, renewals versus fresh enquiries first, short previews versus nested
+  scrolling, and labelled row actions (**Call**, **Chat**, **Record payment**,
+  **Renew**). Update `docs/ui-patterns.md` with the accepted behavior.
+- Add a Fees to collect preview only if it beats the first-fold link; use the
+  existing collectible-dues definitions and state its membership/invoice scope.
+- Queue exactness gaps found while building: Follow-ups **See all** pages drop
+  Not joining enquiries and converted contacts that Home still counts; Renewals
+  inner-joins plans, so legacy no-plan memberships count on Home but not there;
+  the Enquiries page and stage counts still include service-only customers;
+  public API sends are stored as staff messages and count as contact attempts.
+- After the app deploys, run the contract migration described above
+  (compatibility fields and the three unused dashboard SQL functions).
 
 ### Rollout and deferred choices
 

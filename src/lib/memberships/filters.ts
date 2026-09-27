@@ -153,6 +153,29 @@ export const EMPTY_MEMBER_FILTERS: MemberFilters = {
   followUps: [],
 };
 
+/**
+ * Named All members filter sets a link can open with `?filter=<name>`. A link
+ * names a set rather than raw filter values, so the count that points here and
+ * the list it opens share one definition. `may-leave` is Home's Needs attention
+ * count: an active, non-trial membership whose contact staff marked "May
+ * leave". The filters stay visible and editable once the list opens.
+ */
+const MEMBER_FILTER_SETS = {
+  'may-leave': { statuses: ['active'], churnRisk: ['yes'] },
+} satisfies Record<string, Partial<MemberFilters>>;
+
+export type MemberFilterSet = keyof typeof MEMBER_FILTER_SETS;
+
+export function memberFiltersFromUrl(value: string | null): MemberFilters {
+  if (!value || !Object.hasOwn(MEMBER_FILTER_SETS, value)) {
+    return EMPTY_MEMBER_FILTERS;
+  }
+  return {
+    ...EMPTY_MEMBER_FILTERS,
+    ...MEMBER_FILTER_SETS[value as MemberFilterSet],
+  };
+}
+
 /** Number of active filter groups — drives the Filters button badge. */
 export function activeMemberFilterCount(f: MemberFilters): number {
   return (
