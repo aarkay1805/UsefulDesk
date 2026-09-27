@@ -6,6 +6,15 @@
 
 ---
 
+## 2026-09-27 — Home dashboard benchmark and simplification plan (documentation only)
+
+`docs/dashboard-benchmark-2026-09-27.md` compares seven gym-software references
+with current Home source, recommends daily people/action lists over historical
+charts, and records misleading enquiry/AutoPay predicates, queue overlap, and
+imprecise destinations. `PRDs/roadmap.md` owns the validation, queue-correction,
+and composition batches. Public documentation and source inspection are not
+live product testing or owner validation. No UI, database, or customer data changed.
+
 ## 2026-09-27 — Native mobile UI audit repairs (built in code; release pending)
 
 `apps/mobile` now gives template modals local safe areas, blocks known templates

@@ -1,5 +1,109 @@
 # Roadmap
 
+## Proposed — Home simplification after the first fold (2026-09-27)
+
+**Status: benchmark and planning complete; redesign is proposed, not built.**
+The [dashboard benchmark](../docs/dashboard-benchmark-2026-09-27.md) compares
+seven reference products, audits current Home sections and queue definitions,
+and proposes real-life scenarios for owners with limited English/software
+experience. Evidence is public vendor documentation plus local source
+inspection, not live competitor testing or customer validation. Keep the
+existing first-fold summary and quick actions outside this change's scope.
+
+**Recommended direction:** prioritize Follow-ups and Expiring memberships;
+repair Not contacted yet; remove Recent activity's equal-sized action slot;
+move Messages, Enquiry score, and Enquiries by stage out of daily Home. Use
+Business → Performance for useful analysis without duplicating existing reports
+or treating the score's application-defined targets as validated benchmarks.
+Trials, reliable missed-visit signals, and correctly classified AutoPay issues
+become compact exceptions. A Fees to collect preview is conditional on proving
+it improves the existing first-fold link, not a requirement to fill empty space.
+
+### Batch 1 — Validate the information order and language
+
+Create a reviewable prototype from the existing dashboard/queue masters, with
+fictional data. Compare overdue/today follow-ups versus the current all-open
+preview; short previews versus nested scrolling on phones; and Home with and
+without a fee preview. Keep Upcoming reachable. Test 6–8 owners/front-desk staff
+on their usual phones, in their preferred language. Do not assume limited
+English means limited business understanding or that Hindi is the right pilot
+language for every gym.
+
+**Acceptance:** at least 5 of 6 participants find the first useful action in
+30 seconds and complete each core scenario without navigation coaching. No one
+confuses a sent reminder with a payment or renewal. Record failures by scenario,
+including regional-language needs. This is a qualitative target, not a claim
+of statistical validation. Prefer the version with fewer sections when extra
+content does not improve task completion.
+
+### Batch 2 — Make every queue's promise true
+
+Before strengthening the visual emphasis, define and implement exact populations:
+
+- Not contacted yet must use real contact-attempt evidence, distinguish human
+  replies from automated messages, include fresh enquiries, and consistently
+  exclude membership/service customers. Specify how an offline call is recorded.
+- Preserve renewal eligibility and show existing follow-up context; the current
+  expiry SQL does not implement the component comment's “no follow-up yet” rule.
+  Respect the one-open-follow-up-per-contact invariant instead of creating a
+  separate task system. Define recently expired recovery explicitly if Home
+  later includes it; do not silently change the current seven-day window.
+- Separate failed AutoPay setup from failed charges and unpaid balances. Give
+  each real exception its matching recovery destination and accurate label.
+- Define how old trial work closes after a recorded outcome; distinguish saved
+  risk flags from attendance evidence, with concrete reasons and no double count.
+- Make every count open its exact filtered people, preserving branch and date
+  context. Verify totals and preview truncation against the same predicate.
+
+**Implementation anchors:** `src/lib/dashboard/action-snapshot.ts`, the latest
+dashboard snapshot/attention SQL definitions, existing member/enquiry listing
+contracts, and the shared follow-up flows. New migrations must sort after the
+then-latest migration, use the approved migration tool, and retain authorization.
+
+**Acceptance:** meaningful predicate/integration tests for fresh and contacted
+enquiries, service-only customers, overlapping issues, existing follow-ups,
+historical trials, failed mandates versus charges, exact deep links, selected
+branch isolation, and role gates. Validate source findings against the target
+schema before applying any correction; the benchmark did not inspect Production.
+
+### Batch 3 — Ship the simpler Home composition
+
+Use Batch 1's accepted order. Remove historical insight cards from Home; merge
+useful analysis into existing Business → Performance rather than adding a new
+reporting page. Audit existing report coverage first. Remove the generic activity
+feed's prominent slot while retaining the relevant histories in their owning
+surfaces. Keep a short, visible preview for each daily queue and a precise route
+to its full list. If the fee preview is accepted, use existing collectible-dues
+definitions and payment flows, explicitly state its membership/invoice scope,
+and suppress future, settled, cancelled, or refund-review amounts as appropriate.
+
+Use names, one short reason, a concrete date/amount, and a labelled action.
+Keep existing checkout, payment, member detail, enquiry detail, and follow-up
+components. Proposed short previews/due-only defaults intentionally revise the
+current Home rules: update `docs/ui-patterns.md` with the accepted behavior.
+Any new shared vocabulary belongs in `docs/ux-copy.md`; any required master
+change needs the affected-call-site warning before implementation.
+
+**Acceptance:** phone/desktop and large-text checks; zero/loading/error/stale
+states stay distinct; successful mutations refresh related counts and lists;
+failed/uncertain actions remain recoverable; WhatsApp readiness and capability
+gates remain intact. Preserve bounded server snapshots, independent section
+failures, and deferred report loading. Home should no longer fetch removed
+historical cards merely because the owner scrolls. Verify with fictional or
+approved test data without customer messages or payments.
+
+### Rollout and deferred choices
+
+Establish a baseline and pilot the accepted change with owners. Measure due
+follow-ups cleared, first human enquiry response time, eligible renewals, and
+confirmed collections, with errors/duplicate reminders as guardrails. Treat
+financial outcomes as influenced by multiple factors, not proof of UI causation.
+Update this entry and the changelog when implementation and acceptance occur.
+
+Defer dashboard customization, more scorecards, AI-first navigation, default
+birthday blocks, and class widgets for open-floor gyms. Regional-language work
+is a separately scoped pilot if comprehension testing demonstrates the need.
+
 ## Built in code — Mobile UI audit repairs (2026-09-27)
 
 **Status: all three repair batches are built in code on main; native acceptance and release remain pending.** The physical iPhone
