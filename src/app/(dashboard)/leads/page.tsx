@@ -848,7 +848,6 @@ function buildLeadColumnLayout(
     }));
 
   return {
-    colByKey,
     orderedKeys,
     visibleColumns,
     manageColumns,
@@ -1487,6 +1486,7 @@ export default function LeadsPage() {
   }, [
     customFields,
     defaultCurrency,
+    fmt,
     locale.locale,
     locale.phoneCountryCode,
     fieldOptions,
@@ -1501,13 +1501,8 @@ export default function LeadsPage() {
     canResolveAnyTransfer,
   ]);
 
-  const {
-    colByKey,
-    orderedKeys,
-    visibleColumns,
-    manageColumns,
-    hiddenForDialog,
-  } = buildLeadColumnLayout(liveColumns, prefs.order, prefs.hidden);
+  const { orderedKeys, visibleColumns, manageColumns, hiddenForDialog } =
+    buildLeadColumnLayout(liveColumns, prefs.order, prefs.hidden);
 
   // Every account tag as checklist options for the tags cell editor.
   const allTagOptions = useMemo(
@@ -1841,7 +1836,10 @@ export default function LeadsPage() {
   }, [supabase, fetchTransfers]);
 
   useEffect(() => {
-    const run = ++listingEffectRun.current;
+    // Alias the ref itself, not a snapshot of `.current`: the cleanup's
+    // microtask must read the count after any replay has bumped it.
+    const effectRuns = listingEffectRun;
+    const run = ++effectRuns.current;
     let cancelled = false;
     void (async () => {
       await Promise.resolve();
@@ -1853,7 +1851,7 @@ export default function LeadsPage() {
       // replay claim the same in-flight key. A real unmount has no next run,
       // so its database work is cancelled instead of merely suppressing UI.
       queueMicrotask(() => {
-        if (listingEffectRun.current === run) {
+        if (effectRuns.current === run) {
           listingCoordinatorRef.current?.abort();
         }
       });
