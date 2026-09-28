@@ -239,7 +239,10 @@ view-only and send-readiness states. Deeper chat and template screens retain
 recipient-focused headers. Batch 3
 shares native navigation colors/status-bar appearance, keeps delivery time and
 tick together, uses the native accent for quotes, and stacks App details values.
-The original implementation and acceptance checklist remains below.
+The 28 September follow-up also bounds and scrolls the conversation footer after
+maximum accessibility text reproduced a notice that consumed the history area.
+Its post-fix native retest remains pending. The original implementation and
+acceptance checklist remains below.
 
 **Verified so far:** `npm run mobile:verify` passed (75 suites, 833 tests), as
 did the shared template contract/readiness tests (47 tests). On the physical
@@ -252,14 +255,22 @@ light mode. At the largest standard Text Size, chat rows, quotes, template
 headers, previews, and editor fields remained visible with the keyboard closed.
 No customer send was used for validation.
 
-**Still to accept on devices:** the final home-only branch placement after the
-refinement, software-keyboard reachability and first-tap search navigation,
-largest accessibility text sizes, VoiceOver/TalkBack and 48pt targets, Android
+**28 September follow-up:** final home-only branch placement, dark Account/App
+details navigation, and the template list → legacy detail → Back → Close path at
+maximum accessibility text were observed on the physical iPhone Development
+client. Search opened on one mirrored tap, but the software keyboard was absent.
+The closed-chat maximum-text defect is repaired in code, awaiting native retest.
+See [the acceptance matrix](../docs/mobile/ui-acceptance-2026-09-28.md).
+
+**Still to accept on devices:** software-keyboard reachability and first-tap
+search navigation, the repaired maximum-text footer and remaining large-text
+paths, VoiceOver/TalkBack and 48pt targets, Android
 Back, Photo and transition animation, scrolling older
 messages, and controlled offline/reconnect, viewer/read-only, and uncertain-send
 states. The mirrored iPhone did not show its software keyboard. A current
 simulator development client built and installed with ExpoAudio, but this host
-has no Simulator GUI to inspect it; no Android device/emulator is connected.
+has no Simulator GUI to inspect it. The API 36 Android emulator boots with the
+older build 2, but the current UI automation cannot attach to its window.
 No new internal build or store release has been published.
 
 ### Implementation order

@@ -14,6 +14,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Platform,
+  ScrollView,
   View,
 } from 'react-native';
 
@@ -937,7 +938,14 @@ function ConversationThread({
               </View>
             ) : null}
           </View>
-          <View>
+          <ScrollView
+            // A large-text notice can be taller than the entire phone. Keep
+            // history visible and let staff scroll to the footer's action
+            // without capping their chosen text size.
+            keyboardShouldPersistTaps="handled"
+            style={{ flexGrow: 0, maxHeight: '50%' }}
+            testID="conversation-action-scroll"
+          >
             {outboundAllowed ? (
               <View
                 // Readiness refreshes must not dispose drafts, picker/upload
@@ -978,7 +986,7 @@ function ConversationThread({
               </View>
             ) : null}
             {actionFooter}
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </View>
 

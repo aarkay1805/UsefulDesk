@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-09-28 — Bound the mobile conversation footer at large text sizes
+
+`apps/mobile/src/features/inbox/screens/conversation-screen.tsx` now scrolls and
+bounds the action/composer footer to half the available body. A physical iPhone
+at maximum accessibility text reproduced the closed-window notice consuming
+history and clipping its action. Text scaling and send gates remain intact.
+Mobile verification passes (833 tests), and root verification passes (3,945 tests
+and build); post-fix native geometry and standalone release acceptance remain
+open. Evidence and device/tooling limits live in
+`docs/mobile/ui-acceptance-2026-09-28.md`.
+
 ## 2026-09-28 — Test full-refund execution and owner billing recovery
 
 `test-refunds.ts`, the Test refund/billing routes, and private draft

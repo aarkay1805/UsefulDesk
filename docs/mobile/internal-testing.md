@@ -1,5 +1,10 @@
 # Internal tester release
 
+The [28 September UI acceptance follow-up](ui-acceptance-2026-09-28.md) records
+current development-client observations and a maximum-accessibility-text footer
+repair. It is partial device evidence; the existing standalone build-2 results
+below do not accept the newer UI changes.
+
 The first distribution target is internal tester builds. Use the `preview`
 profile in `apps/mobile/eas.json`: it produces a standalone Android APK and an
 iOS internal-distribution build, without Metro or the development launcher.
