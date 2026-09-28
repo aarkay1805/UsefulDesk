@@ -140,12 +140,53 @@ still passes with these drafts installed. Private-table RLS and service/owner
 function grants were inspected, and both application flags and the disposable
 billing switch were confirmed disabled afterward.
 
-Remaining implementation/acceptance: paid billing and post-refund plan recovery
-UI; refund execution plus confirmed full-refund access/renewal transaction;
-upgrade and add-on integration; named tier gates across UI, API, RLS, RPCs and
-background sends; full-schema/native acceptance; actual provider delivery and
-outage recovery. Required policy decisions: upgrade quote expiry/repricing,
-add-on cancellation/refund/proration/renewal, standard reminder days/times,
-remaining saleable feature matrix and commercial/tax readiness. The renewal
-adapter's old-end-plus-one-month Test convention and immutable schedules also
-need paid UX review before rollout. No live pilot is authorized by this work.
+## Follow-up: full Test refund and owner billing recovery
+
+The actual separate Test provider fully refunded `pay_ThPaOBylZedRri` on
+`order_ThPXuBhSvGX5tj`: **`rfnd_ThQRsoOgXZ08eH`, 79900 paise / ₹799**, processed.
+Fresh refund and original-payment GETs verified settlement. The disposable
+commit confirmed at **2026-09-28 10:34:47.540716 UTC**, ended access (version 3),
+stopped renewals, and wrote one `subscription_full_refund` audit. GET recovery,
+service webhook reconciliation, and owner execution replay preserved that same
+result and the one branch. The one-use harness used real Test credentials but
+an explicitly container-bound SQL RPC adapter, never the configured cloud DB.
+This proves provider and disposable transaction behavior, not a genuine incoming
+Razorpay webhook delivery or full signed-in application flow.
+
+`20260928140000_subscription_test_refund_execution.sql` was applied only to the
+fixture. Local-only reapplication versions `141000` (confirmation clock) and
+`142000` (foreign-key cascades) record fixture maintenance; the repository draft
+contains the final definitions. Both DB `enabled`/`refunds_enabled` and repository
+application flags are false afterward. Execution needs the base Test flags plus
+`USEFULDESK_SUBSCRIPTION_REFUNDS_ENABLED=true` and DB `refunds_enabled=true`.
+Receipts are correlation evidence, not an assumed provider idempotency key.
+The attempt row permits one POST; any uncertain retry uses GET only. A zero or
+ambiguous recovery stays review-held. Observed settlement survives an access
+conflict so a platform correction is never overwritten silently.
+
+The default-off owner Test UI provides billing/payment history, renewal and
+cancellation, explicit refund amount/access-effect confirmation, and post-refund
+plan comparison/support. Component tests verify the confirmation boundary and
+no automatic payment or new trial after refund. Existing recovery identity,
+organization switching, and support remain in the web gate. Restart payment
+after refund is not implemented. No shared UI master was changed.
+
+Rollback SQL exercises second-gate denial, full-amount checks, pending/failed
+preservation, monotonic processed state, exactly-once access stop, blocked renewal,
+owner recovery, and platform-correction review. Separate concurrent PostgreSQL
+sessions check one create/recovery pair and one full-refund commit/audit, in
+addition to the prior renewal/receipt races. All are synthetic fixtures.
+
+Repository validation for this follow-up: `npm run verify` passed lint,
+TypeScript, **3,945 tests in 505 files**, and the optimized Next.js production
+build. Rollback SQL, concurrency checks, and the separate genuine Test-provider
+refund harness passed. Private-table RLS and service-only commit privileges were
+verified; application and disposable DB billing/refund flags are all off.
+
+Remaining implementation/acceptance: upgrades, paid add-ons, restart checkout,
+named tier gates across UI/API/RLS/RPC/background sends; full-schema/native
+recovery; genuine provider renewal/webhook delivery and outage recovery.
+Policy decisions remain: upgrade quote expiry/repricing, add-on
+cancellation/refund/proration/renewal, standard reminder days/times, remaining
+saleable feature matrix, commercial/tax readiness, and the Test renewal convention
+and immutable schedule UX. No incomplete policy was substituted with a default.

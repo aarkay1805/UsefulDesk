@@ -109,8 +109,40 @@ try {
   );
   assert.equal(received[0], received[1]);
   assert(requests.includes(received[0]));
+  sql(`BEGIN; UPDATE private.subscription_billing_settings SET refunds_enabled=true;
+    UPDATE private.organization_subscription_payments SET verified_at=now() WHERE provider_payment_id='pay_Initial${suffix}'; ${service}
+    SELECT public.subscription_reserve_test_first_refund('${org}','${received[0]}','${user}','acc_RenewalRace','pay_Initial${suffix}',now()-interval '1 day',
+      (SELECT requested_at FROM private.subscription_first_refund_requests WHERE organization_id='${org}')); COMMIT;`);
+  const refundClaim = `BEGIN; ${service} SELECT public.subscription_claim_test_refund('${org}','${user}','acc_RenewalRace')->>'action'; SELECT pg_sleep(0.2); COMMIT;`;
+  assert.deepEqual(
+    (
+      await Promise.all([concurrent(refundClaim), concurrent(refundClaim)])
+    ).sort(),
+    ['create', 'recovery']
+  );
+  sql(
+    `BEGIN; ${service} SELECT public.subscription_observe_test_refund('${received[0]}','acc_RenewalRace','pay_Initial${suffix}','rfnd_${suffix}',149900,'INR','processed'); COMMIT;`
+  );
+  const refundCommit = `BEGIN; ${service} SELECT public.subscription_commit_test_full_refund('${received[0]}','acc_RenewalRace','pay_Initial${suffix}','rfnd_${suffix}',149900,'INR')->>'confirmed_at'; SELECT pg_sleep(0.2); COMMIT;`;
+  const refunds = await Promise.all([
+    concurrent(refundCommit),
+    concurrent(refundCommit),
+  ]);
+  assert.equal(refunds[0], refunds[1]);
+  assert.equal(
+    sql(
+      `SELECT count(*) FROM private.product_access_audit WHERE organization_id='${org}' AND action='subscription_full_refund';`
+    ),
+    '1'
+  );
+  assert.equal(
+    sql(
+      `SELECT version FROM private.organization_product_access WHERE organization_id='${org}';`
+    ),
+    '3'
+  );
   console.log(
-    'PASS: concurrent renewal order claim, payment commit and first-refund receipt are exactly once'
+    'PASS: concurrent renewal order/payment and refund receipt/execution/commit are exactly once'
   );
   console.log(`Retained synthetic organization: ${org}`);
 } finally {
@@ -120,6 +152,6 @@ try {
       ? 'NULL'
       : `'${prior.test_merchant_account_id.replaceAll("'", "''")}'`;
   sql(
-    `UPDATE private.subscription_billing_settings SET enabled=${prior.enabled ? 'true' : 'false'},test_merchant_account_id=${merchant} WHERE singleton;`
+    `UPDATE private.subscription_billing_settings SET enabled=${prior.enabled ? 'true' : 'false'},refunds_enabled=${prior.refunds_enabled ? 'true' : 'false'},test_merchant_account_id=${merchant} WHERE singleton;`
   );
 }

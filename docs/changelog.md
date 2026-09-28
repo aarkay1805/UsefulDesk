@@ -6,6 +6,27 @@
 
 ---
 
+## 2026-09-28 — Test full-refund execution and owner billing recovery
+
+`test-refunds.ts`, the Test refund/billing routes, and private draft
+`20260928140000_subscription_test_refund_execution.sql` claim one provider POST,
+recover uncertain results by GET only, and verify both full refund and original
+payment before atomically ending paid access and stopping renewals. Pending or
+failed refunds preserve access; platform access corrections keep processed
+provider evidence review-held. The Orders adapter has no SaaS recurring schedule.
+`subscription-test-billing.tsx` adds default-off owner billing/history,
+renewal/cancellation actions, amount-and-effect refund confirmation, and
+post-refund plan comparison/support. Restart payment remains unimplemented.
+
+Real Test payment `pay_ThPaOBylZedRri` was fully refunded by
+`rfnd_ThQRsoOgXZ08eH` (79900 paise); disposable DB commit/replay produced one audit
+and preserved branch data. Rollback and concurrent refund claim/commit checks
+pass. Separate app/DB refund switches default off; all acceptance switches were
+restored off. Production, Live funds, and gym-member ledgers were untouched.
+Full-schema/native and genuine webhook delivery acceptance remain pending; see
+`docs/subscription-test-acceptance.md`. No paid slot, upgrade, or tier gate was
+enabled from unresolved billing/reminder policies.
+
 ## 2026-09-28 — Local Test renewal transactions and refund request receipts
 
 `20260928110000_subscription_test_renewals.sql` and the Test subscription routes

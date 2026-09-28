@@ -9,6 +9,8 @@ import {
   verifyTestWebhookSignature,
 } from '@/lib/subscriptions/test-provider';
 
+import { confirmTestRefund } from '@/lib/subscriptions/test-refunds';
+
 export const runtime = 'nodejs';
 
 /** Separate Usefulmade Test webhook; gym collection events use another route. */
@@ -42,6 +44,38 @@ export async function POST(request: Request) {
   const event = value as Record<string, unknown>;
   if (event.account_id !== config.merchantId)
     return NextResponse.json({ error: 'Wrong merchant' }, { status: 403 });
+  if (
+    ['refund.created', 'refund.processed', 'refund.failed'].includes(
+      String(event.event)
+    )
+  ) {
+    const refund = (
+      event.payload as {
+        refund?: { entity?: { id?: unknown; payment_id?: unknown } };
+      } | null
+    )?.refund?.entity;
+    if (
+      !refund ||
+      typeof refund.id !== 'string' ||
+      !/^rfnd_[A-Za-z0-9]+$/.test(refund.id) ||
+      typeof refund.payment_id !== 'string' ||
+      !/^pay_[A-Za-z0-9]+$/.test(refund.payment_id)
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid refund event' },
+        { status: 400 }
+      );
+    }
+    try {
+      await confirmTestRefund({
+        refundId: refund.id,
+        paymentId: refund.payment_id,
+      });
+      return NextResponse.json({ received: true });
+    } catch {
+      return NextResponse.json({ error: 'Retry later' }, { status: 503 });
+    }
+  }
   if (event.event !== 'payment.captured' && event.event !== 'payment.failed')
     return NextResponse.json({ received: true });
   const payload = event.payload as {

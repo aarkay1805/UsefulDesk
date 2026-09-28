@@ -773,21 +773,28 @@ freshly verified failed renewal, and atomic captured-payment/downgrade archive
 commits. The private renewal draft serializes by organization, binds one order to
 the original paid period, checks the current access version and reviewed roster,
 and preserves old tier/capacity during grace. Schedules remain immutable; there
-is no automatic debit, paid Billing UI, or provider recurring schedule. The Test
+is no automatic debit or provider recurring schedule. The Test
 renewal end is the previous end plus one month; verification restores access only
 from verification, and recovery beyond that next end needs review.
 
-First-payment refund **requests** now have a durable original receipt before
-provider verification and one organization claim using the frozen billing zone
-and verified provider payment timestamp. Retried processing cannot reset the
-request date. This is not refund execution or a confirmed-refund access change.
-Rollback SQL and concurrent order/commit/receipt acceptance pass on the local
-fixture. Full application/native/RLS recovery and genuine provider renewal/refund
-acceptance remain pending. Upgrade quote expiry/repricing, paid add-on
+First-payment refund requests preserve the original server receipt, frozen billing
+zone, and verified first payment. **The follow-up is built locally, disabled:**
+one claimed Test refund POST, GET-only uncertain recovery, fresh refund and
+original-payment settlement checks, and an atomic paid-access end/renewal stop.
+Owner Test billing now shows payment history, renewal/cancellation actions,
+explicit full-refund confirmation, and post-refund plan comparison/support.
+Repayment after refund still needs a reviewed transition; selection grants no
+new trial or access. Pending/failed refunds preserve access, and platform access
+corrections retain processed evidence for review.
+
+Real Test full refund of the original ₹799 payment and disposable commit/replay
+passed, as did rollback and concurrent order/receipt/refund claim/commit checks.
+Full application/native/RLS recovery and genuine provider renewal/webhook delivery
+remain pending. Upgrade quote expiry/repricing, paid add-on
 cancellation/refund/proration/renewal rules, and Starter's standard reminder days
-and times still need decisions. Upgrade checkout, paid slots, capability
-enforcement, refund issuance/outcome, and paid billing/recovery screens remain
-unbuilt; keep their gates closed.
+and times still need decisions. Upgrade checkout, paid slots, and capability
+enforcement remain unbuilt and closed. The Test refund execution has a second
+app/DB default-off gate; both local switches were restored off after acceptance.
 No Production migration, checkout, real charge, or automated paid access has
 shipped. The separate
 [subscription brief](usefuldesk-subscriptions.md) records the customer journey,

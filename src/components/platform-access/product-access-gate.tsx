@@ -18,6 +18,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { accessSupportMessage, accessSupportWhatsApp } from './ui-contract';
 import { SubscriptionPlanCards } from './subscription-plan-cards';
+import { SubscriptionTestBilling } from './subscription-test-billing';
 import {
   SubscriptionConversionReviewDialog,
   type ConversionReviewBranch,
@@ -107,6 +108,7 @@ function AccountProductAccess({
   const [pending, setPending] = useState('');
   const [requested, setRequested] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
+  const [billingOpen, setBillingOpen] = useState(false);
   const [reviewTier, setReviewTier] = useState<SubscriptionTier | null>(null);
   const [conversionBranches, setConversionBranches] = useState<
     ConversionReviewBranch[] | null
@@ -445,6 +447,38 @@ function AccountProductAccess({
             </AlertDescription>
           </Alert>
         ) : null}
+        {testUi &&
+        isOrganizationOwner &&
+        organizationId &&
+        snapshot?.access.mode === 'manual' ? (
+          <>
+            <div className="px-4 py-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBillingOpen(true)}
+              >
+                Open Test billing
+              </Button>
+            </div>
+            <Dialog open={billingOpen} onOpenChange={setBillingOpen}>
+              <DialogContent className="sm:max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>UsefulDesk billing</DialogTitle>
+                  <DialogDescription>
+                    Review your Test plan, payments, and refunds.
+                  </DialogDescription>
+                </DialogHeader>
+                <SubscriptionTestBilling
+                  key={organizationId}
+                  organizationId={organizationId}
+                  accountId={accountId}
+                  onChanged={() => setNonce((n) => n + 1)}
+                />
+              </DialogContent>
+            </Dialog>
+          </>
+        ) : null}
         <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
         <Dialog open={plansOpen} onOpenChange={setPlansOpen}>
           <DialogContent className="sm:max-w-4xl">
@@ -466,7 +500,13 @@ function AccountProductAccess({
     );
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
-      <Card className={expiredTrial ? 'w-full max-w-5xl' : 'w-full max-w-xl'}>
+      <Card
+        className={
+          expiredTrial || (testUi && snapshot?.access.mode === 'manual')
+            ? 'w-full max-w-5xl'
+            : 'w-full max-w-xl'
+        }
+      >
         <CardContent className="space-y-4">
           <Alert>
             <AlertTitle>Contact support</AlertTitle>
@@ -511,6 +551,17 @@ function AccountProductAccess({
                 />
               ) : null}
             </>
+          ) : null}
+          {testUi &&
+          isOrganizationOwner &&
+          organizationId &&
+          snapshot?.access.mode === 'manual' ? (
+            <SubscriptionTestBilling
+              key={organizationId}
+              organizationId={organizationId}
+              accountId={accountId}
+              onChanged={() => setNonce((n) => n + 1)}
+            />
           ) : null}
           <div className="flex flex-wrap gap-2">
             {snapshot?.support_email ? (

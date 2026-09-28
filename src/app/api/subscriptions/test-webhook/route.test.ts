@@ -1,15 +1,18 @@
 import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { confirmTestPayment, recordTestRenewalFailure } = vi.hoisted(() => ({
-  confirmTestPayment: vi.fn(),
-  recordTestRenewalFailure: vi.fn(),
-}));
+const { confirmTestPayment, recordTestRenewalFailure, confirmTestRefund } =
+  vi.hoisted(() => ({
+    confirmTestPayment: vi.fn(),
+    recordTestRenewalFailure: vi.fn(),
+    confirmTestRefund: vi.fn(),
+  }));
 vi.mock('@/lib/subscriptions/test-flow', () => ({
   confirmTestPayment,
   recordTestRenewalFailure,
 }));
 
+vi.mock('@/lib/subscriptions/test-refunds', () => ({ confirmTestRefund }));
 import { POST } from './route';
 
 const merchantId = 'acc_UsefulmadeTest';
@@ -114,4 +117,34 @@ describe('Usefulmade Test webhook', () => {
         .status
     ).toBe(503);
   });
+});
+
+it('verifies signed refund events and retries transient confirmation failures', async () => {
+  vi.stubEnv('NODE_ENV', 'test');
+  vi.stubEnv('USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED', 'true');
+  vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_MODE', 'test');
+  vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_TEST_KEY_ID', 'rzp_test_key');
+  vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_TEST_KEY_SECRET', 'checkout-secret');
+  vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_TEST_WEBHOOK_SECRET', webhookSecret);
+  vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_TEST_MERCHANT_ID', merchantId);
+  try {
+    const event = {
+      account_id: merchantId,
+      event: 'refund.processed',
+      payload: {
+        refund: { entity: { id: 'rfnd_Test', payment_id: 'pay_Test123' } },
+      },
+    };
+    expect((await POST(signedRequest(event, '0'.repeat(64)))).status).toBe(400);
+    expect(confirmTestRefund).not.toHaveBeenCalled();
+    expect((await POST(signedRequest(event))).status).toBe(200);
+    expect(confirmTestRefund).toHaveBeenCalledWith({
+      paymentId: 'pay_Test123',
+      refundId: 'rfnd_Test',
+    });
+    confirmTestRefund.mockRejectedValueOnce(new Error('provider unavailable'));
+    expect((await POST(signedRequest(event))).status).toBe(503);
+  } finally {
+    vi.unstubAllEnvs();
+  }
 });
