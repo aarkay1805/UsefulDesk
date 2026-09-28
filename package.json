@@ -31,7 +31,7 @@
     "attendance"
   ],
   "engines": {
-    "node": ">=20.18.1"
+    "node": ">=22"
   },
   "packageManager": "npm@11.9.0",
   "scripts": {

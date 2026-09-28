@@ -12,7 +12,7 @@ outside this boundary.
 
 ## Prerequisites
 
-- Use Node.js 20.18.1 or newer and install dependencies from the repository
+- Use Node.js 22 or newer and install dependencies from the repository
   root with `npm install`. The repository root owns the only lockfile.
 - For iOS, install Xcode and its command-line tools. For Android, install the
   Android SDK and have either an emulator or an explicitly targeted development

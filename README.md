@@ -41,7 +41,7 @@ history visible to the team.
 
 ## Quick start
 
-Requirements: Node.js 20.18.1 or newer, npm 11, and a Supabase project.
+Requirements: Node.js 22 or newer, npm 11, and a Supabase project.
 
 ```bash
 git clone https://github.com/aarkay1805/UsefulDesk.git
