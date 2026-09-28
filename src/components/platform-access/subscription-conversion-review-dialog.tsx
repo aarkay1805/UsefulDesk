@@ -13,7 +13,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { canManageOrganization, type OrganizationRole } from '@/lib/auth/roles';
+import {
+  canManageSubscriptionBilling,
+  type OrganizationRole,
+} from '@/lib/auth/roles';
 import type { BranchSlotPurchase } from '@/lib/subscriptions/branch-slots';
 import { reviewSubscriptionConversion } from '@/lib/subscriptions/conversion';
 import {
@@ -35,6 +38,8 @@ export function SubscriptionConversionReviewDialog({
   tier,
   branches,
   purchases,
+  onArchive,
+  keepAccountId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -43,6 +48,8 @@ export function SubscriptionConversionReviewDialog({
   tier: SubscriptionTier;
   branches: readonly ConversionReviewBranch[];
   purchases: readonly BranchSlotPurchase[];
+  onArchive?: (accountIds: readonly string[]) => Promise<void>;
+  keepAccountId?: string;
 }) {
   const activeBranches = branches.filter(
     (branch) =>
@@ -58,7 +65,8 @@ export function SubscriptionConversionReviewDialog({
     ids: [],
   });
   const selectedIds = selection.key === rosterKey ? selection.ids : [];
-  const owner = canManageOrganization(organizationRole);
+  const [archiving, setArchiving] = useState(false);
+  const owner = canManageSubscriptionBilling(organizationRole);
   const review = reviewSubscriptionConversion({
     organizationId,
     tier,
@@ -85,8 +93,8 @@ export function SubscriptionConversionReviewDialog({
             Review branches for {SUBSCRIPTION_PLANS[tier].label}
           </DialogTitle>
           <DialogDescription>
-            Choose any branches to archive before changing plans. Nothing
-            changes here.
+            Choose branches to archive before changing plans. Archived branches
+            keep their history.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -110,6 +118,7 @@ export function SubscriptionConversionReviewDialog({
                     <Checkbox
                       id={`archive-choice-${branch.account_id}`}
                       checked={selectedIds.includes(branch.account_id)}
+                      disabled={branch.account_id === keepAccountId}
                       onCheckedChange={(checked) =>
                         toggle(branch.account_id, checked === true)
                       }
@@ -123,6 +132,12 @@ export function SubscriptionConversionReviewDialog({
               <p className="text-muted-foreground text-xs">
                 {selectedLabel}. Archived branches keep their history.
               </p>
+              {keepAccountId ? (
+                <p className="text-muted-foreground text-xs">
+                  Your current branch stays active. Switch branches first if you
+                  want to archive it.
+                </p>
+              ) : null}
             </div>
           ) : null}
           <Alert>
@@ -153,15 +168,28 @@ export function SubscriptionConversionReviewDialog({
                         : `Choose branches to archive or choose a plan with enough verified slots. ${review.remainingActiveBranches} would stay active.`}
             </AlertDescription>
           </Alert>
-          <p className="text-muted-foreground text-xs">
-            Plan changes are not available yet. Payment and tax details are
-            still being checked.
-          </p>
+          {!onArchive ? (
+            <p className="text-muted-foreground text-xs">
+              Plan changes are not available yet. Payment and tax details are
+              still being checked.
+            </p>
+          ) : null}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Close review
           </Button>
+          {onArchive && owner && review.ready && selectedIds.length > 0 ? (
+            <Button
+              loading={archiving}
+              onClick={() => {
+                setArchiving(true);
+                void onArchive(selectedIds).finally(() => setArchiving(false));
+              }}
+            >
+              Archive selected branches
+            </Button>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

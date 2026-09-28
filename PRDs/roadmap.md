@@ -744,16 +744,25 @@ manual commercial ledger and access workflow.
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
-to continue. The current checkout's trial and expired-trial screens compare the
-three plans and retain support, but do not show prices or offer checkout while
-commercial readiness is closed. Pure tier/branch/capability, verified-add-on
+to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production does not offer checkout. Pure tier/branch/capability, verified-add-on
 state, owner-choice conversion rules, and pure base-tier billing transitions are coded and tested. The transition model prorates the listed base-price difference in paise over the actual paid period, keeps an upgrade pending until a trusted payment event, and projects downgrades/cancellations at the paid-through boundary. A pure renewal model keeps the old tier for one fixed 72-hour window after a failed paid renewal, denies new unpaid tier/branch capacity during grace, and resumes paid access only after a trusted verified renewal event. It does not verify provider payments or persist entitlements. The
 no-GST amount draft records listed software, ₹0 GST, and the matching draft total for monthly plans and base-tier upgrades; it is not wired to checkout. The reusable
 first-payment refund model evaluates the request date in the frozen billing-account timezone and reserves one full-refund request per organization. A separate pure confirmed-refund model ends paid access at full-refund confirmation and requires renewal to stop; pending/failed events leave access intact. Neither model calls a provider or changes runtime access. The reusable
-branch-upgrade prompt and conversion review dialog are not mounted in the live
-flow because verified paid tiers, activated slots, and conversion transactions
-are absent.
-No paid tier gates, SaaS checkout, or automatic paid access have shipped. The separate
+branch-upgrade prompt remains unmounted. The conversion review dialog mounts only in the local Test flow and can submit the owner's explicit archive selection to the unapplied SQL RPC.
+The local default-off base monthly integration now has owner-only intent,
+branch review/archive, Test order, Test confirmation, and signed Test webhook
+routes under `src/app/api/subscriptions/`. Its separate Usefulmade Test merchant
+adapter checks the captured provider payment before the service-only SQL commit;
+the expired-trial UI opens Test Checkout only behind a non-Production flag.
+The **unapplied** private SQL draft
+`20260927200000_subscription_monthly_base_foundation.sql` keeps its billing
+switch off by default, stores exact Test payment evidence, and drafts an atomic
+first paid term plus active-branch capacity checks. Mocked tests pass, but no
+Usefulmade SaaS Test credentials or disposable database are configured, so
+provider acceptance and SQL behavior have not been exercised. Renewal,
+downgrade, cancellation, refund, add-ons, and tier feature gates are not wired.
+No Production migration, checkout, real charge, or automated paid access has
+shipped. The separate
 [subscription brief](usefuldesk-subscriptions.md) records the customer journey,
 merchant separation, implementation order, and unresolved package, pricing,
 tax, and payment policies. Older Core/Scale and 30-day-trial recommendations in
@@ -763,7 +772,7 @@ Starter includes one branch with no add-on. A second branch requires Growth plus
 its paid branch add-on, or another suitable higher tier; a future add-branch
 attempt should explain this and show the exact price before confirmation.
 Growth includes one branch and permits exactly one paid additional branch, for
-a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The transaction and post-expiry recovery UI remain to be built. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration remain pending. Add-on billing changes and quote expiry remain undecided.
+a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The local Test recovery UI and database archive transaction are drafted but unapplied; full paid conversion and provider acceptance remain pending. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration remain pending. Add-on billing changes and quote expiry remain undecided.
 These choices are packaging direction, not a validated cost calculation.
 Growth includes gym-member Razorpay Payment Links and automatic recurring
 collection through AutoPay when the gym's own eligible merchant and mandate

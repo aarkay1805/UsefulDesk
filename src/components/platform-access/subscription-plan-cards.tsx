@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardAction,
@@ -33,10 +34,14 @@ const PLAN_DETAILS: Record<SubscriptionTier, readonly string[]> = {
 export function SubscriptionPlanCards({
   showProvisionalPrices = false,
   formatMoney,
+  onSelect,
+  pendingTier,
 }: {
   /** Keep false until commercial readiness, tax treatment, and billing terms are approved. */
   showProvisionalPrices?: boolean;
   formatMoney: (amount: number, currency: string) => string;
+  onSelect?: (tier: SubscriptionTier) => void;
+  pendingTier?: SubscriptionTier | null;
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-3" aria-label="UsefulDesk plans">
@@ -63,6 +68,16 @@ export function SubscriptionPlanCards({
                   <li key={detail}>{detail}</li>
                 ))}
               </ul>
+              {onSelect ? (
+                <Button
+                  className="w-full"
+                  loading={pendingTier === tier}
+                  disabled={pendingTier !== null && pendingTier !== undefined}
+                  onClick={() => onSelect(tier)}
+                >
+                  Choose {plan.label}
+                </Button>
+              ) : null}
             </CardContent>
           </Card>
         );
@@ -73,8 +88,9 @@ export function SubscriptionPlanCards({
       </p>
       {showProvisionalPrices ? (
         <p className="text-muted-foreground text-xs md:col-span-3">
-          These are planned software prices. The final amount and tax treatment
-          are still being checked. Payment is not available yet.
+          {onSelect
+            ? 'Test payment only. No live charge will be made.'
+            : 'These are planned software prices. The final amount and tax treatment are still being checked. Payment is not available yet.'}
         </p>
       ) : null}
     </div>

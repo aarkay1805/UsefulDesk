@@ -19,6 +19,16 @@ import { Label } from '@/components/ui/label';
 import { accessSupportMessage, accessSupportWhatsApp } from './ui-contract';
 import { SubscriptionPlanCards } from './subscription-plan-cards';
 import {
+  SubscriptionConversionReviewDialog,
+  type ConversionReviewBranch,
+} from './subscription-conversion-review-dialog';
+import {
+  countActiveBranches,
+  SUBSCRIPTION_PLANS,
+  type SubscriptionTier,
+} from '@/lib/subscriptions/plans';
+import { openUsefulDeskTestCheckout } from '@/lib/subscriptions/test-checkout-client';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -69,8 +79,14 @@ function AccountProductAccess({
   children: ReactNode;
   initialAccess: InitialProductAccess | null;
 }) {
-  const { branches, switchBranch, signOut, account, organizationId } =
-    useAuth();
+  const {
+    branches,
+    switchBranch,
+    signOut,
+    account,
+    organizationId,
+    isOrganizationOwner,
+  } = useAuth();
   const { fmt } = useLocale();
   const router = useRouter();
   const wasBlocked = useRef(false);
@@ -91,6 +107,18 @@ function AccountProductAccess({
   const [pending, setPending] = useState('');
   const [requested, setRequested] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
+  const [reviewTier, setReviewTier] = useState<SubscriptionTier | null>(null);
+  const [conversionBranches, setConversionBranches] = useState<
+    ConversionReviewBranch[] | null
+  >(null);
+  const [pendingTier, setPendingTier] = useState<SubscriptionTier | null>(null);
+  const lastIntent = useRef<{
+    tier: SubscriptionTier;
+    requestId: string;
+  } | null>(null);
+  const testUi =
+    process.env.NODE_ENV !== 'production' &&
+    process.env.NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI === 'true';
   const organizationName =
     branches.find((branch) => branch.account_id === accountId)
       ?.organization_name ||
@@ -200,6 +228,35 @@ function AccountProductAccess({
     : null;
   const expiredTrial =
     resolved?.status === 'expired' && snapshot?.access.mode === 'trial';
+  useEffect(() => {
+    if (!expiredTrial || !testUi || !isOrganizationOwner || !organizationId)
+      return;
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await createClient().rpc(
+        'subscription_conversion_branches',
+        { p_organization_id: organizationId }
+      );
+      if (cancelled) return;
+      if (error || !Array.isArray(data)) {
+        setConversionBranches(null);
+        return;
+      }
+      const valid = data.every(
+        (row): row is ConversionReviewBranch =>
+          row !== null &&
+          typeof row === 'object' &&
+          typeof row.account_id === 'string' &&
+          typeof row.account_name === 'string' &&
+          row.organization_id === organizationId &&
+          (row.branch_status === 'active' || row.branch_status === 'archived')
+      );
+      setConversionBranches(valid ? data : null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [expiredTrial, testUi, isOrganizationOwner, organizationId]);
   const allowed =
     snapshot &&
     snapshot.access.organization_id === organizationId &&
@@ -219,6 +276,110 @@ function AccountProductAccess({
       );
     } finally {
       setPending('');
+    }
+  }
+  async function postTest(path: string, body: Record<string, unknown>) {
+    const response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const result = (await response.json()) as Record<string, unknown>;
+    if (!response.ok)
+      throw new Error(
+        typeof result.error === 'string'
+          ? result.error
+          : 'Could not continue. Try again.'
+      );
+    return result;
+  }
+  function chooseTestPlan(tier: SubscriptionTier) {
+    if (!organizationId || !isOrganizationOwner || !testUi) return;
+    if (!conversionBranches) {
+      toast.error('Could not check your branches. Try again.');
+      return;
+    }
+    if (
+      countActiveBranches(conversionBranches, organizationId) >
+      SUBSCRIPTION_PLANS[tier].includedBranches
+    ) {
+      setReviewTier(tier);
+      return;
+    }
+    setPendingTier(tier);
+    void (async () => {
+      try {
+        const requestId =
+          lastIntent.current?.tier === tier
+            ? lastIntent.current.requestId
+            : crypto.randomUUID();
+        lastIntent.current = { tier, requestId };
+        await postTest('/api/subscriptions/monthly-intents', {
+          organizationId,
+          accountId,
+          requestId,
+          tier,
+        });
+        const result = await postTest('/api/subscriptions/test-orders', {
+          organizationId,
+          requestId,
+        });
+        const checkout = result.checkout as {
+          keyId: string;
+          orderId: string;
+          amountMinor: number;
+        };
+        await openUsefulDeskTestCheckout({
+          keyId: checkout.keyId,
+          orderId: checkout.orderId,
+          amountMinor: checkout.amountMinor,
+          planLabel: SUBSCRIPTION_PLANS[tier].label,
+          onPayment: (payment) => {
+            void (async () => {
+              try {
+                await postTest('/api/subscriptions/test-confirm', {
+                  organizationId,
+                  requestId,
+                  orderId: payment.razorpay_order_id,
+                  paymentId: payment.razorpay_payment_id,
+                  signature: payment.razorpay_signature,
+                });
+                toast.success('Test payment confirmed');
+                setNonce((n) => n + 1);
+                router.refresh();
+              } catch (error) {
+                toast.error(
+                  getErrorMessage(
+                    error,
+                    'Payment is not confirmed yet. Check again.'
+                  )
+                );
+              }
+            })();
+          },
+        });
+      } catch (error) {
+        toast.error(
+          getErrorMessage(error, 'Could not open Test payment. Try again.')
+        );
+      } finally {
+        setPendingTier(null);
+      }
+    })();
+  }
+  async function archiveSelectedBranches(accountIds: readonly string[]) {
+    if (!organizationId) return;
+    try {
+      await postTest('/api/subscriptions/archive-for-plan', {
+        organizationId,
+        accountIds,
+      });
+      toast.success('Branches archived');
+      window.location.reload();
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, 'Could not archive branches. Try again.')
+      );
     }
   }
   if (checking && !snapshot && !error)
@@ -317,11 +478,35 @@ function AccountProductAccess({
           </Alert>
           {expiredTrial ? (
             <>
-              <SubscriptionPlanCards formatMoney={fmt.money} />
-              <p className="text-muted-foreground text-sm">
-                Plan prices and payment are not available yet. Contact support
-                for help.
-              </p>
+              <SubscriptionPlanCards
+                formatMoney={fmt.money}
+                showProvisionalPrices={testUi}
+                onSelect={
+                  testUi && isOrganizationOwner ? chooseTestPlan : undefined
+                }
+                pendingTier={pendingTier}
+              />
+              {!testUi ? (
+                <p className="text-muted-foreground text-sm">
+                  Plan prices and payment are not available yet. Contact support
+                  for help.
+                </p>
+              ) : null}
+              {reviewTier && organizationId ? (
+                <SubscriptionConversionReviewDialog
+                  open
+                  onOpenChange={(open) => {
+                    if (!open) setReviewTier(null);
+                  }}
+                  organizationId={organizationId}
+                  organizationRole={isOrganizationOwner ? 'owner' : null}
+                  tier={reviewTier}
+                  branches={conversionBranches ?? []}
+                  purchases={[]}
+                  keepAccountId={accountId}
+                  onArchive={archiveSelectedBranches}
+                />
+              ) : null}
             </>
           ) : null}
           <div className="flex flex-wrap gap-2">

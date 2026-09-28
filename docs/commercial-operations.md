@@ -9,6 +9,15 @@ The commercial gate is defined in `docs/production-readiness.md`. Do not accept
 money for a paid term or activate paid access while that gate is **CLOSED**.
 The subscription decision brief is `PRDs/usefuldesk-subscriptions.md`.
 
+The local Test plan-selection and Checkout routes, separate Usefulmade Test
+merchant adapter, and private billing migration are engineering drafts. They
+are disabled by default and unavailable in Production. The server draft checks
+Checkout or webhook signatures and freshly reads captured Test payment state
+before an atomic first-term commit, but no SaaS Test credentials are configured
+and the SQL is unapplied. None of this opens the commercial gate. Do not use an
+intent or a Test payment record as evidence of an accepted customer charge or
+a payable quote.
+
 ## Offer and quote
 
 The approved provisional monthly software prices for launch/pilot planning are

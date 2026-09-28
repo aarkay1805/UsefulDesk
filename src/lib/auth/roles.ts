@@ -419,6 +419,13 @@ export function canManageOrganization(role: OrganizationRole | null): boolean {
   return role === 'owner';
 }
 
+/** Organization owner: choose and manage the organization's software plan. */
+export function canManageSubscriptionBilling(
+  role: OrganizationRole | null
+): boolean {
+  return canManageOrganization(role);
+}
+
 /** Organization owner who owns the selected branch: edit its legal identity. */
 export function canEditLegalBusinessName(
   organizationRole: OrganizationRole | null,

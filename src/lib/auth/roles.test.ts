@@ -52,6 +52,7 @@ import {
   canDeleteOrganization,
   canManageBranchLifecycle,
   canManageOrganization,
+  canManageSubscriptionBilling,
   canRenameBranch,
   canViewConsolidatedReports,
   canViewOnly,
@@ -542,6 +543,11 @@ describe('capability predicates', () => {
     expect(canDeleteOrganization(null)).toBe(false);
     expect(canViewConsolidatedReports('owner')).toBe(true);
     expect(canViewConsolidatedReports(null)).toBe(false);
+  });
+
+  it('subscription billing is organization-owner only', () => {
+    expect(canManageSubscriptionBilling('owner')).toBe(true);
+    expect(canManageSubscriptionBilling(null)).toBe(false);
   });
 });
 

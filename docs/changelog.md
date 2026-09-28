@@ -6,6 +6,37 @@
 
 ---
 
+## 2026-09-28 — Local Test subscription conversion draft (default off)
+
+`src/app/api/subscriptions/` and `src/lib/subscriptions/test-{flow,provider}.ts`
+add owner-only base-plan intents, branch choice, separate Usefulmade Razorpay
+Test orders, signed Checkout/webhook confirmation, fresh captured-payment
+verification, and idempotent first-term commit. `product-access-gate.tsx` opens
+Test Checkout only behind a non-Production flag. The **unapplied**
+`20260927200000_subscription_monthly_base_foundation.sql` keeps billing off by
+default and drafts exact merchant/order/payment matching, active-branch caps,
+organization-first restore locking, and explicit audited archive selection.
+Mocked tests and type checks pass; no Test credentials, provider acceptance,
+disposable database check, Production migration, or real charge occurred.
+Renewal/refund runtime, paid add-ons, tier gates, and commercial approval remain.
+
+---
+
+## 2026-09-27 — Local subscription intent integration (disabled)
+
+`src/app/api/subscriptions/monthly-intents/route.ts` accepts an organization
+owner's pending base monthly choice after trial expiry through the identity-only
+branch lookup; it is disabled in Production and without a local opt-in.
+`supabase/migrations/20260927200000_subscription_monthly_base_foundation.sql`
+is an **unapplied** private schema draft with a second default-off gate, exact
+Test merchant/order/payment checks, and an atomic first paid grant against the
+existing organization access row. It does not verify provider facts or take
+payment; no checkout, tier gate, or Production entitlement changed. The route
+and owner predicate have focused tests. Provider verification, branch/tier
+enforcement, tax readiness, and commercial acceptance remain prerequisites.
+
+---
+
 ## 2026-09-27 — Subscription packaging foundation (code only; paid rollout disabled)
 
 The owner confirmed Usefulmade is currently not GST-registered and chose to
