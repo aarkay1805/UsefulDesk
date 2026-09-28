@@ -769,7 +769,7 @@ describe('createAuthService', () => {
     subscription.unsubscribe();
   });
 
-  it('waits for a winning invalid-refresh continuation before replacement authentication', async () => {
+  it('cleans up after an invalid refresh before replacement authentication', async () => {
     const rawRefresh = deferred<Response>();
     const harness = createRealAuthRaceHarness(rawRefresh.promise);
     await expect(harness.client.auth.getSession()).resolves.toMatchObject({
@@ -777,8 +777,8 @@ describe('createAuthService', () => {
     });
 
     const initialSession = deferred<void>();
-    const staleSignedOutStarted = deferred<void>();
-    const releaseStaleSignedOut = deferred<void>();
+    const localSignedOutStarted = deferred<void>();
+    const releaseLocalSignedOut = deferred<void>();
     const events: string[] = [];
     let holdFirstSignedOut = true;
     const subscription = harness.client.auth.onAuthStateChange(
@@ -787,8 +787,8 @@ describe('createAuthService', () => {
         if (event === 'INITIAL_SESSION') initialSession.resolve(undefined);
         if (event === 'SIGNED_OUT' && holdFirstSignedOut) {
           holdFirstSignedOut = false;
-          staleSignedOutStarted.resolve(undefined);
-          await releaseStaleSignedOut.promise;
+          localSignedOutStarted.resolve(undefined);
+          await releaseLocalSignedOut.promise;
         }
       }
     ).data.subscription;
@@ -806,7 +806,11 @@ describe('createAuthService', () => {
           400
         )
       );
-      await staleSignedOutStarted.promise;
+      await expect(refresh).resolves.toMatchObject({
+        data: { session: null },
+        error: { message: 'Invalid Refresh Token' },
+      });
+      expect(events).not.toContain('SIGNED_OUT');
 
       let signOutSettled = false;
       const signOut = harness.service
@@ -815,7 +819,7 @@ describe('createAuthService', () => {
           signOutSettled = true;
           return result;
         });
-      await Promise.resolve();
+      await localSignedOutStarted.promise;
 
       await expect(
         harness.service.signInWithPassword(
@@ -828,11 +832,7 @@ describe('createAuthService', () => {
       });
       expect(signOutSettled).toBe(false);
 
-      releaseStaleSignedOut.resolve(undefined);
-      await expect(refresh).resolves.toMatchObject({
-        data: { session: null },
-        error: { message: 'Invalid Refresh Token' },
-      });
+      releaseLocalSignedOut.resolve(undefined);
       await expect(signOut).resolves.toMatchObject({
         status: 'success',
         localAuth: 'success',
@@ -855,7 +855,7 @@ describe('createAuthService', () => {
         JSON.parse(harness.values.get(MOBILE_AUTH_STORAGE_KEY) ?? '{}')
       ).toMatchObject({ access_token: harness.sessionB.access_token });
     } finally {
-      releaseStaleSignedOut.resolve(undefined);
+      releaseLocalSignedOut.resolve(undefined);
       subscription.unsubscribe();
       await harness.client.auth.stopAutoRefresh();
     }
