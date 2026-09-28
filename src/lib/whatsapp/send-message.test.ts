@@ -361,48 +361,55 @@ describe('sendMessageToConversation — stable invoice history media', () => {
     expect(captured.inserted).toBeNull();
   });
 
-  it('sends the signed provider URL while persisting the stable authenticated route', async () => {
-    h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.1' });
-    const captured: { inserted: Record<string, unknown> | null } = {
-      inserted: null,
-    };
-    const signedUrl =
-      'https://storage.example/signed-invoice.pdf?token=short-lived';
-    const persistedMediaUrl =
-      '/api/invoices/11111111-1111-4111-8111-111111111111/document';
+  it.each([undefined, 'staff', 'api'] as const)(
+    'persists stable media and trusted %s sender provenance',
+    async (source) => {
+      h.sendTemplateMessage.mockResolvedValueOnce({ messageId: 'wamid.1' });
+      const captured: { inserted: Record<string, unknown> | null } = {
+        inserted: null,
+      };
+      const signedUrl =
+        'https://storage.example/signed-invoice.pdf?token=short-lived';
+      const persistedMediaUrl =
+        '/api/invoices/11111111-1111-4111-8111-111111111111/document';
 
-    await sendMessageToConversation(invoiceSendDb(captured), 'account-1', {
-      conversationId: 'conversation-1',
-      messageType: 'template',
-      templateName: 'gym_invoice_document',
-      templateLanguage: 'en_US',
-      templateMessageParams: {
-        headerMediaUrl: signedUrl,
-        body: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
-      },
-      persistedMediaUrl,
-    });
-
-    expect(h.sendTemplateMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
+      await sendMessageToConversation(invoiceSendDb(captured), 'account-1', {
+        conversationId: 'conversation-1',
+        messageType: 'template',
         templateName: 'gym_invoice_document',
-        messageParams: {
+        templateLanguage: 'en_US',
+        templateMessageParams: {
           headerMediaUrl: signedUrl,
-          body: [
-            'Asha',
-            'INV-000042',
-            '₹2,500.00',
-            'FitZone Wellness Private Limited',
-          ],
+          body: ['Asha', 'INV-000042', '₹2,500.00', 'FitZone Gym'],
         },
-      })
-    );
-    expect(captured.inserted?.media_url).toBe(persistedMediaUrl);
-    expect(captured.inserted?.content_text).toContain(
-      'FitZone Wellness Private Limited'
-    );
-    expect(captured.inserted?.content_text).not.toContain('FitZone Gym');
-  });
+        persistedMediaUrl,
+        source,
+      });
+
+      expect(h.sendTemplateMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          templateName: 'gym_invoice_document',
+          messageParams: {
+            headerMediaUrl: signedUrl,
+            body: [
+              'Asha',
+              'INV-000042',
+              '₹2,500.00',
+              'FitZone Wellness Private Limited',
+            ],
+          },
+        })
+      );
+      expect(captured.inserted?.sender_type).toBe(
+        source === 'api' ? 'bot' : 'agent'
+      );
+      expect(captured.inserted?.media_url).toBe(persistedMediaUrl);
+      expect(captured.inserted?.content_text).toContain(
+        'FitZone Wellness Private Limited'
+      );
+      expect(captured.inserted?.content_text).not.toContain('FitZone Gym');
+    }
+  );
 });
 
 describe('SendMessageError', () => {

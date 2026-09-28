@@ -3084,8 +3084,9 @@ export default function LeadsPage() {
           and the active table/board view lives directly underneath. */}
       {activeView !== 'all' && (
         <LeadAccountabilityView
-          key={activeView}
+          key={`${activeView}:${searchParams.get('scope')}`}
           view={activeView}
+          initialScope={searchParams.get('scope') === 'team' ? 'team' : 'mine'}
           refreshNonce={accountabilityNonce}
           onOpenLead={(contactId, focusFollowUp) =>
             openDetail(contactId, focusFollowUp ? 'followup' : null)

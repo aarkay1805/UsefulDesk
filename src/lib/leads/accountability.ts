@@ -84,11 +84,13 @@ function issueRank(issue: LeadAccountabilityIssue): number {
 }
 
 /**
- * Build one actionable row per active lead. The open follow-up owns the work
+ * Build one actionable row per supplied contact. The open follow-up owns the work
  * when one exists; otherwise the lead assignee owns the missing-follow-up
  * exception. "Won" leads are already removed from the lead pool by gaining a
  * membership or a service purchase, while Lost is the only terminal lead
- * status kept in contacts.
+ * status kept in contacts. A terminal contact with an open follow-up still
+ * owes that work; the Follow-ups read supplies it independently of the
+ * active-enquiry pool used by First response.
  */
 export function buildLeadAccountabilityRows(
   leads: AccountabilityLead[],
@@ -117,9 +119,8 @@ export function buildLeadAccountabilityRows(
 
   const rows: LeadAccountabilityRow[] = [];
   for (const lead of leads) {
-    if (lead.lead_status === 'lost') continue;
-
     const followUp = openByContact.get(lead.id) ?? null;
+    if (lead.lead_status === 'lost' && !followUp) continue;
     // A task can deliberately be assigned to someone other than the lead's
     // general owner, so the task owner is authoritative while it is open.
     const ownerId = followUp

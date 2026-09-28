@@ -174,6 +174,16 @@ describe('FollowUpLists bounded data path', () => {
     );
   });
 
+  it('honours Home’s explicit Team scope instead of silently narrowing to My work', async () => {
+    render(<FollowUpLists {...props} reloadKey={0} initialScope="team" />);
+    await waitFor(() => expect(loadMemberFollowUps).toHaveBeenCalledOnce());
+    expect(loadMemberFollowUps).toHaveBeenCalledWith(
+      supabase,
+      expect.objectContaining({ scope: 'team' }),
+      expect.any(AbortSignal)
+    );
+  });
+
   it('keeps the existing loading and empty states around a bounded response', async () => {
     let resolveLoad!: (value: MemberFollowUpsPage) => void;
     loadMemberFollowUps.mockImplementationOnce(

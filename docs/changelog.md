@@ -6,6 +6,27 @@
 
 ---
 
+## 2026-09-28 — Home comparison prototype and exact queue destinations
+
+`src/app/preview/home-study/` adds a development-only fictional-data harness
+for due/all-open, short/scrolling, and fee-preview comparisons, plus exploratory
+order/action controls. Existing first-fold masters and production defaults
+are unchanged. `docs/home-study-2026-09-28.md` holds the 6–8-person protocol
+and an empty result record; no owner validation is claimed.
+
+`lib/leads/follow-up-queue.ts` reads open tasks directly, retaining Not joining
+and converted contacts; Home's scoped See all links request Team.
+`lib/memberships/renewal-queue.ts` uses a filtered left join plus a parent
+NULL-plan-or-matching-plan predicate, keeping legacy memberships without
+admitting one-time/session plans. Public API sends pass trusted `source: api`
+and persist as `bot`; old messages have no reliable provenance to backfill.
+Chats' customer filter/badge now includes service history, with its existing
+500-contact pre-lookup bound unchanged. No migration, live send, or payment.
+Regression and browser checks are engineering evidence only; real phone/owner
+study and deployment acceptance remain.
+
+---
+
 ## 2026-09-28 — Bound the mobile conversation footer at large text sizes
 
 `apps/mobile/src/features/inbox/screens/conversation-screen.tsx` now scrolls and

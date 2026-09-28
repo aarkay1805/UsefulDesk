@@ -2,7 +2,11 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { onlyEnquiries, selectForEnquiries } from './enquiry-scope';
+import {
+  onlyCustomers,
+  onlyEnquiries,
+  selectForEnquiries,
+} from './enquiry-scope';
 
 const SRC = join(process.cwd(), 'src');
 
@@ -40,6 +44,20 @@ describe('enquiry scope', () => {
     expect(calls).toEqual([
       ['memberships', null],
       ['member_services', null],
+    ]);
+  });
+
+  it('includes membership and service-only customers in the complementary chip', () => {
+    const calls: string[] = [];
+    const query = {
+      or(filter: string) {
+        calls.push(filter);
+        return query;
+      },
+    };
+    expect(onlyCustomers(query)).toBe(query);
+    expect(calls).toEqual([
+      'memberships.not.is.null,member_services.not.is.null',
     ]);
   });
 

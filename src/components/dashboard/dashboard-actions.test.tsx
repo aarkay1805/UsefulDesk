@@ -241,6 +241,9 @@ describe('DashboardActionsProvider consolidated request path', () => {
     fireEvent.click(screen.getByRole('button', { name: /Enquiries/ }));
     expect(await screen.findByText('Lead One')).toBeTruthy();
     expect(screen.queryByText('Member One')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: 'See all' }).getAttribute('href')
+    ).toBe('/leads?view=followups&scope=team');
     expect(fetch).toHaveBeenCalledOnce();
 
     fireEvent.click(

@@ -176,6 +176,7 @@ const DEFAULT_PREFS: FollowUpTablePrefs = {
 };
 
 interface FollowUpListsProps {
+  initialScope?: FollowUpQueueScope;
   readiness: ReminderReadiness;
   onSelect: (membershipId: string) => void;
   reloadKey: number;
@@ -190,6 +191,7 @@ interface FollowUpListsProps {
  * task-specific controls and columns.
  */
 export function FollowUpLists({
+  initialScope = 'mine',
   readiness,
   onSelect,
   reloadKey,
@@ -214,7 +216,7 @@ export function FollowUpLists({
   });
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
-  const [scope, setScope] = useState<FollowUpQueueScope>('mine');
+  const [scope, setScope] = useState<FollowUpQueueScope>(initialScope);
   const [filters, setFilters] = useState<FollowUpFilterState>(
     EMPTY_FOLLOW_UP_FILTERS
   );

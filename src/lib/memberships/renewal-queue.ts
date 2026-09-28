@@ -25,7 +25,7 @@ export const RENEWAL_QUEUE_SELECT = `
   created_at,
   updated_at,
   contact:contacts(id, account_id, user_id, phone, name, avatar_url, created_at, updated_at),
-  plan:membership_plans!inner(id, account_id, name, price, duration_days, plan_type, is_active, created_at, updated_at)
+  plan:membership_plans(id, account_id, name, price, duration_days, plan_type, is_active, created_at, updated_at)
 `;
 
 export interface RenewalQueueRequest {
@@ -49,14 +49,17 @@ export async function loadRenewalQueueCount(
 ): Promise<number> {
   let query = db
     .from('memberships')
-    .select('id, plan:membership_plans!inner(id)', {
+    .select('id, plan:membership_plans(id)', {
       count: 'exact',
       head: true,
     })
     .eq('account_id', request.accountId)
     .eq('is_trial', false)
     .eq('status', 'active')
-    .eq('membership_plans.plan_type', 'recurring');
+    .eq('plan.plan_type', 'recurring')
+    // Filter the parent as well as its left embed: retain a legacy NULL
+    // plan, but never turn a filtered-out one-time/session plan into one.
+    .or('plan_id.is.null,plan.not.is.null');
 
   if (request.bucket === 'expiring') {
     query = query
@@ -85,7 +88,8 @@ export async function loadRenewalQueuePage(
     .eq('account_id', request.accountId)
     .eq('is_trial', false)
     .eq('status', 'active')
-    .eq('membership_plans.plan_type', 'recurring');
+    .eq('plan.plan_type', 'recurring')
+    .or('plan_id.is.null,plan.not.is.null');
 
   if (request.bucket === 'expiring') {
     query = query

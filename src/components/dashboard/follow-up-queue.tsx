@@ -75,8 +75,8 @@ const SCOPES: { value: DashboardFollowUpScope; label: string }[] = [
 
 /** Only Leads and Members have a page that owns the whole queue. */
 const SCOPE_HREF: Partial<Record<DashboardFollowUpScope, string>> = {
-  lead: '/leads?view=followups',
-  member: '/members?view=followups',
+  lead: '/leads?view=followups&scope=team',
+  member: '/members?view=followups&scope=team',
 };
 
 const isMemberFollowUp = (

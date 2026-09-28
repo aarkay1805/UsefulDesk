@@ -123,6 +123,11 @@ finds-or-creates the contact + conversation, then sends.
 Concurrent API/webhook creates converge on the oldest canonical conversation;
 the database enforces one conversation per account/contact pair.
 
+New API sends are stored as automated outbound messages (`sender_type = bot`),
+so they do not clear Home’s human-contact queue. Internal staff sends remain
+`agent`. The request body cannot override this provenance. Older API messages
+were stored as staff messages and cannot be reliably distinguished for backfill.
+
 ```bash
 curl -X POST https://your-crm.example.com/api/v1/messages \
   -H "Authorization: Bearer wacrm_live_xxx" \

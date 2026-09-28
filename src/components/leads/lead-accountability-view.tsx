@@ -32,6 +32,7 @@ import {
   type LeadAccountabilityView,
 } from '@/lib/leads/accountability';
 import { onlyEnquiries, selectForEnquiries } from '@/lib/leads/enquiry-scope';
+import { loadLeadFollowUpQueue } from '@/lib/leads/follow-up-queue';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import { useLeadFieldOptions } from '@/hooks/use-lead-field-options';
@@ -283,6 +284,7 @@ async function fetchAllOpenLeadFollowUps(
 
 interface LeadAccountabilityViewProps {
   view: LeadAccountabilityView;
+  initialScope?: LeadAccountabilityScope;
   /** Bumped by the page after lead or follow-up mutations. */
   refreshNonce: number;
   onOpenLead: (contactId: string, focusFollowUp: boolean) => void;
@@ -290,6 +292,7 @@ interface LeadAccountabilityViewProps {
 
 export function LeadAccountabilityView({
   view,
+  initialScope = 'mine',
   refreshNonce,
   onOpenLead,
 }: LeadAccountabilityViewProps) {
@@ -300,7 +303,7 @@ export function LeadAccountabilityView({
   const fieldOptions = useLeadFieldOptions();
   const { staff, nameById, avatarById } = useAccountStaff();
 
-  const [scope, setScope] = useState<LeadAccountabilityScope>('mine');
+  const [scope, setScope] = useState<LeadAccountabilityScope>(initialScope);
   const [filter, setFilter] = useState<QueueFilter>('all');
   const [followUpFilters, setFollowUpFilters] = useState<FollowUpFilterState>(
     EMPTY_FOLLOW_UP_FILTERS
@@ -379,10 +382,13 @@ export function LeadAccountabilityView({
       setLoading(true);
       setLoadError(null);
       try {
-        const [nextLeads, nextFollowUps] = await Promise.all([
-          fetchAllActiveLeads(supabase),
-          fetchAllOpenLeadFollowUps(supabase),
-        ]);
+        const { leads: nextLeads, followUps: nextFollowUps } =
+          view === 'followups'
+            ? await loadLeadFollowUpQueue(supabase)
+            : await Promise.all([
+                fetchAllActiveLeads(supabase),
+                fetchAllOpenLeadFollowUps(supabase),
+              ]).then(([leads, followUps]) => ({ leads, followUps }));
         if (cancelled) return;
         setLeads(nextLeads);
         setFollowUps(nextFollowUps);

@@ -443,6 +443,10 @@ export default function MembersPage() {
           />
         ) : view === 'followups' ? (
           <FollowUpLists
+            key={searchParams.get('scope')}
+            initialScope={
+              searchParams.get('scope') === 'team' ? 'team' : 'mine'
+            }
             readiness={readiness}
             onSelect={openDetail}
             reloadKey={reloadKeys.followups}

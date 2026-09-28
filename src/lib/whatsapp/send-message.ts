@@ -65,6 +65,8 @@ export const VALID_MESSAGE_TYPES = [
 export interface SendMessageParams {
   conversationId: string;
   messageType: string;
+  /** Trusted caller provenance, never copied from a request body. */
+  source?: 'staff' | 'api';
   contentText?: string | null;
   mediaUrl?: string | null;
   filename?: string | null;
@@ -545,7 +547,9 @@ export async function sendMessageToConversation(
     .from('messages')
     .insert({
       conversation_id: conversationId,
-      sender_type: 'agent',
+      // API automation is not a human contact attempt. Home intentionally
+      // counts only accepted staff (agent) messages, not bot messages.
+      sender_type: params.source === 'api' ? 'bot' : 'agent',
       content_type: messageType,
       content_text: resolvedText || null,
       media_url:

@@ -31,6 +31,9 @@ class RecordingQuery implements PromiseLike<QueryResult> {
   eq(...args: unknown[]) {
     return this.record('eq', args);
   }
+  or(...args: unknown[]) {
+    return this.record('or', args);
+  }
   gte(...args: unknown[]) {
     return this.record('gte', args);
   }
@@ -83,10 +86,11 @@ describe('loadRenewalQueuePage', () => {
       { count: 'exact' },
     ]);
     expect(query.calls).toContainEqual(['eq', 'account_id', 'account-1']);
+    expect(query.calls).toContainEqual(['eq', 'plan.plan_type', 'recurring']);
+    expect(query.calls[0][1]).not.toContain('!inner');
     expect(query.calls).toContainEqual([
-      'eq',
-      'membership_plans.plan_type',
-      'recurring',
+      'or',
+      'plan_id.is.null,plan.not.is.null',
     ]);
     expect(query.calls).toContainEqual(['gte', 'end_date', '2026-08-28']);
     expect(query.calls).toContainEqual(['lte', 'end_date', '2026-09-04']);
@@ -144,8 +148,13 @@ describe('loadRenewalQueueCount', () => {
 
     expect(query.calls[0]).toEqual([
       'select',
-      'id, plan:membership_plans!inner(id)',
+      'id, plan:membership_plans(id)',
       { count: 'exact', head: true },
+    ]);
+    expect(query.calls).toContainEqual(['eq', 'plan.plan_type', 'recurring']);
+    expect(query.calls).toContainEqual([
+      'or',
+      'plan_id.is.null,plan.not.is.null',
     ]);
     expect(query.calls).not.toContainEqual([
       'range',

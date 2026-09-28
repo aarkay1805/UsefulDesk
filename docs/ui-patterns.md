@@ -348,6 +348,14 @@ Profile follow-up cards read their task-type glyph from the `TASK_ICON` map expo
 
 The Reason badge follows the same split. A task-led cell takes `reason` inline. A person-led row that aligns on a grid gives it a column of its own instead, and shows **only** that — the `Enquiry`/`Member` kind tag the dashboard used to carry beside it named the side of the business on a row that already opens the right detail sheet and is already filterable by chip, and on a member row it repeated what the non-nullable, member-only Reason already said.
 
+**An open follow-up remains work after its contact's category changes.** The
+Enquiries follow-up tab is the open `membership_id IS NULL` task cohort,
+including Not joining contacts and contacts who subsequently buy a membership
+or service. First response remains an active-enquiry read. Home's See all
+links explicitly open **Team**, matching its counts; ordinary follow-up-page
+visits keep **My work**. These are queue-identity rules, not study-selected
+information order or preview defaults.
+
 `FollowUpQueueControls` (`components/follow-ups/follow-up-queue-controls.tsx`) is the canonical toolbar for the Enquiries and Members follow-up tabs: `SearchInput` + shared Filters + Sort + counted All/Overdue/Due today/Upcoming chips + My work/Team scope. The shared due-date and assignee filter panel lives in `components/follow-ups/follow-up-filters.tsx`; member queues enable the contextual Reason facet, while enquiry queues do not. Both tables keep column management, resizing, selection/bulk completion, inline reassignment, and pagination in parity. Member reminder actions and Reason badges remain member context; enquiry **Stage** and stage age remain enquiry context.
 
 ## Tables

@@ -26,3 +26,10 @@ export function selectForEnquiries<Columns extends string>(
 export function onlyEnquiries<Q extends EnquiryQuery<Q>>(query: Q): Q {
   return query.is('memberships', null).is('member_services', null);
 }
+
+/** The complementary customer cohort; use the same two embedded relations. */
+export function onlyCustomers<Q extends { or(filters: string): Q }>(
+  query: Q
+): Q {
+  return query.or('memberships.not.is.null,member_services.not.is.null');
+}

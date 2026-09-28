@@ -103,6 +103,24 @@ describe('POST /api/v1/messages outbound policy', () => {
     expect(mocks.sendMessageToConversation).toHaveBeenCalledOnce();
   });
 
+  it('marks API sends as automated even if the body claims staff provenance', async () => {
+    const response = await POST(
+      request({
+        to: '+919779208861',
+        type: 'text',
+        text: 'Hello',
+        source: 'staff',
+        sender_type: 'agent',
+      })
+    );
+    expect(response.status).toBe(201);
+    expect(mocks.sendMessageToConversation).toHaveBeenCalledWith(
+      expect.anything(),
+      'account-1',
+      expect.objectContaining({ source: 'api' })
+    );
+  });
+
   it('validates an account-scoped template, then sends without a consent RPC', async () => {
     const response = await POST(
       request({

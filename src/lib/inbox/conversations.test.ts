@@ -88,6 +88,28 @@ describe('normalizeConversation', () => {
     ).toBeUndefined();
   });
 
+  it.each<[{ id: string }[], { id: string }[], boolean]>([
+    [[], [], false],
+    [[{ id: 'membership' }], [], true],
+    [[], [{ id: 'service' }], true],
+    [[{ id: 'membership' }], [{ id: 'service' }], true],
+  ])(
+    'classifies customer history consistently with the Members directory',
+    (memberships, member_services, expected) => {
+      const conversation = makeConversation({});
+      const result = normalizeConversation({
+        ...conversation,
+        contact: {
+          ...conversation.contact!,
+          memberships,
+          member_services,
+        },
+      });
+      expect(result.isMember).toBe(expected);
+      expect(result.contact).not.toHaveProperty('member_services');
+    }
+  );
+
   it('passes through a conversation with no contact', () => {
     const raw = {
       id: 'c1',

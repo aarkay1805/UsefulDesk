@@ -6,7 +6,11 @@ import {
   CONVERSATION_SELECT,
   normalizeConversations,
 } from '@/lib/inbox/conversations';
-import { onlyEnquiries, selectForEnquiries } from '@/lib/leads/enquiry-scope';
+import {
+  onlyCustomers,
+  onlyEnquiries,
+  selectForEnquiries,
+} from '@/lib/leads/enquiry-scope';
 import { cn } from '@/lib/utils';
 import type { Conversation, ConversationStatus, Tag } from '@/types';
 import { ChevronDown, Loader2, X } from 'lucide-react';
@@ -160,13 +164,12 @@ export function ConversationList({
         );
       }
       if (filter === 'member') {
-        const { data } = await supabase
-          .from('memberships')
-          .select('contact_id')
-          .limit(500);
+        const { data } = await onlyCustomers(
+          supabase.from('contacts').select(selectForEnquiries('id'))
+        ).limit(500);
         contactIds = intersectIds(
           contactIds,
-          (data ?? []).map((row) => row.contact_id)
+          (data ?? []).map((row) => row.id)
         );
       }
       if (filter === 'lead') {
@@ -270,13 +273,12 @@ export function ConversationList({
       );
     }
     if (filter === 'member') {
-      const { data } = await supabase
-        .from('memberships')
-        .select('contact_id')
-        .limit(500);
+      const { data } = await onlyCustomers(
+        supabase.from('contacts').select(selectForEnquiries('id'))
+      ).limit(500);
       contactIds = intersectIds(
         contactIds,
-        (data ?? []).map((row) => row.contact_id)
+        (data ?? []).map((row) => row.id)
       );
     }
     if (filter === 'lead') {

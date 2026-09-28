@@ -68,7 +68,8 @@ contacted yet already used this; the other enquiry reads now do too:
 
 - **Leads:** All enquiries (table, board, total, the **No follow-up**,
   **Unassigned**, **Mine**, and **Today** counts, select-all, and CSV export)
-  and Follow-ups.
+  and the active-enquiry reads. The scheduled Follow-ups tab now uses its
+  open-task cohort (see Home queue exactness below).
 - **Business → Performance:** Enquiries by stage.
 - **Inbox:** the **Enquiries** chip. It had filtered only the embedded
   membership rows, so it matched conversations with any contact, members
@@ -163,18 +164,46 @@ advisors show nothing new. The text contract pins the new snapshot as the
 expand step minus those fields, and a source scan fails if app code names a
 dropped read. Not yet verified: an owner session on the deployed app.
 
+## Built in code — Home study prototype and queue exactness (2026-09-28)
+
+**Status: local prototype and repairs complete; owner validation and deployment
+remain pending.** `/preview/home-study` is a development-only fictional-data
+comparison using the existing first-fold and queue masters. It compares
+all-open/due-only follow-ups, eight-row scrolling/three-row previews, and fees
+linked only from the first fold/also previewed. Upcoming remains reachable.
+Section order and labelled actions are exploratory controls. No production
+order or default changed. The [scenario protocol and blank result record](../docs/home-study-2026-09-28.md)
+requires 6–8 real owner/front-desk sessions; completed sessions: **0**.
+
+**Repaired independently of that study:** open enquiry follow-ups retain
+Not joining and subsequently converted contacts; Home's See all requests
+Team explicitly; Renewals counts/pages retain legacy NULL-plan memberships
+while excluding one-time/session plans; new API sends persist as automated
+messages rather than human contact attempts; Chats' Members chip/badge includes
+service-only customers. Older API messages cannot be reliably reclassified.
+The Inbox's existing 500-contact pre-lookup cap is unchanged. No migration or
+live message/payment was required. Performance's service-purchase joining
+semantics remain undecided.
+
+**Engineering verification:** regression tests cover query cohorts/pagination,
+explicit scope, trusted sender provenance, customer classification, prototype
+navigation/state, and its production gate. Browser checks reproduced and fixed
+narrow chip-wrapper overflow at 390px. This is not owner or physical-phone
+acceptance. See the protocol for verification details and remaining limits.
+
 ## Proposed — Home simplification after the first fold (2026-09-27)
 
-**Status: queue definitions and the high-confidence reductions are shipped
-(see above); the rest waits on owner validation.** Evidence is public vendor
+**Status: queue definitions and high-confidence reductions are shipped;
+the comparison prototype and exactness repairs are built in code (see above).
+Information order and defaults still wait on real owner validation.** Evidence is public vendor
 documentation plus local source inspection, not live competitor testing or
 customer validation. Keep the existing first-fold summary and quick actions
 outside this change's scope.
 
 ### Batch 1 — Validate the information order and language
 
-Create a reviewable prototype from the existing dashboard/queue masters, with
-fictional data. Compare overdue/today follow-ups versus the current all-open
+Use the prepared `/preview/home-study` prototype and
+[scenario protocol](../docs/home-study-2026-09-28.md), with fictional data. Compare overdue/today follow-ups versus the current all-open
 preview; short previews versus nested scrolling on phones; and Home with and
 without a fee preview. Keep Upcoming reachable. Test 6–8 owners/front-desk staff
 on their usual phones, in their preferred language. Do not assume limited
@@ -196,14 +225,11 @@ content does not improve task completion.
   **Renew**). Update `docs/ui-patterns.md` with the accepted behavior.
 - Add a Fees to collect preview only if it beats the first-fold link; use the
   existing collectible-dues definitions and state its membership/invoice scope.
-- Queue exactness gaps found while building: Follow-ups **See all** pages drop
-  Not joining enquiries and converted contacts that Home still counts; Renewals
-  inner-joins plans, so legacy no-plan memberships count on Home but not there;
-  public API sends are stored as staff messages and count as contact attempts.
-- Service customers outside the enquiry reads: the Inbox **Members** chip and
-  Member badge cover membership holders only, so a service-only customer shows
-  under All and in neither chip; Performance → Enquiry sources counts a
-  service-only customer added in the period under Enquiries, not joined.
+- Deploy and verify the completed queue-exactness repairs listed above in
+  an authenticated owner session. Historical API-message provenance remains
+  ambiguous; do not backfill guesses.
+- Performance → Enquiry sources still counts a service-only customer added
+  in the period under Enquiries, not joined.
   Decide whether a service purchase counts as joining before changing
   **Joined (%)**.
 
