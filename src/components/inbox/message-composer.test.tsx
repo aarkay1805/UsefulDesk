@@ -688,7 +688,9 @@ describe('MessageComposer blocked actions', () => {
     const dialogs = screen.getAllByRole('dialog');
     expect(dialogs).toHaveLength(1);
     expect(dialogs[0].getAttribute('aria-labelledby')).toBeTruthy();
-    expect(within(dialogs[0]).getByText('You cannot send messages')).toBeTruthy();
+    expect(
+      within(dialogs[0]).getByText('You cannot send messages')
+    ).toBeTruthy();
     expect(blockerControls(dialogs[0])).toHaveLength(0);
     expect(onOpenTemplates).not.toHaveBeenCalled();
   });

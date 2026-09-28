@@ -132,7 +132,8 @@ export function ReassignTrainerDialog({
         <DialogHeader>
           <DialogTitle>Change trainer</DialogTitle>
           <DialogDescription>
-            The service keeps the same expiry. Only the days left are charged at the new trainer’s price.
+            The service keeps the same expiry. Only the days left are charged at
+            the new trainer’s price.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

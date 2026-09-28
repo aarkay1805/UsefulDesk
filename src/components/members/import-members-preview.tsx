@@ -339,9 +339,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               ? 'invalid-phone'
               : 'plan-needs-resolution',
           title:
-            detailEditor === 'phone'
-              ? 'Edit phone'
-              : 'Change plan and price',
+            detailEditor === 'phone' ? 'Edit phone' : 'Change plan and price',
           explanation:
             detailEditor === 'phone'
               ? 'Use this member’s own phone number.'
@@ -761,10 +759,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
   };
 
   return (
-    <div
-      className="flex h-full min-h-0 flex-1 flex-col"
-      aria-label="Your file"
-    >
+    <div className="flex h-full min-h-0 flex-1 flex-col" aria-label="Your file">
       <div
         className={cn(
           'flex min-h-0 flex-1 flex-col',
@@ -844,10 +839,7 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
               </p>
             )}
           {reviewingIssues && sections.length > 0 ? (
-            <ScrollArea
-              className="min-h-0 flex-1"
-              aria-label="Problems"
-            >
+            <ScrollArea className="min-h-0 flex-1" aria-label="Problems">
               <Accordion
                 multiple={false}
                 value={activeSection ? [activeSection.key] : []}
@@ -985,7 +977,8 @@ export function ImportMembersPreview(props: ImportMembersPreviewProps) {
                   <div className="space-y-4">
                     {selectedLocked ? (
                       <p className="text-muted-foreground text-sm">
-                        We already tried to import this row. Its details are locked so we can try again with the same details.
+                        We already tried to import this row. Its details are
+                        locked so we can try again with the same details.
                       </p>
                     ) : null}
                     <CandidateStatus candidate={selected} />
@@ -1469,7 +1462,9 @@ function PaymentConflictResolver({
             >
               Fee and paid amount are right
             </SelectItem>
-            <SelectItem value="trust_balance">Fee and balance are right</SelectItem>
+            <SelectItem value="trust_balance">
+              Fee and balance are right
+            </SelectItem>
             <SelectItem value="trust_paid">
               Paid and balance are right. Work out the fee.
             </SelectItem>
@@ -1537,7 +1532,8 @@ function PaymentConflictResolver({
             </p>
           ) : (
             <p role="alert" className="text-amber-foreground text-sm">
-              These amounts still do not add up. Check the fee, paid amount, and balance.
+              These amounts still do not add up. Check the fee, paid amount, and
+              balance.
             </p>
           )}
           {choice !== 'manual' && (
@@ -1720,7 +1716,8 @@ function GroupResolver({
     return renderLayout(
       <div className="space-y-3">
         <p className="text-muted-foreground text-xs">
-          Choose the membership that is running now. The others are saved as history.
+          Choose the membership that is running now. The others are saved as
+          history.
         </p>
         <Select
           value={selected?.sourceKey ?? null}
@@ -1751,7 +1748,8 @@ function GroupResolver({
     return renderLayout(
       <div className="space-y-3">
         <p className="text-muted-foreground text-xs">
-          This membership balance will no longer be due. Service balances do not change.
+          This membership balance will no longer be due. Service balances do not
+          change.
         </p>
         <IssueRows
           group={group}
@@ -1891,7 +1889,8 @@ function GroupResolver({
         unavailable={
           serviceChoices.length === 0 ? (
             <p className="text-amber-foreground text-sm">
-              No service matches this row. Add it in Settings → Products &amp; services, then open this import again.
+              No service matches this row. Add it in Settings → Products &amp;
+              services, then open this import again.
             </p>
           ) : undefined
         }
@@ -2007,7 +2006,8 @@ function GroupResolver({
     return renderLayout(
       <div className="space-y-3">
         <p className="text-muted-foreground text-xs">
-          Your choice is saved in this draft. Contact details change only when you click Import.
+          Your choice is saved in this draft. Contact details change only when
+          you click Import.
         </p>
         <IssueRows
           group={group}

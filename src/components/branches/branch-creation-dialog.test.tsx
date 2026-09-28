@@ -422,7 +422,9 @@ describe('BranchCreationDialog', () => {
       post.resolve(jsonResponse(creationResult(true), 200))
     );
     await screen.findByText('Branch created');
-    const retry = await screen.findByRole('button', { name: 'Try switching again' });
+    const retry = await screen.findByRole('button', {
+      name: 'Try switching again',
+    });
     expect(auth.switchBranch).toHaveBeenCalledTimes(1);
 
     auth.switchBranch.mockResolvedValueOnce(undefined);

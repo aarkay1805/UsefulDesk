@@ -144,7 +144,8 @@ export function GetStartedView() {
             Setup done
           </div>
           <p className="text-muted-foreground text-sm">
-            All setup steps are done. Before you depend on them, check that WhatsApp, payments, and reminders work the way you want.
+            All setup steps are done. Before you depend on them, check that
+            WhatsApp, payments, and reminders work the way you want.
           </p>
           <Button
             variant="outline"

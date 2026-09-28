@@ -274,7 +274,7 @@ export function ContactNotesThread({
       toast.error(
         getErrorMessage(
           error,
-          "Could not add the note. Check your connection and try again."
+          'Could not add the note. Check your connection and try again.'
         )
       );
       setSavingNote(false);
@@ -310,7 +310,7 @@ export function ContactNotesThread({
           );
         } else {
           toast.error(
-            "Note added, but the follow-up was not added. Edit the note to try again."
+            'Note added, but the follow-up was not added. Edit the note to try again.'
           );
         }
       } else {
@@ -375,7 +375,7 @@ export function ContactNotesThread({
         toast.error(
           getErrorMessage(
             error,
-            "Could not delete the note. Refresh and try again."
+            'Could not delete the note. Refresh and try again.'
           )
         );
       } else {
@@ -426,9 +426,7 @@ export function ContactNotesThread({
     } = await supabase.auth.getSession();
     const authUser = session?.user;
     if (!authUser || !accountId) {
-      toast.error(
-        'Your login has expired. Log in again to save your changes.'
-      );
+      toast.error('Your login has expired. Log in again to save your changes.');
       return false;
     }
 
@@ -440,7 +438,7 @@ export function ContactNotesThread({
       toast.error(
         getErrorMessage(
           error,
-          "Could not save the note. Check your connection and try again."
+          'Could not save the note. Check your connection and try again.'
         )
       );
       return false;
@@ -467,7 +465,7 @@ export function ContactNotesThread({
           .eq('id', existing.id);
         if (taskError) {
           toast.error(
-            "Note saved, but the follow-up was not changed. Try again."
+            'Note saved, but the follow-up was not changed. Try again.'
           );
         }
       } else {
@@ -494,7 +492,7 @@ export function ContactNotesThread({
             );
           } else {
             toast.error(
-              "Note saved, but the follow-up was not added. Try again."
+              'Note saved, but the follow-up was not added. Try again.'
             );
           }
         }
@@ -511,7 +509,7 @@ export function ContactNotesThread({
         .maybeSingle();
       if (!cancelled) {
         toast.error(
-          "Note saved, but the follow-up was not cancelled. Refresh the page and try again."
+          'Note saved, but the follow-up was not cancelled. Refresh the page and try again.'
         );
       }
     }
@@ -603,7 +601,8 @@ export function ContactNotesThread({
               No notes or follow-ups yet
             </p>
             <p className="text-muted-foreground mx-auto max-w-sm text-sm">
-              Write what happened, like a call, a visit, or a payment promise. Add a follow-up so nobody forgets.
+              Write what happened, like a call, a visit, or a payment promise.
+              Add a follow-up so nobody forgets.
             </p>
           </div>
         ) : (
@@ -614,7 +613,9 @@ export function ContactNotesThread({
                   <NoteCard
                     note={item.note}
                     followUp={noteFollowUps[item.note.id]}
-                    authorName={nameById.get(item.note.user_id) ?? 'Team member'}
+                    authorName={
+                      nameById.get(item.note.user_id) ?? 'Team member'
+                    }
                     authorAvatarUrl={avatarById.get(item.note.user_id) ?? null}
                     currentUserId={user?.id ?? ''}
                     nameById={nameById}

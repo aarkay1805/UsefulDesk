@@ -451,8 +451,8 @@ describe('InvoiceDocumentActions', () => {
   });
 
   it.each([
-    [false, true, "WhatsApp is not connected"],
-    [true, false, "Invoice message is not ready"],
+    [false, true, 'WhatsApp is not connected'],
+    [true, false, 'Invoice message is not ready'],
   ])(
     'keeps unresolved readiness inert, then exposes the settled blocker without an agent CTA',
     async (connected, approved, title) => {

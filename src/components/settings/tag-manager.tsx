@@ -69,7 +69,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
 
       if (cancelled) return;
       if (error) {
-        setLoadError(getErrorMessage(error, "Could not load tags. Try again."));
+        setLoadError(getErrorMessage(error, 'Could not load tags. Try again.'));
       } else {
         setTags((data as Tag[] | null) ?? []);
       }
@@ -110,7 +110,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
       setNewTagName('');
       toast.success('Tag created');
     } catch (error) {
-      toast.error(getErrorMessage(error, "Could not add the tag."));
+      toast.error(getErrorMessage(error, 'Could not add the tag.'));
     } finally {
       setSaving(false);
     }
@@ -135,7 +135,7 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
       setTagToDelete(null);
       toast.success('Tag deleted');
     } catch (error) {
-      toast.error(getErrorMessage(error, "Could not delete the tag."));
+      toast.error(getErrorMessage(error, 'Could not delete the tag.'));
     } finally {
       setDeleting(false);
     }
@@ -255,7 +255,8 @@ export function TagManager({ canEdit }: { canEdit: boolean }) {
           <DialogHeader>
             <DialogTitle>Delete tag?</DialogTitle>
             <DialogDescription>
-              “{tagToDelete?.name}” will be removed from everyone. You cannot undo this.
+              “{tagToDelete?.name}” will be removed from everyone. You cannot
+              undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

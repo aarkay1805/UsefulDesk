@@ -127,7 +127,8 @@ export async function submitRequiredTemplates({
         ...base,
         outcome: 'failed',
         status: item.row?.status,
-        error: error instanceof Error ? error.message : 'Could not send for review.',
+        error:
+          error instanceof Error ? error.message : 'Could not send for review.',
       });
     }
   }

@@ -1175,7 +1175,9 @@ export function TemplateManager({
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data?.error || `Could not check WhatsApp (error ${res.status})`);
+      throw new Error(
+        data?.error || `Could not check WhatsApp (error ${res.status})`
+      );
     }
     if (announceSuccess) {
       toast.success(
@@ -1301,7 +1303,9 @@ export function TemplateManager({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error || `Could not delete (error ${res.status})`);
+        throw new Error(
+          data?.error || `Could not delete (error ${res.status})`
+        );
       }
       toast.success('Template deleted');
       setTemplates((prev) => prev.filter((t) => t.id !== target.id));
@@ -2307,7 +2311,7 @@ export function TemplateManager({
                   }
                   title={
                     !canEditSettings
-                      ? "Your role cannot send messages for review"
+                      ? 'Your role cannot send messages for review'
                       : undefined
                   }
                 >
@@ -2324,7 +2328,7 @@ export function TemplateManager({
                   }
                   title={
                     !canEditSettings
-                      ? "Your role cannot update templates from WhatsApp"
+                      ? 'Your role cannot update templates from WhatsApp'
                       : 'Get templates from your WhatsApp account'
                   }
                 >
@@ -2361,7 +2365,8 @@ export function TemplateManager({
                   .filter((result) => result.outcome === 'failed')
                   .map((result) => (
                     <li key={result.contract_id}>
-                      {result.name} — {result.error ?? 'Could not send for review.'}
+                      {result.name} —{' '}
+                      {result.error ?? 'Could not send for review.'}
                     </li>
                   ))}
               </ul>

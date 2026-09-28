@@ -7,10 +7,18 @@ import {
 describe('validateStepsForActivation', () => {
   it('rejects empty or missing step lists', () => {
     expect(validateStepsForActivation([])).toEqual([
-      { path: 'steps', message: 'Add at least one step before turning this on' },
+      {
+        path: 'steps',
+        message: 'Add at least one step before turning this on',
+      },
     ]);
     expect(validateStepsForActivation(undefined as unknown as never[])).toEqual(
-      [{ path: 'steps', message: 'Add at least one step before turning this on' }]
+      [
+        {
+          path: 'steps',
+          message: 'Add at least one step before turning this on',
+        },
+      ]
     );
   });
 
@@ -215,9 +223,7 @@ describe('validateTriggerForActivation', () => {
       keywords: ['hi', '   '],
       match_type: 'contains',
     });
-    expect(issues.map((i) => i.message)).toContain(
-      'Remove empty words'
-    );
+    expect(issues.map((i) => i.message)).toContain('Remove empty words');
   });
 
   it('rejects keyword_match with an unknown match_type', () => {

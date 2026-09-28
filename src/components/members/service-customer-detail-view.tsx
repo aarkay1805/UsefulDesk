@@ -91,7 +91,8 @@ export function ServiceCustomerDetailView({
         contactResult.error ?? serviceResult.error ?? invoiceResult.error;
       if (loadError || !contactResult.data) {
         setError(
-          loadError?.message ?? 'Could not find this person, or you no longer have access.'
+          loadError?.message ??
+            'Could not find this person, or you no longer have access.'
         );
         setLoading(false);
         return;

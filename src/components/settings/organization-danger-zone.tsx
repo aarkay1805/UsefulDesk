@@ -104,8 +104,8 @@ export function OrganizationDangerZone() {
           <span className="text-foreground font-medium">
             {organizationName}
           </span>
-          , all {branches.length} branches, members, enquiries, chats, payments, and
-          saved files. Team members who only use this gym group will lose
+          , all {branches.length} branches, members, enquiries, chats, payments,
+          and saved files. Team members who only use this gym group will lose
           access.
         </CardDescription>
       </CardHeader>

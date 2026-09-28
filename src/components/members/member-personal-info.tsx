@@ -158,7 +158,7 @@ export function MemberPersonalInfo({
 
     if (error) return toast.error(error.message);
     if (!data || data.length === 0)
-      return toast.error("You do not have permission to edit this member.");
+      return toast.error('You do not have permission to edit this member.');
     toast.success('Details saved');
     onSaved();
   }

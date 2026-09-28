@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 
-import {
-  dayStartInTz,
-  todayInTz,
-} from '../../../../../src/lib/locale/format';
+import { dayStartInTz, todayInTz } from '../../../../../src/lib/locale/format';
 
 const DAY_MS = 86_400_000;
 const BOUNDARY_GRACE_MS = 100;
@@ -42,18 +39,24 @@ export function useAccountCalendarClock(timeZone: string): Date {
     const schedule = () => {
       if (timeout) clearTimeout(timeout);
       const current = new Date();
-      timeout = setTimeout(() => {
-        setNow(new Date());
-        schedule();
-      }, delayUntilNextDay(timeZone, current));
+      timeout = setTimeout(
+        () => {
+          setNow(new Date());
+          schedule();
+        },
+        delayUntilNextDay(timeZone, current)
+      );
     };
 
     schedule();
-    const appStateSubscription = AppState.addEventListener('change', (state) => {
-      if (state !== 'active') return;
-      setNow(new Date());
-      schedule();
-    });
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      (state) => {
+        if (state !== 'active') return;
+        setNow(new Date());
+        schedule();
+      }
+    );
 
     return () => {
       if (timeout) clearTimeout(timeout);

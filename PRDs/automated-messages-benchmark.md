@@ -15,14 +15,14 @@ This is an information-architecture and operational-confidence benchmark. Eviden
 
 ## Comparable patterns
 
-| Product | Documented behavior | Implication for UsefulDesk |
-| --- | --- | --- |
-| Glofox | Connect → Automations contains predefined communications; distinguishes transactional emails from multi-step workflows. Its Member Expiring detail exposes start rules, stop rules, and message sequence. | Lead with a named business event; explain eligibility and stopping behavior inside its detail. |
-| PushPress | Core puts automatic emails under Communicate → Automatic. Grow has predefined workflows grouped into folders such as Plans and Check-In Milestones. | Use a discoverable catalogue and purpose groups; a small gym should not need to author workflows. |
-| FitnessForce NxT | Appointment automation configures center scope, trigger date, channel, relative timing, and selected WhatsApp template. Older FitnessForce follow-up documentation separately describes assigned staff tasks. | Show branch, timing, message, and staff outcome distinctly. Staff follow-up is an action, not another customer message. |
-| Zoho Billing | Settings → Reminders & Notifications separates manual and automated reminders; automated schedules use due dates or expected-payment dates, and an expected date can suppress normal chasing. | Collection is its own category. Explain promises and pauses alongside the rule and preserve invoice-level context. |
-| respond.io | Workflows is a separate module; template management has its own status, category, language, quality, and sync information. | One template-management destination, referenced contextually from each rule. |
-| HubSpot | Record-level workflow history shows the path followed and success/failure of actions. | Activity should answer what happened to a particular member and why, with a useful next action. A full visual workflow diagram is unnecessary here. |
+| Product          | Documented behavior                                                                                                                                                                                           | Implication for UsefulDesk                                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Glofox           | Connect → Automations contains predefined communications; distinguishes transactional emails from multi-step workflows. Its Member Expiring detail exposes start rules, stop rules, and message sequence.     | Lead with a named business event; explain eligibility and stopping behavior inside its detail.                                                      |
+| PushPress        | Core puts automatic emails under Communicate → Automatic. Grow has predefined workflows grouped into folders such as Plans and Check-In Milestones.                                                           | Use a discoverable catalogue and purpose groups; a small gym should not need to author workflows.                                                   |
+| FitnessForce NxT | Appointment automation configures center scope, trigger date, channel, relative timing, and selected WhatsApp template. Older FitnessForce follow-up documentation separately describes assigned staff tasks. | Show branch, timing, message, and staff outcome distinctly. Staff follow-up is an action, not another customer message.                             |
+| Zoho Billing     | Settings → Reminders & Notifications separates manual and automated reminders; automated schedules use due dates or expected-payment dates, and an expected date can suppress normal chasing.                 | Collection is its own category. Explain promises and pauses alongside the rule and preserve invoice-level context.                                  |
+| respond.io       | Workflows is a separate module; template management has its own status, category, language, quality, and sync information.                                                                                    | One template-management destination, referenced contextually from each rule.                                                                        |
+| HubSpot          | Record-level workflow history shows the path followed and success/failure of actions.                                                                                                                         | Activity should answer what happened to a particular member and why, with a useful next action. A full visual workflow diagram is unnecessary here. |
 
 Sources supporting the table:
 
@@ -47,12 +47,12 @@ Corroboration: [Wati's template node](https://support.wati.io/en/articles/114630
 
 Use purpose groups, not Meta's Marketing/Utility categories:
 
-| Group | Existing behavior to expose |
-| --- | --- |
-| Renewals | Membership and service renewal; short post-expiry follow-up |
-| Collections | Invoice collection, joining installments, promise-to-pay, payment-link follow-up, failed AutoPay recovery |
-| Retention | Session packs, planned freeze return, membership/service win-back |
-| Confirmations | Payment confirmations |
+| Group         | Existing behavior to expose                                                                               |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| Renewals      | Membership and service renewal; short post-expiry follow-up                                               |
+| Collections   | Invoice collection, joining installments, promise-to-pay, payment-link follow-up, failed AutoPay recovery |
+| Retention     | Session packs, planned freeze return, membership/service win-back                                         |
+| Confirmations | Payment confirmations                                                                                     |
 
 Joining installments currently have distinct scheduling behavior: show their actual managed schedule and link to the owning configuration; do not invent an independent toggle. AutoPay recovery can stay one item but must distinguish informational retry updates from a terminal failure asking for payment. Grouping must not change message category or daily-cap semantics.
 

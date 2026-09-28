@@ -166,7 +166,8 @@ export function ProductServiceSaleCheckout({
         credit_applied?: number;
         balance?: number;
       };
-      if (!response.ok) throw new Error(result.error || 'Could not save the sale');
+      if (!response.ok)
+        throw new Error(result.error || 'Could not save the sale');
       const credit = Number(result.credit_applied ?? 0);
       const balance = Number(result.balance ?? 0);
       toast.success(
@@ -362,7 +363,8 @@ export function ProductServiceSaleCheckout({
                     </>
                   ) : (
                     <p className="text-muted-foreground text-sm">
-                      Their credit from earlier pays this invoice. Nothing to pay today.
+                      Their credit from earlier pays this invoice. Nothing to
+                      pay today.
                     </p>
                   )}
                 </CardContent>

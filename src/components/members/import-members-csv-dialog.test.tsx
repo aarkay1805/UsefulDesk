@@ -377,12 +377,8 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
         { type: 'text/csv' }
       )
     );
-    expect(
-      await screen.findByText('1 row skipped automatically')
-    ).toBeTruthy();
-    await user.click(
-      screen.getByRole('button', { name: 'See skipped rows' })
-    );
+    expect(await screen.findByText('1 row skipped automatically')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'See skipped rows' }));
     expect(screen.getByText('repeated header')).toBeTruthy();
     expect(screen.getByText('Name | Phone | Plan')).toBeTruthy();
   });
@@ -560,9 +556,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
       within(rowsPanel).getByRole('heading', { name: 'Import members' })
     ).toBeTruthy();
     expect(
-      within(rowsPanel).getByText(
-        'Fix each problem, or skip those rows.'
-      )
+      within(rowsPanel).getByText('Fix each problem, or skip those rows.')
     ).toBeTruthy();
     const importDraft = screen.getByRole('group', { name: 'Import draft' });
     expect(
@@ -664,9 +658,7 @@ describe('ImportMembersCsvDialog candidate continuity', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Check import' }));
-    expect(
-      screen.getByText('Check the totals, then import.')
-    ).toBeTruthy();
+    expect(screen.getByText('Check the totals, then import.')).toBeTruthy();
     expectDraftUtilities();
     const submit = screen.getByRole('button', {
       name: 'Import 1 member',

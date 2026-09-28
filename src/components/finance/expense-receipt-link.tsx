@@ -42,10 +42,7 @@ export function ExpenseReceiptLink({
       );
       setSigned({ url, at: Date.now() });
       if (popup) popup.location.href = url;
-      else
-        toast.info(
-          'Receipt ready. Tap again to open it.'
-        );
+      else toast.info('Receipt ready. Tap again to open it.');
     } catch (reason) {
       popup?.close();
       toast.error(getErrorMessage(reason, 'Could not open the receipt'));

@@ -10,7 +10,9 @@ vi.mock('@/lib/cron/auth', () => ({
   cronSecretConfigured: () => h.configured,
   isAuthorizedCronRequest: () => h.authorized,
 }));
-vi.mock('@/lib/reminders/worker', () => ({ runLifecycleReminderWorker: h.run }));
+vi.mock('@/lib/reminders/worker', () => ({
+  runLifecycleReminderWorker: h.run,
+}));
 
 import { GET } from './route';
 
@@ -23,7 +25,9 @@ describe('GET /api/reminders/cron', () => {
   });
 
   it('uses the shared cron boundary and returns a no-send empty run honestly', async () => {
-    const response = await GET(new Request('https://desk.example/api/reminders/cron'));
+    const response = await GET(
+      new Request('https://desk.example/api/reminders/cron')
+    );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ accepted: 0, failed: 0 });
@@ -32,7 +36,9 @@ describe('GET /api/reminders/cron', () => {
 
   it('does not expose the worker without cron authorization', async () => {
     h.authorized = false;
-    const response = await GET(new Request('https://desk.example/api/reminders/cron'));
+    const response = await GET(
+      new Request('https://desk.example/api/reminders/cron')
+    );
 
     expect(response.status).toBe(401);
     expect(h.run).not.toHaveBeenCalled();
@@ -47,7 +53,9 @@ describe('GET /api/reminders/cron', () => {
       notes: [],
     });
 
-    const response = await GET(new Request('https://desk.example/api/reminders/cron'));
+    const response = await GET(
+      new Request('https://desk.example/api/reminders/cron')
+    );
 
     expect(response.status).toBe(503);
   });

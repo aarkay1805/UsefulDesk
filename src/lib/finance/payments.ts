@@ -395,7 +395,11 @@ export function financePaymentsCsv(
       row.method,
       paymentSourceLabel(row),
       row.payment_purpose,
-      row.status === 'void' ? 'Cancelled' : row.status === 'due' ? 'Due' : 'Paid',
+      row.status === 'void'
+        ? 'Cancelled'
+        : row.status === 'due'
+          ? 'Due'
+          : 'Paid',
       number(row.gross_amount ?? row.amount),
       number(row.processed_refund_amount),
       number(row.net_amount ?? row.amount),

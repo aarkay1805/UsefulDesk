@@ -125,7 +125,7 @@ export default function FlowsPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error("Could not load flows.");
+          toast.error('Could not load flows.');
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -156,7 +156,7 @@ export default function FlowsPage() {
       navigationStarted = true;
     } catch (err) {
       console.error(err);
-      toast.error("Could not create flow.");
+      toast.error('Could not create flow.');
     } finally {
       if (!navigationStarted) setCreating(false);
     }
@@ -203,7 +203,7 @@ export default function FlowsPage() {
       toast.success('Flow deleted.');
     } catch (err) {
       console.error(err);
-      toast.error("Could not delete flow.");
+      toast.error('Could not delete flow.');
     } finally {
       setDeletingFlowId(null);
     }
@@ -228,7 +228,8 @@ export default function FlowsPage() {
             </Badge>
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
-            Build WhatsApp chats where people tap buttons to get answers. Good for menus and common questions before your team replies.
+            Build WhatsApp chats where people tap buttons to get answers. Good
+            for menus and common questions before your team replies.
           </p>
         </div>
         <GatedButton
@@ -387,7 +388,8 @@ function EmptyState({
         No flows yet
       </h2>
       <p className="text-muted-foreground mt-1 max-w-md text-sm">
-        Build your first flow, like a welcome menu or common questions. People tap buttons and get the right answer, or are passed to your team.
+        Build your first flow, like a welcome menu or common questions. People
+        tap buttons and get the right answer, or are passed to your team.
       </p>
       <GatedButton
         canAct={canCreate}

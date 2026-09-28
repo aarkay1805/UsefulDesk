@@ -72,13 +72,9 @@ describe('GetStartedView dismissed state', () => {
     render(<GetStartedView />);
 
     expect(screen.getByText('Setup done')).toBeTruthy();
+    expect(screen.getByText(/All setup steps are done/)).toBeTruthy();
     expect(
-      screen.getByText(/All setup steps are done/)
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        /check that WhatsApp, payments, and reminders work/
-      )
+      screen.getByText(/check that WhatsApp, payments, and reminders work/)
     ).toBeTruthy();
     expect(screen.queryByText(/payments are ready to run/)).toBeNull();
   });
@@ -89,9 +85,7 @@ describe('GetStartedView dismissed state', () => {
     render(<GetStartedView />);
 
     expect(
-      screen
-        .getByRole('button', { name: 'Go to Home' })
-        .getAttribute('href')
+      screen.getByRole('button', { name: 'Go to Home' }).getAttribute('href')
     ).toBe('/dashboard?branch=00000000-0000-4000-8000-000000000001');
   });
 
@@ -150,8 +144,6 @@ describe('GetStartedView template guidance', () => {
     render(<GetStartedView />);
 
     expect(screen.getByText(/WhatsApp checks every message/)).toBeTruthy();
-    expect(
-      screen.getByText(/WhatsApp may say no/)
-    ).toBeTruthy();
+    expect(screen.getByText(/WhatsApp may say no/)).toBeTruthy();
   });
 });

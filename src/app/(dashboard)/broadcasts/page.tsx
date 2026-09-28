@@ -237,7 +237,8 @@ export default function BroadcastsPage() {
         <div>
           <h1 className="text-foreground text-2xl font-bold">Broadcasts</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Send one WhatsApp message to many people at once, using an approved template.
+            Send one WhatsApp message to many people at once, using an approved
+            template.
           </p>
         </div>
         <GatedButton

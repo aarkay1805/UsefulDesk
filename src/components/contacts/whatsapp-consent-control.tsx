@@ -63,7 +63,9 @@ export function WhatsAppConsentControl({
       setEvidenceNote('');
       setOpen(false);
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not save WhatsApp permission.'));
+      toast.error(
+        getErrorMessage(error, 'Could not save WhatsApp permission.')
+      );
     } finally {
       setSaving(false);
     }
@@ -114,7 +116,9 @@ export function WhatsAppConsentControl({
           </RadioGroup>
 
           <div className="space-y-2">
-            <Label htmlFor="whatsapp-consent-evidence">How did they tell you?</Label>
+            <Label htmlFor="whatsapp-consent-evidence">
+              How did they tell you?
+            </Label>
             <Textarea
               id="whatsapp-consent-evidence"
               value={evidenceNote}

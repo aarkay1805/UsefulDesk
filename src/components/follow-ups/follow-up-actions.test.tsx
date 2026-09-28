@@ -63,7 +63,9 @@ describe('FollowUpButton', () => {
       name: 'You do not have permission',
     });
     expect(
-      within(blocker).getByText('Ask the owner or an admin to create follow-ups.')
+      within(blocker).getByText(
+        'Ask the owner or an admin to create follow-ups.'
+      )
     ).toBeTruthy();
     expect(blockerControls(blocker)).toHaveLength(0);
   });

@@ -12,13 +12,16 @@ import { POST } from './route';
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const branchId = '22222222-2222-4222-8222-222222222222';
 function request(accountIds: string[], sameOrigin = true) {
-  return new Request('https://desk.example/api/subscriptions/archive-for-plan', {
-    method: 'POST',
-    headers: sameOrigin
-      ? { origin: 'https://desk.example', 'sec-fetch-site': 'same-origin' }
-      : {},
-    body: JSON.stringify({ organizationId, accountIds }),
-  });
+  return new Request(
+    'https://desk.example/api/subscriptions/archive-for-plan',
+    {
+      method: 'POST',
+      headers: sameOrigin
+        ? { origin: 'https://desk.example', 'sec-fetch-site': 'same-origin' }
+        : {},
+      body: JSON.stringify({ organizationId, accountIds }),
+    }
+  );
 }
 
 describe('expired-trial branch selection route', () => {
@@ -28,10 +31,12 @@ describe('expired-trial branch selection route', () => {
     vi.stubEnv('USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED', 'true');
     vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_MODE', 'test');
     requireSubscriptionOwner.mockResolvedValue({
-      userId: 'owner-1', supabase: { rpc },
+      userId: 'owner-1',
+      supabase: { rpc },
     });
     rpc.mockResolvedValue({
-      data: { archived_count: 1, active_count: 1 }, error: null,
+      data: { archived_count: 1, active_count: 1 },
+      error: null,
     });
   });
   afterEach(() => vi.unstubAllEnvs());

@@ -280,17 +280,15 @@ export function MessageComposer({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.code === 'ai_not_configured') {
-          toast.error(
-            "AI is not set up. Turn it on in AI Agents → Setup."
-          );
+          toast.error('AI is not set up. Turn it on in AI Agents → Setup.');
         } else {
-          toast.error(data.error ?? "Could not draft a reply.");
+          toast.error(data.error ?? 'Could not draft a reply.');
         }
         return;
       }
       const draftText = typeof data.draft === 'string' ? data.draft.trim() : '';
       if (!draftText) {
-        toast.error("The AI did not write a reply. Try again.");
+        toast.error('The AI did not write a reply. Try again.');
         return;
       }
       setText(draftText);
@@ -305,7 +303,7 @@ export function MessageComposer({
         }
       });
     } catch {
-      toast.error("Could not reach the AI assistant.");
+      toast.error('Could not reach the AI assistant.');
     } finally {
       setDrafting(false);
     }
@@ -340,7 +338,9 @@ export function MessageComposer({
           caption: '',
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not upload. Try again.');
+        toast.error(
+          err instanceof Error ? err.message : 'Could not upload. Try again.'
+        );
       } finally {
         setBusy(false);
       }
@@ -390,7 +390,9 @@ export function MessageComposer({
           caption: '',
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not upload. Try again.');
+        toast.error(
+          err instanceof Error ? err.message : 'Could not upload. Try again.'
+        );
       } finally {
         setBusy(false);
       }
@@ -404,7 +406,7 @@ export function MessageComposer({
       !navigator.mediaDevices?.getUserMedia ||
       typeof AudioContext === 'undefined'
     ) {
-      toast.error("This browser cannot record voice notes.");
+      toast.error('This browser cannot record voice notes.');
       return;
     }
     try {
@@ -434,7 +436,9 @@ export function MessageComposer({
     } catch {
       void recorderRef.current?.stop().catch(() => {});
       recorderRef.current = null;
-      toast.error('Cannot use the microphone. Allow microphone access and try again.');
+      toast.error(
+        'Cannot use the microphone. Allow microphone access and try again.'
+      );
     }
   }, [inputsDisabled, busy, recording, finalizeRecording]);
 
@@ -740,9 +744,7 @@ export function MessageComposer({
                   // wrapping pattern doesn't apply to non-button inputs.
                   // The placeholder text also surfaces the read-only state.
                   title={
-                    readOnly
-                      ? "Your role cannot send messages"
-                      : undefined
+                    readOnly ? 'Your role cannot send messages' : undefined
                   }
                   className={cn(
                     'text-foreground placeholder:text-muted-foreground min-w-0 flex-1 resize-none self-center overflow-y-hidden border-0 bg-transparent px-2 py-2 text-sm leading-5 outline-none',

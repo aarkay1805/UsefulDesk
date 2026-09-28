@@ -284,9 +284,7 @@ describe('member profile template action', () => {
 
     await user.click(action);
     expect(
-      await screen.findByText(
-        'Pick a WhatsApp-approved message to send.'
-      )
+      await screen.findByText('Pick a WhatsApp-approved message to send.')
     ).toBeTruthy();
 
     await user.click(

@@ -212,7 +212,7 @@ export function ProductsServicesSettings() {
         setLoadError(
           getErrorMessage(
             error,
-            "Could not load products and services. Try again."
+            'Could not load products and services. Try again.'
           )
         );
       } finally {
@@ -251,7 +251,7 @@ export function ProductsServicesSettings() {
               : 'This duration already exists.'
           : getErrorMessage(
               error,
-              "You do not have permission to make this change"
+              'You do not have permission to make this change'
             )
       );
       return false;
@@ -290,7 +290,7 @@ export function ProductsServicesSettings() {
           ? `${deleteTarget.name} has past sales. Stop selling it instead.`
           : getErrorMessage(
               error,
-              "You do not have permission to delete this item"
+              'You do not have permission to delete this item'
             )
       );
       return;
@@ -336,7 +336,10 @@ export function ProductsServicesSettings() {
       toast.error(
         result.error?.code === '23505'
           ? 'A trainer with this name or team account already exists.'
-          : getErrorMessage(result.error, 'Could not change the trainer setting')
+          : getErrorMessage(
+              result.error,
+              'Could not change the trainer setting'
+            )
       );
       refresh();
       return;
@@ -374,7 +377,7 @@ export function ProductsServicesSettings() {
       toast.error(
         getErrorMessage(
           error,
-          "You do not have permission to delete this trainer"
+          'You do not have permission to delete this trainer'
         )
       );
       refresh();
@@ -454,7 +457,9 @@ export function ProductsServicesSettings() {
                               {item.kind === 'service' ? 'Service' : 'Product'}
                             </Badge>
                             {item.requires_trainer ? (
-                              <Badge variant="info">Price depends on trainer</Badge>
+                              <Badge variant="info">
+                                Price depends on trainer
+                              </Badge>
                             ) : null}
                             {!item.is_active ? (
                               <Badge variant="neutral">Not for sale</Badge>
@@ -1496,7 +1501,7 @@ function RateMatrixDialog({
       );
     }
     if (ratesToArchive.length && archived?.length !== ratesToArchive.length) {
-      return toast.error("You do not have permission to remove these fees");
+      return toast.error('You do not have permission to remove these fees');
     }
     toast.success('Trainer fees saved');
     onOpenChange(false);

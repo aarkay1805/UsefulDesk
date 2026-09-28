@@ -102,8 +102,7 @@ function documentBlocker(
       return {
         title: 'Sort out the refund first',
         description:
-          description ??
-          'Sort out the refund before making the invoice PDF.',
+          description ?? 'Sort out the refund before making the invoice PDF.',
         ...(capabilities.canResolveRefundReview &&
         capabilities.onResolveRefundReview
           ? {
@@ -118,7 +117,8 @@ function documentBlocker(
       return {
         title: 'Finish invoice setup',
         description:
-          description ?? 'Add your invoice details in Settings before making a PDF.',
+          description ??
+          'Add your invoice details in Settings before making a PDF.',
         ...(capabilities.canManageInvoiceProfile
           ? {
               resolution: {
@@ -136,7 +136,7 @@ function documentBlocker(
       };
     case 'whatsapp_disconnected':
       return {
-        title: "WhatsApp is not connected",
+        title: 'WhatsApp is not connected',
         description:
           description ?? 'Connect WhatsApp before sending this invoice.',
         ...(capabilities.canEditSettings
@@ -150,7 +150,7 @@ function documentBlocker(
       };
     case 'template_unavailable':
       return {
-        title: "Invoice message is not ready",
+        title: 'Invoice message is not ready',
         description:
           description ?? 'Get the invoice message approved by WhatsApp first.',
         ...(capabilities.canEditSettings

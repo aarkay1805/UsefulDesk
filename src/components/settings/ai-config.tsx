@@ -246,7 +246,8 @@ export function AiConfig() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Sparkles className="text-primary-text h-4 w-4" /> AI company and key
+              <Sparkles className="text-primary-text h-4 w-4" /> AI company and
+              key
             </CardTitle>
             <CardDescription>
               Your key is stored safely and is never shown again after saving.
@@ -364,7 +365,9 @@ export function AiConfig() {
               />
               <p className="text-muted-foreground text-xs">
                 An OpenAI key used only to search your knowledge base
-                {provider === 'openai' ? '. It can be the same key as above' : ''}
+                {provider === 'openai'
+                  ? '. It can be the same key as above'
+                  : ''}
                 . Leave it blank to use simple word search.
               </p>
             </div>
@@ -375,12 +378,15 @@ export function AiConfig() {
           <CardHeader>
             <CardTitle className="text-base">Behaviour</CardTitle>
             <CardDescription>
-              Tell the AI about your gym: what you offer, how to talk, and what it must not promise. It uses this for drafts and auto-replies.
+              Tell the AI about your gym: what you offer, how to talk, and what
+              it must not promise. It uses this for drafts and auto-replies.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="ai-prompt">About your gym, and rules for the AI</Label>
+              <Label htmlFor="ai-prompt">
+                About your gym, and rules for the AI
+              </Label>
               <Textarea
                 id="ai-prompt"
                 value={systemPrompt}
@@ -413,7 +419,9 @@ export function AiConfig() {
                   Reply to new messages automatically
                 </p>
                 <p className="text-muted-foreground text-xs">
-                  The AI answers new messages by itself, but only when no flow handles them and no team member is assigned. It passes the chat to your team when it cannot help.
+                  The AI answers new messages by itself, but only when no flow
+                  handles them and no team member is assigned. It passes the
+                  chat to your team when it cannot help.
                 </p>
               </div>
               <Switch
@@ -425,9 +433,7 @@ export function AiConfig() {
 
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label htmlFor="ai-max">
-                  Most auto-replies in one chat
-                </Label>
+                <Label htmlFor="ai-max">Most auto-replies in one chat</Label>
                 <p className="text-muted-foreground text-xs">
                   After this many AI replies in one chat, the AI stops replying.
                 </p>

@@ -69,7 +69,8 @@ export default function NewBroadcastPage() {
     } catch (err) {
       // Previously swallowed with console.error — the wizard would
       // just no-op, leaving the user confused. Surface the reason.
-      const message = err instanceof Error ? err.message : 'Could not send the broadcast';
+      const message =
+        err instanceof Error ? err.message : 'Could not send the broadcast';
       console.error('Broadcast failed:', err);
       toast.error(message);
     }

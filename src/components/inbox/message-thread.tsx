@@ -752,7 +752,8 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send message:', err);
-        const reason = err instanceof Error ? err.message : 'no internet connection';
+        const reason =
+          err instanceof Error ? err.message : 'no internet connection';
         toast.error(`Could not send: ${reason}`);
         onUpdateMessage(tempId, { status: 'failed' });
       }
@@ -819,7 +820,8 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send media:', err);
-        const reason = err instanceof Error ? err.message : 'no internet connection';
+        const reason =
+          err instanceof Error ? err.message : 'no internet connection';
         toast.error(`Could not send: ${reason}`);
         onUpdateMessage(tempId, { status: 'failed' });
         void deleteAccountMedia(CHAT_MEDIA_BUCKET, payload.path).catch(
@@ -919,7 +921,8 @@ export function MessageThread({
         onUpdateMessage(tempId, { status: 'sent' });
       } catch (err) {
         console.error('Failed to send template:', err);
-        const reason = err instanceof Error ? err.message : 'no internet connection';
+        const reason =
+          err instanceof Error ? err.message : 'no internet connection';
         toast.error(`Could not send the template: ${reason}`);
         onUpdateMessage(tempId, { status: 'failed' });
       }
@@ -1026,7 +1029,8 @@ export function MessageThread({
           throw new Error(payload?.error || `HTTP ${res.status}`);
         }
       } catch (err) {
-        const reason = err instanceof Error ? err.message : 'no internet connection';
+        const reason =
+          err instanceof Error ? err.message : 'no internet connection';
         toast.error(`Could not add reaction: ${reason}`);
         setReactions(snapshot);
       }
@@ -1302,9 +1306,7 @@ export function MessageThread({
                   ) : (
                     <PanelRightOpen className="mr-2 size-4" />
                   )}
-                  {contactPanelOpen
-                    ? 'Hide details'
-                    : 'Show details'}
+                  {contactPanelOpen ? 'Hide details' : 'Show details'}
                 </DropdownMenuItem>
               )}
               {onRefresh && (

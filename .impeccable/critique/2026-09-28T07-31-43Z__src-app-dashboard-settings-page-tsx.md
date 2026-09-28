@@ -2,31 +2,32 @@
 target: Settings menu navigation and nomenclature
 total_score: 23
 max_score: 40
-na_heuristics: 
+na_heuristics:
 p0_count: 0
 p1_count: 4
 timestamp: 2026-09-28T07-31-43Z
 slug: src-app-dashboard-settings-page-tsx
 ---
+
 ⚠️ DEGRADED: single-context (sub-agents are only spawned on an explicit user request in this harness; the user asked for a report, not for this skill)
 
 Full report: https://claude.ai/artifact/L8CUzhZEfHQhRfgxxJ1iA3 (Settings Navigation Audit, 28 Sep 2026)
 
 ## Design Health Score
 
-| # | Heuristic | Score | Key Issue |
-|---|-----------|-------|-----------|
-| 1 | Visibility of System Status | 3 | Status on some Overview tiles; on phones the app bar only says "Settings" |
-| 2 | Match System / Real World | 2 | "Account" = the person; Team card counts staff as "members"; three different "Payments" |
-| 3 | User Control and Freedom | 3 | URL per section, browser back works, unsaved-changes guard on Automated messages |
-| 4 | Consistency and Standards | 2 | Sidebar Settings → Overview, profile-menu Settings → WhatsApp; Overview order ≠ rail |
-| 5 | Error Prevention | 2 | `/settings?tab=payments` links resolve to Overview; guard exists on one panel only |
-| 6 | Recognition Rather Than Recall | 1 | Phone rail hides 14 of 17 items; misfiled settings (Trainers, Expense categories) need recall |
-| 7 | Flexibility and Efficiency | 2 | Deep links exist; no settings search (GlobalSearch is unmounted) |
-| 8 | Aesthetic and Minimalist Design | 3 | Clean panels; 17 items under 6 headings is dense; staff see all admin sections |
-| 9 | Error Recovery | 3 | ResolvableAction blockers explain and link to the fix |
-| 10 | Help and Documentation | 2 | Good panel descriptions; no "where is X" help |
-| **Total** | | **23/40** | **Acceptable** |
+| #         | Heuristic                       | Score     | Key Issue                                                                                     |
+| --------- | ------------------------------- | --------- | --------------------------------------------------------------------------------------------- |
+| 1         | Visibility of System Status     | 3         | Status on some Overview tiles; on phones the app bar only says "Settings"                     |
+| 2         | Match System / Real World       | 2         | "Account" = the person; Team card counts staff as "members"; three different "Payments"       |
+| 3         | User Control and Freedom        | 3         | URL per section, browser back works, unsaved-changes guard on Automated messages              |
+| 4         | Consistency and Standards       | 2         | Sidebar Settings → Overview, profile-menu Settings → WhatsApp; Overview order ≠ rail          |
+| 5         | Error Prevention                | 2         | `/settings?tab=payments` links resolve to Overview; guard exists on one panel only            |
+| 6         | Recognition Rather Than Recall  | 1         | Phone rail hides 14 of 17 items; misfiled settings (Trainers, Expense categories) need recall |
+| 7         | Flexibility and Efficiency      | 2         | Deep links exist; no settings search (GlobalSearch is unmounted)                              |
+| 8         | Aesthetic and Minimalist Design | 3         | Clean panels; 17 items under 6 headings is dense; staff see all admin sections                |
+| 9         | Error Recovery                  | 3         | ResolvableAction blockers explain and link to the fix                                         |
+| 10        | Help and Documentation          | 2         | Good panel descriptions; no "where is X" help                                                 |
+| **Total** |                                 | **23/40** | **Acceptable**                                                                                |
 
 ## Design Specificity Verdict
 

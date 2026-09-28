@@ -76,7 +76,8 @@ const PACK_META: Record<
   },
   lead_setup: {
     label: 'Enquiry details and tags',
-    description: 'Enquiry details, tags, extra details, and the enquiry form (turned off)',
+    description:
+      'Enquiry details, tags, extra details, and the enquiry form (turned off)',
   },
   reminders: {
     label: 'Reminder schedule',
@@ -108,7 +109,8 @@ const REASON_COPY: Record<BranchSetupReasonCode, string> = {
 };
 
 function sourceIneligibility(branch: BranchAccount): string | null {
-  if (branch.branch_status !== 'active') return 'The branch you copy from must be open';
+  if (branch.branch_status !== 'active')
+    return 'The branch you copy from must be open';
   return null;
 }
 
@@ -430,7 +432,9 @@ export function BranchCreationDialog({
       await switchBranch(accountId);
     } catch (error) {
       console.error('[BranchCreationDialog] switch failed:', error);
-      setSwitchError('The branch was created, but we could not open it. Try switching again.');
+      setSwitchError(
+        'The branch was created, but we could not open it. Try switching again.'
+      );
       setSwitching(false);
     }
   }
@@ -471,9 +475,7 @@ export function BranchCreationDialog({
       }
 
       setCreated(payload);
-      toast.success(
-        payload.replayed ? 'Branch created' : 'Branch created'
-      );
+      toast.success(payload.replayed ? 'Branch created' : 'Branch created');
       setSubmitting(false);
       submitRef.current = false;
       await switchToCreatedBranch(payload.accountId);
@@ -557,7 +559,8 @@ export function BranchCreationDialog({
                   autoFocus
                 />
                 <p className="text-muted-foreground text-xs">
-                  Use the area name your team knows. This only names the new branch. Your gym name does not change.
+                  Use the area name your team knows. This only names the new
+                  branch. Your gym name does not change.
                 </p>
               </div>
 
@@ -608,7 +611,8 @@ export function BranchCreationDialog({
                     </SelectContent>
                   </Select>
                   <p className="text-muted-foreground text-xs">
-                    This sets which business and currency the branch uses. Set the legal name in Business details.
+                    This sets which business and currency the branch uses. Set
+                    the legal name in Business details.
                   </p>
                 </div>
               ) : selectedEntity ? (
@@ -618,7 +622,8 @@ export function BranchCreationDialog({
                     {selectedEntity.name} · {selectedEntity.defaultCurrency}
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    The new branch uses this business and currency. Change the legal name in Business details.
+                    The new branch uses this business and currency. Change the
+                    legal name in Business details.
                   </p>
                 </div>
               ) : null}
@@ -798,7 +803,9 @@ export function BranchCreationDialog({
                     <ShieldCheck />
                     <AlertTitle>Your branch data stays separate</AlertTitle>
                     <AlertDescription>
-                      Members, enquiries, payments, attendance, team access, WhatsApp, and Razorpay stay separate. Reminders and automations are copied but turned off.
+                      Members, enquiries, payments, attendance, team access,
+                      WhatsApp, and Razorpay stay separate. Reminders and
+                      automations are copied but turned off.
                     </AlertDescription>
                   </Alert>
                 </>

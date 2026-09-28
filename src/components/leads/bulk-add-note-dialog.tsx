@@ -91,7 +91,7 @@ export function BulkAddNoteDialog({
       toast.error(
         getErrorMessage(
           error,
-          "Could not add the note. Check your connection and try again."
+          'Could not add the note. Check your connection and try again.'
         )
       );
       setSaving(false);
@@ -106,7 +106,7 @@ export function BulkAddNoteDialog({
     const failedContactIds = contactIds.filter((id) => !succeeded.has(id));
     const n = succeededContactIds.length;
     if (n === 0) {
-      toast.error("The note was not added. Refresh the page and try again.");
+      toast.error('The note was not added. Refresh the page and try again.');
       setSaving(false);
       return;
     }

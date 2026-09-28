@@ -59,7 +59,8 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   {
     id: 'whatsapp',
     title: 'Connect WhatsApp',
-    subtitle: 'Add your gym\'s WhatsApp Business number so you can message members',
+    subtitle:
+      "Add your gym's WhatsApp Business number so you can message members",
     href: '/settings?tab=whatsapp',
     group: 'messaging',
     isDone: (raw) => raw.whatsappConnected,
@@ -109,7 +110,7 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   {
     id: 'payment',
     title: 'Record your first payment',
-    subtitle: "Open a member and record a fee they paid",
+    subtitle: 'Open a member and record a fee they paid',
     href: '/members',
     group: 'payments',
     isDone: (raw) => raw.paidPaymentCount > 0,

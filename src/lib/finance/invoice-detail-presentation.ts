@@ -119,8 +119,7 @@ export type InvoiceHeadlineDetail =
   | 'nothing_to_collect';
 
 export interface InvoiceHeadlinePresentation {
-  label:
-    'Balance' | 'Invoice total' | 'Balance due' | 'Paid in full';
+  label: 'Balance' | 'Invoice total' | 'Balance due' | 'Paid in full';
   amount: number;
   detail: InvoiceHeadlineDetail;
 }
@@ -386,9 +385,7 @@ export function invoiceSummaryRows(
 
   rows.push({
     key: 'balance',
-    label: invoice.requires_refund_review
-      ? 'Balance'
-      : 'Balance due',
+    label: invoice.requires_refund_review ? 'Balance' : 'Balance due',
     amount: balance,
     emphasis: true,
     warning:

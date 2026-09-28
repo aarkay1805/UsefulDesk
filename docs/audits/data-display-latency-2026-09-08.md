@@ -62,17 +62,17 @@ Recommendation: use established authenticated context for the UI precondition, k
 
 These are representative PostgREST query entries, not totals grouped across all equivalent queries. Statement IDs allow a later audit to identify the same entries. Historical timings can include earlier function/view implementations.
 
-| Read | Calls | Mean | Recorded maximum | Statement ID |
-| --- | ---: | ---: | ---: | --- |
-| Member period invoices by membership | 392 | 196.17 ms | 2,451.09 ms | `3144293551667194399` |
-| Invoice balances by membership | 256 | 212.65 ms | 2,679.57 ms | `-5649508091726032130` |
-| Equivalent membership invoice read, separate entry | 136 | 174.92 ms | 1,805.64 ms | `-3881974021333400497` |
-| Invoice lines for a set of invoices | 392 | 103.41 ms | 1,278.71 ms | `8075513604804203851` |
-| Dashboard action snapshot | 1,100 | 172.39 ms | 4,374.22 ms | `380877023080580179` |
-| Finance overview snapshot | 41 | 149.59 ms | 348.07 ms | `3277943148227710076` |
-| Branch performance snapshot | 17 | 311.82 ms | 764.15 ms | `7464315011769788355` |
-| Lead listing snapshot | 76 | 49.18 ms | 256.44 ms | `2711028878558371005` |
-| Product access check | 1,413 | 15.17 ms | 208.24 ms | `-1571259702897088721` |
+| Read                                               | Calls |      Mean | Recorded maximum | Statement ID           |
+| -------------------------------------------------- | ----: | --------: | ---------------: | ---------------------- |
+| Member period invoices by membership               |   392 | 196.17 ms |      2,451.09 ms | `3144293551667194399`  |
+| Invoice balances by membership                     |   256 | 212.65 ms |      2,679.57 ms | `-5649508091726032130` |
+| Equivalent membership invoice read, separate entry |   136 | 174.92 ms |      1,805.64 ms | `-3881974021333400497` |
+| Invoice lines for a set of invoices                |   392 | 103.41 ms |      1,278.71 ms | `8075513604804203851`  |
+| Dashboard action snapshot                          | 1,100 | 172.39 ms |      4,374.22 ms | `380877023080580179`   |
+| Finance overview snapshot                          |    41 | 149.59 ms |        348.07 ms | `3277943148227710076`  |
+| Branch performance snapshot                        |    17 | 311.82 ms |        764.15 ms | `7464315011769788355`  |
+| Lead listing snapshot                              |    76 |  49.18 ms |        256.44 ms | `2711028878558371005`  |
+| Product access check                               | 1,413 |  15.17 ms |        208.24 ms | `-1571259702897088721` |
 
 Invoice balances and period invoices both derive from the invoice-line balance model. The member profile reads the period view, invoice view, and line view in one opening, repeating related aggregation work. The SQL definitions contain grouped payments/refunds/credits/adjustments. This makes them a query-plan investigation target; it does not prove a missing index or a particular scan strategy. Do not sum unrelated historical means/maxima and call the result a measured page-load time.
 

@@ -350,7 +350,9 @@ export function ImportWizard({
     const parsed = parseCsvRaw(text);
 
     if (parsed.headers.length === 0 || parsed.rows.length === 0) {
-      toast.error('No rows found. The first row of the file must have column names.');
+      toast.error(
+        'No rows found. The first row of the file must have column names.'
+      );
       setRaw(null);
       setMapping([]);
       return;
@@ -495,7 +497,9 @@ export function ImportWizard({
         .single();
       setSavingField(false);
       if (error || !data) {
-        toast.error('Could not change this detail. You may not have permission.');
+        toast.error(
+          'Could not change this detail. You may not have permission.'
+        );
         return;
       }
       const updated = data as CustomFieldRef;
@@ -549,7 +553,9 @@ export function ImportWizard({
         .delete()
         .eq('id', fieldId);
       if (error) {
-        toast.error('Could not delete this detail. You may not have permission.');
+        toast.error(
+          'Could not delete this detail. You may not have permission.'
+        );
         return;
       }
 
@@ -696,8 +702,7 @@ export function ImportWizard({
       } = await supabase.auth.getSession();
       const user = session?.user;
       if (!user) throw new Error('Your login has expired. Log in again.');
-      if (!accountId)
-        throw new Error('Your login is not linked to a gym.');
+      if (!accountId) throw new Error('Your login is not linked to a gym.');
 
       let imported = 0;
       let updated = 0;
@@ -902,10 +907,13 @@ export function ImportWizard({
         const sample = skippedNames.slice(0, 3).join(', ');
         const more =
           skippedNames.length > 3 ? ` (+${skippedNames.length - 3} more)` : '';
-        toast.info(`These tags do not exist, so they were skipped: ${sample}${more}`);
+        toast.info(
+          `These tags do not exist, so they were skipped: ${sample}${more}`
+        );
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Could not add from the file';
+      const message =
+        err instanceof Error ? err.message : 'Could not add from the file';
       toast.error(message);
     } finally {
       setImporting(false);
@@ -924,8 +932,7 @@ export function ImportWizard({
       } = await supabase.auth.getSession();
       const authUser = session?.user;
       if (!authUser) throw new Error('Your login has expired. Log in again.');
-      if (!accountId)
-        throw new Error('Your login is not linked to a gym.');
+      if (!accountId) throw new Error('Your login is not linked to a gym.');
 
       let imported = 0;
       let updated = 0;
@@ -1146,10 +1153,13 @@ export function ImportWizard({
         const sample = skippedNames.slice(0, 3).join(', ');
         const more =
           skippedNames.length > 3 ? ` (+${skippedNames.length - 3} more)` : '';
-        toast.info(`These tags do not exist, so they were skipped: ${sample}${more}`);
+        toast.info(
+          `These tags do not exist, so they were skipped: ${sample}${more}`
+        );
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Could not add from the file';
+      const message =
+        err instanceof Error ? err.message : 'Could not add from the file';
       toast.error(message);
     } finally {
       setImporting(false);
@@ -1200,7 +1210,9 @@ export function ImportWizard({
           <div className="border-border/80 shrink-0 space-y-4 border-b px-6 pt-6 pb-5">
             <DialogHeader className="gap-1.5">
               <DialogTitle size="lg" className="text-popover-foreground">
-                {isLeads ? 'Add enquiries from a file' : 'Add contacts from a file'}
+                {isLeads
+                  ? 'Add enquiries from a file'
+                  : 'Add contacts from a file'}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground leading-relaxed">
                 {description}
@@ -1758,7 +1770,7 @@ function MapStep({
   // groups, custom fields last with their data type as a hint.
   const comboGroups = useMemo<ComboboxGroup[]>(() => {
     const groups: ComboboxGroup[] = [
-      { options: [{ value: IGNORE_KEY, label: "Skip this column" }] },
+      { options: [{ value: IGNORE_KEY, label: 'Skip this column' }] },
       {
         label: 'Standard',
         options: targets
@@ -1952,7 +1964,7 @@ function MapStep({
                             >
                               {isMapped
                                 ? (targetByKey.get(key)?.label ?? key)
-                                : "Skip this column"}
+                                : 'Skip this column'}
                             </span>
                           </Combobox>
 
@@ -1986,7 +1998,8 @@ function MapStep({
 
                         {key === 'phone' && (
                           <p className="text-muted-foreground mt-1 max-w-[24rem] text-[10px] leading-snug">
-                            Enquiries are matched by phone number. Repeated rows and saved numbers are handled for you.
+                            Enquiries are matched by phone number. Repeated rows
+                            and saved numbers are handled for you.
                           </p>
                         )}
 
@@ -2208,7 +2221,10 @@ function ConfirmStep({
       ? ([['Skipped: not found', fresh]] as [string, number][])
       : []),
     ...(meta.droppedNoPhone > 0
-      ? ([['Skipped: no phone number', meta.droppedNoPhone]] as [string, number][])
+      ? ([['Skipped: no phone number', meta.droppedNoPhone]] as [
+          string,
+          number,
+        ][])
       : []),
     ...(meta.dupes > 0
       ? ([['Skipped: repeated in file', meta.dupes]] as [string, number][])
@@ -2342,9 +2358,7 @@ function ContactsResultPanel({ result }: { result: ImportResult }) {
   ];
   return (
     <div className="border-border bg-background/50 rounded-xl border p-5">
-      <p className="text-popover-foreground text-sm font-medium">
-        Done
-      </p>
+      <p className="text-popover-foreground text-sm font-medium">Done</p>
       <div className="mt-3 flex flex-wrap gap-4">
         {stats
           .filter(([, n]) => n > 0)
@@ -2416,9 +2430,7 @@ function LeadsResultPanel({
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <CheckCircle className="text-emerald-foreground size-5 shrink-0" />
-        <p className="text-popover-foreground text-sm font-medium">
-          Done
-        </p>
+        <p className="text-popover-foreground text-sm font-medium">Done</p>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -2445,15 +2457,16 @@ function LeadsResultPanel({
       {result.failed > 0 && (
         <p className="text-red-foreground flex items-center gap-1.5 text-xs">
           <XCircle className="size-3.5 shrink-0" />
-          {result.failed} {result.failed !== 1 ? 'rows were' : 'row was'} not saved.
+          {result.failed} {result.failed !== 1 ? 'rows were' : 'row was'} not
+          saved.
         </p>
       )}
 
       {result.remapped > 0 && remaps.length > 0 && (
         <div className="border-border bg-background/40 rounded-xl border p-4">
           <p className="text-muted-foreground text-[11px] font-semibold tracking-[0.13em] uppercase">
-            {result.remapped} {result.remapped !== 1 ? 'values' : 'value'} changed
-            to match your list
+            {result.remapped} {result.remapped !== 1 ? 'values' : 'value'}{' '}
+            changed to match your list
           </p>
           <div className="mt-2 space-y-1.5">
             {remaps.map((r, i) => (

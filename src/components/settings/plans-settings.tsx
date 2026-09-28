@@ -175,7 +175,7 @@ export function PlansSettings() {
       .select('id');
     if (error) return toast.error(error.message);
     if (!data?.length)
-      return toast.error("You do not have permission to change plans");
+      return toast.error('You do not have permission to change plans');
     toast.success(
       isActive ? 'Plan available for sale again' : 'Plan no longer for sale'
     );
@@ -202,7 +202,7 @@ export function PlansSettings() {
       .select('id');
     if (error) return toast.error(error.message);
     if (!data?.length)
-      return toast.error("You do not have permission to delete plans");
+      return toast.error('You do not have permission to delete plans');
     toast.success('Plan deleted');
     refreshPlans();
   }

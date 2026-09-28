@@ -23,3 +23,5 @@ GATES.md
 .agents
 # Captured Playwright debug console logs, not source.
 .playwright-cli
+# Generated tool cache, excluded from Git.
+.impeccable/hook.cache.json

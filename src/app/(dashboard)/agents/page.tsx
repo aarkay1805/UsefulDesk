@@ -40,7 +40,8 @@ export default function AgentsPage() {
         </h1>
       </div>
       <p className="text-muted-foreground mt-1 text-sm">
-        Set up an AI agent with your own AI key. Test it in the Playground before it replies to members in Chats.
+        Set up an AI agent with your own AI key. Test it in the Playground
+        before it replies to members in Chats.
       </p>
 
       {decided && (

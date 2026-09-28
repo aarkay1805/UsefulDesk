@@ -390,7 +390,8 @@ export function ImportMembersCsvDialog({
   const mappingIssue = useMemo(() => {
     if (validation.ok) return null;
     const parts: string[] = [];
-    if (!validation.phoneMapped) parts.push('Choose which column has the phone number.');
+    if (!validation.phoneMapped)
+      parts.push('Choose which column has the phone number.');
     if (!validation.planMapped) {
       parts.push('Choose which column has the plan or service.');
     }
@@ -1785,7 +1786,8 @@ export function ImportMembersCsvDialog({
     ) : draftManager.saveState === 'conflict' && draftManager.draft ? (
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-destructive text-xs">
-          This draft was changed on another screen. Reloading will remove your unsaved changes.
+          This draft was changed on another screen. Reloading will remove your
+          unsaved changes.
         </span>
         <Button
           type="button"
@@ -2263,7 +2265,8 @@ export function ImportMembersCsvDialog({
           <DialogHeader>
             <DialogTitle>Add extra detail</DialogTitle>
             <DialogDescription>
-              Adds a new detail for all members, and uses this column for it. Values are saved when you import.
+              Adds a new detail for all members, and uses this column for it.
+              Values are saved when you import.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-1">
@@ -2606,13 +2609,12 @@ function UploadStep({
       )}
       <Accordion>
         <AccordionItem value="file-guidance">
-          <AccordionTrigger>
-            What your file needs
-          </AccordionTrigger>
+          <AccordionTrigger>What your file needs</AccordionTrigger>
           <AccordionContent>
             <div className="text-muted-foreground space-y-3">
               <p>
-                Every member needs a phone number and a plan or service. You can check everything before you import.
+                Every member needs a phone number and a plan or service. You can
+                check everything before you import.
               </p>
               <p>Old .xls file? Save it as .xlsx or .csv first.</p>
               <Button
@@ -2626,10 +2628,12 @@ function UploadStep({
                 <Download /> Download sample file
               </Button>
               <p>
-                Your file and progress are saved. You can close this and continue later from Import.
+                Your file and progress are saved. You can close this and
+                continue later from Import.
               </p>
               <p>
-                To match columns, we only look at column names and counts. Names, phone numbers, and notes are not shared.
+                To match columns, we only look at column names and counts.
+                Names, phone numbers, and notes are not shared.
               </p>
               <p>{IMPORT_RULES}</p>
             </div>
@@ -2704,7 +2708,7 @@ function MappingStep({
       .filter((target) => !registered.has(target.key))
       .map((target) => ({ value: target.key, label: target.label }));
     return [
-      { options: [{ value: MEMBER_IGNORE_KEY, label: "Skip this column" }] },
+      { options: [{ value: MEMBER_IGNORE_KEY, label: 'Skip this column' }] },
       ...MEMBER_IMPORT_GROUP_ORDER.map((group) => ({
         label: MEMBER_IMPORT_GROUP_LABEL[group],
         options: byGroup.get(group) ?? [],
@@ -2755,18 +2759,19 @@ function MappingStep({
           >
             {row.isMapped
               ? (targetByKey.get(row.key)?.label ?? row.key)
-              : "Skip this column"}
+              : 'Skip this column'}
           </span>
         </Combobox>
         {row.isDuplicate && (
           <ValidationMessage>
-            This detail is picked for more than one column. Pick another detail or skip this column.
+            This detail is picked for more than one column. Pick another detail
+            or skip this column.
           </ValidationMessage>
         )}
         {row.key === 'phone' && (
           <p className="text-muted-foreground mt-1 text-xs">
-            We use this column to find members already saved. Numbers without a country code get{' '}
-            {phoneDialCode}.
+            We use this column to find members already saved. Numbers without a
+            country code get {phoneDialCode}.
           </p>
         )}
       </>
@@ -2927,7 +2932,8 @@ function ConfirmStep({
             {summary.uniqueCustomers === 1 ? '' : 's'} ready to import
           </h3>
           <p className="text-muted-foreground text-sm">
-            {fmt.number(summary.ready)} of {fmt.number(summary.source)} rows in file
+            {fmt.number(summary.ready)} of {fmt.number(summary.source)} rows in
+            file
             {summary.exclusions > 0
               ? ` · ${fmt.number(summary.exclusions)} excluded`
               : ''}
@@ -2941,14 +2947,16 @@ function ConfirmStep({
         <SummaryValue label="Payments to record" value={summary.payments} />
       </dl>
       <p className="text-muted-foreground text-sm">
-        Import adds the memberships, services, and payments shown here. It only records past payments. It does not take any money.
+        Import adds the memberships, services, and payments shown here. It only
+        records past payments. It does not take any money.
       </p>
       <Accordion>
         <AccordionItem value="import-breakdown">
           <AccordionTrigger>Row and invoice details</AccordionTrigger>
           <AccordionContent>
             <p className="text-muted-foreground mb-4 text-sm">
-              Member totals join rows for the same person. Row totals count each line in your file.
+              Member totals join rows for the same person. Row totals count each
+              line in your file.
             </p>
             <dl className="space-y-3">
               {(
@@ -2980,7 +2988,8 @@ function ConfirmStep({
           htmlFor="member-import-confirm"
           className="text-sm leading-relaxed"
         >
-          I confirm my gym is allowed to save and contact these people, and I have checked the details.
+          I confirm my gym is allowed to save and contact these people, and I
+          have checked the details.
         </label>
       </div>
     </div>
@@ -3153,11 +3162,12 @@ function SourceExclusionNotice({
     <Alert>
       <Info />
       <AlertTitle>
-        {inspected.length} row{inspected.length === 1 ? '' : 's'}{' '}
-        skipped automatically
+        {inspected.length} row{inspected.length === 1 ? '' : 's'} skipped
+        automatically
       </AlertTitle>
       <AlertDescription className="space-y-2">
-        Repeated column names and total rows are not members, so we skipped them. You can still see them here and in the report.
+        Repeated column names and total rows are not members, so we skipped
+        them. You can still see them here and in the report.
         <Accordion>
           <AccordionItem value="source-exclusions" className="border-b-0">
             <AccordionTrigger className="py-1 text-sm">

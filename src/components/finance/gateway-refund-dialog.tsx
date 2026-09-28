@@ -107,7 +107,9 @@ export function GatewayRefundDialog({
       return;
     }
     if (allocationError || !normalizedAllocations) {
-      toast.error(allocationError ?? 'Split the refund across the invoice items');
+      toast.error(
+        allocationError ?? 'Split the refund across the invoice items'
+      );
       return;
     }
     setSaving(true);
@@ -194,14 +196,16 @@ export function GatewayRefundDialog({
             <div>
               <p className="text-sm font-medium">Refund per item</p>
               <p className="text-muted-foreground mt-1 text-xs">
-                You cannot change this later. Leave an item blank if nothing is refunded for it.
+                You cannot change this later. Leave an item blank if nothing is
+                refunded for it.
               </p>
             </div>
             {allocationOptions.length === 0 ? (
               <Alert variant="destructive">
                 <AlertTitle>Could not load invoice items</AlertTitle>
                 <AlertDescription>
-                  Reload the invoice. If this keeps happening, leave the refund for checking.
+                  Reload the invoice. If this keeps happening, leave the refund
+                  for checking.
                 </AlertDescription>
               </Alert>
             ) : (
@@ -251,7 +255,9 @@ export function GatewayRefundDialog({
         ) : null}
 
         <div className="space-y-1.5">
-          <Label htmlFor="gateway-refund-disposition">What happens to the invoice</Label>
+          <Label htmlFor="gateway-refund-disposition">
+            What happens to the invoice
+          </Label>
           <Select
             value={disposition}
             onValueChange={(value) =>
@@ -262,7 +268,9 @@ export function GatewayRefundDialog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="reopen_balance">Member still owes this</SelectItem>
+              <SelectItem value="reopen_balance">
+                Member still owes this
+              </SelectItem>
               <SelectItem value="reduce_charge">Reduce the bill</SelectItem>
             </SelectContent>
           </Select>
@@ -289,7 +297,8 @@ export function GatewayRefundDialog({
             <RotateCcw />
             <AlertTitle>The member may not get the money today</AlertTitle>
             <AlertDescription>
-              A refund can take a few working days to reach the member. Razorpay may keep its fee.
+              A refund can take a few working days to reach the member. Razorpay
+              may keep its fee.
             </AlertDescription>
           </Alert>
         ) : null}

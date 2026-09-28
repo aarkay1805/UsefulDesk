@@ -181,7 +181,8 @@ export function AiKnowledgeCard({
           <BookOpen className="text-primary-text h-4 w-4" /> Knowledge base
         </CardTitle>
         <CardDescription>
-          Add common questions, rules, and plan details. The AI reads these when it replies, so it can answer instead of passing the chat to your team.
+          Add common questions, rules, and plan details. The AI reads these when
+          it replies, so it can answer instead of passing the chat to your team.
           {hasEmbeddingsKey
             ? ' Smart search is on.'
             : ' Using simple word search. Add a search key above for smart search.'}

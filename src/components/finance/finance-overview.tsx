@@ -65,9 +65,7 @@ export function FinanceOverview({
         setData(result);
       } catch (reason) {
         if (cancelled) return;
-        setError(
-          getErrorMessage(reason, 'Could not load the overview')
-        );
+        setError(getErrorMessage(reason, 'Could not load the overview'));
       } finally {
         if (!cancelled) setLoading(false);
       }

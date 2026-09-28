@@ -236,9 +236,8 @@ export const LifecycleSendingHoursSettings = forwardRef<
                       the payment changes.
                     </div>
                     <div>
-                      Missed gym visits sends one hour after the member’s
-                      usual time, or at {localTime(end, '30')} if none is
-                      set.
+                      Missed gym visits sends one hour after the member’s usual
+                      time, or at {localTime(end, '30')} if none is set.
                     </div>
                   </div>
                 </div>

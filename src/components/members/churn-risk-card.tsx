@@ -73,8 +73,8 @@ export function ChurnRiskCard({
               <Info aria-hidden="true" className="size-3.5" />
             </TooltipTrigger>
             <TooltipContent className="max-w-64 text-pretty">
-              May leave flags a member who may cancel or not renew, helping
-              your team prioritise retention follow-up.
+              May leave flags a member who may cancel or not renew, helping your
+              team prioritise retention follow-up.
             </TooltipContent>
           </Tooltip>
         </CardTitle>

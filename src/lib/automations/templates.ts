@@ -56,7 +56,8 @@ export const AUTOMATION_TEMPLATES: Record<
   out_of_office: {
     slug: 'out_of_office',
     name: 'Gym closed reply',
-    description: 'Reply by itself when the gym is closed, so nobody waits without an answer.',
+    description:
+      'Reply by itself when the gym is closed, so nobody waits without an answer.',
     trigger_type: 'new_message_received',
     trigger_config: {},
     steps: [
@@ -80,7 +81,8 @@ export const AUTOMATION_TEMPLATES: Record<
   lead_qualifier: {
     slug: 'lead_qualifier',
     name: 'Fees enquiry',
-    description: 'When someone asks about fees, ask their goal and pass the chat to your team.',
+    description:
+      'When someone asks about fees, ask their goal and pass the chat to your team.',
     trigger_type: 'keyword_match',
     trigger_config: {
       keywords: ['fees', 'price', 'membership'],

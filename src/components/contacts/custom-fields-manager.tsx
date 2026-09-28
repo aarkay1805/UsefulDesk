@@ -37,7 +37,8 @@ export function CustomFieldsManager({
         <DialogHeader>
           <DialogTitle>Extra details</DialogTitle>
           <DialogDescription>
-            Save extra details your team needs for each person, like their usual class time.
+            Save extra details your team needs for each person, like their usual
+            class time.
           </DialogDescription>
         </DialogHeader>
         <CustomFieldsPanel />
@@ -79,10 +80,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       if (cancelled) return;
       if (error) {
         setLoadError(
-          getErrorMessage(
-            error,
-            "Extra details could not load. Try again."
-          )
+          getErrorMessage(error, 'Extra details could not load. Try again.')
         );
       } else {
         setFields((data as CustomField[] | null) ?? []);
@@ -141,7 +139,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       toast.success(`Added “${name}”`);
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "The custom field could not be created.")
+        getErrorMessage(error, 'The custom field could not be created.')
       );
     } finally {
       setCreating(false);
@@ -181,7 +179,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       return true;
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "The custom field could not be renamed.")
+        getErrorMessage(error, 'The custom field could not be renamed.')
       );
       return false;
     } finally {
@@ -211,7 +209,7 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
       setFieldToDelete(null);
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "The custom field could not be deleted.")
+        getErrorMessage(error, 'The custom field could not be deleted.')
       );
     } finally {
       setBusyId(null);
@@ -311,7 +309,8 @@ export function CustomFieldsPanel({ canEdit = true }: { canEdit?: boolean }) {
           <DialogHeader>
             <DialogTitle>Delete extra detail?</DialogTitle>
             <DialogDescription>
-              “{fieldToDelete?.field_name}” will be deleted from every person, with the saved values. You cannot undo this.
+              “{fieldToDelete?.field_name}” will be deleted from every person,
+              with the saved values. You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

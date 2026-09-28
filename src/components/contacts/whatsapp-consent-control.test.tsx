@@ -44,7 +44,9 @@ describe('WhatsAppConsentControl', () => {
       <WhatsAppConsentControl contactId="contact-1" contactName="Rahul" />
     );
 
-    await user.click(screen.getByRole('button', { name: 'WhatsApp permission' }));
+    await user.click(
+      screen.getByRole('button', { name: 'WhatsApp permission' })
+    );
     expect(
       screen.getByRole('heading', { name: 'Save WhatsApp permission' })
     ).toBeDefined();
@@ -57,7 +59,9 @@ describe('WhatsAppConsentControl', () => {
       screen.getByLabelText('How did they tell you?'),
       'Member signed the front-desk WhatsApp consent form.'
     );
-    await user.click(screen.getByRole('button', { name: 'Save: agreed to messages' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Save: agreed to messages' })
+    );
 
     await waitFor(() =>
       expect(rpc).toHaveBeenCalledWith('record_contact_consent', {
@@ -78,12 +82,16 @@ describe('WhatsAppConsentControl', () => {
     render(
       <WhatsAppConsentControl contactId="contact-1" contactName="Rahul" />
     );
-    await user.click(screen.getByRole('button', { name: 'WhatsApp permission' }));
+    await user.click(
+      screen.getByRole('button', { name: 'WhatsApp permission' })
+    );
     await user.type(
       screen.getByLabelText('How did they tell you?'),
       'Member asked staff to stop all proactive WhatsApp messages.'
     );
-    await user.click(screen.getByRole('button', { name: 'Save: does not want messages' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Save: does not want messages' })
+    );
 
     await waitFor(() =>
       expect(rpc).toHaveBeenCalledWith(

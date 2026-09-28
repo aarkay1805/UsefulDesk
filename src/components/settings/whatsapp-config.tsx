@@ -606,7 +606,8 @@ export function WhatsAppConfig() {
           <Alert>
             <AlertTitle>View only</AlertTitle>
             <AlertDescription>
-              Ask the owner or an admin to change or check the WhatsApp connection.
+              Ask the owner or an admin to change or check the WhatsApp
+              connection.
             </AlertDescription>
           </Alert>
         )}
@@ -643,7 +644,9 @@ export function WhatsAppConfig() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              Members see the name set for this number in WhatsApp Manager. Our ready-made messages use the business name from Business details. The two names can be different.
+              Members see the name set for this number in WhatsApp Manager. Our
+              ready-made messages use the business name from Business details.
+              The two names can be different.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex min-w-0 items-start gap-2.5">

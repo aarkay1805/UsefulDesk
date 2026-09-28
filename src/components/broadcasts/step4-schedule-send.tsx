@@ -101,7 +101,9 @@ export function Step4ScheduleSend({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-foreground text-lg font-semibold">Check and send</h2>
+        <h2 className="text-foreground text-lg font-semibold">
+          Check and send
+        </h2>
         <p className="text-muted-foreground mt-1 text-sm">
           Name your broadcast, check the details, and send.
         </p>

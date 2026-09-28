@@ -61,7 +61,8 @@ export function SetUpAutoPayDialog({
       });
       const data = (await res.json()) as { short_url?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? 'Could not start AutoPay');
-      if (!data.short_url) throw new Error('Razorpay did not send an AutoPay link. Try again.');
+      if (!data.short_url)
+        throw new Error('Razorpay did not send an AutoPay link. Try again.');
       setShortUrl(data.short_url);
       onStarted();
     } catch (err) {

@@ -156,7 +156,12 @@ export function RenewMembershipDialog({
         availableCredit,
       });
     } catch (error) {
-      return toast.error(getErrorMessage(error, 'Some details are missing or wrong. Check and try again.'));
+      return toast.error(
+        getErrorMessage(
+          error,
+          'Some details are missing or wrong. Check and try again.'
+        )
+      );
     }
 
     setSaving(true);
@@ -195,9 +200,7 @@ export function RenewMembershipDialog({
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error || 'Could not renew');
 
-      toast.success(
-        isConvert ? 'Added as member' : 'Membership renewed'
-      );
+      toast.success(isConvert ? 'Added as member' : 'Membership renewed');
       onOpenChange(false);
       onSaved();
     } catch (error) {
@@ -217,7 +220,7 @@ export function RenewMembershipDialog({
           <DialogDescription>
             {isConvert
               ? 'Put this trial member on a paid plan and record their first payment.'
-              : "Renew this member’s plan and record the payment."}
+              : 'Renew this member’s plan and record the payment.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -290,7 +293,8 @@ export function RenewMembershipDialog({
                     {fmt.money(outstandingBalance)} still due
                   </p>
                   <p className="mt-1 text-xs leading-relaxed">
-                    Old dues stay due. This renewal makes a new invoice for the next period.
+                    Old dues stay due. This renewal makes a new invoice for the
+                    next period.
                   </p>
                 </div>
               ) : null}

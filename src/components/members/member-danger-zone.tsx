@@ -74,7 +74,8 @@ export function MemberDangerZone({
             <div className="min-w-0">
               <p className="text-sm font-medium">WhatsApp permission</p>
               <p className="text-muted-foreground mt-0.5 text-sm">
-                Keep a note of which messages this member agreed to. This note does not stop or start any messages.
+                Keep a note of which messages this member agreed to. This note
+                does not stop or start any messages.
               </p>
             </div>
             <div className="self-end sm:self-auto">
@@ -124,7 +125,9 @@ export function MemberDangerZone({
           <DialogHeader>
             <DialogTitle>Delete {memberName || 'this member'}?</DialogTitle>
             <DialogDescription>
-              This deletes their profile, membership, attendance, and notes. Their payments stay in your records, without their name. You cannot undo this.
+              This deletes their profile, membership, attendance, and notes.
+              Their payments stay in your records, without their name. You
+              cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

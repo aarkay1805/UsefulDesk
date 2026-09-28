@@ -41,5 +41,9 @@ export function shouldEscalatePostExpiry({
   state: string;
   hasCustomerReply: boolean;
 }): boolean {
-  return milestoneKey === 'expired-7' && ['accepted', 'delivered'].includes(state) && !hasCustomerReply;
+  return (
+    milestoneKey === 'expired-7' &&
+    ['accepted', 'delivered'].includes(state) &&
+    !hasCustomerReply
+  );
 }

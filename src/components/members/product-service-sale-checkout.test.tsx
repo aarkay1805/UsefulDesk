@@ -106,9 +106,7 @@ describe('ProductServiceSaleCheckout', () => {
       />
     );
 
-    expect(
-      screen.getByRole('group', { name: 'New purchase' })
-    ).toBeTruthy();
+    expect(screen.getByRole('group', { name: 'New purchase' })).toBeTruthy();
   });
 
   it('keeps invoice building, payment, and actions in one responsive checkout', () => {
@@ -190,9 +188,7 @@ describe('ProductServiceSaleCheckout', () => {
       payment.contains(screen.getByRole('button', { name: 'Cancel' }))
     ).toBe(true);
     expect(
-      payment.contains(
-        screen.getByRole('button', { name: /Save sale.*₹50/ })
-      )
+      payment.contains(screen.getByRole('button', { name: /Save sale.*₹50/ }))
     ).toBe(true);
   });
 

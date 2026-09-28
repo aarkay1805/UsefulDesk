@@ -60,13 +60,12 @@ export function PaymentProofLink({ payment }: { payment: Payment }) {
       );
       setSigned({ url, at: Date.now() });
       if (popup) popup.location.href = url;
-      else
-        toast.info(
-          'Screenshot ready. Tap the icon again to open it.'
-        );
+      else toast.info('Screenshot ready. Tap the icon again to open it.');
     } catch (error) {
       popup?.close();
-      toast.error(getErrorMessage(error, 'Could not open the payment screenshot'));
+      toast.error(
+        getErrorMessage(error, 'Could not open the payment screenshot')
+      );
     } finally {
       setLoading(false);
     }

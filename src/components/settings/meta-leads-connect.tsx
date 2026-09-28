@@ -266,7 +266,8 @@ export function MetaLeadsConnect() {
             Facebook & Instagram ads
           </CardTitle>
           <CardDescription>
-            Connect your Facebook Page. Enquiries from its Facebook and Instagram ads will show in Enquiries.
+            Connect your Facebook Page. Enquiries from its Facebook and
+            Instagram ads will show in Enquiries.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -374,7 +375,8 @@ export function MetaLeadsConnect() {
                   <AlertDescription>
                     <p>
                       Your ad form does not ask for a phone number. Add a phone
-                      question in Facebook Ads Manager so your team can call new enquiries.
+                      question in Facebook Ads Manager so your team can call new
+                      enquiries.
                     </p>
                   </AlertDescription>
                 </Alert>
@@ -408,7 +410,8 @@ export function MetaLeadsConnect() {
             <DialogTitle>Disconnect Facebook Page?</DialogTitle>
             <DialogDescription>
               New enquiries from{' '}
-              {pageToDisconnect?.page_name ?? pageToDisconnect?.page_id} will stop showing in UsefulDesk. Enquiries already saved will stay.
+              {pageToDisconnect?.page_name ?? pageToDisconnect?.page_id} will
+              stop showing in UsefulDesk. Enquiries already saved will stay.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

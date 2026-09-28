@@ -131,7 +131,8 @@ export function followUpDueLabel(
   today: string = istToday()
 ): string {
   const type =
-    FOLLOW_UP_TASK_TYPES.find((t) => t.value === taskType)?.label ?? 'Follow-up';
+    FOLLOW_UP_TASK_TYPES.find((t) => t.value === taskType)?.label ??
+    'Follow-up';
   const diff = daysBetween(today, dueDate);
   const pretty = new Date(`${dueDate}T00:00:00Z`).toLocaleDateString('en-US', {
     weekday: 'long',

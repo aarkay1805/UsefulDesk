@@ -52,7 +52,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         if (data.code === 'ai_not_configured') {
           toast.error('The AI agent is not set up yet. Finish Setup first.');
         } else {
-          toast.error(data.error ?? "Could not get a reply.");
+          toast.error(data.error ?? 'Could not get a reply.');
         }
         // Roll the unsent user turn back so the transcript stays clean.
         setTurns(turns);
@@ -71,7 +71,7 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
         },
       ]);
     } catch {
-      toast.error("Could not reach the AI agent.");
+      toast.error('Could not reach the AI agent.');
       setTurns(turns);
       setInput(text);
     } finally {
@@ -117,7 +117,8 @@ export function AiPlayground({ onGoToSetup }: { onGoToSetup?: () => void }) {
             <Bot className="text-muted-foreground/60 mb-2 h-8 w-8" />
             <p>Send a message to see how your AI agent would reply.</p>
             <p className="mt-1 text-xs">
-              It uses your knowledge base and replies just like the real AI auto-reply, including passing the chat to your team.
+              It uses your knowledge base and replies just like the real AI
+              auto-reply, including passing the chat to your team.
             </p>
             {onGoToSetup && (
               <Button

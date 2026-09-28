@@ -104,7 +104,10 @@ function limitIntervals(
   return [
     {
       value: 'period',
-      label: planType === 'non_recurring' ? 'for the whole plan' : 'per payment period',
+      label:
+        planType === 'non_recurring'
+          ? 'for the whole plan'
+          : 'per payment period',
     },
     { value: 'week', label: 'per week' },
     { value: 'month', label: 'per month' },
@@ -267,7 +270,9 @@ export function PlanEditorDialog({
     }));
     for (const o of parsedOptions) {
       if (!Number.isInteger(o.duration_count) || o.duration_count <= 0) {
-        return toast.error(`Each ${noun} needs a length in whole numbers, like 1 or 3`);
+        return toast.error(
+          `Each ${noun} needs a length in whole numbers, like 1 or 3`
+        );
       }
       if (!Number.isFinite(o.price) || o.price < 0) {
         return toast.error(`Enter a valid price for each ${noun}`);
@@ -316,7 +321,7 @@ export function PlanEditorDialog({
           .select('id');
         if (error) throw error;
         if (!data?.length)
-          throw new Error("You do not have permission to edit plans");
+          throw new Error('You do not have permission to edit plans');
       } else {
         const { data, error } = await supabase
           .from('membership_plans')
@@ -351,7 +356,7 @@ export function PlanEditorDialog({
             .select('id');
           if (error) throw error;
           if (!data?.length)
-            throw new Error("You do not have permission to edit plans");
+            throw new Error('You do not have permission to edit plans');
         } else {
           const { error } = await supabase
             .from('plan_pricing_options')
@@ -374,7 +379,7 @@ export function PlanEditorDialog({
             .select('id');
           if (error) throw error;
           if (!data?.length)
-            throw new Error("You do not have permission to edit plans");
+            throw new Error('You do not have permission to edit plans');
         } else {
           const { data, error } = await supabase
             .from('plan_pricing_options')
@@ -383,7 +388,7 @@ export function PlanEditorDialog({
             .select('id');
           if (error) throw error;
           if (!data?.length)
-            throw new Error("You do not have permission to edit plans");
+            throw new Error('You do not have permission to edit plans');
         }
       }
 
@@ -584,7 +589,8 @@ export function PlanEditorDialog({
                 className="sm:w-32"
               />
               <p className="text-muted-foreground text-xs">
-                Each visit uses one session. Staff can see how many are left. Members can still check in after they run out.
+                Each visit uses one session. Staff can see how many are left.
+                Members can still check in after they run out.
               </p>
             </div>
           ) : (

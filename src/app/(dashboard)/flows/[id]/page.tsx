@@ -56,7 +56,7 @@ export default function FlowEditorPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error("Could not load flow.");
+          toast.error('Could not load flow.');
         }
       } finally {
         if (!cancelled) setLoading(false);

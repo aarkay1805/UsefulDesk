@@ -183,14 +183,14 @@ expect(
 
 The coordinator creates one GPT-5.6 Terra task per numbered step, using the saved UsefulDesk project with local execution. Create the next only after reviewing the previous handoff. Each task may refine its detailed SQL/internal types against the current repository, but must preserve this product contract, record its public interface changes here, and finish all authorized independent work even when live-message acceptance needs outside input.
 
-| Step | Task ID        | Implementation                                                             | Schema                 | Provider/live acceptance                                                                                   |
-| ---- | -------------- | -------------------------------------------------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------------- |
-| 1    | 01a08c57-6aef-7a10-abdc-383dce7dc760 | Complete — focused verification passed; full verify has unrelated blockers | Existing; no migration | No live send/delivery; missing installment template and authorized recipient remain external prerequisites |
-| 2    | 01a08c79-b850-7c92-a065-38723564c48d | Implementation complete; focused verification passed; full verify attempted with two documented pre-existing failures | Both Step 2 additive migrations applied to production and read back | New schedules off; no template approval, send, or delivery evidence |
-| 3    | 01a08cc3-8523-7dd3-b191-197603666530 | Implementation complete; focused verification passed; full verify attempted | `20260911006000`, `07000`, `08000`, and `09000` post-expiry migrations applied/read back in production | New schedules off; no template approval, send, or delivery evidence |
-| 4 | 01a08cef-c07e-7da0-8938-74b5676c87b5 | Implementation and focused local verification complete; migrations applied/read back; full verify reaches the two existing member-detail contract failures before build | `20260911010000` and `20260911010100` applied/read back | New schedules off; no template approval, send, link creation, charge, or delivery evidence |
-| 5 | 01a08d38-fa97-7592-b0af-30a8cf253b6c | Implementation complete; 51 focused tests and rollback harness pass; full verify reaches two unrelated existing member-detail failures before build | `20260911010200`–`10800` applied/read back | New schedules off; no template approval, send, charge, refund, or delivery evidence |
-| 6    | 01a08c2e-701d-70c1-a402-3ce0b75a1100 | Implementation complete; full test suite passed; build blocked only by environment port policy | `20260911010900`–`11100` applied/read back | New schedules off; no template approval, send, provider operation, payment, deployment, or delivery evidence |
+| Step | Task ID                              | Implementation                                                                                                                                                          | Schema                                                                                                 | Provider/live acceptance                                                                                     |
+| ---- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| 1    | 01a08c57-6aef-7a10-abdc-383dce7dc760 | Complete — focused verification passed; full verify has unrelated blockers                                                                                              | Existing; no migration                                                                                 | No live send/delivery; missing installment template and authorized recipient remain external prerequisites   |
+| 2    | 01a08c79-b850-7c92-a065-38723564c48d | Implementation complete; focused verification passed; full verify attempted with two documented pre-existing failures                                                   | Both Step 2 additive migrations applied to production and read back                                    | New schedules off; no template approval, send, or delivery evidence                                          |
+| 3    | 01a08cc3-8523-7dd3-b191-197603666530 | Implementation complete; focused verification passed; full verify attempted                                                                                             | `20260911006000`, `07000`, `08000`, and `09000` post-expiry migrations applied/read back in production | New schedules off; no template approval, send, or delivery evidence                                          |
+| 4    | 01a08cef-c07e-7da0-8938-74b5676c87b5 | Implementation and focused local verification complete; migrations applied/read back; full verify reaches the two existing member-detail contract failures before build | `20260911010000` and `20260911010100` applied/read back                                                | New schedules off; no template approval, send, link creation, charge, or delivery evidence                   |
+| 5    | 01a08d38-fa97-7592-b0af-30a8cf253b6c | Implementation complete; 51 focused tests and rollback harness pass; full verify reaches two unrelated existing member-detail failures before build                     | `20260911010200`–`10800` applied/read back                                                             | New schedules off; no template approval, send, charge, refund, or delivery evidence                          |
+| 6    | 01a08c2e-701d-70c1-a402-3ce0b75a1100 | Implementation complete; full test suite passed; build blocked only by environment port policy                                                                          | `20260911010900`–`11100` applied/read back                                                             | New schedules off; no template approval, send, provider operation, payment, deployment, or delivery evidence |
 
 ### Step 1 handoff — 2026-09-10
 
@@ -205,7 +205,7 @@ The coordinator creates one GPT-5.6 Terra task per numbered step, using the save
   payment operation, schedule change, deployment, or live-delivery test ran.
 - Focused Vitest suite: 4 files / 22 tests passed; `npm run typecheck` and
   `npm run lint` passed (lint retains three pre-existing warnings). `npm run
-  verify` could not finish because existing
+verify` could not finish because existing
   `member-detail-template-action.test.tsx` cannot find `Custom notice` and
   `razorpay-membership-lifecycle-contract.test.ts` cannot find its expected
   member-detail source marker. A prior standalone `next build` also panicked
@@ -347,7 +347,7 @@ The coordinator creates one GPT-5.6 Terra task per numbered step, using the save
   installment-cron coverage; `npm run typecheck`, `npm run lint` (three
   existing leads-page warnings), and `git diff --check` passed. The full suite
   still has only the two pre-existing failures documented above (`Custom
-  notice` and the missing Razorpay member-detail marker), so build did not run.
+notice` and the missing Razorpay member-detail marker), so build did not run.
 
 ### Step 5 handoff — 2026-09-11
 
@@ -436,7 +436,7 @@ The coordinator creates one GPT-5.6 Terra task per numbered step, using the save
   `markProviderAttempt`, and an absent invoice-linked payment confirmation is
   never treated as safe. The stale member-template fixture and Razorpay contract
   expectations were corrected to the current, verified behavior. `npm run
-  verify` now passes lint (three existing leads warnings), typecheck, and all
+verify` now passes lint (three existing leads warnings), typecheck, and all
   447 Vitest files / 3,320 tests. Its only failure is the environment's denied
   Turbopack helper-port bind while processing the existing
   `react-easy-crop.css`, before build output can be produced; the direct build

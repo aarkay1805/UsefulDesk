@@ -51,7 +51,9 @@ function isPostgrestTimestamp(value: string) {
 
   if (
     offset !== 'Z' &&
-    (offsetHour > 14 || offsetMinute > 59 || (offsetHour === 14 && offsetMinute !== 0))
+    (offsetHour > 14 ||
+      offsetMinute > 59 ||
+      (offsetHour === 14 && offsetMinute !== 0))
   ) {
     return false;
   }

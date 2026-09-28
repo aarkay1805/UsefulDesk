@@ -218,7 +218,7 @@ export function RazorpaySettingsCard() {
               ? 'The connection check took too long. Try again.'
               : getErrorMessage(
                   error,
-                  "Could not load Razorpay status. Try again."
+                  'Could not load Razorpay status. Try again.'
                 )
           );
         }
@@ -586,7 +586,9 @@ export function RazorpaySettingsCard() {
 
                 <div className="bg-muted/20 grid gap-2 rounded-lg p-3 text-sm sm:grid-cols-2">
                   <div>
-                    <p className="text-muted-foreground text-xs">Razorpay account</p>
+                    <p className="text-muted-foreground text-xs">
+                      Razorpay account
+                    </p>
                     <p className="text-foreground font-medium">
                       {connection.merchantAccountSuffix
                         ? `Razorpay account ending ${connection.merchantAccountSuffix}`

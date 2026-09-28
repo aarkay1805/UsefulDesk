@@ -187,13 +187,12 @@ export function ServiceRenewalActionLists({
     if (!row.phone)
       return toast.error('Add a phone number before sending a reminder');
     if (row.current_renewal_price == null) {
-      return toast.error(
-        'Set this trainer’s fee before sending a reminder'
-      );
+      return toast.error('Set this trainer’s fee before sending a reminder');
     }
     setPendingAction(`${row.id}:remind`);
     try {
-      if (!accountId) return toast.error('Still loading. Try again in a moment.');
+      if (!accountId)
+        return toast.error('Still loading. Try again in a moment.');
       const supabase = createClient();
       const [{ data: config }, { data: template }] = await Promise.all([
         supabase

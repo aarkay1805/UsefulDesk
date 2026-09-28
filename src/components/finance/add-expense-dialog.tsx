@@ -176,7 +176,8 @@ export function AddExpenseDialog({
         <DialogHeader>
           <DialogTitle>Add expense</DialogTitle>
           <DialogDescription>
-            Save money your gym spent. If you make a mistake, you can cancel it later.
+            Save money your gym spent. If you make a mistake, you can cancel it
+            later.
           </DialogDescription>
         </DialogHeader>
 

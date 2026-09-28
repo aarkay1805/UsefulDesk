@@ -1,11 +1,6 @@
 import { createRef, useState } from 'react';
 import { Dimensions, type TextInput as TextInputType } from 'react-native';
-import {
-  act,
-  fireEvent,
-  render,
-  screen,
-} from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import { ComposerField } from './composer-field';
 

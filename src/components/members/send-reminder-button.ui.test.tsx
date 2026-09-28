@@ -220,7 +220,7 @@ describe('SendReminderButton blockers', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Remind' }));
 
-    expect(screen.getByText("Reminder message is not ready")).toBeTruthy();
+    expect(screen.getByText('Reminder message is not ready')).toBeTruthy();
     expect(
       screen.queryByRole('button', { name: 'Connect WhatsApp' })
     ).toBeNull();

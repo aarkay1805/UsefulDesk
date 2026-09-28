@@ -119,7 +119,8 @@ export function BoardSettingsSheet({
             </SettingRow>
 
             <p className="border-border bg-muted/40 text-muted-foreground rounded-lg border px-3 py-2 text-xs leading-relaxed">
-              The board shows the {boardLimit} newest enquiries. Use the table view to see all of them.
+              The board shows the {boardLimit} newest enquiries. Use the table
+              view to see all of them.
             </p>
           </Section>
         </div>

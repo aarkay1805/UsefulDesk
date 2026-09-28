@@ -390,7 +390,12 @@ async function handleRazorpayEvent(
         event.event === 'subscription.pending' ? 'pending' : 'halted';
       await recordMandateProviderStatus(admin, mandateId, providerStatus);
       if (event.event === 'subscription.pending') {
-        await enqueueAutoPayRecovery(admin, webhookEventId, mandateId, 'retry_pending');
+        await enqueueAutoPayRecovery(
+          admin,
+          webhookEventId,
+          mandateId,
+          'retry_pending'
+        );
         return;
       }
       const { error } = await admin.rpc('revoke_mandate', {
@@ -398,7 +403,12 @@ async function handleRazorpayEvent(
         p_status: 'failed',
       });
       if (error) throw new Error(`revoke_mandate(failed): ${error.message}`);
-      await enqueueAutoPayRecovery(admin, webhookEventId, mandateId, 'terminal');
+      await enqueueAutoPayRecovery(
+        admin,
+        webhookEventId,
+        mandateId,
+        'terminal'
+      );
       return;
     }
 

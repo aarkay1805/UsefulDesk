@@ -121,9 +121,7 @@ export function FinanceInvoiceHealthCard({
               ))}
               <div className="flex items-center gap-2 border-t px-3 py-2.5">
                 <span className="bg-muted-foreground size-2 rounded-full" />
-                <span className="text-muted-foreground flex-1">
-                  Total due
-                </span>
+                <span className="text-muted-foreground flex-1">Total due</span>
                 <span className="font-medium tabular-nums">
                   {fmt.money(health.outstanding)}
                 </span>

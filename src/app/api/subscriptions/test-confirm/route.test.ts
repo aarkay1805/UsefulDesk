@@ -15,9 +15,17 @@ const requestId = '22222222-2222-4222-8222-222222222222';
 function request() {
   return new Request('https://desk.example/api/subscriptions/test-confirm', {
     method: 'POST',
-    headers: { origin: 'https://desk.example', 'sec-fetch-site': 'same-origin' },
-    body: JSON.stringify({ organizationId, requestId,
-      orderId: 'order_Test123', paymentId: 'pay_Test456', signature: 'a'.repeat(64) }),
+    headers: {
+      origin: 'https://desk.example',
+      'sec-fetch-site': 'same-origin',
+    },
+    body: JSON.stringify({
+      organizationId,
+      requestId,
+      orderId: 'order_Test123',
+      paymentId: 'pay_Test456',
+      signature: 'a'.repeat(64),
+    }),
   });
 }
 
@@ -46,10 +54,14 @@ describe('Test-only subscription confirmation route', () => {
 
   it('passes exact organization and intent expectations into verification', async () => {
     expect((await POST(request())).status).toBe(200);
-    expect(confirmTestPayment).toHaveBeenCalledWith(expect.objectContaining({
-      source: 'checkout', expectedOrganizationId: organizationId,
-      expectedRequestId: requestId, orderId: 'order_Test123',
-      paymentId: 'pay_Test456',
-    }));
+    expect(confirmTestPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: 'checkout',
+        expectedOrganizationId: organizationId,
+        expectedRequestId: requestId,
+        orderId: 'order_Test123',
+        paymentId: 'pay_Test456',
+      })
+    );
   });
 });

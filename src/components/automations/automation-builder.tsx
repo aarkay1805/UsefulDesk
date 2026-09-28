@@ -1078,7 +1078,8 @@ function KeywordMatchConfig({
         </Select>
         {config?.match_type === 'word' && (
           <p className="text-muted-foreground mt-1 text-xs">
-            Matches only the full word. So &quot;fee&quot; does not match &quot;feedback&quot;.
+            Matches only the full word. So &quot;fee&quot; does not match
+            &quot;feedback&quot;.
           </p>
         )}
       </div>
@@ -1406,7 +1407,9 @@ function StepEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="round_robin">Take turns (round-robin)</SelectItem>
+                <SelectItem value="round_robin">
+                  Take turns (round-robin)
+                </SelectItem>
                 <SelectItem value="specific">Specific team member</SelectItem>
               </SelectContent>
             </Select>
@@ -1472,7 +1475,9 @@ function StepEditor({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="round_robin">Take turns (round-robin)</SelectItem>
+                <SelectItem value="round_robin">
+                  Take turns (round-robin)
+                </SelectItem>
                 <SelectItem value="specific">Specific team member</SelectItem>
               </SelectContent>
             </Select>

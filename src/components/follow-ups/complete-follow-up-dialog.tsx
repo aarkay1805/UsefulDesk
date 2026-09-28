@@ -169,7 +169,7 @@ function BulkCompleteForm({
         toast.error(
           getErrorMessage(
             error,
-            "Could not update these follow-ups. Refresh the page and try again."
+            'Could not update these follow-ups. Refresh the page and try again.'
           )
         );
         return;
@@ -298,7 +298,7 @@ function CompleteForm({
         toast.error(
           getErrorMessage(
             error,
-            "Could not update this follow-up. Refresh the page and try again."
+            'Could not update this follow-up. Refresh the page and try again.'
           )
         );
         return;

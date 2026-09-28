@@ -130,7 +130,7 @@ export default function FlowRunsPage() {
       } catch (err) {
         if (!cancelled) {
           console.error(err);
-          toast.error("Could not load runs.");
+          toast.error('Could not load runs.');
         }
       } finally {
         if (!cancelled) setLoading(false);

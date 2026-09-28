@@ -8,10 +8,7 @@ import {
   type InputProps,
 } from 'heroui-native';
 
-import {
-  textScaleMeasurementMultiplier,
-  useTextScale,
-} from './use-text-scale';
+import { textScaleMeasurementMultiplier, useTextScale } from './use-text-scale';
 
 /**
  * The chat composer's pill.

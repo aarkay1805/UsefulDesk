@@ -333,9 +333,7 @@ export function PaymentsTable({
           </div>
         ) : (
           <Table className="min-w-[1040px] table-fixed">
-            <TableCaption className="sr-only">
-              Money members owe
-            </TableCaption>
+            <TableCaption className="sr-only">Money members owe</TableCaption>
             <colgroup>
               {DUE_COLUMNS.map((column) => (
                 <col key={column.key} style={{ width: column.width }} />
@@ -597,7 +595,9 @@ function DueStatusBadge({
 }) {
   if (bucket === null) return <Badge variant="neutral">Upcoming</Badge>;
   if (bucket === 'due_today') return <Badge variant="warning">Due today</Badge>;
-  return <Badge variant="danger">
+  return (
+    <Badge variant="danger">
       {days} {days === 1 ? 'day' : 'days'} late
-    </Badge>;
+    </Badge>
+  );
 }

@@ -101,7 +101,10 @@ export function ExpenseCategoriesCard() {
       if (cancelled) return;
       if (error) {
         setLoadError(
-          getErrorMessage(error, "Could not load expense categories. Try again.")
+          getErrorMessage(
+            error,
+            'Could not load expense categories. Try again.'
+          )
         );
       } else {
         setCategories((data as ExpenseCategory[] | null) ?? []);
@@ -202,10 +205,7 @@ export function ExpenseCategoriesCard() {
         setNameError(EXPENSE_CATEGORY_DUPLICATE_MESSAGE);
       } else {
         toast.error(
-          getErrorMessage(
-            error,
-            "Could not save the category. Try again."
-          )
+          getErrorMessage(error, 'Could not save the category. Try again.')
         );
       }
     } finally {
@@ -246,10 +246,7 @@ export function ExpenseCategoriesCard() {
       toast.error(
         isUniqueViolation(error)
           ? EXPENSE_CATEGORY_DUPLICATE_MESSAGE
-          : getErrorMessage(
-              error,
-              "Could not update the category. Try again."
-            )
+          : getErrorMessage(error, 'Could not update the category. Try again.')
       );
     } finally {
       setUpdatingId(null);

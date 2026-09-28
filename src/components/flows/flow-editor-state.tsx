@@ -374,7 +374,9 @@ export function FlowEditorProvider({
         });
         if (!res.ok) {
           const json = await res.json().catch(() => ({}));
-          throw new Error(json.error ?? `Could not change status (error ${res.status})`);
+          throw new Error(
+            json.error ?? `Could not change status (error ${res.status})`
+          );
         }
         setStateRaw((s) => ({ ...s, status: next }));
         toast.success(
@@ -385,7 +387,8 @@ export function FlowEditorProvider({
               : 'Saved as draft.'
         );
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Could not change status';
+        const msg =
+          err instanceof Error ? err.message : 'Could not change status';
         toast.error(msg);
       } finally {
         setActivating(false);

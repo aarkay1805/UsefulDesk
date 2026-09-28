@@ -50,8 +50,7 @@ const PAYMENT_LINK_PERMISSION_BLOCKER: ActionBlocker = {
 
 const PHONE_BLOCKER: ActionBlocker = {
   title: 'No phone number',
-  description:
-    'Add this member’s phone number before sending a payment link.',
+  description: 'Add this member’s phone number before sending a payment link.',
 };
 
 function paymentProviderBlocker(
@@ -82,7 +81,7 @@ function paymentProviderBlocker(
     normalized.includes('razorpay is not connected')
   ) {
     return {
-      title: "Razorpay is not connected",
+      title: 'Razorpay is not connected',
       description:
         reason === "Razorpay isn't connected" ||
         reason === 'Razorpay is not connected'
@@ -110,7 +109,7 @@ function whatsappBlocker(
 ): ActionBlocker {
   if (reason?.toLowerCase().includes('connect whatsapp')) {
     return {
-      title: "WhatsApp is not connected",
+      title: 'WhatsApp is not connected',
       description: reason,
       ...(canManageSettings
         ? {
@@ -123,7 +122,7 @@ function whatsappBlocker(
     };
   }
   return {
-    title: "Payment link message is not ready",
+    title: 'Payment link message is not ready',
     description:
       reason ??
       `Get the ${PAYMENT_LINK_TEMPLATE_NAME} message approved by WhatsApp first.`,

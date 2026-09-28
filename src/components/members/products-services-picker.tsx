@@ -64,7 +64,7 @@ export function ProductsServicesPicker({
   membershipEnd,
   defaultStartDate,
   title = 'Products & services',
-  description = "Optional. These items are added to the same invoice.",
+  description = 'Optional. These items are added to the same invoice.',
   presentation = 'builder',
 }: {
   value: CheckoutSelection[];
@@ -116,7 +116,7 @@ export function ProductsServicesPicker({
       if (cancelled) return;
       if (itemsResult.error || trainersResult.error) {
         setLoadError(
-          "Could not load products and services. Close this and try again."
+          'Could not load products and services. Close this and try again.'
         );
         setLoading(false);
         return;
@@ -361,7 +361,8 @@ export function ProductsServicesPicker({
           </p>
         ) : choices.length === 0 ? (
           <p className="text-muted-foreground py-6 text-sm">
-            No products or services yet. Add them in Settings → Products &amp; services.
+            No products or services yet. Add them in Settings → Products &amp;
+            services.
           </p>
         ) : (
           <div
@@ -704,7 +705,8 @@ export function ProductsServicesPicker({
           </p>
         ) : choices.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No products or services yet. Add them in Settings → Products &amp; services.
+            No products or services yet. Add them in Settings → Products &amp;
+            services.
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">

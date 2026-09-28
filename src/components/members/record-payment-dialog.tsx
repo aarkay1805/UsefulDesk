@@ -424,7 +424,8 @@ export function RecordPaymentDialog({
                   </>
                 ) : (
                   <>
-                    <Upload className="size-4" /> Upload UPI or receipt screenshot
+                    <Upload className="size-4" /> Upload UPI or receipt
+                    screenshot
                   </>
                 )}
                 <input

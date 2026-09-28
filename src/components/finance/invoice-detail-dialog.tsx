@@ -384,9 +384,7 @@ function InvoiceDetailBody({
         periodResult.error ??
         invoiceResult.error;
       if (error) {
-        setLoadError(
-          getErrorMessage(error, 'Could not load invoice details')
-        );
+        setLoadError(getErrorMessage(error, 'Could not load invoice details'));
         setLoading(false);
         return;
       }
@@ -459,9 +457,7 @@ function InvoiceDetailBody({
       setLoading(false);
     })().catch((error: unknown) => {
       if (cancelled) return;
-      setLoadError(
-        getErrorMessage(error, 'Could not load invoice details')
-      );
+      setLoadError(getErrorMessage(error, 'Could not load invoice details'));
       setLoading(false);
     });
 
@@ -639,8 +635,8 @@ function InvoiceDetailBody({
                       ) : null}
                       {bonusMonths > 0 && period?.standard_period_end ? (
                         <p className="text-muted-foreground mt-1 text-xs">
-                          Normal expiry {fmt.date(period.standard_period_end)}{' '}
-                          · +{bonusMonths}{' '}
+                          Normal expiry {fmt.date(period.standard_period_end)} ·
+                          +{bonusMonths}{' '}
                           {bonusMonths === 1 ? 'month' : 'months'}
                         </p>
                       ) : null}
@@ -990,7 +986,9 @@ function InvoiceDetailBody({
 
       <InvoiceCollectionCommitments
         invoiceId={currentInvoice.id}
-        maxAmount={Number(currentInvoice.collectible_balance ?? currentInvoice.balance)}
+        maxAmount={Number(
+          currentInvoice.collectible_balance ?? currentInvoice.balance
+        )}
       />
 
       {refundPayment ? (

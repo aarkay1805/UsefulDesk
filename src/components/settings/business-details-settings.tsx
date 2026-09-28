@@ -136,7 +136,7 @@ function BusinessDetailsForAccount({
       toast.success('Gym name updated');
       await refreshProfile();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Gym name could not be saved."));
+      toast.error(getErrorMessage(error, 'Gym name could not be saved.'));
     } finally {
       setBrandSaving(false);
     }
@@ -162,7 +162,7 @@ function BusinessDetailsForAccount({
       toast.success('Branch name updated');
       window.location.reload();
     } catch (error) {
-      toast.error(getErrorMessage(error, "Branch name could not be saved."));
+      toast.error(getErrorMessage(error, 'Branch name could not be saved.'));
       setNameSaving(false);
     }
   }
@@ -187,7 +187,7 @@ function BusinessDetailsForAccount({
       await refreshProfile();
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "Legal business name could not be saved.")
+        getErrorMessage(error, 'Legal business name could not be saved.')
       );
     } finally {
       setLegalSaving(false);

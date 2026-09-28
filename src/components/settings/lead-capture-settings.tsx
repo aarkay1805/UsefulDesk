@@ -91,7 +91,7 @@ export function LeadCaptureSettings() {
         setLoadError(
           getErrorMessage(
             error,
-            "Could not load enquiry form settings. Try again."
+            'Could not load enquiry form settings. Try again.'
           )
         );
         setLoading(false);
@@ -240,7 +240,7 @@ export function LeadCaptureSettings() {
       toast.success('Enquiry form saved');
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "Could not save the enquiry form. Try again.")
+        getErrorMessage(error, 'Could not save the enquiry form. Try again.')
       );
     } finally {
       setSaving(false);
@@ -310,7 +310,8 @@ export function LeadCaptureSettings() {
         <CardHeader>
           <CardTitle>Enquiry form</CardTitle>
           <CardDescription>
-            Share this link where people ask about your gym. Their details will show in Enquiries with the goal tag you chose.
+            Share this link where people ask about your gym. Their details will
+            show in Enquiries with the goal tag you chose.
             {submissionCount !== null && submissionCount > 0 && (
               <>
                 {' '}

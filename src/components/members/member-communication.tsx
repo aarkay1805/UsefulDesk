@@ -43,7 +43,8 @@ const TEMPLATE_REASONS: Record<string, { type: string; subject: string }> = {
   },
   gym_service_renewal: {
     type: 'Service renewal',
-    subject: 'Asks the member to renew a service. Shows service, end date, and price.',
+    subject:
+      'Asks the member to renew a service. Shows service, end date, and price.',
   },
   gym_installment_reminder: {
     type: 'Installment reminder',

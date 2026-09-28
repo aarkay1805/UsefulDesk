@@ -2,8 +2,9 @@ import { useSyncExternalStore } from 'react';
 import { Dimensions } from 'react-native';
 
 const subscribers = new Set<() => void>();
-let dimensionsSubscription: ReturnType<typeof Dimensions.addEventListener> | null =
-  null;
+let dimensionsSubscription: ReturnType<
+  typeof Dimensions.addEventListener
+> | null = null;
 
 function subscribe(onStoreChange: () => void) {
   subscribers.add(onStoreChange);

@@ -743,7 +743,7 @@ export function AttendanceView({
                             title={
                               canSendMessages
                                 ? 'Check member out'
-                                : "Your role cannot change attendance"
+                                : 'Your role cannot change attendance'
                             }
                             onClick={() =>
                               void checkOut(membership, attendance)
@@ -765,7 +765,7 @@ export function AttendanceView({
                             title={
                               canSendMessages
                                 ? 'Check member in'
-                                : "Your role cannot change attendance"
+                                : 'Your role cannot change attendance'
                             }
                             onClick={() => void checkIn(membership)}
                           >

@@ -32,6 +32,8 @@ describe('authored automation and flow UI gates', () => {
       /onClick=\{onDelete\}[\s\S]*?disabled=\{!canDelete \|\| deleteBlocked\}/
     );
     expect(editor).toContain('canEditAuthoredContent(');
-    expect(editor).toContain('Only the person who made this flow can edit or turn it on.');
+    expect(editor).toContain(
+      'Only the person who made this flow can edit or turn it on.'
+    );
   });
 });

@@ -54,7 +54,8 @@ export function TransferRequestDialog({
           <DialogDescription className="text-muted-foreground">
             The owner of{' '}
             <span className="text-foreground font-medium">{leadName}</span>{' '}
-            changes only after your team member accepts. Until then, you stay the owner.
+            changes only after your team member accepts. Until then, you stay
+            the owner.
           </DialogDescription>
         </DialogHeader>
 

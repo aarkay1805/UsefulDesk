@@ -97,7 +97,7 @@ function UpiCard() {
       } catch (error) {
         if (!cancelled) {
           setLoadError(
-            getErrorMessage(error, "Could not load UPI details. Try again.")
+            getErrorMessage(error, 'Could not load UPI details. Try again.')
           );
         }
       } finally {
@@ -142,7 +142,7 @@ function UpiCard() {
       toast.success('UPI details updated');
     } catch (error) {
       toast.error(
-        getErrorMessage(error, "Could not save UPI details. Try again.")
+        getErrorMessage(error, 'Could not save UPI details. Try again.')
       );
     } finally {
       setSaving(false);

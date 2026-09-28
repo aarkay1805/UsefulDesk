@@ -209,7 +209,8 @@ export default function AutomationsPage() {
         <div>
           <h1 className="text-foreground text-2xl font-bold">Automations</h1>
           <p className="text-muted-foreground mt-1 text-sm">
-            Set up actions that happen by themselves when something happens on WhatsApp®.
+            Set up actions that happen by themselves when something happens on
+            WhatsApp®.
           </p>
         </div>
         <GatedButton
@@ -328,7 +329,8 @@ export default function AutomationsPage() {
             <DialogTitle>Delete automation</DialogTitle>
             <DialogDescription>
               This deletes{' '}
-              <span className="text-foreground">{pendingDelete?.name}</span> and its run history. You cannot undo this.
+              <span className="text-foreground">{pendingDelete?.name}</span> and
+              its run history. You cannot undo this.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

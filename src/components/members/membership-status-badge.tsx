@@ -51,7 +51,9 @@ export function MembershipStatusBadge({
     daysToExpiry <= expiringWithin
   ) {
     const label =
-      daysToExpiry === 0 ? 'Expires today' : `Expires in ${daysToExpiry} ${daysToExpiry === 1 ? 'day' : 'days'}`;
+      daysToExpiry === 0
+        ? 'Expires today'
+        : `Expires in ${daysToExpiry} ${daysToExpiry === 1 ? 'day' : 'days'}`;
     return <Badge variant="warning">{label}</Badge>;
   }
   const s = STATUS_VARIANT[status];

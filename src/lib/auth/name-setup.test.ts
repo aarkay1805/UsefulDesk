@@ -8,13 +8,16 @@ describe('readOrganizationNameSetupState', () => {
     '2026-09-21T12:30:00+00:00',
     '2026-09-21T18:00:00.123456+05:30',
     '2024-02-29T23:59:59-04:00',
-  ])('treats a valid PostgREST completion timestamp as complete (%s)', (timestamp) => {
-    expect(
-      readOrganizationNameSetupState({
-        organization_name_setup_completed_at: timestamp,
-      })
-    ).toBe('complete');
-  });
+  ])(
+    'treats a valid PostgREST completion timestamp as complete (%s)',
+    (timestamp) => {
+      expect(
+        readOrganizationNameSetupState({
+          organization_name_setup_completed_at: timestamp,
+        })
+      ).toBe('complete');
+    }
+  );
 
   it('preserves an explicit database null as pending', () => {
     expect(

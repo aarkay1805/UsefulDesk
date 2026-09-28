@@ -1572,9 +1572,15 @@ export function ownerReportCsv(
           csvRow(['Money spent on ads', adPerformance.adSpend]),
           csvRow(['Enquiries from ads', adPerformance.leads]),
           csvRow(['Joined as members so far', adPerformance.convertedMembers]),
-          csvRow(['Joining fees received so far', adPerformance.joiningRevenue]),
+          csvRow([
+            'Joining fees received so far',
+            adPerformance.joiningRevenue,
+          ]),
           csvRow(['Joined (%)', adPerformance.conversionRate ?? '']),
-          csvRow(['Money earned for every 1 spent', adPerformance.returnOnAdSpend ?? '']),
+          csvRow([
+            'Money earned for every 1 spent',
+            adPerformance.returnOnAdSpend ?? '',
+          ]),
         ]
       : []),
     '',

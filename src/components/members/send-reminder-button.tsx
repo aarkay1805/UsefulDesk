@@ -93,7 +93,7 @@ export function useReminderReadiness(): ReminderReadiness {
           loading: false,
           ready: false,
           reason:
-            "WhatsApp is not connected. Connect it to send renewal reminders.",
+            'WhatsApp is not connected. Connect it to send renewal reminders.',
           resolution: {
             label: 'Connect WhatsApp',
             href: '/settings?tab=whatsapp',
@@ -225,7 +225,7 @@ export function SendReminderButton({
   // A missing phone is a per-member blocker with no settings fix; the
   // readiness blockers (WhatsApp / template) carry a deep-link resolution.
   const blockedReason = !hasPhone
-    ? "This member has no phone number. Add their phone number first."
+    ? 'This member has no phone number. Add their phone number first.'
     : readiness.reason;
   const resolution = hasPhone && canEditSettings ? readiness.resolution : null;
   const permissionBlocker: ActionBlocker | null = canSendMessages
@@ -240,9 +240,8 @@ export function SendReminderButton({
       ? {
           title: !hasPhone
             ? 'No phone number'
-            : "Reminder message is not ready",
-          description:
-            blockedReason ?? 'Finish WhatsApp setup before sending.',
+            : 'Reminder message is not ready',
+          description: blockedReason ?? 'Finish WhatsApp setup before sending.',
           resolution: resolution
             ? { label: resolution.label, href: resolution.href }
             : undefined,

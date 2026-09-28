@@ -418,11 +418,7 @@ export function ImportPreviewGrid({
             return <PendingAssigneeDisplay name={r.pendingAssigneeName} />;
           }
           if (!r.assignedTo) {
-            return (
-              <span className="text-muted-foreground text-sm">
-                You
-              </span>
-            );
+            return <span className="text-muted-foreground text-sm">You</span>;
           }
           return (
             <AssigneeDisplay

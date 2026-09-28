@@ -64,7 +64,7 @@ describe('gym-name signup database contract', () => {
       'INSERT INTO public.organizations (name, name_setup_completed_at)'
     );
     expect(provisioningFunction).toContain(
-      'VALUES (NEW.id, v_full_name, COALESCE(NEW.email, \'\'), v_account, \'owner\')'
+      "VALUES (NEW.id, v_full_name, COALESCE(NEW.email, ''), v_account, 'owner')"
     );
     for (const localeField of [
       'country_code',
@@ -104,9 +104,7 @@ describe('gym-name signup database contract', () => {
     const completedCheck = completionFunction.indexOf(
       'IF v_organization.name_setup_completed_at IS NOT NULL THEN'
     );
-    const ownerCheck = completionFunction.indexOf(
-      "v_branch_role <> 'owner'"
-    );
+    const ownerCheck = completionFunction.indexOf("v_branch_role <> 'owner'");
     const nameValidation = completionFunction.indexOf(
       'v_gym_name := private.trim_javascript_whitespace(p_gym_name)'
     );
@@ -139,14 +137,14 @@ describe('gym-name signup database contract', () => {
     expect(completionFunction).toMatch(
       /FROM public\.organization_memberships membership[\s\S]*?FOR UPDATE;/
     );
-    expect(completionFunction).toContain('IF v_branch_count <> 1 OR v_legal_entity_count <> 1 THEN');
+    expect(completionFunction).toContain(
+      'IF v_branch_count <> 1 OR v_legal_entity_count <> 1 THEN'
+    );
     expect(completionFunction).toContain("USING ERRCODE = '23505'");
     expect(completionFunction).toContain('UPDATE public.organizations');
     expect(completionFunction).toContain('UPDATE public.legal_entities');
     expect(completionFunction).toContain('UPDATE public.accounts');
-    expect(completionFunction).toContain(
-      "'organization.name_setup_completed'"
-    );
+    expect(completionFunction).toContain("'organization.name_setup_completed'");
     expect(completionFunction).toContain(
       "RETURN pg_catalog.jsonb_build_object('status', 'completed')"
     );

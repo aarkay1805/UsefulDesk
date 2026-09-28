@@ -218,7 +218,8 @@ export function ChangePlanDialog({
         <DialogHeader>
           <DialogTitle>Change plan</DialogTitle>
           <DialogDescription>
-            Move this member to another plan today. Unused paid days of the old plan are taken off the new fee.
+            Move this member to another plan today. Unused paid days of the old
+            plan are taken off the new fee.
           </DialogDescription>
         </DialogHeader>
 
@@ -245,7 +246,8 @@ export function ChangePlanDialog({
               min={minSwitch}
             />
             <p className="text-muted-foreground text-xs">
-              The old plan ends on this day. They pay only for the days they used.
+              The old plan ends on this day. They pay only for the days they
+              used.
             </p>
           </div>
 
@@ -275,7 +277,8 @@ export function ChangePlanDialog({
                       <span className="tabular-nums">
                         {fmt.money(quote.carryover)}
                       </span>{' '}
-                      . The new plan is fully paid. The extra credit is not kept.
+                      . The new plan is fully paid. The extra credit is not
+                      kept.
                     </p>
                   )}
                 </>

@@ -55,9 +55,7 @@ export function VoidInvoicePaymentDialog({
         p_reason: reason.trim(),
       });
       if (error) throw error;
-      toast.success(
-        'Payment cancelled. Invoice balance updated.'
-      );
+      toast.success('Payment cancelled. Invoice balance updated.');
       handleOpenChange(false);
       onVoided();
     } catch (error) {

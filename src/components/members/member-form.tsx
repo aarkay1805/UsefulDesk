@@ -362,7 +362,9 @@ export function MemberForm({
         .select('id');
       if (error) throw error;
       if (!data?.length) {
-        throw new Error("You do not have permission to change this person’s details.");
+        throw new Error(
+          'You do not have permission to change this person’s details.'
+        );
       }
 
       if (column === 'name') setName(value);
@@ -392,7 +394,7 @@ export function MemberForm({
         .select('id');
       if (error) throw error;
       if (!data?.length) {
-        throw new Error("You do not have permission to change measurements.");
+        throw new Error('You do not have permission to change measurements.');
       }
       if (column === 'height_cm') setHeightCm(value);
       if (column === 'weight_kg') setWeightKg(value);
@@ -424,7 +426,9 @@ export function MemberForm({
         .select('id');
       if (error) throw error;
       if (!data?.length) {
-        throw new Error("You do not have permission to change this person’s details.");
+        throw new Error(
+          'You do not have permission to change this person’s details.'
+        );
       }
       if (column === 'gender') setGender(value);
       if (column === 'date_of_birth') setDateOfBirth(value);
@@ -506,7 +510,8 @@ export function MemberForm({
     // Plan + billing option are required for a paid member; a legacy
     // edit (no option on the row) may proceed on the plan's frozen days.
     const plan = plans.find((p) => p.id === planId);
-    if (!isTrial && !plan) return toast.error('This plan cannot be used now. Pick another plan.');
+    if (!isTrial && !plan)
+      return toast.error('This plan cannot be used now. Pick another plan.');
     const endForPaid = standardPaidEndDate();
     if (!isTrial && !selectedOption && isCreate) {
       return toast.error('Pick a price for this plan');
@@ -531,7 +536,12 @@ export function MemberForm({
             : [],
         });
       } catch (error) {
-        return toast.error(getErrorMessage(error, 'Some details are missing or wrong. Check and try again.'));
+        return toast.error(
+          getErrorMessage(
+            error,
+            'Some details are missing or wrong. Check and try again.'
+          )
+        );
       }
     }
 
@@ -605,7 +615,9 @@ export function MemberForm({
             .select('id');
           if (uErr) throw uErr;
           if (!updated?.length) {
-            throw new Error('You do not have permission to change this person’s details.');
+            throw new Error(
+              'You do not have permission to change this person’s details.'
+            );
           }
         }
       } else {
@@ -643,7 +655,9 @@ export function MemberForm({
               .select('id');
             if (uErr) throw uErr;
             if (!updated?.length)
-              throw new Error('You do not have permission to change this person’s details.');
+              throw new Error(
+                'You do not have permission to change this person’s details.'
+              );
           }
         } else {
           const { data, error } = await supabase
@@ -710,7 +724,8 @@ export function MemberForm({
         const result = (await response.json()) as CheckoutResult & {
           error?: string;
         };
-        if (!response.ok) throw new Error(result.error || 'Could not add the membership');
+        if (!response.ok)
+          throw new Error(result.error || 'Could not add the membership');
 
         toast.success(
           isConvert
@@ -1116,7 +1131,8 @@ export function MemberForm({
                         {fmt.date(
                           istAddDays(startDate, Number(trialDays) || 0)
                         )}{' '}
-                        · free pass, no fee. You can add them as a paid member later.
+                        · free pass, no fee. You can add them as a paid member
+                        later.
                       </p>
                     </div>
                   )}
@@ -1170,7 +1186,8 @@ export function MemberForm({
                         {fmt.date(
                           istAddDays(startDate, Number(trialDays) || 0)
                         )}{' '}
-                        · free pass, no fee. You can add them as a paid member later.
+                        · free pass, no fee. You can add them as a paid member
+                        later.
                       </p>
                     </div>
                   ) : (

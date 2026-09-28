@@ -245,7 +245,8 @@ export function Step3Personalize({
           Fill in the message
         </h2>
         <p className="text-muted-foreground mt-1 text-sm">
-          Choose what goes in each blank, like the person’s name or a fixed text.
+          Choose what goes in each blank, like the person’s name or a fixed
+          text.
         </p>
       </div>
 
@@ -253,7 +254,9 @@ export function Step3Personalize({
         <div className="border-border bg-card/50 rounded-xl border p-4">
           <div className="mb-3 flex items-center gap-2">
             <ImageIcon className="text-primary-text h-4 w-4" />
-            <p className="text-foreground text-sm font-medium">Top image or file</p>
+            <p className="text-foreground text-sm font-medium">
+              Top image or file
+            </p>
             <span className="bg-primary/10 text-primary-text inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium uppercase">
               {mediaHeaderType}
             </span>
@@ -275,7 +278,8 @@ export function Step3Personalize({
             className="border-border text-foreground placeholder:text-muted-foreground"
           />
           <p className="text-muted-foreground mt-1.5 text-xs">
-            Public URL of the {mediaHeaderType} shown at the top of the message. Everyone gets the same one.
+            Public URL of the {mediaHeaderType} shown at the top of the message.
+            Everyone gets the same one.
           </p>
           {mediaHeaderType === 'image' &&
             headerMediaError === null &&
@@ -338,7 +342,9 @@ export function Step3Personalize({
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="border-border bg-popover">
-                        <SelectItem value="static">Same text for everyone</SelectItem>
+                        <SelectItem value="static">
+                          Same text for everyone
+                        </SelectItem>
                         <SelectItem value="field">Person’s detail</SelectItem>
                         <SelectItem value="custom_field">
                           Extra detail

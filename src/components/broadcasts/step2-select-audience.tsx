@@ -265,9 +265,7 @@ export function Step2SelectAudience({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-foreground text-lg font-semibold">
-          Who gets it
-        </h2>
+        <h2 className="text-foreground text-lg font-semibold">Who gets it</h2>
         <p className="text-muted-foreground mt-1 text-sm">
           Choose who will get this message.
         </p>
@@ -359,9 +357,7 @@ export function Step2SelectAudience({
 
       {audience.type === 'custom_field' && (
         <div className="border-border bg-card/50 space-y-3 rounded-xl border p-4">
-          <p className="text-foreground text-sm font-medium">
-            Extra detail
-          </p>
+          <p className="text-foreground text-sm font-medium">Extra detail</p>
           {loadingFields ? (
             <Loader2 className="text-primary-text h-5 w-5 animate-spin" />
           ) : customFields.length === 0 ? (
@@ -451,9 +447,7 @@ export function Step2SelectAudience({
 
       {/* Summary */}
       <div className="border-border bg-card/50 rounded-xl border p-4">
-        <p className="text-foreground mb-2 text-sm font-medium">
-          Summary
-        </p>
+        <p className="text-foreground mb-2 text-sm font-medium">Summary</p>
         {loadingCount ? (
           <div className="flex items-center gap-2">
             <Loader2 className="text-primary-text h-4 w-4 animate-spin" />

@@ -128,7 +128,7 @@ export function AvatarEditorDialog({
       .select('id');
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) {
-      throw new Error("You do not have permission to change this member.");
+      throw new Error('You do not have permission to change this member.');
     }
     // Best-effort GC of the previous object (RLS lets us delete only our
     // own uploads; a miss is a harmless storage nit).
@@ -208,7 +208,9 @@ export function AvatarEditorDialog({
         <DialogHeader>
           <DialogTitle>{src ? 'Fit photo' : 'Member photo'}</DialogTitle>
           <DialogDescription>
-            {src ? 'Move and cut the photo to fit.' : 'Upload or paste a photo.'}
+            {src
+              ? 'Move and cut the photo to fit.'
+              : 'Upload or paste a photo.'}
           </DialogDescription>
         </DialogHeader>
 

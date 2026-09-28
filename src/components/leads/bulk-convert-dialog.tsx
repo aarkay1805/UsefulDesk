@@ -247,7 +247,8 @@ export function BulkConvertDialog({
             )}
             {plan && options.length === 0 && (
               <p className="text-destructive text-xs">
-                This plan has no price yet. Add a price in Settings → Membership plans.
+                This plan has no price yet. Add a price in Settings → Membership
+                plans.
               </p>
             )}
           </div>

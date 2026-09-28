@@ -41,8 +41,6 @@ describe('AccountAccessAlert', () => {
     const markup = renderToStaticMarkup(<AccountAccessAlert />);
 
     expect(markup).toContain('Your login is not linked to a gym');
-    expect(markup).toContain(
-      'You cannot save changes right now'
-    );
+    expect(markup).toContain('You cannot save changes right now');
   });
 });

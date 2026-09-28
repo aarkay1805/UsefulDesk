@@ -27,7 +27,10 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Reminder worker failed' },
+      {
+        error:
+          error instanceof Error ? error.message : 'Reminder worker failed',
+      },
       { status: 503 }
     );
   }

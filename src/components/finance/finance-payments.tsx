@@ -338,7 +338,7 @@ export function FinancePayments({
               title="Cancelled"
               value={fmt.money(result.summary.voidedAmount)}
               icon={RotateCcw}
-              subtitle={`${fmt.number(result.summary.voidedCount)} ${ result.summary.voidedCount === 1 ? 'payment' : 'payments' } kept for history`}
+              subtitle={`${fmt.number(result.summary.voidedCount)} ${result.summary.voidedCount === 1 ? 'payment' : 'payments'} kept for history`}
             />
           </div>
 
@@ -400,9 +400,7 @@ export function FinancePayments({
             ) : (
               <div className="overflow-x-auto">
                 <Table className="min-w-[1430px] table-fixed">
-                  <TableCaption className="sr-only">
-                    All payments
-                  </TableCaption>
+                  <TableCaption className="sr-only">All payments</TableCaption>
                   <colgroup>
                     <col className="w-36" />
                     <col className="w-56" />

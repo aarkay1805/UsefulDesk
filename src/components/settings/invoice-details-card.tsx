@@ -215,7 +215,7 @@ function InvoiceDetailsCardForAccount({
       } catch (error) {
         if (!cancelled && requestToken.current === token) {
           setLoadError(
-            getErrorMessage(error, "Could not load invoice details. Try again.")
+            getErrorMessage(error, 'Could not load invoice details. Try again.')
           );
         }
       } finally {
@@ -284,7 +284,7 @@ function InvoiceDetailsCardForAccount({
       }
       const message = getErrorMessage(
         error,
-        "Could not save invoice details. Try again."
+        'Could not save invoice details. Try again.'
       );
       setSaveError(message);
       toast.error(message);

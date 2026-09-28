@@ -221,6 +221,7 @@ Both templates require `whatsapp_marketing`, carry the footer
 - Body:
 
   > Hi {{1}}, {{2}} offer from {{3}}: {{4}} off annual memberships until
+  >
   > {{5}}. Use the buttons below if you would like details.
 
 - Trigger: manual or broadcast use against a marketing-consented audience.

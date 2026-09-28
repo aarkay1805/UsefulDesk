@@ -184,9 +184,7 @@ describe('ImportMembersPreview worksheet', () => {
     );
 
     expect(screen.getByText('Every row is skipped')).toBeTruthy();
-    await user.click(
-      screen.getByRole('button', { name: 'See skipped rows' })
-    );
+    await user.click(screen.getByRole('button', { name: 'See skipped rows' }));
     await user.click(
       within(screen.getByTestId('member-import-mobile')).getByRole('button', {
         name: 'Review Member 2, row 2',
@@ -281,9 +279,10 @@ describe('ImportMembersPreview worksheet', () => {
     await user.clear(phones[1]);
     await user.type(phones[1], '5550000055');
     await user.click(
-      within(
-        screen.getByRole('group', { name: 'Fix options' })
-      ).getByRole('button', { name: 'Save phone changes' })
+      within(screen.getByRole('group', { name: 'Fix options' })).getByRole(
+        'button',
+        { name: 'Save phone changes' }
+      )
     );
     expect(onPatch).toHaveBeenCalledWith('sheet:3', { phone: '+15550000055' });
     expect(screen.getByRole('table')).toBeTruthy();
@@ -302,7 +301,9 @@ describe('ImportMembersPreview worksheet', () => {
         .getByRole('button', { name: 'No phone number 1' })
         .getAttribute('aria-expanded')
     ).toBe('true');
-    await user.click(screen.getByRole('button', { name: 'Wrong phone numbers 1' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Wrong phone numbers 1' })
+    );
     expect(
       screen
         .getByRole('button', { name: 'No phone number 1' })
@@ -349,9 +350,7 @@ describe('ImportMembersPreview worksheet', () => {
       )
     ).toBeTruthy();
     expect(inspector.queryByRole('textbox')).toBeNull();
-    expect(
-      inspector.queryByRole('group', { name: 'Fix options' })
-    ).toBeNull();
+    expect(inspector.queryByRole('group', { name: 'Fix options' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'No phone number 1' }));
     expect(
       within(screen.getByRole('table')).getByText('Member 2')
@@ -497,7 +496,9 @@ describe('ImportMembersPreview worksheet', () => {
       }
     );
     props.rerender(<ImportMembersPreview {...props} candidates={corrected} />);
-    expect(screen.queryByRole('button', { name: /Payment problems/ })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: /Payment problems/ })
+    ).toBeNull();
     expect(
       screen
         .getByRole('button', { name: 'Repeated phone numbers 2' })
@@ -555,13 +556,9 @@ describe('ImportMembersPreview worksheet', () => {
       ])
     );
     expect(
-      within(screen.getByRole('region', { name: 'Problem' })).getByText(
-        '$600'
-      )
+      within(screen.getByRole('region', { name: 'Problem' })).getByText('$600')
     ).toBeTruthy();
-    screen
-      .getByRole('combobox', { name: 'Fix payment for row 2' })
-      .focus();
+    screen.getByRole('combobox', { name: 'Fix payment for row 2' }).focus();
     await user.keyboard('{ArrowDown}{Enter}');
     const preview = screen.getByRole('region', { name: 'After fixing' });
     expect(within(preview).getByText('$1200')).toBeTruthy();
@@ -592,13 +589,9 @@ describe('ImportMembersPreview worksheet', () => {
         name: 'Review Member 51, row 51',
       })
     );
-    screen
-      .getByRole('combobox', { name: 'Fix payment for row 51' })
-      .focus();
+    screen.getByRole('combobox', { name: 'Fix payment for row 51' }).focus();
     await user.keyboard('{ArrowDown}{Enter}');
-    await user.click(
-      screen.getByRole('button', { name: 'Save' })
-    );
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     const corrected = resolvePaymentConflict(
       rows,
       'sheet:51',
@@ -629,9 +622,7 @@ describe('ImportMembersPreview worksheet', () => {
         input(2, { fee: '1200', amountPaid: '700', amountDue: '600' }),
       ])
     );
-    screen
-      .getByRole('combobox', { name: 'Fix payment for row 2' })
-      .focus();
+    screen.getByRole('combobox', { name: 'Fix payment for row 2' }).focus();
     await user.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}{Enter}');
     const paid = screen.getByRole('textbox', { name: 'Right paid amount' });
     await user.clear(paid);
@@ -785,12 +776,8 @@ describe('ImportMembersPreview worksheet', () => {
         isReady: false,
       };
       renderPreview(rows);
-      expect(
-        screen.getByRole('region', { name: 'Row details' })
-      ).toBeTruthy();
-      expect(
-        screen.queryByRole('group', { name: 'Fix options' })
-      ).toBeNull();
+      expect(screen.getByRole('region', { name: 'Row details' })).toBeTruthy();
+      expect(screen.queryByRole('group', { name: 'Fix options' })).toBeNull();
       expect(screen.queryByRole('button', { name: /^Include / })).toBeNull();
     }
   );
@@ -825,9 +812,7 @@ describe('ImportMembersPreview worksheet', () => {
         }),
       ])
     );
-    expect(
-      screen.getByText(/No service matches this row/)
-    ).toBeTruthy();
+    expect(screen.getByText(/No service matches this row/)).toBeTruthy();
     const actions = screen.getByRole('group', { name: 'Fix options' });
     expect(
       within(actions)
@@ -866,9 +851,7 @@ describe('ImportMembersPreview worksheet', () => {
     const notice = rows[0].issues.find((issue) => issue.severity === 'notice');
     expect(notice).toBeTruthy();
     renderPreview(rows);
-    expect(
-      screen.getByRole('heading', { name: 'Notes' })
-    ).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Notes' })).toBeTruthy();
     expect(screen.queryByText(notice!.explanation)).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Notes' }));
     expect(screen.getByText(notice!.explanation)).toBeTruthy();

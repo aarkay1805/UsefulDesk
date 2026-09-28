@@ -431,7 +431,8 @@ export function TemplatePicker({
                   No approved templates yet
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs">
-                  Get a template approved first. Go to Settings → Message templates.
+                  Get a template approved first. Go to Settings → Message
+                  templates.
                 </p>
               </div>
             ) : (

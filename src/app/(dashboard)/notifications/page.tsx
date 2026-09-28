@@ -167,7 +167,9 @@ export default function NotificationsPage() {
         if (!n.read_at) markRead(n.id);
         load();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Could not do this. Try again.');
+        toast.error(
+          e instanceof Error ? e.message : 'Could not do this. Try again.'
+        );
       } finally {
         setActingId(null);
       }
@@ -187,7 +189,9 @@ export default function NotificationsPage() {
         if (!n.read_at) markRead(n.id);
         load();
       } catch (e) {
-        toast.error(e instanceof Error ? e.message : 'Could not do this. Try again.');
+        toast.error(
+          e instanceof Error ? e.message : 'Could not do this. Try again.'
+        );
       } finally {
         setActingId(null);
       }

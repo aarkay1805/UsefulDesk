@@ -62,9 +62,12 @@ describe('invoice collection eligibility', () => {
     [{ state: 'void', balance: 20, requiresRefundReview: false }, false],
     [{ state: 'open', balance: 20, requiresRefundReview: true }, false],
     [{ state: 'open', balance: 20, requiresRefundReview: false }, true],
-  ] as const)('uses only collectible invoice balances: %o', (invoice, expected) => {
-    expect(isCollectibleInvoice(invoice)).toBe(expected);
-  });
+  ] as const)(
+    'uses only collectible invoice balances: %o',
+    (invoice, expected) => {
+      expect(isCollectibleInvoice(invoice)).toBe(expected);
+    }
+  );
 
   it('lets the fixed installment own every general invoice milestone for its invoice', () => {
     expect(

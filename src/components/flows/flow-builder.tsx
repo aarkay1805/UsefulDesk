@@ -288,15 +288,11 @@ function TriggerPanel({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="keyword">
-                A message has a word
-              </SelectItem>
+              <SelectItem value="keyword">A message has a word</SelectItem>
               <SelectItem value="first_inbound_message">
                 A person’s first message
               </SelectItem>
-              <SelectItem value="manual">
-                Only when started by hand
-              </SelectItem>
+              <SelectItem value="manual">Only when started by hand</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -544,7 +540,8 @@ function NodeConfigWithAdvanced({
             </div>
             {hasReplyIds && (
               <p className="text-muted-foreground text-[10px]">
-                Each option has a reply ID above. You usually do not need to change it.
+                Each option has a reply ID above. You usually do not need to
+                change it.
               </p>
             )}
           </div>

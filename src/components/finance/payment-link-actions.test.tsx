@@ -252,14 +252,14 @@ describe('PaymentLinkActions readiness', () => {
     renderActions();
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay is not connected",
+      providerReason: 'Razorpay is not connected',
     });
 
     const copy = screen.getByRole('button', { name: 'Copy link' });
     expect(copy.getAttribute('aria-disabled')).toBe('true');
     await userEvent.click(copy);
 
-    expect(screen.getByText("Razorpay is not connected")).toBeTruthy();
+    expect(screen.getByText('Razorpay is not connected')).toBeTruthy();
     const resolution = screen.getByRole('button', {
       name: 'Connect Razorpay',
     });
@@ -309,7 +309,7 @@ describe('PaymentLinkActions readiness', () => {
     renderActions(null);
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay is not connected",
+      providerReason: 'Razorpay is not connected',
     });
 
     const send = screen.getByRole('button', { name: 'Send payment link' });
@@ -327,7 +327,7 @@ describe('PaymentLinkActions readiness', () => {
     renderActions(null);
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay is not connected",
+      providerReason: 'Razorpay is not connected',
     });
 
     await userEvent.click(
@@ -346,7 +346,7 @@ describe('PaymentLinkActions readiness', () => {
     renderActions();
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay is not connected",
+      providerReason: 'Razorpay is not connected',
     });
 
     await userEvent.click(
@@ -354,7 +354,7 @@ describe('PaymentLinkActions readiness', () => {
     );
 
     expect(
-      screen.getByRole('dialog', { name: "Razorpay is not connected" })
+      screen.getByRole('dialog', { name: 'Razorpay is not connected' })
     ).toBeTruthy();
   });
 
@@ -398,21 +398,21 @@ describe('PaymentLinkActions readiness', () => {
     renderActions();
     await resolveReadiness({
       providerReady: false,
-      providerReason: "Razorpay is not connected",
+      providerReason: 'Razorpay is not connected',
     });
 
     await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
 
     const blocker = screen.getByRole('dialog', {
-      name: "Razorpay is not connected",
+      name: 'Razorpay is not connected',
     });
     expect(blockerControls(blocker)).toHaveLength(0);
     expect(within(blocker).queryByRole('link')).toBeNull();
   });
 
   it.each([
-    [false, true, "WhatsApp is not connected"],
-    [true, false, "Payment link message is not ready"],
+    [false, true, 'WhatsApp is not connected'],
+    [true, false, 'Payment link message is not ready'],
   ])(
     'does not promise WhatsApp or template setup to an agent',
     async (connected, approved, title) => {

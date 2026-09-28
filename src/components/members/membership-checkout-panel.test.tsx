@@ -284,9 +284,7 @@ describe('MembershipCheckoutPanel', () => {
         .getAttribute('aria-disabled')
     ).toBe('true');
     expect(
-      screen.getByText(
-        'Finish the bonus months above to see the amount.'
-      )
+      screen.getByText('Finish the bonus months above to see the amount.')
     ).toBeTruthy();
   });
 
@@ -334,9 +332,7 @@ describe('MembershipCheckoutPanel', () => {
         .getAttribute('aria-disabled')
     ).toBe('true');
     expect(
-      screen.getByText(
-        'Finish the discount above to see the amount.'
-      )
+      screen.getByText('Finish the discount above to see the amount.')
     ).toBeTruthy();
   });
 
@@ -377,7 +373,7 @@ describe('MembershipCheckoutPanel', () => {
       '₹600 now, then ₹400 on 2026-09-13'
     );
     expect(
-      screen.getByRole('combobox', { name: "How are they paying today?" })
+      screen.getByRole('combobox', { name: 'How are they paying today?' })
     ).toBeTruthy();
   });
 
@@ -418,7 +414,7 @@ describe('MembershipCheckoutPanel', () => {
       screen.queryByRole('radio', { name: /Collect full amount/ })
     ).toBeNull();
     expect(
-      screen.queryByRole('combobox', { name: "How are they paying today?" })
+      screen.queryByRole('combobox', { name: 'How are they paying today?' })
     ).toBeNull();
   });
 
@@ -428,8 +424,6 @@ describe('MembershipCheckoutPanel', () => {
     expect(
       screen.getByRole('radio', { name: /Collect full amount/ })
     ).toBeTruthy();
-    expect(
-      screen.queryByRole('radio', { name: /Pay in 2 parts/ })
-    ).toBeNull();
+    expect(screen.queryByRole('radio', { name: /Pay in 2 parts/ })).toBeNull();
   });
 });

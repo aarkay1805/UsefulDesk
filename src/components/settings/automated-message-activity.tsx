@@ -121,7 +121,11 @@ const OUTCOMES: Record<
   blocked: { label: 'Blocked', variant: 'warning', group: 'attention' },
   stopped: { label: 'Stopped', variant: 'neutral', group: 'other' },
   failed: { label: 'Failed', variant: 'danger', group: 'attention' },
-  ambiguous: { label: 'Needs checking', variant: 'warning', group: 'attention' },
+  ambiguous: {
+    label: 'Needs checking',
+    variant: 'warning',
+    group: 'attention',
+  },
   unconfirmed: { label: 'Not confirmed', variant: 'neutral', group: 'other' },
 };
 

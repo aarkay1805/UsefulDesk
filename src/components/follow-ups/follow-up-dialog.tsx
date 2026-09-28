@@ -37,8 +37,7 @@ import {
 } from './follow-up-fields';
 
 /** The recovery a rejected create always names. */
-const ONE_OPEN_TASK =
-  'There is already an open follow-up. Mark it done first.';
+const ONE_OPEN_TASK = 'There is already an open follow-up. Mark it done first.';
 
 interface BaseFollowUpDialogProps {
   open: boolean;
@@ -228,7 +227,7 @@ function CreateFollowUpForm({
         toast.error(
           getErrorMessage(
             noteError,
-            "Could not add the note. Check your internet and try again."
+            'Could not add the note. Check your internet and try again.'
           )
         );
         return;

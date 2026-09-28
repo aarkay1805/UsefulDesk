@@ -18,8 +18,9 @@ const requestId = '22222222-2222-4222-8222-222222222222';
 function request(origin = true) {
   return new Request('https://desk.example/api/subscriptions/test-orders', {
     method: 'POST',
-    headers: origin ? { origin: 'https://desk.example',
-      'sec-fetch-site': 'same-origin' } : {},
+    headers: origin
+      ? { origin: 'https://desk.example', 'sec-fetch-site': 'same-origin' }
+      : {},
     body: JSON.stringify({ organizationId, requestId }),
   });
 }
@@ -52,7 +53,9 @@ describe('Test-only subscription order route', () => {
     const response = await POST(request());
     expect(response.status).toBe(200);
     expect(prepareTestCheckout).toHaveBeenCalledWith({
-      organizationId, requestId, actorUserId: 'owner-1',
+      organizationId,
+      requestId,
+      actorUserId: 'owner-1',
     });
   });
 });
