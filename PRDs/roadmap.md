@@ -748,7 +748,7 @@ to continue. The shipped trial and expired-trial screens compare the three plans
 state, owner-choice conversion rules, and pure base-tier billing transitions are coded and tested. The transition model prorates the listed base-price difference in paise over the actual paid period, keeps an upgrade pending until a trusted payment event, and projects downgrades/cancellations at the paid-through boundary. A pure renewal model keeps the old tier for one fixed 72-hour window after a failed paid renewal, denies new unpaid tier/branch capacity during grace, and resumes paid access only after a trusted verified renewal event. It does not verify provider payments or persist entitlements. The
 no-GST amount draft records listed software, ₹0 GST, and the matching draft total for monthly plans and base-tier upgrades; it is not wired to checkout. The reusable
 first-payment refund model evaluates the request date in the frozen billing-account timezone and reserves one full-refund request per organization. A separate pure confirmed-refund model ends paid access at full-refund confirmation and requires renewal to stop; pending/failed events leave access intact. Neither model calls a provider or changes runtime access. The reusable
-branch-upgrade prompt remains unmounted. The conversion review dialog mounts only in the local Test flow and can submit the owner's explicit archive selection to the unapplied SQL RPC.
+branch-upgrade prompt remains unmounted. The conversion review dialog mounts only in the local Test flow and submits the owner's explicit archive selection to the local-only SQL RPC.
 The local default-off base monthly integration now has owner-only intent,
 branch review/archive, Test order, Test confirmation, and signed Test webhook
 routes under `src/app/api/subscriptions/`. Its separate Usefulmade Test merchant
@@ -765,8 +765,29 @@ unique matching receipt. Restore retains the existing product-access gate.
 The billing switch remains default off and local application flags remain false.
 [Acceptance evidence](../docs/subscription-test-acceptance.md) records the exact
 scope: full application-schema acceptance and genuine provider webhook delivery
-remain pending. Renewal,
-downgrade, cancellation, refund, add-ons, and tier feature gates are not wired.
+remain pending.
+
+**Built locally on 28 September, disabled:** owner-initiated Test renewals,
+owner-scheduled base-tier downgrade/cancellation, fixed 72-hour grace after a
+freshly verified failed renewal, and atomic captured-payment/downgrade archive
+commits. The private renewal draft serializes by organization, binds one order to
+the original paid period, checks the current access version and reviewed roster,
+and preserves old tier/capacity during grace. Schedules remain immutable; there
+is no automatic debit, paid Billing UI, or provider recurring schedule. The Test
+renewal end is the previous end plus one month; verification restores access only
+from verification, and recovery beyond that next end needs review.
+
+First-payment refund **requests** now have a durable original receipt before
+provider verification and one organization claim using the frozen billing zone
+and verified provider payment timestamp. Retried processing cannot reset the
+request date. This is not refund execution or a confirmed-refund access change.
+Rollback SQL and concurrent order/commit/receipt acceptance pass on the local
+fixture. Full application/native/RLS recovery and genuine provider renewal/refund
+acceptance remain pending. Upgrade quote expiry/repricing, paid add-on
+cancellation/refund/proration/renewal rules, and Starter's standard reminder days
+and times still need decisions. Upgrade checkout, paid slots, capability
+enforcement, refund issuance/outcome, and paid billing/recovery screens remain
+unbuilt; keep their gates closed.
 No Production migration, checkout, real charge, or automated paid access has
 shipped. The separate
 [subscription brief](usefuldesk-subscriptions.md) records the customer journey,

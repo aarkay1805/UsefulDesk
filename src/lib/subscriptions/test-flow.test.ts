@@ -4,11 +4,13 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   confirmTestPayment,
   prepareTestCheckout,
+  recordTestRenewalFailure,
   TestBillingConflict,
 } from './test-flow';
 import {
   createTestOrder,
   fetchCapturedTestPayment,
+  fetchFailedTestPayment,
   recoverTestOrder,
   testBillingConfig,
   verifyTestCheckoutSignature,
@@ -55,6 +57,159 @@ function checkoutSignature() {
 }
 
 describe('Usefulmade Test merchant boundary', () => {
+  it('routes only verified renewal payments to the renewal transaction', async () => {
+    const db = admin({
+      subscription_test_intent_for_order: { ...intent, kind: 'renewal' },
+      subscription_commit_test_renewal_payment: {
+        payment: {
+          organization_id: organizationId,
+          intent_id: requestId,
+          provider_payment_id: paymentId,
+        },
+      },
+    });
+    const fetchPayment = vi.fn(async () => ({
+      id: paymentId,
+      orderId,
+      amountMinor: 149900,
+      currency: 'INR' as const,
+    }));
+    await confirmTestPayment(
+      { source: 'webhook', orderId, paymentId },
+      { admin: db, config, fetchPayment }
+    );
+    expect(fetchPayment).toHaveBeenCalledOnce();
+    expect(db.rpc.mock.calls.map(([name]) => name)).toEqual([
+      'subscription_test_intent_for_order',
+      'subscription_commit_test_renewal_payment',
+    ]);
+  });
+
+  it('uses a distinct renewal claim but the same durable order recovery', async () => {
+    const db = admin({
+      subscription_claim_test_renewal_order: {
+        ...intent,
+        kind: 'renewal',
+        action: 'recovery',
+      },
+    });
+    const createOrder = vi.fn();
+    const recoverOrder = vi.fn(async () => ({
+      id: orderId,
+      amount: 149900,
+      currency: 'INR' as const,
+      receipt: requestId,
+    }));
+    await prepareTestCheckout(
+      { organizationId, requestId, actorUserId: 'owner-1', kind: 'renewal' },
+      { admin: db, config, createOrder, recoverOrder }
+    );
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(recoverOrder).toHaveBeenCalledOnce();
+    expect(db.rpc.mock.calls.map(([name]) => name)).toEqual([
+      'subscription_claim_test_renewal_order',
+      'subscription_bind_test_order',
+    ]);
+  });
+
+  it.each([
+    { kind: 'initial', state: 'pending' },
+    { kind: 'renewal', state: 'verified' },
+  ])(
+    'never grants grace for first checkout or a delayed failure after success: %o',
+    async (state) => {
+      const db = admin({
+        subscription_test_intent_for_order: { ...intent, ...state },
+      });
+      const fetchPayment = vi.fn();
+      await recordTestRenewalFailure(
+        { orderId, paymentId },
+        { admin: db, config, fetchPayment }
+      );
+      expect(fetchPayment).not.toHaveBeenCalled();
+      expect(db.rpc).toHaveBeenCalledTimes(1);
+    }
+  );
+
+  it('requires a fresh matching failed provider payment before the grace transaction', async () => {
+    const db = admin({
+      subscription_test_intent_for_order: { ...intent, kind: 'renewal' },
+    });
+    const fetchPayment = vi.fn<() => Promise<void>>(async () => {
+      throw new Error('not failed');
+    });
+    await expect(
+      recordTestRenewalFailure(
+        { orderId, paymentId },
+        { admin: db, config, fetchPayment }
+      )
+    ).rejects.toThrow('not failed');
+    expect(db.rpc).toHaveBeenCalledTimes(1);
+    fetchPayment.mockImplementationOnce(async () => undefined);
+    await recordTestRenewalFailure(
+      { orderId, paymentId },
+      { admin: db, config, fetchPayment }
+    );
+    expect(db.rpc).toHaveBeenLastCalledWith(
+      'subscription_record_test_renewal_failure',
+      expect.objectContaining({
+        p_request_id: requestId,
+        p_amount_minor: 149900,
+        p_provider_merchant_id: config.merchantId,
+      })
+    );
+  });
+
+  it.each([
+    { status: 'captured', captured: true },
+    { amount: 79900 },
+    { currency: 'USD' },
+    { order_id: 'order_Other' },
+    { id: 'pay_Other' },
+    { amount_refunded: 1 },
+  ])('rejects mismatched failed-payment facts %o', async (changed) => {
+    const fetchImpl = vi.fn(async () =>
+      Response.json({
+        id: paymentId,
+        order_id: orderId,
+        amount: 149900,
+        currency: 'INR',
+        status: 'failed',
+        captured: false,
+        amount_refunded: 0,
+        ...changed,
+      })
+    );
+    await expect(
+      fetchFailedTestPayment(
+        config,
+        { orderId, paymentId, amountMinor: 149900 },
+        fetchImpl
+      )
+    ).rejects.toThrow('not a matching failed');
+  });
+
+  it('accepts only the pinned merchant lookup of a matching failed payment', async () => {
+    const fetchImpl = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      expect(init?.headers).toMatchObject({
+        Authorization: `Basic ${Buffer.from('rzp_test_key:test-secret').toString('base64')}`,
+      });
+      return Response.json({
+        id: paymentId,
+        order_id: orderId,
+        amount: 149900,
+        currency: 'INR',
+        status: 'failed',
+        captured: false,
+        amount_refunded: 0,
+      });
+    });
+    await fetchFailedTestPayment(
+      config,
+      { orderId, paymentId, amountMinor: 149900 },
+      fetchImpl
+    );
+  });
   it('requires a separate complete Test merchant configuration', () => {
     expect(() =>
       testBillingConfig({

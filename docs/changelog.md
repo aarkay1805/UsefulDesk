@@ -6,6 +6,28 @@
 
 ---
 
+## 2026-09-28 — Local Test renewal transactions and refund request receipts
+
+`20260928110000_subscription_test_renewals.sql` and the Test subscription routes
+add owner-scheduled downgrade/cancellation, one renewal order per term, verified
+failed-payment grace, and an organization-locked payment/branch-archive commit.
+Grace ends exactly 72 hours after the original paid-through instant; cancellation
+gets none. Access-version and full-roster checks reject stale callbacks. The
+Orders-only draft anchors the next end to the old end plus one month; later
+recovery requires review. Schedules cannot yet be changed or undone.
+
+`20260928120000_subscription_test_refund_claims.sql` and
+`test-refund-claims.ts` save the original server receipt before provider I/O,
+verify the first Usefulmade payment by GET, and reserve one full-refund claim
+using its payment timestamp and frozen billing timezone. Provider outages cannot
+move a saved request date. No refund is issued and no refund access outcome is
+applied. Both drafts were applied **only to the disposable local schema**; billing
+and application flags remain off. Rollback SQL and concurrent order/commit/receipt
+checks passed. Full application/native/RLS/provider acceptance, paid billing UI,
+refund execution/recovery, upgrades, paid slots, and tier enforcement remain open.
+
+---
+
 ## 2026-09-28 — Subscription Test payment and recovery acceptance (local only)
 
 Real Razorpay Test bank failure/retry/captured payment now verifies through

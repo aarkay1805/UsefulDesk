@@ -256,3 +256,64 @@ export async function fetchCapturedTestPayment(
     currency: 'INR',
   };
 }
+
+/** A webhook's claimed failure alone never grants the paid-renewal grace. */
+export async function fetchFailedTestPayment(
+  config: TestBillingConfig,
+  input: { paymentId: string; orderId: string; amountMinor: number },
+  fetchImpl: typeof fetch = fetch
+): Promise<void> {
+  if (!/^pay_[A-Za-z0-9]+$/.test(input.paymentId))
+    throw new Error('Invalid Test payment ID');
+  const result = await providerRequest(
+    config,
+    `/payments/${input.paymentId}`,
+    {},
+    fetchImpl
+  );
+  if (
+    !isRecord(result) ||
+    result.id !== input.paymentId ||
+    result.order_id !== input.orderId ||
+    result.amount !== input.amountMinor ||
+    result.currency !== 'INR' ||
+    result.status !== 'failed' ||
+    result.captured !== false ||
+    result.amount_refunded !== 0
+  ) {
+    throw new Error('Usefulmade Test payment is not a matching failed payment');
+  }
+}
+
+/** Read only. Provider payment creation time is the frozen payment timestamp. */
+export async function fetchTestFirstPaymentTime(
+  config: TestBillingConfig,
+  input: { paymentId: string; orderId: string; amountMinor: number },
+  fetchImpl: typeof fetch = fetch
+): Promise<string> {
+  if (!/^pay_[A-Za-z0-9]+$/.test(input.paymentId))
+    throw new Error('Invalid Test payment ID');
+  const result = await providerRequest(
+    config,
+    `/payments/${input.paymentId}`,
+    {},
+    fetchImpl
+  );
+  if (
+    !isRecord(result) ||
+    result.id !== input.paymentId ||
+    result.order_id !== input.orderId ||
+    result.amount !== input.amountMinor ||
+    result.currency !== 'INR' ||
+    result.status !== 'captured' ||
+    result.captured !== true ||
+    result.amount_refunded !== 0 ||
+    typeof result.created_at !== 'number' ||
+    !Number.isSafeInteger(result.created_at) ||
+    result.created_at <= 0 ||
+    !Number.isFinite(new Date(result.created_at * 1000).getTime())
+  ) {
+    throw new Error('First Test payment facts do not match');
+  }
+  return new Date(result.created_at * 1000).toISOString();
+}

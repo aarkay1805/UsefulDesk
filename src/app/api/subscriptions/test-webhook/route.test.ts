@@ -1,10 +1,14 @@
 import { createHmac } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { confirmTestPayment } = vi.hoisted(() => ({
+const { confirmTestPayment, recordTestRenewalFailure } = vi.hoisted(() => ({
   confirmTestPayment: vi.fn(),
+  recordTestRenewalFailure: vi.fn(),
 }));
-vi.mock('@/lib/subscriptions/test-flow', () => ({ confirmTestPayment }));
+vi.mock('@/lib/subscriptions/test-flow', () => ({
+  confirmTestPayment,
+  recordTestRenewalFailure,
+}));
 
 import { POST } from './route';
 
@@ -55,6 +59,7 @@ describe('Usefulmade Test webhook', () => {
     vi.stubEnv('NODE_ENV', 'production');
     expect((await POST(signedRequest(captured))).status).toBe(404);
     expect(confirmTestPayment).not.toHaveBeenCalled();
+    expect(recordTestRenewalFailure).not.toHaveBeenCalled();
   });
 
   it('rejects changed bytes and a different merchant before any payment lookup', async () => {
@@ -69,6 +74,7 @@ describe('Usefulmade Test webhook', () => {
       ).status
     ).toBe(403);
     expect(confirmTestPayment).not.toHaveBeenCalled();
+    expect(recordTestRenewalFailure).not.toHaveBeenCalled();
   });
 
   it('confirms only a signed captured event with the pinned merchant', async () => {
@@ -85,9 +91,27 @@ describe('Usefulmade Test webhook', () => {
     confirmTestPayment.mockRejectedValueOnce(new Error('database unavailable'));
     expect((await POST(signedRequest(captured))).status).toBe(503);
     expect(
+      (await POST(signedRequest({ ...captured, event: 'order.paid' }))).status
+    ).toBe(200);
+    expect(confirmTestPayment).toHaveBeenCalledTimes(1);
+  });
+
+  it('verifies a signed failed payment before granting renewal grace and retries verifier outages', async () => {
+    expect(
       (await POST(signedRequest({ ...captured, event: 'payment.failed' })))
         .status
     ).toBe(200);
-    expect(confirmTestPayment).toHaveBeenCalledTimes(1);
+    expect(recordTestRenewalFailure).toHaveBeenCalledWith({
+      orderId: 'order_Test456',
+      paymentId: 'pay_Test123',
+    });
+    expect(confirmTestPayment).not.toHaveBeenCalled();
+    recordTestRenewalFailure.mockRejectedValueOnce(
+      new Error('provider unavailable')
+    );
+    expect(
+      (await POST(signedRequest({ ...captured, event: 'payment.failed' })))
+        .status
+    ).toBe(503);
   });
 });

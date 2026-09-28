@@ -8,6 +8,7 @@ import { isSubscriptionTier, SUBSCRIPTION_PLANS } from './plans';
 import {
   createTestOrder,
   fetchCapturedTestPayment,
+  fetchFailedTestPayment,
   fetchTestOrder,
   recoverTestOrder,
   testBillingConfig,
@@ -26,6 +27,7 @@ function assertIntent(value: unknown): asserts value is {
   currency: 'INR';
   state?: string;
   action?: string;
+  kind?: 'initial' | 'renewal';
 } {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Invalid Test plan intent');
@@ -36,7 +38,8 @@ function assertIntent(value: unknown): asserts value is {
     !isSubscriptionTier(row.tier) ||
     row.amount_minor !==
       SUBSCRIPTION_PLANS[row.tier].monthlySoftwareInr * 100 ||
-    row.currency !== 'INR'
+    row.currency !== 'INR' ||
+    (row.kind !== undefined && row.kind !== 'initial' && row.kind !== 'renewal')
   ) {
     throw new Error('Test plan intent does not match approved base price');
   }
@@ -50,6 +53,7 @@ export async function prepareTestCheckout(
     organizationId: string;
     requestId: string;
     actorUserId: string;
+    kind?: 'initial' | 'renewal';
   },
   dependencies: {
     admin?: Admin;
@@ -61,18 +65,24 @@ export async function prepareTestCheckout(
 ) {
   const admin = dependencies.admin ?? supabaseAdmin();
   const config = dependencies.config ?? testBillingConfig();
-  const { data, error } = await admin.rpc('subscription_claim_test_order', {
-    p_request_id: input.requestId,
-    p_organization_id: input.organizationId,
-    p_actor_user_id: input.actorUserId,
-    p_provider_merchant_id: config.merchantId,
-  });
+  const { data, error } = await admin.rpc(
+    input.kind === 'renewal'
+      ? 'subscription_claim_test_renewal_order'
+      : 'subscription_claim_test_order',
+    {
+      p_request_id: input.requestId,
+      p_organization_id: input.organizationId,
+      p_actor_user_id: input.actorUserId,
+      p_provider_merchant_id: config.merchantId,
+    }
+  );
   if (error)
     throw new Error(`Test order claim failed (${error.code ?? 'database'})`);
   assertIntent(data);
   if (
     data.request_id !== input.requestId ||
-    data.organization_id !== input.organizationId
+    data.organization_id !== input.organizationId ||
+    (data.kind ?? 'initial') !== (input.kind ?? 'initial')
   )
     throw new Error('Test order claim returned another organization');
 
@@ -184,7 +194,9 @@ export async function confirmTestPayment(
     });
   }
   const { data: committed, error: commitError } = await admin.rpc(
-    'subscription_commit_test_initial_payment',
+    data.kind === 'renewal'
+      ? 'subscription_commit_test_renewal_payment'
+      : 'subscription_commit_test_initial_payment',
     {
       p_request_id: data.request_id,
       p_provider_order_id: data.provider_order_id,
@@ -208,10 +220,23 @@ export async function confirmTestPayment(
       };
     } | null
   )?.grant;
+  const payment = (
+    committed as {
+      payment?: {
+        organization_id?: string;
+        intent_id?: string;
+        provider_payment_id?: string;
+      };
+    } | null
+  )?.payment;
   if (
-    grant?.organization_id !== data.organization_id ||
-    grant.source_intent_id !== data.request_id ||
-    grant.first_provider_payment_id !== input.paymentId
+    data.kind === 'renewal'
+      ? payment?.organization_id !== data.organization_id ||
+        payment.intent_id !== data.request_id ||
+        payment.provider_payment_id !== input.paymentId
+      : grant?.organization_id !== data.organization_id ||
+        grant.source_intent_id !== data.request_id ||
+        grant.first_provider_payment_id !== input.paymentId
   ) {
     throw new Error('Test payment commit returned another grant');
   }
@@ -221,4 +246,48 @@ export async function confirmTestPayment(
     tier: data.tier,
     paymentId: input.paymentId,
   };
+}
+
+/** Invoke only after the raw Test webhook signature and merchant were checked. */
+export async function recordTestRenewalFailure(
+  input: { orderId: string; paymentId: string },
+  dependencies: {
+    admin?: Admin;
+    config?: TestBillingConfig;
+    fetchPayment?: typeof fetchFailedTestPayment;
+  } = {}
+) {
+  const admin = dependencies.admin ?? supabaseAdmin();
+  const config = dependencies.config ?? testBillingConfig();
+  const { data, error } = await admin.rpc(
+    'subscription_test_intent_for_order',
+    {
+      p_provider_order_id: input.orderId,
+      p_provider_merchant_id: config.merchantId,
+    }
+  );
+  if (error)
+    throw new Error(`Test renewal lookup failed (${error.code ?? 'database'})`);
+  assertIntent(data);
+  if (data.provider_order_id !== input.orderId)
+    throw new Error('Test order does not match');
+  // First checkout never receives grace. A delayed failure cannot undo success.
+  if (data.kind !== 'renewal' || data.state === 'verified') return;
+  await (dependencies.fetchPayment ?? fetchFailedTestPayment)(config, {
+    paymentId: input.paymentId,
+    orderId: input.orderId,
+    amountMinor: data.amount_minor,
+  });
+  const result = await admin.rpc('subscription_record_test_renewal_failure', {
+    p_request_id: data.request_id,
+    p_provider_order_id: input.orderId,
+    p_provider_payment_id: input.paymentId,
+    p_provider_merchant_id: config.merchantId,
+    p_amount_minor: data.amount_minor,
+    p_currency: 'INR',
+  });
+  if (result.error)
+    throw new Error(
+      `Test renewal failure commit failed (${result.error.code ?? 'database'})`
+    );
 }

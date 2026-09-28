@@ -99,3 +99,53 @@ The paid synthetic organization is
 - Renewal, upgrades/downgrades, cancellation, refunds, paid branch add-ons, and
   capability enforcement remain subsequent implementation slices. Commercial,
   tax, and explicitly authorized real-money pilot gates remain closed.
+
+## Successor slice: renewal transactions and refund requests
+
+Built on main after `04139509`, still default off. These are API/database drafts;
+no paid Billing UI or Production rollout is claimed.
+
+- Renewal SQL verifies one fixed 72-hour grace, previous-tier retention, no
+  reopening from a late failed event, recovery only from capture verification,
+  atomic exact-choice downgrade archives, cancellation without early cutoff or
+  grace, access-version/roster conflict rejection, and duplicate/delayed replay.
+- Refund SQL rejects non-first payments and local day-eight requests, accepts
+  local day seven, freezes the original billing zone/full amount, and preserves
+  access while a request is pending. Original server receipt precedes provider
+  I/O; unit tests check retry after a provider outage uses that stored time.
+- Concurrent PostgreSQL sessions produce one order claim, one renewal
+  payment/access audit, and one refund receipt even with different request IDs.
+  Synthetic organization `49630be7-fb89-4df6-a510-c17bfab73db5` is retained as
+  evidence. The runner restores the prior billing switch/merchant in `finally`.
+- All new provider calls are covered with mocked exact identity/status checks.
+  **No new real-provider renewal or refund acceptance was performed.** No refund
+  POST exists in this slice. Request reservation is not provider settlement.
+
+Only the disposable local project above received the two new repository drafts.
+Local-only versions `20260928115000` and `20260928125000` re-applied the revised
+renewal checks and durable receipt step. They are fixture verification history,
+not Production migrations. Both source drafts are idempotent. Repeat checks:
+
+```sh
+docker exec -i supabase_db_usefuldesk-subscription-test.fLz1yB \
+  psql -U postgres -d postgres -q < scripts/verify-subscription-test-renewals.sql
+node scripts/verify-subscription-renewal-concurrency.mjs \
+  supabase_db_usefuldesk-subscription-test.fLz1yB
+```
+
+Successor repository validation: `npm run verify` passed lint, TypeScript,
+**3,912 tests across 501 files**, and the optimized production build. The targeted
+subscription route/library run passed 113 tests. The original conversion SQL
+still passes with these drafts installed. Private-table RLS and service/owner
+function grants were inspected, and both application flags and the disposable
+billing switch were confirmed disabled afterward.
+
+Remaining implementation/acceptance: paid billing and post-refund plan recovery
+UI; refund execution plus confirmed full-refund access/renewal transaction;
+upgrade and add-on integration; named tier gates across UI, API, RLS, RPCs and
+background sends; full-schema/native acceptance; actual provider delivery and
+outage recovery. Required policy decisions: upgrade quote expiry/repricing,
+add-on cancellation/refund/proration/renewal, standard reminder days/times,
+remaining saleable feature matrix and commercial/tax readiness. The renewal
+adapter's old-end-plus-one-month Test convention and immutable schedules also
+need paid UX review before rollout. No live pilot is authorized by this work.

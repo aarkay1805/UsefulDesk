@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 
-import { confirmTestPayment } from '@/lib/subscriptions/test-flow';
+import {
+  confirmTestPayment,
+  recordTestRenewalFailure,
+} from '@/lib/subscriptions/test-flow';
 import {
   testBillingConfig,
   verifyTestWebhookSignature,
@@ -39,7 +42,7 @@ export async function POST(request: Request) {
   const event = value as Record<string, unknown>;
   if (event.account_id !== config.merchantId)
     return NextResponse.json({ error: 'Wrong merchant' }, { status: 403 });
-  if (event.event !== 'payment.captured')
+  if (event.event !== 'payment.captured' && event.event !== 'payment.failed')
     return NextResponse.json({ received: true });
   const payload = event.payload as {
     payment?: { entity?: Record<string, unknown> };
@@ -58,11 +61,17 @@ export async function POST(request: Request) {
     );
   }
   try {
-    await confirmTestPayment({
-      source: 'webhook',
-      orderId: payment.order_id,
-      paymentId: payment.id,
-    });
+    if (event.event === 'payment.failed') {
+      await recordTestRenewalFailure({
+        orderId: payment.order_id,
+        paymentId: payment.id,
+      });
+    } else
+      await confirmTestPayment({
+        source: 'webhook',
+        orderId: payment.order_id,
+        paymentId: payment.id,
+      });
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('[subscription Test webhook] processing failed:', {
