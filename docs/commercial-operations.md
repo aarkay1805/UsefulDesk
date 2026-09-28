@@ -9,14 +9,16 @@ The commercial gate is defined in `docs/production-readiness.md`. Do not accept
 money for a paid term or activate paid access while that gate is **CLOSED**.
 The subscription decision brief is `PRDs/usefuldesk-subscriptions.md`.
 
-The local Test plan-selection and Checkout routes, separate Usefulmade Test
-merchant adapter, and private billing migration are engineering drafts. They
-are disabled by default and unavailable in Production. The server draft checks
-Checkout or webhook signatures and freshly reads captured Test payment state
-before an atomic first-term commit, but no SaaS Test credentials are configured
-and the SQL is unapplied. None of this opens the commercial gate. Do not use an
-intent or a Test payment record as evidence of an accepted customer charge or
-a payable quote.
+The local Test checkout, owner-initiated renewal, and full first-payment refund
+flows are disabled by default and unavailable in Production. Real separate
+Usefulmade Test capture/refund and minimal disposable-schema transactions were
+verified on 28 September; all local gates were restored off. Full application,
+native/RLS recovery and genuine provider webhook delivery remain unproven; see
+[the Test acceptance record](subscription-test-acceptance.md). All nine private
+subscription tables remain absent from Production. None of this opens the
+commercial gate. An intent or Test payment is not a customer charge or payable
+quote. The readiness record distinguishes a specifically approved manual pilot
+from the additional acceptance required for automated subscriptions.
 
 ## Offer and quote
 
@@ -97,9 +99,10 @@ For every quote:
 
 The product grants one 14-day full-feature trial to a new verified organization
 owner. Signup does not require a tier choice; the approved future conversion flow
-asks for Starter, Growth, or Ultimate after expiry. The current expired screen
-remains support-only until checkout and tier enforcement ship. The 30-day guided
-trial in the pricing research was superseded. A trial extension is exceptional
+asks for Starter, Growth, or Ultimate after expiry. The deployed web screen
+compares the plans and retains support, with purchase actions unavailable.
+Local Test billing does not ship Production checkout or paid tier enforcement.
+The 30-day guided trial in the pricing research was superseded. A trial extension is exceptional
 and must have a founder-approved reason in `/platform-admin`.
 
 Seven days before trial expiry, review usage with the decision-maker, confirm the
@@ -168,9 +171,10 @@ After a provider-confirmed **full first-payment refund**, cancel its next
 renewal and end paid operational access at confirmation. Keep the gym's data,
 branches, and sign-in, with support and plan-selection recovery. Pending,
 failed, partial, or unverified refunds leave access and renewal as they were.
-The local pure model does not perform a provider refund, cancel a recurring
-provider schedule, or change the production entitlement. Exceptional
-corrections still need an individual access decision.
+The separate local Test adapter can execute and verify a full Test refund and
+atomically end disposable access; Production has none of that behavior. The
+Orders-only adapter has no SaaS recurring provider schedule to cancel.
+Exceptional corrections still need an individual access decision.
 
 Refunds are manual commercial operations:
 
@@ -182,8 +186,9 @@ Refunds are manual commercial operations:
 4. For a confirmed full first-payment refund, stop renewal and end paid access
    while preserving data and sign-in; record the non-sensitive reason and
    resulting access version. For other approved corrections, record the
-   individually agreed access outcome. The automated transaction and provider
-   cancellation are not yet implemented, so this step remains founder-run.
+   individually agreed access outcome. The Test transaction is unavailable in
+   Production, so this step remains founder-run. No manual action may imply
+   that a provider refund or recurring cancellation happened automatically.
 
 Suspension and restoration are reversible access controls. They do not refund a
 payment, cancel a member mandate, or erase commercial history.

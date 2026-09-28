@@ -761,22 +761,36 @@ connector version `20260927125734`.
 ## Operations-ready in code — founder-led paid pilots (2026-09-20)
 
 The commercial operating path is now explicit in
-`docs/commercial-operations.md`: quote the approved founding offer, independently
+`docs/commercial-operations.md`: quote the exact founder-approved pilot offer, independently
 verify settled funds, activate an exact manual term through the audited
 MFA-protected platform admin, renew only after settlement, let end-of-term
 cancellations expire naturally, and keep refunds separate from gym-member money
 movement. `docs/production-readiness.md` is the provider gate and
 `npm run audit:production-env` is the value-redacting environment-policy check.
 
-The paid-pilot gate remains closed on external owner actions. Vercel Hobby must
-be upgraded before commercial use; Supabase plan/capacity, custom Auth SMTP,
-current database Cron evidence, and two protected Vercel values require
-authenticated provider verification. Those actions name the owner, evidence,
-cost, and deadline in the readiness record. Public lead capture remains
-deliberately unavailable while Turnstile keys are absent. Automated SaaS
-checkout, recurring subscription billing, scheduled cancellation, tax invoicing,
-and customer self-service remain deferred; the first pilots use the documented
-manual commercial ledger and access workflow.
+**28 September audit: paid activation remains closed.** Authenticated reads
+confirm Vercel Hobby, Supabase Free within quotas, configured Auth SMTP, and
+active database schedules. Real Auth delivery, protected URL/key value checks,
+Vercel upgrade, Supabase risk/spend choice, adviser-confirmed accounting and the
+exact limited offer remain owner decisions. The readiness record now separates
+manual-pilot approval from automated-subscription acceptance; operational checks
+alone cannot open either gate. Turnstile remains absent.
+
+**Fixed in code, deployment/recovery pending:** the shared legal-business lookup
+now names the organization-scoped FK, fixing reproduced `PGRST201` ambiguity.
+One Production payment-confirmation reminder exhausted five attempts with zero
+provider sends; a healthy later cron aggregate does not recover it. Release the
+patch and obtain an owner decision on that job's disposition. Redundant GitHub
+cron runs were stale at audit time. The environment checker now rejects all
+three SaaS Test flags and unreleased SaaS merchant configuration in Production.
+No provider setting, migration, live send, payment or access was changed.
+
+The local default-off Test checkout, renewal, cancellation and refund slices
+below do not constitute Production automated billing. Full-schema/native/RLS
+acceptance, genuine provider webhook/renewal recovery, remaining tier enforcement
+and commercial decisions still block rollout. A specifically approved manual
+pilot uses the documented ledger and manual access workflow; its offer cannot
+claim automated tier enforcement.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five

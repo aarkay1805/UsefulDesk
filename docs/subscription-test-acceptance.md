@@ -96,9 +96,11 @@ The paid synthetic organization is
   outage recovery with real provider events. Mocked failure tests are not that
   acceptance. Unknown/absent receipt recovery stays support-held until the
   provider exposes a unique matching order.
-- Renewal, upgrades/downgrades, cancellation, refunds, paid branch add-ons, and
-  capability enforcement remain subsequent implementation slices. Commercial,
-  tax, and explicitly authorized real-money pilot gates remain closed.
+- The renewal/downgrade/cancellation and refund slices recorded below now exist
+  locally, but still require full application and genuine provider-delivery
+  acceptance. Upgrades, paid branch add-ons, and capability enforcement remain
+  subsequent implementation slices. Commercial, tax, and explicitly authorized
+  real-money pilot gates remain closed.
 
 ## Successor slice: renewal transactions and refund requests
 

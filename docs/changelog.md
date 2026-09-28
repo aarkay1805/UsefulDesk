@@ -6,6 +6,23 @@
 
 ---
 
+## 2026-09-28 — Repair legal-identity lookup and refresh paid-pilot gates
+
+`lib/whatsapp/legal-business-name.ts` names the organization-scoped FK to avoid
+Production `PGRST201` with the coexisting legacy relationship. Service workers
+cannot use the authenticated RPC fallback. Regression tests cover this failure;
+no identity data or schema change is needed. One exhausted payment-confirmation
+job remains for owner-reviewed disposition after release; no replay occurred.
+
+`scripts/production-env-readiness.mjs` rejects enabled/hidden SaaS Test flags and
+unreleased SaaS merchant configuration without printing values. Readiness,
+commercial and subscription records now distinguish verified local Test work,
+Production evidence, and separate manual/automated opening criteria. Paid gates
+remain closed; provider, accounting, offer and acceptance decisions are named in
+`docs/production-readiness.md`. No deployment or paid action was performed.
+
+---
+
 ## 2026-09-28 — Home comparison prototype and exact queue destinations
 
 `src/app/preview/home-study/` adds a development-only fictional-data harness

@@ -24,6 +24,41 @@ const validEnvironment = {
 };
 
 describe('production environment readiness', () => {
+  it.each([
+    'USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED',
+    'USEFULDESK_SUBSCRIPTION_REFUNDS_ENABLED',
+    'NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI',
+  ])('blocks enabled or hidden Test billing flag %s', (name) => {
+    for (const value of ['true', '1', '[SENSITIVE]']) {
+      expect(
+        evaluateProductionEnvironment({ ...validEnvironment, [name]: value })
+      ).toContainEqual(
+        expect.objectContaining({
+          severity: 'blocker',
+          check: 'production-safety-flags',
+        })
+      );
+    }
+    expect(
+      evaluateProductionEnvironment({ ...validEnvironment, [name]: 'false' })
+    ).not.toContainEqual(expect.objectContaining({ severity: 'blocker' }));
+  });
+
+  it('blocks SaaS Test merchant configuration without printing its values', () => {
+    const results = evaluateProductionEnvironment({
+      ...validEnvironment,
+      USEFULDESK_SAAS_RAZORPAY_MODE: 'test',
+      USEFULDESK_SAAS_RAZORPAY_TEST_KEY_SECRET: 'private-test-value',
+    });
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        severity: 'blocker',
+        check: 'subscription-test-boundary',
+      })
+    );
+    expect(JSON.stringify(results)).not.toContain('private-test-value');
+  });
+
   it('parses quoted provider exports without evaluating their contents', () => {
     expect(
       parseDotenv(

@@ -87,7 +87,9 @@ account locale. The exact payloads live in
 sender.
 
 Every wired feature contract identifies the account's canonical legal-business
-identity, resolved from its linked legal entity (`legal_name`, then `name`). A
+identity, resolved only from its linked entity's canonical `legal_name` (never
+its brand `name`). The shared lookup explicitly selects the organization-scoped
+foreign key because the legacy and composite relationships both exist. A
 missing or unreadable identity blocks the send with a structured setup reason;
 senders never substitute a product or placeholder brand.
 

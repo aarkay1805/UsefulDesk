@@ -61,7 +61,11 @@ export async function loadLegalBusinessName(
 ): Promise<LegalBusinessNameResult> {
   const { data, error } = await db
     .from('accounts')
-    .select('legal_entity:legal_entities(legal_name)')
+    // Both the legacy single-column FK and the organization-scoped FK exist.
+    // An unqualified embed is ambiguous, including for service-role workers.
+    .select(
+      'legal_entity:legal_entities!accounts_organization_legal_entity_fkey(legal_name)'
+    )
     .eq('id', accountId)
     .maybeSingle();
   const legalEntity = (data as { legal_entity?: unknown } | null)?.legal_entity;

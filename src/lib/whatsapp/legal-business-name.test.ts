@@ -44,6 +44,30 @@ describe('applyLegalBusinessNameParam', () => {
 });
 
 describe('loadLegalBusinessName', () => {
+  it('disambiguates the organization relationship for a service worker without a user session', async () => {
+    const db = {
+      from: () => ({
+        select: (columns: string) => ({
+          eq: () => ({
+            maybeSingle: async () =>
+              columns.includes('!accounts_organization_legal_entity_fkey(')
+                ? {
+                    data: { legal_entity: { legal_name: 'FitZone Legal' } },
+                    error: null,
+                  }
+                : { data: null, error: { code: 'PGRST201' } },
+          }),
+        }),
+      }),
+      rpc: async () => ({ data: null, error: { code: '42501' } }),
+    };
+
+    await expect(loadLegalBusinessName(db, 'account-1')).resolves.toEqual({
+      ok: true,
+      name: 'FitZone Legal',
+    });
+  });
+
   it('uses the authenticated branch listing when legal-entity RLS hides the row', async () => {
     const db = {
       from: () => ({
@@ -118,7 +142,10 @@ describe('loadLegalBusinessName', () => {
       name: 'FitZone Wellness Private Limited',
     });
     expect(calls).toEqual([
-      ['select', 'legal_entity:legal_entities(legal_name)'],
+      [
+        'select',
+        'legal_entity:legal_entities!accounts_organization_legal_entity_fkey(legal_name)',
+      ],
       ['id', 'account-1'],
     ]);
   });

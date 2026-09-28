@@ -26,6 +26,9 @@ const UNSAFE_PRODUCTION_FLAGS = Object.freeze([
   'RAZORPAY_PROVIDER_ACCEPTANCE_ONLY',
   'RAZORPAY_REFUND_WEBHOOK_RETRY_ACCEPTANCE',
   'RAZORPAY_REFUND_AMBIGUOUS_CREATE_ACCEPTANCE',
+  'USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED',
+  'USEFULDESK_SUBSCRIPTION_REFUNDS_ENABLED',
+  'NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI',
 ]);
 
 function normalize(value) {
@@ -138,6 +141,19 @@ export function evaluateProductionEnvironment(env) {
       'Test/dry-run provider flags are false or unset.'
     );
   }
+
+  // The separate SaaS merchant adapter is currently Test-only and unreleased.
+  const subscriptionConfiguration = Object.keys(env).filter(
+    (name) =>
+      name.startsWith('USEFULDESK_SAAS_RAZORPAY_') && normalize(env[name])
+  );
+  add(
+    subscriptionConfiguration.length ? 'blocker' : 'pass',
+    'subscription-test-boundary',
+    subscriptionConfiguration.length
+      ? `Unreleased SaaS merchant configuration must be absent from Production: ${subscriptionConfiguration.join(', ')}`
+      : 'Unreleased SaaS merchant configuration is absent.'
+  );
 
   const razorpayConfigured = RAZORPAY_ENVIRONMENT.some((name) =>
     normalize(env[name])
