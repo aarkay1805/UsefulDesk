@@ -1,0 +1,101 @@
+# Local subscription Test acceptance — 28 September 2026
+
+The first-payment core passed real Razorpay **Test** Checkout → server
+verification → disposable PostgreSQL entitlement commit. This is partial
+acceptance, not a Production release or full signed-in application acceptance.
+The application Test flags remain false; Production billing remains unavailable.
+No Production schema/data, gym-member ledger, real charge, or recurring schedule
+was changed.
+
+## Evidence
+
+| Case                                           | Result and boundary                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Separate Test credentials                      | Read-only Orders API authentication returned 200. Only the `USEFULDESK_SAAS_RAZORPAY_TEST_*` credentials were used.                                                                                                                                                                                                                                                                                              |
+| Provider order and uncertain response recovery | Created `order_ThPOPMkdnJE67G` for a synthetic organization, fetched it directly, and recovered it by exact receipt plus organization/request notes. The receipt index initially returned zero, then one: an empty result must never authorize a second create. Wrong-organization notes were rejected. No payment was attempted on this order.                                                                  |
+| Failed provider payment                        | Test bank Failure produced `pay_ThPZLeIQO3okic` on `order_ThPXuBhSvGX5tj`, ₹799 / 79900 paise. The provider returned `failed`; the real captured-payment verifier rejected it. Local access remained trial with zero payment rows.                                                                                                                                                                               |
+| Browser reload and success                     | Reloaded the disposable browser harness after failure and reopened the same order. Test bank Success produced `pay_ThPaOBylZedRri`. Real `prepareTestCheckout` and `confirmTestPayment` used local PostgREST and the Test provider. The Checkout HMAC and fresh captured-payment GET passed; one Starter grant and payment row committed, access became manual/version 2/allowed, with exactly one access audit. |
+| Signed duplicate webhook                       | Sent two locally constructed, correctly signed `payment.captured` deliveries for that real Test payment through the actual webhook route. Both returned 200; payment/grant/audit remained exactly once. **These were synthetic deliveries, not Razorpay delivery evidence.**                                                                                                                                     |
+| Delayed callback                               | Disposable SQL replay with a later verification timestamp retained the original period start/end and one audit. Wrong payment, order, amount, and null replay amount/currency were rejected.                                                                                                                                                                                                                     |
+| Organization isolation and privileges          | SQL refused another organization's roster, archive, intent claim, and browser-role service RPC/table access; the unrelated organization's access version stayed unchanged. Mocked API checks also reject cross-site and non-owner requests.                                                                                                                                                                      |
+| Archive/restore capacity                       | SQL refused an over-cap Starter intent; explicit archive preserved all six fixture branch rows; paid Starter restore/direct insert failed at capacity; archive freed a slot and restore consumed it. Expired-trial restore retained the pre-existing product-access denial.                                                                                                                                      |
+| Concurrent capacity                            | Separate PostgreSQL sessions exercised create/create, create/restore, and restore/restore with one trial slot remaining. Exactly one transaction succeeded in each pair; the other received the capacity error; active count stayed five.                                                                                                                                                                        |
+| Browser request identity loss                  | SQL accepts a new browser request UUID by returning the organization's existing claimed same-tier intent. The API and UI tests verify that the canonical returned request ID is used for Checkout and confirmation. This is separate from the minimal browser harness reload above.                                                                                                                              |
+| Production/default-off gates                   | API/provider tests refuse Production and non-Test mode; SQL refuses disabled billing. Repository `.env.local` billing flags stayed false. The disposable database billing switch was disabled after acceptance.                                                                                                                                                                                                  |
+
+Repository validation: `npm run verify` passed lint, TypeScript, all **3,872 tests
+in 498 files**, and the optimized Next.js production build. The targeted
+subscription/access run passed 183 tests; the one-use real-provider harness
+passed separately. The rollback SQL and all three concurrent-capacity pairs
+passed against the disposable PostgreSQL instance.
+
+## Fixes made during acceptance
+
+- Resume the canonical claimed intent after browser loss instead of stranding a
+  new UUID behind the one-order guard. A different tier remains blocked while an
+  order needs completion/review.
+- Reconcile ambiguous order creation by exact provider receipt and immutable
+  organization/request notes; only a unique match is bound. Zero/multiple matches
+  keep recovery blocked, without another provider POST.
+- Preserve `private.is_product_organization_owner` and
+  `private.has_product_account_membership` in the replacement `restore_branch`.
+  Reverting to identity-only predicates had removed the existing expiry gate,
+  even while subscription billing was off.
+- Use null-safe amount/currency comparison on committed-payment replay, and apply
+  the shared Test-mode gate to monthly intent creation.
+
+## Repeatable disposable database checks
+
+Existing local project:
+`/Users/rajatkashyap/Library/Caches/usefuldesk-subscription-test.fLz1yB`.
+Database container: `supabase_db_usefuldesk-subscription-test.fLz1yB`.
+Local API is `http://127.0.0.1:54321`; PostgreSQL is on local port 54322.
+This is a **minimal schema fixture**, not a restored Production database.
+The cloud project named UsefulDesk Razorpay Test was inactive and was not used.
+
+The source fixture is `scripts/fixtures/subscription-test-schema.sql`. It provides
+only the subscription prerequisites plus product-access predicates copied from
+`20260906171614_organization_product_access.sql`; it does not claim to reproduce
+all operational RLS, account triggers, or native/API behavior.
+The subscription draft was applied/reapplied **only here**, through
+`supabase migration up --local --workdir <disposable-project>`. Local-only history
+records the original draft plus `20260928093000`, `20260928094000`, and
+`20260928094100` fixture/recovery revisions. Do not copy that fixture history into
+Production or run `db push`.
+
+```sh
+docker exec -i supabase_db_usefuldesk-subscription-test.fLz1yB \
+  psql -U postgres -d postgres -q < scripts/verify-subscription-test-conversion.sql
+node scripts/verify-subscription-test-concurrency.mjs \
+  supabase_db_usefuldesk-subscription-test.fLz1yB
+npx vitest run src/lib/subscriptions src/app/api/subscriptions \
+  src/components/platform-access src/lib/auth/roles.test.ts
+```
+
+The conversion SQL rolls all fixtures and gate changes back. The concurrency
+runner retains synthetic rows as evidence and restores the previous billing gate.
+Its container-name restriction prevents an accidental application `.env` target.
+The one-use browser harness is retained in the local project's
+`provider-acceptance.local.test.ts` for investigation, outside the ordinary test
+suite; it is not a supported production route or a turnkey repeat command.
+The paid synthetic organization is
+`a2222222-2222-4222-8222-222222222222` and its intent is
+`a7777777-7777-4777-8777-777777777777`.
+
+## Still required before wider rollout
+
+- A disposable **full application schema** with authenticated owner, invited
+  staff, organization switching, actual create RPCs, operational RLS, native/API
+  recovery, and complete expired-owner UI acceptance. The configured app database
+  is Production; it was not used as a substitute.
+- A reachable non-Production webhook endpoint registered with the separate Test
+  merchant, proving Razorpay-originated delivery, retry, delayed/out-of-order
+  events, and browser disappearance after capture but before the Checkout callback.
+  Local signing does not prove merchant identity or delivery configuration.
+- Initial capture held in `authorized`, provider timeout, and database commit
+  outage recovery with real provider events. Mocked failure tests are not that
+  acceptance. Unknown/absent receipt recovery stays support-held until the
+  provider exposes a unique matching order.
+- Renewal, upgrades/downgrades, cancellation, refunds, paid branch add-ons, and
+  capability enforcement remain subsequent implementation slices. Commercial,
+  tax, and explicitly authorized real-money pilot gates remain closed.

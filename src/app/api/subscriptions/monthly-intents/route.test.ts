@@ -73,6 +73,7 @@ describe('local monthly plan intent route', () => {
     vi.clearAllMocks();
     __resetRateLimitForTests();
     vi.stubEnv('USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED', 'true');
+    vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_MODE', 'test');
   });
 
   afterEach(() => vi.unstubAllEnvs());
@@ -140,6 +141,26 @@ describe('local monthly plan intent route', () => {
       p_billing_account_id: ACCOUNT_ID,
     });
     expect(rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it('returns the canonical pending request after the browser loses its request ID', async () => {
+    identity();
+    const response = await POST(
+      request({
+        organizationId: ORGANIZATION_ID,
+        accountId: ACCOUNT_ID,
+        requestId: '55555555-5555-4555-8555-555555555555',
+        tier: 'growth',
+      })
+    );
+    expect(response.status).toBe(202);
+    expect((await response.json()).intent.request_id).toBe(REQUEST_ID);
+  });
+
+  it('refuses a non-Test mode even when intent creation is opted in', async () => {
+    vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_MODE', 'live');
+    expect((await POST(request({}))).status).toBe(404);
+    expect(createClient).not.toHaveBeenCalled();
   });
 
   it.each([

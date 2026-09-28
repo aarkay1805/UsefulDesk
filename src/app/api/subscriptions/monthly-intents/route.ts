@@ -10,6 +10,7 @@ import {
 } from '@/lib/rate-limit';
 import { isSubscriptionTier } from '@/lib/subscriptions/plans';
 import { requireSubscriptionOwner } from '@/lib/subscriptions/owner';
+import { testBillingEnabled } from '@/lib/subscriptions/test-provider';
 
 type PendingIntent = {
   request_id: string;
@@ -40,10 +41,7 @@ function isPendingIntent(value: unknown): value is PendingIntent {
  * it cannot create an order, accept money, or grant product access.
  */
 export async function POST(request: Request) {
-  if (
-    process.env.NODE_ENV === 'production' ||
-    process.env.USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED !== 'true'
-  ) {
+  if (!testBillingEnabled()) {
     return NextResponse.json(
       { error: 'Plan selection is unavailable' },
       { status: 404 }
@@ -121,7 +119,6 @@ export async function POST(request: Request) {
     }
     if (
       !isPendingIntent(data) ||
-      data.request_id !== fields.requestId ||
       data.organization_id !== fields.organizationId ||
       data.tier !== fields.tier
     ) {

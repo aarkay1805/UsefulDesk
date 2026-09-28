@@ -6,6 +6,23 @@
 
 ---
 
+## 2026-09-28 — Subscription Test payment and recovery acceptance (local only)
+
+Real Razorpay Test bank failure/retry/captured payment now verifies through
+`src/lib/subscriptions/test-{flow,provider}.ts` into one disposable SQL grant.
+Recovery resumes the canonical intent after browser loss and binds only a unique
+receipt with matching organization notes. The draft migration preserves restore's
+existing product-access predicates and rejects null amount/currency replays.
+SQL rollback and concurrency harnesses in `scripts/verify-subscription-test-*`
+cover isolation, exact replay, archive/restore, and competing slot consumers.
+[Acceptance evidence](subscription-test-acceptance.md) distinguishes actual Test
+Checkout from synthetic webhook replays and the minimal database fixture. Full
+application-schema and genuine webhook-delivery acceptance remain open; Production
+and local application billing flags remain off. No real charge or Production
+migration occurred.
+
+---
+
 ## 2026-09-28 — Local Test subscription conversion draft (default off)
 
 `src/app/api/subscriptions/` and `src/lib/subscriptions/test-{flow,provider}.ts`

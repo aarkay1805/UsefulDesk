@@ -9,6 +9,7 @@ import {
   createTestOrder,
   fetchCapturedTestPayment,
   fetchTestOrder,
+  recoverTestOrder,
   testBillingConfig,
   verifyTestCheckoutSignature,
   type TestBillingConfig,
@@ -55,6 +56,7 @@ export async function prepareTestCheckout(
     config?: TestBillingConfig;
     createOrder?: typeof createTestOrder;
     fetchOrder?: typeof fetchTestOrder;
+    recoverOrder?: typeof recoverTestOrder;
   } = {}
 ) {
   const admin = dependencies.admin ?? supabaseAdmin();
@@ -67,16 +69,6 @@ export async function prepareTestCheckout(
   });
   if (error)
     throw new Error(`Test order claim failed (${error.code ?? 'database'})`);
-  if (
-    data &&
-    typeof data === 'object' &&
-    !Array.isArray(data) &&
-    (data as { action?: string }).action === 'recovery'
-  ) {
-    throw new TestBillingConflict(
-      'The plan order needs review. Contact support.'
-    );
-  }
   assertIntent(data);
   if (
     data.request_id !== input.requestId ||
@@ -92,12 +84,20 @@ export async function prepareTestCheckout(
       amountMinor: data.amount_minor,
     });
     orderId = order.id;
-  } else if (data.action === 'create') {
-    const order = await (dependencies.createOrder ?? createTestOrder)(config, {
+  } else if (data.action === 'create' || data.action === 'recovery') {
+    const order = await (
+      data.action === 'create'
+        ? (dependencies.createOrder ?? createTestOrder)
+        : (dependencies.recoverOrder ?? recoverTestOrder)
+    )(config, {
       requestId: input.requestId,
       organizationId: input.organizationId,
       amountMinor: data.amount_minor,
     });
+    if (!order)
+      throw new TestBillingConflict(
+        'The plan order needs review. Contact support.'
+      );
     orderId = order.id;
     const bound = await admin.rpc('subscription_bind_test_order', {
       p_request_id: input.requestId,

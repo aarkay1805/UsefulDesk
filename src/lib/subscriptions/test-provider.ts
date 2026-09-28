@@ -183,6 +183,38 @@ export async function fetchTestOrder(
   return order;
 }
 
+/** Recover only one exact receipt; an empty/ambiguous result never authorizes another POST. */
+export async function recoverTestOrder(
+  config: TestBillingConfig,
+  input: { requestId: string; organizationId: string; amountMinor: number },
+  fetchImpl: typeof fetch = fetch
+): Promise<VerifiedTestOrder | null> {
+  const result = await providerRequest(
+    config,
+    `/orders?receipt=${encodeURIComponent(input.requestId)}&count=2`,
+    {},
+    fetchImpl
+  );
+  if (!isRecord(result) || !Array.isArray(result.items))
+    throw new Error('Invalid Test order recovery response');
+  if (result.items.length !== 1 || result.count !== 1) return null;
+  const candidate: unknown = result.items[0];
+  if (
+    !isRecord(candidate) ||
+    !isRecord(candidate.notes) ||
+    candidate.notes.usefuldesk_organization_id !== input.organizationId ||
+    candidate.notes.usefuldesk_request_id !== input.requestId
+  ) {
+    throw new Error(
+      'Recovered Test order does not belong to this organization'
+    );
+  }
+  return verifyOrder(candidate, {
+    receipt: input.requestId,
+    amount: input.amountMinor,
+  });
+}
+
 export interface CapturedTestPayment {
   id: string;
   orderId: string;

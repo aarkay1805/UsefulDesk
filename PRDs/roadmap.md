@@ -754,12 +754,18 @@ branch review/archive, Test order, Test confirmation, and signed Test webhook
 routes under `src/app/api/subscriptions/`. Its separate Usefulmade Test merchant
 adapter checks the captured provider payment before the service-only SQL commit;
 the expired-trial UI opens Test Checkout only behind a non-Production flag.
-The **unapplied** private SQL draft
-`20260927200000_subscription_monthly_base_foundation.sql` keeps its billing
-switch off by default, stores exact Test payment evidence, and drafts an atomic
-first paid term plus active-branch capacity checks. Mocked tests pass, but no
-Usefulmade SaaS Test credentials or disposable database are configured, so
-provider acceptance and SQL behavior have not been exercised. Renewal,
+The private SQL draft `20260927200000_subscription_monthly_base_foundation.sql`
+has been applied only to an existing disposable local schema fixture. Real
+Razorpay Test bank failure, same-order retry, captured-payment verification, and
+one initial Starter entitlement commit passed on 28 September. Synthetic signed
+webhook duplicates, SQL delayed replay/isolation/archive/restore, and concurrent
+create/create, create/restore, restore/restore checks passed. Browser request
+loss now resumes the canonical intent; ambiguous order creation recovers only a
+unique matching receipt. Restore retains the existing product-access gate.
+The billing switch remains default off and local application flags remain false.
+[Acceptance evidence](../docs/subscription-test-acceptance.md) records the exact
+scope: full application-schema acceptance and genuine provider webhook delivery
+remain pending. Renewal,
 downgrade, cancellation, refund, add-ons, and tier feature gates are not wired.
 No Production migration, checkout, real charge, or automated paid access has
 shipped. The separate
@@ -772,7 +778,7 @@ Starter includes one branch with no add-on. A second branch requires Growth plus
 its paid branch add-on, or another suitable higher tier; a future add-branch
 attempt should explain this and show the exact price before confirmation.
 Growth includes one branch and permits exactly one paid additional branch, for
-a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The local Test recovery UI and database archive transaction are drafted but unapplied; full paid conversion and provider acceptance remain pending. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration remain pending. Add-on billing changes and quote expiry remain undecided.
+a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The local Test recovery UI and archive transaction have component/fixture SQL acceptance; full application conversion and genuine provider webhook delivery remain pending. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration remain pending. Add-on billing changes and quote expiry remain undecided.
 These choices are packaging direction, not a validated cost calculation.
 Growth includes gym-member Razorpay Payment Links and automatic recurring
 collection through AutoPay when the gym's own eligible merchant and mandate

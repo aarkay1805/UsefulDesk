@@ -309,17 +309,20 @@ function AccountProductAccess({
     setPendingTier(tier);
     void (async () => {
       try {
-        const requestId =
+        const proposedRequestId =
           lastIntent.current?.tier === tier
             ? lastIntent.current.requestId
             : crypto.randomUUID();
-        lastIntent.current = { tier, requestId };
-        await postTest('/api/subscriptions/monthly-intents', {
+        lastIntent.current = { tier, requestId: proposedRequestId };
+        const saved = await postTest('/api/subscriptions/monthly-intents', {
           organizationId,
           accountId,
-          requestId,
+          requestId: proposedRequestId,
           tier,
         });
+        // The server resumes a claimed order after a reload or browser loss.
+        const requestId = (saved.intent as { request_id: string }).request_id;
+        lastIntent.current = { tier, requestId };
         const result = await postTest('/api/subscriptions/test-orders', {
           organizationId,
           requestId,

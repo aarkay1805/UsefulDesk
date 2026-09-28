@@ -136,6 +136,20 @@ BEGIN
   IF v_active<1 OR v_active>v_capacity THEN
     RAISE EXCEPTION 'Active branches exceed included plan capacity' USING ERRCODE='22023';
   END IF;
+  -- A browser restart must resume the already claimed order, never strand it
+  -- behind a newly generated request ID. A different tier needs explicit review.
+  SELECT * INTO v_intent FROM private.organization_subscription_intents
+    WHERE organization_id=p_organization_id AND state='pending'
+      AND order_requested_at IS NOT NULL
+    ORDER BY requested_at,request_id LIMIT 1 FOR UPDATE;
+  IF FOUND THEN
+    IF v_intent.tier<>p_tier THEN
+      RAISE EXCEPTION 'Another Test plan order needs completion or review' USING ERRCODE='55000';
+    END IF;
+    RETURN jsonb_build_object('request_id',v_intent.request_id,'organization_id',v_intent.organization_id,
+      'tier',v_intent.tier,'amount_minor',v_intent.amount_minor,'currency',v_intent.currency,
+      'state',v_intent.state);
+  END IF;
   INSERT INTO private.organization_subscription_intents
     (request_id,organization_id,requested_by,billing_account_id,tier,amount_minor)
   VALUES (p_request_id,p_organization_id,auth.uid(),p_billing_account_id,p_tier,v_amount)
@@ -197,7 +211,9 @@ BEGIN
       'amount_minor',v_intent.amount_minor,'currency',v_intent.currency,'tier',v_intent.tier);
   END IF;
   IF v_intent.order_requested_at IS NOT NULL THEN
-    RETURN jsonb_build_object('action','recovery');
+    RETURN jsonb_build_object('action','recovery','request_id',p_request_id,
+      'organization_id',p_organization_id,'amount_minor',v_intent.amount_minor,
+      'currency',v_intent.currency,'tier',v_intent.tier);
   END IF;
   IF EXISTS (SELECT 1 FROM private.organization_subscription_intents
     WHERE organization_id=p_organization_id AND request_id<>p_request_id
@@ -270,8 +286,8 @@ BEGIN
   SELECT * INTO v_target FROM public.accounts WHERE id=p_account_id FOR UPDATE;
   IF auth.uid() IS NULL OR v_target.id IS NULL
     OR v_target.organization_id<>v_organization_id
-    OR NOT public.is_organization_owner(v_organization_id)
-    OR NOT public.has_account_membership(p_account_id,'owner') THEN
+    OR NOT private.is_product_organization_owner(v_organization_id)
+    OR NOT private.has_product_account_membership(p_account_id,'owner') THEN
     RAISE EXCEPTION 'Only an organization owner who owns the branch can restore it'
       USING ERRCODE='42501';
   END IF;
@@ -459,7 +475,8 @@ BEGIN
         WHERE intent_id=p_request_id;
       IF NOT FOUND OR v_payment.provider_payment_id<>p_provider_payment_id
         OR v_payment.provider_merchant_id<>p_provider_merchant_id
-        OR v_payment.amount_minor<>p_amount_minor OR v_payment.currency<>p_currency THEN
+        OR v_payment.amount_minor IS DISTINCT FROM p_amount_minor
+        OR v_payment.currency IS DISTINCT FROM p_currency THEN
         RAISE EXCEPTION 'Verified payment replay does not match' USING ERRCODE='23505';
       END IF;
       SELECT * INTO v_grant FROM private.organization_paid_subscription_grants

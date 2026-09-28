@@ -32,8 +32,12 @@ const auth = vi.hoisted(() => ({
 }));
 vi.mock('@/hooks/use-auth', () => ({ useAuth: () => auth }));
 vi.mock('@/hooks/use-locale', () => ({
-  useLocale: () => ({ fmt: { dateTime: (value: string) => value,
-    money: (value: number) => `₹${value}` } }),
+  useLocale: () => ({
+    fmt: {
+      dateTime: (value: string) => value,
+      money: (value: number) => `₹${value}`,
+    },
+  }),
 }));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ rpc }) }));
 import { ProductAccessGate } from './product-access-gate';
@@ -76,32 +80,83 @@ describe('ProductAccessGate', () => {
   it('offers owner-only Test checkout after expiry when the local flag is enabled', async () => {
     vi.stubEnv('NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI', 'true');
     auth.isOrganizationOwner = true;
-    auth.branches = [{ account_id: 'branch-1', account_name: 'Central',
-      organization_id: 'org-1', organization_name: 'Gym', branch_status: 'active' }];
-    const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify(
-      url.includes('monthly-intents') ? { intent: { state: 'pending' } }
-        : { checkout: { keyId: 'rzp_test_key', orderId: 'order_Test123', amountMinor: 149900 } }
-    ), { status: 200 }));
+    auth.branches = [
+      {
+        account_id: 'branch-1',
+        account_name: 'Central',
+        organization_id: 'org-1',
+        organization_name: 'Gym',
+        branch_status: 'active',
+      },
+    ];
+    const fetchMock = vi.fn(
+      async (url: string) =>
+        new Response(
+          JSON.stringify(
+            url.includes('monthly-intents')
+              ? { intent: { state: 'pending', request_id: 'resumed-request' } }
+              : {
+                  checkout: {
+                    keyId: 'rzp_test_key',
+                    orderId: 'order_Test123',
+                    amountMinor: 149900,
+                  },
+                }
+          ),
+          { status: 200 }
+        )
+    );
     vi.stubGlobal('fetch', fetchMock);
     openTestCheckout.mockResolvedValue(undefined);
-    rpc.mockResolvedValue({ data: [{ account_id: 'branch-1', account_name: 'Central',
-      organization_id: 'org-1', branch_status: 'active' }], error: null });
-    render(<ProductAccessGate initialAccess={{ accountId: 'branch-1',
-      organizationId: 'org-1', snapshot: { ...snapshot,
-        allowed: false, status: 'expired', access: { ...access,
-          trial_ends_at: '2026-09-05T00:00:00Z' } } }}>
-      <div>Operations</div>
-    </ProductAccessGate>);
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith(
-      'subscription_conversion_branches', { p_organization_id: 'org-1' }
-    ));
+    rpc.mockResolvedValue({
+      data: [
+        {
+          account_id: 'branch-1',
+          account_name: 'Central',
+          organization_id: 'org-1',
+          branch_status: 'active',
+        },
+      ],
+      error: null,
+    });
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: 'branch-1',
+          organizationId: 'org-1',
+          snapshot: {
+            ...snapshot,
+            allowed: false,
+            status: 'expired',
+            access: { ...access, trial_ends_at: '2026-09-05T00:00:00Z' },
+          },
+        }}
+      >
+        <div>Operations</div>
+      </ProductAccessGate>
+    );
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('subscription_conversion_branches', {
+        p_organization_id: 'org-1',
+      })
+    );
     await act(async () => {});
     fireEvent.click(screen.getByRole('button', { name: 'Choose Growth' }));
     await waitFor(() => expect(openTestCheckout).toHaveBeenCalledOnce());
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(openTestCheckout).toHaveBeenCalledWith(expect.objectContaining({
-      orderId: 'order_Test123', amountMinor: 149900,
-    }));
+    expect(
+      JSON.parse(
+        String(
+          (fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body
+        )
+      ).requestId
+    ).toBe('resumed-request');
+    expect(openTestCheckout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'order_Test123',
+        amountMinor: 149900,
+      })
+    );
   });
   it('uses a server-validated snapshot on cold entry before background revalidation', async () => {
     render(

@@ -9,6 +9,7 @@ import {
 import {
   createTestOrder,
   fetchCapturedTestPayment,
+  recoverTestOrder,
   testBillingConfig,
   verifyTestCheckoutSignature,
   verifyTestWebhookSignature,
@@ -198,12 +199,17 @@ describe('Usefulmade Test merchant boundary', () => {
     );
     expect(createOrder).not.toHaveBeenCalled();
     const uncertain = admin({
-      subscription_claim_test_order: { action: 'recovery' },
+      subscription_claim_test_order: { ...intent, action: 'recovery' },
     });
     await expect(
       prepareTestCheckout(
         { organizationId, requestId, actorUserId: 'owner-1' },
-        { admin: uncertain, config, createOrder }
+        {
+          admin: uncertain,
+          config,
+          createOrder,
+          recoverOrder: vi.fn(async () => null),
+        }
       )
     ).rejects.toBeInstanceOf(TestBillingConflict);
     expect(createOrder).not.toHaveBeenCalled();
@@ -240,6 +246,112 @@ describe('Usefulmade Test merchant boundary', () => {
       )
     ).rejects.toThrow(/does not belong/);
     expect(fetchPayment).not.toHaveBeenCalled();
+  });
+
+  it('recovers and binds an uncertain order without a second provider creation', async () => {
+    const db = admin({
+      subscription_claim_test_order: { ...intent, action: 'recovery' },
+    });
+    const createOrder = vi.fn();
+    const recoverOrder = vi.fn(async () => ({
+      id: orderId,
+      amount: 149900,
+      currency: 'INR' as const,
+      receipt: requestId,
+    }));
+    const result = await prepareTestCheckout(
+      { organizationId, requestId, actorUserId: 'owner-1' },
+      { admin: db, config, createOrder, recoverOrder }
+    );
+    expect(result.orderId).toBe(orderId);
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(recoverOrder).toHaveBeenCalledWith(config, {
+      organizationId,
+      requestId,
+      amountMinor: 149900,
+    });
+    expect(db.rpc).toHaveBeenCalledWith(
+      'subscription_bind_test_order',
+      expect.objectContaining({
+        p_provider_order_id: orderId,
+        p_request_id: requestId,
+      })
+    );
+  });
+
+  it('never commits when fresh provider verification fails', async () => {
+    const db = admin({ subscription_test_intent_for_order: intent });
+    await expect(
+      confirmTestPayment(
+        { source: 'webhook', orderId, paymentId },
+        {
+          admin: db,
+          config,
+          fetchPayment: vi.fn(async () => {
+            throw new Error('not captured');
+          }),
+        }
+      )
+    ).rejects.toThrow('not captured');
+    expect(db.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('recovers only an exact unique order with matching organization notes', async () => {
+    const candidate = {
+      id: orderId,
+      amount: 149900,
+      currency: 'INR',
+      receipt: requestId,
+      status: 'created',
+      notes: {
+        usefuldesk_organization_id: organizationId,
+        usefuldesk_request_id: requestId,
+      },
+    };
+    const fetchImpl = vi.fn(async () =>
+      Response.json({ count: 1, items: [candidate] })
+    );
+    expect(
+      (
+        await recoverTestOrder(
+          config,
+          { organizationId, requestId, amountMinor: 149900 },
+          fetchImpl
+        )
+      )?.id
+    ).toBe(orderId);
+    await expect(
+      recoverTestOrder(
+        config,
+        { organizationId: otherOrganizationId, requestId, amountMinor: 149900 },
+        fetchImpl
+      )
+    ).rejects.toThrow(/does not belong/);
+    await expect(
+      recoverTestOrder(
+        config,
+        { organizationId, requestId, amountMinor: 79900 },
+        fetchImpl
+      )
+    ).rejects.toThrow(/does not match/);
+    fetchImpl.mockResolvedValueOnce(Response.json({ count: 0, items: [] }));
+    expect(
+      await recoverTestOrder(
+        config,
+        { organizationId, requestId, amountMinor: 149900 },
+        fetchImpl
+      )
+    ).toBeNull();
+    fetchImpl.mockResolvedValueOnce(
+      Response.json({ count: 2, items: [candidate, candidate] })
+    );
+    expect(
+      await recoverTestOrder(
+        config,
+        { organizationId, requestId, amountMinor: 149900 },
+        fetchImpl
+      )
+    ).toBeNull();
   });
 
   it('requires signature and captured provider payment before atomic grant', async () => {
