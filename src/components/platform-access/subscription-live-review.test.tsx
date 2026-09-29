@@ -186,3 +186,137 @@ describe('owner Live pilot review', () => {
     expect(openUsefulmadeLiveCheckout).not.toHaveBeenCalled();
   });
 });
+
+describe('Live expiry-only renewal and cancellation', () => {
+  const term = {
+    request_id: quote.request_id,
+    tier: 'starter',
+    paid_through_end: '2026-09-28T00:00:00Z',
+    renewal_stopped: false,
+    refunded: false,
+    expired: true,
+  };
+  const preview = {
+    approval_id: '44444444-4444-4444-8444-444444444444',
+    tier: 'starter',
+    amount_minor: 79900,
+    currency: 'INR',
+    customer_tax_note: 'Tax reviewed',
+    customer_terms_note: 'One capture-event month',
+    renewal_of_request_id: term.request_id,
+  };
+  function fixture(overrides = {}) {
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_live_owner_term'
+          ? { ...term, ...overrides }
+          : name === 'subscription_live_owner_quote'
+            ? { ...quote, payment_state: 'verified' }
+            : name === 'subscription_cancel_live_renewal'
+              ? { ...term, renewal_stopped: true }
+              : preview,
+      error: null,
+    }));
+    render(
+      <SubscriptionLiveReview
+        organizationId={organizationId}
+        accountId={accountId}
+      />
+    );
+  }
+  it('reviews a new amount only after expiry and sends the previous term identity', async () => {
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const submitted = JSON.parse(String(init.body));
+      return Response.json({
+        quote: {
+          request_id: submitted.requestId,
+          amount_minor: 79900,
+          currency: 'INR',
+        },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    fixture();
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Review renewal amount' })
+    );
+    expect(await screen.findByText('₹799.00 for one month')).toBeTruthy();
+    expect(rpc).toHaveBeenCalledWith('subscription_live_renewal_preview', {
+      p_organization_id: organizationId,
+      p_billing_account_id: accountId,
+      p_tier: 'starter',
+    });
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'I reviewed this exact Live pilot amount.',
+      })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirm plan amount' })
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toMatchObject({
+      renewalOfRequestId: term.request_id,
+      seenAmountMinor: 79900,
+    });
+  });
+  it('keeps early renewal unavailable while retaining explicit cancellation', async () => {
+    fixture({ expired: false, paid_through_end: '2099-10-01T00:00:00Z' });
+    const cancel = await screen.findByRole('button', {
+      name: 'Cancel renewal',
+    });
+    expect(
+      screen.queryByRole('button', { name: 'Review renewal amount' })
+    ).toBeNull();
+    expect(cancel.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Cancel renewal. Keep paid access until expiry. No refund is issued.',
+      })
+    );
+    fireEvent.click(cancel);
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith('subscription_cancel_live_renewal', {
+        p_organization_id: organizationId,
+        p_seen_request_id: term.request_id,
+      })
+    );
+    expect(
+      await screen.findByText(
+        'Renewal is cancelled. Contact support to buy again.'
+      )
+    ).toBeTruthy();
+  });
+  it('shows a payment review instead of another Checkout', async () => {
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI', 'true');
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_live_owner_term'
+          ? term
+          : { ...quote, payment_state: 'review_required' },
+      error: null,
+    }));
+    render(
+      <SubscriptionLiveReview
+        organizationId={organizationId}
+        accountId={accountId}
+      />
+    );
+    expect(
+      await screen.findByText(
+        'Your payment needs a review. Contact support before paying again.'
+      )
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Pay for plan' })).toBeNull();
+  });
+  it('does not offer renewal after a refund or cancellation', async () => {
+    fixture({ renewal_stopped: true });
+    await screen.findByText(
+      'Renewal is cancelled. Contact support to buy again.'
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Review renewal amount' })
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel renewal' })).toBeNull();
+  });
+});

@@ -22,9 +22,14 @@ The first term starts at the signed Razorpay `payment.captured` event time and
 ends one calendar month later. A reviewed quote lasts **30 minutes** from the
 owner's immutable review; capture after expiry is held for reconciliation and
 grants no automatic access or refund. Renewal is owner-initiated, with no
-automatic SaaS debit. The Live draft currently implements an initial term and
-first full refund, but **no Live owner-initiated renewal order**; that path
-must be built and accepted before renewal can be offered. Upgrades, paid add-ons, automated restart after refund or
+automatic SaaS debit. The owner confirmed **expiry-only renewal** on 29 September:
+review a new 30-minute Starter quote after the paid term ends; a verified renewal
+starts one calendar month from its signed capture event. Early renewal is excluded.
+The default-off Live draft now implements that reviewed quote, durable order,
+settlement and cancellation path. Cancellation keeps paid access through expiry,
+blocks further renewal, and issues no refund. Reopening after cancellation or
+refund requires a later reviewed flow. Rollback-only full-schema synthetic checks
+and mocked application tests are evidence, not genuine Live acceptance. Upgrades, paid add-ons, automated restart after refund or
 cancellation, and native Checkout are excluded from this first offer. There
 are **no pilot-specific numeric member or staff caps**; existing roles,
 provider requirements, technical limits, and abuse controls still apply.

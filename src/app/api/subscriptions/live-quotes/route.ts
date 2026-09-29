@@ -37,7 +37,11 @@ export async function POST(request: Request) {
       );
     const fields = body as Record<string, unknown>;
     if (
-      Object.keys(fields).length !== 6 ||
+      Object.keys(fields).length !==
+        (fields.renewalOfRequestId === undefined ? 6 : 7) ||
+      (fields.renewalOfRequestId !== undefined &&
+        (!isBranchAccountId(fields.renewalOfRequestId) ||
+          fields.tier !== 'starter')) ||
       !isBranchAccountId(fields.organizationId) ||
       !isBranchAccountId(fields.accountId) ||
       !isBranchAccountId(fields.requestId) ||
@@ -61,8 +65,13 @@ export async function POST(request: Request) {
     );
     if (!limit.success) return rateLimitResponse(limit);
     const { data, error } = await supabaseAdmin().rpc(
-      'subscription_create_live_quote',
+      fields.renewalOfRequestId === undefined
+        ? 'subscription_create_live_quote'
+        : 'subscription_create_live_renewal_quote',
       {
+        ...(fields.renewalOfRequestId === undefined
+          ? {}
+          : { p_previous_request_id: fields.renewalOfRequestId }),
         p_request_id: fields.requestId,
         p_organization_id: fields.organizationId,
         p_billing_account_id: fields.accountId,
@@ -92,6 +101,8 @@ export async function POST(request: Request) {
       data.organization_id !== fields.organizationId ||
       data.approval_id !== fields.approvalId ||
       data.tier !== fields.tier ||
+      (fields.renewalOfRequestId !== undefined &&
+        data.renewal_of_request_id !== fields.renewalOfRequestId) ||
       data.amount_minor !== fields.seenAmountMinor ||
       data.currency !== 'INR' ||
       typeof data.expires_at !== 'string'

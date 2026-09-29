@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-09-29 — Draft expiry-only Live Starter renewal
+
+`20260930000000_subscription_live_owner_renewals.sql` and the existing Live
+quote/review/access-gate paths add owner-reviewed renewal after expiry, one
+capture-event calendar month, immutable term history, and cancellation that
+preserves paid access. Quote/order recovery remains one-POST; changed access,
+cancellation and refund evidence hold captured money. A new renewal switch is
+hard-closed; the shared settlement RPC keeps its historical initial-payment
+name. `scripts/verify-subscription-live-full.mjs` runs both synthetic acceptance
+suites in a rollback-only disposable full schema. No Live schema was installed,
+provider called, Production changed or money moved. Genuine Live/release
+acceptance and all commercial gates remain open.
+
 ## 2026-09-29 — Record the first Starter paid-pilot offer direction
 
 `PRDs/usefuldesk-subscriptions.md`, `PRDs/roadmap.md`,

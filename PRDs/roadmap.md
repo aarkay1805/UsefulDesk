@@ -1018,8 +1018,15 @@ Starter at provisional ₹799, one active branch, web Checkout, one calendar
 month from the signed `payment.captured` event, a 30-minute reviewed quote,
 and owner-initiated renewal. Capture after quote expiry is review-held without
 automatic access/refund. No pilot-specific numeric member or staff caps.
-The Live draft has no owner-initiated renewal order or settlement yet; the
-approved renewal mode is a requirement, not a shipped path.
+**Implemented in the default-off draft:** owner-reviewed expiry-only Starter renewal,
+a 30-minute quote bound to the previous term/access version, durable one-order
+recovery, capture-event monthly settlement, immutable term history, and owner
+cancellation without an early cutoff or refund. The paid and expired owner panels
+expose the same flow behind the existing Live UI gate. Changed access, roster,
+reminder policy, cancellation or refund evidence holds captured renewal money.
+The additional database renewal switch is hard-closed. Synthetic full-schema
+rollback and mocked application checks pass; genuine provider and final release
+acceptance remain open.
 Upgrades, paid add-ons, automated restart, and native Checkout are outside
 this first offer. Approved Starter features are members/plans,
 memberships/renewals, attendance, manual payments, shared WhatsApp chats and

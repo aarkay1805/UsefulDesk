@@ -451,7 +451,7 @@ function AccountProductAccess({
             </AlertDescription>
           </Alert>
         ) : null}
-        {testUi &&
+        {(testUi || liveReviewUi) &&
         isOrganizationOwner &&
         organizationId &&
         snapshot?.access.mode === 'manual' ? (
@@ -462,7 +462,7 @@ function AccountProductAccess({
                 size="sm"
                 onClick={() => setBillingOpen(true)}
               >
-                Open Test billing
+                {liveReviewUi ? 'Open billing' : 'Open Test billing'}
               </Button>
             </div>
             <Dialog open={billingOpen} onOpenChange={setBillingOpen}>
@@ -470,15 +470,26 @@ function AccountProductAccess({
                 <DialogHeader>
                   <DialogTitle>UsefulDesk billing</DialogTitle>
                   <DialogDescription>
-                    Review your Test plan, payments, and refunds.
+                    {liveReviewUi
+                      ? 'Review your paid plan and renewal.'
+                      : 'Review your Test plan, payments, and refunds.'}
                   </DialogDescription>
                 </DialogHeader>
-                <SubscriptionTestBilling
-                  key={organizationId}
-                  organizationId={organizationId}
-                  accountId={accountId}
-                  onChanged={() => setNonce((n) => n + 1)}
-                />
+                {liveReviewUi ? (
+                  <SubscriptionLiveReview
+                    key={`${organizationId}:${accountId}`}
+                    organizationId={organizationId}
+                    accountId={accountId}
+                    onChanged={() => setNonce((n) => n + 1)}
+                  />
+                ) : (
+                  <SubscriptionTestBilling
+                    key={organizationId}
+                    organizationId={organizationId}
+                    accountId={accountId}
+                    onChanged={() => setNonce((n) => n + 1)}
+                  />
+                )}
               </DialogContent>
             </Dialog>
           </>
@@ -537,6 +548,7 @@ function AccountProductAccess({
               />
               {liveReviewUi && isOrganizationOwner && organizationId ? (
                 <SubscriptionLiveReview
+                  key={`${organizationId}:${accountId}`}
                   organizationId={organizationId}
                   accountId={accountId}
                   onChanged={() => setNonce((n) => n + 1)}
@@ -564,6 +576,17 @@ function AccountProductAccess({
                 />
               ) : null}
             </>
+          ) : null}
+          {liveReviewUi &&
+          isOrganizationOwner &&
+          organizationId &&
+          snapshot?.access.mode === 'manual' ? (
+            <SubscriptionLiveReview
+              key={`${organizationId}:${accountId}`}
+              organizationId={organizationId}
+              accountId={accountId}
+              onChanged={() => setNonce((n) => n + 1)}
+            />
           ) : null}
           {testUi &&
           isOrganizationOwner &&

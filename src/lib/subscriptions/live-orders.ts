@@ -97,6 +97,27 @@ export async function prepareLiveCheckout(
   } else {
     throw new LiveOrderReviewRequired('Live order needs review');
   }
+  // A cancellation, refund review, expiry, or rollout change can happen
+  // during provider I/O. Recheck before returning a payable Checkout order.
+  const recheck = await admin.rpc('subscription_claim_live_order', {
+    p_request_id: input.requestId,
+    p_organization_id: input.organizationId,
+    p_actor_user_id: input.actorUserId,
+    p_provider_merchant_id: config.merchantId,
+  });
+  if (
+    recheck.error ||
+    !record(recheck.data) ||
+    recheck.data.action !== 'bound' ||
+    recheck.data.request_id !== input.requestId ||
+    recheck.data.organization_id !== input.organizationId ||
+    recheck.data.provider_order_id !== orderId ||
+    recheck.data.amount_minor !== data.amount_minor ||
+    recheck.data.currency !== 'INR'
+  )
+    throw new LiveOrderReviewRequired(
+      'Live order changed during payment setup'
+    );
   return {
     requestId: input.requestId,
     organizationId: input.organizationId,

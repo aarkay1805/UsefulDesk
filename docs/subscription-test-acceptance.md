@@ -806,3 +806,42 @@ Cloudflare tunnels, so realtime delivery was not accepted by this run. Native
 advanced Checkout and a distribution-signed preview remain separate checks.
 No Live charge, Production configuration change, or external customer message
 was made.
+
+## Dark Live expiry-only renewal — 29 September 2026
+
+The owner confirmed expiry-only Starter renewal: no early renewal, and each
+renewed calendar month starts at its signed capture event. The draft remains
+uninstalled and default off. A new database renewal flag is also hard-closed.
+
+The repeatable command below streams all ten Live draft migrations plus both
+synthetic acceptance suites inside one transaction, then rolls back. It accepts
+only a named disposable subscription-full container and refuses an installed
+Live schema. It never reads credentials or invokes a provider:
+
+```sh
+node scripts/verify-subscription-live-full.mjs \
+  supabase_db_usefuldesk-subscription-full-bo1rg7p0
+```
+
+Passed on the existing disposable full application schema:
+
+- Initial-term and first-full-refund regression checks, default-off constraints,
+  RLS and browser/service privilege boundaries.
+- Exact Starter amount, previous-term identity and access version, 30-minute
+  quote, duplicate quote, overlapping-quote refusal, one durable order claim,
+  and GET-only retry after an ambiguous create.
+- Signed synthetic renewal capture, settlement while initiation flags are off,
+  one access audit and current-grant advance, two immutable historical terms,
+  duplicate renewal and delayed original-payment replay.
+- No early renewal, unsupported-tier refusal, owner isolation, stale-term
+  cancellation rejection, idempotent cancellation and paid-expiry preservation.
+- Captured money held after cancellation, changed access version, changed billing
+  currency, changed reminder policy, or a pending refund review. Null currency
+  is rejected. Historical grant/term mutation is refused.
+
+These are **synthetic database facts and mocked API/UI tests**, not a new genuine
+provider delivery, concurrent-session race, physical database crash test, or
+Live acceptance. Existing Test-provider evidence above remains separate. The
+Live provider still refuses Test credentials and non-Production runtimes; no
+exception was added for this test. The final post-run check found no Live schema.
+Production paid-pilot readiness remains CLOSED.

@@ -1,7 +1,7 @@
 # Usefulmade Live SaaS billing draft
 
 **Status (29 September 2026): local, uninstalled, default off.** This is a
-reviewable initial-term and first-full-refund boundary, not a payable offer or
+reviewable initial-term, expiry-only renewal and first-full-refund boundary, not a payable offer or
 permission to deploy, enable billing, or move money. Gym Razorpay OAuth,
 webhooks, mandates and member ledgers remain separate.
 
@@ -12,7 +12,7 @@ webhooks, mandates and member ledgers remain separate.
   runtimes and any Test SaaS credential. Only the key ID may be returned to
   Checkout. Provider GETs verify exact order receipt, organization notes, INR
   paise and captured/refunded facts.
-- `20260929170000`–`20260929250000` create private Live records with explicit
+- `20260929170000`–`20260930000000` create private Live records with explicit
   `provider_mode='live'`, merchant, organization and pilot links. RLS grants no
   anon/authenticated writes; service-only RPCs check the JWT role. The Live
   order claim is durable before POST and every uncertain create becomes
@@ -36,6 +36,19 @@ webhooks, mandates and member ledgers remain separate.
   capability predicate recognizes a Live grant for RLS and web/native
   snapshots when the separate capability switch is eventually enabled. Its
   activation trigger checks Live Starter schedules and unsent custom claims.
+- Owner-initiated renewal is Starter-only and expiry-only, as approved on
+  29 September. A new 30-minute quote freezes the exact previous request,
+  paid-through date and access version. The existing order adapter retains its
+  one-POST claim and GET-only recovery. The shared signed-capture settlement RPC
+  retains its historical `subscription_commit_live_initial_payment` name and
+  dispatches from the immutable quote; it starts one month from the new signed
+  capture event, appends term history, and advances the current grant once.
+  Cancellation is an owner-only RPC serialized on the organization. It preserves
+  paid access and has no refund/provider effect. A cancelled, refunded, changed,
+  or refund-pending term cannot renew; an in-flight captured payment is held.
+  Initiation can be darkened while signed settlement/recovery remains available.
+  Old payment replay never rolls the current term back. No early renewal, grace,
+  tier change, add-on, or restart is added to this Live path.
 - The first-full-refund path requires an owner-reviewed policy reference, one
   saved claim before provider POST, the original captured payment, no prior
   refund, and fresh full-settlement GETs. A matching settled refund ends access
@@ -68,6 +81,7 @@ webhooks, mandates and member ledgers remain separate.
 | Quote issuance                  | false, database-hard-closed | `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED=true`, one explicitly approved offer row, and the matching private database switch. The database `CHECK` prevents enabling issuance in this draft; the Production audit blocks the runtime flag.                                                                                 |
 | Settlement and reconciliation   | false                       | Separate `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` flags plus private database settlement switch. The Production env audit currently blocks them.                                                                                                           |
 | New order and refund initiation | false, database-hard-closed | Separate `USEFULDESK_SAAS_LIVE_ORDERS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED` flags. Database `CHECK` constraints forbid enabling either; a later reviewed migration must deliberately replace them. The Production env audit also blocks both.                                                           |
+| Live renewal issuance           | false, database-hard-closed | `private.subscription_live_settings.renewals_enabled` plus the existing quote/order/intake/settlement gates. A later reviewed migration must replace its `CHECK(NOT renewals_enabled)`; cancellation remains available without enabling money initiation.                                                             |
 | Tier capabilities               | false                       | Existing `private.subscription_billing_settings.capabilities_enabled` remains off pending review of saved custom schedules and full acceptance. The Starter cadence is approved as 7/3/1 days before expiry after 09:00 account-local.                                                                                |
 
 The application never compares a Live merchant ID to a gym account's OAuth
@@ -95,10 +109,10 @@ protected values as unverified.
 2. Accept the approved Starter 7/3/1 reminder schedule after 09:00 account-local
    in final capability/send testing. Initial renewal is owner-initiated.
    Upgrades, paid add-ons, automated restart, and native Checkout are excluded
-   from the first offer. Current Live code has only an initial term and first
-   full-refund path; the owner-initiated Live renewal order, settlement,
-   customer review, and cancellation flow still need implementation and
-   acceptance before renewal is offered. There is no automatic SaaS debit.
+   from the first offer. The expiry-only Starter renewal order, settlement,
+   customer review and cancellation flow is implemented behind closed gates.
+   Its full-schema synthetic checks pass; genuine provider and final offer-specific
+   release acceptance are still required before renewal is offered. There is no automatic SaaS debit.
 3. Repeat full-schema Test acceptance through the approved migration path,
    inspect resulting tables/policies/function grants, and run concurrency,
    genuine provider and outage checks. A rollback-only synthetic full-schema

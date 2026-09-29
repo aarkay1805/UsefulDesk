@@ -21,7 +21,30 @@ import {
 
 type LiveTier = 'starter' | 'growth' | 'ultimate';
 
+interface LiveTerm {
+  request_id: string;
+  tier: LiveTier;
+  paid_through_end: string;
+  renewal_stopped: boolean;
+  refunded: boolean;
+  expired: boolean;
+}
+
+function isTerm(value: unknown): value is LiveTerm {
+  if (!value || typeof value !== 'object') return false;
+  const term = value as Partial<LiveTerm>;
+  return (
+    typeof term.request_id === 'string' &&
+    typeof term.paid_through_end === 'string' &&
+    Number.isFinite(Date.parse(term.paid_through_end)) &&
+    typeof term.renewal_stopped === 'boolean' &&
+    typeof term.refunded === 'boolean' &&
+    typeof term.expired === 'boolean'
+  );
+}
+
 interface LiveOfferPreview {
+  renewal_of_request_id?: string;
   approval_id: string;
   tier: LiveTier;
   amount_minor: number;
@@ -31,6 +54,8 @@ interface LiveOfferPreview {
 }
 
 interface LiveQuote {
+  renewal_of_request_id?: string | null;
+  payment_state?: 'verified' | 'review_required' | null;
   request_id: string;
   tier: 'starter' | 'growth' | 'ultimate';
   amount_minor: number;
@@ -87,6 +112,10 @@ export function SubscriptionLiveReview({
   onChanged?: () => void;
 }) {
   const { fmt } = useLocale();
+  const [term, setTerm] = useState<LiveTerm | null>(null);
+  const [cancelAccepted, setCancelAccepted] = useState(false);
+  const [refreshing, setRefreshing] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [quote, setQuote] = useState<LiveQuote | null>(null);
   const [error, setError] = useState('');
   const [accepted, setAccepted] = useState(false);
@@ -97,24 +126,34 @@ export function SubscriptionLiveReview({
   const [preview, setPreview] = useState<LiveOfferPreview | null>(null);
   const [previewRequestId, setPreviewRequestId] = useState<string | null>(null);
   const [amountAccepted, setAmountAccepted] = useState(false);
-  const [action, setAction] = useState<'preview' | 'quote' | 'checkout' | null>(
-    null
-  );
+  const [action, setAction] = useState<
+    'preview' | 'quote' | 'checkout' | 'cancel' | null
+  >(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const { data, error: readError } = await createClient().rpc(
-        'subscription_live_owner_quote',
-        { p_organization_id: organizationId }
-      );
+      const [quoteResult, termResult] = await Promise.all([
+        createClient().rpc('subscription_live_owner_quote', {
+          p_organization_id: organizationId,
+        }),
+        createClient().rpc('subscription_live_owner_term', {
+          p_organization_id: organizationId,
+        }),
+      ]);
+      const { data, error: readError } = quoteResult;
       if (cancelled) return;
-      if (readError) {
+      setRefreshing(false);
+      if (readError || termResult.error) {
         setError('Could not load your plan amount. Try again.');
         return;
       }
       setError('');
-      setQuote(isQuote(data) ? data : null);
+      setTerm(isTerm(termResult.data) ? termResult.data : null);
+      setLoaded(true);
+      setQuote(
+        isQuote(data) && data.payment_state !== 'verified' ? data : null
+      );
     })();
     return () => {
       cancelled = true;
@@ -138,6 +177,40 @@ export function SubscriptionLiveReview({
   const acknowledged =
     quote?.starter_reminder_reset_accepted &&
     quote.starter_reminder_policy_version === policy?.version;
+
+  const stopped = term?.renewal_stopped || term?.refunded;
+  const canReview = loaded && !error && !stopped && (!term || term.expired);
+
+  async function cancelRenewal() {
+    if (!term || !cancelAccepted || action) return;
+    setAction('cancel');
+    try {
+      const result = await createClient().rpc(
+        'subscription_cancel_live_renewal',
+        {
+          p_organization_id: organizationId,
+          p_seen_request_id: term.request_id,
+        }
+      );
+      if (result.error || !isTerm(result.data) || !result.data.renewal_stopped)
+        throw (
+          result.error ??
+          new Error('Could not cancel renewal. Refresh and try again.')
+        );
+      setTerm(result.data);
+      setPreview(null);
+      setQuote(null);
+      setCancelAccepted(false);
+      toast.success('Renewal cancelled');
+      onChanged?.();
+    } catch (error) {
+      toast.error(
+        getErrorMessage(error, 'Could not cancel renewal. Try again.')
+      );
+    } finally {
+      setAction(null);
+    }
+  }
 
   async function acknowledge() {
     if (!quote || !policy || !accepted || pending || expired) return;
@@ -163,16 +236,22 @@ export function SubscriptionLiveReview({
   async function reviewAmount() {
     if (action) return;
     setAction('preview');
-    const result = await createClient().rpc('subscription_live_offer_preview', {
-      p_organization_id: organizationId,
-      p_billing_account_id: accountId,
-      p_tier: selectedTier,
-    });
+    const result = await createClient().rpc(
+      term
+        ? 'subscription_live_renewal_preview'
+        : 'subscription_live_offer_preview',
+      {
+        p_organization_id: organizationId,
+        p_billing_account_id: accountId,
+        p_tier: selectedTier,
+      }
+    );
     setAction(null);
     if (
       result.error ||
       !isPreview(result.data) ||
-      result.data.tier !== selectedTier
+      result.data.tier !== selectedTier ||
+      (term && result.data.renewal_of_request_id !== term.request_id)
     ) {
       toast.error(
         getErrorMessage(
@@ -197,6 +276,9 @@ export function SubscriptionLiveReview({
         body: JSON.stringify({
           organizationId,
           accountId,
+          ...(preview.renewal_of_request_id
+            ? { renewalOfRequestId: preview.renewal_of_request_id }
+            : {}),
           requestId: previewRequestId,
           approvalId: preview.approval_id,
           tier: preview.tier,
@@ -234,6 +316,10 @@ export function SubscriptionLiveReview({
     if (
       !quote ||
       expired ||
+      !loaded ||
+      !!error ||
+      stopped ||
+      quote.payment_state === 'review_required' ||
       action ||
       (quote.tier === 'starter' && !acknowledged) ||
       process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI !== 'true'
@@ -281,6 +367,7 @@ export function SubscriptionLiveReview({
             return;
           }
           toast.message('Payment is being checked.');
+          setNonce((n) => n + 1);
           onChanged?.();
         },
       });
@@ -296,33 +383,97 @@ export function SubscriptionLiveReview({
       <AlertTitle>Usefulmade Live pilot</AlertTitle>
       <AlertDescription className="space-y-3">
         {error ? <p>{error}</p> : null}
-        {!quote && !preview ? (
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={!!action}
+          loading={refreshing}
+          onClick={() => {
+            setRefreshing(true);
+            setNonce((n) => n + 1);
+          }}
+        >
+          Refresh billing
+        </Button>
+        {quote?.payment_state === 'review_required' ? (
+          <p>
+            Your payment needs a review. Contact support before paying again.
+          </p>
+        ) : null}
+        {term ? (
           <div className="space-y-3">
-            <p>Choose a plan to see the exact amount.</p>
-            <div className="space-y-2">
-              <Label htmlFor="live-plan-choice">Plan</Label>
-              <Select
-                value={selectedTier}
-                disabled={!!action}
-                onValueChange={(tier) => {
-                  if (
-                    tier === 'starter' ||
-                    tier === 'growth' ||
-                    tier === 'ultimate'
-                  )
-                    setSelectedTier(tier);
-                }}
-              >
-                <SelectTrigger id="live-plan-choice" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="starter">Starter</SelectItem>
-                  <SelectItem value="growth">Growth</SelectItem>
-                  <SelectItem value="ultimate">Ultimate</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <p>
+              {term.refunded
+                ? 'Your payment was refunded.'
+                : `Paid access ends ${fmt.dateTime(term.paid_through_end)}.`}
+            </p>
+            <p>
+              {stopped
+                ? 'Renewal is cancelled. Contact support to buy again.'
+                : 'Renew after expiry. Each payment buys one month from payment confirmation.'}
+            </p>
+            {!stopped ? (
+              <>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="live-cancel-renewal"
+                    checked={cancelAccepted}
+                    disabled={!!action}
+                    onCheckedChange={(checked) =>
+                      setCancelAccepted(checked === true)
+                    }
+                  />
+                  <Label htmlFor="live-cancel-renewal">
+                    Cancel renewal. Keep paid access until expiry. No refund is
+                    issued.
+                  </Label>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!cancelAccepted || !!action}
+                  loading={action === 'cancel'}
+                  onClick={() => void cancelRenewal()}
+                >
+                  Cancel renewal
+                </Button>
+              </>
+            ) : null}
+          </div>
+        ) : null}
+        {!quote && !preview && canReview ? (
+          <div className="space-y-3">
+            <p>
+              {term
+                ? 'Review the Starter renewal amount.'
+                : 'Choose a plan to see the exact amount.'}
+            </p>
+            {!term ? (
+              <div className="space-y-2">
+                <Label htmlFor="live-plan-choice">Plan</Label>
+                <Select
+                  value={selectedTier}
+                  disabled={!!action}
+                  onValueChange={(tier) => {
+                    if (
+                      tier === 'starter' ||
+                      tier === 'growth' ||
+                      tier === 'ultimate'
+                    )
+                      setSelectedTier(tier);
+                  }}
+                >
+                  <SelectTrigger id="live-plan-choice" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="starter">Starter</SelectItem>
+                    <SelectItem value="growth">Growth</SelectItem>
+                    <SelectItem value="ultimate">Ultimate</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
@@ -330,7 +481,7 @@ export function SubscriptionLiveReview({
               disabled={!!action}
               onClick={() => void reviewAmount()}
             >
-              Review plan amount
+              {term ? 'Review renewal amount' : 'Review plan amount'}
             </Button>
           </div>
         ) : null}
@@ -378,7 +529,7 @@ export function SubscriptionLiveReview({
             </div>
           </div>
         ) : null}
-        {quote ? (
+        {quote && !stopped ? (
           <>
             <p className="text-foreground text-lg font-semibold tabular-nums">
               {fmt.money(quote.amount_minor / 100, 'INR')} for one month
@@ -431,7 +582,7 @@ export function SubscriptionLiveReview({
                 <p>Starter reminders need a review. Contact support.</p>
               )
             ) : null}
-            {expired ? (
+            {quote.payment_state === 'review_required' ? null : expired ? (
               <Button
                 variant="outline"
                 size="sm"

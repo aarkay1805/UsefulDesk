@@ -435,3 +435,80 @@ describe('ProductAccessGate', () => {
     await waitFor(() => expect(screen.getByText('Operations')).toBeTruthy());
   });
 });
+
+describe('Live billing access after the initial term', () => {
+  function renderPaid(expired: boolean, owner = true) {
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI', 'true');
+    auth.isOrganizationOwner = owner;
+    const paid: ProductAccessSnapshot = {
+      ...snapshot,
+      allowed: !expired,
+      status: expired ? 'expired' : 'active',
+      access: {
+        ...access,
+        mode: 'manual',
+        access_starts_at: '2026-08-01T00:00:00Z',
+        access_ends_at: expired
+          ? '2026-09-01T00:00:00Z'
+          : '2026-10-01T00:00:00Z',
+      },
+    };
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_live_owner_quote'
+          ? null
+          : name === 'subscription_live_owner_term'
+            ? {
+                request_id: 'paid-term',
+                tier: 'starter',
+                paid_through_end: paid.access.access_ends_at,
+                expired,
+                refunded: false,
+                renewal_stopped: false,
+              }
+            : paid,
+      error: null,
+    }));
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: auth.accountId,
+          organizationId: auth.organizationId,
+          snapshot: paid,
+        }}
+      >
+        Gym content
+      </ProductAccessGate>
+    );
+  }
+  it('keeps the owner renewal review reachable after manual paid access expires', async () => {
+    renderPaid(true);
+    expect(
+      await screen.findByRole('button', { name: 'Review renewal amount' })
+    ).toBeTruthy();
+    expect(screen.queryByText('Gym content')).toBeNull();
+  });
+  it('opens the same paid owner panel for cancellation before expiry', async () => {
+    renderPaid(false);
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Open billing' })
+    );
+    expect(
+      await screen.findByRole('button', { name: 'Cancel renewal' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Review renewal amount' })
+    ).toBeNull();
+  });
+  it('does not expose owner renewal controls to staff', async () => {
+    renderPaid(true, false);
+    await screen.findByText('Contact support');
+    expect(
+      screen.queryByRole('button', { name: 'Review renewal amount' })
+    ).toBeNull();
+    expect(rpc).not.toHaveBeenCalledWith(
+      'subscription_live_owner_term',
+      expect.anything()
+    );
+  });
+});

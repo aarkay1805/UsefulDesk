@@ -32,8 +32,14 @@ const bound = {
   provider_order_id: orderId,
 };
 function admin(claimData: unknown = claim) {
+  let claims = 0;
   const rpc = vi.fn(async (name: string) => ({
-    data: name === 'subscription_claim_live_order' ? claimData : bound,
+    data:
+      name === 'subscription_claim_live_order'
+        ? ++claims === 1
+          ? claimData
+          : { ...claim, ...bound, action: 'bound' }
+        : bound,
     error: null,
   }));
   return { rpc };
@@ -77,6 +83,7 @@ describe('one Live order per frozen quote', () => {
     expect(db.rpc.mock.calls.map(([name]) => name)).toEqual([
       'subscription_claim_live_order',
       'subscription_bind_live_order',
+      'subscription_claim_live_order',
     ]);
     expect(createOrder).toHaveBeenCalledOnce();
   });
@@ -117,7 +124,28 @@ describe('one Live order per frozen quote', () => {
     ).resolves.toMatchObject({ orderId });
     expect(fetchOrder).toHaveBeenCalledOnce();
     expect(createOrder).not.toHaveBeenCalled();
-    expect(db.rpc).toHaveBeenCalledTimes(1);
+    expect(db.rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it('refuses Checkout when cancellation wins during provider creation', async () => {
+    const db = admin();
+    const createOrder = vi.fn(async () => {
+      db.rpc.mockResolvedValueOnce({ data: bound, error: null });
+      db.rpc.mockResolvedValueOnce({
+        data: null,
+        error: { code: '55000' },
+      } as never);
+      return { id: orderId, amountMinor: 79900, currency: 'INR' as const };
+    });
+    await expect(
+      prepareLiveCheckout(input, {
+        admin: db as never,
+        config,
+        createOrder,
+        env,
+      })
+    ).rejects.toBeInstanceOf(LiveOrderReviewRequired);
+    expect(createOrder).toHaveBeenCalledOnce();
   });
 
   it('rejects cross-organization claims before provider I/O', async () => {
