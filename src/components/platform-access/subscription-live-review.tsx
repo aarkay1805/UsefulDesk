@@ -45,6 +45,7 @@ function isTerm(value: unknown): value is LiveTerm {
 
 interface LiveOfferPreview {
   renewal_of_request_id?: string;
+  complimentary_conversion?: boolean;
   approval_id: string;
   tier: LiveTier;
   amount_minor: number;
@@ -81,6 +82,8 @@ function isPreview(value: unknown): value is LiveOfferPreview {
     Number.isSafeInteger(preview.amount_minor) &&
     (preview.amount_minor ?? 0) > 0 &&
     preview.currency === 'INR' &&
+    (preview.complimentary_conversion === undefined ||
+      typeof preview.complimentary_conversion === 'boolean') &&
     typeof preview.customer_tax_note === 'string' &&
     typeof preview.customer_terms_note === 'string'
   );
@@ -126,6 +129,7 @@ export function SubscriptionLiveReview({
   const [preview, setPreview] = useState<LiveOfferPreview | null>(null);
   const [previewRequestId, setPreviewRequestId] = useState<string | null>(null);
   const [amountAccepted, setAmountAccepted] = useState(false);
+  const [conversionAccepted, setConversionAccepted] = useState(false);
   const [action, setAction] = useState<
     'preview' | 'quote' | 'checkout' | 'cancel' | null
   >(null);
@@ -264,10 +268,18 @@ export function SubscriptionLiveReview({
     setPreview(result.data);
     setPreviewRequestId(crypto.randomUUID());
     setAmountAccepted(false);
+    setConversionAccepted(false);
   }
 
   async function confirmAmount() {
-    if (!preview || !previewRequestId || !amountAccepted || action) return;
+    if (
+      !preview ||
+      !previewRequestId ||
+      !amountAccepted ||
+      (preview.complimentary_conversion && !conversionAccepted) ||
+      action
+    )
+      return;
     setAction('quote');
     try {
       const response = await fetch('/api/subscriptions/live-quotes', {
@@ -283,6 +295,9 @@ export function SubscriptionLiveReview({
           approvalId: preview.approval_id,
           tier: preview.tier,
           seenAmountMinor: preview.amount_minor,
+          ...(preview.complimentary_conversion
+            ? { complimentaryConversionAccepted: conversionAccepted }
+            : {}),
         }),
       });
       const body = (await response.json()) as {
@@ -301,6 +316,7 @@ export function SubscriptionLiveReview({
         throw new Error('Live amount changed');
       setPreview(null);
       setAmountAccepted(false);
+      setConversionAccepted(false);
       setNonce((n) => n + 1);
       toast.success('Plan amount confirmed');
     } catch (error) {
@@ -505,12 +521,33 @@ export function SubscriptionLiveReview({
                 I reviewed this exact Live pilot amount.
               </Label>
             </div>
+            {preview.complimentary_conversion ? (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="live-complimentary-conversion"
+                  checked={conversionAccepted}
+                  disabled={!!action}
+                  onCheckedChange={(checked) =>
+                    setConversionAccepted(checked === true)
+                  }
+                />
+                <Label htmlFor="live-complimentary-conversion">
+                  I understand this payment replaces my free access. Paid access
+                  ends after one month unless I renew. A confirmed full refund
+                  ends it sooner.
+                </Label>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 loading={action === 'quote'}
-                disabled={!amountAccepted || !!action}
+                disabled={
+                  !amountAccepted ||
+                  (preview.complimentary_conversion && !conversionAccepted) ||
+                  !!action
+                }
                 onClick={() => void confirmAmount()}
               >
                 Confirm plan amount
@@ -522,6 +559,7 @@ export function SubscriptionLiveReview({
                 onClick={() => {
                   setPreview(null);
                   setAmountAccepted(false);
+                  setConversionAccepted(false);
                 }}
               >
                 Change plan

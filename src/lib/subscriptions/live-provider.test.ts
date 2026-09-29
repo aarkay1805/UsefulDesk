@@ -2,9 +2,11 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  classifyLiveWebhookOrder,
   createLiveFullRefund,
   createLiveOrder,
   fetchCapturedLivePayment,
+  fetchLivePaymentOrderId,
   fetchSettledLiveFullRefund,
   liveBillingConfig,
   recoverLiveOrder,
@@ -219,6 +221,104 @@ describe('Usefulmade Live merchant adapter', () => {
         wrongAmount
       )
     ).rejects.toThrow('matching capture');
+  });
+
+  it('classifies only exact pilot order notes as SaaS on a shared merchant', async () => {
+    const fetchImpl = vi.fn(async () =>
+      response(order)
+    ) as unknown as typeof fetch;
+    await expect(
+      classifyLiveWebhookOrder(config, orderId, fetchImpl)
+    ).resolves.toBe('saas');
+    expect(fetchImpl).toHaveBeenCalledWith(
+      `https://api.razorpay.com/v1/orders/${orderId}`,
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+
+  it('recognizes only clearly foreign orders and keeps ambiguous ones retryable', async () => {
+    const cases: { value: unknown; result: 'unrelated' | 'ambiguous' }[] = [
+      {
+        value: {
+          ...order,
+          receipt: 'gym-order-1',
+          notes: { usefuldesk_account_id: 'gym-account' },
+        },
+        result: 'unrelated',
+      },
+      { value: { ...order, receipt: null, notes: [] }, result: 'unrelated' },
+      {
+        value: { ...order, receipt: requestId, notes: {} },
+        result: 'ambiguous',
+      },
+      {
+        value: {
+          ...order,
+          receipt: 'gym-order-1',
+          notes: { usefuldesk_request_id: requestId },
+        },
+        result: 'ambiguous',
+      },
+      {
+        value: {
+          ...order,
+          receipt: requestId,
+          notes: { usefuldesk_request_id: requestId },
+        },
+        result: 'ambiguous',
+      },
+      {
+        value: {
+          ...order,
+          receipt: requestId,
+          notes: {
+            ...order.notes,
+            usefuldesk_organization_id: refundRequestId,
+          },
+        },
+        result: 'ambiguous',
+      },
+      { value: { ...order, id: 'order_Different' }, result: 'ambiguous' },
+      {
+        value: { ...order, receipt: 'gym-order-1', notes: ['unexpected'] },
+        result: 'ambiguous',
+      },
+    ];
+    for (const { value, result } of cases) {
+      const fetchImpl = vi.fn(async () =>
+        response(value)
+      ) as unknown as typeof fetch;
+      if (result === 'unrelated') {
+        await expect(
+          classifyLiveWebhookOrder(config, orderId, fetchImpl)
+        ).resolves.toBe('unrelated');
+      } else {
+        await expect(
+          classifyLiveWebhookOrder(config, orderId, fetchImpl)
+        ).rejects.toThrow();
+      }
+    }
+    const unavailable = vi.fn(
+      async () => new Response(null, { status: 503 })
+    ) as unknown as typeof fetch;
+    await expect(
+      classifyLiveWebhookOrder(config, orderId, unavailable)
+    ).rejects.toThrow();
+  });
+
+  it('requires a fresh matching payment before treating a null order as foreign', async () => {
+    const withoutOrder = vi.fn(async () =>
+      response({ id: paymentId, order_id: null })
+    ) as unknown as typeof fetch;
+    await expect(
+      fetchLivePaymentOrderId(config, paymentId, withoutOrder)
+    ).resolves.toBeNull();
+    const wrongPayment = vi.fn(async () =>
+      response({ id: 'pay_Different', order_id: null })
+    ) as unknown as typeof fetch;
+    await expect(
+      fetchLivePaymentOrderId(config, paymentId, wrongPayment)
+    ).rejects.toThrow('no valid order');
   });
 
   it('refuses refund POST when an earlier refund exists or settlement is partial', async () => {

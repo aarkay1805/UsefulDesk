@@ -46,6 +46,7 @@ const migrations = readdirSync(`${root}/supabase/migrations`)
 const checks = [
   'verify-subscription-live-full.sql',
   'verify-subscription-live-renewals.sql',
+  'verify-subscription-live-complimentary.sql',
 ];
 const input = [
   'BEGIN;',

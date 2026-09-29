@@ -454,7 +454,10 @@ function AccountProductAccess({
         {(testUi || liveReviewUi) &&
         isOrganizationOwner &&
         organizationId &&
-        snapshot?.access.mode === 'manual' ? (
+        (snapshot?.access.mode === 'manual' ||
+          (liveReviewUi &&
+            snapshot?.access.mode === 'complimentary' &&
+            organizationId === '8826d9aa-03f2-4ad7-ae91-0553052131f8')) ? (
           <>
             <div className="px-4 py-2">
               <Button

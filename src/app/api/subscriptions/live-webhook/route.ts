@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/automations/admin-client';
 import { settleCapturedLivePayment } from '@/lib/subscriptions/live-flow';
 import { reconcileLiveRefund } from '@/lib/subscriptions/live-refunds';
 import {
+  classifyLiveWebhookOrder,
   fetchLivePaymentOrderId,
   liveBillingConfig,
   liveRefundReconciliationEnabled,
@@ -92,11 +93,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid event ID' }, { status: 400 });
 
   try {
-    const orderId = isRefund
-      ? await fetchLivePaymentOrderId(config, paymentId)
-      : payment?.order_id;
+    const orderId =
+      isRefund || payment?.order_id == null
+        ? await fetchLivePaymentOrderId(config, paymentId)
+        : payment?.order_id;
+    // SaaS Checkout is always order-bound. Confirm a missing webhook order
+    // against the provider before treating it as another merchant flow.
+    if (orderId === null)
+      return NextResponse.json({ received: true, unrelated: true });
     if (typeof orderId !== 'string' || !/^order_[A-Za-z0-9]+$/.test(orderId))
       return NextResponse.json({ error: 'Invalid event' }, { status: 400 });
+    if ((await classifyLiveWebhookOrder(config, orderId)) === 'unrelated')
+      return NextResponse.json({ received: true, unrelated: true });
     const { data, error } = await supabaseAdmin().rpc(
       'subscription_record_live_webhook_event',
       {
