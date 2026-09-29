@@ -877,9 +877,9 @@ corrections retain processed evidence for review.
 Real Test full refund of the original ₹799 payment and disposable commit/replay
 passed, as did rollback and concurrent order/receipt/refund claim/commit checks.
 Full application/native/RLS recovery and genuine provider renewal/webhook delivery
-remain pending. Upgrade quote expiry/repricing, paid add-on
-cancellation/refund/proration/renewal rules, and Starter's standard reminder days
-and times still need decisions. Upgrade checkout, paid slots, and capability
+remain pending. Upgrade quote expiry/repricing and paid add-on
+cancellation/refund/proration/renewal rules remain open for later offers;
+the first Starter pilot excludes those flows. Upgrade checkout, paid slots, and capability
 enforcement remain unbuilt and closed. The Test refund execution has a second
 app/DB default-off gate; both local switches were restored off after acceptance.
 No Production migration, checkout, real charge, or automated paid access has
@@ -919,7 +919,8 @@ usage monitoring remain.
 Starter includes automatic renewal reminders on a standard schedule, inherited
 by Growth and Ultimate. Growth adds custom reminder schedules, bulk campaigns,
 and configurable automation rules; Ultimate inherits them. The exact standard
-days and times remain open. This decision does not remove all automatic sends
+schedule was approved for 7, 3, and 1 days before expiry after 09:00 in the
+gym account timezone on 29 September. This decision does not remove all automatic sends
 from Starter. Existing
 WhatsApp connection, Approved-template, and send-readiness gates still apply,
 and gyms bear their own Meta charges.
@@ -945,8 +946,8 @@ The 29 September continuation adds a DB/settings gate for custom reminder
 offsets, a standard-reminder claim plus pre-send check, and a pre-provider
 AutoPay tier recheck. Focused tests and full-schema rolled-back SQL pass; see
 `docs/subscription-test-acceptance.md` and `docs/renewal-reminders.md`.
-`capabilities_enabled` remains false pending the owner-approved Starter cadence,
-review of existing custom schedules, and remaining UI/native/background
+`capabilities_enabled` remains false pending review of existing custom schedules
+against the now-approved Starter cadence and remaining UI/native/background
 acceptance. Production billing stays closed.
 The acceptance chat continues to own provider recovery, downgrade renewal and
 native billing acceptance; this section does not supersede its evidence.
@@ -959,7 +960,7 @@ native billing acceptance; this section does not supersede its evidence.
 | Extra branch        | Prorate ₹499 by the actual remaining term; renew the purchased slots with the base plan.                                            | Growth allows one purchased slot; Ultimate slots stay paid. Pending/failed payment adds no capacity. Archiving alone never cancels a slot.                                                                    |
 | Add-on cancellation | Remove purchased capacity at renewal, only with the owner's exact retained/archive roster. No routine mid-cycle refund.             | Preserve data; no automatic archives. The existing eligible full first-payment refund also covers an add-on on that first payment. Switching to Ultimate must explicitly review any now-redundant paid slots. |
 | Restart             | After cancellation or full refund, start one fresh monthly term at verified payment; no fresh trial or second first-payment refund. | Preserve original first-payment/refund history, require a reviewed branch roster and one canonical recoverable order, and refuse unresolved prior payment/refund work.                                        |
-| Starter reminders   | Owner must choose exact days before/on/after expiry and local send time.                                                            | Preserve standard reminders; prevent custom settings and custom queued sends only after a standard schedule exists. No schedule is inferred here.                                                             |
+| Starter reminders   | Approved for 7, 3, and 1 days before expiry after 09:00 in the gym account timezone for membership and service renewals.            | Preserve standard reminders; prevent custom settings and custom queued sends on conversion. Keep the switch off until saved schedules and send boundaries pass acceptance.                                    |
 
 **Built locally, disabled:** migrations `20260929080000` through
 `20260929160000` preserve paid-generation/refund history and implement immutable
@@ -1001,15 +1002,32 @@ rolled-back full-schema synthetic SQL pass; genuine provider/release acceptance
 remain pending. No Live credentials,
 Production migration, charge or refund were used.
 
-**Remaining:** owner decisions above; concurrent boundary checks, advanced
-native Checkout acceptance, the genuine renewal/refund race,
-and explicit activation review. Genuine advanced Test capture, signed webhook
+**Remaining:** owner decisions for later offers above; concurrent boundary checks,
+the genuine renewal/refund race, and explicit activation review for the limited
+web pilot. Advanced native Checkout acceptance remains separate and is excluded
+from the first offer. Genuine advanced Test capture, signed webhook
 retry, and local PostgREST outage recovery passed; physical PostgreSQL storage
-recovery remains untested. Live also needs an approved offer/tax and term
-reference entered into the empty ledger, approval of Starter's standard cadence,
-Live-specific full-schema and genuine provider acceptance, and a separately
-authorized real-money pilot before migration, deployment or activation. The other candidate features and usage limits
-remain unapproved. No payable flow is open under the default settings.
+recovery remains untested. Live also needs the tax-confirmed payable offer and
+approved term reference entered into the empty ledger, Live-specific full-schema
+and genuine provider acceptance, and a separately authorized real-money pilot
+before migration, deployment or activation. Later tier candidates and usage
+limits remain unapproved. No payable flow is open under the default settings.
+
+**First pilot scope approved 29 September:** one expired-trial organization,
+Starter at provisional ₹799, one active branch, web Checkout, one calendar
+month from the signed `payment.captured` event, a 30-minute reviewed quote,
+and owner-initiated renewal. Capture after quote expiry is review-held without
+automatic access/refund. No pilot-specific numeric member or staff caps.
+The Live draft has no owner-initiated renewal order or settlement yet; the
+approved renewal mode is a requirement, not a shipped path.
+Upgrades, paid add-ons, automated restart, and native Checkout are outside
+this first offer. Approved Starter features are members/plans,
+memberships/renewals, attendance, manual payments, shared WhatsApp chats and
+standard renewal reminders; custom schedules, bulk campaigns, configurable
+automations, gym-member Payment Links and AutoPay are excluded. Tax-approved
+exact payable wording and customer terms, a distinct activated Usefulmade Live merchant (none
+exists yet), one pilot organization, release acceptance, and explicit
+Production/real-money authorizations remain open. Production remains closed.
 
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 

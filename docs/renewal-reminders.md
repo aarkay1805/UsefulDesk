@@ -177,19 +177,23 @@ or changes its dates.
 The local, default-off subscription draft checks the standard-reminder tier
 capability before claiming service work and again before either renewal message
 reaches Meta. Custom membership/service day edits require the separate custom
-schedule capability in both the settings API and database. Starter's exact
-standard days and send time still await owner approval; see
-[subscription Test acceptance](subscription-test-acceptance.md). Keep the
-capability switch disabled until persisted custom schedules and pending claims
-have a reviewed transition policy.
+schedule capability in both the settings API and database. On 29 September the
+owner approved Starter's standard schedule: **7, 3, and 1 days before expiry,
+eligible after 09:00 in the gym account timezone** for membership and service
+renewals. This is a product policy, not permission to enable sends. The exact
+Marketing template, connected WhatsApp account, and existing readiness checks
+still govern each send. See [subscription Test acceptance](subscription-test-acceptance.md).
+Keep the capability switch disabled until persisted custom schedules and
+pending claims have a reviewed transition and final send-boundary acceptance.
 
 The default-off Starter transition hook requires an owner-acknowledged version
 of the approved standard schedule. In the verified-payment transaction it
 replaces future custom offsets and retires unattempted nonstandard claims.
 Claims that reached Meta remain in delivery history. The default-off Starter
 transaction triggers assert owner review before the order claim and apply the
-hook before a verified paid grant changes. The owner review UI and policy
-approval remain pending, so capability activation remains blocked. Retired
+hook before a verified paid grant changes. The schedule itself is approved;
+each converting owner still needs the exact schedule acknowledgment in the
+review UI, and rollout acceptance remains open. Retired
 claims keep their dedupe keys and do not appear as sendable work in reminder
 readiness.
 

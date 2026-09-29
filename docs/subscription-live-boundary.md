@@ -26,7 +26,9 @@ webhooks, mandates and member ledgers remain separate.
   This is the provider's capture **event** time, not a separately documented
   capture instant: the [Razorpay payment entity](https://razorpay.com/docs/api/payments/entity/)
   defines `created_at` as payment creation. The proposed
-  `calendar_month_from_capture_event` term needs explicit offer approval.
+  `calendar_month_from_capture_event` term was approved for the narrow first
+  Starter pilot on 29 September. This does not establish a separately attested
+  provider capture instant.
   Starter requires the owner's one-time reminder acknowledgment before Checkout;
   the grant transaction normalizes schedules and retires unattempted custom
   claims. A changed or unapproved reminder policy holds captured funds for
@@ -66,7 +68,7 @@ webhooks, mandates and member ledgers remain separate.
 | Quote issuance                  | false, database-hard-closed | `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED=true`, one explicitly approved offer row, and the matching private database switch. The database `CHECK` prevents enabling issuance in this draft; the Production audit blocks the runtime flag.                                                                                 |
 | Settlement and reconciliation   | false                       | Separate `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` flags plus private database settlement switch. The Production env audit currently blocks them.                                                                                                           |
 | New order and refund initiation | false, database-hard-closed | Separate `USEFULDESK_SAAS_LIVE_ORDERS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED` flags. Database `CHECK` constraints forbid enabling either; a later reviewed migration must deliberately replace them. The Production env audit also blocks both.                                                           |
-| Tier capabilities               | false                       | Existing `private.subscription_billing_settings.capabilities_enabled` remains off pending Starter cadence and full acceptance.                                                                                                                                                                                        |
+| Tier capabilities               | false                       | Existing `private.subscription_billing_settings.capabilities_enabled` remains off pending review of saved custom schedules and full acceptance. The Starter cadence is approved as 7/3/1 days before expiry after 09:00 account-local.                                                                                |
 
 The application never compares a Live merchant ID to a gym account's OAuth
 merchant. Production environment audit permits a complete dark Live
@@ -75,14 +77,28 @@ protected values as unverified.
 
 ## Remaining before any Live pilot
 
-1. Approve the offer, tax/receipt treatment, exact INR amount and term policy,
-   quote lifetime, refund/cancellation rules, and one pilot organization. A
-   qualified adviser and the Usefulmade Live merchant owner must confirm their
-   respective facts privately. No approval row is seeded; quote issuance and
-   Checkout remain hard-closed pending an explicitly reviewed opening migration.
-2. Approve Starter's standard reminder days/time, Live renewal,
-   upgrade/add-on/restart scope or explicitly exclude them from the offer.
-   Current initial-term flow is not an automatic recurring debit.
+1. Finish the customer-payable offer: qualified tax/receipt advice and exact
+   amount/wording, the customer-facing presentation of separately payable
+   third-party charges,
+   cancellation/refund wording, and one pilot organization. The owner approved
+   a provisional ₹799, one expired-trial organization, one active branch, web
+   Checkout, a capture-event calendar month, and a 30-minute reviewed quote;
+   late capture is review-held. There are no pilot-specific numeric member or
+   staff caps. Approved Starter features are members/plans,
+   memberships/renewals, attendance, manual payments, shared WhatsApp chats,
+   and standard renewal reminders; custom schedules, bulk campaigns,
+   configurable automations, gym-member Payment Links, and AutoPay are
+   excluded. No separate Usefulmade Live merchant exists yet; activate and
+   privately verify one distinct from the gym collections merchant. No
+   approval row is seeded; quote issuance and Checkout remain hard-closed
+   pending an explicitly reviewed opening migration.
+2. Accept the approved Starter 7/3/1 reminder schedule after 09:00 account-local
+   in final capability/send testing. Initial renewal is owner-initiated.
+   Upgrades, paid add-ons, automated restart, and native Checkout are excluded
+   from the first offer. Current Live code has only an initial term and first
+   full-refund path; the owner-initiated Live renewal order, settlement,
+   customer review, and cancellation flow still need implementation and
+   acceptance before renewal is offered. There is no automatic SaaS debit.
 3. Repeat full-schema Test acceptance through the approved migration path,
    inspect resulting tables/policies/function grants, and run concurrency,
    genuine provider and outage checks. A rollback-only synthetic full-schema

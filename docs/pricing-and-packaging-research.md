@@ -23,7 +23,9 @@
 > 1,000/5,000/25,000 message-count ideas are not approved.
 > Starter includes automatic renewal reminders on a standard schedule; Growth
 > adds custom reminder schedules, bulk campaigns, and configurable automation
-> rules, inherited by Ultimate. Exact standard days and times remain open. Older
+> rules, inherited by Ultimate. The owner approved Starter's standard 7/3/1
+> days-before-expiry schedule after 09:00 in each gym account's timezone on
+> 29 September 2026. Older
 > rows that exclude all automatic reminders from the entry tier are superseded.
 
 **Compiled:** 31 August 2026  

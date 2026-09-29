@@ -7,6 +7,14 @@ The application Test flags remain false; Production billing remains unavailable.
 No Production schema/data, gym-member ledger, real charge, or recurring schedule
 was changed.
 
+**Policy update, 29 September:** the owner subsequently approved the narrow
+web-only Starter pilot scope, standard 7/3/1 after-09:00 account-local
+reminders, an initial month from the signed capture event, and a 30-minute
+reviewed quote. The historical “policy decisions remain” notes below describe
+the state when those acceptance runs occurred. No additional provider or
+release acceptance is claimed by this decision update; see
+[production readiness](production-readiness.md) for current blockers.
+
 ## Evidence
 
 | Case                                           | Result and boundary                                                                                                                                                                                                                                                                                                                                                                                              |

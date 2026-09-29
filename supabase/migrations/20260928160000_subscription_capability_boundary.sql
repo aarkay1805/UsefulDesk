@@ -8,9 +8,10 @@ ALTER TABLE private.subscription_billing_settings
   ADD COLUMN IF NOT EXISTS standard_reminder_days_before INTEGER[],
   ADD COLUMN IF NOT EXISTS standard_reminder_hour_local INTEGER;
 
--- The current worker implements 7/3/1 after 09:00. Those values are an
--- operational default, not an approved Starter promise. A different owner
--- decision requires a code/policy migration before this switch can turn on.
+-- The owner approved the worker's 7/3/1 after-09:00 account-local schedule
+-- for Starter on 29 September 2026. Saved custom schedules and send boundaries
+-- still require rollout review before this switch can turn on. A later policy
+-- change requires coordinated code and migration changes.
 DO $$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='private.subscription_billing_settings'::regclass
    AND conname='subscription_standard_reminder_approval_required') THEN

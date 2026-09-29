@@ -1,6 +1,6 @@
 # UsefulDesk subscriptions — decision and implementation brief
 
-**Status:** trial policy, the three tier names, branch allowances and expansion rules, Growth's Razorpay collection scope, the messaging split below, no UsefulDesk monthly message-count caps or message overage charges at launch, the provisional monthly INR prices below, and the base-tier change timing below are approved. Higher tiers inherit lower-tier capabilities. Other tier contents, annual pricing, tax treatment, and paid checkout are not approved or shipped. This brief supersedes the trial, plan-name, and entitlement proposals in `multi_gym_saas_prd.md` and the trial-duration recommendation in `docs/pricing-and-packaging-research.md`. The shipped access boundary remains `trial-access-mvp.md` until subscription work is deployed.
+**Status:** trial policy, the three tier names, branch allowances and expansion rules, Growth's Razorpay collection scope, the messaging split below, no UsefulDesk monthly message-count caps or message overage charges at launch, the provisional monthly INR prices below, and the base-tier change timing below are approved. The narrow first Starter pilot scope, standard reminder schedule, initial term clock, and quote lifetime are recorded below. Higher tiers inherit lower-tier capabilities. Other tier contents, annual pricing, tax treatment, and paid checkout are not approved or shipped. This brief supersedes the trial, plan-name, and entitlement proposals in `multi_gym_saas_prd.md` and the trial-duration recommendation in `docs/pricing-and-packaging-research.md`. The shipped access boundary remains `trial-access-mvp.md` until subscription work is deployed.
 
 ## Approved customer journey
 
@@ -13,6 +13,38 @@
 The concrete owner/provider decisions and distinct manual/automated opening
 criteria are recorded in [production readiness](../docs/production-readiness.md).
 Passing code checks or the Test acceptance slices does not open either gate.
+
+### First paid-pilot offer direction — owner approved 29 September 2026
+
+One expired-trial organization may buy **Starter** at a **provisional ₹799**
+for one calendar month and **one active branch**, through **web Checkout only**.
+The first term starts at the signed Razorpay `payment.captured` event time and
+ends one calendar month later. A reviewed quote lasts **30 minutes** from the
+owner's immutable review; capture after expiry is held for reconciliation and
+grants no automatic access or refund. Renewal is owner-initiated, with no
+automatic SaaS debit. The Live draft currently implements an initial term and
+first full refund, but **no Live owner-initiated renewal order**; that path
+must be built and accepted before renewal can be offered. Upgrades, paid add-ons, automated restart after refund or
+cancellation, and native Checkout are excluded from this first offer. There
+are **no pilot-specific numeric member or staff caps**; existing roles,
+provider requirements, technical limits, and abuse controls still apply.
+The approved Starter feature list for this pilot is **members and plans,
+memberships and renewals, attendance, manual payment recording, shared
+WhatsApp chats, and standard renewal reminders**. Chats and sends still need
+their own WhatsApp connection; reminders also need the exact Approved/synced
+Marketing template and send readiness. Custom schedules, bulk campaigns,
+configurable automations, gym-member Payment Links, and AutoPay are excluded.
+Starter's membership and service renewal reminders use the standard **7, 3,
+and 1 days before expiry, after 09:00 in each gym account's timezone**,
+subject to the exact approved WhatsApp contract and send-readiness gates.
+
+This approval is product scope only. The separately payable Meta/provider
+charges and customer-facing cancellation/refund wording need final review;
+qualified tax/receipt advice must establish the exact payable amount
+and wording. A distinct activated Usefulmade Live SaaS merchant, identified
+pilot organization, final acceptance, Production release authorization, and
+separate real-money authorization remain missing. The approval ledger is empty
+and no customer-payable quote may be issued.
 
 **Current local acceptance (29 September 2026):** the default-off advanced
 Test flow passed genuine Razorpay Test Checkout, signed provider retry after a
@@ -156,7 +188,7 @@ unattempted custom reminder claims. These paths are not deployed.
 Database constraints keep new Live orders and refunds impossible to enable in
 this draft; all runtime/intake/settlement switches default off. No Live
 credentials or money were used. Rolled-back synthetic full-schema SQL passed;
-approved offer/tax/term references, approval of Starter's standard cadence and genuine provider acceptance
+approved offer/tax references and genuine provider acceptance
 remain required before a pilot.
 
 ### Capability-boundary draft — 28 September 2026
@@ -171,7 +203,8 @@ reminder permission and existing financial reconciliation. It is not installed;
 its separate `capabilities_enabled` switch is false. The 29 September continuation
 adds a database and settings boundary for custom renewal offsets, a claim and
 pre-send check for standard reminders, and a pre-provider AutoPay recheck.
-Activation still needs the owner's Starter cadence and review of existing custom
+The owner approved Starter's 7/3/1 after 09:00 local cadence on 29 September.
+Activation still needs review of existing custom
 schedules; complete UI/native/send-boundary acceptance and rollout remain open.
 Commercial proposals and the precise unfinished work are in
 `PRDs/roadmap.md` under **Subscription product continuation**. They are proposals,
@@ -221,17 +254,17 @@ Growth includes Razorpay Payment Links and automatic recurring collection throug
 
 ## Approved messaging packaging
 
-Starter includes automatic renewal reminders on a standard schedule; Growth and Ultimate inherit them. Growth adds custom reminder schedules, bulk campaigns, and configurable automation rules; Ultimate inherits those too. The standard schedule's exact days and times remain to be chosen. Starter is not barred from every automatic send merely because custom schedules and configurable automations belong to Growth. Every send still requires a connected WhatsApp account, the relevant Approved and synced template contract, and the existing send-readiness checks. Meta messaging charges remain payable by the gym separately from UsefulDesk, and none of the tiers has a UsefulDesk monthly message-count cap or message overage charge at launch.
+Starter includes automatic membership and service renewal reminders 7, 3, and 1 days before expiry after 09:00 in the gym account timezone; Growth and Ultimate inherit this standard schedule. Growth adds custom reminder schedules, bulk campaigns, and configurable automation rules; Ultimate inherits those too. Starter is not barred from every automatic send merely because custom schedules and configurable automations belong to Growth. Every send still requires a connected WhatsApp account, the relevant Approved and synced template contract, and the existing send-readiness checks. Meta messaging charges remain payable by the gym separately from UsefulDesk, and none of the tiers has a UsefulDesk monthly message-count cap or message overage charge at launch.
 
-## Candidate feature shape — pending approval
+## Starter pilot feature scope and later tier candidates
 
-| Tier     | Customer job            | Candidate distinction to validate                                                                                                                     |
-| -------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Starter  | Run the daily gym desk  | Members, attendance, renewals, manual payments, and shared Chats. Automatic renewal reminders on a standard schedule are approved above.              |
-| Growth   | Follow up at scale      | Starter plus proposed lead pipeline, flows, services, and deeper finance. AI drafts, if included, use the gym's own provider key.                     |
-| Ultimate | Manage several branches | Growth plus proposed consolidated reporting and owner exception views. Automatic collection is already part of Growth, subject to merchant readiness. |
+| Tier     | Customer job            | Candidate distinction to validate                                                                                                                         |
+| -------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Starter  | Run the daily gym desk  | The first pilot approves members and plans, memberships and renewals, attendance, manual payments, shared WhatsApp chats, and standard renewal reminders. |
+| Growth   | Follow up at scale      | Starter plus proposed lead pipeline, flows, services, and deeper finance. AI drafts, if included, use the gym's own provider key.                         |
+| Ultimate | Manage several branches | Growth plus proposed consolidated reporting and owner exception views. Automatic collection is already part of Growth, subject to merchant readiness.     |
 
-The candidate feature table is **not** a saleable feature matrix. Payment Links, AutoPay, and broader Razorpay merchant rollout retain their separate readiness gates despite the approved Growth/Ultimate tier placement. The three cards must state only generally available, tested features and show any prerequisite plainly. Ultimate does not imply unlimited capacity or hands-off, guaranteed collection. No unlimited-staff, GST-invoice, or autonomous-collection promise is approved. Whether members are capped at all, which other features belong in each tier, and staff limits remain open.
+The Starter pilot list above is approved product scope, but remains unavailable for sale until the operational and commercial gates close. Growth and Ultimate rows remain candidates, not a saleable feature matrix. Payment Links, AutoPay, and broader Razorpay merchant rollout retain their separate readiness gates despite the approved Growth/Ultimate tier placement. The three cards must state only generally available, tested features and show any prerequisite plainly. Ultimate does not imply unlimited capacity or hands-off, guaranteed collection. No unlimited-staff, GST-invoice, or autonomous-collection promise is approved. The first Starter pilot has no pilot-specific numeric member or staff caps; later tier limits remain open.
 
 ## Money and entitlement boundaries
 

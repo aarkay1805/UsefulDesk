@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-09-29 — Record the first Starter paid-pilot offer direction
+
+`PRDs/usefuldesk-subscriptions.md`, `PRDs/roadmap.md`,
+`docs/production-readiness.md`, `docs/subscription-live-boundary.md`, and
+`docs/renewal-reminders.md` now record the owner's narrow web-only Starter
+scope and feature list, 7/3/1 after-09:00 local reminder schedule, capture-event month,
+30-minute reviewed quote, and absence of pilot-specific numeric member/staff
+caps. The draft capability migration comment matches the approved schedule;
+its switch remains off. No payable quote, Production migration, Live merchant,
+purchase, or real-money authorization resulted from these decisions.
+
 ## 2026-09-29 — Draft dark Usefulmade Live SaaS billing boundary
 
 `live-{provider,orders,flow,refunds}.ts`, Live subscription routes and
