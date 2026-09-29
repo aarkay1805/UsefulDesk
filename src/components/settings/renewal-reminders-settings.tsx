@@ -45,6 +45,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/use-auth';
 import { useCan } from '@/hooks/use-can';
 import {
+  SUBSCRIPTION_CAPABILITY_BLOCKER,
+  useSubscriptionCapability,
+} from '@/hooks/use-subscription-capability';
+import {
   BRANCH_HEADER,
   browserBranchId,
   branchHref,
@@ -719,6 +723,7 @@ function RuleMessagePreview({
 function RuleDetail({
   rule,
   canEdit,
+  canEditRenewalDays,
   draft,
   onDraftChange,
   onSave,
@@ -728,6 +733,7 @@ function RuleDetail({
 }: {
   rule: RuleRow;
   canEdit: boolean;
+  canEditRenewalDays: boolean;
   draft: ReminderRulePatch;
   onDraftChange: (patch: ReminderRulePatch) => void;
   onSave: (id: ReminderRuleId, patch: ReminderRulePatch) => Promise<void>;
@@ -747,8 +753,12 @@ function RuleDetail({
   const [saving, setSaving] = useState(false);
   const dirty = Object.keys(draft).length > 0;
   const validationMessage = timingValidationMessage(rule, draft);
+  const renewalDayChoice =
+    rule.id === 'membership_renewal' || rule.id === 'service_renewal';
+  const blockedDayDraft =
+    renewalDayChoice && !canEditRenewalDays && 'daysBefore' in draft;
   const save = async () => {
-    if (!dirty || validationMessage) return;
+    if (!dirty || validationMessage || blockedDayDraft) return;
     setSaving(true);
     try {
       await onSave(rule.id, draft);
@@ -839,7 +849,13 @@ function RuleDetail({
           draft={draft}
           onChange={onDraftChange}
           disabled={!canEdit || saving}
-          blocker={canEdit ? null : EDIT_PERMISSION_BLOCKER}
+          blocker={
+            !canEdit
+              ? EDIT_PERMISSION_BLOCKER
+              : renewalDayChoice && !canEditRenewalDays
+                ? SUBSCRIPTION_CAPABILITY_BLOCKER
+                : null
+          }
         />
         {timingNotes.length ? (
           <div className="text-muted-foreground max-w-2xl space-y-1 text-sm leading-5 text-pretty">
@@ -880,7 +896,9 @@ function RuleDetail({
             <Button
               size="sm"
               loading={saving}
-              disabled={!canEdit || Boolean(validationMessage)}
+              disabled={
+                !canEdit || Boolean(validationMessage) || blockedDayDraft
+              }
               onClick={save}
             >
               Save changes
@@ -1135,6 +1153,9 @@ export function RenewalRemindersSettings({
   onUnsavedChangesChange?: (hasUnsavedChanges: boolean) => void;
 } = {}) {
   const { canEditSettings, accountId } = useAuth();
+  const canEditRenewalDays = useSubscriptionCapability(
+    'custom_renewal_schedules'
+  );
   const canViewActivity = useCan('view-automated-message-activity');
   const searchParams = useSearchParams();
   const branchParam = searchParams.get('branch');
@@ -1500,6 +1521,7 @@ export function RenewalRemindersSettings({
                   <RuleDetail
                     rule={rule}
                     canEdit={canEditSettings}
+                    canEditRenewalDays={canEditRenewalDays}
                     draft={drafts[`${draftScope}:${rule.id}`] ?? {}}
                     onDraftChange={(patch) => {
                       const key = `${draftScope}:${rule.id}`;

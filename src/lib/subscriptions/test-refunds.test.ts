@@ -152,6 +152,55 @@ describe('Test full refund execution and recovery', () => {
       'subscription_observe_test_refund'
     );
   });
+  it('acknowledges a processed refund held for a later paid obligation', async () => {
+    const admin = db();
+    admin.rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_commit_test_full_refund'
+          ? {
+              request_id: req,
+              provider_refund_id: entity.id,
+              review_required_at: '2026-09-29T12:00:00Z',
+            }
+          : name === 'subscription_claim_test_refund'
+            ? {
+                ...context,
+                action: 'bound',
+                execution: {
+                  provider_refund_id: entity.id,
+                  confirmed_at: null,
+                },
+              }
+            : context,
+      error: null,
+    }));
+    expect(
+      await executeTestFirstRefund(input, {
+        admin,
+        config,
+        fetchRefund: vi.fn(async () => result),
+      })
+    ).toEqual({ status: 'review_required', confirmed: false });
+    admin.rpc.mockClear();
+    admin.rpc.mockResolvedValue({
+      data: {
+        ...context,
+        action: 'review_required',
+        execution: {
+          provider_refund_id: entity.id,
+          confirmed_at: null,
+          review_required_at: '2026-09-29T12:00:00Z',
+        },
+      },
+      error: null,
+    });
+    const fetchRefund = vi.fn();
+    expect(
+      await executeTestFirstRefund(input, { admin, config, fetchRefund })
+    ).toEqual({ status: 'review_required', confirmed: false });
+    expect(fetchRefund).not.toHaveBeenCalled();
+    expect(admin.rpc).toHaveBeenCalledTimes(1);
+  });
   it('ignores unrelated webhook refunds and rejects identity mismatches before fetching', async () => {
     const fetchRefund = vi.fn();
     await confirmTestRefund(

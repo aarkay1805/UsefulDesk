@@ -6,6 +6,92 @@
 
 ---
 
+## 2026-09-29 — Close out the disabled billing foundation for review
+
+PR #16 at `a5120b5a` passed CI, CodeQL and Vercel preview checks. The
+Production recheck found `4072dccc` still deployed, zero private subscription
+tables, and the team on Vercel Hobby. `docs/production-readiness.md`,
+`docs/subscription-live-boundary.md`, and `PRDs/roadmap.md` now separate review
+and merge of the default-off code from a payable Starter rollout. The owner
+selected UsefulMade / Home office and requested the existing activated
+UsefulMade Razorpay merchant. Read-only access evidence found the selected
+organization complimentary with no trial dates, so a reviewed transition or
+contract change is needed before an initial quote. SaaS product/domain
+approval, shared-webhook route correction, qualified tax/receipt conclusion,
+customer offer wording, and final provider/release acceptance remain open. No Production
+subscription migration, paid grant or real-money transaction resulted.
+
+## 2026-09-29 — Close dark Live quote-expiry and issuance races
+
+The uninstalled Live migrations now use wall time for quote expiry and claim
+timestamps, and read initiation switches after the organization lock. A
+rollback-only full-schema regression and scoped two-session disposable checks
+cover expiry during lock wait, quote contention, capture/cancellation ordering,
+and shutdown during Checkout. Focused web/native access tests pass. No Live
+provider, Production migration, charge or customer send was involved; the paid
+pilot gate remains closed.
+
+## 2026-09-29 — Draft expiry-only Live Starter renewal
+
+`20260930000000_subscription_live_owner_renewals.sql` and the existing Live
+quote/review/access-gate paths add owner-reviewed renewal after expiry, one
+capture-event calendar month, immutable term history, and cancellation that
+preserves paid access. Quote/order recovery remains one-POST; changed access,
+cancellation and refund evidence hold captured money. A new renewal switch is
+hard-closed; the shared settlement RPC keeps its historical initial-payment
+name. `scripts/verify-subscription-live-full.mjs` runs both synthetic acceptance
+suites in a rollback-only disposable full schema. No Live schema was installed,
+provider called, Production changed or money moved. Genuine Live/release
+acceptance and all commercial gates remain open.
+
+## 2026-09-29 — Record the first Starter paid-pilot offer direction
+
+`PRDs/usefuldesk-subscriptions.md`, `PRDs/roadmap.md`,
+`docs/production-readiness.md`, `docs/subscription-live-boundary.md`, and
+`docs/renewal-reminders.md` now record the owner's narrow web-only Starter
+scope and feature list, 7/3/1 after-09:00 local reminder schedule, capture-event month,
+30-minute reviewed quote, and absence of pilot-specific numeric member/staff
+caps. The draft capability migration comment matches the approved schedule;
+its switch remains off. No payable quote, Production migration, Live merchant,
+purchase, or real-money authorization resulted from these decisions.
+
+## 2026-09-29 — Draft dark Usefulmade Live SaaS billing boundary
+
+`live-{provider,orders,flow,refunds}.ts`, Live subscription routes and
+migrations `20260929170000`–`20260929250000` add an exact merchant/pilot
+binding, durable order/refund claims, signed webhook evidence, service-only
+first-term/refund transactions, held-event reconciliation, an exact-amount
+owner review panel, Starter reminder normalization and activation audit. An
+empty immutable offer approval ledger and service-only quote writer freeze the
+owner-confirmed amount and notes; Checkout checks that exact quote before
+opening. Captured money under a revoked offer is review-held. Checkout rechecks
+the current gate and eligibility; terms use signed capture-event time. New Live
+quotes, orders and refunds are database-hard-closed; all runtime switches
+default off. Focused code tests pass; the updated rollback-only full-schema SQL
+check passes. No migration was installed. Genuine provider acceptance and
+commercial approval remain open.
+
+## 2026-09-29 — Continue default-off subscription capability gates
+
+The capability draft now guards custom reminder offsets in the database and
+settings, claims standard reminder jobs before delivery and rechecks tier
+permission before Meta sends or an AutoPay provider call. Focused tests and
+full-schema rolled-back SQL pass. `capabilities_enabled` stays false until the
+owner sets Starter's cadence and existing custom schedules are reviewed; see
+`docs/subscription-test-acceptance.md` and `docs/renewal-reminders.md`.
+
+## 2026-09-29 — Implement default-off advanced Test billing
+
+Migrations `20260929080000`–`20260929160000`, the advanced subscription API
+routes, `test-flow.ts`, and the owner Test billing panel add immutable reviews,
+frozen quotes, canonical order claims, verified upgrade/slot/restart commits,
+paid-slot renewal/cancellation, and preserved first-refund history. Stale
+captured renewals and processed first refunds after later paid charges are
+review-held. Disposable full-schema synthetic SQL and
+focused web tests pass. No advanced Test charge or Production migration was
+made; commercial/tax and Starter cadence approval plus genuine provider/native
+acceptance still block activation.
+
 ## 2026-09-29 — Complete physical iPhone Air subscription access checks
 
 `docs/subscription-test-acceptance.md` records synthetic owner sign-in and the
@@ -60,7 +146,6 @@ owner's schedule; do not enable `capabilities_enabled` yet. Full-schema rollback
 checks and repository verification pass. The draft is not installed anywhere;
 Production billing stays disabled. The roadmap records review-only quote,
 add-on and restart proposals, with no newly approved commercial terms.
-
 
 ## 2026-09-28 — Verify genuine Test renewal retries after database-API outage
 

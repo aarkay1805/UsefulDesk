@@ -768,27 +768,43 @@ cancellations expire naturally, and keep refunds separate from gym-member money
 movement. `docs/production-readiness.md` is the provider gate and
 `npm run audit:production-env` is the value-redacting environment-policy check.
 
-**28 September audit: paid activation remains closed.** Authenticated reads
-confirm Vercel Hobby, Supabase Free within quotas, configured Auth SMTP, and
-active database schedules. Real Auth delivery, protected URL/key value checks,
-Vercel upgrade, Supabase risk/spend choice, adviser-confirmed accounting and the
-exact limited offer remain owner decisions. The readiness record now separates
-manual-pilot approval from automated-subscription acceptance; operational checks
-alone cannot open either gate. Turnstile remains absent.
+**29 September closeout: paid activation remains closed.** The owner-approved
+Starter pilot scope and Supabase Free review date are recorded in
+`docs/production-readiness.md`; sign-in email delivery and redemption passed.
+Protected URL/key values remain unverifiable, Vercel remains on Hobby, and
+adviser-confirmed accounting and exact payable wording remain open. The owner
+selected UsefulMade / Home office (`8826d9aa-03f2-4ad7-ae91-0553052131f8`,
+one active branch) for the pilot. Read-only access evidence found it
+complimentary with no trial dates, so the draft expired-trial quote contract
+cannot serve it without a reviewed access transition or contract change. The
+readiness record separates manual-pilot approval from
+automated-subscription acceptance; operational checks alone cannot open either
+gate. Turnstile remains absent.
 
-**Fixed in code, deployment/recovery pending:** the shared legal-business lookup
-now names the organization-scoped FK, fixing reproduced `PGRST201` ambiguity.
-One Production payment-confirmation reminder exhausted five attempts with zero
-provider sends; a healthy later cron aggregate does not recover it. Release the
-patch and obtain an owner decision on that job's disposition. Redundant GitHub
-cron runs were stale at audit time. The environment checker now rejects all
-three SaaS Test flags and unreleased SaaS merchant configuration in Production.
-No provider setting, migration, live send, payment or access was changed.
+**Recovery decision recorded:** the deployed shared legal-business lookup names
+the organization-scoped FK, fixing reproduced `PGRST201` ambiguity. One
+Production payment-confirmation reminder exhausted five attempts with zero
+provider sends; the owner marked it missed without a resend. Redundant GitHub
+cron runs were stale at the last audit. The environment checker rejects SaaS
+Test flags and enabled Live billing switches in Production. No Production
+subscription migration, Live send, payment or access activation resulted.
+
+**Disabled billing foundation ready for review, activation pending:** draft PR
+#16 at `a5120b5a` passed CI, CodeQL and Vercel preview checks on 29 September.
+The owner authorized proceeding through review and merge of its default-off
+foundation. A ~17:30 UTC read-only recheck found Production still at
+`4072dccc`, Supabase `ACTIVE_HEALTHY`, zero private subscription/billing tables,
+and Vercel Hobby. Code review and merge do not open a payable path. The Live
+shared-merchant domain/product approval and event routing, qualified tax/receipt conclusion, pilot
+access transition, offer wording, and release-specific provider acceptance remain
+the next activation work; see [readiness](../docs/production-readiness.md) and
+the [Live boundary](../docs/subscription-live-boundary.md).
 
 The local default-off Test checkout, renewal, cancellation and refund slices
-below do not constitute Production automated billing. Full-schema/native/RLS
-acceptance, genuine provider webhook/renewal recovery, remaining tier enforcement
-and commercial decisions still block rollout. A specifically approved manual
+below do not constitute Production automated billing. Later full-schema,
+native and genuine Test-provider acceptance is recorded below and in the
+[Test record](../docs/subscription-test-acceptance.md); Live merchant and final
+offer/release acceptance still block rollout. A specifically approved manual
 pilot uses the documented ledger and manual access workflow; its offer cannot
 claim automated tier enforcement.
 
@@ -849,8 +865,9 @@ The final simulator journey used original mobile source in an isolated iPhone
 17 Pro Debug client. An iPhone Air USB-C XCTest continuation passed the same
 synthetic owner sign-in, branch, expired recovery and reopen checks. Its
 isolated physical harness briefly allowed the exact LAN Test host over HTTP;
-that source allowance was restored afterward. Release-build HTTPS behavior
-remains outside this UI acceptance. The temporary webhook is disabled, local
+that source allowance was restored afterward. A later signed physical Release
+build passed HTTPS Test sign-in and access recovery; see the acceptance record.
+The temporary webhook is disabled, local
 billing gates are off, REST is restored, and cloud Test is paused.
 
 **Built locally on 28 September, disabled:** owner-initiated Test renewals,
@@ -875,11 +892,11 @@ corrections retain processed evidence for review.
 
 Real Test full refund of the original ₹799 payment and disposable commit/replay
 passed, as did rollback and concurrent order/receipt/refund claim/commit checks.
-Full application/native/RLS recovery and genuine provider renewal/webhook delivery
-remain pending. Upgrade quote expiry/repricing, paid add-on
-cancellation/refund/proration/renewal rules, and Starter's standard reminder days
-and times still need decisions. Upgrade checkout, paid slots, and capability
-enforcement remain unbuilt and closed. The Test refund execution has a second
+The later full-schema, native and genuine Test-provider acceptance is recorded
+above. Upgrade quote expiry/repricing and paid add-on
+cancellation/refund/proration/renewal rules remain open for later offers;
+the first Starter pilot excludes those flows. Upgrade checkout, paid slots, and capability
+enforcement were subsequently built as disabled drafts, as recorded below. The Test refund execution has a second
 app/DB default-off gate; both local switches were restored off after acceptance.
 No Production migration, checkout, real charge, or automated paid access has
 shipped. The separate
@@ -892,14 +909,16 @@ Starter includes one branch with no add-on. A second branch requires Growth plus
 its paid branch add-on, or another suitable higher tier; a future add-branch
 attempt should explain this and show the exact price before confirmation.
 Growth includes one branch and permits exactly one paid additional branch, for
-a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The local Test recovery UI and archive transaction have component/fixture SQL acceptance; full application conversion and genuine provider webhook delivery remain pending. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration remain pending. Add-on billing changes and quote expiry remain undecided.
+a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The local Test recovery UI and archive transaction have component/fixture SQL acceptance; later full-schema and genuine provider delivery evidence is recorded above. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration are drafted and Test-accepted in the scoped record; Live activation remains closed. Later-offer add-on billing changes and upgrade quote expiry remain undecided.
 These choices are packaging direction, not a validated cost calculation.
 Growth includes gym-member Razorpay Payment Links and automatic recurring
 collection through AutoPay when the gym's own eligible merchant and mandate
 setup are ready; Ultimate inherits both. The gym bears Razorpay merchant fees
 under its own terms. Usefulmade's support, processing, storage, and any funded
-message costs have not been quantified. SaaS billing uses Usefulmade's separate
-merchant. Other feature allocations and annual prices are still proposals.
+message costs have not been quantified. The owner now requests using the
+existing UsefulMade merchant for SaaS billing, with independent direct-key configuration, webhook
+handling and ledger identity; product/domain approval and event-routing
+acceptance remain open. Other feature allocations and annual prices are still proposals.
 Provisional monthly INR software prices are approved for launch/pilot planning:
 Starter ₹799, Growth ₹1,499, Ultimate ₹3,999, and an eligible additional branch
 ₹499/month. Growth with its one paid extra branch has ₹1,998/month in listed
@@ -918,7 +937,8 @@ usage monitoring remain.
 Starter includes automatic renewal reminders on a standard schedule, inherited
 by Growth and Ultimate. Growth adds custom reminder schedules, bulk campaigns,
 and configurable automation rules; Ultimate inherits them. The exact standard
-days and times remain open. This decision does not remove all automatic sends
+schedule was approved for 7, 3, and 1 days before expiry after 09:00 in the
+gym account timezone on 29 September. This decision does not remove all automatic sends
 from Starter. Existing
 WhatsApp connection, Approved-template, and send-readiness gates still apply,
 and gyms bear their own Meta charges.
@@ -940,27 +960,113 @@ are not stopped by a SaaS tier change.
 
 Full-schema SQL checks run inside a rolled-back transaction and leave no fixture
 or installed migration behind. Repository lint, types, tests and build pass.
-This is not complete tier enforcement: `capabilities_enabled` defaults false
-and must remain false until standard/custom reminders and the remaining
-UI/native/background acceptance are complete. Production billing stays closed.
+The 29 September continuation adds a DB/settings gate for custom reminder
+offsets, a standard-reminder claim plus pre-send check, and a pre-provider
+AutoPay tier recheck. Focused tests and full-schema rolled-back SQL pass; see
+`docs/subscription-test-acceptance.md` and `docs/renewal-reminders.md`.
+`capabilities_enabled` remains false pending review of existing custom schedules
+against the now-approved Starter cadence and remaining UI/native/background
+acceptance. Production billing stays closed.
 The acceptance chat continues to own provider recovery, downgrade renewal and
 native billing acceptance; this section does not supersede its evidence.
 
-**Owner review — proposals only, not approved or payable:**
+**Owner review — later-offer proposals; Starter timing approved, billing closed:**
 
-| Choice | Concrete proposal | Required consequence |
-| --- | --- | --- |
-| Upgrade quote | Freeze the exact paise amount for 15 minutes, capped at the existing paid-through end. Reprice only after a new owner review. | Capture verified after expiry is review-held; no stale upgrade, second automatic charge, or automatic refund. Freeze organization, source term/version, target tier and quote identity. |
-| Extra branch | Prorate ₹499 by the actual remaining term; renew the purchased slots with the base plan. | Growth allows one purchased slot; Ultimate slots stay paid. Pending/failed payment adds no capacity. Archiving alone never cancels a slot. |
-| Add-on cancellation | Remove purchased capacity at renewal, only with the owner's exact retained/archive roster. No routine mid-cycle refund. | Preserve data; no automatic archives. The existing eligible full first-payment refund also covers an add-on on that first payment. Switching to Ultimate must explicitly review any now-redundant paid slots. |
-| Restart | After cancellation or full refund, start one fresh monthly term at verified payment; no fresh trial or second first-payment refund. | Preserve original first-payment/refund history, require a reviewed branch roster and one canonical recoverable order, and refuse unresolved prior payment/refund work. |
-| Starter reminders | Owner must choose exact days before/on/after expiry and local send time. | Preserve standard reminders; prevent custom settings and custom queued sends only after a standard schedule exists. No schedule is inferred here. |
+| Choice              | Concrete proposal                                                                                                                   | Required consequence                                                                                                                                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Upgrade quote       | Freeze the exact paise amount for 15 minutes, capped at the existing paid-through end. Reprice only after a new owner review.       | Capture verified after expiry is review-held; no stale upgrade, second automatic charge, or automatic refund. Freeze organization, source term/version, target tier and quote identity.                       |
+| Extra branch        | Prorate ₹499 by the actual remaining term; renew the purchased slots with the base plan.                                            | Growth allows one purchased slot; Ultimate slots stay paid. Pending/failed payment adds no capacity. Archiving alone never cancels a slot.                                                                    |
+| Add-on cancellation | Remove purchased capacity at renewal, only with the owner's exact retained/archive roster. No routine mid-cycle refund.             | Preserve data; no automatic archives. The existing eligible full first-payment refund also covers an add-on on that first payment. Switching to Ultimate must explicitly review any now-redundant paid slots. |
+| Restart             | After cancellation or full refund, start one fresh monthly term at verified payment; no fresh trial or second first-payment refund. | Preserve original first-payment/refund history, require a reviewed branch roster and one canonical recoverable order, and refuse unresolved prior payment/refund work.                                        |
+| Starter reminders   | Approved for 7, 3, and 1 days before expiry after 09:00 in the gym account timezone for membership and service renewals.            | Preserve standard reminders; prevent custom settings and custom queued sends on conversion. Keep the switch off until saved schedules and send boundaries pass acceptance.                                    |
 
-**Remaining:** owner decisions above; transactional Test upgrades/add-ons/restart
-and their quote/order/replay/roster acceptance; reminder policy enforcement;
-complete UI/native/send-boundary acceptance; explicit deployment and activation
-of the capability draft. The other candidate features and usage limits remain
-unapproved. No payable flow is opened by this proposal.
+**Built locally, disabled:** migrations `20260929080000` through
+`20260929160000` preserve paid-generation/refund history and implement immutable
+owner reviews, policy-gated payable quotes, one canonical recoverable Test
+order, captured-payment upgrade/add-on/restart commits, and reviewed paid-slot
+renewal or cancellation in the base renewal charge. The Test owner billing UI
+shows the amount before opening advanced Checkout and the exact slot/branch
+renewal choice. A disposable full-schema, rolled-back SQL run covers synthetic
+capture, exact replay, stale review hold, refund/restart history, and retained
+and cancelled slot renewal, Starter restart acknowledgment, late captured-renewal
+review hold, and a processed first-refund hold when later paid charges exist.
+The private advanced and capability switches remain
+false; no advanced charge or Production migration occurred.
+
+**Built locally, dark Live boundary:** migrations `20260929170000`–
+`20260930000000` add Usefulmade Live quote, order, payment, grant,
+refund and signed-webhook evidence with a pinned merchant and one pilot
+organization. The Live adapter and API draft claim an order before provider
+POST, use exact-receipt GET recovery, verify captured money with fresh provider
+GETs, and commit a first term or hold stale funds under an organization lock.
+Every Checkout return rechecks current gates, quote expiry, expired trial and
+branch roster. A signed capture-event timestamp fixes the paid term even when
+the webhook is processed later. An empty approval ledger and hard-closed quote
+switch require an explicit merchant-approved amount, tax/refund references,
+customer notes and lifetime before a service-only writer can freeze the owner's
+exact review. The owner panel previews those approved facts, confirms the exact
+amount and checks a bound order before the separately gated Live Checkout.
+Starter acknowledgment and in-transaction reminder normalization are wired
+before its grant.
+Capability activation audits Live Starter schedules and unattempted custom
+claims alongside Test Starter grants.
+The refund draft claims before POST and ends access only after a matching
+settled full refund. The named capability predicate now recognizes the separate
+Live grant for RLS and web/native snapshots. A protected, bounded recovery
+endpoint can revisit held signed events. New Live quotes, orders and refunds are
+**hard-closed by database constraints**; all runtime, intake, settlement,
+reconciliation and capability switches default false. Focused code tests and
+rolled-back full-schema synthetic SQL pass; genuine provider/release acceptance
+remain pending. No Live credentials,
+Production migration, charge or refund were used.
+
+**Remaining:** owner decisions for later offers above; genuine provider-backed
+renewal/refund evidence, final offer-specific web/refund presentation, and explicit activation review for the limited
+web pilot. Advanced native Checkout acceptance remains separate and is excluded
+from the first offer. Genuine advanced Test capture, signed webhook
+retry, and local PostgREST outage recovery passed; physical PostgreSQL storage
+recovery remains untested. Live also needs the tax-confirmed payable offer and
+approved term reference entered into the empty ledger, Live-specific full-schema
+and genuine provider acceptance, and a separately authorized real-money pilot
+before migration, deployment or activation. Later tier candidates and usage
+limits remain unapproved. No payable flow is open under the default settings.
+
+**First pilot scope approved 29 September:** one expired-trial organization,
+Starter at provisional ₹799, one active branch, web Checkout, one calendar
+month from the signed `payment.captured` event, a 30-minute reviewed quote,
+and owner-initiated renewal. Capture after quote expiry is review-held without
+automatic access/refund. No pilot-specific numeric member or staff caps.
+**Implemented in the default-off draft:** owner-reviewed expiry-only Starter renewal,
+a 30-minute quote bound to the previous term/access version, durable one-order
+recovery, capture-event monthly settlement, immutable term history, and owner
+cancellation without an early cutoff or refund. The paid and expired owner panels
+expose the same flow behind the existing Live UI gate. Changed access, roster,
+reminder policy, cancellation or refund evidence holds captured renewal money.
+The additional database renewal switch is hard-closed. Synthetic full-schema
+rollback and mocked application checks pass; genuine provider and final release
+acceptance remain open.
+The 29 September continuation closed a transaction-start quote-expiry defect:
+Checkout now refuses a quote that expires while its database session waits, and
+quote/order/refund initiation sees a shutdown after the organization lock.
+Two-session disposable checks covered overlapping quotes, both capture versus
+cancellation orderings, and order shutdown; the complete schema passed the
+rollback-only SQL suite. Focused web and native access tests passed. These
+checks used synthetic evidence and did not activate Live billing.
+Upgrades, paid add-ons, automated restart, and native Checkout are outside
+this first offer. Approved Starter features are members/plans,
+memberships/renewals, attendance, manual payments, shared WhatsApp chats and
+standard renewal reminders; custom schedules, bulk campaigns, configurable
+automations, gym-member Payment Links and AutoPay are excluded. Tax-approved
+exact payable wording and customer terms, SaaS product/domain acceptance for
+the existing activated UsefulMade merchant, shared-webhook route correction,
+an accepted access transition or contract change for the complimentary
+UsefulMade / Home office pilot,
+release acceptance, and explicit
+Production/real-money authorizations remain open. Production remains closed.
+The shared-merchant route fix must acknowledge verified gym events at the SaaS
+webhook without SaaS processing, leave ambiguous events retryable, and keep SaaS
+refunds out of the gym refund processor. Signed delivery, retry and
+reconciliation acceptance must cover both routes.
 
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 

@@ -15,6 +15,15 @@ import { getReminderRule } from '@/lib/reminders/rules';
 
 const authState = vi.hoisted(() => ({
   role: 'owner' as 'owner' | 'admin' | 'agent' | 'viewer',
+  canCustomize: true,
+}));
+
+vi.mock('@/hooks/use-subscription-capability', () => ({
+  useSubscriptionCapability: () => authState.canCustomize,
+  SUBSCRIPTION_CAPABILITY_BLOCKER: {
+    title: 'A different plan is needed',
+    description: 'Growth and Ultimate include this action.',
+  },
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -120,6 +129,7 @@ const scrollIntoView = vi.fn();
 
 beforeEach(() => {
   authState.role = 'owner';
+  authState.canCustomize = true;
   window.history.replaceState({}, '', '/settings?tab=reminders');
   vi.stubGlobal(
     'ResizeObserver',
@@ -1285,6 +1295,34 @@ describe('Automated messages access', () => {
       })
     ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull();
+    expect(patched()).toBe(false);
+  });
+
+  it('lets a Starter owner use the standard reminder switch but blocks custom days', async () => {
+    authState.canCustomize = false;
+    mockCatalogue([readyRule]);
+    render(<RenewalRemindersSettings />);
+
+    const toggle = await screen.findByRole('switch', {
+      name: 'Membership renewal automation',
+    });
+    expect(toggle.getAttribute('aria-readonly')).not.toBe('true');
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Edit Membership renewal' })
+    );
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Membership renewal change reminder days, 3 selected',
+      })
+    );
+    expect(
+      await screen.findByRole('dialog', { name: 'A different plan is needed' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('group', {
+        name: 'Membership renewal: before the membership ends',
+      })
+    ).toBeNull();
     expect(patched()).toBe(false);
   });
 

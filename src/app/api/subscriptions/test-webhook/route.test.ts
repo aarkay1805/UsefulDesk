@@ -90,6 +90,12 @@ describe('Usefulmade Test webhook', () => {
     });
   });
 
+  it('acknowledges a signed captured renewal after its review hold is durable', async () => {
+    confirmTestPayment.mockResolvedValueOnce({ status: 'review_required' });
+    expect((await POST(signedRequest(captured))).status).toBe(200);
+    expect(confirmTestPayment).toHaveBeenCalledOnce();
+  });
+
   it('retries transient commit failure and ignores other signed event types', async () => {
     confirmTestPayment.mockRejectedValueOnce(new Error('database unavailable'));
     expect((await POST(signedRequest(captured))).status).toBe(503);
@@ -142,6 +148,8 @@ it('verifies signed refund events and retries transient confirmation failures', 
       paymentId: 'pay_Test123',
       refundId: 'rfnd_Test',
     });
+    confirmTestRefund.mockResolvedValueOnce({ status: 'review_required' });
+    expect((await POST(signedRequest(event))).status).toBe(200);
     confirmTestRefund.mockRejectedValueOnce(new Error('provider unavailable'));
     expect((await POST(signedRequest(event))).status).toBe(503);
   } finally {

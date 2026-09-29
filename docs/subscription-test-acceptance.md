@@ -7,6 +7,14 @@ The application Test flags remain false; Production billing remains unavailable.
 No Production schema/data, gym-member ledger, real charge, or recurring schedule
 was changed.
 
+**Policy update, 29 September:** the owner subsequently approved the narrow
+web-only Starter pilot scope, standard 7/3/1 after-09:00 account-local
+reminders, an initial month from the signed capture event, and a 30-minute
+reviewed quote. The historical “policy decisions remain” notes below describe
+the state when those acceptance runs occurred. No additional provider or
+release acceptance is claimed by this decision update; see
+[production readiness](production-readiness.md) for current blockers.
+
 ## Evidence
 
 | Case                                           | Result and boundary                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -259,7 +267,6 @@ Still open: full-schema paid commit/refund/renewal recovery, organization-switch
 UI acceptance, physical native recovery, genuine provider delivery/retry and
 browser disappearance, and provider/database outage acceptance.
 
-
 ## Genuine provider delivery and full-schema paid recovery — 28 September
 
 The user saved Test webhook `ThVktamqauzsWP` with the matching signing secret.
@@ -321,7 +328,6 @@ transitions, organization-switch UI acceptance, and physical native recovery.
 Closing the app before demo-bank success proves absence of the Checkout callback;
 it does not simulate the narrower timing window after capture but before callback.
 Upgrades/add-ons/capability enforcement and commercial decisions remain separate.
-
 
 ## Genuine renewal and database-API outage recovery — 28 September
 
@@ -602,3 +608,277 @@ configuration. The separate acceptance app and runner were uninstalled, the
 existing UsefulDesk Agent app remained installed, Metro stopped, and no charge
 or message was sent. The owner can revoke the development-certificate trust
 in iPhone Settings after testing.
+
+## Default-off tier capability and reminder checks — 29 September 2026
+
+The local capability draft now blocks custom membership and service renewal-day
+edits in the authenticated settings route and in a database trigger, including
+direct clients and service-role writes. A Starter owner can still switch the
+standard renewal messages off; the existing WhatsApp/template readiness gate
+still controls turning them on. The web timing picker explains the Growth plan
+limit. The renewal worker checks the standard-reminder capability at account
+selection and immediately before each Meta attempt. Its service claim RPC also
+excludes accounts without that capability. AutoPay setup repeats its tier check
+before gym-merchant plan/subscription creation; it does not cancel or alter
+existing mandates or financial reconciliation.
+
+Focused route and UI suites passed: reminder settings, renewal cron, AutoPay
+mandate route, reminder readiness, and automated-message settings (**79 tests**). A rolled-back
+transaction against the disposable full repository schema replayed the
+capability migration and synthetic owner/Starter/Growth/grace cases, including
+direct offset-write denial and legacy manual/complimentary retention. It left
+no fixture rows, enabled switch, or installed capability migration behind.
+These checks do not prove a real WhatsApp delivery, a native reminder editor,
+or an applied Test capability migration.
+
+The next default-off draft now requires a separately approved policy flag and
+version before the capability switch can turn on. The migration supports only
+the currently proposed 7/3/1 offsets and 09:00 local threshold; another owner
+choice requires a code change. A Starter order must carry an owner-accepted
+reset choice and the same policy version. That choice is immutable after the
+owner acknowledges it and cannot be added after an order starts. The default-off
+transaction migration calls the pre-order assertion before provider creation
+and the apply hook inside the verified-payment transaction before entering
+Starter. A database grant trigger
+rejects entry without that in-transaction hook. The hook changes future branch
+offsets to the standard and retires only nonstandard claims that have not
+reached Meta. Attempted, accepted, and ambiguous send records remain intact;
+retired claims retain their dedupe key and cannot replay after a later upgrade. The worker recognizes a
+retired claim as a safe pre-provider stop. The full-schema rollback test used a
+**synthetic Test-only policy approval** and exercised acknowledgment, direct
+grant rejection, schedule normalization, claim retirement, attempted-claim
+preservation, retired-key dedupe, policy-version freeze, and activation refusal with custom Starter
+settings. It left the real approval flag false and installed nothing.
+
+**Approved Starter timing (29 September):** use the existing membership and service
+cadence of **7, 3, and 1 local calendar days before expiry**, with the first
+hourly worker run **at or after 09:00 in each branch's timezone** on each due
+day. Do not send an extra on-expiry or post-expiry message. If the worker misses
+that local date, do not backfill on a later day; the next configured date can
+still send. This keeps Starter's three reminders and avoids an additional
+gym-paid Meta message. Growth and Ultimate may edit the offsets within the
+existing six-offset/365-day guard. WhatsApp connection, exact Approved/synced
+Marketing template, legal business name, eligibility and provider outcomes
+remain separate gates. This policy approval did not activate the capability
+switch or authorize a customer send.
+
+**Activation block:** the existing fallback arrays `[7,3,1]` and the 09:00
+worker threshold match the approved policy, but are not an activation decision.
+Before enabling `private.subscription_billing_settings.capabilities_enabled`
+even in Test, ensure Starter's persisted
+membership and service offsets are set to that standard through an owner-reviewed
+term transition, and test pending custom reminder claims through downgrade and
+later upgrade. The initial and renewal billing transaction triggers are wired;
+the owner review UI must capture acceptance before provider order creation.
+Then apply the migration with the approved migration tool to an
+isolated full-schema Test database, verify snapshot, direct/RLS write, API,
+worker and native behavior, and check the switch remains false after migration.
+Production still requires a separate deployment and explicit activation decision.
+
+## Advanced billing and Release transport continuation — 29 September 2026
+
+The default-off local Test draft now records immutable owner reviews, frozen
+quotes, one recoverable Test order claim, and verified upgrade, extra-branch,
+and restart commits. Paid extra-branch capacity can be retained or cancelled
+at an owner-reviewed renewal. Restart records a new current term while keeping
+the first payment and refund history. The Starter review and grant transaction
+use the reminder-policy acknowledgment and normalization hooks above.
+
+A rolled-back check against the disposable full application schema exercised
+synthetic captured payments, replay and tenant boundaries, Starter restart,
+slot renewal and cancellation, and captured payments held for review after a
+stale term or confirmed refund. The independent review found refund and renewal
+races; the follow-up draft holds a first refund for review when a later paid
+renewal, upgrade, or add-on exists, and preserves access while that exception
+is resolved. Focused route/model tests, typecheck, and lint passed. These are
+synthetic transaction checks: no advanced provider order or charge was made,
+and genuine advanced Test Checkout, webhook, outage, and native acceptance
+were still open at that point. The commercial and capability switches remain
+off by default, and none of
+the draft migrations was installed in Production.
+
+### Genuine advanced Razorpay Test acceptance
+
+The disposable full-schema stack used a separate Usefulmade Razorpay **Test**
+merchant, three synthetic owner organizations, and process-only billing flags.
+The first terms in the upgrade/add-on and restart organizations were synthetic
+database fixtures, not provider payments. A third organization bought its
+first Growth term through genuine Test Checkout. All owner review, quote, and
+order requests used authenticated application routes. Captures used the Test
+demo bank with the Checkout parent closed before completion; signed webhook
+requests came from Razorpay through the temporary Test tunnel.
+
+- **Failed then captured upgrade:** `order_ThqGLi47MlcnY3` first failed as
+  `pay_ThqIuAK4NyVWz2` without changing access, then captured as
+  `pay_ThqK6qY2kUzGa8`. The signed capture verified one Ultimate upgrade and
+  one payment ledger entry.
+- **Paid add-on and database API outage:** `order_ThqKgDnndwoa5H` captured
+  `pay_ThqL1rFGh1aLyU` while local PostgREST was stopped. Razorpay retried
+  the same signed `payment.captured` event `ThqLLpH5thmhvg`: HTTP
+  `503, 503, 200` after recovery. Exactly one extra-branch slot and payment
+  were committed.
+- **Restart and stale capture:** `order_ThqLoLb43I8tj0` captured
+  `pay_ThqMB4o7kBtmBj` and created Starter generation 2 while retaining the
+  synthetic first-payment record. After a local access-version change,
+  `order_ThqNN70CfuF406` captured `pay_ThqO5Ct5AkfTiu`; its intent became
+  `review_required` with `source_term_or_roster_changed`. It made no upgrade
+  ledger entry or access change.
+- **Ambiguous order and out-of-order delivery:** a real provider order POST
+  succeeded while its response was deliberately dropped. Provider receipt
+  search eventually recovered the single order `order_ThqPz5Wg9BrK6R`;
+  recovery made no second POST. The order's failed payment
+  `pay_ThqRuJhZ8YVrx7` had its signed event `ThqS5womOZpz0c` held with
+  five HTTP 503 responses. Captured `pay_ThqSWAx3RKwFQI` then committed the
+  second extra-branch slot. Razorpay's delayed retry of the original failure
+  returned 200 afterward, with the grant and ledger snapshot unchanged.
+- **Refund then late paid upgrade:** genuine initial Growth payment
+  `pay_ThqW7EOfFeVs83` on `order_ThqVazO0tMRbYY` was fully refunded by
+  `rfnd_ThqWrUmWZUvhtW`; fresh provider GET confirmed `processed`, and
+  signed `refund.created` and `refund.processed` webhooks ended access once.
+  An upgrade order opened before the refund, `order_ThqWZyQPoVI4iA`, later
+  captured `pay_ThqYS4jnIXBkcz`. Its intent became `review_required` with
+  `source_term_or_roster_changed`; the refunded grant stayed expired and no
+  upgrade ledger entry was added.
+
+An audit verified HMAC signatures and merchant IDs on **18 original provider
+requests**. Repeated event IDs had identical raw-body hashes. Five local
+replays of those signed bodies returned 200 and left the database snapshot
+unchanged; the retry sequences above were actual Razorpay deliveries. Fresh
+provider GETs independently confirmed seven orders, their payments, and the
+processed refund. Sanitized evidence is in the private disposable stack cache:
+`advanced-final-evidence.json`, `advanced-delivery-audit.json`,
+`advanced-transport-evidence.json`, and the out-of-order before/after
+snapshots. Raw webhook bodies, signatures, and credentials remain private.
+
+The injected response loss proves ambiguous-write recovery, not an actual
+Razorpay outage. The stopped PostgREST instance proves local database API
+outage and provider retry, not physical PostgreSQL storage recovery. A genuine
+renewal/refund race and native-device advanced checkout remain unverified.
+No Production migration, real-money charge, or external message was made.
+After acceptance, the temporary Test webhook was visibly Disabled in the
+Razorpay dashboard, the tunnel and local checkout/application services were
+stopped, and all local billing and policy-approval flags were reset to false.
+
+An isolated iOS Release build compiled with only HTTPS Test service URLs in
+its bundle and no broad App Transport Security exception. A disposable
+simulator trusted a temporary local test certificate and its URLSession
+request received HTTP 200 from the HTTPS Supabase health endpoint. App-level
+sign-in stopped before network access because the locally signed simulator
+build lacked SecureStore's keychain entitlement (`-34018`). The physical-device
+run below closes that sign-in gap. The temporary certificate, proxy, simulator,
+and isolated source changes were removed.
+
+### Signed physical iPhone Release acceptance
+
+A separate `com.usefulmade.usefuldesk.agent.acceptance` app was built in Release
+configuration, signed with the Apple Development team, and installed on an
+iPhone Air running iOS 27.0 over USB-C. The existing production-bundle app was
+untouched. The acceptance app's JS bundle contained only the temporary HTTPS
+Test application and Supabase hosts; its App Transport Security settings had
+no broad arbitrary-load exception. Both hosts served the disposable full-schema
+Test stack with synthetic organizations and billing switches off. This was a
+properly signed physical-device Release build, not a distribution-signed
+preview or an App Store artifact.
+
+With iPhone Mirroring closed and the phone unlocked, the Release XCTest runner
+entered the synthetic owner's email and password into the app's sign-in form.
+Both input assertions passed, the app authenticated over the HTTPS Test
+Supabase endpoint, reached its roster or Inbox, and the fresh sign-in test
+passed. A separate HTTPS token request for the same synthetic fixture returned 200. Earlier automation attempts timed out before a test method ran; a run
+with Mirroring connected showed empty inputs despite synthesized typing. The
+successful run with Mirroring closed points to device-automation interference
+in that failed input attempt.
+
+The subsequent Release branch-journey XCTest passed all six checkpoints:
+the roster showed the active paid, refunded, and trial organizations while
+excluding four archived branches; active paid access opened the Inbox and
+survived a reopen; the refunded organization displayed the ended-access gate,
+support, retry, and active-branch recovery actions without operational Inbox;
+the gate survived a reopen; and choosing the active branch restored the Inbox.
+The device also visibly reported the temporary Test environment and HTTPS
+hosts in App details. Private Xcode results are
+`release-https/physical-release-signin-final.xcresult` and
+`release-https/physical-release-branches-final.xcresult` in the disposable
+stack cache; fixture credentials and raw logs remain outside the repository.
+
+The active Inbox displayed **Not updating live** while using the temporary
+Cloudflare tunnels, so realtime delivery was not accepted by this run. Native
+advanced Checkout and a distribution-signed preview remain separate checks.
+No Live charge, Production configuration change, or external customer message
+was made.
+
+## Dark Live expiry-only renewal — 29 September 2026
+
+The owner confirmed expiry-only Starter renewal: no early renewal, and each
+renewed calendar month starts at its signed capture event. The draft remains
+uninstalled and default off. A new database renewal flag is also hard-closed.
+
+The repeatable command below streams all ten Live draft migrations plus both
+synthetic acceptance suites inside one transaction, then rolls back. It accepts
+only a named disposable subscription-full container and refuses an installed
+Live schema. It never reads credentials or invokes a provider:
+
+```sh
+node scripts/verify-subscription-live-full.mjs \
+  supabase_db_usefuldesk-subscription-full-bo1rg7p0
+```
+
+Passed on the existing disposable full application schema:
+
+- Initial-term and first-full-refund regression checks, default-off constraints,
+  RLS and browser/service privilege boundaries.
+- Exact Starter amount, previous-term identity and access version, 30-minute
+  quote, duplicate quote, overlapping-quote refusal, one durable order claim,
+  and GET-only retry after an ambiguous create.
+- Signed synthetic renewal capture, settlement while initiation flags are off,
+  one access audit and current-grant advance, two immutable historical terms,
+  duplicate renewal and delayed original-payment replay.
+- No early renewal, unsupported-tier refusal, owner isolation, stale-term
+  cancellation rejection, idempotent cancellation and paid-expiry preservation.
+- Captured money held after cancellation, changed access version, changed billing
+  currency, changed reminder policy, or a pending refund review. Null currency
+  is rejected. Historical grant/term mutation is refused.
+
+These are **synthetic database facts and mocked API/UI tests**, not a new genuine
+provider delivery, concurrent-session race, physical database crash test, or
+Live acceptance. Existing Test-provider evidence above remains separate. The
+Live provider still refuses Test credentials and non-Production runtimes; no
+exception was added for this test. The final post-run check found no Live schema.
+Production paid-pilot readiness remains CLOSED.
+
+## Live draft race and access continuation — 29 September 2026
+
+The full-schema rollback-only SQL suite still passes with all ten Live draft
+migrations and leaves no installed Live schema. A separate disposable database
+clone let independent PostgreSQL sessions contend on the same synthetic pilot
+organization. The clone restored the application and subscription objects; its
+restore reported eight unrelated `pg_cron`, `realtime`, and `vault` errors, so it
+is not an exact operational clone. It was dropped after the checks.
+
+- Two simultaneous renewal-quote requests produced one quote; the other
+  refused the overlapping request. A cancellation committed before quote
+  issuance made the quote refuse.
+- With a bound synthetic order and capture-event database fixture, cancellation
+  committing first made settlement persist `review_required` without a renewal
+  access audit. Settlement committing first advanced exactly one term; the
+  cancellation carrying the previous term ID was refused. These events were
+  inserted SQL fixtures, not provider deliveries or signatures.
+- A Checkout claim started before quote expiry, waited on an organization
+  lock, then returned an order after expiry. The draft used transaction-start
+  `now()`. Quote/review/Checkout checks now use `clock_timestamp()` and claim
+  timestamps record wall time. The same two-session race now refuses Checkout;
+  a rollback-only SQL regression also covers expiry inside a long transaction.
+- When a second session disabled order initiation while the organization was
+  locked, the waiting Checkout claim observed the closed switch and inserted
+  zero orders. Quote, order and refund issuance now read their switch after
+  acquiring that lock.
+
+Focused web Live/provider/access/reminder tests passed **72/72**; focused
+native access/auth tests passed **21/21**. The earlier signed physical Release
+iPhone Test access journey remains the device evidence; no new device run or
+Live provider call occurred here. Capability/send checks remain default off:
+the approved 7/3/1 after-09:00 policy, in-transaction Starter normalization,
+pre-claim and pre-Meta checks have synthetic SQL and mocked route evidence,
+but no enabled rollout or real WhatsApp send. Final offer-specific web/refund
+presentation, capability activation, and genuine Live merchant/release evidence
+remain open. The Production gate remains CLOSED.

@@ -6,6 +6,7 @@ import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 const h = vi.hoisted(() => ({
   requireAutomatedMessageRulesAccess: vi.fn(),
   requireSettingsAccess: vi.fn(),
+  requireProductAccess: vi.fn(),
   settings: {
     account_id: 'account-1',
     enabled: true,
@@ -28,6 +29,9 @@ vi.mock('@/lib/auth/account', () => ({
       { error: error instanceof Error ? error.message : 'Request failed' },
       { status: 403 }
     ),
+}));
+vi.mock('@/lib/platform-access/server', () => ({
+  requireProductAccess: h.requireProductAccess,
 }));
 
 function db() {
@@ -92,6 +96,7 @@ beforeEach(() => {
     accountId: 'account-1',
     supabase: db(),
   });
+  h.requireProductAccess.mockResolvedValue(undefined);
 });
 
 describe('GET /api/reminders/settings', () => {
@@ -148,11 +153,40 @@ describe('PATCH /api/reminders/settings', () => {
 
     expect(response.status).toBe(200);
     expect(h.updates).toEqual([{ days_before: [7, 14] }]);
+    expect(h.requireProductAccess).toHaveBeenCalledWith(
+      expect.anything(),
+      'account-1',
+      'custom_renewal_schedules'
+    );
     expect(h.settings.service_enabled).toBe(true);
     expect((await response.json()).rule.readiness).toMatchObject({
       ready: false,
       code: 'whatsapp_not_connected',
     });
+  });
+
+  it('blocks custom membership and service days before saving, while leaving standard toggles available', async () => {
+    h.requireProductAccess.mockRejectedValue(new Error('Plan limit'));
+    for (const ruleId of ['membership_renewal', 'service_renewal']) {
+      const response = await PATCH(
+        new Request('http://localhost/api/reminders/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ ruleId, patch: { daysBefore: [14] } }),
+        })
+      );
+      expect(response.status).toBe(403);
+    }
+    const toggle = await PATCH(
+      new Request('http://localhost/api/reminders/settings', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          ruleId: 'membership_renewal',
+          patch: { enabled: false },
+        }),
+      })
+    );
+    expect(toggle.status).toBe(200);
+    expect(h.updates).toEqual([{ enabled: false }]);
   });
 
   it('rejects a false-to-true activation before it writes when setup is blocked', async () => {

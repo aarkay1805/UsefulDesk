@@ -1,4 +1,7 @@
-import { requireProductAccess } from '@/lib/platform-access/server';
+import {
+  ProductAccessError,
+  requireProductAccess,
+} from '@/lib/platform-access/server';
 // ============================================================
 // POST /api/payments/razorpay/mandate
 //
@@ -332,6 +335,7 @@ export async function POST(request: Request) {
     // gym can cancel any time) — 120 monthly / 40 quarterly ≈ 10 years.
     let plan: RazorpayPlan;
     try {
+      await requireProductAccess(admin, ctx.accountId, 'gym_autopay');
       plan = await runRazorpayOperation(admin, connection, (authentication) =>
         createPlan(authentication, {
           amountRupees: fee,
@@ -379,6 +383,7 @@ export async function POST(request: Request) {
     const totalCount = cadence.frequency === 'monthly' ? 120 : 40;
     let subscription: Awaited<ReturnType<typeof createSubscription>>;
     try {
+      await requireProductAccess(admin, ctx.accountId, 'gym_autopay');
       subscription = await runRazorpayOperation(
         admin,
         connection,
@@ -400,9 +405,10 @@ export async function POST(request: Request) {
       // ambiguous: Razorpay may have created the subscription even though no
       // response reached us, so keep the reservation blocking for review.
       const knownRejection =
-        error instanceof RazorpayError &&
-        error.status >= 400 &&
-        error.status < 500;
+        error instanceof ProductAccessError ||
+        (error instanceof RazorpayError &&
+          error.status >= 400 &&
+          error.status < 500);
       await admin
         .from('payment_mandates')
         .update({

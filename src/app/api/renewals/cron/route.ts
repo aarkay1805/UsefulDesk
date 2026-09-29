@@ -123,7 +123,11 @@ export async function GET(request: Request) {
 
     const accountId = s.account_id as string;
     try {
-      await requireProductAccess(admin, accountId);
+      await requireProductAccess(
+        admin,
+        accountId,
+        'standard_renewal_reminders'
+      );
     } catch {
       notes.push(`account ${accountId}: product_access_required`);
       continue;
@@ -354,6 +358,15 @@ export async function GET(request: Request) {
                   .eq('delivery_state', 'claimed')
                   .select('id')
                   .maybeSingle();
+                if (!error && !data) {
+                  const retired = await admin
+                    .from('renewal_reminders_sent')
+                    .select('id')
+                    .eq('id', claim.id)
+                    .eq('delivery_state', 'retired')
+                    .maybeSingle();
+                  if (!retired.error && retired.data) return;
+                }
                 if (error || !data) {
                   throw new Error(
                     error?.message ??
@@ -378,6 +391,11 @@ export async function GET(request: Request) {
               ];
               return engineSendTemplate({
                 beforeSend: async () => {
+                  await requireProductAccess(
+                    admin,
+                    accountId,
+                    'standard_renewal_reminders'
+                  );
                   const [settingsResult, membershipResult] = await Promise.all([
                     admin
                       .from('renewal_reminder_settings')
@@ -595,6 +613,17 @@ export async function GET(request: Request) {
                   .eq('status', 'claimed')
                   .select('id')
                   .maybeSingle();
+                if (!error && !data) {
+                  const retired = await admin
+                    .from('service_renewal_reminders_sent')
+                    .select('id')
+                    .eq('member_service_id', claim.memberServiceId)
+                    .eq('end_date', claim.endDate)
+                    .eq('days_before', claim.daysBefore)
+                    .eq('status', 'retired')
+                    .maybeSingle();
+                  if (!retired.error && retired.data) return;
+                }
                 if (error || !data) {
                   throw new Error(
                     error?.message ??
@@ -604,6 +633,11 @@ export async function GET(request: Request) {
               },
             },
             async (markProviderAttempt) => {
+              await requireProductAccess(
+                admin,
+                candidate.account_id,
+                'standard_renewal_reminders'
+              );
               const [configResult, templateResult, accountResult] =
                 await Promise.all([
                   admin
@@ -688,6 +722,11 @@ export async function GET(request: Request) {
               ];
               return engineSendTemplate({
                 beforeSend: async () => {
+                  await requireProductAccess(
+                    admin,
+                    candidate.account_id,
+                    'standard_renewal_reminders'
+                  );
                   const { data, error } = await admin
                     .from('service_renewal_queue')
                     .select(

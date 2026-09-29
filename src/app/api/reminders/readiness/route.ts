@@ -341,6 +341,7 @@ export async function GET() {
         .filter(
           (row) =>
             row.status === 'sent' ||
+            row.status === 'retired' ||
             (row.status === 'claimed' &&
               row.claimed_at !== null &&
               new Date(row.claimed_at).getTime() >

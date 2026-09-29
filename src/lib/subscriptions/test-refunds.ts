@@ -29,7 +29,11 @@ type Context = {
     amount_minor: number;
     currency: string;
   };
-  execution: { provider_refund_id: string | null; confirmed_at: string | null };
+  execution: {
+    provider_refund_id: string | null;
+    confirmed_at: string | null;
+    review_required_at?: string | null;
+  };
   provider_order_id: string;
 };
 function factsFor(
@@ -98,7 +102,14 @@ async function applyRefund(
     request_id?: string;
     provider_refund_id?: string;
     confirmed_at?: string;
+    review_required_at?: string;
   } | null;
+  if (
+    execution?.request_id === facts.requestId &&
+    execution.provider_refund_id === refund.id &&
+    execution.review_required_at
+  )
+    return { status: 'review_required', confirmed: false };
   if (
     execution?.request_id !== facts.requestId ||
     execution.provider_refund_id !== refund.id ||
@@ -128,6 +139,11 @@ export async function executeTestFirstRefund(
     throw new Error('Test refund belongs to another organization');
   if (context.action === 'confirmed' && context.execution.confirmed_at)
     return { status: 'processed', confirmed: true };
+  if (
+    context.action === 'review_required' &&
+    context.execution.review_required_at
+  )
+    return { status: 'review_required', confirmed: false };
   let refundId = context.execution.provider_refund_id;
   if (!refundId) {
     if (context.action !== 'create' && context.action !== 'recovery')

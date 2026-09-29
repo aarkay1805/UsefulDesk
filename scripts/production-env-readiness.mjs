@@ -29,6 +29,22 @@ const UNSAFE_PRODUCTION_FLAGS = Object.freeze([
   'USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED',
   'USEFULDESK_SUBSCRIPTION_REFUNDS_ENABLED',
   'NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI',
+  'NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI',
+  'NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI',
+  'USEFULDESK_SAAS_LIVE_QUOTES_ENABLED',
+  'USEFULDESK_SAAS_LIVE_ORDERS_ENABLED',
+  'USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED',
+  'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED',
+  'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
+  'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+]);
+
+const LIVE_SAAS_ENVIRONMENT = Object.freeze([
+  'USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID',
+  'USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_SECRET',
+  'USEFULDESK_SAAS_RAZORPAY_LIVE_WEBHOOK_SECRET',
+  'USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID',
+  'USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID',
 ]);
 
 function normalize(value) {
@@ -142,18 +158,75 @@ export function evaluateProductionEnvironment(env) {
     );
   }
 
-  // The separate SaaS merchant adapter is currently Test-only and unreleased.
-  const subscriptionConfiguration = Object.keys(env).filter(
+  const testSubscriptionConfiguration = Object.keys(env).filter(
     (name) =>
-      name.startsWith('USEFULDESK_SAAS_RAZORPAY_') && normalize(env[name])
+      (name === 'USEFULDESK_SAAS_RAZORPAY_MODE' &&
+        normalize(env[name]) === 'test') ||
+      (name.startsWith('USEFULDESK_SAAS_RAZORPAY_TEST_') &&
+        normalize(env[name]))
   );
   add(
-    subscriptionConfiguration.length ? 'blocker' : 'pass',
+    testSubscriptionConfiguration.length ? 'blocker' : 'pass',
     'subscription-test-boundary',
-    subscriptionConfiguration.length
-      ? `Unreleased SaaS merchant configuration must be absent from Production: ${subscriptionConfiguration.join(', ')}`
-      : 'Unreleased SaaS merchant configuration is absent.'
+    testSubscriptionConfiguration.length
+      ? `Test SaaS merchant configuration must be absent from Production: ${testSubscriptionConfiguration.join(', ')}`
+      : 'Test SaaS merchant configuration is absent.'
   );
+
+  const livePresent =
+    LIVE_SAAS_ENVIRONMENT.some((name) => normalize(env[name])) ||
+    normalize(env.USEFULDESK_SAAS_RAZORPAY_MODE) === 'live';
+  if (livePresent) {
+    const missingLive = LIVE_SAAS_ENVIRONMENT.filter(
+      (name) => !normalize(env[name])
+    );
+    const opaqueLive = LIVE_SAAS_ENVIRONMENT.filter((name) =>
+      isOpaque(env[name])
+    );
+    const keyId = normalize(env.USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID);
+    const merchantId = normalize(env.USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID);
+    const pilotId = normalize(env.USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID);
+    if (
+      normalize(env.USEFULDESK_SAAS_RAZORPAY_MODE) !== 'live' ||
+      missingLive.length
+    ) {
+      add(
+        'blocker',
+        'subscription-live-boundary',
+        `Live SaaS mode or required names are missing: ${missingLive.join(', ')}`
+      );
+    } else if (opaqueLive.length) {
+      add(
+        'warning',
+        'subscription-live-boundary',
+        `Protected Live SaaS values require a private dashboard check: ${opaqueLive.join(', ')}`
+      );
+    } else if (
+      !/^rzp_live_[A-Za-z0-9]+$/.test(keyId) ||
+      !/^acc_[A-Za-z0-9]+$/.test(merchantId) ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        pilotId
+      )
+    ) {
+      add(
+        'blocker',
+        'subscription-live-boundary',
+        'Live SaaS key ID, merchant ID or pilot organization has an invalid format.'
+      );
+    } else {
+      add(
+        'pass',
+        'subscription-live-boundary',
+        'Separate Live SaaS merchant names and formats are present; merchant ownership still needs private verification.'
+      );
+    }
+  } else {
+    add(
+      'pass',
+      'subscription-live-boundary',
+      'Live SaaS merchant configuration is absent; Live billing remains unavailable.'
+    );
+  }
 
   const razorpayConfigured = RAZORPAY_ENVIRONMENT.some((name) =>
     normalize(env[name])

@@ -5,30 +5,179 @@ UsefulDesk term, close the common operational and commercial decisions below.
 Automated subscriptions require the additional subscription acceptance gate.
 An environment audit or a Test payment does not authorize a paid launch.
 
-Read-only provider evidence was captured on **28 September 2026, 09:39–11:39
-UTC**. Repository fixes are local pending release. This audit purchased no plan,
-changed no provider setting, applied no Production migration, moved no money,
-and sent or replayed no customer message. Earlier Test payments/refunds are
-separately scoped in [subscription Test acceptance](subscription-test-acceptance.md).
+The original provider audit ran on **28 September 2026, 09:39–11:39 UTC**.
+Plan, deployment, environment-name, database, workflow, backup, and public-URL
+evidence was refreshed **29 September 2026, 13:02–13:16 UTC**. Usage, SMTP
+configuration, advisor, and certificate details retain their earlier evidence
+dates unless stated otherwise. This refresh purchased no plan, changed no
+provider setting, applied no Production migration, moved no money, and sent or
+replayed no customer message. With owner approval, it sent one Auth sign-in
+email and one Auth recovery email to the owner for delivery checks.
+Auth diagnosis and the owner's missed-confirmation decision were recorded on
+**29 September 2026, 13:16–13:26 UTC**. A separately approved single sign-in
+retest ran at **13:30–13:33 UTC**. No job was replayed or customer message sent.
+Test work is scoped in [subscription Test acceptance](subscription-test-acceptance.md).
+
+A read-only follow-up at **29 September 2026, 13:56–14:06 UTC** found the
+then-current draft PR green at `f71930f9` and the canonical login returning HTTP 200
+in 1.15 seconds. The isolated Vercel Production environment export again passed
+the repository audit with zero blockers and three warnings: the protected site
+URL and encryption key are redacted, and Turnstile is absent. It confirmed the
+gym Razorpay mode/name set and the absence of every Test and Live SaaS billing
+name or enabled safety flag. A direct Supabase organization read still showed
+Free and the project `ACTIVE_HEALTHY`; a read-only schema query found no private
+subscription or billing tables. The database ops and renewals schedules were
+active and most recently succeeded at 13:53 and 13:41 UTC, respectively, with
+adjacent HTTP 200 responses and no timeout. The two GitHub redundant schedules
+remained active but stale at 07:00 and 07:31 UTC. The signed-in Vercel
+dashboard still showed the team on Hobby, and confirmed the site URL and
+encryption key are write-only Secrets with no Reveal action. Security Advisors returned no
+ERROR findings; their existing search-path, extension, definer-grant, and
+leaked-password warnings still need scoped review. No Production setting,
+migration, provider payment, or customer message changed.
+
+At the **29 September 2026, 17:04 UTC** PR check, the newer disabled billing
+foundation at `a5120b5a` remained a draft, mergeable PR. Its
+[CI run](https://github.com/aarkay1805/UsefulDesk/actions/runs/36601787804),
+CodeQL checks, and Vercel preview check passed. This is a code-review and
+merge candidate with billing disabled; it is not a Production deployment,
+schema installation, merchant-route acceptance, payable quote, or gate opening.
+A read-only Production recheck around **17:30 UTC** found Supabase
+`ACTIVE_HEALTHY`, zero private subscription/billing tables, Vercel Production
+still READY at `4072dccc`, and the `a5120b5a` preview READY. The Vercel team
+was still on Hobby. Its Pro upgrade screen quoted US$20/month immediately plus
+taxes, CDN tier and metered usage, and lacked a billing address; no upgrade was
+performed. Other Production observations below remain dated snapshots and
+must be refreshed for the actual paid rollout.
 
 ## Decision record
 
-| Area                         | Status                        | Evidence and practical limit                                                                                                                                                                                                                                                                                                                                                                                               |
-| ---------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Application release          | HEALTHY; NEW WORK UNDEPLOYED  | Production deployment `dpl_H4DXZ5oY24pmsntrxCXTyyajubTZ` is READY at `d1c7245d`. `/login` returned HTTP 200 in 0.96 seconds at the refresh; Vercel's last-hour error query returned no rows. Subsequent local subscription, mobile, Home, and audit commits are not deployed.                                                                                                                                              |
-| Domain and TLS               | PASS                          | `desk.usefulmade.com` has a valid Let's Encrypt certificate through 2 December 2026. HSTS, report-only CSP, permissions/referrer policies, nosniff, and frame denial were present. Report-only CSP is not enforcement.                                                                                                                                                                                                     |
-| Vercel commercial permission | BLOCKER                       | Authenticated team API confirms Hobby. Hobby is restricted to non-commercial use; a deliberate Pro upgrade and spend threshold are required before a paid order.                                                                                                                                                                                                                                                           |
-| Core environment             | PASS WITH WARNINGS            | Seven required names are present; gym Razorpay mode is live. Acceptance/dry-run flags are false/unset. All three SaaS Test flags and all `USEFULDESK_SAAS_RAZORPAY_*` configuration are absent. The strengthened checker reports zero blockers, with masked canonical URL/key format and absent Turnstile as three warnings. Hidden values are not verified values.                                                        |
-| Public lead form             | UNAVAILABLE                   | Both Turnstile variables are absent; Production submissions fail closed. This is not a founder-referred pilot blocker, but public lead capture cannot be promised.                                                                                                                                                                                                                                                         |
-| Supabase capacity            | VERIFIED; OWNER DECISION OPEN | Dashboard confirms Free, no exceeded quota, billing cycle 8 September–8 October. Database 0.064/0.5 GB, Storage 0.004/1 GB, egress 0.229/5 GB, MAU 5/50,000, peak realtime connections 7/200. Hourly dashboard accounting differs from SQL database size (47 MB). This snapshot is not a capacity forecast or acceptance of Free-plan restrictions.                                                                        |
-| Auth SMTP                    | CONFIGURED; DELIVERY UNPROVEN | Auth SMTP is enabled with `smtp.resend.com:465`, sender label UsefulDesk. Credentials remained hidden; no sign-in/recovery email was sent by this audit. A Vercel email key alone is not evidence of Auth delivery.                                                                                                                                                                                                        |
-| Scheduled operations         | BLOCKER                       | Both database schedules are active. Latest inspected ops response at 11:38 and renewals response at 10:41 are HTTP 200, `failed: 0`. However one payment-confirmation job exhausted five attempts with `legal_business_identity_lookup_unavailable`, zero provider attempts. Earlier renewal aggregates returned 503. The healthy aggregate after exhaustion does not recover that job.                                    |
-| Redundant GitHub schedules   | DEGRADED                      | Latest ops success was 07:44, production-health success 06:52, and renewal run at 05:54 failed on `/api/reminders/cron` (503). At refresh the redundant cron runs exceed the runbook freshness windows. Primary database schedules remain healthy; this is not proof the redundant path recovered.                                                                                                                         |
-| Supabase logs/advisors       | REVIEW REQUIRED               | 08:46–09:46 log window: Auth errors 0, edge HTTP 5xx 0; three Postgres `42501` errors reference `my_branch_accounts`, consistent with the failing service-worker fallback. Security Advisors show no ERROR findings, but warn about mutable function search paths, public extensions, definer grants, and disabled leaked-password protection. Review context before changing intentional public/authenticated RPC grants. |
-| Backups and recovery         | PASS WITH ACCEPTED RISK       | [Backup run 36357784556](https://github.com/aarkay1805/UsefulDesk/actions/runs/36357784556) succeeded 27 September, with encrypted database and Storage uploads verified at 23:17 UTC. Disposable restore drill passed 23 August; next quarterly drill is due 23 November. Pre-key-rotation archives remain unrecoverable; the replacement key has one Apple Passwords copy and no approved offline copy.                  |
-| Alerts                       | GITHUB INBOX ONLY             | Inbox failure delivery was verified 30 August in `GATES.md`. Email/mobile paging and an independent external watchdog remain unproven.                                                                                                                                                                                                                                                                                     |
-| Change control and rollback  | KNOWN LIMITS                  | `main` is unprotected. CI for deployed `d1c7245d` passed ([run 36392531008](https://github.com/aarkay1805/UsefulDesk/actions/runs/36392531008)). Select a verified preceding READY application release for owner-approved rollback; migrations are forward-only and provider effects cannot be rolled back by deployment. Add branch protection before multiple release operators.                                         |
-| SaaS Production boundary     | CLOSED AS INTENDED            | All nine private tables introduced by the four subscription draft migrations are absent in Production at 11:37 UTC. No automatic paid grant, renewal, or SaaS refund is available there. Real Test capture/refund and minimal-fixture SQL evidence do not constitute full application acceptance.                                                                                                                          |
+| Area                         | Status                        | Evidence and practical limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------------------- | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Application release          | HEALTHY; BILLING STILL OFF    | The 17:30 UTC recheck found Production `dpl_CGPp1Ka19Xp4kzrkTFnA4gX5Tywf` READY at `4072dccc`; PR #16 head `a5120b5a` was a READY preview (`dpl_68BNRV542yUh3vPH1RSQGHTk2ZXr`), not Production. `desk.usefulmade.com/login` returned HTTP 200 in 0.79 seconds at the earlier audit; the then-last-hour Vercel runtime-error query found none.                                                                                                                                                                                                                                                                                    |
+| Domain and TLS               | PASS                          | `desk.usefulmade.com` has a valid Let's Encrypt certificate through 2 December 2026. HSTS, report-only CSP, permissions/referrer policies, nosniff, and frame denial were present. Report-only CSP is not enforcement.                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Vercel commercial permission | BLOCKER                       | The team remained on Hobby at the 17:30 UTC recheck. The Pro upgrade screen quoted US$20/month immediately plus taxes, CDN tier and metered usage; billing address was missing. The owner chose Pro with alerts only, while the upgrade and exact alert amount remain open.                                                                                                                                                                                                                                                                                                                                                      |
+| Core environment             | PASS WITH WARNINGS            | The 29 September Production list has all seven required core names, with no `USEFULDESK_SAAS_*`, `USEFULDESK_SUBSCRIPTION_*`, Test/Live billing UI flags, or Turnstile names. `NEXT_PUBLIC_SITE_URL` and `ENCRYPTION_KEY` remain write-only Secrets: list and single-variable APIs returned `decrypted:false`, and the Chrome edit view also cannot reveal them. Their values are **unverifiable**, not failed. The isolated 29 September follow-up audit confirmed live gym Razorpay mode and required names; protected value formats remain unverifiable. Gym merchant configuration is separate from Usefulmade SaaS billing. |
+| Public lead form             | UNAVAILABLE                   | Both Turnstile variables are absent; Production submissions fail closed. This is not a founder-referred pilot blocker, but public lead capture cannot be promised.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Supabase capacity            | FREE ACCEPTED TO 13 OCTOBER   | The organization still reports Free on 29 September. The 28 September dashboard had no exceeded quota: database 0.064/0.5 GB, Storage 0.004/1 GB, egress 0.229/5 GB, MAU 5/50,000, peak realtime connections 7/200. That usage snapshot is not a capacity forecast. The owner accepted Free temporarily through 13 October with earlier review triggers below.                                                                                                                                                                                                                                                                   |
+| Auth SMTP                    | SIGN-IN VERIFIED; RESET OPEN  | The 28 September configuration check found Auth SMTP enabled at `smtp.resend.com:465`, sender UsefulDesk. On 29 September, the first owner-approved sign-in and recovery emails reached the inbox; the recovery request likely superseded the unused first sign-in token, which Supabase rejected. One separately approved sign-in retest reached the inbox, redeemed successfully, created a new owner Auth session, and opened the owner dashboard. The recovery link had reached the new-password form, but no credential was entered or changed. See the dated investigation below.                                          |
+| Scheduled operations         | OWNER MARKED MISS; ROW FAILED | Both primary database schedules remain active; the latest inspected ops at 13:53 and renewals at 13:41 UTC on 29 September succeeded with adjacent HTTP 200 responses and no timeout. The owner chose to mark job `754b267e-a1c2-442d-a745-8d9c03d2b92c` missed without sending. It remains `failed` after five legal-name lookup retries, with zero provider attempts and no accepted/delivered message. There is no supported operator transition from this terminal row to a separate missed state. The prior scoped history check found no matching confirmation after payment.                                              |
+| Redundant GitHub schedules   | DEGRADED                      | The latest scheduled [ops run 36534084635](https://github.com/aarkay1805/UsefulDesk/actions/runs/36534084635) succeeded at 07:00 UTC and [renewals run 36537097296](https://github.com/aarkay1805/UsefulDesk/actions/runs/36537097296) at 07:31 UTC on 29 September. At the 14:02 UTC follow-up both were still stale against the runbook's 75-minute and two-hour windows. [Production health run 36570145710](https://github.com/aarkay1805/UsefulDesk/actions/runs/36570145710) succeeded at 12:44 UTC; that does not clear the two redundant schedules. Primary database schedules remain healthy.                           |
+| Supabase logs/advisors       | REVIEW REQUIRED               | 08:46–09:46 log window: Auth errors 0, edge HTTP 5xx 0; three Postgres `42501` errors reference `my_branch_accounts`, consistent with the failing service-worker fallback. Security Advisors show no ERROR findings, but warn about mutable function search paths, public extensions, definer grants, and disabled leaked-password protection. Review context before changing intentional public/authenticated RPC grants.                                                                                                                                                                                                       |
+| Backups and recovery         | PASS WITH ACCEPTED RISK       | The 29 September nightly [backup run 36503169579](https://github.com/aarkay1805/UsefulDesk/actions/runs/36503169579) succeeded, including its export, encrypt, upload, and verify step. The last separately inspected database-and-Storage upload evidence remains [run 36357784556](https://github.com/aarkay1805/UsefulDesk/actions/runs/36357784556). Disposable restore passed 23 August; next drill is due 23 November. Pre-key-rotation archives remain unrecoverable, and the replacement key has no approved offline copy.                                                                                               |
+| Alerts                       | GITHUB INBOX ONLY             | Inbox failure delivery was verified 30 August in `GATES.md`. Email/mobile paging and an independent external watchdog remain unproven.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Change control and rollback  | KNOWN LIMITS                  | `main` remains unprotected (GitHub branch-protection API returned 404). CI for deployed `4072dccc` passed ([run 36554758624](https://github.com/aarkay1805/UsefulDesk/actions/runs/36554758624)). Select a verified preceding READY application release for an approved rollback; migrations and provider effects need separate recovery. Add branch protection before multiple release operators.                                                                                                                                                                                                                               |
+| SaaS Production boundary     | CLOSED AS INTENDED            | The 17:30 UTC Production `information_schema` recheck found zero private subscription/billing tables. The deployed release has no automated paid grant, renewal, or SaaS refund. Full-schema Test capture/refund/renewal, signed provider delivery and retries, and simulator/physical-device access checks have passed; they do not install Production billing or establish a Live Usefulmade merchant.                                                                                                                                                                                                                         |
+
+The later local [dark Live boundary draft](subscription-live-boundary.md) has a
+separate adapter and service-only schema, but it is uninstalled. A rollback-only
+disposable full-schema SQL check passed with synthetic facts. Separate database
+sessions found and then verified a fix for a quote-expiry race, plus checked
+overlapping quotes, capture/cancellation order, and shutdown during order
+issuance. The concurrent clone omitted unrelated cron/realtime/vault objects;
+no Live provider, Production migration or real-money acceptance was involved.
+The Production status in the table remains closed.
+
+### Closeout handoff: disabled foundation versus paid activation
+
+The owner has authorized continuing through the disabled-foundation merge once
+normal review of the green head and default-off controls passes. Its merge does not
+authorize applying subscription migrations to Production, adding Live billing
+configuration, issuing a quote, opening Checkout, or enabling capability and
+money switches. Keep the paid gate CLOSED and record the merged SHA separately.
+
+For the later payable pilot, collect these private decisions and proofs in
+order: (1) resolve the selected complimentary pilot's access eligibility and
+finish its customer-facing Starter terms; (2) obtain the qualified tax/receipt conclusion
+for the exact payable amount and wording (C-01/C-02 below); (3) confirm the
+existing UsefulMade merchant covers the SaaS product and `desk.usefulmade.com`,
+configure direct SaaS API keys and webhook endpoint/secret independently of gym OAuth, and fix shared-merchant
+event routing; (4) finish B-01–B-05 and S-01–S-03, including final
+offer-specific Test, Live-provider and release acceptance; (5) review the
+exact Production migration, dark deployment,
+approval-ledger entry, activation switches, and controlled real-money pilot as
+separate rollout steps. The [Live boundary](subscription-live-boundary.md)
+records the technical switches. The existing merchant's business identity and
+activation have been seen, and the owner selected UsefulMade / Home office
+(`8826d9aa-03f2-4ad7-ae91-0553052131f8`) as the pilot organization. A
+read-only access check found it **complimentary**, with no trial start/end or
+access end; Home office is active. It cannot receive an initial paid quote under
+the draft's expired-trial contract. A reviewed access transition or a changed
+contract, followed by acceptance, is required before this pilot can pay. No
+access changed. SaaS product/domain acceptance and tax conclusion remain open.
+Selection is not real-money authorization.
+
+### Owner choices recorded 29 September 2026
+
+- **Hosting:** the owner chose Vercel Pro with alerts only for a paid pilot.
+  A suggested initial Spend Management amount is **US$20 of metered overage per
+  billing cycle**, with web/email alerts at Vercel's 50%, 75% and 100%
+  thresholds. This is a review suggestion, not an approved total spend cap:
+  alerts do not stop usage, and the amount excludes the base plan, seats and
+  other separately billed items. The team remained on Hobby at the 17:30 UTC
+  recheck; the upgrade screen lacked a billing address, and no upgrade, budget
+  setting or purchase was performed. Confirm the amount and configure alerts
+  when the owner performs the approved upgrade.
+- **Database capacity:** the owner accepted Supabase Free temporarily for a
+  narrow paid pilot. Review by **13 October 2026**, and sooner if any published
+  Free quota reaches 50%, the project pauses, a backup fails, or a paid user
+  encounters a capacity issue. The existing custom backup remains a separate
+  recovery control; it does not turn Free into a platform backup entitlement.
+  If the first paid term starts after that date, refresh this acceptance before
+  taking payment. No Pro purchase was performed.
+- **SaaS merchant and tax:** the owner requested reuse of the current Razorpay
+  merchant `acc_TCJwBqanN9LTrK`. Its dashboard shows business/brand UsefulMade,
+  proprietorship, active account access, and approved `usefulmade.com`. It has
+  historically handled gym collections, but that usage does not make it a
+  separate legal merchant. Razorpay's dashboard says API keys are universal
+  across approved websites/apps; `desk.usefulmade.com` is not listed. Confirm
+  SaaS product and domain approval, any required website/policy details, and
+  independent SaaS direct-key and webhook configuration without changing gym
+  collections. The provider describes API keys as universal across approved
+  websites/apps; this does not assume a second key pair is mandatory.
+  The current shared-merchant webhook routes need correction and acceptance:
+  the SaaS webhook can return a retryable 503 on a foreign gym order, while the gym route can
+  claim a SaaS refund. Qualified tax advice for a customer-payable quote and
+  receipt is also outstanding. No approval ledger row or payable quote exists.
+- **First paid offer scope:** the owner approved one expired-trial organization
+  buying Starter at the provisional ₹799 for one calendar month and one active
+  branch, through web Checkout only. Renewal is owner-initiated. Upgrades, paid
+  add-ons, automated restart, and native Checkout are outside this first offer.
+  This records product scope, not the tax-confirmed payable amount, Live billing
+  authorization. The selected pilot is UsefulMade / Home office, organization
+  `8826d9aa-03f2-4ad7-ae91-0553052131f8`, with one active branch. Its current
+  complimentary access does not meet the expired-trial quote precondition;
+  resolve that through a reviewed access transition or contract change before
+  quote issuance. Starter's standard
+  membership/service renewal reminders are 7, 3, and 1 days before expiry at
+  09:00 in the gym account timezone, subject to WhatsApp/template/send readiness.
+  The initial paid month starts at the signed Razorpay `payment.captured` event
+  time, not the later webhook-processing time. The owner set a **30-minute**
+  lifetime from immutable owner review for the first Starter quote; capture
+  after expiry stays held for review without an access grant or automatic
+  refund. There are no pilot-specific numeric member or staff caps, although
+  existing role, provider, technical and abuse limits remain. The approved
+  Starter feature list is members/plans, memberships/renewals, attendance,
+  manual payment recording, shared WhatsApp chats, and standard renewal
+  reminders. Custom schedules, bulk campaigns, configurable automations,
+  gym-member Payment Links, and AutoPay are excluded from this pilot. The
+  exact tax-approved payable wording still requires review before a quote.
+- **Expiry-only renewal:** the owner confirmed that renewal becomes available
+  after the paid month expires. Each renewed month starts at the signed capture
+  event. The default-off draft now implements reviewed renewal and cancellation;
+  cancellation preserves paid access and issues no refund. This is code/test
+  progress only and does not open any Production or real-money gate.
+
+For C-01, give the qualified adviser the founder's exact legal supplier/PAN,
+current and prior financial-year PAN-wide turnover, intended pilot-customer
+states, proposed subscription description and monthly charge, the first-full-
+payment refund policy, and the fact that the gym's member collections use its
+own merchant. Obtain a written conclusion on registration before the first
+charge, any customer-geography restriction, the tax amount or absence of tax
+on the payable quote, and the required supplier/customer/receipt fields and
+refund record. Record the conclusion reference privately and copy only the
+approved customer wording into the immutable Live offer approval. The existing
+₹0 GST draft is planning data and must not be presented as an adviser decision.
 
 ## Repository fixes and recovery
 
@@ -41,35 +190,72 @@ reproduced the old error and verified the explicit join returns its existing
 canonical legal name. No identity data or database constraint needed changing.
 The authenticated branch-member fallback remains for genuine RLS restrictions.
 
-Regression coverage reproduces the ambiguous embed plus denied service RPC.
-The environment checker now rejects enabled/hidden Test billing flags and any
-unreleased SaaS merchant configuration in Production, printing names only.
-Validation passed: 51 targeted tests across the helper, environment checker,
-lifecycle worker and shared sender; root TypeScript; changed-file ESLint; and
-diff/format checks. The preceding Home commit `d84a16e5` passed the full
-3,964-test suite and production build before this audit. This audit did not
-repeat the full build or claim authenticated end-to-end send acceptance.
-These fixes do not deploy themselves or change the failed job. Review its
-current relevance and delivery history before any separately authorized
-recovery; do not bulk-reset failures or bypass stale/duplicate-send checks.
+The lookup and environment-checker fixes are in deployed `4072dccc`; they do
+not retroactively change a terminal job. A 29 September read-only service-role
+probe reproduced `PGRST201` with the old unqualified embed and returned the
+existing legal name without error through the deployed explicit relationship.
+The affected payment remains `paid`, its confirmation setting and generation
+remain active, and job `754b267e-a1c2-442d-a745-8d9c03d2b92c` remains failed.
+The job has zero provider attempts and no accepted/delivered message; a scoped
+message-history check found no matching confirmation template after the payment.
+Focused helper and lifecycle tests passed (25/25). The payment was created
+28 September 04:39 UTC. On 29 September the owner explicitly chose to mark this
+one confirmation **missed without sending**. The queue row remains `failed`:
+its state constraint has no `missed` value, and the service-role finish RPC can
+move to `skipped` only from an active lease, not from this terminal failure.
+There is no supported non-sending operator transition for this row. Preserve
+its failed audit record and the owner's decision here; do not bulk-reset,
+replay, invoke cron, or send a late confirmation.
+
+## Auth sign-in investigation
+
+Supabase Auth logs show the owner's magic-link request (`POST /otp`, HTTP 200)
+at **13:11:42 UTC** and password-recovery request (`POST /recover`, HTTP 200)
+at **13:11:55 UTC** on 29 September. The first observed magic-link verification
+was `GET /verify` at **13:13:10 UTC**; Supabase rejected it as “Email link is
+invalid or has expired” before the application callback. The recovery
+token-hash `POST /verify` succeeded at **13:16:19 UTC** for the owner and opened
+the new-password form; no password update was performed.
+
+The sign-in email pointed to Supabase `/auth/v1/verify` with `type=magiclink`
+and the intended `/auth/callback?next=/dashboard` redirect. The recovery email
+used `/auth/callback` with `type=recovery`. The Production Auth Site URL is
+`https://desk.usefulmade.com`; its redirect allowlist includes both the exact
+callback URL and a wildcard for this origin. Redirect configuration does not
+explain the provider-side 403. Supabase Auth's
+[magic-link and recovery implementation](https://github.com/supabase/auth/blob/master/internal/api/mail.go)
+stores both links in the same recovery-token slot; the Production
+`auth.one_time_tokens` table also has a unique `(user_id, token_type)` index.
+The recovery request made 13 seconds later therefore most likely replaced the
+unused sign-in token.
+This is a strongly supported diagnosis rather than a direct observation of the
+superseded token. With separate owner approval, exactly one additional sign-in
+email was requested at **13:30:56 UTC**, with no subsequent recovery request.
+It reached the owner's inbox and its link was redeemed at **13:32:45 UTC**.
+Supabase recorded a successful login and a new owner `auth.sessions` row at
+that time. The owner dashboard was visible and remained accessible at a clean
+`/dashboard` URL. The browser already held an owner session from the earlier
+recovery flow, so this check proves link redemption and a new Auth session but
+does not separately isolate first-time cookie setup in a signed-out browser.
+No further email or password change was performed.
 
 ## Owner decisions and acceptance evidence
 
 Rajat owns these decisions unless explicitly delegated. Record approvals and
 sensitive evidence privately; retain only status, date, and reference here.
 
-| ID   | Concrete next action                                                                                                   | Required evidence / deadline                                                                                                                                                                                                                                                                                                                            |
-| ---- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| B-01 | Approve and perform Vercel Pro upgrade with a deliberate Spend Management threshold.                                   | Invoice/plan confirmation and healthy READY release; before issuing or accepting a paid order. Published base US$20/month plus usage/taxes; no purchase authorized by this audit.                                                                                                                                                                       |
-| B-02 | Choose time-bounded acceptance of the verified Supabase Free-plan limits, or approve Pro.                              | Dated risk acceptance with review date and usage thresholds, or paid plan evidence; before confirming payment. Pro published base US$25/month; verification does not imply spending approval.                                                                                                                                                           |
-| B-03 | Authorize a recipient and test real Auth sign-in and recovery delivery using the configured SMTP.                      | Private timestamp, delivery and completed sign-in/recovery outcome; before paid-owner onboarding. Configuration is already verified.                                                                                                                                                                                                                    |
-| B-04 | Release the reviewed lookup patch, decide the failed reminder's disposition, and verify scheduled recovery.            | READY commit, fresh error/queue review, relevant worker result, and fresh successful GitHub cron runs or a documented owner-approved resolution of redundant-path degradation. Review Advisor warnings in context. Before paid activation; no automatic resend is authorized.                                                                           |
-| B-05 | Check canonical URL and encryption-key format in Vercel's protected value UI.                                          | `NEXT_PUBLIC_SITE_URL` equals the canonical HTTPS origin; `ENCRYPTION_KEY` is 64 hexadecimal characters. Record pass/fail only before paid activation. Never paste values.                                                                                                                                                                              |
-| C-01 | Obtain qualified confirmation of the founder's actual registration/accounting circumstances and quote/receipt process. | Adviser-confirmed treatment for the reported Punjab, unregistered, zero-turnover business, including relevant PAN-wide turnover and customer geography. Before a payable quote. The owner's decision to draft ₹0 GST is not tax approval.                                                                                                               |
-| C-02 | Approve the exact limited pilot offer and choose manual or automated conversion.                                       | Included tested features, branch/member/staff limits, reminder schedule, third-party costs, cancellation/refund terms, quote expiry, and exact term. Provisional ₹799/₹1,499/₹3,999 monthly prices are planning inputs. Explicitly exclude unready annual/add-on features if deferred; no blanket founding-term approval. Before a payable quote.       |
-| S-01 | Complete subscription acceptance against the full application schema and authenticated owner/staff web/native flows.   | Expiry/recovery, RLS and API denials, branch changes, background sends, rollback/replay/version conflicts and cross-organization isolation; minimal SQL fixtures alone are insufficient.                                                                                                                                                                |
-| S-02 | Prove genuine separate Test-merchant webhook delivery, renewal and outage recovery.                                    | Provider-origin signatures/delivery/retries, delayed/duplicate events, browser loss, failed renewal/grace, refund settlement recovery without duplicate provider actions. Existing Test refund used direct provider GET/POST plus disposable SQL, not incoming provider webhook delivery.                                                               |
-| S-03 | Resolve and implement the remaining scope before an explicit Production rollout decision.                              | Upgrade quote expiry/repricing, any offered add-on mechanics, paid tier gates and standard schedule, Test term convention, immutable renewal-change UX, post-refund restart policy. Defer excluded features explicitly. Then obtain separate migration, deployment and live-pilot authorization; no subscription Production migration is approved here. |
+| ID   | Concrete next action                                                                                                   | Required evidence / deadline                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B-01 | Confirm the suggested metered-overage alert amount and perform the Vercel Pro upgrade.                                 | Invoice/plan confirmation and healthy READY release; before issuing or accepting a paid order. Published base US$20/month plus usage/taxes; no purchase authorized by this audit.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| B-02 | Review the temporary Supabase Free acceptance by 13 October 2026, or sooner at the recorded triggers.                  | Owner accepted Free through 13 October 2026 with earlier 50%-quota, pause, backup, or paid-user triggers; refresh before payment if that date has passed. Pro remains an option at published base US$25/month; no purchase authorized.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| B-03 | Complete the owner password-recovery flow if it is required for onboarding.                                            | Owner-approved sign-in and recovery emails reached the inbox on 29 September. The first sign-in token was most likely replaced by the following recovery request. A separately approved single sign-in retest at 13:30–13:33 UTC redeemed successfully, created a new owner Auth session, and showed the owner dashboard. The recovery link authenticated the owner and reached the new-password form; only the owner may enter and submit a new password. Record any completed reset privately before paid-owner onboarding.                                                                                                                                                                                                                                                                                                                         |
+| B-04 | Verify scheduler recovery and retain the missed-confirmation decision.                                                 | On 29 September the owner chose **missed; do not send** for job `754b267e-a1c2-442d-a745-8d9c03d2b92c`. The row remains terminal `failed` because there is no supported non-sending missed transition; see the scoped evidence above. Obtain fresh successful GitHub scheduled runs or an approved resolution of their degradation, and review Advisor warnings in context. No automatic or late resend is authorized.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| B-05 | Check canonical URL and encryption-key format in Vercel's protected value UI.                                          | Both variables are saved as write-only Vercel Secrets. The list/export and 29 September Chrome edit view cannot reveal either value. Verify the canonical HTTPS URL and 64-hex key format from their original secure source without pasting values, or plan a separately approved rotation and recovery check. Record only pass/fail before paid activation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| C-01 | Obtain qualified confirmation of the founder's actual registration/accounting circumstances and quote/receipt process. | Adviser-confirmed treatment for the reported Punjab, unregistered, zero-turnover business, including relevant PAN-wide turnover and customer geography. Before a payable quote. The owner's decision to draft ₹0 GST is not tax approval.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| C-02 | Finish the exact first Starter offer and customer-facing terms.                                                        | UsefulMade / Home office (`8826d9aa-03f2-4ad7-ae91-0553052131f8`) is selected with one active branch, but currently has complimentary access and no trial dates. The expired-trial quote contract therefore blocks it until a reviewed access transition or contract change is accepted. Provisional ₹799, capture-event calendar month, web Checkout, owner-initiated renewal, 30-minute reviewed quote, and 7/3/1 reminders at 09:00 account-local are approved scope. Confirm third-party charges, cancellation/refund wording, and tax-confirmed payable amount before a quote. The public UsefulDesk page currently says to contact for pricing, and the public terms have only generic payment language; approved Starter price, term and refund wording need customer-facing presentation. Selection does not authorize real-money processing. |
+| S-01 | Finish the remaining product and release-specific acceptance.                                                          | Full-schema owner/staff isolation, genuine Test payment/refund/renewal recovery, downgrade archive rollback/replay, and simulator plus physical iPhone access checks passed in the [Test record](subscription-test-acceptance.md). Tier/reminder capability activation and its final UI/native/background acceptance remain open. A signed physical iPhone Release build passed HTTPS Test sign-in and active/refunded/trial access recovery; advanced native Checkout and distribution-signed preview remain separate checks. Physical PostgreSQL crash/storage recovery was not tested; decide whether it is a release requirement rather than treating an injected transaction failure as that proof.                                                                                                                                              |
+| S-02 | Accept the requested reuse of the existing UsefulMade Live merchant and finish the Live billing path.                  | The current account is active under UsefulMade and has approved `usefulmade.com`; SaaS product and `desk.usefulmade.com` coverage remain unverified. The draft supports an exact pinned Live `acc_` merchant but shared-merchant webhook routing needs a fix before acceptance: the SaaS route returns a retryable 503 on a gym order and the gym route may claim a SaaS refund. Configure direct SaaS API keys and webhook endpoint/secret independently of gym OAuth, repair and test routing and recovery, then obtain release-specific signed delivery/reconciliation evidence. Production still has no SaaS tables or Live billing configuration; the renewal gate is hard-closed. A controlled real-money pilot remains a separate rollout step.                                                                                                |
+| S-03 | Accept the limited Starter path before an explicit Production rollout decision.                                        | Synthetic full-schema checks cover the 30-minute quote, late-capture hold, capture-event term, owner renewal/cancellation, Starter reminder normalization, and scoped concurrent races. Signed physical iPhone Release Test access recovery and focused native tests passed. Finish final offer-specific web/refund presentation, saved custom schedule review, capability/send acceptance, shared-merchant route correction, and genuine Live merchant evidence. Production migration, deployment and gate activation remain separately reviewed rollout steps; none has occurred.                                                                                                                                                                                                                                                                   |
 
 For a **manual paid pilot**, B-01–B-05 and C-01–C-02 must be evidenced, the
 founder must approve the exact manual offer, and the
@@ -95,10 +281,13 @@ private temporary directory and run the checker. Do not print exported values:
 )
 ```
 
-The audit itself used explicit project/team read APIs, with decrypted values
+The 28 September audit used explicit project/team read APIs, with decrypted values
 held only in memory and protected values represented as `[SENSITIVE]`.
 Ciphertext from a list endpoint must not be interpreted as a flag's plaintext
-value. Repeat public/workflow/database checks from the
+value. Do not substitute `vercel env run` for this isolated export: the CLI can
+also load this checkout's `.env.local`, which produced false Production blockers
+in the 29 September follow-up. The isolated export above was the authoritative
+audit. Repeat public/workflow/database checks from the
 [runbook](production-runbook.md); read logs and failed queues as well as the most
 recent HTTP aggregate. Never invoke cron merely to collect audit evidence:
 cron can send messages and create provider effects.
@@ -111,11 +300,15 @@ costs, or US$45/month if Supabase Pro is selected. This is not a cost-validated
 margin estimate. A hosting migration is outside this gate and needs separate
 runtime, cron, deployment, secrets, rollback and monitoring acceptance.
 
-Official sources checked 28 September: [Vercel Hobby commercial-use policy](https://vercel.com/docs/plans/hobby),
-[Vercel pricing](https://vercel.com/pricing), [Supabase pricing](https://supabase.com/pricing).
+Official sources checked 28–29 September: [Vercel commercial-use policy](https://vercel.com/docs/limits/fair-use-guidelines),
+[Vercel pricing](https://vercel.com/pricing), [Supabase pricing](https://supabase.com/pricing),
+[CBIC service-registration overview](https://cbic-gst.gov.in/pdf/01062019-GST-An-Update.pdf),
+[CBIC invoice rules](https://cbic-gst.gov.in/gst-invoice-rules.html), and
+[Razorpay live-payment activation](https://razorpay.com/docs/pos/payments/).
 Advisor references: [function search paths](https://supabase.com/docs/guides/database/database-linter?lint=0011_function_search_path_mutable)
 and [Auth password protection](https://supabase.com/docs/guides/auth/password-security).
-No tax eligibility determination is made by this record.
+These sources establish general requirements, not Usefulmade's tax eligibility
+or merchant approval. Qualified advice and provider confirmation remain required.
 
 ## Evidence refresh cadence
 
