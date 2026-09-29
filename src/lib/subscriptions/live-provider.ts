@@ -18,7 +18,7 @@ export interface LiveBillingConfig {
   pilotOrganizationId: string;
 }
 
-/** Usefulmade's SaaS merchant is distinct from Test billing and gym OAuth. */
+/** SaaS uses merchant-owned Live keys; gym collections use separate OAuth grants. */
 export function liveBillingConfig(
   env: NodeJS.ProcessEnv = process.env
 ): LiveBillingConfig {
@@ -320,14 +320,49 @@ export async function fetchLivePaymentOrderId(
     {},
     fetchImpl
   );
-  if (
-    !record(payment) ||
-    payment.id !== paymentId ||
-    typeof payment.order_id !== 'string' ||
-    !ORDER_ID.test(payment.order_id)
-  )
+  if (!record(payment) || payment.id !== paymentId)
+    throw new Error('Live payment has no valid order');
+  if (payment.order_id === null) return null;
+  if (typeof payment.order_id !== 'string' || !ORDER_ID.test(payment.order_id))
     throw new Error('Live payment has no valid order');
   return payment.order_id;
+}
+
+/** A shared merchant's webhook receives gym events too. Only provider-proven
+ * foreign orders may be acknowledged without a SaaS claim. An apparent SaaS
+ * order stays retryable until its durable local order is bound. */
+export async function classifyLiveWebhookOrder(
+  config: LiveBillingConfig,
+  orderId: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<'saas' | 'unrelated'> {
+  if (!ORDER_ID.test(orderId)) throw new Error('Invalid Live order identity');
+  const order = await request(config, `/orders/${orderId}`, {}, fetchImpl);
+  if (!record(order) || order.id !== orderId)
+    throw new Error('Live order identity changed');
+  const receipt = order.receipt;
+  if (receipt !== null && typeof receipt !== 'string')
+    throw new Error('Live order receipt is invalid');
+  const notes = order.notes;
+  if (
+    notes !== null &&
+    notes !== undefined &&
+    !record(notes) &&
+    !(Array.isArray(notes) && notes.length === 0)
+  )
+    throw new Error('Live order notes are invalid');
+  const fields = record(notes) ? notes : {};
+  const hasRequest = Object.hasOwn(fields, 'usefuldesk_request_id');
+  const hasOrganization = Object.hasOwn(fields, 'usefuldesk_organization_id');
+  if (
+    UUID.test(receipt ?? '') &&
+    fields.usefuldesk_request_id === receipt &&
+    fields.usefuldesk_organization_id === config.pilotOrganizationId
+  )
+    return 'saas';
+  if (hasRequest || hasOrganization || UUID.test(receipt ?? ''))
+    throw new Error('Live order ownership is ambiguous');
+  return 'unrelated';
 }
 
 export interface LiveRefundFacts extends LiveOrderFacts {

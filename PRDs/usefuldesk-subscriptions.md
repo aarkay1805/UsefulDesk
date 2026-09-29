@@ -45,10 +45,17 @@ subject to the exact approved WhatsApp contract and send-readiness gates.
 
 This approval is product scope only. The separately payable Meta/provider
 charges and customer-facing cancellation/refund wording need final review;
-qualified tax/receipt advice must establish the exact payable amount
-and wording. A distinct activated Usefulmade Live SaaS merchant, identified
-pilot organization, final acceptance, Production release authorization, and
-separate real-money authorization remain missing. The approval ledger is empty
+a documented fact-supported tax/receipt determination must establish the exact
+payable amount and wording, with qualified advice for unresolved exceptions. The owner selected UsefulMade / Home office
+(`8826d9aa-03f2-4ad7-ae91-0553052131f8`, one active branch) and requested
+the existing activated UsefulMade Razorpay merchant for the pilot. That
+organization currently has complimentary access and no trial dates. A local
+uninstalled, default-off Starter conversion now freezes the owner-reviewed
+free-to-paid acknowledgement and access version, preserves complimentary access
+until signed capture, and holds conflicting captured funds. The merchant's SaaS
+product and `desk.usefulmade.com` coverage, signed mixed-event acceptance,
+final offer review, and
+separate real-money authorization remain open. The approval ledger is empty
 and no customer-payable quote may be issued.
 
 **Current local acceptance (29 September 2026):** the default-off advanced
@@ -61,6 +68,9 @@ branch recovery have since passed; advanced native Checkout and a genuine
 renewal/refund race remain open. The separate Live boundary is uninstalled and database-hard-closed
 for new orders and refunds. Production billing remains off; policy, merchant,
 tax/receipt, operational and explicit rollout approvals are still required.
+The rollback-only Live full-schema runner passed three synthetic suites on
+the local disposable schema with all eleven Live drafts; its postcheck found no
+installed Live schema. This did not exercise a Live provider or Production.
 
 ## What is live today
 
@@ -173,7 +183,7 @@ remain unverified. No Production migration or real-money charge occurred.
 
 ### Dark Usefulmade Live billing draft — 29 September 2026
 
-The local draft adds a separate Usefulmade Live merchant configuration and
+The local draft adds independent Usefulmade Live SaaS merchant configuration and
 service-only mode/merchant/pilot-bound quote, order, payment, grant, refund and
 webhook evidence. The Live order path claims one reviewed quote before provider
 creation and uses exact-receipt GET recovery after an uncertain POST. A signed
@@ -187,9 +197,12 @@ signed events. Checkout rechecks current gates and eligibility even for a
 bound order. The term uses signed capture-event time rather than webhook
 processing time. An owner-only read-only panel shows an already frozen exact
 INR quote and can save Starter reminder acknowledgment; the grant transaction
-normalizes Starter schedules before access changes. No quote writer or payable
-UI exists. Later capability activation also audits Live Starter schedules and
-unattempted custom reminder claims. These paths are not deployed.
+normalizes Starter schedules before access changes. A later default-off approval
+ledger, service-only quote writer and gated owner review panel exist, while
+quote issuance and Checkout remain database-hard-closed. Later capability
+activation also audits Live Starter schedules and
+unattempted custom reminder claims. The default-off foundation app deployed with merged PR #16; its Live schema and
+this follow-up conversion remain uninstalled, and no Live gate is active.
 Database constraints keep new Live orders and refunds impossible to enable in
 this draft; all runtime/intake/settlement switches default off. No Live
 credentials or money were used. Rolled-back synthetic full-schema SQL passed;
@@ -255,7 +268,7 @@ If a renewal payment for an existing paid organization fails, keep its **current
 
 ## Approved collection packaging
 
-Growth includes Razorpay Payment Links and automatic recurring collection through AutoPay; Ultimate inherits both. Starter's proposed collection path is manual payment recording. The gym-member collection features require each gym's own eligible, connected Razorpay merchant, provider approval, and the applicable mandate readiness. Existing provider gates continue to decide whether an individual gym can use them. Razorpay charges the gym under its merchant terms; those fees are not bundled into or subsidized by UsefulDesk's software subscription. This packaging does not establish that Usefulmade has zero operating cost: support, event processing, storage, and any Usefulmade-funded messages remain unquantified. Usefulmade's separate SaaS merchant cannot be used for gym-member collections.
+Growth includes Razorpay Payment Links and automatic recurring collection through AutoPay; Ultimate inherits both. Starter's proposed collection path is manual payment recording. The gym-member collection features require each gym's own eligible, connected Razorpay merchant, provider approval, and the applicable mandate readiness. Existing provider gates continue to decide whether an individual gym can use them. Razorpay charges the gym under its merchant terms; those fees are not bundled into or subsidized by UsefulDesk's software subscription. This packaging does not establish that Usefulmade has zero operating cost: support, event processing, storage, and any Usefulmade-funded messages remain unquantified. The founder pilot may use the same UsefulMade `acc_` merchant for SaaS and gym collections, with independent direct-key/webhook configuration and separate ledgers. Other gyms still need their own eligible collection connection.
 
 ## Approved messaging packaging
 
@@ -279,7 +292,7 @@ The Starter pilot list above is approved product scope, but remains unavailable 
 - Trial expiry and paid entitlement boundaries must also protect native clients, public API keys, automations, scheduled sends, broadcasts, and direct database access. Inbound WhatsApp/provider events and gym-member financial reconciliation continue under the existing access containment rules.
 - WhatsApp charges incurred by the gym and Razorpay fees on the gym's collections are distinct from UsefulDesk's software price. The gym bears Razorpay merchant fees under its own terms. Meta messaging charges apply separately to the gym under its own WhatsApp billing terms; Usefulmade does not bundle or subsidize them. Usefulmade's support, event-processing, storage, and any future funded messaging costs have not been measured for this package.
 - **At launch, Starter, Growth, and Ultimate have no UsefulDesk monthly message-count cap and no UsefulDesk message overage charge.** This is separate from Meta's pricing, free service allowance, quality rules, and sending limits. Retain technical rate limits, abuse controls, and usage monitoring. Public copy may say “No UsefulDesk monthly message cap” and “Meta messaging charges apply separately”; never promise free messages or unlimited delivery capacity. Historical 1,000/5,000/25,000 tier counts are not approved.
-- **GST status and preparation choice confirmed by the owner on 2026-09-27:** Usefulmade is currently not GST-registered, and the owner chose to prepare subscription billing without adding GST. The owner reports that Usefulmade operates in Punjab, is their only business, has zero current business turnover, and that UsefulDesk is the only intended income-producing product. These statements are planning facts, not a determination that subscription payments can be collected without registration. Local billing drafts therefore add ₹0 GST to listed software amounts; they are not customer-payable quotes. Before any paid pilot, confirm the relevant PAN-wide financial-year turnover, customer geography, possible compulsory-registration circumstances, and accounting treatment with a qualified tax adviser. Do not publish a GST-inclusive/exclusive claim or call the service exempt or zero-rated. SaaS receipts are separate from gyms' member invoices.
+- **GST status and preparation choice confirmed by the owner on 2026-09-27:** Usefulmade is currently not GST-registered, and the owner chose to prepare subscription billing without adding GST. The owner reports that Usefulmade operates in Punjab, is their only business, has zero current business turnover, and that UsefulDesk is the only intended income-producing product. These statements are planning facts, not a determination that subscription payments can be collected without registration. Local billing drafts therefore add ₹0 GST to listed software amounts; they are not customer-payable quotes. Before any paid pilot, document the relevant PAN-wide financial-year turnover, customer geography, possible compulsory-registration circumstances, and receipt treatment from verified facts; seek qualified advice if exceptions or facts remain uncertain. Do not publish a GST-inclusive/exclusive claim or call the service exempt or zero-rated. SaaS receipts are separate from gyms' member invoices.
 
 ## Proposed screen flow
 

@@ -93,6 +93,52 @@ describe('Usefulmade Live quote issuance', () => {
     rpc.mockResolvedValueOnce({ data: null, error: { code: '55000' } });
     expect((await POST(request())).status).toBe(409);
   });
+
+  it('forwards only an explicit Starter conversion acknowledgement', async () => {
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_QUOTES_ENABLED', 'true');
+    expect(
+      (await POST(request({ ...body, complimentaryConversionAccepted: true })))
+        .status
+    ).toBe(400);
+    expect(
+      (
+        await POST(
+          request({
+            ...body,
+            tier: 'starter',
+            complimentaryConversionAccepted: false,
+          })
+        )
+      ).status
+    ).toBe(400);
+    rpc.mockResolvedValueOnce({
+      data: {
+        request_id: requestId,
+        organization_id: organizationId,
+        approval_id: approvalId,
+        tier: 'starter',
+        amount_minor: 149947,
+        currency: 'INR',
+        expires_at: '2026-09-29T19:00:00Z',
+      },
+      error: null,
+    });
+    expect(
+      (
+        await POST(
+          request({
+            ...body,
+            tier: 'starter',
+            complimentaryConversionAccepted: true,
+          })
+        )
+      ).status
+    ).toBe(202);
+    expect(rpc).toHaveBeenCalledWith(
+      'subscription_create_live_quote',
+      expect.objectContaining({ p_complimentary_conversion_accepted: true })
+    );
+  });
 });
 
 describe('Live renewal quote identity', () => {

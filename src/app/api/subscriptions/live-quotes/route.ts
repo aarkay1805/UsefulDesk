@@ -38,7 +38,15 @@ export async function POST(request: Request) {
     const fields = body as Record<string, unknown>;
     if (
       Object.keys(fields).length !==
-        (fields.renewalOfRequestId === undefined ? 6 : 7) ||
+        (fields.renewalOfRequestId === undefined
+          ? fields.complimentaryConversionAccepted === undefined
+            ? 6
+            : 7
+          : 7) ||
+      (fields.complimentaryConversionAccepted !== undefined &&
+        (fields.complimentaryConversionAccepted !== true ||
+          fields.renewalOfRequestId !== undefined ||
+          fields.tier !== 'starter')) ||
       (fields.renewalOfRequestId !== undefined &&
         (!isBranchAccountId(fields.renewalOfRequestId) ||
           fields.tier !== 'starter')) ||
@@ -80,6 +88,9 @@ export async function POST(request: Request) {
         p_seen_amount_minor: fields.seenAmountMinor,
         p_tier: fields.tier,
         p_provider_merchant_id: config.merchantId,
+        ...(fields.complimentaryConversionAccepted === true
+          ? { p_complimentary_conversion_accepted: true }
+          : {}),
       }
     );
     if (error) {

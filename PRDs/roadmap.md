@@ -772,11 +772,12 @@ movement. `docs/production-readiness.md` is the provider gate and
 Starter pilot scope and Supabase Free review date are recorded in
 `docs/production-readiness.md`; sign-in email delivery and redemption passed.
 Protected URL/key values remain unverifiable, Vercel remains on Hobby, and
-adviser-confirmed accounting and exact payable wording remain open. The owner
+documented tax/receipt treatment and exact payable wording remain open. The owner
 selected UsefulMade / Home office (`8826d9aa-03f2-4ad7-ae91-0553052131f8`,
 one active branch) for the pilot. Read-only access evidence found it
-complimentary with no trial dates, so the draft expired-trial quote contract
-cannot serve it without a reviewed access transition or contract change. The
+complimentary with no trial dates. The local default-off conversion draft now
+requires an owner acknowledgement and unchanged access version before a signed
+capture may replace that free entitlement; it is uninstalled. The
 readiness record separates manual-pilot approval from
 automated-subscription acceptance; operational checks alone cannot open either
 gate. Turnstile remains absent.
@@ -789,16 +790,21 @@ cron runs were stale at the last audit. The environment checker rejects SaaS
 Test flags and enabled Live billing switches in Production. No Production
 subscription migration, Live send, payment or access activation resulted.
 
-**Disabled billing foundation ready for review, activation pending:** draft PR
-#16 at `a5120b5a` passed CI, CodeQL and Vercel preview checks on 29 September.
-The owner authorized proceeding through review and merge of its default-off
-foundation. A ~17:30 UTC read-only recheck found Production still at
-`4072dccc`, Supabase `ACTIVE_HEALTHY`, zero private subscription/billing tables,
-and Vercel Hobby. Code review and merge do not open a payable path. The Live
-shared-merchant domain/product approval and event routing, qualified tax/receipt conclusion, pilot
-access transition, offer wording, and release-specific provider acceptance remain
-the next activation work; see [readiness](../docs/production-readiness.md) and
-the [Live boundary](../docs/subscription-live-boundary.md).
+**Disabled billing foundation merged and deployed; activation pending:** PR
+#16 merged at `a237ead7403f3d0653fb44a6a3179ad33a2a177f` on 29 September
+with CI, CodeQL and Vercel checks passing. The canonical Production app is READY
+at deployment `dpl_CVCkXK7H6udXzxNgdwuaaApjufak`; login GET returned 200,
+while unauthenticated Live webhook and quote POSTs returned 404. The earlier
+read-only database check found zero private subscription/billing tables, and the
+team remained on Vercel Hobby. The app deployment does not open a payable path.
+The follow-up implements default-off shared-merchant event routing and the
+selected complimentary pilot's owner-acknowledged Starter conversion in code;
+its Live schema and money gates are not installed in Production. SaaS merchant product/domain approval,
+signed mixed-delivery acceptance, documented tax/receipt determination, final
+offer wording, hosting upgrade, and release-specific provider acceptance remain
+activation work; see [readiness](../docs/production-readiness.md), the private
+[offer draft](../docs/starter-pilot-offer-draft.md), and the
+[Live boundary](../docs/subscription-live-boundary.md).
 
 The local default-off Test checkout, renewal, cancellation and refund slices
 below do not constitute Production automated billing. Later full-schema,
@@ -1058,15 +1064,18 @@ memberships/renewals, attendance, manual payments, shared WhatsApp chats and
 standard renewal reminders; custom schedules, bulk campaigns, configurable
 automations, gym-member Payment Links and AutoPay are excluded. Tax-approved
 exact payable wording and customer terms, SaaS product/domain acceptance for
-the existing activated UsefulMade merchant, shared-webhook route correction,
-an accepted access transition or contract change for the complimentary
-UsefulMade / Home office pilot,
-release acceptance, and explicit
+the existing activated UsefulMade merchant, signed shared-merchant mixed-delivery acceptance, release-specific acceptance of the implemented
+complimentary-to-paid Starter conversion for UsefulMade / Home office,
+provider acceptance, and explicit
 Production/real-money authorizations remain open. Production remains closed.
-The shared-merchant route fix must acknowledge verified gym events at the SaaS
-webhook without SaaS processing, leave ambiguous events retryable, and keep SaaS
-refunds out of the gym refund processor. Signed delivery, retry and
-reconciliation acceptance must cover both routes.
+The local shared-merchant route fix acknowledges provider-proven gym events at
+the SaaS webhook without SaaS processing, leaves ambiguous events retryable,
+and prevents SaaS refunds from changing gym payment/refund ledgers. Signed delivery, retry
+and reconciliation acceptance must still cover both routes on the actual
+merchant. The local conversion keeps free access until signed capture, freezes
+mode/version and explicit owner consent in the quote, and holds conflicting
+captured funds. Three rollback-only SQL suites pass on a disposable full schema;
+all eleven Live drafts roll back with no installed Live schema.
 
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 

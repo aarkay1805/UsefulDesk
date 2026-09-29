@@ -217,7 +217,7 @@ export function evaluateProductionEnvironment(env) {
       add(
         'pass',
         'subscription-live-boundary',
-        'Separate Live SaaS merchant names and formats are present; merchant ownership still needs private verification.'
+        'Live SaaS merchant names and formats are present; merchant ownership and shared-account webhook routing still need private verification.'
       );
     }
   } else {

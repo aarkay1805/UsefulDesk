@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   rpc,
+  classifyLiveWebhookOrder,
   fetchLivePaymentOrderId,
   settleCapturedLivePayment,
   reconcileLiveRefund,
 } = vi.hoisted(() => ({
   rpc: vi.fn(),
+  classifyLiveWebhookOrder: vi.fn(),
   fetchLivePaymentOrderId: vi.fn(),
   settleCapturedLivePayment: vi.fn(),
   reconcileLiveRefund: vi.fn(),
@@ -19,6 +21,7 @@ vi.mock('@/lib/subscriptions/live-provider', async (importOriginal) => ({
   ...(await importOriginal<
     typeof import('@/lib/subscriptions/live-provider')
   >()),
+  classifyLiveWebhookOrder,
   fetchLivePaymentOrderId,
 }));
 vi.mock('@/lib/subscriptions/live-flow', () => ({ settleCapturedLivePayment }));
@@ -68,6 +71,7 @@ describe('Usefulmade Live webhook intake', () => {
     vi.stubEnv('USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID', organizationId);
     vi.stubEnv('USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED', 'true');
     rpc.mockResolvedValue({ data: { status: 'held' }, error: null });
+    classifyLiveWebhookOrder.mockResolvedValue('saas');
     fetchLivePaymentOrderId.mockResolvedValue('order_Live123');
     settleCapturedLivePayment.mockResolvedValue({ status: 'verified' });
     reconcileLiveRefund.mockResolvedValue({ status: 'confirmed' });
@@ -85,6 +89,104 @@ describe('Usefulmade Live webhook intake', () => {
       (await POST(signedRequest({ ...captured, account_id: 'acc_Gym' }))).status
     ).toBe(403);
     expect(rpc).not.toHaveBeenCalled();
+    expect(classifyLiveWebhookOrder).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges signed foreign orders without claiming SaaS work', async () => {
+    classifyLiveWebhookOrder.mockResolvedValue('unrelated');
+    expect((await POST(signedRequest(captured))).status).toBe(200);
+    expect(classifyLiveWebhookOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId }),
+      'order_Live123'
+    );
+    expect(rpc).not.toHaveBeenCalled();
+    expect(settleCapturedLivePayment).not.toHaveBeenCalled();
+
+    const refund = {
+      account_id: merchantId,
+      event: 'refund.processed',
+      payload: {
+        refund: { entity: { id: 'rfnd_Gym123', payment_id: 'pay_Gym123' } },
+      },
+    };
+    expect((await POST(signedRequest(refund))).status).toBe(200);
+    expect(fetchLivePaymentOrderId).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId }),
+      'pay_Gym123'
+    );
+    expect(rpc).not.toHaveBeenCalled();
+    expect(reconcileLiveRefund).not.toHaveBeenCalled();
+  });
+
+  it('acknowledges a signed payment with no order and retries uncertain ownership', async () => {
+    const noOrder = {
+      ...captured,
+      payload: { payment: { entity: { id: 'pay_Gym123', order_id: null } } },
+    };
+    fetchLivePaymentOrderId.mockResolvedValueOnce(null);
+    expect((await POST(signedRequest(noOrder))).status).toBe(200);
+    expect(fetchLivePaymentOrderId).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId }),
+      'pay_Gym123'
+    );
+    expect(classifyLiveWebhookOrder).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+
+    fetchLivePaymentOrderId.mockResolvedValueOnce('order_Live123');
+    expect((await POST(signedRequest(noOrder))).status).toBe(200);
+    expect(classifyLiveWebhookOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId }),
+      'order_Live123'
+    );
+    expect(rpc).toHaveBeenCalledOnce();
+
+    rpc.mockClear();
+    classifyLiveWebhookOrder.mockClear();
+    const omittedOrder = {
+      ...captured,
+      payload: { payment: { entity: { id: 'pay_Gym123' } } },
+    };
+    fetchLivePaymentOrderId.mockResolvedValueOnce('order_Live123');
+    expect((await POST(signedRequest(omittedOrder))).status).toBe(200);
+    expect(rpc).toHaveBeenCalledOnce();
+
+    rpc.mockClear();
+    classifyLiveWebhookOrder.mockClear();
+    fetchLivePaymentOrderId.mockRejectedValueOnce(new Error('provider down'));
+    expect((await POST(signedRequest(omittedOrder))).status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
+
+    fetchLivePaymentOrderId.mockRejectedValueOnce(new Error('provider down'));
+    expect((await POST(signedRequest(noOrder))).status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
+
+    fetchLivePaymentOrderId.mockResolvedValueOnce(null);
+    const refundWithoutOrder = {
+      account_id: merchantId,
+      event: 'refund.processed',
+      payload: {
+        refund: { entity: { id: 'rfnd_Gym123', payment_id: 'pay_Gym123' } },
+      },
+    };
+    expect((await POST(signedRequest(refundWithoutOrder))).status).toBe(200);
+    expect(classifyLiveWebhookOrder).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+
+    classifyLiveWebhookOrder.mockRejectedValueOnce(
+      new Error('Provider order unavailable')
+    );
+    expect((await POST(signedRequest(captured))).status).toBe(503);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('retries an unbound apparent SaaS order, preserving the delivery for recovery', async () => {
+    rpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Live webhook has no bound pilot order' },
+    });
+    expect((await POST(signedRequest(captured))).status).toBe(503);
+    expect(classifyLiveWebhookOrder).toHaveBeenCalledOnce();
+    expect(rpc).toHaveBeenCalledOnce();
   });
 
   it('acknowledges only after the signed pilot event is durable', async () => {

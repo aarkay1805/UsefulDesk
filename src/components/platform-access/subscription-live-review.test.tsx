@@ -137,7 +137,9 @@ describe('owner Live pilot review', () => {
     );
     expect(await screen.findByText('₹799.47 for one month')).toBeTruthy();
     expect(screen.getByText('Approved tax note')).toBeTruthy();
-    const confirm = screen.getByRole('button', { name: 'Confirm plan amount' });
+    const confirm = await screen.findByRole('button', {
+      name: 'Confirm plan amount',
+    });
     expect(confirm.hasAttribute('disabled')).toBe(true);
     fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(confirm);
@@ -148,6 +150,65 @@ describe('owner Live pilot review', () => {
       accountId,
       approvalId: preview.approval_id,
       seenAmountMinor: 79947,
+      tier: 'starter',
+    });
+  });
+
+  it('requires a separate free-to-paid acknowledgement for the pilot', async () => {
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_live_owner_quote' ||
+        name === 'subscription_live_owner_term'
+          ? null
+          : {
+              approval_id: '44444444-4444-4444-8444-444444444444',
+              tier: 'starter',
+              amount_minor: 79900,
+              currency: 'INR',
+              customer_tax_note: 'Approved tax note',
+              customer_terms_note: 'Approved monthly term',
+              complimentary_conversion: true,
+            },
+      error: null,
+    }));
+    const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
+      const submitted = JSON.parse(String(init.body)) as { requestId: string };
+      return Response.json({
+        quote: {
+          request_id: submitted.requestId,
+          amount_minor: 79900,
+          currency: 'INR',
+        },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <SubscriptionLiveReview
+        organizationId={organizationId}
+        accountId={accountId}
+      />
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Review plan amount' })
+    );
+    const confirm = await screen.findByRole('button', {
+      name: 'Confirm plan amount',
+    });
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'I reviewed this exact Live pilot amount.',
+      })
+    );
+    expect(confirm.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /I understand this payment replaces my free access/,
+      })
+    );
+    fireEvent.click(confirm);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1].body))).toMatchObject({
+      complimentaryConversionAccepted: true,
       tier: 'starter',
     });
   });

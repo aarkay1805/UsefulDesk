@@ -437,6 +437,31 @@ describe('ProductAccessGate', () => {
 });
 
 describe('Live billing access after the initial term', () => {
+  it('offers Live review only to the selected complimentary pilot owner', async () => {
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI', 'true');
+    auth.isOrganizationOwner = true;
+    const pilotId = '8826d9aa-03f2-4ad7-ae91-0553052131f8';
+    auth.organizationId = pilotId;
+    const complimentary: ProductAccessSnapshot = {
+      ...snapshot,
+      status: 'complimentary',
+      access: { ...access, organization_id: pilotId, mode: 'complimentary' },
+    };
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: auth.accountId,
+          organizationId: pilotId,
+          snapshot: complimentary,
+        }}
+      >
+        Gym content
+      </ProductAccessGate>
+    );
+    expect(await screen.findByText('Gym content')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open billing' })).toBeTruthy();
+  });
+
   function renderPaid(expired: boolean, owner = true) {
     vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI', 'true');
     auth.isOrganizationOwner = owner;

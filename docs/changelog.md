@@ -8,18 +8,36 @@
 
 ## 2026-09-29 — Close out the disabled billing foundation for review
 
-PR #16 at `a5120b5a` passed CI, CodeQL and Vercel preview checks. The
-Production recheck found `4072dccc` still deployed, zero private subscription
-tables, and the team on Vercel Hobby. `docs/production-readiness.md`,
+PR #16 merged at `a237ead7403f3d0653fb44a6a3179ad33a2a177f` and its
+Production app deployment `dpl_CVCkXK7H6udXzxNgdwuaaApjufak` is READY. CI,
+CodeQL and Vercel checks passed; login GET returned 200 and unauthenticated
+Live quote/webhook POSTs returned 404. The earlier read-only database check
+found zero private subscription tables, and the team remained on Vercel Hobby. `docs/production-readiness.md`,
 `docs/subscription-live-boundary.md`, and `PRDs/roadmap.md` now separate review
 and merge of the default-off code from a payable Starter rollout. The owner
 selected UsefulMade / Home office and requested the existing activated
 UsefulMade Razorpay merchant. Read-only access evidence found the selected
-organization complimentary with no trial dates, so a reviewed transition or
-contract change is needed before an initial quote. SaaS product/domain
-approval, shared-webhook route correction, qualified tax/receipt conclusion,
-customer offer wording, and final provider/release acceptance remain open. No Production
+organization complimentary with no trial dates, so a default-off, owner-acknowledged conversion follow-up was drafted locally.
+SaaS product/domain approval, signed shared-merchant mixed-delivery acceptance,
+documented tax/receipt determination, customer offer wording, and final
+provider/release acceptance remain open. No Production
 subscription migration, paid grant or real-money transaction resulted.
+
+## 2026-09-29 — Draft selected complimentary Starter pilot conversion
+
+`20260930010000_subscription_live_complimentary_pilot.sql`, the owner review
+panel and quote API add a second free-to-paid acknowledgement for only the
+configured Starter pilot. The immutable quote stores original access mode and
+version; order claim and signed capture recheck them. Free access continues
+until verified capture, while a conflict holds captured funds for review. The
+existing paid-term expiry and confirmed full-refund path ends converted access.
+The local shared-merchant routing fix distinguishes provider-proven gym events
+from SaaS events without mixing ledgers; actual signed mixed-delivery acceptance
+remains open. Three synthetic Live suites pass in a rollback-only disposable
+full schema with eleven draft migrations and no installed Live schema. The
+[private Starter offer draft](starter-pilot-offer-draft.md) is not a payable
+customer offer. No Production Live schema was installed, no billing gate opened, and no money
+moved.
 
 ## 2026-09-29 — Close dark Live quote-expiry and issuance races
 
