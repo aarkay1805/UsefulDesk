@@ -6,6 +6,39 @@
 
 ---
 
+## 2026-09-29 — Draft dark Usefulmade Live SaaS billing boundary
+
+`live-{provider,orders,flow,refunds}.ts`, Live subscription routes and
+migrations `20260929170000`–`20260929240000` add a separate merchant/pilot
+binding, durable order/refund claims, signed webhook evidence, service-only
+first-term/refund transactions, held-event reconciliation, an exact-amount
+owner review panel, Starter reminder normalization and activation audit. Checkout rechecks the
+current gate and eligibility; terms use signed capture-event time. New Live orders
+and refunds are database-hard-closed; all runtime switches default off.
+Focused code tests and rolled-back full-schema SQL pass; no migration was
+installed. Genuine provider acceptance and commercial approval remain open.
+
+## 2026-09-29 — Continue default-off subscription capability gates
+
+The capability draft now guards custom reminder offsets in the database and
+settings, claims standard reminder jobs before delivery and rechecks tier
+permission before Meta sends or an AutoPay provider call. Focused tests and
+full-schema rolled-back SQL pass. `capabilities_enabled` stays false until the
+owner sets Starter's cadence and existing custom schedules are reviewed; see
+`docs/subscription-test-acceptance.md` and `docs/renewal-reminders.md`.
+
+## 2026-09-29 — Implement default-off advanced Test billing
+
+Migrations `20260929080000`–`20260929160000`, the advanced subscription API
+routes, `test-flow.ts`, and the owner Test billing panel add immutable reviews,
+frozen quotes, canonical order claims, verified upgrade/slot/restart commits,
+paid-slot renewal/cancellation, and preserved first-refund history. Stale
+captured renewals and processed first refunds after later paid charges are
+review-held. Disposable full-schema synthetic SQL and
+focused web tests pass. No advanced Test charge or Production migration was
+made; commercial/tax and Starter cadence approval plus genuine provider/native
+acceptance still block activation.
+
 ## 2026-09-29 — Complete physical iPhone Air subscription access checks
 
 `docs/subscription-test-acceptance.md` records synthetic owner sign-in and the
@@ -60,7 +93,6 @@ owner's schedule; do not enable `capabilities_enabled` yet. Full-schema rollback
 checks and repository verification pass. The draft is not installed anywhere;
 Production billing stays disabled. The roadmap records review-only quote,
 add-on and restart proposals, with no newly approved commercial terms.
-
 
 ## 2026-09-28 — Verify genuine Test renewal retries after database-API outage
 

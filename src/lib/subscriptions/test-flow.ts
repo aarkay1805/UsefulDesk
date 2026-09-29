@@ -18,6 +18,14 @@ import {
 
 export class TestBillingConflict extends Error {}
 
+type AdvancedTestKind = 'upgrade' | 'addon_purchase' | 'restart';
+type TestIntentKind = 'initial' | 'renewal' | AdvancedTestKind;
+function isAdvancedKind(
+  kind: TestIntentKind | undefined
+): kind is AdvancedTestKind {
+  return kind === 'upgrade' || kind === 'addon_purchase' || kind === 'restart';
+}
+
 function assertIntent(value: unknown): asserts value is {
   request_id: string;
   organization_id: string;
@@ -27,7 +35,8 @@ function assertIntent(value: unknown): asserts value is {
   currency: 'INR';
   state?: string;
   action?: string;
-  kind?: 'initial' | 'renewal';
+  kind?: TestIntentKind;
+  provider_payment_id?: string;
 } {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Invalid Test plan intent');
@@ -36,10 +45,18 @@ function assertIntent(value: unknown): asserts value is {
     !isBranchAccountId(row.request_id) ||
     !isBranchAccountId(row.organization_id) ||
     !isSubscriptionTier(row.tier) ||
-    row.amount_minor !==
-      SUBSCRIPTION_PLANS[row.tier].monthlySoftwareInr * 100 ||
+    typeof row.amount_minor !== 'number' ||
+    !Number.isSafeInteger(row.amount_minor) ||
+    row.amount_minor < 1 ||
     row.currency !== 'INR' ||
-    (row.kind !== undefined && row.kind !== 'initial' && row.kind !== 'renewal')
+    (row.kind !== undefined &&
+      !['initial', 'renewal', 'upgrade', 'addon_purchase', 'restart'].includes(
+        String(row.kind)
+      )) ||
+    (row.kind !== 'renewal' &&
+      !isAdvancedKind(row.kind as TestIntentKind | undefined) &&
+      row.amount_minor !==
+        SUBSCRIPTION_PLANS[row.tier].monthlySoftwareInr * 100)
   ) {
     throw new Error('Test plan intent does not match approved base price');
   }
@@ -53,7 +70,7 @@ export async function prepareTestCheckout(
     organizationId: string;
     requestId: string;
     actorUserId: string;
-    kind?: 'initial' | 'renewal';
+    kind?: TestIntentKind;
   },
   dependencies: {
     admin?: Admin;
@@ -68,7 +85,9 @@ export async function prepareTestCheckout(
   const { data, error } = await admin.rpc(
     input.kind === 'renewal'
       ? 'subscription_claim_test_renewal_order'
-      : 'subscription_claim_test_order',
+      : isAdvancedKind(input.kind)
+        ? 'subscription_claim_test_advanced_order'
+        : 'subscription_claim_test_order',
     {
       p_request_id: input.requestId,
       p_organization_id: input.organizationId,
@@ -124,6 +143,7 @@ export async function prepareTestCheckout(
   return {
     requestId: input.requestId,
     organizationId: input.organizationId,
+    kind: data.kind ?? 'initial',
     tier: data.tier,
     amountMinor: data.amount_minor,
     currency: 'INR' as const,
@@ -186,7 +206,11 @@ export async function confirmTestPayment(
   // A committed intent is immutable. A late duplicate after a later refund
   // must not recreate access or fail indefinitely because the provider now
   // reports an amount_refunded value.
-  if (data.state !== 'verified') {
+  if (!(
+    data.state === 'verified' ||
+    (data.state === 'review_required' &&
+      data.provider_payment_id === input.paymentId)
+  )) {
     await (dependencies.fetchPayment ?? fetchCapturedTestPayment)(config, {
       paymentId: input.paymentId,
       orderId: data.provider_order_id,
@@ -196,7 +220,9 @@ export async function confirmTestPayment(
   const { data: committed, error: commitError } = await admin.rpc(
     data.kind === 'renewal'
       ? 'subscription_commit_test_renewal_payment'
-      : 'subscription_commit_test_initial_payment',
+      : isAdvancedKind(data.kind)
+        ? 'subscription_commit_test_advanced_payment'
+        : 'subscription_commit_test_initial_payment',
     {
       p_request_id: data.request_id,
       p_provider_order_id: data.provider_order_id,
@@ -229,14 +255,33 @@ export async function confirmTestPayment(
       };
     } | null
   )?.payment;
+  const advanced = committed as {
+    status?: 'verified' | 'review_required';
+    organization_id?: string;
+    request_id?: string;
+    kind?: string;
+    provider_payment_id?: string;
+  } | null;
   if (
-    data.kind === 'renewal'
-      ? payment?.organization_id !== data.organization_id ||
-        payment.intent_id !== data.request_id ||
-        payment.provider_payment_id !== input.paymentId
-      : grant?.organization_id !== data.organization_id ||
-        grant.source_intent_id !== data.request_id ||
-        grant.first_provider_payment_id !== input.paymentId
+    isAdvancedKind(data.kind)
+      ? (advanced?.status !== 'verified' &&
+          advanced?.status !== 'review_required') ||
+        advanced?.organization_id !== data.organization_id ||
+        advanced?.request_id !== data.request_id ||
+        advanced?.kind !== data.kind ||
+        advanced?.provider_payment_id !== input.paymentId
+      : data.kind === 'renewal'
+        ? advanced?.status === 'review_required'
+          ? advanced.organization_id !== data.organization_id ||
+            advanced.request_id !== data.request_id ||
+            advanced.kind !== 'renewal' ||
+            advanced.provider_payment_id !== input.paymentId
+          : payment?.organization_id !== data.organization_id ||
+            payment.intent_id !== data.request_id ||
+            payment.provider_payment_id !== input.paymentId
+        : grant?.organization_id !== data.organization_id ||
+          grant.source_intent_id !== data.request_id ||
+          grant.first_provider_payment_id !== input.paymentId
   ) {
     throw new Error('Test payment commit returned another grant');
   }
@@ -245,6 +290,10 @@ export async function confirmTestPayment(
     requestId: data.request_id,
     tier: data.tier,
     paymentId: input.paymentId,
+    ...(isAdvancedKind(data.kind) ||
+    (data.kind === 'renewal' && advanced?.status === 'review_required')
+      ? { status: advanced?.status }
+      : {}),
   };
 }
 
@@ -272,7 +321,12 @@ export async function recordTestRenewalFailure(
   if (data.provider_order_id !== input.orderId)
     throw new Error('Test order does not match');
   // First checkout never receives grace. A delayed failure cannot undo success.
-  if (data.kind !== 'renewal' || data.state === 'verified') return;
+  if (
+    data.kind !== 'renewal' ||
+    data.state === 'verified' ||
+    data.state === 'review_required'
+  )
+    return;
   await (dependencies.fetchPayment ?? fetchFailedTestPayment)(config, {
     paymentId: input.paymentId,
     orderId: input.orderId,

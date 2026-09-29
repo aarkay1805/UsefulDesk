@@ -57,6 +57,83 @@ function checkoutSignature() {
 }
 
 describe('Usefulmade Test merchant boundary', () => {
+  it('uses the canonical advanced claim and exact quoted amount for one Test order', async () => {
+    const quoted = {
+      ...intent,
+      kind: 'upgrade',
+      amount_minor: 34789,
+      action: 'create',
+    };
+    const db = admin({ subscription_claim_test_advanced_order: quoted });
+    const createOrder = vi.fn(async () => ({
+      id: orderId,
+      amount: 34789,
+      currency: 'INR' as const,
+      receipt: requestId,
+    }));
+    const checkout = await prepareTestCheckout(
+      { organizationId, requestId, actorUserId: 'owner-1', kind: 'upgrade' },
+      { admin: db, config, createOrder }
+    );
+    expect(checkout).toMatchObject({ kind: 'upgrade', amountMinor: 34789 });
+    expect(createOrder).toHaveBeenCalledWith(config, {
+      requestId,
+      organizationId,
+      amountMinor: 34789,
+    });
+    expect(db.rpc.mock.calls.map(([name]) => name)).toEqual([
+      'subscription_claim_test_advanced_order',
+      'subscription_bind_test_order',
+    ]);
+  });
+
+  it('holds a stale captured advanced payment without regranting on replay', async () => {
+    const advanced = {
+      ...intent,
+      kind: 'addon_purchase',
+      amount_minor: 48237,
+    };
+    const held = {
+      status: 'review_required',
+      organization_id: organizationId,
+      request_id: requestId,
+      kind: 'addon_purchase',
+      provider_payment_id: paymentId,
+    };
+    const db = admin({
+      subscription_test_intent_for_order: advanced,
+      subscription_commit_test_advanced_payment: held,
+    });
+    const fetchPayment = vi.fn(async () => ({
+      id: paymentId,
+      orderId,
+      amountMinor: 48237,
+      currency: 'INR' as const,
+    }));
+    const result = await confirmTestPayment(
+      { source: 'webhook', orderId, paymentId },
+      { admin: db, config, fetchPayment }
+    );
+    expect(result.status).toBe('review_required');
+    expect(fetchPayment).toHaveBeenCalledOnce();
+    db.rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_test_intent_for_order'
+          ? {
+              ...advanced,
+              state: 'review_required',
+              provider_payment_id: paymentId,
+            }
+          : held,
+      error: null,
+    }));
+    await confirmTestPayment(
+      { source: 'webhook', orderId, paymentId },
+      { admin: db, config, fetchPayment }
+    );
+    expect(fetchPayment).toHaveBeenCalledOnce();
+  });
+
   it('routes only verified renewal payments to the renewal transaction', async () => {
     const db = admin({
       subscription_test_intent_for_order: { ...intent, kind: 'renewal' },
@@ -83,6 +160,59 @@ describe('Usefulmade Test merchant boundary', () => {
       'subscription_test_intent_for_order',
       'subscription_commit_test_renewal_payment',
     ]);
+  });
+
+  it('acknowledges a captured renewal held for review without repeating provider GET', async () => {
+    const renewal = {
+      ...intent,
+      kind: 'renewal',
+      amount_minor: 199800,
+    };
+    const held = {
+      status: 'review_required',
+      organization_id: organizationId,
+      request_id: requestId,
+      kind: 'renewal',
+      provider_payment_id: paymentId,
+    };
+    const db = admin({
+      subscription_test_intent_for_order: renewal,
+      subscription_commit_test_renewal_payment: held,
+    });
+    const fetchPayment = vi.fn(async () => ({
+      id: paymentId,
+      orderId,
+      amountMinor: 199800,
+      currency: 'INR' as const,
+    }));
+    expect(
+      (
+        await confirmTestPayment(
+          { source: 'webhook', orderId, paymentId },
+          { admin: db, config, fetchPayment }
+        )
+      ).status
+    ).toBe('review_required');
+    db.rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_test_intent_for_order'
+          ? {
+              ...renewal,
+              state: 'review_required',
+              provider_payment_id: paymentId,
+            }
+          : held,
+      error: null,
+    }));
+    expect(
+      (
+        await confirmTestPayment(
+          { source: 'webhook', orderId, paymentId },
+          { admin: db, config, fetchPayment }
+        )
+      ).status
+    ).toBe('review_required');
+    expect(fetchPayment).toHaveBeenCalledOnce();
   });
 
   it('uses a distinct renewal claim but the same durable order recovery', async () => {
@@ -115,6 +245,7 @@ describe('Usefulmade Test merchant boundary', () => {
   it.each([
     { kind: 'initial', state: 'pending' },
     { kind: 'renewal', state: 'verified' },
+    { kind: 'renewal', state: 'review_required' },
   ])(
     'never grants grace for first checkout or a delayed failure after success: %o',
     async (state) => {

@@ -21,6 +21,7 @@ import {
   evaluateTemplateReadiness,
   type TemplateReadinessRow,
 } from '@/lib/whatsapp/template-readiness';
+import { requireProductAccess } from '@/lib/platform-access/server';
 
 export const runtime = 'nodejs';
 
@@ -166,6 +167,16 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
 
     const ctx = await requireSettingsAccess();
+    if (
+      'days_before' in parsed.value ||
+      'service_days_before' in parsed.value
+    ) {
+      await requireProductAccess(
+        ctx.supabase,
+        ctx.accountId,
+        'custom_renewal_schedules'
+      );
+    }
     const [currentResult, readiness] = await Promise.all([
       ctx.supabase
         .from('renewal_reminder_settings')

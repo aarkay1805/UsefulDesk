@@ -940,27 +940,69 @@ are not stopped by a SaaS tier change.
 
 Full-schema SQL checks run inside a rolled-back transaction and leave no fixture
 or installed migration behind. Repository lint, types, tests and build pass.
-This is not complete tier enforcement: `capabilities_enabled` defaults false
-and must remain false until standard/custom reminders and the remaining
-UI/native/background acceptance are complete. Production billing stays closed.
+The 29 September continuation adds a DB/settings gate for custom reminder
+offsets, a standard-reminder claim plus pre-send check, and a pre-provider
+AutoPay tier recheck. Focused tests and full-schema rolled-back SQL pass; see
+`docs/subscription-test-acceptance.md` and `docs/renewal-reminders.md`.
+`capabilities_enabled` remains false pending the owner-approved Starter cadence,
+review of existing custom schedules, and remaining UI/native/background
+acceptance. Production billing stays closed.
 The acceptance chat continues to own provider recovery, downgrade renewal and
 native billing acceptance; this section does not supersede its evidence.
 
 **Owner review — proposals only, not approved or payable:**
 
-| Choice | Concrete proposal | Required consequence |
-| --- | --- | --- |
-| Upgrade quote | Freeze the exact paise amount for 15 minutes, capped at the existing paid-through end. Reprice only after a new owner review. | Capture verified after expiry is review-held; no stale upgrade, second automatic charge, or automatic refund. Freeze organization, source term/version, target tier and quote identity. |
-| Extra branch | Prorate ₹499 by the actual remaining term; renew the purchased slots with the base plan. | Growth allows one purchased slot; Ultimate slots stay paid. Pending/failed payment adds no capacity. Archiving alone never cancels a slot. |
-| Add-on cancellation | Remove purchased capacity at renewal, only with the owner's exact retained/archive roster. No routine mid-cycle refund. | Preserve data; no automatic archives. The existing eligible full first-payment refund also covers an add-on on that first payment. Switching to Ultimate must explicitly review any now-redundant paid slots. |
-| Restart | After cancellation or full refund, start one fresh monthly term at verified payment; no fresh trial or second first-payment refund. | Preserve original first-payment/refund history, require a reviewed branch roster and one canonical recoverable order, and refuse unresolved prior payment/refund work. |
-| Starter reminders | Owner must choose exact days before/on/after expiry and local send time. | Preserve standard reminders; prevent custom settings and custom queued sends only after a standard schedule exists. No schedule is inferred here. |
+| Choice              | Concrete proposal                                                                                                                   | Required consequence                                                                                                                                                                                          |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Upgrade quote       | Freeze the exact paise amount for 15 minutes, capped at the existing paid-through end. Reprice only after a new owner review.       | Capture verified after expiry is review-held; no stale upgrade, second automatic charge, or automatic refund. Freeze organization, source term/version, target tier and quote identity.                       |
+| Extra branch        | Prorate ₹499 by the actual remaining term; renew the purchased slots with the base plan.                                            | Growth allows one purchased slot; Ultimate slots stay paid. Pending/failed payment adds no capacity. Archiving alone never cancels a slot.                                                                    |
+| Add-on cancellation | Remove purchased capacity at renewal, only with the owner's exact retained/archive roster. No routine mid-cycle refund.             | Preserve data; no automatic archives. The existing eligible full first-payment refund also covers an add-on on that first payment. Switching to Ultimate must explicitly review any now-redundant paid slots. |
+| Restart             | After cancellation or full refund, start one fresh monthly term at verified payment; no fresh trial or second first-payment refund. | Preserve original first-payment/refund history, require a reviewed branch roster and one canonical recoverable order, and refuse unresolved prior payment/refund work.                                        |
+| Starter reminders   | Owner must choose exact days before/on/after expiry and local send time.                                                            | Preserve standard reminders; prevent custom settings and custom queued sends only after a standard schedule exists. No schedule is inferred here.                                                             |
 
-**Remaining:** owner decisions above; transactional Test upgrades/add-ons/restart
-and their quote/order/replay/roster acceptance; reminder policy enforcement;
-complete UI/native/send-boundary acceptance; explicit deployment and activation
-of the capability draft. The other candidate features and usage limits remain
-unapproved. No payable flow is opened by this proposal.
+**Built locally, disabled:** migrations `20260929080000` through
+`20260929160000` preserve paid-generation/refund history and implement immutable
+owner reviews, policy-gated payable quotes, one canonical recoverable Test
+order, captured-payment upgrade/add-on/restart commits, and reviewed paid-slot
+renewal or cancellation in the base renewal charge. The Test owner billing UI
+shows the amount before opening advanced Checkout and the exact slot/branch
+renewal choice. A disposable full-schema, rolled-back SQL run covers synthetic
+capture, exact replay, stale review hold, refund/restart history, and retained
+and cancelled slot renewal, Starter restart acknowledgment, late captured-renewal
+review hold, and a processed first-refund hold when later paid charges exist.
+The private advanced and capability switches remain
+false; no advanced charge or Production migration occurred.
+
+**Built locally, dark Live boundary:** migrations `20260929170000`–
+`20260929240000` add separate Usefulmade Live quote, order, payment, grant,
+refund and signed-webhook evidence with a pinned merchant and one pilot
+organization. The Live adapter and API draft claim an order before provider
+POST, use exact-receipt GET recovery, verify captured money with fresh provider
+GETs, and commit a first term or hold stale funds under an organization lock.
+Every Checkout return rechecks current gates, quote expiry, expired trial and
+branch roster. A signed capture-event timestamp fixes the paid term even when
+the webhook is processed later. A read-only owner panel shows the frozen exact
+INR Live pilot quote; Starter acknowledgment and in-transaction reminder
+normalization are wired before its grant.
+Capability activation audits Live Starter schedules and unattempted custom
+claims alongside Test Starter grants.
+The refund draft claims before POST and ends access only after a matching
+settled full refund. The named capability predicate now recognizes the separate
+Live grant for RLS and web/native snapshots. A protected, bounded recovery
+endpoint can revisit held signed events. New Live orders and refunds are
+**hard-closed by database constraints**; all runtime, intake, settlement,
+reconciliation and capability switches default false. Focused code tests and
+rolled-back full-schema synthetic SQL pass; genuine provider and release
+acceptance remain pending. No Live credentials,
+Production migration, charge or refund were used.
+
+**Remaining:** owner decisions above; genuine advanced Test provider capture,
+signed webhook/outage recovery, concurrent boundary checks, native acceptance,
+and explicit activation review. Live also needs an approved offer/tax and term
+reference, a quote writer, approval of Starter's standard cadence, full-schema
+Test and genuine provider acceptance, and a separately authorized real-money
+pilot before migration, deployment or activation. The other candidate features and usage limits
+remain unapproved. No payable flow is open under the default settings.
 
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 

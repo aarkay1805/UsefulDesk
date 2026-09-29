@@ -143,6 +143,48 @@ describe('GET /api/reminders/readiness', () => {
     );
   });
 
+  it('does not present a retired custom service claim as sendable work', async () => {
+    h.tables.set('message_templates', [
+      {
+        ...TEMPLATE_CONTRACTS.service_renewal.payload,
+        status: 'APPROVED',
+        parameter_format: 'POSITIONAL',
+      },
+    ]);
+    h.tables.set('service_renewal_queue', [
+      {
+        id: 'service-retired',
+        end_date: '2026-09-11',
+        phone: '+919000000004',
+        days_until_expiry: 1,
+        service_days_before: [1, 3, 7],
+        current_renewal_price: 500,
+        item_is_active: true,
+        option_is_active: true,
+      },
+    ]);
+    h.tables.set('service_renewal_reminders_sent', [
+      {
+        member_service_id: 'service-retired',
+        end_date: '2026-09-11',
+        days_before: 1,
+        status: 'retired',
+        claimed_at: null,
+      },
+    ]);
+
+    const body = await (await GET()).json();
+    expect(
+      body.diagnostics.find(
+        (diagnostic: { kind: string }) => diagnostic.kind === 'service_renewal'
+      )
+    ).toMatchObject({
+      state: 'no_eligible',
+      dateMatchedCount: 1,
+      pendingCount: 0,
+    });
+  });
+
   it('reports date-matched, claimed, missing-phone, and currently sendable rows separately', async () => {
     const templates = [
       'membership_renewal',

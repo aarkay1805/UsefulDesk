@@ -40,12 +40,115 @@ INSERT INTO private.organization_product_access(organization_id,mode,access_star
 UPDATE private.subscription_billing_settings SET enabled=true,test_merchant_account_id='acc_RenewalTest';
 UPDATE private.product_access_settings SET enforcement_enabled=true;
 
-UPDATE private.subscription_billing_settings SET capabilities_enabled=true;
+-- Synthetic Test-only approval: the real owner has not approved this cadence.
+SELECT pg_temp.expect_error($q$UPDATE private.subscription_billing_settings SET capabilities_enabled=true$q$,'23514');
+UPDATE private.subscription_billing_settings SET standard_reminder_policy_approved=true,
+  standard_reminder_policy_version='synthetic-capability-test-v1',
+  standard_reminder_days_before=ARRAY[7,3,1],standard_reminder_hour_local=9,
+  capabilities_enabled=true;
+SELECT pg_temp.expect_error($q$UPDATE private.subscription_billing_settings SET standard_reminder_policy_version='unreviewed-v2'$q$,'55000');
 SELECT pg_temp.assert_true(private.subscription_capability_allowed('f3333333-3333-4333-8333-333333333331','gym_autopay'),'Ultimate capability missing');
+INSERT INTO public.renewal_reminder_settings(account_id,days_before,service_days_before)
+ VALUES('f3333333-3333-4333-8333-333333333331',ARRAY[14,7],ARRAY[14,7]);
+INSERT INTO public.contacts(id,user_id,account_id,phone)
+ VALUES('f9999999-9999-4999-8999-999999999999','f1111111-1111-4111-8111-111111111111',
+   'f3333333-3333-4333-8333-333333333331','+919999999999');
+INSERT INTO public.memberships(id,account_id,contact_id,user_id,start_date,end_date,member_number)
+ VALUES('faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab','f3333333-3333-4333-8333-333333333331',
+   'f9999999-9999-4999-8999-999999999999','f1111111-1111-4111-8111-111111111111',
+   CURRENT_DATE-interval '30 days',CURRENT_DATE+interval '14 days',980001);
+INSERT INTO public.renewal_reminders_sent(account_id,membership_id,contact_id,end_date,days_before,delivery_state)
+ VALUES('f3333333-3333-4333-8333-333333333331','faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
+   'f9999999-9999-4999-8999-999999999999',CURRENT_DATE+interval '14 days',14,'claimed');
+INSERT INTO public.renewal_reminders_sent(account_id,membership_id,contact_id,end_date,days_before,delivery_state,provider_attempted_at)
+ VALUES('f3333333-3333-4333-8333-333333333331','faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
+   'f9999999-9999-4999-8999-999999999999',CURRENT_DATE+interval '14 days',30,'attempting',now());
+INSERT INTO public.invoices(id,account_id,contact_id,source,currency)
+ VALUES('faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac','f3333333-3333-4333-8333-333333333331',
+   'f9999999-9999-4999-8999-999999999999','sale','INR');
+INSERT INTO public.invoice_lines(id,account_id,invoice_id,kind,description,unit_amount,line_amount)
+ VALUES('faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad','f3333333-3333-4333-8333-333333333331',
+   'faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaac','service','Synthetic PT',100,100);
+INSERT INTO public.member_services(id,account_id,contact_id,invoice_line_id,item_name_snapshot,
+ option_duration_count,option_duration_unit,start_date,end_date,sold_amount)
+ VALUES('faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae','f3333333-3333-4333-8333-333333333331',
+   'f9999999-9999-4999-8999-999999999999','faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaad',
+   'Synthetic PT',1,'month',CURRENT_DATE-interval '15 days',CURRENT_DATE+interval '14 days',100);
+INSERT INTO public.service_renewal_reminders_sent(account_id,member_service_id,end_date,days_before,status,provider_attempted_at)
+ VALUES('f3333333-3333-4333-8333-333333333331','faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae',
+   CURRENT_DATE+interval '14 days',14,'failed',NULL);
+INSERT INTO public.service_renewal_reminders_sent(account_id,member_service_id,end_date,days_before,status,provider_attempted_at)
+ VALUES('f3333333-3333-4333-8333-333333333331','faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae',
+   CURRENT_DATE+interval '14 days',30,'attempting',now());
+INSERT INTO private.organization_subscription_intents(request_id,organization_id,requested_by,billing_account_id,
+ tier,amount_minor,kind,source_period_start,source_period_end,source_tier,expected_access_version)
+SELECT 'f8888888-8888-4888-8888-888888888888',g.organization_id,'f1111111-1111-4111-8111-111111111111',
+ 'f3333333-3333-4333-8333-333333333331','starter',79900,'renewal',g.period_start,g.paid_through_end,
+ g.tier,a.version
+FROM private.organization_paid_subscription_grants g
+JOIN private.organization_product_access a USING(organization_id)
+WHERE g.organization_id='f2222222-2222-4222-8222-222222222222';
+SELECT pg_temp.expect_error($q$SELECT private.subscription_assert_starter_reminder_review('f2222222-2222-4222-8222-222222222222','f8888888-8888-4888-8888-888888888888')$q$,'55000');
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims='{"sub":"f1111111-1111-4111-8111-111111111111","role":"authenticated"}';
+SELECT pg_temp.assert_true((public.subscription_acknowledge_starter_reminders('f8888888-8888-4888-8888-888888888888')->>'policy_version')='synthetic-capability-test-v1','Owner reminder reset acknowledgement missing');
+RESET ROLE;
+SELECT pg_temp.expect_error($q$UPDATE private.organization_subscription_intents SET starter_reminder_policy_version='rewritten' WHERE request_id='f8888888-8888-4888-8888-888888888888'$q$,'42501');
+SELECT pg_temp.expect_error($q$UPDATE private.organization_paid_subscription_grants SET tier='starter' WHERE organization_id='f2222222-2222-4222-8222-222222222222'$q$,'55000');
+SELECT pg_temp.assert_true(
+  (private.subscription_apply_starter_reminder_policy('f2222222-2222-4222-8222-222222222222','f8888888-8888-4888-8888-888888888888')->>'settings_normalized')::INTEGER=1,
+  'Custom renewal schedule was not normalized');
+SELECT pg_temp.assert_true((SELECT days_before=ARRAY[7,3,1] AND service_days_before=ARRAY[7,3,1]
+ FROM public.renewal_reminder_settings WHERE account_id='f3333333-3333-4333-8333-333333333331'),
+ 'Starter schedule did not use the reviewed policy');
+SELECT pg_temp.assert_true((SELECT delivery_state='retired' FROM public.renewal_reminders_sent
+ WHERE membership_id='faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab' AND days_before=14),
+ 'Unattempted custom reminder was not retired');
+SELECT pg_temp.assert_true((SELECT delivery_state='attempting' FROM public.renewal_reminders_sent
+ WHERE membership_id='faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab' AND days_before=30),
+ 'Provider-attempted reminder history was changed');
+SELECT pg_temp.assert_true((SELECT status='retired' FROM public.service_renewal_reminders_sent
+ WHERE member_service_id='faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae' AND days_before=14),
+ 'Retryable custom service reminder was not retired');
+SELECT pg_temp.assert_true((SELECT status='attempting' FROM public.service_renewal_reminders_sent
+ WHERE member_service_id='faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae' AND days_before=30),
+ 'Provider-attempted service reminder history was changed');
+INSERT INTO public.renewal_reminders_sent(account_id,membership_id,contact_id,end_date,days_before,delivery_state)
+ VALUES('f3333333-3333-4333-8333-333333333331','faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab',
+   'f9999999-9999-4999-8999-999999999999',CURRENT_DATE+interval '14 days',14,'claimed')
+ ON CONFLICT(membership_id,end_date,days_before) DO NOTHING;
+SELECT pg_temp.assert_true((SELECT delivery_state='retired' FROM public.renewal_reminders_sent
+ WHERE membership_id='faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaab' AND days_before=14),
+ 'Retired custom reminder could be reclaimed');
+INSERT INTO public.service_renewal_reminders_sent(account_id,member_service_id,end_date,days_before,status)
+ VALUES('f3333333-3333-4333-8333-333333333331','faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae',
+   CURRENT_DATE+interval '14 days',14,'claimed')
+ ON CONFLICT(member_service_id,end_date,days_before) DO UPDATE SET status='claimed'
+ WHERE public.service_renewal_reminders_sent.status='failed';
+SELECT pg_temp.assert_true((SELECT status='retired' FROM public.service_renewal_reminders_sent
+ WHERE member_service_id='faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae' AND days_before=14),
+ 'Retired custom service reminder could be reclaimed');
 UPDATE private.organization_paid_subscription_grants SET tier='starter' WHERE organization_id='f2222222-2222-4222-8222-222222222222';
+SAVEPOINT activation_guard_case;
+UPDATE private.subscription_billing_settings SET capabilities_enabled=false;
+UPDATE public.renewal_reminder_settings SET days_before=ARRAY[14,7]
+ WHERE account_id='f3333333-3333-4333-8333-333333333331';
+SELECT pg_temp.expect_error($q$UPDATE private.subscription_billing_settings SET capabilities_enabled=true$q$,'55000');
+ROLLBACK TO activation_guard_case;
 SELECT pg_temp.assert_true(NOT private.subscription_capability_allowed('f3333333-3333-4333-8333-333333333331','gym_autopay'),'Starter AutoPay permitted');
 SELECT pg_temp.assert_true(private.subscription_capability_allowed('f3333333-3333-4333-8333-333333333331','standard_renewal_reminders'),'Starter standard reminders missing');
 SELECT pg_temp.assert_true(NOT private.subscription_capability_allowed('f3333333-3333-4333-8333-333333333331','unknown'),'Unknown capability permitted');
+INSERT INTO public.renewal_reminder_settings(account_id)
+ VALUES('f3333333-3333-4333-8333-333333333331') ON CONFLICT(account_id) DO NOTHING;
+SELECT pg_temp.expect_error($q$UPDATE public.renewal_reminder_settings SET days_before=ARRAY[14,7] WHERE account_id='f3333333-3333-4333-8333-333333333331'$q$,'42501');
+SELECT pg_temp.expect_error($q$UPDATE public.renewal_reminder_settings SET service_days_before=ARRAY[14,7] WHERE account_id='f3333333-3333-4333-8333-333333333331'$q$,'42501');
+SELECT pg_temp.expect_error($q$UPDATE public.renewal_reminder_settings SET account_id='f3333333-3333-4333-8333-333333333332' WHERE account_id='f3333333-3333-4333-8333-333333333331'$q$,'42501');
+UPDATE private.organization_paid_subscription_grants SET tier='growth' WHERE organization_id='f2222222-2222-4222-8222-222222222222';
+UPDATE public.renewal_reminder_settings SET days_before=ARRAY[14,7],service_days_before=ARRAY[14,7]
+ WHERE account_id='f3333333-3333-4333-8333-333333333331';
+UPDATE private.organization_paid_subscription_grants SET tier='starter' WHERE organization_id='f2222222-2222-4222-8222-222222222222';
+UPDATE public.renewal_reminder_settings SET enabled=false,service_enabled=false
+ WHERE account_id='f3333333-3333-4333-8333-333333333331';
 SELECT pg_temp.expect_error($q$INSERT INTO public.payment_mandates(account_id) VALUES('f3333333-3333-4333-8333-333333333331')$q$,'42501');
 SELECT pg_temp.expect_error($q$INSERT INTO public.razorpay_payment_links(account_id) VALUES('f3333333-3333-4333-8333-333333333331')$q$,'42501');
 

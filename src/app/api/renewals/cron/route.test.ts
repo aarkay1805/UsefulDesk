@@ -20,6 +20,10 @@ const h = vi.hoisted(() => ({
   providerMode: 'success' as 'success' | 'ambiguous' | 'accepted_warning',
   selectErrors: {} as Record<string, string>,
   serviceClaimError: null as string | null,
+  accessCalls: 0,
+  denyAccessAtCall: 0,
+  retiredMembershipClaim: false,
+  retiredServiceClaim: false,
   db: null as unknown,
 }));
 
@@ -31,7 +35,10 @@ vi.mock('@/lib/cron/auth', () => ({
   isAuthorizedCronRequest: () => true,
 }));
 vi.mock('@/lib/platform-access/server', () => ({
-  requireProductAccess: vi.fn().mockResolvedValue(undefined),
+  requireProductAccess: vi.fn(async () => {
+    h.accessCalls++;
+    if (h.accessCalls === h.denyAccessAtCall) throw new Error('Plan changed');
+  }),
 }));
 vi.mock('@/lib/whatsapp/legal-business-name', () => ({
   loadLegalBusinessName: vi.fn().mockResolvedValue({
@@ -146,6 +153,16 @@ class FakeQuery {
         operation: this.operation,
         payload: this.payload,
       });
+      if (
+        (this.table === 'renewal_reminders_sent' &&
+          this.operation === 'delete' &&
+          h.retiredMembershipClaim) ||
+        (this.table === 'service_renewal_reminders_sent' &&
+          this.filters.get('status') === 'claimed' &&
+          h.retiredServiceClaim)
+      ) {
+        return { data: null, error: null };
+      }
       return { data: { id: `${this.table}-row` }, error: null };
     }
 
@@ -186,6 +203,18 @@ class FakeQuery {
     }
     if (this.table === 'conversations') {
       return { data: { id: 'conversation-1' }, error: null };
+    }
+    if (this.table === 'renewal_reminders_sent') {
+      return {
+        data: h.retiredMembershipClaim ? { id: 'retired-membership' } : null,
+        error: null,
+      };
+    }
+    if (this.table === 'service_renewal_reminders_sent') {
+      return {
+        data: h.retiredServiceClaim ? { id: 'retired-service' } : null,
+        error: null,
+      };
     }
     throw new Error(`Unexpected select table: ${this.table}`);
   }
@@ -273,6 +302,10 @@ describe('GET /api/renewals/cron current eligibility boundary', () => {
     h.providerMode = 'success';
     h.selectErrors = {};
     h.serviceClaimError = null;
+    h.accessCalls = 0;
+    h.denyAccessAtCall = 0;
+    h.retiredMembershipClaim = false;
+    h.retiredServiceClaim = false;
   });
 
   it('releases the pre-provider claim and sends nothing when the rule is switched off after selection', async () => {
@@ -336,6 +369,34 @@ describe('GET /api/renewals/cron current eligibility boundary', () => {
     );
   });
 
+  it('stops a membership reminder when the tier changes before Meta', async () => {
+    h.denyAccessAtCall = 2;
+    const body = await (
+      await GET(new Request('https://desk.example/api/renewals/cron'))
+    ).json();
+    expect(body.sent).toBe(0);
+    expect(h.providerCalls).toBe(0);
+    expect(h.writes).toContainEqual(
+      expect.objectContaining({
+        table: 'renewal_reminders_sent',
+        operation: 'delete',
+      })
+    );
+  });
+
+  it('treats a retired membership claim as a safe pre-provider skip', async () => {
+    h.denyAccessAtCall = 2;
+    h.retiredMembershipClaim = true;
+    const body = await (
+      await GET(new Request('https://desk.example/api/renewals/cron'))
+    ).json();
+    expect(body).toMatchObject({ sent: 0, failed: 1 });
+    expect(h.providerCalls).toBe(0);
+    expect(body.notes).not.toContainEqual(
+      expect.stringContaining('delivery state update failed')
+    );
+  });
+
   it('reopens the service claim without sending when the current service rule is disabled', async () => {
     h.settingsInitial = [];
     h.settingsCurrent = null;
@@ -390,6 +451,43 @@ describe('GET /api/renewals/cron current eligibility boundary', () => {
         'FitZone Wellness Private Limited',
       ],
     ]);
+  });
+
+  it('releases a service claim if its tier no longer includes reminders', async () => {
+    h.settingsInitial = [];
+    h.membershipsInitial = [];
+    h.serviceCandidates = [service()];
+    h.serviceCurrent = service();
+    h.denyAccessAtCall = 1;
+    const body = await (
+      await GET(new Request('https://desk.example/api/renewals/cron'))
+    ).json();
+    expect(body.sent).toBe(0);
+    expect(h.providerCalls).toBe(0);
+    expect(h.writes).toContainEqual(
+      expect.objectContaining({
+        table: 'service_renewal_reminders_sent',
+        operation: 'update',
+        payload: expect.objectContaining({ status: 'failed' }),
+      })
+    );
+  });
+
+  it('treats a retired service claim as a safe pre-provider skip', async () => {
+    h.settingsInitial = [];
+    h.membershipsInitial = [];
+    h.serviceCandidates = [service()];
+    h.serviceCurrent = service();
+    h.denyAccessAtCall = 1;
+    h.retiredServiceClaim = true;
+    const body = await (
+      await GET(new Request('https://desk.example/api/renewals/cron'))
+    ).json();
+    expect(body).toMatchObject({ sent: 0, failed: 1 });
+    expect(h.providerCalls).toBe(0);
+    expect(body.notes).not.toContainEqual(
+      expect.stringContaining('delivery state update failed')
+    );
   });
 
   it('returns aggregate 503 diagnostics when a membership query fails but service processing continues', async () => {

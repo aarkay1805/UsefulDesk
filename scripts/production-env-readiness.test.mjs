@@ -59,6 +59,68 @@ describe('production environment readiness', () => {
     expect(JSON.stringify(results)).not.toContain('private-test-value');
   });
 
+  it('accepts a complete dark Live configuration while rejecting Test credentials and money switches', () => {
+    const live = {
+      ...validEnvironment,
+      USEFULDESK_SAAS_RAZORPAY_MODE: 'live',
+      USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID: 'rzp_live_pilot',
+      USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_SECRET: 'private-live-secret',
+      USEFULDESK_SAAS_RAZORPAY_LIVE_WEBHOOK_SECRET: 'private-webhook-secret',
+      USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID: 'acc_UsefulmadeLive',
+      USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID:
+        '11111111-1111-4111-8111-111111111111',
+    };
+    const results = evaluateProductionEnvironment(live);
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        severity: 'pass',
+        check: 'subscription-live-boundary',
+      })
+    );
+    expect(JSON.stringify(results)).not.toContain('private-live-secret');
+    for (const name of [
+      'USEFULDESK_SAAS_LIVE_ORDERS_ENABLED',
+      'USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED',
+      'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED',
+      'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
+      'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+    ]) {
+      expect(
+        evaluateProductionEnvironment({ ...live, [name]: 'true' })
+      ).toContainEqual(
+        expect.objectContaining({
+          severity: 'blocker',
+          check: 'production-safety-flags',
+        })
+      );
+    }
+    expect(
+      evaluateProductionEnvironment({
+        ...live,
+        USEFULDESK_SAAS_RAZORPAY_TEST_KEY_ID: 'rzp_test_wrong',
+      })
+    ).toContainEqual(
+      expect.objectContaining({
+        severity: 'blocker',
+        check: 'subscription-test-boundary',
+      })
+    );
+  });
+
+  it('rejects partial or mismatched Live merchant configuration', () => {
+    const base = {
+      ...validEnvironment,
+      USEFULDESK_SAAS_RAZORPAY_MODE: 'live',
+      USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID: 'rzp_test_wrong',
+    };
+    expect(evaluateProductionEnvironment(base)).toContainEqual(
+      expect.objectContaining({
+        severity: 'blocker',
+        check: 'subscription-live-boundary',
+      })
+    );
+  });
+
   it('parses quoted provider exports without evaluating their contents', () => {
     expect(
       parseDotenv(

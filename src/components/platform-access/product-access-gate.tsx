@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { accessSupportMessage, accessSupportWhatsApp } from './ui-contract';
 import { SubscriptionPlanCards } from './subscription-plan-cards';
 import { SubscriptionTestBilling } from './subscription-test-billing';
+import { SubscriptionLiveReview } from './subscription-live-review';
 import {
   SubscriptionConversionReviewDialog,
   type ConversionReviewBranch,
@@ -122,6 +123,8 @@ function AccountProductAccess({
   const testUi =
     process.env.NODE_ENV !== 'production' &&
     process.env.NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI === 'true';
+  const liveReviewUi =
+    process.env.NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI === 'true';
   const organizationName =
     branches.find((branch) => branch.account_id === accountId)
       ?.organization_name ||
@@ -532,7 +535,10 @@ function AccountProductAccess({
                 }
                 pendingTier={pendingTier}
               />
-              {!testUi ? (
+              {liveReviewUi && isOrganizationOwner && organizationId ? (
+                <SubscriptionLiveReview organizationId={organizationId} />
+              ) : null}
+              {!testUi && !liveReviewUi ? (
                 <p className="text-muted-foreground text-sm">
                   Plan prices and payment are not available yet. Contact support
                   for help.

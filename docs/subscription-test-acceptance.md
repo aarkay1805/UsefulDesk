@@ -259,7 +259,6 @@ Still open: full-schema paid commit/refund/renewal recovery, organization-switch
 UI acceptance, physical native recovery, genuine provider delivery/retry and
 browser disappearance, and provider/database outage acceptance.
 
-
 ## Genuine provider delivery and full-schema paid recovery — 28 September
 
 The user saved Test webhook `ThVktamqauzsWP` with the matching signing secret.
@@ -321,7 +320,6 @@ transitions, organization-switch UI acceptance, and physical native recovery.
 Closing the app before demo-bank success proves absence of the Checkout callback;
 it does not simulate the narrower timing window after capture but before callback.
 Upgrades/add-ons/capability enforcement and commercial decisions remain separate.
-
 
 ## Genuine renewal and database-API outage recovery — 28 September
 
@@ -602,3 +600,162 @@ configuration. The separate acceptance app and runner were uninstalled, the
 existing UsefulDesk Agent app remained installed, Metro stopped, and no charge
 or message was sent. The owner can revoke the development-certificate trust
 in iPhone Settings after testing.
+
+## Default-off tier capability and reminder checks — 29 September 2026
+
+The local capability draft now blocks custom membership and service renewal-day
+edits in the authenticated settings route and in a database trigger, including
+direct clients and service-role writes. A Starter owner can still switch the
+standard renewal messages off; the existing WhatsApp/template readiness gate
+still controls turning them on. The web timing picker explains the Growth plan
+limit. The renewal worker checks the standard-reminder capability at account
+selection and immediately before each Meta attempt. Its service claim RPC also
+excludes accounts without that capability. AutoPay setup repeats its tier check
+before gym-merchant plan/subscription creation; it does not cancel or alter
+existing mandates or financial reconciliation.
+
+Focused route and UI suites passed: reminder settings, renewal cron, AutoPay
+mandate route, reminder readiness, and automated-message settings (**79 tests**). A rolled-back
+transaction against the disposable full repository schema replayed the
+capability migration and synthetic owner/Starter/Growth/grace cases, including
+direct offset-write denial and legacy manual/complimentary retention. It left
+no fixture rows, enabled switch, or installed capability migration behind.
+These checks do not prove a real WhatsApp delivery, a native reminder editor,
+or an applied Test capability migration.
+
+The next default-off draft now requires a separately approved policy flag and
+version before the capability switch can turn on. The migration supports only
+the currently proposed 7/3/1 offsets and 09:00 local threshold; another owner
+choice requires a code change. A Starter order must carry an owner-accepted
+reset choice and the same policy version. That choice is immutable after the
+owner acknowledges it and cannot be added after an order starts. The default-off
+transaction migration calls the pre-order assertion before provider creation
+and the apply hook inside the verified-payment transaction before entering
+Starter. A database grant trigger
+rejects entry without that in-transaction hook. The hook changes future branch
+offsets to the standard and retires only nonstandard claims that have not
+reached Meta. Attempted, accepted, and ambiguous send records remain intact;
+retired claims retain their dedupe key and cannot replay after a later upgrade. The worker recognizes a
+retired claim as a safe pre-provider stop. The full-schema rollback test used a
+**synthetic Test-only policy approval** and exercised acknowledgment, direct
+grant rejection, schedule normalization, claim retirement, attempted-claim
+preservation, retired-key dedupe, policy-version freeze, and activation refusal with custom Starter
+settings. It left the real approval flag false and installed nothing.
+
+**Owner review proposal, not approved:** use the existing membership and service
+cadence of **7, 3, and 1 local calendar days before expiry**, with the first
+hourly worker run **at or after 09:00 in each branch's timezone** on each due
+day. Do not send an extra on-expiry or post-expiry message. If the worker misses
+that local date, do not backfill on a later day; the next configured date can
+still send. This keeps Starter's three reminders and avoids an additional
+gym-paid Meta message. Growth and Ultimate may edit the offsets within the
+existing six-offset/365-day guard. WhatsApp connection, exact Approved/synced
+Marketing template, legal business name, eligibility and provider outcomes
+remain separate gates. This is a proposal only; no standard timing was
+activated or presented as an approved saleable term.
+
+**Activation block:** the existing fallback arrays `[7,3,1]` and the 09:00
+worker threshold happen to match this proposal but are not an approved tier
+policy. Before enabling `private.subscription_billing_settings.capabilities_enabled`
+even in Test, approve exact standard timing, ensure Starter's persisted
+membership and service offsets are set to that standard through an owner-reviewed
+term transition, and test pending custom reminder claims through downgrade and
+later upgrade. The initial and renewal billing transaction triggers are wired;
+the owner review UI must capture acceptance before provider order creation.
+Then apply the migration with the approved migration tool to an
+isolated full-schema Test database, verify snapshot, direct/RLS write, API,
+worker and native behavior, and check the switch remains false after migration.
+Production still requires a separate deployment and explicit activation decision.
+
+## Advanced billing and Release transport continuation — 29 September 2026
+
+The default-off local Test draft now records immutable owner reviews, frozen
+quotes, one recoverable Test order claim, and verified upgrade, extra-branch,
+and restart commits. Paid extra-branch capacity can be retained or cancelled
+at an owner-reviewed renewal. Restart records a new current term while keeping
+the first payment and refund history. The Starter review and grant transaction
+use the reminder-policy acknowledgment and normalization hooks above.
+
+A rolled-back check against the disposable full application schema exercised
+synthetic captured payments, replay and tenant boundaries, Starter restart,
+slot renewal and cancellation, and captured payments held for review after a
+stale term or confirmed refund. The independent review found refund and renewal
+races; the follow-up draft holds a first refund for review when a later paid
+renewal, upgrade, or add-on exists, and preserves access while that exception
+is resolved. Focused route/model tests, typecheck, and lint passed. These are
+synthetic transaction checks: no advanced provider order or charge was made,
+and genuine advanced Test Checkout, webhook, outage, and native acceptance
+were still open at that point. The commercial and capability switches remain
+off by default, and none of
+the draft migrations was installed in Production.
+
+### Genuine advanced Razorpay Test acceptance
+
+The disposable full-schema stack used a separate Usefulmade Razorpay **Test**
+merchant, three synthetic owner organizations, and process-only billing flags.
+The first terms in the upgrade/add-on and restart organizations were synthetic
+database fixtures, not provider payments. A third organization bought its
+first Growth term through genuine Test Checkout. All owner review, quote, and
+order requests used authenticated application routes. Captures used the Test
+demo bank with the Checkout parent closed before completion; signed webhook
+requests came from Razorpay through the temporary Test tunnel.
+
+- **Failed then captured upgrade:** `order_ThqGLi47MlcnY3` first failed as
+  `pay_ThqIuAK4NyVWz2` without changing access, then captured as
+  `pay_ThqK6qY2kUzGa8`. The signed capture verified one Ultimate upgrade and
+  one payment ledger entry.
+- **Paid add-on and database API outage:** `order_ThqKgDnndwoa5H` captured
+  `pay_ThqL1rFGh1aLyU` while local PostgREST was stopped. Razorpay retried
+  the same signed `payment.captured` event `ThqLLpH5thmhvg`: HTTP
+  `503, 503, 200` after recovery. Exactly one extra-branch slot and payment
+  were committed.
+- **Restart and stale capture:** `order_ThqLoLb43I8tj0` captured
+  `pay_ThqMB4o7kBtmBj` and created Starter generation 2 while retaining the
+  synthetic first-payment record. After a local access-version change,
+  `order_ThqNN70CfuF406` captured `pay_ThqO5Ct5AkfTiu`; its intent became
+  `review_required` with `source_term_or_roster_changed`. It made no upgrade
+  ledger entry or access change.
+- **Ambiguous order and out-of-order delivery:** a real provider order POST
+  succeeded while its response was deliberately dropped. Provider receipt
+  search eventually recovered the single order `order_ThqPz5Wg9BrK6R`;
+  recovery made no second POST. The order's failed payment
+  `pay_ThqRuJhZ8YVrx7` had its signed event `ThqS5womOZpz0c` held with
+  five HTTP 503 responses. Captured `pay_ThqSWAx3RKwFQI` then committed the
+  second extra-branch slot. Razorpay's delayed retry of the original failure
+  returned 200 afterward, with the grant and ledger snapshot unchanged.
+- **Refund then late paid upgrade:** genuine initial Growth payment
+  `pay_ThqW7EOfFeVs83` on `order_ThqVazO0tMRbYY` was fully refunded by
+  `rfnd_ThqWrUmWZUvhtW`; fresh provider GET confirmed `processed`, and
+  signed `refund.created` and `refund.processed` webhooks ended access once.
+  An upgrade order opened before the refund, `order_ThqWZyQPoVI4iA`, later
+  captured `pay_ThqYS4jnIXBkcz`. Its intent became `review_required` with
+  `source_term_or_roster_changed`; the refunded grant stayed expired and no
+  upgrade ledger entry was added.
+
+An audit verified HMAC signatures and merchant IDs on **18 original provider
+requests**. Repeated event IDs had identical raw-body hashes. Five local
+replays of those signed bodies returned 200 and left the database snapshot
+unchanged; the retry sequences above were actual Razorpay deliveries. Fresh
+provider GETs independently confirmed seven orders, their payments, and the
+processed refund. Sanitized evidence is in the private disposable stack cache:
+`advanced-final-evidence.json`, `advanced-delivery-audit.json`,
+`advanced-transport-evidence.json`, and the out-of-order before/after
+snapshots. Raw webhook bodies, signatures, and credentials remain private.
+
+The injected response loss proves ambiguous-write recovery, not an actual
+Razorpay outage. The stopped PostgREST instance proves local database API
+outage and provider retry, not physical PostgreSQL storage recovery. A genuine
+renewal/refund race and native-device advanced checkout remain unverified.
+No Production migration, real-money charge, or external message was made.
+After acceptance, the temporary Test webhook was visibly Disabled in the
+Razorpay dashboard, the tunnel and local checkout/application services were
+stopped, and all local billing and policy-approval flags were reset to false.
+
+An isolated iOS Release build compiled with only HTTPS Test service URLs in
+its bundle and no broad App Transport Security exception. A disposable
+simulator trusted a temporary local test certificate and its URLSession
+request received HTTP 200 from the HTTPS Supabase health endpoint. App-level
+sign-in stopped before network access because the locally signed simulator
+build lacked SecureStore's keychain entitlement (`-34018`). A properly signed
+Release app still needs an end-to-end HTTPS Test sign-in. The temporary
+certificate, proxy, simulator, and isolated source changes were removed.
