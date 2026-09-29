@@ -1,12 +1,13 @@
 # Usefulmade Live SaaS billing draft
 
-**Status (29 September 2026): local, uninstalled, default off.** This is a
-reviewable initial-term, expiry-only renewal and first-full-refund boundary, not a payable offer or
-permission to deploy, enable billing, or move money. Gym Razorpay OAuth,
-webhooks, mandates and member ledgers remain separate.
-At `a5120b5a`, PR #16's CI, CodeQL and Vercel preview checks passed. That
-supports review and merge of the disabled foundation only; Production has no
-SaaS billing schema or configured Live SaaS path in the last recorded audit.
+**Status (29 September 2026): foundation app deployed, Live schema uninstalled,
+billing default off.** This is a reviewable initial-term, expiry-only renewal
+and first-full-refund boundary, not a payable offer or billing activation. Gym
+Razorpay OAuth, webhooks, mandates and member ledgers remain separate.
+PR #16 merged at `a237ead7403f3d0653fb44a6a3179ad33a2a177f`; CI passed
+and the canonical Production app is READY at
+`dpl_CVCkXK7H6udXzxNgdwuaaApjufak`. The last read-only database audit found
+no SaaS billing schema or configured Live SaaS path.
 The owner has since requested reuse of the existing activated UsefulMade
 merchant. The `acc_` identity can be shared technically, while direct SaaS
 key configuration, webhook handling, order identity and billing records stay
@@ -21,14 +22,15 @@ Razorpay describes keys as universal across approved websites/apps.
   runtimes and any Test SaaS credential. Only the key ID may be returned to
   Checkout. Provider GETs verify exact order receipt, organization notes, INR
   paise and captured/refunded facts.
-- `20260929170000`–`20260930000000` create private Live records with explicit
+- `20260929170000`–`20260930010000` create private Live records with explicit
   `provider_mode='live'`, merchant, organization and pilot links. RLS grants no
   anon/authenticated writes; service-only RPCs check the JWT role. The Live
   order claim is durable before POST and every uncertain create becomes
   GET-only exact-receipt recovery. A signed webhook is durably held before
   acknowledgment. Duplicate event IDs require the same body digest.
 - The initial settlement locks the organization, verifies the immutable
-  reviewed quote and order, checks the expired trial and branch roster, then
+  reviewed quote and order, checks the expired trial or selected pilot's
+  acknowledged complimentary-to-paid Starter path and branch roster, then
   grants one monthly term or persists a captured payment as `review_required`.
   The paid month and quote expiry use the signed `payment.captured` event time,
   stored separately from processing time. Missing event time stays held.
@@ -69,13 +71,19 @@ Razorpay describes keys as universal across approved websites/apps.
   quote lifetime. It has no application write path. The owner can preview one
   approved offer and explicitly confirm the displayed amount; a service-only
   writer copies the pricing and approval identity into an immutable quote after
-  rechecking owner, pilot, trial and roster. Customer notes remain in the
+  rechecking owner, pilot, eligible access and roster. For the selected
+  complimentary Starter pilot, a second explicit owner acknowledgement freezes
+  the original access mode and version. Claim and settlement recheck that
+  snapshot; free access continues until signed captured settlement, and changed
+  access holds captured funds for review. Other complimentary organizations
+  remain ineligible. Customer notes remain in the
   immutable approval record. Replays return the same quote; changed amounts and
   overlapping quotes fail. Quote issuance is database-hard-closed and default
   off until an approval migration opens it.
 - The owner panel labels the Usefulmade Live pilot, shows the exact amount and
   approved customer notes, and can save the Starter reminder choice. Its
-  Checkout control checks the returned order against the reviewed quote
+  complimentary-to-paid acknowledgement is required before issuing that
+  pilot's quote. Checkout checks the returned order against the reviewed quote
   before opening Razorpay; access still waits for the signed captured webhook.
   `NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI` and
   `NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI` are default off and blocked by the
@@ -86,61 +94,61 @@ Razorpay describes keys as universal across approved websites/apps.
   Two-session disposable checks cover overlapping quotes, cancellation versus
   settlement, expiry while waiting, and shutdown during an order claim. The
   concurrent database clone lacked unrelated cron/realtime/vault objects; the
-  complete schema separately passed the rollback-only single-session suite.
+  complete schema separately passed three rollback-only synthetic suites,
+  including the complimentary conversion and confirmed full-refund path.
 
 ## Switches and isolation
 
-| Layer                           | Default                     | Requirement before use                                                                                                                                                                                                                                                                                                |
-| ------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live provider                   | absent                      | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, distinct `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`. |
-| Webhook intake                  | false                       | `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and the matching private database merchant/pilot/intake switch. Intake alone holds evidence; it does not grant or refund.                                                                                                                                          |
-| Quote issuance                  | false, database-hard-closed | `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED=true`, one explicitly approved offer row, and the matching private database switch. The database `CHECK` prevents enabling issuance in this draft; the Production audit blocks the runtime flag.                                                                                 |
-| Settlement and reconciliation   | false                       | Separate `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` flags plus private database settlement switch. The Production env audit currently blocks them.                                                                                                           |
-| New order and refund initiation | false, database-hard-closed | Separate `USEFULDESK_SAAS_LIVE_ORDERS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED` flags. Database `CHECK` constraints forbid enabling either; a later reviewed migration must deliberately replace them. The Production env audit also blocks both.                                                           |
-| Live renewal issuance           | false, database-hard-closed | `private.subscription_live_settings.renewals_enabled` plus the existing quote/order/intake/settlement gates. A later reviewed migration must replace its `CHECK(NOT renewals_enabled)`; cancellation remains available without enabling money initiation.                                                             |
-| Tier capabilities               | false                       | Existing `private.subscription_billing_settings.capabilities_enabled` remains off pending review of saved custom schedules and full acceptance. The Starter cadence is approved as 7/3/1 days before expiry after 09:00 account-local.                                                                                |
+| Layer                            | Default                     | Requirement before use                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live provider                    | absent                      | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, independent SaaS configuration for `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`.                                                       |
+| Webhook intake                   | false                       | `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and the matching private database merchant/pilot/intake switch. Intake alone holds evidence; it does not grant or refund.                                                                                                                                                                                                                          |
+| Quote issuance                   | false, database-hard-closed | `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED=true`, one explicitly approved offer row, and the matching private database switch. The database `CHECK` prevents enabling issuance in this draft; the Production audit blocks the runtime flag.                                                                                                                                                                 |
+| Settlement and reconciliation    | false                       | Separate `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` flags plus private database settlement switch. The Production env audit currently blocks them.                                                                                                                                                                                           |
+| New order and refund initiation  | false, database-hard-closed | Separate `USEFULDESK_SAAS_LIVE_ORDERS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED` flags. Database `CHECK` constraints forbid enabling either; a later reviewed migration must deliberately replace them. The Production env audit also blocks both.                                                                                                                                           |
+| Complimentary Starter conversion | false, database-hard-closed | `private.subscription_live_settings.complimentary_conversion_enabled` applies only to the pinned pilot with one active INR branch, owner acknowledgement, unchanged complimentary access mode/version and no prior Test/Live paid obligations. Its `CHECK(NOT complimentary_conversion_enabled)` needs a separately reviewed opening migration; quote, order and settlement gates also remain closed. |
+| Live renewal issuance            | false, database-hard-closed | `private.subscription_live_settings.renewals_enabled` plus the existing quote/order/intake/settlement gates. A later reviewed migration must replace its `CHECK(NOT renewals_enabled)`; cancellation remains available without enabling money initiation.                                                                                                                                             |
+| Tier capabilities                | false                       | Existing `private.subscription_billing_settings.capabilities_enabled` remains off pending review of saved custom schedules and full acceptance. The Starter cadence is approved as 7/3/1 days before expiry after 09:00 account-local.                                                                                                                                                                |
 
 The application does not enforce inequality between the Live SaaS merchant ID
 and a gym account's OAuth merchant. Production environment audit permits a complete dark Live
 configuration, rejects Test keys and money switches, and treats redacted
 protected values as unverified.
 
-**Shared-merchant routing gap:** the current SaaS webhook can return a retryable 503 for a
-foreign gym order, while the gym webhook can claim a SaaS refund. Correct both
-routes and prove signed order/refund isolation, retries and reconciliation
-before using the same `acc_` for a real payment. This does not block merging
-the dark foundation; all payable switches stay closed.
+**Shared-merchant routing:** the follow-up code checks canonical provider
+order/payment facts before classifying signed deliveries. A provider-proven gym
+event at the SaaS URL is acknowledged as unrelated without a SaaS claim;
+ambiguous or unbound SaaS deliveries stay retryable. A SaaS refund cannot
+change gym payment/refund ledgers. Actual signed mixed-order/refund delivery,
+redelivery and reconciliation on the shared merchant remain acceptance gates.
+All payable switches stay closed.
 
 ## Remaining before any Live pilot
 
-**External handoff:** the owner selected UsefulMade / Home office
-(`8826d9aa-03f2-4ad7-ae91-0553052131f8`, one active branch). A read-only
-check found complimentary access with no trial dates, so it cannot satisfy
-the current expired-trial quote precondition. Review an access transition or
-contract change before accepting this pilot. Confirm that the existing activated UsefulMade
-`acc_TCJwBqanN9LTrK` is approved for UsefulDesk subscriptions and
-`desk.usefulmade.com`, then configure SaaS direct-key and webhook settings
-independently of gym OAuth; obtain a qualified written tax/receipt conclusion for the exact
-customer payable amount, supplier/customer fields, customer geography and
-first-full-refund record. Give the adviser the founder's actual legal
-supplier/PAN, PAN-wide turnover for the current and prior financial years,
-pilot-customer states, proposed subscription and refund terms, and the fact
-that this founder pilot shares the provider merchant with gym collections
-while keeping SaaS and member-payment ledgers separate.
-The provisional ₹799 and ₹0 GST draft are not a payable quote or tax decision.
-The current public UsefulDesk page says to contact for pricing and its public
-terms contain generic payment language; approve and present the exact Starter
-price, term, cancellation and refund wording before a customer pays.
-Store sensitive evidence privately; copy only approved customer wording and
-references into the offer approval ledger. See
+**External handoff:** the selected UsefulMade / Home office organization
+(`8826d9aa-03f2-4ad7-ae91-0553052131f8`, one active branch) has complimentary
+access with no trial dates. The default-off conversion code requires a separate
+owner acknowledgement and an unchanged source mode/version through order claim
+and signed settlement; it does not change Production access today. Confirm that
+the existing activated UsefulMade merchant `acc_TCJwBqanN9LTrK` is approved for
+UsefulDesk subscriptions and `desk.usefulmade.com`, then configure the SaaS
+keys/webhook independently of gym OAuth and prove signed mixed deliveries.
+Document the supplier's registration, tax and receipt treatment from verified
+PAN-wide turnover, customer geography, supplier identity/address and refund
+facts; seek qualified advice for unresolved exceptions. The provisional ₹799
+and ₹0 GST draft are not a payable quote or tax conclusion. The public
+UsefulDesk page says to contact for pricing and its terms describe payments
+generically; publish approved Starter price, term, cancellation and refund
+wording before payment. Store sensitive evidence privately and put only approved
+customer wording/references into the immutable offer ledger. See
 [paid-pilot readiness](production-readiness.md#owner-decisions-and-acceptance-evidence)
-for B-01–B-05 and C-01/C-02.
+and the private [offer draft](starter-pilot-offer-draft.md).
 
-1. Finish the customer-payable offer: qualified tax/receipt advice and exact
-   amount/wording, the customer-facing presentation of separately payable
-   third-party charges,
-   cancellation/refund wording, and eligibility for the selected pilot organization. The owner approved
-   a provisional ₹799, one expired-trial organization, one active branch, web
+1. Finish the customer-payable offer: documented tax/receipt treatment and
+   exact amount/wording, the customer-facing presentation of separately payable
+   third-party charges, cancellation/refund wording, and release-specific
+   acceptance for the selected complimentary pilot. The owner approved a
+   provisional ₹799, one active branch, web
    Checkout, a capture-event calendar month, and a 30-minute reviewed quote;
    late capture is review-held. There are no pilot-specific numeric member or
    staff caps. Approved Starter features are members/plans,
@@ -149,7 +157,7 @@ for B-01–B-05 and C-01/C-02.
    configurable automations, gym-member Payment Links, and AutoPay are
    excluded. The owner requested using the existing UsefulMade merchant; its
    approved website is `usefulmade.com`, while the SaaS domain/product and
-   shared-webhook routing still need acceptance. No
+   signed mixed-event routing still needs provider acceptance. No
    approval row is seeded; quote issuance and Checkout remain hard-closed
    pending an explicitly reviewed opening migration.
 2. Accept the approved Starter 7/3/1 reminder schedule after 09:00 account-local
