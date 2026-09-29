@@ -536,7 +536,11 @@ function AccountProductAccess({
                 pendingTier={pendingTier}
               />
               {liveReviewUi && isOrganizationOwner && organizationId ? (
-                <SubscriptionLiveReview organizationId={organizationId} />
+                <SubscriptionLiveReview
+                  organizationId={organizationId}
+                  accountId={accountId}
+                  onChanged={() => setNonce((n) => n + 1)}
+                />
               ) : null}
               {!testUi && !liveReviewUi ? (
                 <p className="text-muted-foreground text-sm">

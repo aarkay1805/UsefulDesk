@@ -12,12 +12,13 @@ RETURNS VOID LANGUAGE plpgsql AS $$ BEGIN
 EXCEPTION WHEN OTHERS THEN IF SQLSTATE<>expected_state THEN RAISE; END IF;
 END; $$;
 
-SELECT pg_temp.assert_true((SELECT NOT orders_enabled AND NOT refunds_enabled
+SELECT pg_temp.assert_true((SELECT NOT quotes_enabled AND NOT orders_enabled AND NOT refunds_enabled
  AND NOT webhook_intake_enabled AND NOT settlements_enabled
  FROM private.subscription_live_settings WHERE singleton),
  'Live billing switches did not default off');
 SELECT pg_temp.assert_true((SELECT bool_and(c.relrowsecurity) FROM pg_class c
  WHERE c.oid IN ('private.subscription_live_quotes'::regclass,
+   'private.subscription_live_offer_approvals'::regclass,
    'private.subscription_live_orders'::regclass,
    'private.subscription_live_payments'::regclass,
    'private.subscription_live_grants'::regclass,
@@ -26,6 +27,8 @@ SELECT pg_temp.assert_true((SELECT bool_and(c.relrowsecurity) FROM pg_class c
  'A Live ledger table lacks RLS');
 SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_settings
  SET orders_enabled=true WHERE singleton$q$,'23514');
+SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_settings
+ SET quotes_enabled=true WHERE singleton$q$,'23514');
 SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_settings
  SET refunds_enabled=true WHERE singleton$q$,'23514');
 
@@ -61,17 +64,85 @@ UPDATE private.subscription_live_settings SET
  merchant_id='acc_UsefulmadeLiveSynthetic',
  pilot_organization_id='b2222222-2222-4222-8222-222222222222',
  webhook_intake_enabled=true,settlements_enabled=true WHERE singleton;
+INSERT INTO private.subscription_live_offer_approvals
+ (approval_id,organization_id,merchant_id,tier,amount_minor,term_policy,
+  quote_validity_seconds,offer_reference,tax_decision_reference,
+  refund_policy_reference,merchant_approval_reference,customer_tax_note,
+  customer_terms_note,approved_at)
+VALUES
+ ('b7777777-7777-4777-8777-777777777777',
+  'b2222222-2222-4222-8222-222222222222','acc_UsefulmadeLiveSynthetic',
+  'growth',149900,'calendar_month_from_capture_event',600,
+  'synthetic-offer','synthetic-tax-review','synthetic-refund-review',
+  'synthetic-merchant-review','Synthetic tax note','Synthetic monthly term',
+  now()-interval '1 day'),
+ ('b8888888-8888-4888-8888-888888888888',
+  'b2222222-2222-4222-8222-222222222222','acc_UsefulmadeLiveSynthetic',
+  'starter',79900,'calendar_month_from_capture_event',600,
+  'synthetic-starter-offer','synthetic-tax-review','synthetic-refund-review',
+ 'synthetic-merchant-review','Synthetic tax note','Synthetic monthly term',
+  now()-interval '1 day');
+SAVEPOINT live_quote_writer_test;
+ALTER TABLE private.subscription_live_settings
+ DROP CONSTRAINT subscription_live_quotes_closed;
+UPDATE private.subscription_live_settings SET quotes_enabled=TRUE WHERE singleton;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims='{"sub":"b1111111-1111-4111-8111-111111111111","role":"authenticated"}';
+SELECT pg_temp.assert_true((public.subscription_live_offer_preview(
+ 'b2222222-2222-4222-8222-222222222222',
+ 'b4444444-4444-4444-8444-444444444444','growth')->>'amount_minor')::BIGINT=149900,
+ 'Live owner preview did not read exact approved amount');
+RESET ROLE;
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims='{"role":"service_role"}';
+SELECT pg_temp.expect_error($q$INSERT INTO private.subscription_live_offer_approvals
+ DEFAULT VALUES$q$,'42501');
+SELECT pg_temp.expect_error($q$INSERT INTO private.subscription_live_quotes
+ DEFAULT VALUES$q$,'42501');
+SELECT pg_temp.assert_true((public.subscription_create_live_quote(
+ 'b9999999-9999-4999-8999-999999999999',
+ 'b2222222-2222-4222-8222-222222222222',
+ 'b4444444-4444-4444-8444-444444444444',
+ 'b1111111-1111-4111-8111-111111111111',
+ 'b7777777-7777-4777-8777-777777777777',149900,'growth',
+ 'acc_UsefulmadeLiveSynthetic')->>'amount_minor')::BIGINT=149900,
+ 'Server did not freeze the approved Live amount');
+SELECT pg_temp.assert_true((public.subscription_create_live_quote(
+ 'b9999999-9999-4999-8999-999999999999',
+ 'b2222222-2222-4222-8222-222222222222',
+ 'b4444444-4444-4444-8444-444444444444',
+ 'b1111111-1111-4111-8111-111111111111',
+ 'b7777777-7777-4777-8777-777777777777',149900,'growth',
+ 'acc_UsefulmadeLiveSynthetic')->>'request_id')='b9999999-9999-4999-8999-999999999999',
+ 'Identical Live quote retry changed identity');
+SELECT pg_temp.expect_error($q$SELECT public.subscription_create_live_quote(
+ 'b9999999-9999-4999-8999-999999999998',
+ 'b2222222-2222-4222-8222-222222222222',
+ 'b4444444-4444-4444-8444-444444444444',
+ 'b1111111-1111-4111-8111-111111111111',
+ 'b7777777-7777-4777-8777-777777777777',149901,'growth',
+ 'acc_UsefulmadeLiveSynthetic')$q$,'55000');
+RESET ROLE;
+SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_quotes
+ SET amount_minor=1 WHERE request_id='b9999999-9999-4999-8999-999999999999'$q$,'55000');
+SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_offer_approvals
+ SET amount_minor=1 WHERE approval_id='b7777777-7777-4777-8777-777777777777'$q$,'55000');
+ROLLBACK TO SAVEPOINT live_quote_writer_test;
+SELECT pg_temp.assert_true((SELECT NOT quotes_enabled
+ FROM private.subscription_live_settings WHERE singleton),
+ 'Live quote issuance did not return to hard closed');
 INSERT INTO private.subscription_live_quotes
  (request_id,organization_id,requested_by,billing_account_id,merchant_id,
   tier,amount_minor,term_policy,offer_reference,tax_decision_reference,
-  expires_at,owner_reviewed_at)
+  expires_at,owner_reviewed_at,offer_approval_id)
 VALUES('b5555555-5555-4555-8555-555555555555',
  'b2222222-2222-4222-8222-222222222222',
  'b1111111-1111-4111-8111-111111111111',
  'b4444444-4444-4444-8444-444444444444',
  'acc_UsefulmadeLiveSynthetic','growth',149900,
  'calendar_month_from_capture_event','synthetic-offer','synthetic-tax-review',
- now()-interval '30 seconds',now()-interval '3 minutes');
+ now()-interval '30 seconds',now()-interval '3 minutes',
+ 'b7777777-7777-4777-8777-777777777777');
 UPDATE private.subscription_billing_settings SET
  standard_reminder_policy_approved=TRUE,
  standard_reminder_policy_version='synthetic-live-starter-v1',
@@ -80,14 +151,15 @@ UPDATE private.subscription_billing_settings SET
 INSERT INTO private.subscription_live_quotes
  (request_id,organization_id,requested_by,billing_account_id,merchant_id,
   tier,amount_minor,term_policy,offer_reference,tax_decision_reference,
-  expires_at,owner_reviewed_at)
+  expires_at,owner_reviewed_at,offer_approval_id)
 VALUES('b5555555-5555-4555-8555-555555555557',
  'b2222222-2222-4222-8222-222222222222',
  'b1111111-1111-4111-8111-111111111111',
  'b4444444-4444-4444-8444-444444444444',
  'acc_UsefulmadeLiveSynthetic','starter',79900,
  'calendar_month_from_capture_event','synthetic-starter-offer','synthetic-tax-review',
- now()+interval '10 minutes',now()-interval '1 minute');
+ now()+interval '10 minutes',now()-interval '1 minute',
+ 'b8888888-8888-4888-8888-888888888888');
 SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_settings
  SET merchant_id='acc_Other' WHERE singleton$q$,'55000');
 SELECT pg_temp.expect_error($q$INSERT INTO private.subscription_live_orders
@@ -196,6 +268,18 @@ SELECT pg_temp.assert_true((SELECT count(*)=1 FROM jsonb_array_elements(
  'b2222222-2222-4222-8222-222222222222',5,TRUE,FALSE)) e
  WHERE e->>'event_type'='payment.captured'),
  'Disabled refund queue starved captured payment recovery');
+SAVEPOINT revoked_offer_capture;
+RESET ROLE;
+UPDATE private.subscription_live_offer_approvals SET revoked_at=now()
+ WHERE approval_id='b7777777-7777-4777-8777-777777777777';
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims='{"role":"service_role"}';
+SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment(
+ 'b5555555-5555-4555-8555-555555555555','order_LiveSynthetic1',
+ 'pay_LiveSynthetic1','acc_UsefulmadeLiveSynthetic',149900,'INR',now()-interval '1 minute')
+ ->>'reason'='offer_approval_changed',
+ 'Captured money was not review-held after offer revocation');
+ROLLBACK TO revoked_offer_capture;
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment(
  'b5555555-5555-4555-8555-555555555555','order_LiveSynthetic1',
  'pay_LiveSynthetic1','acc_UsefulmadeLiveSynthetic',149900,'INR',now()-interval '1 minute')
@@ -262,17 +346,19 @@ SELECT pg_temp.assert_true((SELECT access_ends_at<=clock_timestamp()
 ROLLBACK TO live_refund_success;
 
 -- A second captured charge cannot rewrite the existing term.
+SET LOCAL request.jwt.claims='{}';
 INSERT INTO private.subscription_live_quotes
  (request_id,organization_id,requested_by,billing_account_id,merchant_id,
   tier,amount_minor,term_policy,offer_reference,tax_decision_reference,
-  expires_at,owner_reviewed_at)
+  expires_at,owner_reviewed_at,offer_approval_id)
 VALUES('b5555555-5555-4555-8555-555555555556',
  'b2222222-2222-4222-8222-222222222222',
  'b1111111-1111-4111-8111-111111111111',
  'b4444444-4444-4444-8444-444444444444',
  'acc_UsefulmadeLiveSynthetic','growth',149900,
  'calendar_month_from_capture_event','synthetic-offer','synthetic-tax-review',
- now()+interval '10 minutes',now()-interval '1 minute');
+ now()+interval '10 minutes',now()-interval '1 minute',
+ 'b7777777-7777-4777-8777-777777777777');
 INSERT INTO private.subscription_live_orders
  (request_id,organization_id,merchant_id,state,provider_order_id,bound_at)
 VALUES('b5555555-5555-4555-8555-555555555556',

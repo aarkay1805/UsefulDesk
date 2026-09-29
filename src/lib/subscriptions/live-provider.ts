@@ -61,6 +61,10 @@ export function liveOrdersEnabled(env: NodeJS.ProcessEnv = process.env) {
   return env.USEFULDESK_SAAS_LIVE_ORDERS_ENABLED === 'true';
 }
 
+export function liveQuotesEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.USEFULDESK_SAAS_LIVE_QUOTES_ENABLED === 'true';
+}
+
 export function liveRefundsEnabled(env: NodeJS.ProcessEnv = process.env) {
   return env.USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED === 'true';
 }

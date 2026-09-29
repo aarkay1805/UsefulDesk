@@ -849,8 +849,9 @@ The final simulator journey used original mobile source in an isolated iPhone
 17 Pro Debug client. An iPhone Air USB-C XCTest continuation passed the same
 synthetic owner sign-in, branch, expired recovery and reopen checks. Its
 isolated physical harness briefly allowed the exact LAN Test host over HTTP;
-that source allowance was restored afterward. Release-build HTTPS behavior
-remains outside this UI acceptance. The temporary webhook is disabled, local
+that source allowance was restored afterward. A later signed physical Release
+build passed HTTPS Test sign-in and access recovery; see the acceptance record.
+The temporary webhook is disabled, local
 billing gates are off, REST is restored, and cloud Test is paused.
 
 **Built locally on 28 September, disabled:** owner-initiated Test renewals,
@@ -974,34 +975,40 @@ The private advanced and capability switches remain
 false; no advanced charge or Production migration occurred.
 
 **Built locally, dark Live boundary:** migrations `20260929170000`–
-`20260929240000` add separate Usefulmade Live quote, order, payment, grant,
+`20260929250000` add separate Usefulmade Live quote, order, payment, grant,
 refund and signed-webhook evidence with a pinned merchant and one pilot
 organization. The Live adapter and API draft claim an order before provider
 POST, use exact-receipt GET recovery, verify captured money with fresh provider
 GETs, and commit a first term or hold stale funds under an organization lock.
 Every Checkout return rechecks current gates, quote expiry, expired trial and
 branch roster. A signed capture-event timestamp fixes the paid term even when
-the webhook is processed later. A read-only owner panel shows the frozen exact
-INR Live pilot quote; Starter acknowledgment and in-transaction reminder
-normalization are wired before its grant.
+the webhook is processed later. An empty approval ledger and hard-closed quote
+switch require an explicit merchant-approved amount, tax/refund references,
+customer notes and lifetime before a service-only writer can freeze the owner's
+exact review. The owner panel previews those approved facts, confirms the exact
+amount and checks a bound order before the separately gated Live Checkout.
+Starter acknowledgment and in-transaction reminder normalization are wired
+before its grant.
 Capability activation audits Live Starter schedules and unattempted custom
 claims alongside Test Starter grants.
 The refund draft claims before POST and ends access only after a matching
 settled full refund. The named capability predicate now recognizes the separate
 Live grant for RLS and web/native snapshots. A protected, bounded recovery
-endpoint can revisit held signed events. New Live orders and refunds are
+endpoint can revisit held signed events. New Live quotes, orders and refunds are
 **hard-closed by database constraints**; all runtime, intake, settlement,
 reconciliation and capability switches default false. Focused code tests and
-rolled-back full-schema synthetic SQL pass; genuine provider and release
-acceptance remain pending. No Live credentials,
+rolled-back full-schema synthetic SQL pass; genuine provider/release acceptance
+remain pending. No Live credentials,
 Production migration, charge or refund were used.
 
-**Remaining:** owner decisions above; genuine advanced Test provider capture,
-signed webhook/outage recovery, concurrent boundary checks, native acceptance,
-and explicit activation review. Live also needs an approved offer/tax and term
-reference, a quote writer, approval of Starter's standard cadence, full-schema
-Test and genuine provider acceptance, and a separately authorized real-money
-pilot before migration, deployment or activation. The other candidate features and usage limits
+**Remaining:** owner decisions above; concurrent boundary checks, advanced
+native Checkout acceptance, the genuine renewal/refund race,
+and explicit activation review. Genuine advanced Test capture, signed webhook
+retry, and local PostgREST outage recovery passed; physical PostgreSQL storage
+recovery remains untested. Live also needs an approved offer/tax and term
+reference entered into the empty ledger, approval of Starter's standard cadence,
+Live-specific full-schema and genuine provider acceptance, and a separately
+authorized real-money pilot before migration, deployment or activation. The other candidate features and usage limits
 remain unapproved. No payable flow is open under the default settings.
 
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)

@@ -1,13 +1,16 @@
 # Advanced subscription transactions — Test implementation contract
 
-**Status (29 September 2026):** the default-off local Test implementation now
+**Status (29 September 2026):** the default-off local Test implementation
 includes owner review, frozen quotes, canonical order claims, verified
 upgrade/add-on/restart commits, owner-reviewed paid-slot renewal or
 cancellation with the base charge, and durable late refund/renewal review
-holds. A disposable full-schema SQL transaction
-exercised synthetic captured payments and rolled back. No advanced provider
-charge or Production migration was made. Commercial and Starter reminder
-policy approval still block every payable advanced order.
+holds. A disposable full-schema SQL transaction exercised synthetic captured
+payments and rolled back. Genuine Razorpay Test Checkout and signed webhook
+delivery then exercised upgrade, add-on, restart, stale capture, ambiguous
+order recovery, a local database API outage, delayed failure, and full first
+refund. See the [acceptance record](subscription-test-acceptance.md) for exact
+evidence and limits. No Production migration or real-money charge occurred.
+Commercial and Starter reminder policy approval still block payable orders.
 
 ## Shared Test order and verification boundary
 
@@ -123,5 +126,9 @@ proration, renewal, cancellation and refund mechanics; restart terms;
 Starter reminder cadence; exact tax/receipt and commercial readiness.
 The 15-minute quote, actual-term ₹499 add-on proration, renewal-boundary
 slot cancellation, and fresh-term restart in `PRDs/roadmap.md` remain
-proposals implemented only behind the disabled gate. Genuine advanced Test
-capture/webhook, outage/recovery, and native acceptance remain open.
+proposals implemented only behind the disabled gate. Genuine Test capture,
+signed webhook retry and local database API outage recovery passed. A genuine
+renewal/refund race, physical PostgreSQL storage failure and native-device
+advanced checkout remain unverified. Properly signed physical iOS Release
+HTTPS sign-in and access recovery passed separately. None of the remaining
+gaps is implied complete by the Test provider evidence.

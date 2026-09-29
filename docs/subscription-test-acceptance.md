@@ -756,6 +756,45 @@ its bundle and no broad App Transport Security exception. A disposable
 simulator trusted a temporary local test certificate and its URLSession
 request received HTTP 200 from the HTTPS Supabase health endpoint. App-level
 sign-in stopped before network access because the locally signed simulator
-build lacked SecureStore's keychain entitlement (`-34018`). A properly signed
-Release app still needs an end-to-end HTTPS Test sign-in. The temporary
-certificate, proxy, simulator, and isolated source changes were removed.
+build lacked SecureStore's keychain entitlement (`-34018`). The physical-device
+run below closes that sign-in gap. The temporary certificate, proxy, simulator,
+and isolated source changes were removed.
+
+### Signed physical iPhone Release acceptance
+
+A separate `com.usefulmade.usefuldesk.agent.acceptance` app was built in Release
+configuration, signed with the Apple Development team, and installed on an
+iPhone Air running iOS 27.0 over USB-C. The existing production-bundle app was
+untouched. The acceptance app's JS bundle contained only the temporary HTTPS
+Test application and Supabase hosts; its App Transport Security settings had
+no broad arbitrary-load exception. Both hosts served the disposable full-schema
+Test stack with synthetic organizations and billing switches off. This was a
+properly signed physical-device Release build, not a distribution-signed
+preview or an App Store artifact.
+
+With iPhone Mirroring closed and the phone unlocked, the Release XCTest runner
+entered the synthetic owner's email and password into the app's sign-in form.
+Both input assertions passed, the app authenticated over the HTTPS Test
+Supabase endpoint, reached its roster or Inbox, and the fresh sign-in test
+passed. A separate HTTPS token request for the same synthetic fixture returned 200. Earlier automation attempts timed out before a test method ran; a run
+with Mirroring connected showed empty inputs despite synthesized typing. The
+successful run with Mirroring closed points to device-automation interference
+in that failed input attempt.
+
+The subsequent Release branch-journey XCTest passed all six checkpoints:
+the roster showed the active paid, refunded, and trial organizations while
+excluding four archived branches; active paid access opened the Inbox and
+survived a reopen; the refunded organization displayed the ended-access gate,
+support, retry, and active-branch recovery actions without operational Inbox;
+the gate survived a reopen; and choosing the active branch restored the Inbox.
+The device also visibly reported the temporary Test environment and HTTPS
+hosts in App details. Private Xcode results are
+`release-https/physical-release-signin-final.xcresult` and
+`release-https/physical-release-branches-final.xcresult` in the disposable
+stack cache; fixture credentials and raw logs remain outside the repository.
+
+The active Inbox displayed **Not updating live** while using the temporary
+Cloudflare tunnels, so realtime delivery was not accepted by this run. Native
+advanced Checkout and a distribution-signed preview remain separate checks.
+No Live charge, Production configuration change, or external customer message
+was made.

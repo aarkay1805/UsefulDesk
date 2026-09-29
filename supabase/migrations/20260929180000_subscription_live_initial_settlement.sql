@@ -106,6 +106,17 @@ BEGIN
     OR v_quote.requested_by<>p_actor_user_id
     OR v_quote.provider_mode<>'live' OR v_quote.merchant_id<>p_provider_merchant_id THEN
     RAISE EXCEPTION 'Reviewed Live quote required' USING ERRCODE='22023'; END IF;
+  IF v_quote.offer_approval_id IS NULL OR NOT EXISTS(
+    SELECT 1 FROM private.subscription_live_offer_approvals a
+    WHERE a.approval_id=v_quote.offer_approval_id
+      AND a.organization_id=v_quote.organization_id
+      AND a.merchant_id=v_quote.merchant_id AND a.revoked_at IS NULL
+      AND a.tier=v_quote.tier AND a.amount_minor=v_quote.amount_minor
+      AND a.currency=v_quote.currency AND a.term_policy=v_quote.term_policy
+      AND a.offer_reference=v_quote.offer_reference
+      AND a.tax_decision_reference=v_quote.tax_decision_reference) THEN
+    RAISE EXCEPTION 'Approved Live offer no longer matches quote'
+      USING ERRCODE='55000'; END IF;
   -- A bound order is still payable. Apply the current switches and quote
   -- validity to every Checkout response, including retries.
   IF NOT v_settings.orders_enabled OR NOT v_settings.settlements_enabled
@@ -135,6 +146,9 @@ BEGIN
     OR EXISTS(SELECT 1 FROM private.subscription_live_payments
       WHERE organization_id=p_organization_id) THEN
     RAISE EXCEPTION 'Existing paid obligation needs review' USING ERRCODE='55000'; END IF;
+  IF EXISTS(SELECT 1 FROM private.subscription_live_orders
+    WHERE organization_id=p_organization_id AND request_id<>p_request_id) THEN
+    RAISE EXCEPTION 'Another Live order needs review' USING ERRCODE='55000'; END IF;
   IF v_quote.tier='starter' THEN
     SELECT * INTO v_reminders FROM private.subscription_billing_settings WHERE singleton;
     IF NOT COALESCE(v_reminders.standard_reminder_policy_approved AND
@@ -279,6 +293,7 @@ DECLARE v_settings private.subscription_live_settings;
   v_reminders private.subscription_billing_settings;
   v_active INTEGER; v_capacity INTEGER;
   v_hold_reason TEXT;
+  v_offer_active BOOLEAN;
 BEGIN
   IF (auth.jwt()->>'role') IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required' USING ERRCODE='42501'; END IF;
@@ -300,6 +315,18 @@ BEGIN
     OR v_quote.offer_reference IS NULL OR v_quote.tax_decision_reference IS NULL THEN
     RAISE EXCEPTION 'Payment is outside the reviewed Live quote' USING ERRCODE='22023'; END IF;
   PERFORM 1 FROM public.organizations WHERE id=v_quote.organization_id FOR UPDATE;
+  PERFORM 1 FROM private.subscription_live_offer_approvals
+    WHERE approval_id=v_quote.offer_approval_id FOR SHARE;
+  SELECT EXISTS(
+    SELECT 1 FROM private.subscription_live_offer_approvals a
+    WHERE a.approval_id=v_quote.offer_approval_id
+      AND a.organization_id=v_quote.organization_id
+      AND a.merchant_id=v_quote.merchant_id AND a.revoked_at IS NULL
+      AND a.tier=v_quote.tier AND a.amount_minor=v_quote.amount_minor
+      AND a.currency=v_quote.currency AND a.term_policy=v_quote.term_policy
+      AND a.offer_reference=v_quote.offer_reference
+      AND a.tax_decision_reference=v_quote.tax_decision_reference)
+    INTO v_offer_active;
   SELECT * INTO v_quote FROM private.subscription_live_quotes
     WHERE request_id=p_request_id FOR UPDATE;
   SELECT * INTO v_order FROM private.subscription_live_orders
@@ -336,7 +363,9 @@ BEGIN
 
   SELECT * INTO v_access_before FROM private.organization_product_access
     WHERE organization_id=v_quote.organization_id FOR UPDATE;
-  IF v_order.claimed_at>=v_quote.expires_at
+  IF NOT v_offer_active THEN
+    v_hold_reason:='offer_approval_changed';
+  ELSIF v_order.claimed_at>=v_quote.expires_at
     OR p_capture_event_at<v_quote.owner_reviewed_at
     OR p_capture_event_at>v_quote.expires_at THEN
     v_hold_reason:='quote_expired_or_changed';

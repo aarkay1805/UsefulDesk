@@ -9,14 +9,18 @@
 ## 2026-09-29 — Draft dark Usefulmade Live SaaS billing boundary
 
 `live-{provider,orders,flow,refunds}.ts`, Live subscription routes and
-migrations `20260929170000`–`20260929240000` add a separate merchant/pilot
+migrations `20260929170000`–`20260929250000` add a separate merchant/pilot
 binding, durable order/refund claims, signed webhook evidence, service-only
 first-term/refund transactions, held-event reconciliation, an exact-amount
-owner review panel, Starter reminder normalization and activation audit. Checkout rechecks the
-current gate and eligibility; terms use signed capture-event time. New Live orders
-and refunds are database-hard-closed; all runtime switches default off.
-Focused code tests and rolled-back full-schema SQL pass; no migration was
-installed. Genuine provider acceptance and commercial approval remain open.
+owner review panel, Starter reminder normalization and activation audit. An
+empty immutable offer approval ledger and service-only quote writer freeze the
+owner-confirmed amount and notes; Checkout checks that exact quote before
+opening. Captured money under a revoked offer is review-held. Checkout rechecks
+the current gate and eligibility; terms use signed capture-event time. New Live
+quotes, orders and refunds are database-hard-closed; all runtime switches
+default off. Focused code tests pass; the updated rollback-only full-schema SQL
+check passes. No migration was installed. Genuine provider acceptance and
+commercial approval remain open.
 
 ## 2026-09-29 — Continue default-off subscription capability gates
 

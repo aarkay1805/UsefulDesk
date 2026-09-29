@@ -79,11 +79,13 @@ describe('production environment readiness', () => {
     );
     expect(JSON.stringify(results)).not.toContain('private-live-secret');
     for (const name of [
+      'USEFULDESK_SAAS_LIVE_QUOTES_ENABLED',
       'USEFULDESK_SAAS_LIVE_ORDERS_ENABLED',
       'USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED',
       'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED',
       'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
       'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+      'NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI',
     ]) {
       expect(
         evaluateProductionEnvironment({ ...live, [name]: 'true' })

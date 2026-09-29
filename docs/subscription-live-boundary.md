@@ -12,7 +12,7 @@ webhooks, mandates and member ledgers remain separate.
   runtimes and any Test SaaS credential. Only the key ID may be returned to
   Checkout. Provider GETs verify exact order receipt, organization notes, INR
   paise and captured/refunded facts.
-- `20260929170000`–`20260929240000` create private Live records with explicit
+- `20260929170000`–`20260929250000` create private Live records with explicit
   `provider_mode='live'`, merchant, organization and pilot links. RLS grants no
   anon/authenticated writes; service-only RPCs check the JWT role. The Live
   order claim is durable before POST and every uncertain create becomes
@@ -40,10 +40,22 @@ webhooks, mandates and member ledgers remain separate.
   and stops renewal; later payments or changed access remain review-held.
   Signed refund deliveries and the protected bounded recovery route use GET
   only and can revisit held events after an outage.
-- The owner-only, read-only quote panel shows the exact INR amount and labels
-  the Usefulmade Live pilot. It can save the Starter reminder choice; it has no
-  payment action or quote writer. `NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI` is
-  default off and blocked by the Production environment audit.
+- An empty private approval ledger holds the merchant-approved exact INR
+  amount, tax and refund references, customer-facing notes, term policy and
+  quote lifetime. It has no application write path. The owner can preview one
+  approved offer and explicitly confirm the displayed amount; a service-only
+  writer copies the pricing and approval identity into an immutable quote after
+  rechecking owner, pilot, trial and roster. Customer notes remain in the
+  immutable approval record. Replays return the same quote; changed amounts and
+  overlapping quotes fail. Quote issuance is database-hard-closed and default
+  off until an approval migration opens it.
+- The owner panel labels the Usefulmade Live pilot, shows the exact amount and
+  approved customer notes, and can save the Starter reminder choice. Its
+  Checkout control checks the returned order against the reviewed quote
+  before opening Razorpay; access still waits for the signed captured webhook.
+  `NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI` and
+  `NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI` are default off and blocked by the
+  Production environment audit.
 
 ## Switches and isolation
 
@@ -51,6 +63,7 @@ webhooks, mandates and member ledgers remain separate.
 | ------------------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Live provider                   | absent                      | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, distinct `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`. |
 | Webhook intake                  | false                       | `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and the matching private database merchant/pilot/intake switch. Intake alone holds evidence; it does not grant or refund.                                                                                                                                          |
+| Quote issuance                  | false, database-hard-closed | `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED=true`, one explicitly approved offer row, and the matching private database switch. The database `CHECK` prevents enabling issuance in this draft; the Production audit blocks the runtime flag.                                                                                 |
 | Settlement and reconciliation   | false                       | Separate `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` flags plus private database settlement switch. The Production env audit currently blocks them.                                                                                                           |
 | New order and refund initiation | false, database-hard-closed | Separate `USEFULDESK_SAAS_LIVE_ORDERS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED` flags. Database `CHECK` constraints forbid enabling either; a later reviewed migration must deliberately replace them. The Production env audit also blocks both.                                                           |
 | Tier capabilities               | false                       | Existing `private.subscription_billing_settings.capabilities_enabled` remains off pending Starter cadence and full acceptance.                                                                                                                                                                                        |
@@ -65,9 +78,9 @@ protected values as unverified.
 1. Approve the offer, tax/receipt treatment, exact INR amount and term policy,
    quote lifetime, refund/cancellation rules, and one pilot organization. A
    qualified adviser and the Usefulmade Live merchant owner must confirm their
-   respective facts privately. There is no Live quote writer or payable UI;
-   the owner panel renders only an already frozen quote.
-2. Approve Starter's standard reminder days/time, add quote creation, Live renewal,
+   respective facts privately. No approval row is seeded; quote issuance and
+   Checkout remain hard-closed pending an explicitly reviewed opening migration.
+2. Approve Starter's standard reminder days/time, Live renewal,
    upgrade/add-on/restart scope or explicitly exclude them from the offer.
    Current initial-term flow is not an automatic recurring debit.
 3. Repeat full-schema Test acceptance through the approved migration path,
