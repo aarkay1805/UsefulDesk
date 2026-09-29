@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -195,6 +196,7 @@ export async function createOrReuseInvoicePaymentLink(input: {
   userId: string;
   invoiceId: string;
 }) {
+  await requireProductAccess(input.admin, input.accountId, 'gym_payment_links');
   const connection = await getRazorpayConnection(input.admin, input.accountId);
   if (!connection) {
     throw new PaymentLinkConflictError(
@@ -250,6 +252,11 @@ export async function createOrReuseInvoicePaymentLink(input: {
 
   let remote: RazorpayPaymentLink;
   try {
+    await requireProductAccess(
+      input.admin,
+      input.accountId,
+      'gym_payment_links'
+    );
     remote = await runRazorpayOperation(
       input.admin,
       connection,

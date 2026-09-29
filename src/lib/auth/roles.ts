@@ -15,6 +15,8 @@
 // changes a one-file diff.
 // ============================================================
 
+import type { SubscriptionCapability } from '../subscriptions/plans';
+
 export type AccountRole = 'owner' | 'admin' | 'agent' | 'viewer';
 export type OrganizationRole = 'owner';
 
@@ -485,4 +487,18 @@ export function canManagePlatformAccess(
   assuranceLevel: string | null
 ): boolean {
   return isPlatformAdmin && assuranceLevel === 'aal2';
+}
+/** Tier permission composes with, and never replaces, the action's role predicate. */
+export function canUseSubscriptionCapability(
+  snapshot: {
+    allowed: boolean;
+    subscription_capabilities?: readonly string[];
+  } | null,
+  capability: SubscriptionCapability
+): boolean {
+  return (
+    snapshot?.allowed === true &&
+    (snapshot.subscription_capabilities === undefined ||
+      snapshot.subscription_capabilities.includes(capability))
+  );
 }

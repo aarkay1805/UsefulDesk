@@ -85,7 +85,7 @@ export type SubscriptionGrant =
   | { kind: 'paid'; tier: SubscriptionTier | null }
   | null;
 
-/** Trial and grandfathered terms keep full access; a missing paid tier fails closed. No caller is gated yet. */
+/** Trial and grandfathered terms keep full access; a missing paid tier fails closed. Runtime callers use the database capability snapshot. */
 export function subscriptionCapabilityAllowed(
   access: {
     status:

@@ -25,6 +25,7 @@ import { engineSendText as sendFlow } from '@/lib/flows/meta-send';
 import { runAutomationsForTrigger } from '@/lib/automations/engine';
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply';
 import { sendMessageToConversation } from '@/lib/whatsapp/send-message';
+import { createOrReuseInvoicePaymentLink } from '@/lib/payments/razorpay-payment-links';
 import { createBroadcast } from '@/lib/whatsapp/broadcast-core';
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver';
 import { toErrorResponse } from '@/lib/auth/account';
@@ -45,6 +46,22 @@ beforeEach(() => {
 });
 
 describe('expired organization outbound enforcement', () => {
+  it('checks the Payment Link capability before provider lookup or reservation', async () => {
+    await expect(
+      createOrReuseInvoicePaymentLink({
+        admin: db,
+        accountId: args.accountId,
+        userId: args.userId,
+        invoiceId: 'invoice',
+      })
+    ).rejects.toBeInstanceOf(ProductAccessError);
+    expect(h.access).toHaveBeenCalledWith(
+      db,
+      args.accountId,
+      'gym_payment_links'
+    );
+    expect(h.from).not.toHaveBeenCalled();
+  });
   it('blocks manual, automation, reminder and flow sends before operational reads', async () => {
     for (const send of [
       () =>

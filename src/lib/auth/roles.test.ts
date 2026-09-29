@@ -561,3 +561,28 @@ describe('platform access capability', () => {
     expect(canManagePlatformAccess(admin, aal)).toBe(allowed);
   });
 });
+
+describe('subscription permissions compose with product access', () => {
+  it('denies absent/expired access and honors explicit capability lists', async () => {
+    const { canUseSubscriptionCapability } = await import('./roles');
+    expect(canUseSubscriptionCapability(null, 'gym_autopay')).toBe(false);
+    expect(
+      canUseSubscriptionCapability({ allowed: false }, 'gym_autopay')
+    ).toBe(false);
+    expect(
+      canUseSubscriptionCapability(
+        { allowed: true, subscription_capabilities: [] },
+        'gym_autopay'
+      )
+    ).toBe(false);
+    expect(
+      canUseSubscriptionCapability(
+        { allowed: true, subscription_capabilities: ['gym_autopay'] },
+        'gym_autopay'
+      )
+    ).toBe(true);
+    expect(canUseSubscriptionCapability({ allowed: true }, 'gym_autopay')).toBe(
+      true
+    );
+  });
+});

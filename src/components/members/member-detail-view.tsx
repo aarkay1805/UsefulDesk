@@ -1,4 +1,9 @@
 'use client';
+import {
+  useSubscriptionCapability,
+  SUBSCRIPTION_CAPABILITY_BLOCKER,
+} from '@/hooks/use-subscription-capability';
+import { ResolvableAction } from '@/components/ui/resolvable-action';
 
 import {
   useCallback,
@@ -306,6 +311,7 @@ function MembershipDetailView({
   const router = useRouter();
   const supabase = createClient();
   const { user, canSendMessages, accountRole } = useAuth();
+  const tierAllowsAutoPay = useSubscriptionCapability('gym_autopay');
   const { locale, fmt } = useLocale();
   // Every host code-splits this sheet and mounts it already-open, which skips
   // Base UI's entry transition. Keep `open` itself for the loads below.
@@ -1567,13 +1573,20 @@ function MembershipDetailView({
                                   </>
                                 )}
                                 {canSetupAutoPay && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setAutoPayOpen(true)}
-                                  >
-                                    <Repeat className="size-4" /> Set up AutoPay
-                                  </Button>
+                                  <ResolvableAction
+                                    blocker={
+                                      tierAllowsAutoPay
+                                        ? null
+                                        : SUBSCRIPTION_CAPABILITY_BLOCKER
+                                    }
+                                    onAction={() => setAutoPayOpen(true)}
+                                    trigger={
+                                      <Button size="sm" variant="outline">
+                                        <Repeat className="size-4" /> Set up
+                                        AutoPay
+                                      </Button>
+                                    }
+                                  />
                                 )}
                               </CardAction>
                             )}

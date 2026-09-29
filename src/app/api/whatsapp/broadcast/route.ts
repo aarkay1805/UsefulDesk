@@ -183,7 +183,7 @@ export async function POST(request: Request) {
     let failedCount = 0;
 
     for (const recipient of recipients) {
-      await requireProductAccess(supabase, accountId);
+      await requireProductAccess(supabase, accountId, 'bulk_campaigns');
       const sanitized = sanitizePhoneForMeta(recipient.phone);
 
       if (!isValidE164(sanitized)) {
@@ -204,7 +204,7 @@ export async function POST(request: Request) {
 
       for (const variant of variants) {
         try {
-          await requireProductAccess(supabase, accountId);
+          await requireProductAccess(supabase, accountId, 'bulk_campaigns');
           const result = await sendTemplateMessage({
             phoneNumberId: config.phone_number_id,
             accessToken,

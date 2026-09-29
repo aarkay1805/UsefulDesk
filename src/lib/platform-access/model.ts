@@ -1,3 +1,8 @@
+import {
+  SUBSCRIPTION_CAPABILITIES,
+  type SubscriptionCapability,
+} from '../subscriptions/plans';
+
 export type AccessMode = 'trial' | 'manual' | 'complimentary';
 export type AccessStatus =
   'trial' | 'active' | 'complimentary' | 'expired' | 'suspended' | 'pending';
@@ -18,6 +23,8 @@ export interface ProductAccessSnapshot {
   enforcement_enabled: boolean;
   support_email: string | null;
   support_whatsapp: string | null;
+  /** Absent only on databases preceding the disabled subscription draft. */
+  subscription_capabilities?: SubscriptionCapability[];
 }
 export type AccessAction = 'extend_trial' | 'activate' | 'suspend' | 'restore';
 export function resolveProductAccess(
@@ -53,6 +60,17 @@ export function isProductAccessSnapshot(
 ): value is ProductAccessSnapshot {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const snapshot = value as Record<string, unknown>;
+  if ('subscription_capabilities' in snapshot) {
+    const capabilities = snapshot.subscription_capabilities;
+    if (
+      !Array.isArray(capabilities) ||
+      capabilities.some(
+        (capability) => !SUBSCRIPTION_CAPABILITIES.includes(capability)
+      ) ||
+      new Set(capabilities).size !== capabilities.length
+    )
+      return false;
+  }
   if (
     typeof snapshot.allowed !== 'boolean' ||
     typeof snapshot.enforcement_enabled !== 'boolean' ||

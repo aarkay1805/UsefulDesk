@@ -818,6 +818,41 @@ The billing switch remains default off and local application flags remain false.
 scope: full application-schema acceptance and genuine provider webhook delivery
 remain pending.
 
+**Full-schema acceptance started, still local:** all 307 repository migrations
+now replay in a separate synthetic local database after a temporary historical
+ordering correction. Real Auth/invitation redemption, expired owner/staff access,
+cross-organization denial, actual owner-only intent API/origin checks, operational
+RLS denial, and both create RPCs' five-branch trial limit passed. Signed-in owner
+Test Checkout subsequently resumed the same order and captured ₹799 with the
+application tab closed. Genuine capture/refund provider events passed the actual
+route; full-schema access changed once, owner/staff/outsider checks passed, Starter
+rejected a second branch, cancellation retained the paid term, and full Test refund
+ended access once while retaining owner billing recovery. Local duplicate and
+out-of-order replays stayed idempotent. A subsequent genuine Test renewal on a
+separate seeded prior term passed failed-payment fixed grace and same-order capture.
+Stopping its isolated PostgREST service caused four genuine 503 deliveries; the
+provider retry recovered once after restart, preserving the original next-period
+boundary. Organization switching preserved each organization's access/billing.
+A later isolated run passed real-order recovery after injected response loss,
+genuine authorized-only rejection, and a full-schema Ultimate-to-Starter renewal
+with four explicit archives. An injected late PostgreSQL exception rolled back
+all payment/archive/grant writes; the genuine provider retry committed once after
+the fault was removed. A genuine failed-payment retry delivered after a later
+capture left the complete paid-access snapshot unchanged. These are controlled
+faults, not evidence of a provider outage or database storage crash. A real
+Auth/RPC probe confirmed the native fixture's active paid branch, expired
+refunded branch, four archived branches, and an additional provisioning trial
+branch; seven focused native suites passed 70 tests. Local simulator XCTest then
+passed synthetic owner sign-in, active/refunded switching, archived-branch
+exclusion, expired recovery controls, and session restoration after reopen.
+The final simulator journey used original mobile source in an isolated iPhone
+17 Pro Debug client. An iPhone Air USB-C XCTest continuation passed the same
+synthetic owner sign-in, branch, expired recovery and reopen checks. Its
+isolated physical harness briefly allowed the exact LAN Test host over HTTP;
+that source allowance was restored afterward. Release-build HTTPS behavior
+remains outside this UI acceptance. The temporary webhook is disabled, local
+billing gates are off, REST is restored, and cloud Test is paused.
+
 **Built locally on 28 September, disabled:** owner-initiated Test renewals,
 owner-scheduled base-tier downgrade/cancellation, fixed 72-hour grace after a
 freshly verified failed renewal, and atomic captured-payment/downgrade archive
@@ -887,6 +922,45 @@ days and times remain open. This decision does not remove all automatic sends
 from Starter. Existing
 WhatsApp connection, Approved-template, and send-readiness gates still apply,
 and gyms bear their own Meta charges.
+
+### Subscription product continuation — 28 September 2026
+
+**Built locally, disabled:** the capability boundary draft
+`20260928160000_subscription_capability_boundary.sql` adds an organization-grant
+predicate and authorized capability snapshot. Database triggers guard new
+campaigns, automation configuration, Payment Links, and AutoPay setup, including
+service-role writers. Feature writes serialize with subscription commits.
+A committed downgrade to Starter retires pending campaigns and automation waits
+with audit history, preventing an offline worker from replaying them after a
+later upgrade. Server execution/send checks consume the same snapshot; web
+editors and payment controls explain blocked capabilities. Trials,
+complimentary organizations, and grandfathered manual terms retain access.
+Existing gym-member mandates, cancellation, refunds and financial reconciliation
+are not stopped by a SaaS tier change.
+
+Full-schema SQL checks run inside a rolled-back transaction and leave no fixture
+or installed migration behind. Repository lint, types, tests and build pass.
+This is not complete tier enforcement: `capabilities_enabled` defaults false
+and must remain false until standard/custom reminders and the remaining
+UI/native/background acceptance are complete. Production billing stays closed.
+The acceptance chat continues to own provider recovery, downgrade renewal and
+native billing acceptance; this section does not supersede its evidence.
+
+**Owner review — proposals only, not approved or payable:**
+
+| Choice | Concrete proposal | Required consequence |
+| --- | --- | --- |
+| Upgrade quote | Freeze the exact paise amount for 15 minutes, capped at the existing paid-through end. Reprice only after a new owner review. | Capture verified after expiry is review-held; no stale upgrade, second automatic charge, or automatic refund. Freeze organization, source term/version, target tier and quote identity. |
+| Extra branch | Prorate ₹499 by the actual remaining term; renew the purchased slots with the base plan. | Growth allows one purchased slot; Ultimate slots stay paid. Pending/failed payment adds no capacity. Archiving alone never cancels a slot. |
+| Add-on cancellation | Remove purchased capacity at renewal, only with the owner's exact retained/archive roster. No routine mid-cycle refund. | Preserve data; no automatic archives. The existing eligible full first-payment refund also covers an add-on on that first payment. Switching to Ultimate must explicitly review any now-redundant paid slots. |
+| Restart | After cancellation or full refund, start one fresh monthly term at verified payment; no fresh trial or second first-payment refund. | Preserve original first-payment/refund history, require a reviewed branch roster and one canonical recoverable order, and refuse unresolved prior payment/refund work. |
+| Starter reminders | Owner must choose exact days before/on/after expiry and local send time. | Preserve standard reminders; prevent custom settings and custom queued sends only after a standard schedule exists. No schedule is inferred here. |
+
+**Remaining:** owner decisions above; transactional Test upgrades/add-ons/restart
+and their quote/order/replay/roster acceptance; reminder policy enforcement;
+complete UI/native/send-boundary acceptance; explicit deployment and activation
+of the capability draft. The other candidate features and usage limits remain
+unapproved. No payable flow is opened by this proposal.
 
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 

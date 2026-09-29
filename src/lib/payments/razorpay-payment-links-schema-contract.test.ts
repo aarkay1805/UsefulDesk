@@ -122,10 +122,10 @@ describe('Razorpay Payment Link safety contract', () => {
       /const providerBlocker = providerReady\s+\? null\s+: paymentProviderBlocker\(providerReason, canConfigureGateway\)/
     );
     expect(actions).toMatch(
-      /const copyBlocker = !canManage\s+\? PAYMENT_LINK_PERMISSION_BLOCKER\s+: \(collectionBlocker \?\? providerBlocker\)/
+      /const copyBlocker = !canManage\s+\? PAYMENT_LINK_PERMISSION_BLOCKER\s+: \(tierBlocker \?\? collectionBlocker \?\? providerBlocker\)/
     );
     expect(actions).toMatch(
-      /const sendBlocker = !canManage\s+\? PAYMENT_LINK_PERMISSION_BLOCKER\s+: collectionBlocker\s+\? collectionBlocker\s+: sendReady/
+      /const sendBlocker = !canManage\s+\? PAYMENT_LINK_PERMISSION_BLOCKER\s+: \(tierBlocker \?\? collectionBlocker\)\s+\? \(tierBlocker \?\? collectionBlocker\)\s+: sendReady/
     );
     expect(actions).toContain('blocker={copyBlocker}');
     expect(constants).toContain('TEMPLATE_CONTRACTS.payment_link.payload.name');

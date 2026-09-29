@@ -5,9 +5,14 @@ const mocks = vi.hoisted(() => ({
   getConnection: vi.fn(),
   createPlan: vi.fn(),
   createSubscription: vi.fn(),
+  requireProductAccess: vi.fn(),
 }));
 
 vi.mock('server-only', () => ({}));
+vi.mock('@/lib/platform-access/server', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: mocks.requireProductAccess,
+}));
 vi.mock('@/lib/auth/account', async (importActual) => {
   const actual = await importActual<typeof import('@/lib/auth/account')>();
   return { ...actual, requireRole: mocks.requireRole };
@@ -102,7 +107,22 @@ function request(origin = 'https://desk.example') {
 describe('Razorpay mandate route safeguards', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.requireProductAccess.mockResolvedValue({ allowed: true });
     mocks.requireRole.mockResolvedValue(context());
+  });
+
+  it('rejects an unavailable tier before member or provider work', async () => {
+    const { ProductAccessError } = await import('@/lib/platform-access/server');
+    mocks.requireProductAccess.mockRejectedValueOnce(new ProductAccessError());
+    const response = await POST(request());
+    expect(response.status).toBe(403);
+    expect(mocks.requireProductAccess).toHaveBeenCalledWith(
+      expect.anything(),
+      'account-id',
+      'gym_autopay'
+    );
+    expect(mocks.getConnection).not.toHaveBeenCalled();
+    expect(mocks.createSubscription).not.toHaveBeenCalled();
   });
 
   it('rejects a cross-site mutation before loading the caller', async () => {

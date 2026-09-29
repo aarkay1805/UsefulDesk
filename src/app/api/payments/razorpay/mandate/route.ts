@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 // ============================================================
 // POST /api/payments/razorpay/mandate
 //
@@ -109,6 +110,7 @@ export async function POST(request: Request) {
   try {
     requireSameOriginRequest(request);
     const ctx = await requireRole('agent');
+    await requireProductAccess(ctx.supabase, ctx.accountId, 'gym_autopay');
     if (!canManageMandates(ctx.role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

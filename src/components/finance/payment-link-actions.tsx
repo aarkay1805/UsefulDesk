@@ -1,4 +1,8 @@
 'use client';
+import {
+  useSubscriptionCapability,
+  SUBSCRIPTION_CAPABILITY_BLOCKER,
+} from '@/hooks/use-subscription-capability';
 
 import { useEffect, useState } from 'react';
 import { Check, Copy, Link2, MessageCircle } from 'lucide-react';
@@ -167,6 +171,10 @@ export function PaymentLinkActions({
 }) {
   const { accountId, accountRole } = useAuth();
   const { fmt } = useLocale();
+  const tierAllowsPaymentLinks = useSubscriptionCapability('gym_payment_links');
+  const tierBlocker = tierAllowsPaymentLinks
+    ? null
+    : SUBSCRIPTION_CAPABILITY_BLOCKER;
   const canManage = accountRole ? canManagePaymentLinks(accountRole) : false;
   const canConfigureGateway = accountRole
     ? canConfigurePaymentGateway(accountRole)
@@ -351,11 +359,11 @@ export function PaymentLinkActions({
   const sendReady = providerReady && templateReady && hasPhone;
   const copyBlocker = !canManage
     ? PAYMENT_LINK_PERMISSION_BLOCKER
-    : (collectionBlocker ?? providerBlocker);
+    : (tierBlocker ?? collectionBlocker ?? providerBlocker);
   const sendBlocker = !canManage
     ? PAYMENT_LINK_PERMISSION_BLOCKER
-    : collectionBlocker
-      ? collectionBlocker
+    : (tierBlocker ?? collectionBlocker)
+      ? (tierBlocker ?? collectionBlocker)
       : sendReady
         ? null
         : !hasPhone

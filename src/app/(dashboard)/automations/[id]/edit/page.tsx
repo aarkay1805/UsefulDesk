@@ -1,4 +1,6 @@
 'use client';
+import { useSubscriptionCapability } from '@/hooks/use-subscription-capability';
+import { SubscriptionCapabilityNotice } from '@/components/platform-access/subscription-capability-notice';
 
 import { use, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
@@ -22,6 +24,7 @@ export default function EditAutomationPage({
 }) {
   const { id } = use(params);
   const { navigate, isPending } = usePendingNavigation();
+  const tierAllowed = useSubscriptionCapability('configurable_automations');
   const { user, accountRole, profileLoading } = useAuth();
   const [initial, setInitial] = useState<BuilderInitial | null>(null);
   const [authorId, setAuthorId] = useState<string | null>(null);
@@ -103,6 +106,8 @@ export default function EditAutomationPage({
       </div>
     );
   }
+
+  if (!tierAllowed) return <SubscriptionCapabilityNotice />;
 
   return <AutomationBuilder initial={initial} />;
 }

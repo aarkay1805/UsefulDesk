@@ -1,4 +1,6 @@
 'use client';
+import { useSubscriptionCapability } from '@/hooks/use-subscription-capability';
+import { SubscriptionCapabilityNotice } from '@/components/platform-access/subscription-capability-notice';
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
@@ -22,6 +24,7 @@ const steps = [
 
 export default function NewBroadcastPage() {
   const { navigate, isPending } = usePendingNavigation();
+  const tierAllowed = useSubscriptionCapability('bulk_campaigns');
   const { accountId } = useAuth();
   const { createAndSendBroadcast, isProcessing, progress } =
     useBroadcastSending();
@@ -136,6 +139,8 @@ export default function NewBroadcastPage() {
       setSavingDraft(false);
     }
   }
+
+  if (!tierAllowed) return <SubscriptionCapabilityNotice />;
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">

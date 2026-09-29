@@ -125,7 +125,7 @@ export async function createBroadcast(
   auditUserId: string,
   params: CreateBroadcastParams
 ): Promise<BroadcastPlan> {
-  await requireProductAccess(db, accountId);
+  await requireProductAccess(db, accountId, 'bulk_campaigns');
   const { name, templateName, recipients } = params;
   const templateLanguage = params.templateLanguage || 'en_US';
 
@@ -432,7 +432,7 @@ async function deliverClaimedBroadcastRecipient(
 
   for (const variant of phoneVariants(phone)) {
     try {
-      await requireProductAccess(db, recipient.account_id);
+      await requireProductAccess(db, recipient.account_id, 'bulk_campaigns');
       await requireCurrentExecution(db, {
         kind: 'broadcast',
         id: recipient.recipient_id,

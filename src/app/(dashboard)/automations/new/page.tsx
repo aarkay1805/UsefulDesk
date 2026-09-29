@@ -1,4 +1,6 @@
 'use client';
+import { useSubscriptionCapability } from '@/hooks/use-subscription-capability';
+import { SubscriptionCapabilityNotice } from '@/components/platform-access/subscription-capability-notice';
 
 import { useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -20,6 +22,7 @@ import { canEditAuthoredContent } from '@/lib/auth/roles';
 
 export default function NewAutomationPage() {
   const { navigate, isPending } = usePendingNavigation();
+  const tierAllowed = useSubscriptionCapability('configurable_automations');
   const { user, accountRole, profileLoading } = useAuth();
   const params = useSearchParams();
   const template = params.get('template') as TemplateSlug | null;
@@ -75,6 +78,8 @@ export default function NewAutomationPage() {
       </div>
     );
   }
+
+  if (!tierAllowed) return <SubscriptionCapabilityNotice />;
 
   return profileLoading ? null : <AutomationBuilder initial={initial} />;
 }

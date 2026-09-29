@@ -1,3 +1,7 @@
+vi.mock('@/lib/platform-access/server', async (importActual) => ({
+  ...(await importActual<typeof import('@/lib/platform-access/server')>()),
+  requireProductAccess: vi.fn().mockResolvedValue({ allowed: true }),
+}));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { requireOperationalAccess, supabaseAdmin } = vi.hoisted(() => ({

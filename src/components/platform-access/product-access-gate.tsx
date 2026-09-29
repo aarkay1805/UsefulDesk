@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
+import { SubscriptionAccessContext } from '@/hooks/use-subscription-capability';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import { createClient } from '@/lib/supabase/client';
@@ -479,7 +480,9 @@ function AccountProductAccess({
             </Dialog>
           </>
         ) : null}
-        <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        <SubscriptionAccessContext.Provider value={snapshot}>
+          <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
+        </SubscriptionAccessContext.Provider>
         <Dialog open={plansOpen} onOpenChange={setPlansOpen}>
           <DialogContent className="sm:max-w-4xl">
             <DialogHeader>

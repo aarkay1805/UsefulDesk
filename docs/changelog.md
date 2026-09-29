@@ -6,6 +6,85 @@
 
 ---
 
+## 2026-09-29 — Complete physical iPhone Air subscription access checks
+
+`docs/subscription-test-acceptance.md` records synthetic owner sign-in and the
+five access checks passing in native XCTest over USB-C. The physical harness
+used a temporary exact LAN-host HTTP allowance for the disposable Test stack;
+it was restored afterward. The separate test app and runner were uninstalled.
+No application source or migration was shipped, and billing stayed disabled.
+
+## 2026-09-29 — Accept native subscription recovery on the Test simulator
+
+`docs/subscription-test-acceptance.md` records local XCTest sign-in, active and
+refunded branch switching, exclusion of four archived branches, expired-access
+recovery controls, and session restoration after reopen. The final UI journey
+passed on an isolated iPhone 17 Pro simulator with original mobile source.
+Expo's floating development button required a local generated-build setting;
+the ended-access reason appears in a combined native Notice accessibility
+label. No application code or migration changed; billing remains disabled.
+
+## 2026-09-28 — Recheck native subscription access in the disposable Test stack
+
+`docs/subscription-test-acceptance.md` now records real Auth/RPC results for the
+native fixture: active paid access, expired refunded access, and four archived
+branches. Seven focused native suites passed 70 tests. The installed simulator
+client later loaded and rendered an existing-session Inbox in Xcode. The first
+Metro attempts exposed IPv4 binding and worktree dependency-symlink harness
+issues; main-checkout Metro loaded identical mobile source. Device Hub still
+timed out in the UI tool, so fixture sign-in, switching, recovery, and session
+restoration remain device-unverified. Local billing gates stayed off. No app
+code changed.
+
+## 2026-09-28 — Extend isolated subscription Test recovery acceptance
+
+`docs/subscription-test-acceptance.md` records genuine authorized-only rejection,
+one-order recovery after an injected lost provider response, atomic rollback of
+a late SQL failure, and provider-retry recovery of a four-branch downgrade.
+A genuine failed-payment retry arriving after capture left paid access unchanged.
+An isolated iOS simulator build/install passed; native UI remains unverified
+because Device Hub could not be accessed by the UI tool.
+Fault injection and synthetic term changes stayed in the disposable full-schema
+stack; no application fix, commercial-policy change or Production enablement.
+
+## 2026-09-28 — Draft subscription capability enforcement, default off
+
+`20260928160000_subscription_capability_boundary.sql`, the product-access
+snapshot/server guard, and `use-subscription-capability` add database, execution
+and web gates for campaigns, configurable automations, new Payment Links and
+AutoPay setup. Feature writes use the organization lock; Starter downgrades
+retire pending campaigns/automation leases with audit history. Existing payment
+reconciliation and mandate cancellation remain available. Standard reminder
+permission is preserved, but standard/custom reminder implementation awaits the
+owner's schedule; do not enable `capabilities_enabled` yet. Full-schema rollback
+checks and repository verification pass. The draft is not installed anywhere;
+Production billing stays disabled. The roadmap records review-only quote,
+add-on and restart proposals, with no newly approved commercial terms.
+
+
+## 2026-09-28 — Verify genuine Test renewal retries after database-API outage
+
+`docs/subscription-test-acceptance.md` records a real Test renewal on an explicitly
+seeded prior term: genuine failed-payment grace, same-order capture, four provider
+503 deliveries while isolated PostgREST was unavailable/recovering, and one
+provider-retried renewal commit. Original period boundaries, delayed-failure
+idempotency, and organization-switch isolation passed. No code/schema changes;
+temporary webhook/services/gates cleaned up. Native device and narrower provider/
+PostgreSQL commit-failure scenarios remain unverified.
+
+## 2026-09-28 — Advance isolated full-schema subscription acceptance
+
+`docs/subscription-test-acceptance.md` records real Auth/invitation, expired-access,
+owner-only API, operational RLS, and branch-create capacity checks against all
+307 repository migrations in a fresh local database. Disposable replay moves the
+historical payment-hardening migration before `058`; repository migrations are
+unchanged. The existing Test order then captured ₹799 with the app tab closed;
+genuine capture/refund webhooks, exactly-once full-schema grants/refund cutoff,
+authenticated access/RLS, Starter capacity, cancellation and owner billing recovery
+passed. Evidence distinguishes genuine delivery from local replays. Temporary
+webhook and local gates are disabled; cloud Test is paused and Production stays
+closed. Provider retry/outage and genuine renewal acceptance remain pending.
+
 ## 2026-09-28 — Repair legal-identity lookup and refresh paid-pilot gates
 
 `lib/whatsapp/legal-business-name.ts` names the organization-scoped FK to avoid

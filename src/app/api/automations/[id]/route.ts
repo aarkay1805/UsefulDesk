@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { NextResponse } from 'next/server';
 import { requireOperationalAccess, toErrorResponse } from '@/lib/auth/account';
 import { requireSameOriginRequest } from '@/lib/auth/csrf';
@@ -82,6 +83,19 @@ export async function PATCH(
       { error: 'Only the automation author can edit or activate it' },
       { status: 403 }
     );
+  }
+
+  // Lower tiers may stop retained work; changing or enabling it needs Growth.
+  if (!(Object.keys(body).length === 1 && body.is_active === false)) {
+    try {
+      await requireProductAccess(
+        ctx.supabase,
+        ctx.accountId,
+        'configurable_automations'
+      );
+    } catch (err) {
+      return toErrorResponse(err);
+    }
   }
 
   const update: Record<string, unknown> = {};

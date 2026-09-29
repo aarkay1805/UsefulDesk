@@ -1,3 +1,4 @@
+import { requireProductAccess } from '@/lib/platform-access/server';
 import { NextResponse } from 'next/server';
 import {
   ForbiddenError,
@@ -43,6 +44,11 @@ export async function POST(request: Request) {
     if (!canEditAuthoredContent(ctx.role, ctx.userId, ctx.userId)) {
       throw new ForbiddenError('You cannot create automations');
     }
+    await requireProductAccess(
+      ctx.supabase,
+      ctx.accountId,
+      'configurable_automations'
+    );
   } catch (err) {
     return toErrorResponse(err);
   }

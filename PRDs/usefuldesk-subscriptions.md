@@ -101,6 +101,21 @@ rules; tier enforcement stays uninstalled pending the standard reminder schedule
 and comprehensive server/database/send-boundary acceptance. No additional tier
 contents or usage limits are inferred.
 
+### Capability-boundary draft — 28 September 2026
+
+The local draft `20260928160000_subscription_capability_boundary.sql` now
+mirrors the approved capability names in the existing authorized product-access
+snapshot and a database predicate. It guards new campaigns, configurable
+automations, Payment Links and AutoPay setup; server workers recheck the snapshot,
+and web payment controls/editors explain restrictions. Starter downgrades retire
+pending campaigns and automation waits atomically. The draft preserves standard
+reminder permission and existing financial reconciliation. It is not installed;
+its separate `capabilities_enabled` switch is false. Standard/custom reminder
+implementation, complete UI/native/send-boundary acceptance and rollout remain
+open. Commercial proposals and the precise unfinished work are in
+`PRDs/roadmap.md` under **Subscription product continuation**. They are proposals,
+not approved terms, payable quotes, or permission to enable billing.
+
 ## Approved branch packaging
 
 | Tier     | Branches included | Expansion rule                                                                                 |

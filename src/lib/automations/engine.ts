@@ -75,7 +75,7 @@ export async function runAutomationsForTrigger(
 ): Promise<void> {
   try {
     const db = supabaseAdmin();
-    await requireProductAccess(db, input.accountId);
+    await requireProductAccess(db, input.accountId, 'configurable_automations');
 
     // Tenant isolation. `contactId` can be caller-supplied (the manual
     // POST /api/automations/engine entrypoint reads it straight from the
@@ -269,6 +269,11 @@ interface ExecuteArgs {
 }
 
 async function requireCurrentAutomation(args: ExecuteArgs): Promise<void> {
+  await requireProductAccess(
+    supabaseAdmin(),
+    args.automation.account_id,
+    'configurable_automations'
+  );
   if (args.pendingLease)
     await requireCurrentExecution(supabaseAdmin(), {
       kind: 'automation',
@@ -280,7 +285,11 @@ async function requireCurrentAutomation(args: ExecuteArgs): Promise<void> {
 
 async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
   const db = supabaseAdmin();
-  await requireProductAccess(db, args.automation.account_id);
+  await requireProductAccess(
+    db,
+    args.automation.account_id,
+    'configurable_automations'
+  );
   await requireCurrentAutomation(args);
 
   const baseQuery = db
@@ -402,7 +411,11 @@ async function runStep(
   args: ExecuteArgs
 ): Promise<string> {
   const db = supabaseAdmin();
-  await requireProductAccess(db, args.automation.account_id);
+  await requireProductAccess(
+    db,
+    args.automation.account_id,
+    'configurable_automations'
+  );
   await requireCurrentAutomation(args);
 
   switch (step.step_type) {
@@ -798,7 +811,11 @@ async function runStep(
       const body = cfg.body_template
         ? interpolate(cfg.body_template, args)
         : JSON.stringify(args.context);
-      await requireProductAccess(db, args.automation.account_id);
+      await requireProductAccess(
+        db,
+        args.automation.account_id,
+        'configurable_automations'
+      );
       await requireCurrentAutomation(args);
       const res = await fetch(cfg.url, {
         method: 'POST',

@@ -19,8 +19,16 @@ const fetchPaymentLink = vi.hoisted(() => vi.fn());
 const navigation = vi.hoisted(() => ({ pathname: '/invoices', push: vi.fn() }));
 
 let accountRole: 'owner' | 'admin' | 'agent' | 'viewer' = 'owner';
+let tierAllowed = true;
 let whatsappConnected = true;
 let templateReady = true;
+
+vi.mock('@/hooks/use-subscription-capability', async (importActual) => ({
+  ...(await importActual<
+    typeof import('@/hooks/use-subscription-capability')
+  >()),
+  useSubscriptionCapability: () => tierAllowed,
+}));
 
 vi.mock('sonner', () => ({
   toast: { error: vi.fn(), success: vi.fn() },
@@ -124,6 +132,7 @@ async function resolveReadiness({
 
 beforeEach(() => {
   accountRole = 'owner';
+  tierAllowed = true;
   whatsappConnected = true;
   templateReady = true;
   navigation.push.mockReset();
@@ -155,6 +164,15 @@ const blockerControls = (blocker: HTMLElement) =>
   });
 
 describe('PaymentLinkActions readiness', () => {
+  it('explains the tier restriction without creating or copying a link', async () => {
+    tierAllowed = false;
+    renderActions(member);
+    await resolveReadiness({ providerReady: true });
+    await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    expect(await screen.findByText('A different plan is needed')).toBeTruthy();
+    expect(fetchPaymentLink).toHaveBeenCalledTimes(1);
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+  });
   it('applies an external collection blocker to Copy and Send without invoking either action', async () => {
     const onResolve = vi.fn();
     renderActions(member, {
