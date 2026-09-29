@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-09-29 — Close out the disabled billing foundation for review
+
+PR #16 at `a5120b5a` passed CI, CodeQL and Vercel preview checks. The
+Production recheck found `4072dccc` still deployed, zero private subscription
+tables, and the team on Vercel Hobby. `docs/production-readiness.md`,
+`docs/subscription-live-boundary.md`, and `PRDs/roadmap.md` now separate review
+and merge of the default-off code from a payable Starter rollout. The owner
+selected UsefulMade / Home office and requested the existing activated
+UsefulMade Razorpay merchant. Read-only access evidence found the selected
+organization complimentary with no trial dates, so a reviewed transition or
+contract change is needed before an initial quote. SaaS product/domain
+approval, shared-webhook route correction, qualified tax/receipt conclusion,
+customer offer wording, and final provider/release acceptance remain open. No Production
+subscription migration, paid grant or real-money transaction resulted.
+
 ## 2026-09-29 — Close dark Live quote-expiry and issuance races
 
 The uninstalled Live migrations now use wall time for quote expiry and claim
@@ -43,7 +58,7 @@ purchase, or real-money authorization resulted from these decisions.
 ## 2026-09-29 — Draft dark Usefulmade Live SaaS billing boundary
 
 `live-{provider,orders,flow,refunds}.ts`, Live subscription routes and
-migrations `20260929170000`–`20260929250000` add a separate merchant/pilot
+migrations `20260929170000`–`20260929250000` add an exact merchant/pilot
 binding, durable order/refund claims, signed webhook evidence, service-only
 first-term/refund transactions, held-event reconciliation, an exact-amount
 owner review panel, Starter reminder normalization and activation audit. An

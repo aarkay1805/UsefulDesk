@@ -768,27 +768,43 @@ cancellations expire naturally, and keep refunds separate from gym-member money
 movement. `docs/production-readiness.md` is the provider gate and
 `npm run audit:production-env` is the value-redacting environment-policy check.
 
-**28 September audit: paid activation remains closed.** Authenticated reads
-confirm Vercel Hobby, Supabase Free within quotas, configured Auth SMTP, and
-active database schedules. Real Auth delivery, protected URL/key value checks,
-Vercel upgrade, Supabase risk/spend choice, adviser-confirmed accounting and the
-exact limited offer remain owner decisions. The readiness record now separates
-manual-pilot approval from automated-subscription acceptance; operational checks
-alone cannot open either gate. Turnstile remains absent.
+**29 September closeout: paid activation remains closed.** The owner-approved
+Starter pilot scope and Supabase Free review date are recorded in
+`docs/production-readiness.md`; sign-in email delivery and redemption passed.
+Protected URL/key values remain unverifiable, Vercel remains on Hobby, and
+adviser-confirmed accounting and exact payable wording remain open. The owner
+selected UsefulMade / Home office (`8826d9aa-03f2-4ad7-ae91-0553052131f8`,
+one active branch) for the pilot. Read-only access evidence found it
+complimentary with no trial dates, so the draft expired-trial quote contract
+cannot serve it without a reviewed access transition or contract change. The
+readiness record separates manual-pilot approval from
+automated-subscription acceptance; operational checks alone cannot open either
+gate. Turnstile remains absent.
 
-**Fixed in code, deployment/recovery pending:** the shared legal-business lookup
-now names the organization-scoped FK, fixing reproduced `PGRST201` ambiguity.
-One Production payment-confirmation reminder exhausted five attempts with zero
-provider sends; a healthy later cron aggregate does not recover it. Release the
-patch and obtain an owner decision on that job's disposition. Redundant GitHub
-cron runs were stale at audit time. The environment checker now rejects all
-three SaaS Test flags and unreleased SaaS merchant configuration in Production.
-No provider setting, migration, live send, payment or access was changed.
+**Recovery decision recorded:** the deployed shared legal-business lookup names
+the organization-scoped FK, fixing reproduced `PGRST201` ambiguity. One
+Production payment-confirmation reminder exhausted five attempts with zero
+provider sends; the owner marked it missed without a resend. Redundant GitHub
+cron runs were stale at the last audit. The environment checker rejects SaaS
+Test flags and enabled Live billing switches in Production. No Production
+subscription migration, Live send, payment or access activation resulted.
+
+**Disabled billing foundation ready for review, activation pending:** draft PR
+#16 at `a5120b5a` passed CI, CodeQL and Vercel preview checks on 29 September.
+The owner authorized proceeding through review and merge of its default-off
+foundation. A ~17:30 UTC read-only recheck found Production still at
+`4072dccc`, Supabase `ACTIVE_HEALTHY`, zero private subscription/billing tables,
+and Vercel Hobby. Code review and merge do not open a payable path. The Live
+shared-merchant domain/product approval and event routing, qualified tax/receipt conclusion, pilot
+access transition, offer wording, and release-specific provider acceptance remain
+the next activation work; see [readiness](../docs/production-readiness.md) and
+the [Live boundary](../docs/subscription-live-boundary.md).
 
 The local default-off Test checkout, renewal, cancellation and refund slices
-below do not constitute Production automated billing. Full-schema/native/RLS
-acceptance, genuine provider webhook/renewal recovery, remaining tier enforcement
-and commercial decisions still block rollout. A specifically approved manual
+below do not constitute Production automated billing. Later full-schema,
+native and genuine Test-provider acceptance is recorded below and in the
+[Test record](../docs/subscription-test-acceptance.md); Live merchant and final
+offer/release acceptance still block rollout. A specifically approved manual
 pilot uses the documented ledger and manual access workflow; its offer cannot
 claim automated tier enforcement.
 
@@ -876,11 +892,11 @@ corrections retain processed evidence for review.
 
 Real Test full refund of the original ₹799 payment and disposable commit/replay
 passed, as did rollback and concurrent order/receipt/refund claim/commit checks.
-Full application/native/RLS recovery and genuine provider renewal/webhook delivery
-remain pending. Upgrade quote expiry/repricing and paid add-on
+The later full-schema, native and genuine Test-provider acceptance is recorded
+above. Upgrade quote expiry/repricing and paid add-on
 cancellation/refund/proration/renewal rules remain open for later offers;
 the first Starter pilot excludes those flows. Upgrade checkout, paid slots, and capability
-enforcement remain unbuilt and closed. The Test refund execution has a second
+enforcement were subsequently built as disabled drafts, as recorded below. The Test refund execution has a second
 app/DB default-off gate; both local switches were restored off after acceptance.
 No Production migration, checkout, real charge, or automated paid access has
 shipped. The separate
@@ -893,14 +909,16 @@ Starter includes one branch with no add-on. A second branch requires Growth plus
 its paid branch add-on, or another suitable higher tier; a future add-branch
 attempt should explain this and show the exact price before confirmation.
 Growth includes one branch and permits exactly one paid additional branch, for
-a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The local Test recovery UI and archive transaction have component/fixture SQL acceptance; full application conversion and genuine provider webhook delivery remain pending. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration remain pending. Add-on billing changes and quote expiry remain undecided.
+a maximum of two. Only active branches count toward the allowance: archiving frees a slot while preserving history, and restore requires available capacity. The trial allows five active branches; create and restore must stop at that limit without changing existing over-cap branches. For conversion to a smaller plan, the owner must explicitly choose branches to archive or choose enough verified capacity; no branch is automatically selected, archived, or deleted. The local Test recovery UI and archive transaction have component/fixture SQL acceptance; later full-schema and genuine provider delivery evidence is recorded above. The add-on amount is approved. A purchased extra slot becomes usable only after payment verification; pending/failed orders grant none. Archiving frees active capacity without automatically cancelling or refunding the add-on. Base-tier upgrades take effect after verified payment of the prorated difference for the remaining current paid period; base-tier downgrades and cancellations take effect at the next renewal, preserving paid access through the current paid-through end. A downgrade still needs verified renewal payment and a post-archive branch roster within capacity. Failed renewals of existing paid terms retain the old tier and capacity for 72 hours after the original paid-through instant; retries never restart the window. Trial expiry, first checkout, and intentional cancellation have no such grace. The first UsefulDesk subscription payment may be requested for a full refund through local calendar day seven, once per organization; later renewals have no routine partial-month refund. Duplicate/incorrect charges are corrected, while accidental renewals and serious failures receive individual review. A confirmed full first-payment refund ends paid access and stops renewal while preserving data and sign-in; pending/failed refunds do neither. Provider refund/cancellation and runtime access integration are drafted and Test-accepted in the scoped record; Live activation remains closed. Later-offer add-on billing changes and upgrade quote expiry remain undecided.
 These choices are packaging direction, not a validated cost calculation.
 Growth includes gym-member Razorpay Payment Links and automatic recurring
 collection through AutoPay when the gym's own eligible merchant and mandate
 setup are ready; Ultimate inherits both. The gym bears Razorpay merchant fees
 under its own terms. Usefulmade's support, processing, storage, and any funded
-message costs have not been quantified. SaaS billing uses Usefulmade's separate
-merchant. Other feature allocations and annual prices are still proposals.
+message costs have not been quantified. The owner now requests using the
+existing UsefulMade merchant for SaaS billing, with independent direct-key configuration, webhook
+handling and ledger identity; product/domain approval and event-routing
+acceptance remain open. Other feature allocations and annual prices are still proposals.
 Provisional monthly INR software prices are approved for launch/pilot planning:
 Starter ₹799, Growth ₹1,499, Ultimate ₹3,999, and an eligible additional branch
 ₹499/month. Growth with its one paid extra branch has ₹1,998/month in listed
@@ -976,7 +994,7 @@ The private advanced and capability switches remain
 false; no advanced charge or Production migration occurred.
 
 **Built locally, dark Live boundary:** migrations `20260929170000`–
-`20260929250000` add separate Usefulmade Live quote, order, payment, grant,
+`20260930000000` add Usefulmade Live quote, order, payment, grant,
 refund and signed-webhook evidence with a pinned merchant and one pilot
 organization. The Live adapter and API draft claim an order before provider
 POST, use exact-receipt GET recovery, verify captured money with fresh provider
@@ -1039,9 +1057,16 @@ this first offer. Approved Starter features are members/plans,
 memberships/renewals, attendance, manual payments, shared WhatsApp chats and
 standard renewal reminders; custom schedules, bulk campaigns, configurable
 automations, gym-member Payment Links and AutoPay are excluded. Tax-approved
-exact payable wording and customer terms, a distinct activated Usefulmade Live merchant (none
-exists yet), one pilot organization, release acceptance, and explicit
+exact payable wording and customer terms, SaaS product/domain acceptance for
+the existing activated UsefulMade merchant, shared-webhook route correction,
+an accepted access transition or contract change for the complimentary
+UsefulMade / Home office pilot,
+release acceptance, and explicit
 Production/real-money authorizations remain open. Production remains closed.
+The shared-merchant route fix must acknowledge verified gym events at the SaaS
+webhook without SaaS processing, leave ambiguous events retryable, and keep SaaS
+refunds out of the gym refund processor. Signed delivery, retry and
+reconciliation acceptance must cover both routes.
 
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 

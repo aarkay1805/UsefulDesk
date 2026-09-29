@@ -4,11 +4,20 @@
 reviewable initial-term, expiry-only renewal and first-full-refund boundary, not a payable offer or
 permission to deploy, enable billing, or move money. Gym Razorpay OAuth,
 webhooks, mandates and member ledgers remain separate.
+At `a5120b5a`, PR #16's CI, CodeQL and Vercel preview checks passed. That
+supports review and merge of the disabled foundation only; Production has no
+SaaS billing schema or configured Live SaaS path in the last recorded audit.
+The owner has since requested reuse of the existing activated UsefulMade
+merchant. The `acc_` identity can be shared technically, while direct SaaS
+key configuration, webhook handling, order identity and billing records stay
+independent of gym OAuth. This does not require a second Razorpay API key pair;
+Razorpay describes keys as universal across approved websites/apps.
 
 ## Boundaries
 
 - `src/lib/subscriptions/live-provider.ts` uses only the Usefulmade Live key,
-  secret, webhook secret and pinned `acc_` merchant. It refuses non-Production
+  secret, webhook secret and pinned `acc_` merchant. Reuse of the existing
+  merchant requires independent SaaS credential configuration and exact event routing. It refuses non-Production
   runtimes and any Test SaaS credential. Only the key ID may be returned to
   Checkout. Provider GETs verify exact order receipt, organization notes, INR
   paise and captured/refunded facts.
@@ -91,17 +100,46 @@ webhooks, mandates and member ledgers remain separate.
 | Live renewal issuance           | false, database-hard-closed | `private.subscription_live_settings.renewals_enabled` plus the existing quote/order/intake/settlement gates. A later reviewed migration must replace its `CHECK(NOT renewals_enabled)`; cancellation remains available without enabling money initiation.                                                             |
 | Tier capabilities               | false                       | Existing `private.subscription_billing_settings.capabilities_enabled` remains off pending review of saved custom schedules and full acceptance. The Starter cadence is approved as 7/3/1 days before expiry after 09:00 account-local.                                                                                |
 
-The application never compares a Live merchant ID to a gym account's OAuth
-merchant. Production environment audit permits a complete dark Live
+The application does not enforce inequality between the Live SaaS merchant ID
+and a gym account's OAuth merchant. Production environment audit permits a complete dark Live
 configuration, rejects Test keys and money switches, and treats redacted
 protected values as unverified.
 
+**Shared-merchant routing gap:** the current SaaS webhook can return a retryable 503 for a
+foreign gym order, while the gym webhook can claim a SaaS refund. Correct both
+routes and prove signed order/refund isolation, retries and reconciliation
+before using the same `acc_` for a real payment. This does not block merging
+the dark foundation; all payable switches stay closed.
+
 ## Remaining before any Live pilot
+
+**External handoff:** the owner selected UsefulMade / Home office
+(`8826d9aa-03f2-4ad7-ae91-0553052131f8`, one active branch). A read-only
+check found complimentary access with no trial dates, so it cannot satisfy
+the current expired-trial quote precondition. Review an access transition or
+contract change before accepting this pilot. Confirm that the existing activated UsefulMade
+`acc_TCJwBqanN9LTrK` is approved for UsefulDesk subscriptions and
+`desk.usefulmade.com`, then configure SaaS direct-key and webhook settings
+independently of gym OAuth; obtain a qualified written tax/receipt conclusion for the exact
+customer payable amount, supplier/customer fields, customer geography and
+first-full-refund record. Give the adviser the founder's actual legal
+supplier/PAN, PAN-wide turnover for the current and prior financial years,
+pilot-customer states, proposed subscription and refund terms, and the fact
+that this founder pilot shares the provider merchant with gym collections
+while keeping SaaS and member-payment ledgers separate.
+The provisional ₹799 and ₹0 GST draft are not a payable quote or tax decision.
+The current public UsefulDesk page says to contact for pricing and its public
+terms contain generic payment language; approve and present the exact Starter
+price, term, cancellation and refund wording before a customer pays.
+Store sensitive evidence privately; copy only approved customer wording and
+references into the offer approval ledger. See
+[paid-pilot readiness](production-readiness.md#owner-decisions-and-acceptance-evidence)
+for B-01–B-05 and C-01/C-02.
 
 1. Finish the customer-payable offer: qualified tax/receipt advice and exact
    amount/wording, the customer-facing presentation of separately payable
    third-party charges,
-   cancellation/refund wording, and one pilot organization. The owner approved
+   cancellation/refund wording, and eligibility for the selected pilot organization. The owner approved
    a provisional ₹799, one expired-trial organization, one active branch, web
    Checkout, a capture-event calendar month, and a 30-minute reviewed quote;
    late capture is review-held. There are no pilot-specific numeric member or
@@ -109,8 +147,9 @@ protected values as unverified.
    memberships/renewals, attendance, manual payments, shared WhatsApp chats,
    and standard renewal reminders; custom schedules, bulk campaigns,
    configurable automations, gym-member Payment Links, and AutoPay are
-   excluded. No separate Usefulmade Live merchant exists yet; activate and
-   privately verify one distinct from the gym collections merchant. No
+   excluded. The owner requested using the existing UsefulMade merchant; its
+   approved website is `usefulmade.com`, while the SaaS domain/product and
+   shared-webhook routing still need acceptance. No
    approval row is seeded; quote issuance and Checkout remain hard-closed
    pending an explicitly reviewed opening migration.
 2. Accept the approved Starter 7/3/1 reminder schedule after 09:00 account-local
