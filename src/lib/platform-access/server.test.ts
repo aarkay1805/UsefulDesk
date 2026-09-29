@@ -81,12 +81,10 @@ describe('subscription capability boundary', () => {
   it.each([null, true, ['unknown'], ['gym_autopay', 'gym_autopay']])(
     'fails closed on malformed capabilities %j',
     async (capabilities) => {
-      const rpc = vi
-        .fn()
-        .mockResolvedValue({
-          data: { ...snapshot, subscription_capabilities: capabilities },
-          error: null,
-        });
+      const rpc = vi.fn().mockResolvedValue({
+        data: { ...snapshot, subscription_capabilities: capabilities },
+        error: null,
+      });
       await expect(
         requireProductAccess({ rpc }, 'branch', 'gym_autopay')
       ).rejects.toBeInstanceOf(ProductAccessError);

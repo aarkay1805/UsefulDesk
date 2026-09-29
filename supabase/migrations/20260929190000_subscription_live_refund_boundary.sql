@@ -26,7 +26,7 @@ ALTER TABLE private.subscription_live_refunds
   ADD CONSTRAINT subscription_live_refunds_state_check
   CHECK(state IN ('claimed','pending','failed','processed','review_required'));
 ALTER TABLE private.subscription_live_refunds
-  ADD COLUMN IF NOT EXISTS provider_requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS provider_requested_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS review_reason TEXT;
 DO $$ BEGIN

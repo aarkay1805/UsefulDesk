@@ -189,7 +189,7 @@ BEGIN
     OR EXISTS(SELECT 1 FROM private.organization_paid_subscription_grants
       WHERE organization_id=p_organization_id)
     OR EXISTS(SELECT 1 FROM private.subscription_live_quotes
-      WHERE organization_id=p_organization_id AND expires_at>now()) THEN
+      WHERE organization_id=p_organization_id AND expires_at>clock_timestamp()) THEN
     RAISE EXCEPTION 'Existing paid obligation needs review' USING ERRCODE='55000'; END IF;
   RETURN jsonb_build_object('approval_id',a.approval_id,'tier',a.tier,
     'amount_minor',a.amount_minor,'currency',a.currency,
@@ -217,12 +217,12 @@ DECLARE s private.subscription_live_settings;
 BEGIN
   IF (auth.jwt()->>'role') IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required' USING ERRCODE='42501'; END IF;
+  PERFORM 1 FROM public.organizations WHERE id=p_organization_id FOR UPDATE;
   SELECT * INTO s FROM private.subscription_live_settings WHERE singleton;
   IF NOT FOUND OR NOT s.quotes_enabled OR s.provider_mode<>'live'
     OR s.pilot_organization_id IS DISTINCT FROM p_organization_id
     OR s.merchant_id IS DISTINCT FROM p_provider_merchant_id THEN
     RAISE EXCEPTION 'Live quote issuance is disabled or unbound' USING ERRCODE='55000'; END IF;
-  PERFORM 1 FROM public.organizations WHERE id=p_organization_id FOR UPDATE;
   IF NOT EXISTS(SELECT 1 FROM public.organization_memberships
     WHERE organization_id=p_organization_id AND user_id=p_actor_user_id AND role='owner') THEN
     RAISE EXCEPTION 'Organization owner required' USING ERRCODE='42501'; END IF;
@@ -240,7 +240,7 @@ BEGIN
     IF q.organization_id<>p_organization_id OR q.requested_by<>p_actor_user_id
       OR q.billing_account_id<>p_billing_account_id OR q.offer_approval_id<>p_approval_id
       OR q.tier<>p_tier OR q.amount_minor<>p_seen_amount_minor
-      OR q.merchant_id<>p_provider_merchant_id OR now()>=q.expires_at THEN
+      OR q.merchant_id<>p_provider_merchant_id OR clock_timestamp()>=q.expires_at THEN
       RAISE EXCEPTION 'Live quote replay changed or expired' USING ERRCODE='23505'; END IF;
     RETURN jsonb_build_object('request_id',q.request_id,
       'organization_id',q.organization_id,'tier',q.tier,
@@ -268,7 +268,7 @@ BEGIN
     OR EXISTS(SELECT 1 FROM private.organization_paid_subscription_grants
       WHERE organization_id=p_organization_id)
     OR EXISTS(SELECT 1 FROM private.subscription_live_quotes
-      WHERE organization_id=p_organization_id AND expires_at>now()) THEN
+      WHERE organization_id=p_organization_id AND expires_at>clock_timestamp()) THEN
     RAISE EXCEPTION 'Existing Live quote or paid obligation needs review' USING ERRCODE='55000'; END IF;
   IF p_tier='starter' THEN
     SELECT * INTO r FROM private.subscription_billing_settings WHERE singleton;

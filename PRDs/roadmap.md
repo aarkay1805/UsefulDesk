@@ -952,7 +952,7 @@ acceptance. Production billing stays closed.
 The acceptance chat continues to own provider recovery, downgrade renewal and
 native billing acceptance; this section does not supersede its evidence.
 
-**Owner review — proposals only, not approved or payable:**
+**Owner review — later-offer proposals; Starter timing approved, billing closed:**
 
 | Choice              | Concrete proposal                                                                                                                   | Required consequence                                                                                                                                                                                          |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1002,8 +1002,8 @@ rolled-back full-schema synthetic SQL pass; genuine provider/release acceptance
 remain pending. No Live credentials,
 Production migration, charge or refund were used.
 
-**Remaining:** owner decisions for later offers above; concurrent boundary checks,
-the genuine renewal/refund race, and explicit activation review for the limited
+**Remaining:** owner decisions for later offers above; genuine provider-backed
+renewal/refund evidence, final offer-specific web/refund presentation, and explicit activation review for the limited
 web pilot. Advanced native Checkout acceptance remains separate and is excluded
 from the first offer. Genuine advanced Test capture, signed webhook
 retry, and local PostgREST outage recovery passed; physical PostgreSQL storage
@@ -1027,6 +1027,13 @@ reminder policy, cancellation or refund evidence holds captured renewal money.
 The additional database renewal switch is hard-closed. Synthetic full-schema
 rollback and mocked application checks pass; genuine provider and final release
 acceptance remain open.
+The 29 September continuation closed a transaction-start quote-expiry defect:
+Checkout now refuses a quote that expires while its database session waits, and
+quote/order/refund initiation sees a shutdown after the organization lock.
+Two-session disposable checks covered overlapping quotes, both capture versus
+cancellation orderings, and order shutdown; the complete schema passed the
+rollback-only SQL suite. Focused web and native access tests passed. These
+checks used synthetic evidence and did not activate Live billing.
 Upgrades, paid add-ons, automated restart, and native Checkout are outside
 this first offer. Approved Starter features are members/plans,
 memberships/renewals, attendance, manual payments, shared WhatsApp chats and

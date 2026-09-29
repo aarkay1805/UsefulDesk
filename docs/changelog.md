@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-09-29 — Close dark Live quote-expiry and issuance races
+
+The uninstalled Live migrations now use wall time for quote expiry and claim
+timestamps, and read initiation switches after the organization lock. A
+rollback-only full-schema regression and scoped two-session disposable checks
+cover expiry during lock wait, quote contention, capture/cancellation ordering,
+and shutdown during Checkout. Focused web/native access tests pass. No Live
+provider, Production migration, charge or customer send was involved; the paid
+pilot gate remains closed.
+
 ## 2026-09-29 — Draft expiry-only Live Starter renewal
 
 `20260930000000_subscription_live_owner_renewals.sql` and the existing Live

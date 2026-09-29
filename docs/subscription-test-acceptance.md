@@ -650,7 +650,7 @@ grant rejection, schedule normalization, claim retirement, attempted-claim
 preservation, retired-key dedupe, policy-version freeze, and activation refusal with custom Starter
 settings. It left the real approval flag false and installed nothing.
 
-**Owner review proposal, not approved:** use the existing membership and service
+**Approved Starter timing (29 September):** use the existing membership and service
 cadence of **7, 3, and 1 local calendar days before expiry**, with the first
 hourly worker run **at or after 09:00 in each branch's timezone** on each due
 day. Do not send an extra on-expiry or post-expiry message. If the worker misses
@@ -659,13 +659,13 @@ still send. This keeps Starter's three reminders and avoids an additional
 gym-paid Meta message. Growth and Ultimate may edit the offsets within the
 existing six-offset/365-day guard. WhatsApp connection, exact Approved/synced
 Marketing template, legal business name, eligibility and provider outcomes
-remain separate gates. This is a proposal only; no standard timing was
-activated or presented as an approved saleable term.
+remain separate gates. This policy approval did not activate the capability
+switch or authorize a customer send.
 
 **Activation block:** the existing fallback arrays `[7,3,1]` and the 09:00
-worker threshold happen to match this proposal but are not an approved tier
-policy. Before enabling `private.subscription_billing_settings.capabilities_enabled`
-even in Test, approve exact standard timing, ensure Starter's persisted
+worker threshold match the approved policy, but are not an activation decision.
+Before enabling `private.subscription_billing_settings.capabilities_enabled`
+even in Test, ensure Starter's persisted
 membership and service offsets are set to that standard through an owner-reviewed
 term transition, and test pending custom reminder claims through downgrade and
 later upgrade. The initial and renewal billing transaction triggers are wired;
@@ -845,3 +845,40 @@ Live acceptance. Existing Test-provider evidence above remains separate. The
 Live provider still refuses Test credentials and non-Production runtimes; no
 exception was added for this test. The final post-run check found no Live schema.
 Production paid-pilot readiness remains CLOSED.
+
+## Live draft race and access continuation — 29 September 2026
+
+The full-schema rollback-only SQL suite still passes with all ten Live draft
+migrations and leaves no installed Live schema. A separate disposable database
+clone let independent PostgreSQL sessions contend on the same synthetic pilot
+organization. The clone restored the application and subscription objects; its
+restore reported eight unrelated `pg_cron`, `realtime`, and `vault` errors, so it
+is not an exact operational clone. It was dropped after the checks.
+
+- Two simultaneous renewal-quote requests produced one quote; the other
+  refused the overlapping request. A cancellation committed before quote
+  issuance made the quote refuse.
+- With a bound synthetic order and capture-event database fixture, cancellation
+  committing first made settlement persist `review_required` without a renewal
+  access audit. Settlement committing first advanced exactly one term; the
+  cancellation carrying the previous term ID was refused. These events were
+  inserted SQL fixtures, not provider deliveries or signatures.
+- A Checkout claim started before quote expiry, waited on an organization
+  lock, then returned an order after expiry. The draft used transaction-start
+  `now()`. Quote/review/Checkout checks now use `clock_timestamp()` and claim
+  timestamps record wall time. The same two-session race now refuses Checkout;
+  a rollback-only SQL regression also covers expiry inside a long transaction.
+- When a second session disabled order initiation while the organization was
+  locked, the waiting Checkout claim observed the closed switch and inserted
+  zero orders. Quote, order and refund issuance now read their switch after
+  acquiring that lock.
+
+Focused web Live/provider/access/reminder tests passed **72/72**; focused
+native access/auth tests passed **21/21**. The earlier signed physical Release
+iPhone Test access journey remains the device evidence; no new device run or
+Live provider call occurred here. Capability/send checks remain default off:
+the approved 7/3/1 after-09:00 policy, in-transaction Starter normalization,
+pre-claim and pre-Meta checks have synthetic SQL and mocked route evidence,
+but no enabled rollout or real WhatsApp send. Final offer-specific web/refund
+presentation, capability activation, and genuine Live merchant/release evidence
+remain open. The Production gate remains CLOSED.

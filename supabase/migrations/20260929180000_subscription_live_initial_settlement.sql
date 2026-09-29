@@ -120,7 +120,7 @@ BEGIN
   -- A bound order is still payable. Apply the current switches and quote
   -- validity to every Checkout response, including retries.
   IF NOT v_settings.orders_enabled OR NOT v_settings.settlements_enabled
-    OR NOT v_settings.webhook_intake_enabled OR now()>=v_quote.expires_at
+    OR NOT v_settings.webhook_intake_enabled OR clock_timestamp()>=v_quote.expires_at
     OR now()<v_quote.owner_reviewed_at THEN
     RAISE EXCEPTION 'Live Checkout is disabled or quote expired' USING ERRCODE='55000'; END IF;
   SELECT * INTO v_access FROM private.organization_product_access

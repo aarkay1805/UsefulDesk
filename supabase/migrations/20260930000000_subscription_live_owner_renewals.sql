@@ -256,7 +256,7 @@ BEGIN
     LEFT JOIN private.subscription_live_payments p USING(request_id)
     WHERE o.organization_id=p_organization_id AND (p.request_id IS NULL OR p.state<>'verified'))
     OR EXISTS(SELECT 1 FROM private.subscription_live_quotes q
-      WHERE q.organization_id=p_organization_id AND q.expires_at>now()
+      WHERE q.organization_id=p_organization_id AND q.expires_at>clock_timestamp()
         AND NOT EXISTS(SELECT 1 FROM private.subscription_live_payments p WHERE p.request_id=q.request_id)) THEN
     RAISE EXCEPTION 'Existing renewal needs review' USING ERRCODE='55000'; END IF;
   RETURN jsonb_build_object('renewal_of_request_id',g.request_id,'approval_id',a.approval_id,'tier',a.tier,
@@ -281,12 +281,12 @@ DECLARE s private.subscription_live_settings;
 BEGIN
   IF (auth.jwt()->>'role') IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required' USING ERRCODE='42501'; END IF;
+  PERFORM 1 FROM public.organizations WHERE id=p_organization_id FOR UPDATE;
   SELECT * INTO s FROM private.subscription_live_settings WHERE singleton;
   IF NOT FOUND OR NOT s.quotes_enabled OR s.provider_mode<>'live'
     OR s.pilot_organization_id IS DISTINCT FROM p_organization_id
     OR s.merchant_id IS DISTINCT FROM p_provider_merchant_id THEN
     RAISE EXCEPTION 'Live quote issuance is disabled or unbound' USING ERRCODE='55000'; END IF;
-  PERFORM 1 FROM public.organizations WHERE id=p_organization_id FOR UPDATE;
   IF NOT EXISTS(SELECT 1 FROM public.organization_memberships
     WHERE organization_id=p_organization_id AND user_id=p_actor_user_id AND role='owner') THEN
     RAISE EXCEPTION 'Organization owner required' USING ERRCODE='42501'; END IF;
@@ -305,7 +305,7 @@ BEGIN
     IF q.organization_id<>p_organization_id OR q.requested_by<>p_actor_user_id
       OR q.billing_account_id<>p_billing_account_id OR q.offer_approval_id<>p_approval_id
       OR q.tier<>p_tier OR q.amount_minor<>p_seen_amount_minor
-      OR q.merchant_id<>p_provider_merchant_id OR now()>=q.expires_at
+      OR q.merchant_id<>p_provider_merchant_id OR clock_timestamp()>=q.expires_at
       OR q.renewal_of_request_id IS DISTINCT FROM p_previous_request_id THEN
       RAISE EXCEPTION 'Live quote replay changed or expired' USING ERRCODE='23505'; END IF;
     RETURN jsonb_build_object('request_id',q.request_id,
@@ -319,7 +319,7 @@ BEGIN
     LEFT JOIN private.subscription_live_payments p USING(request_id)
     WHERE o.organization_id=p_organization_id AND (p.request_id IS NULL OR p.state<>'verified'))
     OR EXISTS(SELECT 1 FROM private.subscription_live_quotes q2
-      WHERE q2.organization_id=p_organization_id AND q2.expires_at>now()
+      WHERE q2.organization_id=p_organization_id AND q2.expires_at>clock_timestamp()
        AND NOT EXISTS(SELECT 1 FROM private.subscription_live_payments p WHERE p.request_id=q2.request_id)) THEN
     RAISE EXCEPTION 'Existing renewal needs review' USING ERRCODE='55000'; END IF;
   IF p_tier='starter' THEN
@@ -364,12 +364,12 @@ DECLARE v_settings private.subscription_live_settings;
 BEGIN
   IF (auth.jwt()->>'role') IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required' USING ERRCODE='42501'; END IF;
+  PERFORM 1 FROM public.organizations WHERE id=p_organization_id FOR UPDATE;
   SELECT * INTO v_settings FROM private.subscription_live_settings WHERE singleton;
   IF NOT FOUND OR v_settings.provider_mode<>'live'
     OR v_settings.merchant_id IS DISTINCT FROM p_provider_merchant_id
     OR v_settings.pilot_organization_id IS DISTINCT FROM p_organization_id THEN
     RAISE EXCEPTION 'Live pilot merchant is unbound' USING ERRCODE='55000'; END IF;
-  PERFORM 1 FROM public.organizations WHERE id=p_organization_id FOR UPDATE;
   IF NOT EXISTS(SELECT 1 FROM public.organization_memberships
     WHERE organization_id=p_organization_id AND user_id=p_actor_user_id AND role='owner') THEN
     RAISE EXCEPTION 'Organization owner required' USING ERRCODE='42501'; END IF;
@@ -393,7 +393,7 @@ BEGIN
   -- A bound order is still payable. Apply the current switches and quote
   -- validity to every Checkout response, including retries.
   IF NOT v_settings.orders_enabled OR NOT v_settings.settlements_enabled
-    OR NOT v_settings.webhook_intake_enabled OR now()>=v_quote.expires_at
+    OR NOT v_settings.webhook_intake_enabled OR clock_timestamp()>=v_quote.expires_at
     OR clock_timestamp()<v_quote.owner_reviewed_at THEN
     RAISE EXCEPTION 'Live Checkout is disabled or quote expired' USING ERRCODE='55000'; END IF;
   IF v_quote.renewal_of_request_id IS NOT NULL THEN
@@ -769,12 +769,12 @@ DECLARE v_settings private.subscription_live_settings;
 BEGIN
   IF (auth.jwt()->>'role') IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required' USING ERRCODE='42501'; END IF;
+  PERFORM 1 FROM public.organizations WHERE id=p_organization_id FOR UPDATE;
   SELECT * INTO v_settings FROM private.subscription_live_settings WHERE singleton;
   IF NOT FOUND OR v_settings.provider_mode<>'live'
     OR v_settings.merchant_id IS DISTINCT FROM p_provider_merchant_id
     OR v_settings.pilot_organization_id IS DISTINCT FROM p_organization_id THEN
     RAISE EXCEPTION 'Live refund merchant is unbound' USING ERRCODE='55000'; END IF;
-  PERFORM 1 FROM public.organizations WHERE id=p_organization_id FOR UPDATE;
   IF NOT EXISTS(SELECT 1 FROM public.organization_memberships
     WHERE organization_id=p_organization_id AND user_id=p_actor_user_id AND role='owner') THEN
     RAISE EXCEPTION 'Organization owner required' USING ERRCODE='42501'; END IF;

@@ -155,6 +155,19 @@ SET LOCAL ROLE authenticated;
 SET LOCAL request.jwt.claims='{"sub":"b1111111-1111-4111-8111-111111111111","role":"authenticated"}';
 SELECT public.subscription_acknowledge_live_starter_reminders('b9999999-9999-4999-8999-999999999999');
 RESET ROLE;
+-- This transaction began before the quote existed. A transaction-start now()
+-- would still allow Checkout after the wall-clock expiry.
+SAVEPOINT quote_expiry_wall_clock;
+ALTER TABLE private.subscription_live_quotes DISABLE TRIGGER subscription_freeze_live_quote_economics;
+UPDATE private.subscription_live_quotes SET expires_at=clock_timestamp()+interval '100 milliseconds'
+ WHERE request_id='b9999999-9999-4999-8999-999999999999';
+ALTER TABLE private.subscription_live_quotes ENABLE TRIGGER subscription_freeze_live_quote_economics;
+SELECT pg_sleep(0.2);
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims='{"role":"service_role"}';
+SELECT pg_temp.expect_error($q$SELECT public.subscription_claim_live_order('b9999999-9999-4999-8999-999999999999',
+ 'b2222222-2222-4222-8222-222222222222','b1111111-1111-4111-8111-111111111111','acc_UsefulmadeLiveSynthetic')$q$,'55000');
+ROLLBACK TO quote_expiry_wall_clock;
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_claim_live_order('b9999999-9999-4999-8999-999999999999',

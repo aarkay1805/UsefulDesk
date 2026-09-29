@@ -114,7 +114,7 @@ BEGIN
     RETURN jsonb_build_object('request_id',q.request_id,
       'policy_version',q.starter_reminder_policy_version);
   END IF;
-  IF now()>=q.expires_at OR EXISTS(SELECT 1 FROM private.subscription_live_orders
+  IF clock_timestamp()>=q.expires_at OR EXISTS(SELECT 1 FROM private.subscription_live_orders
     WHERE request_id=p_request_id) THEN
     RAISE EXCEPTION 'Review reminders before creating an order' USING ERRCODE='55000'; END IF;
   UPDATE private.subscription_live_quotes SET starter_reminder_reset_accepted=TRUE,

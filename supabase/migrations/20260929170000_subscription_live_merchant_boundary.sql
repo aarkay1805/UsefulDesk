@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS private.subscription_live_orders (
   merchant_id TEXT NOT NULL,
   provider_order_id TEXT UNIQUE CHECK(provider_order_id IS NULL OR provider_order_id ~ '^order_[A-Za-z0-9]+$'),
   state TEXT NOT NULL DEFAULT 'claimed' CHECK(state IN ('claimed','bound','review_required')),
-  claimed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   bound_at TIMESTAMPTZ,
   FOREIGN KEY(request_id,organization_id,merchant_id)
     REFERENCES private.subscription_live_quotes(request_id,organization_id,merchant_id),
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS private.subscription_live_refunds (
   amount_minor BIGINT NOT NULL CHECK(amount_minor>0),
   currency TEXT NOT NULL DEFAULT 'INR' CHECK(currency='INR'),
   state TEXT NOT NULL DEFAULT 'review_required' CHECK(state='review_required'),
-  claimed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   FOREIGN KEY(provider_payment_id,organization_id,merchant_id)
     REFERENCES private.subscription_live_payments(provider_payment_id,organization_id,merchant_id)
 );

@@ -71,6 +71,13 @@ webhooks, mandates and member ledgers remain separate.
   `NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI` and
   `NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI` are default off and blocked by the
   Production environment audit.
+- Quote and Checkout expiry checks use wall time even if a PostgreSQL session
+  began before the 30-minute deadline and waited on a lock. Quote, order and
+  refund initiation read the current switch after locking the organization.
+  Two-session disposable checks cover overlapping quotes, cancellation versus
+  settlement, expiry while waiting, and shutdown during an order claim. The
+  concurrent database clone lacked unrelated cron/realtime/vault objects; the
+  complete schema separately passed the rollback-only single-session suite.
 
 ## Switches and isolation
 
@@ -113,11 +120,11 @@ protected values as unverified.
    customer review and cancellation flow is implemented behind closed gates.
    Its full-schema synthetic checks pass; genuine provider and final offer-specific
    release acceptance are still required before renewal is offered. There is no automatic SaaS debit.
-3. Repeat full-schema Test acceptance through the approved migration path,
-   inspect resulting tables/policies/function grants, and run concurrency,
-   genuine provider and outage checks. A rollback-only synthetic full-schema
-   SQL check passed in the disposable local stack; it left no Live schema
-   installed and did not use a provider.
+3. Repeat full-schema Test acceptance through the approved migration path and
+   inspect resulting tables, policies and function grants. The rollback-only
+   synthetic full-schema SQL suite and the scoped two-session race checks passed
+   locally; neither installed the Live schema on an operational Test project or
+   used a Live provider.
 4. Complete genuine provider Test delivery/outage recovery and Release web/native
    acceptance for the final offer. Only then review a separate Production
    migration, dark deployment, configuration and explicitly authorized
