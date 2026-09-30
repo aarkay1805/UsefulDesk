@@ -23,6 +23,12 @@ Supabase migration tool as `dark_saas_*` entries. At 12:31 UTC, history containe
 version mapping differs from source filenames; never substitute `db push`.
 No new application implementation or opening migration was installed.
 
+Later preparation is recorded in the
+[Starter opening review](starter-live-pilot-opening-review.md). Its closed
+candidate was installed and rollback-tested only on empty billing staging at
+16:50 UTC; this Production installation record is unchanged by that staging
+operation.
+
 ## Preservation and disabled boundary
 
 Before/after checks retained 8 Auth users, 6 accounts, 5 organizations, 554 gym

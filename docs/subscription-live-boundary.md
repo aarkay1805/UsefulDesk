@@ -157,6 +157,12 @@ and genuine Live acceptance remain pending. See the installation record.
 
 ## Switches and isolation
 
+The table records the current Production baseline. The separately prepared
+[first-term opening candidate](starter-live-pilot-opening-review.md) has passed
+local/cloud staging rollback checks with all gates restored off. Its explicit
+environment audit modes describe reviewed pilot and recovery phases; they do not
+authorize activation. Production has not installed that opening candidate.
+
 | Layer                            | Default                     | Requirement before use                                                                                                                                                                                                                                                                                                                                                                                |
 | -------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Live provider                    | configured, intake on       | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, independent SaaS configuration for `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`.                                                       |
