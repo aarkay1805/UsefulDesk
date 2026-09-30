@@ -768,11 +768,11 @@ cancellations expire naturally, and keep refunds separate from gym-member money
 movement. `docs/production-readiness.md` is the provider gate and
 `npm run audit:production-env` is the value-redacting environment-policy check.
 
-**29 September closeout: paid activation remains closed.** The owner-approved
+**30 September continuation: paid activation remains closed.** The owner-approved
 Starter pilot scope and Supabase Free review date are recorded in
 `docs/production-readiness.md`; sign-in email delivery and redemption passed.
 Protected URL/key values remain unverifiable, Vercel remains on Hobby, and
-documented tax/receipt treatment and exact payable wording remain open. The owner
+final tax/receipt determination and exact payable approval remain open. The owner
 selected UsefulMade / Home office (`8826d9aa-03f2-4ad7-ae91-0553052131f8`,
 one active branch) for the pilot. Read-only access evidence found it
 complimentary with no trial dates. The local default-off conversion draft now
@@ -786,7 +786,9 @@ gate. Turnstile remains absent.
 the organization-scoped FK, fixing reproduced `PGRST201` ambiguity. One
 Production payment-confirmation reminder exhausted five attempts with zero
 provider sends; the owner marked it missed without a resend. Redundant GitHub
-cron runs were stale at the last audit. The environment checker rejects SaaS
+cron runs were stale at the earlier audit; 30 September scheduled ops and
+renewals runs both succeeded on merged `a1a0ddab`, as did the nightly backup.
+The environment checker rejects SaaS
 Test flags and enabled Live billing switches in Production. No Production
 subscription migration, Live send, payment or access activation resulted.
 
@@ -797,13 +799,24 @@ at deployment `dpl_CVCkXK7H6udXzxNgdwuaaApjufak`; login GET returned 200,
 while unauthenticated Live webhook and quote POSTs returned 404. The earlier
 read-only database check found zero private subscription/billing tables, and the
 team remained on Vercel Hobby. The app deployment does not open a payable path.
-The follow-up implements default-off shared-merchant event routing and the
+PR #17 merged at `a1a0ddab7432e0204cfdc027f042b9c87b01115e` and its
+canonical Production app was READY at `dpl_AZtfZQ2qs1TiLhTBt6JdeoZN2vtM`
+on 29 September. The follow-up implements default-off shared-merchant event routing and the
 selected complimentary pilot's owner-acknowledged Starter conversion in code;
 its Live schema and money gates are not installed in Production. SaaS merchant product/domain approval,
 signed mixed-delivery acceptance, documented tax/receipt determination, final
 offer wording, hosting upgrade, and release-specific provider acceptance remain
-activation work; see [readiness](../docs/production-readiness.md), the private
-[offer draft](../docs/starter-pilot-offer-draft.md), and the
+activation work. The owner confirmed UsefulMade's legal business name, Punjab
+address, no GST registration and no turnover yet; the address stays in the
+private local issuer draft. The [reviewable offer draft](../docs/starter-pilot-offer-draft.md)
+now includes proposed cancellation, day-7 refund and ordinary receipt wording.
+The new uninstalled Live refund-review draft freezes the first payment billing
+timezone, requires a request timestamp/evidence reference, and rejects standard
+requests after local day 7; exceptional corrections require a separate reason.
+Its full-schema synthetic suite passes, but genuine provider/service acceptance
+remains. Razorpay lists only `usefulmade.com` as approved, and its
+additional-site flow requires the same business model. See
+[readiness](../docs/production-readiness.md) and the
 [Live boundary](../docs/subscription-live-boundary.md).
 
 The local default-off Test checkout, renewal, cancellation and refund slices
@@ -1075,7 +1088,7 @@ and reconciliation acceptance must still cover both routes on the actual
 merchant. The local conversion keeps free access until signed capture, freezes
 mode/version and explicit owner consent in the quote, and holds conflicting
 captured funds. Three rollback-only SQL suites pass on a disposable full schema;
-all eleven Live drafts roll back with no installed Live schema.
+all twelve Live drafts roll back with no installed Live schema.
 
 ## Shipped in code — Audited WhatsApp feature-template cutover (2026-09-21)
 

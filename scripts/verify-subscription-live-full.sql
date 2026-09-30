@@ -320,12 +320,14 @@ SELECT pg_temp.assert_true(private.subscription_capability_allowed(
 SAVEPOINT live_refund_success;
 INSERT INTO private.subscription_live_refund_reviews
  (refund_request_id,organization_id,requested_by,provider_payment_id,
-  merchant_id,amount_minor,approved_policy_reference,owner_reviewed_at)
+  merchant_id,amount_minor,approved_policy_reference,request_received_at,
+  request_evidence_reference,owner_reviewed_at)
 VALUES('b6666666-6666-4666-8666-666666666666',
  'b2222222-2222-4222-8222-222222222222',
  'b1111111-1111-4111-8111-111111111111',
  'pay_LiveSynthetic1','acc_UsefulmadeLiveSynthetic',149900,
- 'synthetic-full-refund-policy',now());
+ 'synthetic-full-refund-policy',now(),
+ 'synthetic-request-receipt',now());
 INSERT INTO private.subscription_live_refunds
  (refund_request_id,provider_payment_id,provider_refund_id,
   organization_id,merchant_id,amount_minor,state)
@@ -381,12 +383,14 @@ SELECT pg_temp.assert_true((SELECT count(*)=1 FROM private.subscription_live_gra
 
 INSERT INTO private.subscription_live_refund_reviews
  (refund_request_id,organization_id,requested_by,provider_payment_id,
-  merchant_id,amount_minor,approved_policy_reference,owner_reviewed_at)
+  merchant_id,amount_minor,approved_policy_reference,request_received_at,
+  request_evidence_reference,owner_reviewed_at)
 VALUES('b6666666-6666-4666-8666-666666666666',
  'b2222222-2222-4222-8222-222222222222',
  'b1111111-1111-4111-8111-111111111111',
  'pay_LiveSynthetic1','acc_UsefulmadeLiveSynthetic',149900,
- 'synthetic-full-refund-policy',now());
+ 'synthetic-full-refund-policy',now(),
+ 'synthetic-request-receipt',now());
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.expect_error($q$SELECT public.subscription_claim_live_refund(
