@@ -6,6 +6,30 @@
 
 ---
 
+## 2026-09-30 — Verify merchant approval and accept isolated cloud staging
+
+Razorpay verified the SaaS domain; owner-authorized Live keys were saved privately
+and read-only API authentication passed. The owner-approved US$0 staging project
+received 328 schema sources with cron inactive. Rollback billing/capability SQL,
+six real cloud Auth/API/isolation/worker checks and staging-backed desktop/390 px
+settings acceptance passed; synthetic data and switches returned to empty/off.
+`verify-subscription-live-renewals.sql` freezes capture time after its quote to
+avoid transaction-start clock skew without changing application behavior.
+The staging plan and 26-source Production manifest identify the missing
+independent brand/legal identity migration before the default-off billing drafts.
+All 26 pinned sources then installed in Production after a fresh encrypted
+backup, preserving tenant/legal/access fingerprints and settings, 554 gym
+payments and both cron jobs. RLS/default-off and Production health checks pass.
+The installation record keeps the source/history mapping. Old Test remains
+paused. The owner-approved Production-only Live credential transfer and
+merchant/pilot binding then completed with every gate off; the same main source
+redeployed READY, the audit has zero blockers, four Live POSTs return 404, and
+Production health passed. `production-env-readiness.mjs` now prepares an explicit
+intake-only audit option while its default refuses intake and all other
+Test/money/settlement/reconciliation/UI flags remain blocked. The intake proposal
+requires separate receiver/provider activation approval; no real payment/refund
+acceptance is claimed.
+
 ## 2026-09-30 — Accept local Starter capability and reminder boundaries
 
 Four real local Auth/API/RLS and mocked-worker checks passed; the signed-in

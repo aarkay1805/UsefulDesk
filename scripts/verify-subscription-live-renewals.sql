@@ -178,17 +178,20 @@ SELECT pg_temp.assert_true(public.subscription_claim_live_order('b9999999-9999-4
  'Ambiguous renewal order permitted second POST');
 SELECT public.subscription_bind_live_order('b9999999-9999-4999-8999-999999999999',
  'order_RenewalFixture','acc_UsefulmadeLiveSynthetic','b2222222-2222-4222-8222-222222222222');
--- Capture after quote creation; wall clock differs from transaction-start now().
+-- Freeze the synthetic capture after the quote. Transaction-start now() can
+-- predate its wall-clock review time on a slower hosted replay.
+SELECT set_config('test.live_renewal_capture_at',
+ (clock_timestamp()+interval '1 second')::text,true);
 SELECT public.subscription_record_live_webhook_event('acc_UsefulmadeLiveSynthetic',
  'b2222222-2222-4222-8222-222222222222','evt_RenewalFixture','payment.captured',
- 'order_RenewalFixture','pay_RenewalFixture',NULL,repeat('b',64),now()+interval '1 second');
+ 'order_RenewalFixture','pay_RenewalFixture',NULL,repeat('b',64),current_setting('test.live_renewal_capture_at')::timestamptz);
 SAVEPOINT before_settlement;
 RESET ROLE;
 UPDATE private.organization_product_access SET version=version+1 WHERE organization_id='b2222222-2222-4222-8222-222222222222';
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',
- 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',now()+interval '1 second')
+ 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',current_setting('test.live_renewal_capture_at')::timestamptz)
  ->>'reason'='renewal_changed_or_stopped','Stale access was renewed');
 ROLLBACK TO before_settlement;
 
@@ -197,7 +200,7 @@ UPDATE public.accounts SET default_currency='USD' WHERE id='b4444444-4444-4444-8
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',
- 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',now()+interval '1 second')
+ 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',current_setting('test.live_renewal_capture_at')::timestamptz)
  ->>'reason'='branch_roster_changed','Changed billing currency was renewed');
 ROLLBACK TO before_settlement;
 
@@ -206,7 +209,7 @@ UPDATE private.subscription_billing_settings SET standard_reminder_policy_approv
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',
- 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',now()+interval '1 second')
+ 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',current_setting('test.live_renewal_capture_at')::timestamptz)
  ->>'reason'='starter_reminder_policy_changed','Changed reminder policy was renewed');
 ROLLBACK TO before_settlement;
 
@@ -230,7 +233,7 @@ VALUES('b6666666-6666-4666-8666-666666666666','b2222222-2222-4222-8222-222222222
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',
- 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',now()+interval '1 second')
+ 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',current_setting('test.live_renewal_capture_at')::timestamptz)
  ->>'reason'='renewal_changed_or_stopped','Pending refund was renewed');
 ROLLBACK TO before_settlement;
 
@@ -247,7 +250,7 @@ SELECT pg_temp.assert_true((SELECT access_ends_at=(SELECT paid_through_end FROM 
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',
- 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',now()+interval '1 second')
+ 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',current_setting('test.live_renewal_capture_at')::timestamptz)
  ->>'reason'='renewal_changed_or_stopped','Cancellation did not hold captured money');
 ROLLBACK TO before_settlement;
 RESET ROLE;
@@ -256,23 +259,23 @@ UPDATE private.subscription_live_settings SET orders_enabled=FALSE,quotes_enable
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',
- 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',now()+interval '1 second')
+ 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',current_setting('test.live_renewal_capture_at')::timestamptz)
  ->>'status'='verified','Renewal did not settle while initiation darkened');
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',
- 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',now()+interval '1 second')
+ 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',current_setting('test.live_renewal_capture_at')::timestamptz)
  ->>'status'='verified','Renewal duplicate failed');
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b5555555-5555-4555-8555-555555555557',
  'order_InitialRenewalFixture','pay_InitialRenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'INR',now()-interval '1 month 24 hours')
  ->>'status'='verified','Historical payment replay failed after renewal');
 SELECT pg_temp.expect_error($q$SELECT public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',
- 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,NULL,now()+interval '1 second')$q$,'22023');
+ 'order_RenewalFixture','pay_RenewalFixture','acc_UsefulmadeLiveSynthetic',79900,NULL,current_setting('test.live_renewal_capture_at')::timestamptz)$q$,'22023');
 SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_grants SET paid_through_end=now()$q$,'42501');
 RESET ROLE;
 SELECT pg_temp.assert_true((SELECT count(*)=2 FROM private.subscription_live_terms),'Term history overwritten');
 SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_terms SET paid_through_end=now()$q$,'55000');
 SELECT pg_temp.assert_true((SELECT count(*)=1 FROM private.product_access_audit WHERE action='verified_subscription_renewal' AND organization_id='b2222222-2222-4222-8222-222222222222'),
  'Renewal audit duplicated');
-SELECT pg_temp.assert_true((SELECT paid_through_end=now()+interval '1 second 1 month' FROM private.subscription_live_grants),
+SELECT pg_temp.assert_true((SELECT paid_through_end=current_setting('test.live_renewal_capture_at')::timestamptz+interval '1 month' FROM private.subscription_live_grants),
  'Renewal did not start a capture-event calendar month');
 UPDATE private.subscription_live_settings SET orders_enabled=TRUE,quotes_enabled=TRUE,renewals_enabled=TRUE;
 SET LOCAL ROLE authenticated;

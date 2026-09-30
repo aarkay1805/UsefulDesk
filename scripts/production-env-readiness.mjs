@@ -76,7 +76,10 @@ export function parseDotenv(source) {
   return parsed;
 }
 
-export function evaluateProductionEnvironment(env) {
+export function evaluateProductionEnvironment(
+  env,
+  { allowLiveIntakeOnly = false } = {}
+) {
   const results = [];
   const add = (severity, check, message) =>
     results.push({ severity, check, message });
@@ -132,8 +135,11 @@ export function evaluateProductionEnvironment(env) {
     add('pass', 'encryption-key', 'ENCRYPTION_KEY has the required format.');
   }
 
-  const unsafeFlags = UNSAFE_PRODUCTION_FLAGS.filter((name) =>
-    enabled(env[name])
+  const intakeName = 'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED';
+  const reviewedIntake =
+    allowLiveIntakeOnly && normalize(env[intakeName]) === 'true';
+  const unsafeFlags = UNSAFE_PRODUCTION_FLAGS.filter(
+    (name) => enabled(env[name]) && !(name === intakeName && reviewedIntake)
   );
   const opaqueSafetyFlags = UNSAFE_PRODUCTION_FLAGS.filter((name) =>
     isOpaque(env[name])
@@ -154,7 +160,16 @@ export function evaluateProductionEnvironment(env) {
     add(
       'pass',
       'production-safety-flags',
-      'Test/dry-run provider flags are false or unset.'
+      reviewedIntake
+        ? 'Only Live webhook intake is permitted by this explicit audit mode; all other safety flags are false or unset.'
+        : 'Test/dry-run provider flags are false or unset.'
+    );
+  }
+  if (reviewedIntake) {
+    add(
+      'warning',
+      'subscription-live-intake-only',
+      'Live webhook intake is enabled. This audit mode does not authorize activation; verify the reviewed database binding and held-only receiver separately.'
     );
   }
 
@@ -319,6 +334,13 @@ async function main() {
   node --env-file=<temporary-file> scripts/production-env-readiness.mjs
   cat <dotenv-file> | node scripts/production-env-readiness.mjs --dotenv-stdin
 
+After separate release-specific approval of held-only webhook intake:
+  cat <dotenv-file> | node scripts/production-env-readiness.mjs --dotenv-stdin --allow-live-intake-only
+
+The explicit intake-only audit mode permits only the literal true webhook-intake
+flag. It still blocks Test billing, money initiation, settlement, reconciliation,
+review and Checkout UI flags. It does not authorize a provider or database change.
+
 The audit prints only variable names and status messages, never values. Vercel
 marks sensitive exports as [SENSITIVE], so format/value checks for those entries
 remain explicit warnings or blockers instead of being guessed.`);
@@ -332,7 +354,11 @@ remain explicit warnings or blockers instead of being guessed.`);
     for await (const chunk of process.stdin) source += chunk;
     env = parseDotenv(source);
   }
-  render(evaluateProductionEnvironment(env));
+  render(
+    evaluateProductionEnvironment(env, {
+      allowLiveIntakeOnly: process.argv.includes('--allow-live-intake-only'),
+    })
+  );
 }
 
 const invokedPath = process.argv[1]
