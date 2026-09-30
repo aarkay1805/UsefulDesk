@@ -279,10 +279,7 @@ export async function fetchCapturedLivePayment(
     !PAYMENT_ID.test(facts.paymentId)
   )
     throw new Error('Invalid Live payment identity');
-  verifiedOrder(
-    await request(config, `/orders/${facts.orderId}`, {}, fetchImpl),
-    facts
-  );
+  await fetchLiveOrder(config, facts, fetchImpl);
   const payment = await request(
     config,
     `/payments/${facts.paymentId}`,

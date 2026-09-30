@@ -39,6 +39,25 @@ const UNSAFE_PRODUCTION_FLAGS = Object.freeze([
   'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
 ]);
 
+// Review boundary only: these modes never write settings or approve an offer.
+const STARTER_PILOT_FLAGS = Object.freeze([
+  'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED',
+  'USEFULDESK_SAAS_LIVE_QUOTES_ENABLED',
+  'USEFULDESK_SAAS_LIVE_ORDERS_ENABLED',
+  'USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED',
+  'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
+  'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+  'NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI',
+  'NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI',
+]);
+const LIVE_RECOVERY_FLAGS = Object.freeze([
+  'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED',
+  'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
+  'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+]);
+const STARTER_PILOT_MERCHANT = 'acc_TCJwBqanN9LTrK';
+const STARTER_PILOT_ORGANIZATION = '8826d9aa-03f2-4ad7-ae91-0553052131f8';
+
 const LIVE_SAAS_ENVIRONMENT = Object.freeze([
   'USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID',
   'USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_SECRET',
@@ -78,7 +97,11 @@ export function parseDotenv(source) {
 
 export function evaluateProductionEnvironment(
   env,
-  { allowLiveIntakeOnly = false } = {}
+  {
+    allowLiveIntakeOnly = false,
+    allowLiveStarterPilot = false,
+    allowLiveRecoveryOnly = false,
+  } = {}
 ) {
   const results = [];
   const add = (severity, check, message) =>
@@ -135,34 +158,95 @@ export function evaluateProductionEnvironment(
     add('pass', 'encryption-key', 'ENCRYPTION_KEY has the required format.');
   }
 
+  const conflictingModes =
+    [allowLiveIntakeOnly, allowLiveStarterPilot, allowLiveRecoveryOnly].filter(
+      Boolean
+    ).length > 1;
+  if (conflictingModes) {
+    add(
+      'blocker',
+      'subscription-live-audit-mode',
+      'Live intake-only, Starter pilot and recovery-only audit modes are mutually exclusive.'
+    );
+  }
+  const scopedLiveMode =
+    !conflictingModes && (allowLiveStarterPilot || allowLiveRecoveryOnly);
+  const requiredLiveFlags = conflictingModes
+    ? []
+    : allowLiveStarterPilot
+      ? STARTER_PILOT_FLAGS
+      : allowLiveRecoveryOnly
+        ? LIVE_RECOVERY_FLAGS
+        : [];
   const intakeName = 'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED';
   const reviewedIntake =
-    allowLiveIntakeOnly && normalize(env[intakeName]) === 'true';
-  const unsafeFlags = UNSAFE_PRODUCTION_FLAGS.filter(
-    (name) => enabled(env[name]) && !(name === intakeName && reviewedIntake)
+    !conflictingModes &&
+    allowLiveIntakeOnly &&
+    normalize(env[intakeName]) === 'true';
+  // Newly introduced SaaS switches cannot silently inherit an audit exception.
+  const safetyFlagNames = [
+    ...new Set([
+      ...UNSAFE_PRODUCTION_FLAGS,
+      ...Object.keys(env).filter((name) =>
+        /^(?:NEXT_PUBLIC_)?USEFULDESK_(?:SAAS_|LIVE_|SUBSCRIPTION_).*(?:_ENABLED|_UI)$/.test(
+          name
+        )
+      ),
+    ]),
+  ];
+  const unsafeFlags = safetyFlagNames.filter(
+    (name) =>
+      enabled(env[name]) &&
+      !(name === intakeName && reviewedIntake) &&
+      !(requiredLiveFlags.includes(name) && env[name] === 'true')
   );
-  const opaqueSafetyFlags = UNSAFE_PRODUCTION_FLAGS.filter((name) =>
+  const opaqueSafetyFlags = safetyFlagNames.filter((name) =>
     isOpaque(env[name])
   );
+  const malformedClosedFlags = scopedLiveMode
+    ? safetyFlagNames.filter(
+        (name) =>
+          !requiredLiveFlags.includes(name) &&
+          normalize(env[name]) &&
+          env[name] !== 'false' &&
+          !enabled(env[name]) &&
+          !isOpaque(env[name])
+      )
+    : [];
   if (unsafeFlags.length) {
     add(
       'blocker',
       'production-safety-flags',
       `Unsafe Production flags are enabled: ${unsafeFlags.join(', ')}`
     );
-  } else if (opaqueSafetyFlags.length) {
+  }
+  if (opaqueSafetyFlags.length) {
     add(
       'blocker',
       'production-safety-flags',
       `Provider-hidden safety flags require a dashboard value check: ${opaqueSafetyFlags.join(', ')}`
     );
-  } else {
+  }
+  if (malformedClosedFlags.length) {
+    add(
+      'blocker',
+      'production-safety-flags',
+      `Flags outside the selected Live audit scope must be literal false or unset: ${malformedClosedFlags.join(', ')}`
+    );
+  }
+  if (
+    !unsafeFlags.length &&
+    !opaqueSafetyFlags.length &&
+    !malformedClosedFlags.length
+  ) {
     add(
       'pass',
       'production-safety-flags',
-      reviewedIntake
-        ? 'Only Live webhook intake is permitted by this explicit audit mode; all other safety flags are false or unset.'
-        : 'Test/dry-run provider flags are false or unset.'
+      scopedLiveMode
+        ? 'Only the selected Live audit scope is permitted; other safety flags are false or unset.'
+        : reviewedIntake
+          ? 'Only Live webhook intake is permitted by this explicit audit mode; all other safety flags are false or unset.'
+          : 'Test/dry-run provider flags are false or unset.'
     );
   }
   if (reviewedIntake) {
@@ -170,6 +254,63 @@ export function evaluateProductionEnvironment(
       'warning',
       'subscription-live-intake-only',
       'Live webhook intake is enabled. This audit mode does not authorize activation; verify the reviewed database binding and held-only receiver separately.'
+    );
+  }
+  if (scopedLiveMode) {
+    const scopeCheck = allowLiveStarterPilot
+      ? 'subscription-live-starter-pilot'
+      : 'subscription-live-recovery-only';
+    const incompleteFlags = requiredLiveFlags.filter(
+      (name) => env[name] !== 'true'
+    );
+    add(
+      incompleteFlags.length ? 'blocker' : 'pass',
+      scopeCheck,
+      incompleteFlags.length
+        ? `The selected Live audit scope requires literal true for every required flag: ${incompleteFlags.join(', ')}`
+        : allowLiveStarterPilot
+          ? 'The complete initial Starter pilot flag set is present; renewal and capability activation remain outside this audit scope.'
+          : 'The required intake, settlement and refund reconciliation flags are present; quote/order/refund initiation and both Live UI flags must remain closed.'
+    );
+    const wrongRuntime = ['NODE_ENV', 'VERCEL_ENV'].filter(
+      (name) => normalize(env[name]) && env[name] !== 'production'
+    );
+    const absentRuntime = ['NODE_ENV', 'VERCEL_ENV'].filter(
+      (name) => !normalize(env[name])
+    );
+    if (wrongRuntime.length) {
+      add(
+        'blocker',
+        'subscription-live-runtime',
+        `Live runtime must be Production: ${wrongRuntime.join(', ')}`
+      );
+    } else if (absentRuntime.length) {
+      add(
+        'warning',
+        'subscription-live-runtime',
+        `System runtime names absent from the export need separate deployment verification: ${absentRuntime.join(', ')}`
+      );
+    } else {
+      add(
+        'pass',
+        'subscription-live-runtime',
+        'Explicit Live runtime names equal Production.'
+      );
+    }
+    add(
+      'warning',
+      'subscription-live-database-verification',
+      'Verify the reviewed database merchant/pilot binding, scoped opening constraints and matching settings independently; renewals and tier capabilities must remain closed.'
+    );
+    add(
+      'warning',
+      'subscription-live-offer-verification',
+      'Separately verify the immutable approved Starter offer: INR 79900 paise gross, one branch, 1800-second quote, capture-event calendar month and 7/3/1 reminders after 09:00 local. This audit does not seed an offer or establish tax/receipt clearance.'
+    );
+    add(
+      'warning',
+      'subscription-live-activation-authority',
+      'Environment checks do not authorize activation or prove owner approval, signed shared-merchant delivery, provider acceptance or release acceptance. Verify dated evidence separately before any operational change or human payment.'
     );
   }
 
@@ -190,7 +331,9 @@ export function evaluateProductionEnvironment(
 
   const livePresent =
     LIVE_SAAS_ENVIRONMENT.some((name) => normalize(env[name])) ||
-    normalize(env.USEFULDESK_SAAS_RAZORPAY_MODE) === 'live';
+    Boolean(normalize(env.USEFULDESK_SAAS_RAZORPAY_MODE)) ||
+    scopedLiveMode ||
+    reviewedIntake;
   if (livePresent) {
     const missingLive = LIVE_SAAS_ENVIRONMENT.filter(
       (name) => !normalize(env[name])
@@ -198,11 +341,29 @@ export function evaluateProductionEnvironment(
     const opaqueLive = LIVE_SAAS_ENVIRONMENT.filter((name) =>
       isOpaque(env[name])
     );
-    const keyId = normalize(env.USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID);
     const merchantId = normalize(env.USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID);
     const pilotId = normalize(env.USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID);
+    const identityFormats = [
+      ['USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID', /^rzp_live_[A-Za-z0-9]+$/],
+      ['USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID', /^acc_[A-Za-z0-9]+$/],
+      [
+        'USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID',
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      ],
+    ];
+    const invalidIdentities = identityFormats
+      .filter(
+        ([name, format]) =>
+          !isOpaque(env[name]) && !format.test(normalize(env[name]))
+      )
+      .map(([name]) => name);
+    const opaqueIdentities = identityFormats
+      .filter(([name]) => isOpaque(env[name]))
+      .map(([name]) => name);
     if (
-      normalize(env.USEFULDESK_SAAS_RAZORPAY_MODE) !== 'live' ||
+      (scopedLiveMode
+        ? env.USEFULDESK_SAAS_RAZORPAY_MODE !== 'live'
+        : normalize(env.USEFULDESK_SAAS_RAZORPAY_MODE) !== 'live') ||
       missingLive.length
     ) {
       add(
@@ -210,29 +371,42 @@ export function evaluateProductionEnvironment(
         'subscription-live-boundary',
         `Live SaaS mode or required names are missing: ${missingLive.join(', ')}`
       );
+    } else if (invalidIdentities.length) {
+      // Secret redaction must never mask a visible Test key or malformed binding.
+      add(
+        'blocker',
+        'subscription-live-boundary',
+        `Live SaaS identity formats are invalid: ${invalidIdentities.join(', ')}`
+      );
+    } else if (scopedLiveMode && opaqueIdentities.length) {
+      add(
+        'blocker',
+        'subscription-live-boundary',
+        `The selected Live audit scope requires visible, verifiable identity values: ${opaqueIdentities.join(', ')}`
+      );
+    } else if (
+      scopedLiveMode &&
+      (merchantId !== STARTER_PILOT_MERCHANT ||
+        pilotId !== STARTER_PILOT_ORGANIZATION)
+    ) {
+      add(
+        'blocker',
+        'subscription-live-boundary',
+        'Live SaaS merchant or pilot organization differs from the reviewed Starter pilot binding.'
+      );
     } else if (opaqueLive.length) {
       add(
         'warning',
         'subscription-live-boundary',
         `Protected Live SaaS values require a private dashboard check: ${opaqueLive.join(', ')}`
       );
-    } else if (
-      !/^rzp_live_[A-Za-z0-9]+$/.test(keyId) ||
-      !/^acc_[A-Za-z0-9]+$/.test(merchantId) ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-        pilotId
-      )
-    ) {
-      add(
-        'blocker',
-        'subscription-live-boundary',
-        'Live SaaS key ID, merchant ID or pilot organization has an invalid format.'
-      );
     } else {
       add(
         'pass',
         'subscription-live-boundary',
-        'Live SaaS merchant names and formats are present; merchant ownership and shared-account webhook routing still need private verification.'
+        scopedLiveMode
+          ? 'Live key format and the exact reviewed Starter merchant/pilot binding are verified; secret validity and shared-account webhook routing require private verification.'
+          : 'Live SaaS merchant names and formats are present; merchant ownership and shared-account webhook routing still need private verification.'
       );
     }
   } else {
@@ -341,6 +515,22 @@ The explicit intake-only audit mode permits only the literal true webhook-intake
 flag. It still blocks Test billing, money initiation, settlement, reconciliation,
 review and Checkout UI flags. It does not authorize a provider or database change.
 
+After separately reviewed initial Starter pilot activation:
+  cat <dotenv-file> | node scripts/production-env-readiness.mjs --dotenv-stdin --allow-live-starter-pilot
+
+For separately reviewed rollback recovery with initiation and UI closed:
+  cat <dotenv-file> | node scripts/production-env-readiness.mjs --dotenv-stdin --allow-live-recovery-only
+
+Starter mode requires all eight Live intake, quote/order/refund, settlement,
+refund-reconciliation and review/Checkout UI flags to be literal true together.
+Recovery mode requires literal true intake, settlement and refund reconciliation,
+with quote/order/refund and both Live UI flags false or unset. Both modes require
+the exact reviewed merchant/pilot and a visible Live key ID; Test, acceptance,
+capability and renewal switches are not allowed. Audit modes are mutually exclusive.
+Database settings/constraints, immutable offer, tax/receipt clearance, approval and
+acceptance remain separate checks. This preparation does not seed an offer or
+open any gate. A passing audit never authorizes payment or activation.
+
 The audit prints only variable names and status messages, never values. Vercel
 marks sensitive exports as [SENSITIVE], so format/value checks for those entries
 remain explicit warnings or blockers instead of being guessed.`);
@@ -357,6 +547,12 @@ remain explicit warnings or blockers instead of being guessed.`);
   render(
     evaluateProductionEnvironment(env, {
       allowLiveIntakeOnly: process.argv.includes('--allow-live-intake-only'),
+      allowLiveStarterPilot: process.argv.includes(
+        '--allow-live-starter-pilot'
+      ),
+      allowLiveRecoveryOnly: process.argv.includes(
+        '--allow-live-recovery-only'
+      ),
     })
   );
 }

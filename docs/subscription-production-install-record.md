@@ -85,15 +85,37 @@ payments and 2 active cron jobs; Live quotes/orders/payments/refunds/events/gran
 and offer approvals are zero. [Production health 36726882870](https://github.com/aarkay1805/UsefulDesk/actions/runs/36726882870)
 passed after redeployment.
 
-The intended SaaS receiver is
-`https://desk.usefulmade.com/api/subscriptions/live-webhook`, for
-`payment.captured`, `payment.failed`, `refund.created`, `refund.processed` and
-`refund.failed`. No webhook is installed or enabled. Do not register an active
-provider webhook until the deployed receiver can safely accept its deliveries.
-Actual signed shared-merchant delivery, controlled human-completed Live
-payment/refund acceptance, real-buyer issuer determination and the separate
-hard-gate opening change remain required before a payable rollout.
+The subsequent approved intake-only activation is recorded below. The earlier
+closed configuration checks above remain historical evidence.
 
-The [intake-only proposal](subscription-live-intake-proposal.md) is prepared for
-separate approval. Its explicit audit mode is a local review change; it has not
-enabled an environment/database switch or registered a provider webhook.
+## Approved intake-only activation, 16:15 UTC
+
+The owner approved merging PR #20, enabling only signed webhook intake,
+redeploying, and transmitting the existing private webhook secret to the
+existing UsefulMade Razorpay merchant. PR #20 merged to exact main
+`5920fa78bfd60d513906616bab86e87ddddd896b`; its branch was deleted. Main
+[CI 36741595399](https://github.com/aarkay1805/UsefulDesk/actions/runs/36741595399)
+and CodeQL passed. The fresh Production deployment
+`dpl_Hx7CKFZx6YP9iDgwPExBNGCWmTkG` is READY and serves `desk.usefulmade.com`
+for that SHA. Only `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and
+`private.subscription_live_settings.webhook_intake_enabled=true` were enabled.
+The explicit intake-only audit passed with zero blockers/five warnings; the
+private export was removed. Unsigned webhook POST is 400 `Invalid signature`;
+quote/order/refund POSTs remain 404.
+
+One Live Razorpay webhook, `TiJKErwIC7VvRr`, was created at 16:15:34 UTC for
+`https://desk.usefulmade.com/api/subscriptions/live-webhook`. Provider details
+show Enabled, a configured secret, and exactly `payment.captured`,
+`payment.failed`, `refund.created`, `refund.processed`, `refund.failed`. The
+existing merchant alert email was retained. No SMS challenge occurred.
+
+After creation, all money, settlement/reconciliation, conversion/renewal,
+review/Checkout UI, Test, capability, reminder-policy and advanced gates remain
+closed. Existing access enforcement stays true. Counts remain 8 Auth users,
+6 accounts, 5 organizations, 554 gym payments and 2 active cron jobs. Live
+quotes/orders/payments/refunds/events/grants and offer approvals remain empty.
+[Production health 36742907792](https://github.com/aarkay1805/UsefulDesk/actions/runs/36742907792)
+passed. This establishes intake configuration and signature refusal, not actual
+signed provider delivery or a genuine Live SaaS payment/refund. Those acceptance
+gates, issuer determination and separately reviewed financial opening remain
+before payable rollout. See the [intake scope and rollback](subscription-live-intake-proposal.md).

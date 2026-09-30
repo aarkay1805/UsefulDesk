@@ -1,0 +1,79 @@
+/** Explicit local-only rollback acceptance; no .env, cloud or provider access. */
+import { execFileSync } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+const container = process.argv[2];
+if (
+  !container ||
+  !/^supabase_db_usefuldesk-subscription-full-[a-z0-9]+$/.test(container)
+) {
+  throw new Error(
+    'Pass an explicit disposable subscription-full local database container'
+  );
+}
+const root = fileURLToPath(new URL('../', import.meta.url));
+function sql(input) {
+  return execFileSync(
+    'docker',
+    [
+      'exec',
+      '-i',
+      container,
+      'psql',
+      '-X',
+      '-U',
+      'postgres',
+      '-d',
+      'postgres',
+      '-Atq',
+      '-v',
+      'ON_ERROR_STOP=1',
+    ],
+    { input, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }
+  );
+}
+const absent =
+  "SELECT to_regclass('private.subscription_live_settings') IS NULL AND to_regclass('private.subscription_live_pilot_opening_reviews') IS NULL;";
+if (sql(absent).trim() !== 't')
+  throw new Error(
+    'Expected a disposable full schema with no installed Live tables'
+  );
+const baseline = readdirSync(`${root}/supabase/migrations`)
+  .filter((name) => /^\d+_subscription_live_.*\.sql$/.test(name))
+  .sort();
+const preparation = '20260930164040_starter_live_pilot_opening_preparation.sql';
+const acceptance = readFileSync(
+  `${root}/scripts/verify-starter-live-pilot-opening.sql`,
+  'utf8'
+).replace(
+  '-- STARTER_PILOT_CAPABILITY_ACCEPTANCE',
+  readFileSync(
+    `${root}/scripts/verify-starter-live-pilot-capabilities.sql`,
+    'utf8'
+  )
+);
+const migration = readFileSync(
+  `${root}/supabase/migrations/${preparation}`,
+  'utf8'
+);
+const input = [
+  'BEGIN;',
+  'SET LOCAL client_min_messages=warning;',
+  ...baseline.map((name) =>
+    readFileSync(`${root}/supabase/migrations/${name}`, 'utf8')
+  ),
+  migration,
+  migration, // Idempotency: same preparation source twice before fixtures.
+  acceptance,
+  'ROLLBACK;',
+].join('\n');
+const output = sql(input);
+for (const line of output
+  .split('\n')
+  .filter((line) => line.startsWith('PASS:')))
+  console.log(line);
+if (sql(absent).trim() !== 't')
+  throw new Error('Live schema survived rollback');
+console.log(
+  `PASS: ${baseline.length} Live baseline migrations plus scoped preparation replay rolled back; no Live tables remain`
+);

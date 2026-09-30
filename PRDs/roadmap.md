@@ -895,12 +895,18 @@ and merchant/pilot binding are installed; exact main `3eb8ce2f` redeployed READY
 as `dpl_33qP9azFZjDUkBc2auiExeGBLLnh`. The audit has zero blockers/four
 protected-value/Turnstile warnings, four Live POSTs return 404, and Production
 health passed. All gates remain off and financial/access rows are unchanged.
-The [intake-only proposal](../docs/subscription-live-intake-proposal.md) and explicit
-audit mode are prepared for approval; default auditing still blocks intake, and
-every Test/money/settlement/reconciliation/UI flag stays blocked. No provider
-webhook or intake switch was activated. Actual provider
-delivery, final native/capability activation, issuer checks and controlled Live
-acceptance remain. See the [staging record](../docs/subscription-staging-plan.md).
+**Shipped — approved Live intake only, 30 September 16:15 UTC:** PR #20 merged
+as exact main `5920fa78` with CI/CodeQL passing and its branch deleted. The
+Production environment/database intake switches are true; every other
+Test/money/settlement/reconciliation/UI/capability gate remains false. Fresh
+READY canonical deployment rejects unsigned intake with 400; money endpoints
+remain 404. Live webhook `TiJKErwIC7VvRr` is Enabled with exactly five approved
+events and a configured private secret. Tenant/access/gym-payment counts are
+unchanged, financial/event/offer records remain empty, and Production health
+passed. The [activation record and rollback](../docs/subscription-live-intake-proposal.md#activation-result)
+distinguish configuration from pending genuine signed provider delivery.
+Final native/capability activation, issuer checks and controlled Live acceptance
+remain before paid rollout. See the [staging record](../docs/subscription-staging-plan.md).
 
 The local default-off Test checkout, renewal, cancellation and refund slices
 below do not constitute Production automated billing. Later full-schema,
@@ -909,6 +915,22 @@ native and genuine Test-provider acceptance is recorded below and in the
 offer/release acceptance still block rollout. A specifically approved manual
 pilot uses the documented ledger and manual access workflow; its offer cannot
 claim automated tier enforcement.
+
+**Prepared — exact first Starter Live opening, 30 September:** the selected
+Home office internal acceptance candidate now has a default-closed opening
+migration with exact merchant/organization/₹799/term/quote constraints and
+immutable owner/release/evidence review. The environment audit adds explicit
+pilot and recovery phases without changing runtime flags. Capture/refund
+preflight verifies the provider-returned order ID against the bound saved ID.
+The older membership-renewal template drifted from the exact contract; its
+authorized replacement was submitted and is In review, with Meta approval/sync and real delivery
+pending. See the [opening review](../docs/starter-live-pilot-opening-review.md).
+Full repository verification (4,183 tests), local replay/rollback, empty cloud
+staging rollback and capability preservation checks passed. Exact candidate
+Production rollout approval and genuine Live acceptance remain; Production is
+intake-only. This is no customer sale or
+self-invoice, and renewal/native Checkout/global capability opening remains
+outside this first-term candidate.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five

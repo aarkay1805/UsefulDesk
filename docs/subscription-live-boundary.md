@@ -59,8 +59,11 @@ tables deny browser access and every gate is off. The subsequent owner-approved
 Production-only Live credential transfer and merchant/pilot binding completed;
 billing records/offer approvals remain empty. The closed redeployment is READY,
 the audit has zero blockers, four Live POSTs return 404 and Production health
-passed. The provider webhook is uninstalled; the intake-only proposal awaits
-approval.
+passed. The subsequent owner-approved intake-only activation is complete on
+exact main `5920fa78`: the provider webhook is Enabled with the five approved
+events and a configured secret, unsigned intake returns 400, and money
+endpoints remain 404. Every other gate stays closed; actual signed delivery
+and genuine Live acceptance remain pending. See the installation record.
 
 ## Boundaries
 
@@ -156,8 +159,8 @@ approval.
 
 | Layer                            | Default                     | Requirement before use                                                                                                                                                                                                                                                                                                                                                                                |
 | -------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live provider                    | configured, intake off      | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, independent SaaS configuration for `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`.                                                       |
-| Webhook intake                   | false                       | `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and the matching private database merchant/pilot/intake switch. Intake alone holds evidence; it does not grant or refund.                                                                                                                                                                                                                          |
+| Live provider                    | configured, intake on       | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, independent SaaS configuration for `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`.                                                       |
+| Webhook intake                   | true, owner-approved        | `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and the matching private database merchant/pilot/intake switch. Intake alone holds evidence; it does not grant or refund.                                                                                                                                                                                                                          |
 | Quote issuance                   | false, database-hard-closed | `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED=true`, one explicitly approved offer row, and the matching private database switch. The database `CHECK` prevents enabling issuance in this draft; the Production audit blocks the runtime flag.                                                                                                                                                                 |
 | Settlement and reconciliation    | false                       | Separate `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` flags plus private database settlement switch. The Production env audit currently blocks them.                                                                                                                                                                                           |
 | New order and refund initiation  | false, database-hard-closed | Separate `USEFULDESK_SAAS_LIVE_ORDERS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED` flags. Database `CHECK` constraints forbid enabling either; a later reviewed migration must deliberately replace them. The Production env audit also blocks both.                                                                                                                                           |
@@ -168,9 +171,9 @@ approval.
 The application does not enforce inequality between the Live SaaS merchant ID
 and a gym account's OAuth merchant. Production environment audit permits a complete dark Live
 configuration, rejects Test keys and money switches, and treats redacted
-protected values as unverified. Its prepared explicit intake-only audit mode
+protected values as unverified. Its explicit intake-only audit mode
 permits only literal true intake after separate approval; default auditing still
-blocks intake. No runtime switch was enabled by this audit change.
+blocks intake. The separately approved activation enabled only intake; the audit itself grants no authority.
 
 **Shared-merchant routing:** the follow-up code checks canonical provider
 order/payment facts before classifying signed deliveries. A provider-proven gym
@@ -192,9 +195,9 @@ verified `desk.usefulmade.com` on the existing activated UsefulMade merchant
 read-only authentication passes. Isolated full-schema staging and dark Production
 schema installation passed. The owner-authorized Production-only credential
 transfer, merchant/pilot binding and closed redeployment also passed; every
-billing switch remains off. The [intake-only proposal](subscription-live-intake-proposal.md)
-is prepared but unapproved. Configure the independently verified SaaS receiver
-and provider webhook only after that approval, then prove signed mixed deliveries.
+billing switch except intake remains off. The [approved intake-only activation](subscription-live-intake-proposal.md#activation-result)
+is complete with an Enabled provider webhook and signature refusal verified.
+Genuine signed mixed deliveries and Live financial acceptance remain pending.
 The owner confirmed UsefulMade's legal business name, Punjab business address,
 no GST registration, no turnover yet and no foreign-service purchase before the
 later Vercel Pro checkout. Pro is now active; the owner reports payment, while

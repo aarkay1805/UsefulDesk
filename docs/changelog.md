@@ -6,6 +6,35 @@
 
 ---
 
+## 2026-09-30 — Prepare exact Starter pilot opening and bind provider order IDs
+
+The Live capture/refund adapter now reuses exact order-ID verification before
+payment checks or refund creation (`src/lib/subscriptions/live-provider.ts`).
+Changed ID/receipt/request-note regressions pass. The default-closed pilot
+migration and explicit pilot/recovery environment audit prepare only the selected
+Home office ₹799 first Starter term, with immutable operator review and offer
+binding; they seed no evidence and enable no runtime switch. Scope, submitted
+membership-template correction, activation and rollback are recorded in
+`docs/starter-live-pilot-opening-review.md`. Full verification passed (4,183
+tests), plus local/cloud staging rollback and capability preservation checks;
+the membership replacement is In review. Closed candidate installed only on
+empty billing staging; Production installation/opening is separately pending.
+Production remains intake-only and genuine Live acceptance remains open.
+
+## 2026-09-30 — Activate approved Live webhook intake only
+
+PR #20 merged as `5920fa78`; its branch was deleted and CI/CodeQL passed.
+Only the Production environment/database webhook-intake switch was enabled.
+Fresh exact-source deployment is READY on the canonical domain; unsigned intake
+returns 400 and quote/order/refund endpoints remain 404. Live Razorpay webhook
+`TiJKErwIC7VvRr` is Enabled with the five approved events and a configured
+private secret. Preservation counts and empty financial/access ledgers passed;
+Production health passed. Evidence and rollback live in
+`docs/subscription-production-install-record.md` and
+`docs/subscription-live-intake-proposal.md`. Every money/capability gate stays
+closed; Enabled does not establish genuine signed delivery or Live payment/refund
+acceptance.
+
 ## 2026-09-30 — Verify merchant approval and accept isolated cloud staging
 
 Razorpay verified the SaaS domain; owner-authorized Live keys were saved privately
