@@ -15,6 +15,20 @@ the state when those acceptance runs occurred. No additional provider or
 release acceptance is claimed by this decision update; see
 [production readiness](production-readiness.md) for current blockers.
 
+**Cloud Test migration audit, 30 September:** the inactive project
+`gxwhpraswnkosjibvquz` was temporarily restored read-only, then returned to
+pause. Its connector history lists 23 Test-specific migrations, ending in the
+28 September minimal subscription foundation setup. Its visible tables include
+the Test product-access and base subscription tables, but no Live tables.
+Production lists 299 connector migration entries, ending at
+`20260927125734_google_signup_locale_completion`; the histories differ in both
+count and version mapping. The cloud Test project is therefore not a full
+Production-schema staging target for the twelve Live drafts. No Test schema,
+policy, billing switch or provider setting was changed. Use the disposable full
+application schema for rollback-only checks until a separately prepared,
+isolated full-schema Test target and an approved migration plan exist; never
+substitute `supabase db push`.
+
 ## Evidence
 
 | Case                                           | Result and boundary                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -813,8 +827,8 @@ The owner confirmed expiry-only Starter renewal: no early renewal, and each
 renewed calendar month starts at its signed capture event. The draft remains
 uninstalled and default off. A new database renewal flag is also hard-closed.
 
-The repeatable command below streams all ten Live draft migrations plus both
-synthetic acceptance suites inside one transaction, then rolls back. It accepts
+The repeatable command below now streams all twelve Live draft migrations plus
+three synthetic acceptance suites inside one transaction, then rolls back. It accepts
 only a named disposable subscription-full container and refuses an installed
 Live schema. It never reads credentials or invokes a provider:
 
@@ -848,8 +862,10 @@ Production paid-pilot readiness remains CLOSED.
 
 ## Live draft race and access continuation — 29 September 2026
 
-The full-schema rollback-only SQL suite still passes with all ten Live draft
-migrations and leaves no installed Live schema. A separate disposable database
+The full-schema rollback-only SQL suite passed with the ten Live drafts present
+on 29 September and left no installed Live schema. It now also passes with all
+twelve drafts, including selected complimentary conversion and refund request
+evidence. A separate disposable database
 clone let independent PostgreSQL sessions contend on the same synthetic pilot
 organization. The clone restored the application and subscription objects; its
 restore reported eight unrelated `pg_cron`, `realtime`, and `vault` errors, so it

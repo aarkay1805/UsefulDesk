@@ -6,6 +6,38 @@
 
 ---
 
+## 2026-09-30 — Publish Starter policy with billing closed
+
+The owner approved ₹799 gross for one invited Starter month, local day-7
+first-payment refund requests and the two-business-day response/initiation
+timeline. UsefulMade PR #2 (`eb0acb9`) published the product price, terms,
+privacy update and dedicated `/useful-desk/refunds/` policy; the live URL
+returned 200. No real first buyer exists, and no foreign service had been
+purchased at that point. Vercel Pro may change that fact and its invoice/tax
+treatment needs review. Razorpay's additional-domain form requires a dedicated
+test login; the supplied email appears to have an existing UsefulDesk account,
+so no new password was saved or shared. Live billing remains closed.
+
+## 2026-09-30 — Reconcile paid-pilot offer and merchant gates
+
+`docs/starter-pilot-offer-draft.md` now gives reviewable Starter payment,
+cancellation, refund, and ordinary receipt wording without the private issuer
+address. The private local draft records the owner's confirmed UsefulMade
+identity, address, no GST registration, and no turnover yet. Razorpay still
+approves only `usefulmade.com`; its additional-site flow requires the same
+business model. PR #17's default-off app was READY in Production at
+`dpl_AZtfZQ2qs1TiLhTBt6JdeoZN2vtM`, with no Live schema or billing.
+`20260930020000_subscription_live_refund_request_evidence.sql` adds a
+frozen first-payment billing timezone, request timestamp/evidence reference,
+local day-7 standard request check, and separately reasoned exception review.
+Three rollback-only full-schema synthetic suites pass; the migration remains
+uninstalled and needs provider/service acceptance before customer use. Tax exceptions,
+final offer review, domain approval, signed provider acceptance, and the
+hosting upgrade remain open.
+Scheduled ops, renewals and backup workflows recovered with successful runs
+on merged `a1a0ddab` by 30 September 02:24 UTC. The prior missed confirmation
+remains a terminal failed audit row and was not resent.
+
 ## 2026-09-29 — Close out the disabled billing foundation for review
 
 PR #16 merged at `a237ead7403f3d0653fb44a6a3179ad33a2a177f` and its

@@ -192,12 +192,14 @@ SELECT pg_temp.assert_true((SELECT mode='manual' AND access_ends_at>now()
 SAVEPOINT converted_full_refund;
 INSERT INTO private.subscription_live_refund_reviews
  (refund_request_id,organization_id,requested_by,provider_payment_id,
-  merchant_id,amount_minor,approved_policy_reference,owner_reviewed_at)
+  merchant_id,amount_minor,approved_policy_reference,request_received_at,
+  request_evidence_reference,owner_reviewed_at)
 VALUES('c6666666-6666-4666-8666-666666666666',
  'c2222222-2222-4222-8222-222222222222',
  'c1111111-1111-4111-8111-111111111111',
  'pay_CompSynthetic','acc_UsefulmadeLiveSynthetic',79900,
- 'synthetic-full-refund-policy',now());
+ 'synthetic-full-refund-policy',clock_timestamp(),
+ 'synthetic-request-receipt',clock_timestamp());
 INSERT INTO private.subscription_live_refunds
  (refund_request_id,provider_payment_id,provider_refund_id,
   organization_id,merchant_id,amount_minor,state)

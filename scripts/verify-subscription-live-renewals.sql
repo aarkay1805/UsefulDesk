@@ -211,10 +211,22 @@ SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b999
 ROLLBACK TO before_settlement;
 
 RESET ROLE;
-INSERT INTO private.subscription_live_refund_reviews(refund_request_id,organization_id,requested_by,
- provider_payment_id,merchant_id,amount_minor,approved_policy_reference,owner_reviewed_at)
+SELECT pg_temp.expect_error($q$INSERT INTO private.subscription_live_refund_reviews(
+ refund_request_id,organization_id,requested_by,provider_payment_id,merchant_id,
+ amount_minor,approved_policy_reference,request_received_at,
+ request_evidence_reference,owner_reviewed_at)
 VALUES('b6666666-6666-4666-8666-666666666666','b2222222-2222-4222-8222-222222222222',
- 'b1111111-1111-4111-8111-111111111111','pay_InitialRenewalFixture','acc_UsefulmadeLiveSynthetic',79900,'synthetic-policy',now());
+ 'b1111111-1111-4111-8111-111111111111','pay_InitialRenewalFixture',
+ 'acc_UsefulmadeLiveSynthetic',79900,'synthetic-policy',now()-interval '1 second',
+ 'synthetic-late-request',now())$q$,'22023');
+INSERT INTO private.subscription_live_refund_reviews(refund_request_id,organization_id,requested_by,
+ provider_payment_id,merchant_id,amount_minor,approved_policy_reference,request_received_at,
+ request_evidence_reference,owner_reviewed_at,review_kind,exception_reason)
+VALUES('b6666666-6666-4666-8666-666666666666','b2222222-2222-4222-8222-222222222222',
+ 'b1111111-1111-4111-8111-111111111111','pay_InitialRenewalFixture',
+ 'acc_UsefulmadeLiveSynthetic',79900,'synthetic-policy',now()-interval '1 second',
+ 'synthetic-exception-request',now(),'exception_review',
+ 'synthetic exceptional correction after standard window');
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_commit_live_initial_payment('b9999999-9999-4999-8999-999999999999',

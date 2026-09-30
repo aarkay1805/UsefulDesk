@@ -1,12 +1,12 @@
 # Usefulmade Live SaaS billing draft
 
-**Status (29 September 2026): foundation app deployed, Live schema uninstalled,
+**Status (30 September 2026): PR #17 default-off app deployed, Live schema uninstalled,
 billing default off.** This is a reviewable initial-term, expiry-only renewal
 and first-full-refund boundary, not a payable offer or billing activation. Gym
 Razorpay OAuth, webhooks, mandates and member ledgers remain separate.
-PR #16 merged at `a237ead7403f3d0653fb44a6a3179ad33a2a177f`; CI passed
-and the canonical Production app is READY at
-`dpl_CVCkXK7H6udXzxNgdwuaaApjufak`. The last read-only database audit found
+PR #17 merged at `a1a0ddab7432e0204cfdc027f042b9c87b01115e`; hosted
+CI and CodeQL passed and canonical Production was READY at
+`dpl_AZtfZQ2qs1TiLhTBt6JdeoZN2vtM` on 29 September. The last read-only database audit found
 no SaaS billing schema or configured Live SaaS path.
 The owner has since requested reuse of the existing activated UsefulMade
 merchant. The `acc_` identity can be shared technically, while direct SaaS
@@ -66,6 +66,13 @@ Razorpay describes keys as universal across approved websites/apps.
   and stops renewal; later payments or changed access remain review-held.
   Signed refund deliveries and the protected bounded recovery route use GET
   only and can revisit held events after an outage.
+- The uninstalled `20260930020000` draft snapshots the first verified payment's
+  billing timezone and requires a refund request timestamp plus evidence
+  reference. A standard first-payment request must arrive no later than local
+  day 7; a separately reasoned exceptional correction remains owner-reviewed.
+  Review evidence becomes immutable. The rollback-only full-schema suite covers
+  a late standard rejection and an explicit exception. Genuine provider and
+  customer-service acceptance remain open.
 - An empty private approval ledger holds the merchant-approved exact INR
   amount, tax and refund references, customer-facing notes, term policy and
   quote lifetime. It has no application write path. The owner can preview one
@@ -133,22 +140,25 @@ and signed settlement; it does not change Production access today. Confirm that
 the existing activated UsefulMade merchant `acc_TCJwBqanN9LTrK` is approved for
 UsefulDesk subscriptions and `desk.usefulmade.com`, then configure the SaaS
 keys/webhook independently of gym OAuth and prove signed mixed deliveries.
-Document the supplier's registration, tax and receipt treatment from verified
-PAN-wide turnover, customer geography, supplier identity/address and refund
-facts; seek qualified advice for unresolved exceptions. The provisional ₹799
-and ₹0 GST draft are not a payable quote or tax conclusion. The public
-UsefulDesk page says to contact for pricing and its terms describe payments
-generically; publish approved Starter price, term, cancellation and refund
-wording before payment. Store sensitive evidence privately and put only approved
+The owner confirmed UsefulMade's legal business name, Punjab business address,
+no GST registration, no turnover yet and no foreign-service purchase so far.
+There is no genuine first customer yet. These statements are recorded in the
+private local issuer draft; the missing Udyam certificate is not a drafting
+prerequisite. Before a payable quote, record PAN-wide financial-year turnover,
+actual buyer geography and any compulsory-registration circumstance, especially
+reverse charge on received services; seek qualified advice for a real exception.
+The owner approved ₹799 gross, the Starter term and first-payment refund
+timeline; UsefulMade published the [policy](https://usefulmade.com/useful-desk/refunds/)
+on 30 September. The no-GST invoice draft remains conditional and is not a
+tax conclusion or payable quote. Store sensitive evidence privately and put only approved
 customer wording/references into the immutable offer ledger. See
 [paid-pilot readiness](production-readiness.md#owner-decisions-and-acceptance-evidence)
 and the private [offer draft](starter-pilot-offer-draft.md).
 
-1. Finish the customer-payable offer: documented tax/receipt treatment and
-   exact amount/wording, the customer-facing presentation of separately payable
-   third-party charges, cancellation/refund wording, and release-specific
-   acceptance for the selected complimentary pilot. The owner approved a
-   provisional ₹799, one active branch, web
+1. Finish the customer-payable offer: documented tax/receipt treatment,
+   release-specific acceptance of the new Live refund review boundary, and
+   acceptance for the selected complimentary pilot. The owner approved
+   ₹799 gross, one active branch, web
    Checkout, a capture-event calendar month, and a 30-minute reviewed quote;
    late capture is review-held. There are no pilot-specific numeric member or
    staff caps. Approved Starter features are members/plans,
@@ -156,7 +166,8 @@ and the private [offer draft](starter-pilot-offer-draft.md).
    and standard renewal reminders; custom schedules, bulk campaigns,
    configurable automations, gym-member Payment Links, and AutoPay are
    excluded. The owner requested using the existing UsefulMade merchant; its
-   approved website is `usefulmade.com`, while the SaaS domain/product and
+   approved website is `usefulmade.com` only as of the 30 September recheck.
+   The additional-site flow requires the same business model. The SaaS domain/product and
    signed mixed-event routing still needs provider acceptance. No
    approval row is seeded; quote issuance and Checkout remain hard-closed
    pending an explicitly reviewed opening migration.
