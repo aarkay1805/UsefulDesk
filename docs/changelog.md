@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-09-30 — Publish Starter policy with billing closed
+
+The owner approved ₹799 gross for one invited Starter month, local day-7
+first-payment refund requests and the two-business-day response/initiation
+timeline. UsefulMade PR #2 (`eb0acb9`) published the product price, terms,
+privacy update and dedicated `/useful-desk/refunds/` policy; the live URL
+returned 200. No real first buyer exists, and no foreign service had been
+purchased at that point. Vercel Pro may change that fact and its invoice/tax
+treatment needs review. Razorpay's additional-domain form requires a dedicated
+test login; the supplied email appears to have an existing UsefulDesk account,
+so no new password was saved or shared. Live billing remains closed.
+
 ## 2026-09-30 — Reconcile paid-pilot offer and merchant gates
 
 `docs/starter-pilot-offer-draft.md` now gives reviewable Starter payment,

@@ -772,7 +772,7 @@ movement. `docs/production-readiness.md` is the provider gate and
 Starter pilot scope and Supabase Free review date are recorded in
 `docs/production-readiness.md`; sign-in email delivery and redemption passed.
 Protected URL/key values remain unverifiable, Vercel remains on Hobby, and
-final tax/receipt determination and exact payable approval remain open. The owner
+final tax/receipt determination and an actual first buyer remain open. The owner
 selected UsefulMade / Home office (`8826d9aa-03f2-4ad7-ae91-0553052131f8`,
 one active branch) for the pilot. Read-only access evidence found it
 complimentary with no trial dates. The local default-off conversion draft now
@@ -804,12 +804,18 @@ canonical Production app was READY at `dpl_AZtfZQ2qs1TiLhTBt6JdeoZN2vtM`
 on 29 September. The follow-up implements default-off shared-merchant event routing and the
 selected complimentary pilot's owner-acknowledged Starter conversion in code;
 its Live schema and money gates are not installed in Production. SaaS merchant product/domain approval,
-signed mixed-delivery acceptance, documented tax/receipt determination, final
-offer wording, hosting upgrade, and release-specific provider acceptance remain
+signed mixed-delivery acceptance, documented tax/receipt determination, hosting
+upgrade, and release-specific provider acceptance remain
 activation work. The owner confirmed UsefulMade's legal business name, Punjab
 address, no GST registration and no turnover yet; the address stays in the
-private local issuer draft. The [reviewable offer draft](../docs/starter-pilot-offer-draft.md)
-now includes proposed cancellation, day-7 refund and ordinary receipt wording.
+private local issuer draft. The owner approved ₹799 gross Starter terms and the
+day-7 first-payment refund with the documented service timeline. UsefulMade PR
+#2 (`eb0acb9`) published the [public policy](https://usefulmade.com/useful-desk/refunds/),
+product price, terms and privacy update on 30 September; the refund URL
+returned 200. The [conditional invoice draft](../docs/starter-pilot-offer-draft.md)
+still awaits a real buyer and final tax/receipt determination. The owner
+reports no foreign service purchase so far; the planned Vercel Pro purchase
+may change that fact.
 The new uninstalled Live refund-review draft freezes the first payment billing
 timezone, requires a request timestamp/evidence reference, and rejects standard
 requests after local day 7; exceptional corrections require a separate reason.

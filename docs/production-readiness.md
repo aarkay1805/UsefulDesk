@@ -5,6 +5,19 @@ UsefulDesk term, close the common operational and commercial decisions below.
 Automated subscriptions require the additional subscription acceptance gate.
 An environment audit or a Test payment does not authorize a paid launch.
 
+**30 September public-policy update:** the owner approved ₹799 gross for an
+invited Starter month, the local day-7 first-payment refund request window,
+and the two-business-day acknowledgement/initiation timeline. UsefulMade PR
+#2 (`eb0acb9`) published the [refund policy](https://usefulmade.com/useful-desk/refunds/),
+price, terms and privacy update; the live policy URL returned 200. The owner
+reports no foreign-service purchases to date and no real first customer.
+Razorpay's additional-site form requires a dedicated test account login; the
+first supplied email appears to have an existing UsefulDesk account, so no
+new password was saved or shared. The planned Vercel Pro purchase may count
+as a foreign cloud-service purchase; review the actual invoice and applicable
+GST treatment before the first customer invoice. Neither public policy nor
+an internal review account opens Live billing.
+
 The original provider audit ran on **28 September 2026, 09:39–11:39 UTC**.
 Plan, deployment, environment-name, database, workflow, backup, and public-URL
 evidence was refreshed **29 September 2026, 13:02–13:16 UTC**. Usage, SMTP
@@ -103,7 +116,7 @@ configuration, issuing a quote, opening Checkout, or enabling capability and
 money switches. Keep the paid gate CLOSED.
 
 For the later payable pilot, collect these private decisions and proofs in
-order: (1) finish the [customer offer draft](starter-pilot-offer-draft.md) and
+order: (1) use the approved [customer offer](starter-pilot-offer-draft.md) and finish
 release-specific acceptance of the implemented complimentary-to-paid Starter conversion; (2) document the
 fact-supported tax/receipt determination for the exact payable amount and
 wording (C-01/C-02 below); (3) confirm the existing UsefulMade merchant covers
@@ -159,16 +172,16 @@ Selection is not real-money authorization.
   account. Add `desk.usefulmade.com` under the same
   business model in the authenticated Razorpay website/app flow, complete its
   SMS OTP and any provider review, then verify the SaaS domain and product are
-  approved before Live configuration. The owner opened that flow and selected
-  Continue, which requested an SMS OTP; the flow was cancelled without entering
-  the OTP or submitting the site. The existing `usefulmade.com` approval does
+  approved before Live configuration. On 30 September the owner completed the
+  SMS OTP and the form requested a dedicated test-account email and password;
+  no site was submitted. The existing `usefulmade.com` approval does
   not establish approval for `desk.usefulmade.com`. Keep the requested website,
   product description, policy links, sample invoice and test login (if Razorpay
   asks) aligned with the final customer offer. The handoff needs the live
   UsefulDesk product description, stable terms, privacy, cancellation/refund
   policy with a processing timeline, support contact, and an explicitly
-  marked unissued ordinary-invoice sample. The current public terms have only
-  generic payment language and are not final Starter terms.
+  marked unissued ordinary-invoice sample. UsefulMade PR #2 published the
+  approved Starter price, terms, privacy update and cancellation/refund policy.
   The local shared-merchant routing fix classifies provider-proven gym events as
   unrelated to SaaS, leaves ambiguous SaaS deliveries retryable, and keeps SaaS
   refunds out of the gym ledger. Signed mixed-delivery acceptance on the actual

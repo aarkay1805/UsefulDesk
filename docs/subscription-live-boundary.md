@@ -141,25 +141,24 @@ the existing activated UsefulMade merchant `acc_TCJwBqanN9LTrK` is approved for
 UsefulDesk subscriptions and `desk.usefulmade.com`, then configure the SaaS
 keys/webhook independently of gym OAuth and prove signed mixed deliveries.
 The owner confirmed UsefulMade's legal business name, Punjab business address,
-no GST registration and no turnover yet. These statements are recorded in the
+no GST registration, no turnover yet and no foreign-service purchase so far.
+There is no genuine first customer yet. These statements are recorded in the
 private local issuer draft; the missing Udyam certificate is not a drafting
 prerequisite. Before a payable quote, record PAN-wide financial-year turnover,
 actual buyer geography and any compulsory-registration circumstance, especially
 reverse charge on received services; seek qualified advice for a real exception.
-The provisional ₹799 and no-GST draft are not a payable quote or tax conclusion. The public
-UsefulDesk page says to contact for pricing and its terms describe payments
-generically; publish approved Starter price, term, cancellation and refund
-wording before payment. Store sensitive evidence privately and put only approved
+The owner approved ₹799 gross, the Starter term and first-payment refund
+timeline; UsefulMade published the [policy](https://usefulmade.com/useful-desk/refunds/)
+on 30 September. The no-GST invoice draft remains conditional and is not a
+tax conclusion or payable quote. Store sensitive evidence privately and put only approved
 customer wording/references into the immutable offer ledger. See
 [paid-pilot readiness](production-readiness.md#owner-decisions-and-acceptance-evidence)
 and the private [offer draft](starter-pilot-offer-draft.md).
 
-1. Finish the customer-payable offer: documented tax/receipt treatment and
-   exact amount/wording, the customer-facing presentation of separately payable
-   third-party charges, cancellation/refund wording and processing timeline,
+1. Finish the customer-payable offer: documented tax/receipt treatment,
    release-specific acceptance of the new Live refund review boundary, and
-   acceptance for the selected complimentary pilot. The owner approved a
-   provisional ₹799, one active branch, web
+   acceptance for the selected complimentary pilot. The owner approved
+   ₹799 gross, one active branch, web
    Checkout, a capture-event calendar month, and a 30-minute reviewed quote;
    late capture is review-held. There are no pilot-specific numeric member or
    staff caps. Approved Starter features are members/plans,
