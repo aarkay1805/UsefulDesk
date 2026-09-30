@@ -1,6 +1,6 @@
 # Usefulmade Live SaaS billing draft
 
-**Status (30 September 2026): PR #17 default-off app deployed, Live schema uninstalled,
+**Status (30 September 2026): PR #18 default-off release deployed, Live schema uninstalled,
 billing default off.** This is a reviewable initial-term, expiry-only renewal
 and first-full-refund boundary, not a payable offer or billing activation. Gym
 Razorpay OAuth, webhooks, mandates and member ledgers remain separate.
@@ -13,6 +13,34 @@ merchant. The `acc_` identity can be shared technically, while direct SaaS
 key configuration, webhook handling, order identity and billing records stay
 independent of gym OAuth. This does not require a second Razorpay API key pair;
 Razorpay describes keys as universal across approved websites/apps.
+
+The 30 September recheck confirms PR #18 merged at
+`fbc8a9ddfddede1c4ea48dc9a77ea1a2ee6f0ac4`, green CI/CodeQL/Vercel checks,
+and successful GitHub Production deployment `6751236716` for that SHA.
+Focused Live subscription tests pass 60/60; all three rollback-only full-schema
+suites pass with twelve draft migrations and leave no Live schema installed.
+Production still has zero private subscription/billing tables. Razorpay's
+submitted `desk.usefulmade.com` remains Under review; approval is required
+before Live provider configuration and acceptance.
+
+The unchanged owner-review component also passed an isolated synthetic Chrome
+browser check on 30 September using actual shared controls/styles at desktop
+and 320/390 px phone widths. Mocked RPC/Checkout responses covered offer,
+conversion, reminder gating, held/expired payment, cancellation/refund and renewal
+states. This does not establish authenticated full-app or real provider/refund
+acceptance; see the [Test record](subscription-test-acceptance.md).
+
+The 30 September follow-up also passed four real local Auth/API/RLS and
+mocked-worker Starter checks, plus actual signed-in reminder settings at desktop
+and 390 px. Standard off/on persisted, custom schedules were refused, reviewed
+downgrades normalized 7/3/1, and workers respected local 09:00, dedupe, missed
+days and access revocation before send. Fixtures and switches were restored.
+This closes local web/worker acceptance, not real WhatsApp delivery, final native
+capability activation, operational staging or Live acceptance. The isolated
+10:17 UTC Production export passed with zero blockers/three warnings and no
+SaaS billing configuration; protected URL/key values remain unverified. Follow
+the [ordered rollout sequence](production-readiness.md#starter-rollout-sequence)
+before any activation.
 
 ## Boundaries
 
@@ -141,7 +169,9 @@ the existing activated UsefulMade merchant `acc_TCJwBqanN9LTrK` is approved for
 UsefulDesk subscriptions and `desk.usefulmade.com`, then configure the SaaS
 keys/webhook independently of gym OAuth and prove signed mixed deliveries.
 The owner confirmed UsefulMade's legal business name, Punjab business address,
-no GST registration, no turnover yet and no foreign-service purchase so far.
+no GST registration, no turnover yet and no foreign-service purchase before the
+later Vercel Pro checkout. Pro is now active; the owner reports payment, while
+the invoice still shows Open / Payment failed.
 There is no genuine first customer yet. These statements are recorded in the
 private local issuer draft; the missing Udyam certificate is not a drafting
 prerequisite. Before a payable quote, record PAN-wide financial-year turnover,
@@ -166,7 +196,8 @@ and the private [offer draft](starter-pilot-offer-draft.md).
    and standard renewal reminders; custom schedules, bulk campaigns,
    configurable automations, gym-member Payment Links, and AutoPay are
    excluded. The owner requested using the existing UsefulMade merchant; its
-   approved website is `usefulmade.com` only as of the 30 September recheck.
+   approved website is `usefulmade.com`; the submitted `desk.usefulmade.com`
+   remains Under review at the refreshed 30 September check.
    The additional-site flow requires the same business model. The SaaS domain/product and
    signed mixed-event routing still needs provider acceptance. No
    approval row is seeded; quote issuance and Checkout remain hard-closed

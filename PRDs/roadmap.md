@@ -771,8 +771,11 @@ movement. `docs/production-readiness.md` is the provider gate and
 **30 September continuation: paid activation remains closed.** The owner-approved
 Starter pilot scope and Supabase Free review date are recorded in
 `docs/production-readiness.md`; sign-in email delivery and redemption passed.
-Protected URL/key values remain unverifiable, Vercel remains on Hobby, and
-final tax/receipt determination and an actual first buyer remain open. The owner
+Protected URL/key values remain unverifiable. Vercel now shows Pro Active,
+but invoice `GQBCLHWV-0001` remains Open / Payment failed for US$23.60;
+the owner reports payment, so settlement needs reconciliation. The US$20
+on-demand usage alert budget is saved with pausing off.
+Final tax/receipt determination and an actual first buyer remain open. The owner
 selected UsefulMade / Home office (`8826d9aa-03f2-4ad7-ae91-0553052131f8`,
 one active branch) for the pilot. Read-only access evidence found it
 complimentary with no trial dates. The local default-off conversion draft now
@@ -805,7 +808,7 @@ on 29 September. The follow-up implements default-off shared-merchant event rout
 selected complimentary pilot's owner-acknowledged Starter conversion in code;
 its Live schema and money gates are not installed in Production. SaaS merchant product/domain approval,
 signed mixed-delivery acceptance, documented tax/receipt determination, hosting
-upgrade, and release-specific provider acceptance remain
+invoice settlement, and release-specific provider acceptance remain
 activation work. The owner confirmed UsefulMade's legal business name, Punjab
 address, no GST registration and no turnover yet; the address stays in the
 private local issuer draft. The owner approved ₹799 gross Starter terms and the
@@ -814,16 +817,54 @@ day-7 first-payment refund with the documented service timeline. UsefulMade PR
 product price, terms and privacy update on 30 September; the refund URL
 returned 200. The [conditional invoice draft](../docs/starter-pilot-offer-draft.md)
 still awaits a real buyer and final tax/receipt determination. The owner
-reports no foreign service purchase so far; the planned Vercel Pro purchase
-may change that fact.
+reported no foreign service purchase before checkout; the subsequent Vercel
+Pro invoice includes US$3.60 tax and needs review before any customer invoice.
 The new uninstalled Live refund-review draft freezes the first payment billing
 timezone, requires a request timestamp/evidence reference, and rejects standard
 requests after local day 7; exceptional corrections require a separate reason.
 Its full-schema synthetic suite passes, but genuine provider/service acceptance
-remains. Razorpay lists only `usefulmade.com` as approved, and its
-additional-site flow requires the same business model. See
+remains. The owner-authorized dedicated empty review account was confirmed
+and its temporary login submitted to Razorpay. The refreshed 30 September
+dashboard shows `usefulmade.com` Approved and `desk.usefulmade.com`
+Under review, with an expected update in 24–48 hours. Domain/product approval
+remains open; the additional-site flow requires the same business model. See
 [readiness](../docs/production-readiness.md) and the
 [Live boundary](../docs/subscription-live-boundary.md).
+
+**30 September disabled-release recheck:** PR #18 merged at
+`fbc8a9ddfddede1c4ea48dc9a77ea1a2ee6f0ac4`, with CI/CodeQL/Vercel checks
+passing and GitHub Production deployment `6751236716` successful for that SHA.
+Focused Live subscription tests pass 60/60 and all three rollback-only
+full-schema suites pass with twelve drafts, leaving no installed Live schema.
+Production has zero private subscription/billing tables. Final browser,
+capability/send and genuine signed Live shared-merchant acceptance remain open;
+Razorpay review prevents completing Live provider setup now. Work independent
+of the conflicting Vercel invoice proceeds on the owner's request.
+
+**30 September synthetic browser check complete:** the unchanged Live owner
+review component passed desktop and 320/390 px Chrome checks with actual shared
+UI/locale/styles and mocked RPC/Checkout boundaries. ₹799 terms, separate
+free-to-paid acknowledgement, reminder-gated payment, expired/held requests,
+cancellation preserving expiry, refunded stop state, expiry-only renewal review,
+and read/Checkout errors were exercised. No component change or Production write
+was needed. Authenticated full-app acceptance, tax/receipt wording, capability/send
+rollout and genuine Live merchant evidence remain open; see the
+[Test record](../docs/subscription-test-acceptance.md).
+
+**30 September local authenticated capability check complete:** four real local
+Auth/API/RLS and mocked-worker checks passed for standard-switch saves, custom
+schedule refusal, reviewed Starter normalization, local 09:00, 7/3/1 selection,
+dedupe, missed days and access revocation before send. Actual signed-in settings
+passed desktop/390 px inspection; all temporary data and switches were restored.
+The capability SQL fixture includes current transaction hooks, and its new
+explicit-container runner verifies rollback. No application code changed.
+The isolated Production environment audit passed with zero blockers/three warnings,
+and exact `fbc8a9dd` Production is READY with SaaS billing absent. Operational
+full-schema staging, actual approved-template delivery, final capability/native
+activation, issuer/protected-value checks and genuine Live shared-merchant
+acceptance remain. Follow the [ordered rollout sequence](../docs/production-readiness.md#starter-rollout-sequence);
+the owner authorizes continuing while the Vercel invoice discrepancy is retained
+for reconciliation. No duplicate payment or paid activation is requested by this record.
 
 The local default-off Test checkout, renewal, cancellation and refund slices
 below do not constitute Production automated billing. Later full-schema,

@@ -2,6 +2,7 @@
 -- Disposable schema only. Synthetic verified inputs test SQL, not Razorpay.
 BEGIN;
 \i supabase/migrations/20260928160000_subscription_capability_boundary.sql
+\i supabase/migrations/20260929110000_subscription_starter_transaction_hooks.sql
 CREATE OR REPLACE FUNCTION pg_temp.expect_error(statement TEXT, expected_state TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$ BEGIN
   EXECUTE statement;
@@ -40,7 +41,7 @@ INSERT INTO private.organization_product_access(organization_id,mode,access_star
 UPDATE private.subscription_billing_settings SET enabled=true,test_merchant_account_id='acc_RenewalTest';
 UPDATE private.product_access_settings SET enforcement_enabled=true;
 
--- Synthetic Test-only approval: the real owner has not approved this cadence.
+-- Synthetic Test-only activation of the owner-approved cadence; rollout stays off.
 SELECT pg_temp.expect_error($q$UPDATE private.subscription_billing_settings SET capabilities_enabled=true$q$,'23514');
 UPDATE private.subscription_billing_settings SET standard_reminder_policy_approved=true,
   standard_reminder_policy_version='synthetic-capability-test-v1',
@@ -128,6 +129,10 @@ INSERT INTO public.service_renewal_reminders_sent(account_id,member_service_id,e
 SELECT pg_temp.assert_true((SELECT status='retired' FROM public.service_renewal_reminders_sent
  WHERE member_service_id='faaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaae' AND days_before=14),
  'Retired custom service reminder could be reclaimed');
+-- The current grant hook requires the reviewed, pending Starter order as well
+-- as the explicit policy hook. Exercise both installed transaction boundaries.
+UPDATE private.organization_subscription_intents SET provider_order_id='order_ReviewedStarter'
+ WHERE request_id='f8888888-8888-4888-8888-888888888888';
 UPDATE private.organization_paid_subscription_grants SET tier='starter' WHERE organization_id='f2222222-2222-4222-8222-222222222222';
 SAVEPOINT activation_guard_case;
 UPDATE private.subscription_billing_settings SET capabilities_enabled=false;

@@ -6,6 +6,56 @@
 
 ---
 
+## 2026-09-30 — Accept local Starter capability and reminder boundaries
+
+Four real local Auth/API/RLS and mocked-worker checks passed; the signed-in
+settings page passed desktop/390 px checks and real standard-switch saves.
+Custom schedules were refused, reviewed downgrades normalized 7/3/1, and workers
+respected local 09:00, dedupe, missed days and access revocation before send.
+Temporary data/settings were restored. `verify-subscription-capabilities.sql`
+now includes current Starter transaction hooks and a reviewed pending order;
+`verify-subscription-capabilities-full.mjs` repeats the rollback-only full-schema
+checks on an explicitly named disposable container. The isolated Production
+environment audit passed with zero blockers/three warnings and no SaaS billing
+configuration. Readiness now gives an ordered rollout handoff and treats the
+open Vercel invoice as a reconciliation item under the owner's instruction to
+continue. Merchant approval, protected-value checks, final tax/receipt wording,
+operational staging and genuine Live acceptance remain; billing is closed.
+
+## 2026-09-30 — Record synthetic Starter browser acceptance
+
+The unchanged `subscription-live-review.tsx` passed isolated browser checks for
+₹799 review, free-access conversion, reminder gating, expired/held payments,
+cancellation, refund stop, expiry-only renewal and errors. Actual shared styles
+and controls fit desktop and 320/390 px Chrome views. The fixture stays outside
+the repo and blocks external effects; authenticated full-app, tax/receipt,
+capability/send and genuine Live acceptance remain pending in the Test record
+and roadmap. No Production gate or schema changed.
+
+## 2026-09-30 — Recheck the disabled Starter release
+
+PR #18 merged at `fbc8a9dd`; all hosted checks passed and GitHub Production
+deployment `6751236716` reports success for that SHA. Focused Live subscription
+checks pass 60 tests in 9 files; the twelve-draft rollback-only full-schema
+runner passes all three suites and installs nothing. Production has zero private
+subscription/billing tables. Readiness, Live-boundary and Test records now carry
+this evidence; final browser/capability/send and genuine Live merchant acceptance
+remain open. Continue invoice-independent work per the owner; reported Vercel
+payment remains unreconciled with the provider's open invoice.
+
+## 2026-09-30 — Record merchant submission and unsettled hosting invoice
+
+The dedicated empty Razorpay review account was confirmed and its login
+submitted with owner authorization; a refreshed dashboard shows
+`desk.usefulmade.com` Under review (24–48-hour stated window). Vercel shows
+Pro Active with a saved US$20 on-demand usage alert budget and pausing off,
+but invoice `GQBCLHWV-0001` remains Open / Payment failed for US$23.60,
+including US$3.60 tax, after the owner reported payment. Reconcile the payment
+confirmation before retrying. `docs/production-readiness.md`, the Starter offer record
+and roadmap now distinguish completed submission/settings from pending
+merchant approval and owner invoice settlement. No paid activation resulted
+from this recheck; the actual buyer and tax/receipt determination remain open.
+
 ## 2026-09-30 — Publish Starter policy with billing closed
 
 The owner approved ₹799 gross for one invited Starter month, local day-7
