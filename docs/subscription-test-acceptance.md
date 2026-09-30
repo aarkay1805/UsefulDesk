@@ -898,3 +898,118 @@ pre-claim and pre-Meta checks have synthetic SQL and mocked route evidence,
 but no enabled rollout or real WhatsApp send. Final offer-specific web/refund
 presentation, capability activation, and genuine Live merchant/release evidence
 remain open. The Production gate remains CLOSED.
+
+## Disabled release recheck — 30 September 2026
+
+PR #18 is merged at `fbc8a9ddfddede1c4ea48dc9a77ea1a2ee6f0ac4`, with
+CI, CodeQL and Vercel checks passing. GitHub Production deployment `6751236716`
+reports success for that SHA. The focused Live provider, order, settlement,
+refund, Checkout, owner-review UI and route run passes **60 tests in 9 files**.
+The repeatable rollback-only command passes all three Live suites with twelve
+draft migrations on `supabase_db_usefuldesk-subscription-full-bo1rg7p0` and
+confirms no Live schema survives. A read-only Production query confirms zero
+private subscription/billing tables. This adds current disabled-release evidence,
+not final browser, enabled capability/send, or genuine Live provider acceptance.
+Razorpay's submitted SaaS domain remains Under review; all payable gates remain
+closed.
+
+## Starter browser component acceptance — 30 September 2026
+
+The unchanged `src/components/platform-access/subscription-live-review.tsx`
+was rendered through an isolated local Next.js fixture with the actual shared
+UI controls, locale formatter, global tokens and Inter font. Only Supabase RPCs,
+quote/order responses and the Checkout adapter were replaced with synthetic
+fixtures; external fetches were blocked. The fixture's checkout UI flag was
+local only. No account, provider, Production flag or database was changed.
+
+- ₹799 / one month and the approved day-7 first-payment refund/service timeline
+  rendered. Exact-amount acceptance alone left confirmation disabled; the
+  separate complimentary-access conversion acknowledgement was required.
+- Confirmation produced a matched synthetic quote. Payment stayed disabled
+  until the approved 7/3/1 after-09:00 reminder choice was saved. A synthetic
+  Checkout failure showed an error and restored the payment control.
+- Expired quotes removed Pay and allowed a new amount review. A held payment
+  removed Pay and instructed the owner to contact support before paying again.
+- Active terms offered cancellation but no early renewal purchase. Cancellation
+  required acknowledgement, retained the same paid-through date, and removed
+  the purchase controls. Refunded terms showed the refund and support path.
+- An expired-term fixture offered Starter renewal review. Read failures showed
+  a retry message and Refresh billing without exposing purchase controls.
+- Chrome desktop plus 320 × 640 and 390 × 844 phone viewports were inspected.
+  The offer and held-payment content wrapped, with document width equal to
+  viewport width at both phone sizes; no horizontal overflow was observed.
+
+The disposable fixture is outside the repository at
+`~/Library/Caches/usefuldesk-starter-ui-20260930`; it ran on localhost:3240 and
+was stopped after acceptance. Its temporary browser tab was closed.
+Screenshots are local artifacts in the 30 September continuation's
+visualizations directory. This completes the **synthetic component browser
+check**, not authenticated full-application acceptance, real refund processing,
+RLS isolation, capability/worker activation, or genuine Live Checkout/webhook
+acceptance. The tax line was explicitly fixture text pending issuer review.
+The remaining release gates stay closed.
+
+## Starter authenticated capability and worker acceptance — 30 September 2026
+
+The unchanged application was exercised against the already installed full-schema
+disposable stack `supabase_db_usefuldesk-subscription-full-bo1rg7p0`, using real
+local Supabase Auth, owner cookies, PostgREST, RLS and the reminder settings API.
+Four integration checks passed. Only the external WhatsApp adapter and the
+cron authorization context were replaced; a fetch guard refused every external
+URL. Synthetic approved templates, contacts and payments were not provider facts.
+
+- The owner snapshot exposed only Starter's standard-reminder capability.
+  Direct custom-schedule writes failed with SQLSTATE `42501`, and both membership
+  and service API edits returned `403 subscription_capability_required`.
+  Standard off/on edits returned 200. A reviewed Growth-to-Starter fixture reset
+  both saved schedules to 7/3/1.
+- Before 09:00 in the account timezone, membership and service workers made no
+  provider attempt. After 09:00, exactly three membership and three service
+  candidates reached the mocked adapter, at days 7/3/1 only. A repeat run made
+  no additional attempt. Same-day, 14-day, expired and missed-day candidates
+  did not receive a backfilled standard reminder.
+- Suspending access after candidate selection, immediately before the real
+  `beforeSend` check, prevented the adapter call and released the retryable
+  membership claim. This checks the final access boundary, not provider outage
+  recovery or actual delivery.
+
+The actual signed-in app at localhost:3241 was then inspected in Chrome.
+Membership and service custom-date controls displayed the shared Growth/Ultimate
+restriction. The membership standard switch was saved off and on through real
+HTTP PATCH responses, and database reads retained both 7/3/1 arrays. The service
+restriction and settings layout were inspected at 390 × 844. No UI source or
+shared component changed. The fixture was pre-onboarded; signup and real Live
+offer/Checkout/refund processing were not exercised by this check.
+
+Screenshots `starter-authenticated-custom-days.png` and
+`starter-authenticated-service-phone.png` are local artifacts in this chat's
+30 September visualizations directory. The integration source/result is in the
+private local cache `~/Library/Caches/usefuldesk-capability-acceptance-20260930`.
+The temporary user, organizations, templates and related data were removed;
+original settings and account/user counts were restored. The temporary password
+file was deleted, the app stopped, browser tabs closed and viewport overrides reset.
+No Production migration, switch, customer message or payment changed.
+
+The SQL capability fixture now includes the current Starter transaction hooks
+and a reviewed pending-order identity, avoiding the obsolete grant-only setup.
+The repeatable rollback check passes with:
+
+```bash
+node scripts/verify-subscription-capabilities-full.mjs \
+  supabase_db_usefuldesk-subscription-full-bo1rg7p0
+```
+
+It requires an explicitly named disposable container, checks role isolation,
+schedule normalization, unattempted-claim retirement and grace behavior, and
+verifies baseline switches/counts after rollback. This closes the local
+authenticated web/API/RLS and mocked-worker checks. Operational full-schema
+staging acceptance, actual approved-template sends, final native/release checks
+for capability activation, and genuine Live shared-merchant payment/refund
+acceptance remain open.
+
+The repository's required `npm run verify` passed on the closeout package:
+lint, typecheck, **4,073 tests in 522 files**, and the optimized Production build.
+The environment-audit tests ran under Vitest as part of that suite. The owner
+also verified the original canonical URL and 64-hex encryption-key format on
+30 September; readiness B-05 is closed by attestation, without secret disclosure
+or rotation. Neither result opens paid billing.
