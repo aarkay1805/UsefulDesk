@@ -1,7 +1,7 @@
 # Usefulmade Live SaaS billing draft
 
-**Status (30 September 2026): PR #18 default-off release deployed, Live schema uninstalled,
-billing default off.** This is a reviewable initial-term, expiry-only renewal
+**Status (30 September 2026): PR #19 default-off release deployed, billing schema installed
+with every gate off; Live configuration uninstalled.** This is a reviewable initial-term, expiry-only renewal
 and first-full-refund boundary, not a payable offer or billing activation. Gym
 Razorpay OAuth, webhooks, mandates and member ledgers remain separate.
 PR #17 merged at `a1a0ddab7432e0204cfdc027f042b9c87b01115e`; hosted
@@ -19,9 +19,14 @@ The 30 September recheck confirms PR #18 merged at
 and successful GitHub Production deployment `6751236716` for that SHA.
 Focused Live subscription tests pass 60/60; all three rollback-only full-schema
 suites pass with twelve draft migrations and leave no Live schema installed.
-Production still has zero private subscription/billing tables. Razorpay's
-submitted `desk.usefulmade.com` remains Under review; approval is required
-before Live provider configuration and acceptance.
+At that initial release check, Production had zero private subscription/billing
+tables. At the later
+30 September check, Razorpay confirms `desk.usefulmade.com` successfully
+verified. The owner authorized Live key generation and completed SMS
+verification; the key pair was saved privately with 0600 permissions and
+authenticated a read-only Orders API request (200). No provider order,
+payment, refund or access activation occurred. The independent SaaS webhook
+configuration is prepared privately; it is not installed or enabled.
 
 The unchanged owner-review component also passed an isolated synthetic Chrome
 browser check on 30 September using actual shared controls/styles at desktop
@@ -43,6 +48,16 @@ and 64-hex encryption-key format from their original secure source, closing B-05
 by attestation while export redaction warnings remain. Follow
 the [ordered rollout sequence](production-readiness.md#starter-rollout-sequence)
 before any activation.
+
+The subsequent [cloud staging acceptance](subscription-staging-plan.md) passed
+six authenticated API/isolation/worker checks, rollback billing/capability SQL
+and staging-backed desktop/390 px settings checks. After a fresh encrypted
+backup, the [26-source dark installation](subscription-production-install-record.md)
+completed in Production. Existing tenant/legal/access fingerprints and settings,
+554 gym payments and both active cron jobs were unchanged. All 24 private billing
+tables deny browser access, every gate is off, bindings are null and billing
+records/offer approvals are empty. The SaaS credentials and webhook are still
+uninstalled. The Production login/freshness health run passed after installation.
 
 ## Boundaries
 
@@ -96,7 +111,7 @@ before any activation.
   and stops renewal; later payments or changed access remain review-held.
   Signed refund deliveries and the protected bounded recovery route use GET
   only and can revisit held events after an outage.
-- The uninstalled `20260930020000` draft snapshots the first verified payment's
+- The installed, default-off `20260930020000` source snapshots the first verified payment's
   billing timezone and requires a refund request timestamp plus evidence
   reference. A standard first-payment request must arrive no later than local
   day 7; a separately reasoned exceptional correction remains owner-reviewed.
@@ -166,10 +181,13 @@ All payable switches stay closed.
 (`8826d9aa-03f2-4ad7-ae91-0553052131f8`, one active branch) has complimentary
 access with no trial dates. The default-off conversion code requires a separate
 owner acknowledgement and an unchanged source mode/version through order claim
-and signed settlement; it does not change Production access today. Confirm that
-the existing activated UsefulMade merchant `acc_TCJwBqanN9LTrK` is approved for
-UsefulDesk subscriptions and `desk.usefulmade.com`, then configure the SaaS
-keys/webhook independently of gym OAuth and prove signed mixed deliveries.
+and signed settlement; it does not change Production access today. Razorpay
+verified `desk.usefulmade.com` on the existing activated UsefulMade merchant
+`acc_TCJwBqanN9LTrK` on 30 September. Live keys are now saved privately and
+read-only authentication passes. Isolated full-schema staging and dark Production schema installation have passed.
+Authorize transferring the privately saved credentials to Production Vercel,
+then configure the SaaS receiver/webhook independently of gym OAuth
+and prove signed mixed deliveries.
 The owner confirmed UsefulMade's legal business name, Punjab business address,
 no GST registration, no turnover yet and no foreign-service purchase before the
 later Vercel Pro checkout. Pro is now active; the owner reports payment, while
@@ -198,10 +216,9 @@ and the private [offer draft](starter-pilot-offer-draft.md).
    and standard renewal reminders; custom schedules, bulk campaigns,
    configurable automations, gym-member Payment Links, and AutoPay are
    excluded. The owner requested using the existing UsefulMade merchant; its
-   approved website is `usefulmade.com`; the submitted `desk.usefulmade.com`
-   remains Under review at the refreshed 30 September check.
-   The additional-site flow requires the same business model. The SaaS domain/product and
-   signed mixed-event routing still needs provider acceptance. No
+   approved website is `usefulmade.com`; Razorpay subsequently verified
+   `desk.usefulmade.com` on 30 September. Website verification is closed;
+   actual signed mixed-event routing still needs provider acceptance. No
    approval row is seeded; quote issuance and Checkout remain hard-closed
    pending an explicitly reviewed opening migration.
 2. Accept the approved Starter 7/3/1 reminder schedule after 09:00 account-local

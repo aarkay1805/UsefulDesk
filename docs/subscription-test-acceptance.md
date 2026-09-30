@@ -31,6 +31,39 @@ substitute `supabase db push`.
 
 ## Evidence
 
+### Clean cloud staging acceptance, 30 September
+
+The owner approved `aarkay` and the quoted US$0/month creation of
+`otagotpezshybxkagtwv` (UsefulDesk Billing Staging). No Pro upgrade or paid branch
+was purchased. The [ordered staging record](subscription-staging-plan.md) pins
+328 source migrations, the inactive cron override and the 50 approved-tool
+schema batches. Public RLS and private billing privileges passed inspection.
+The three Live rollback SQL suites, a deliberately delayed capture/quote case
+and the capability rollback suite passed. The renewal fixture now freezes
+capture time after its quote, fixing transaction-start clock skew in the fixture.
+Application settlement behavior is unchanged.
+
+Four real cloud Auth/API/RLS and mocked-worker checks passed, followed by two
+staff/outsider isolation checks. The current-source local web app connected only
+to staging; signed-in reminder settings saved standard off/on and displayed the
+Starter restriction at desktop and actual 390 px Chrome width with no page
+overflow. Provider network calls were denied; no message or money moved.
+All synthetic users/tenants/payment facts/provider configurations were removed,
+every billing gate and access enforcement restored to false, bindings left null
+and cron inactive. Native acceptance, genuine approved-template delivery and
+signed Live shared-merchant/payment/refund evidence remain separate gates.
+
+Production's missing independent-brand/legal-identity source was identified:
+seven older definitions and one absent brand-name RPC. Its rollback-only staging
+reapplication preserves the accepted definitions. The 26-source dark installation
+manifest records this prerequisite before billing; all 26 sources subsequently
+installed in Production after a fresh encrypted backup. Existing tenant/legal/
+access facts and settings, gym payment count and active cron were unchanged.
+RLS/default-off checks and post-installation Production health passed. The
+[installation record](subscription-production-install-record.md) retains the
+source/connector mapping; no payable offer or opening migration was installed.
+The older cloud Test project remains paused and preserved.
+
 | Case                                           | Result and boundary                                                                                                                                                                                                                                                                                                                                                                                              |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Separate Test credentials                      | Read-only Orders API authentication returned 200. Only the `USEFULDESK_SAAS_RAZORPAY_TEST_*` credentials were used.                                                                                                                                                                                                                                                                                              |

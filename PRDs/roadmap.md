@@ -806,7 +806,7 @@ PR #17 merged at `a1a0ddab7432e0204cfdc027f042b9c87b01115e` and its
 canonical Production app was READY at `dpl_AZtfZQ2qs1TiLhTBt6JdeoZN2vtM`
 on 29 September. The follow-up implements default-off shared-merchant event routing and the
 selected complimentary pilot's owner-acknowledged Starter conversion in code;
-its Live schema and money gates are not installed in Production. SaaS merchant product/domain approval,
+its Live schema and money gates are not installed in Production. The SaaS domain was subsequently verified on 30 September;
 signed mixed-delivery acceptance, documented tax/receipt determination, hosting
 invoice settlement, and release-specific provider acceptance remain
 activation work. The owner confirmed UsefulMade's legal business name, Punjab
@@ -825,9 +825,12 @@ requests after local day 7; exceptional corrections require a separate reason.
 Its full-schema synthetic suite passes, but genuine provider/service acceptance
 remains. The owner-authorized dedicated empty review account was confirmed
 and its temporary login submitted to Razorpay. The refreshed 30 September
-dashboard shows `usefulmade.com` Approved and `desk.usefulmade.com`
-Under review, with an expected update in 24–48 hours. Domain/product approval
-remains open; the additional-site flow requires the same business model. See
+dashboard initially showed `desk.usefulmade.com` Under review; the later
+check confirms successful verification. The owner authorized Live key generation
+and completed SMS verification. The pair is saved privately with 0600 permissions;
+read-only Orders authentication returned 200. The independent SaaS webhook is
+prepared privately but uninstalled. Website verification is closed; staging and
+actual Live provider acceptance remain. See
 [readiness](../docs/production-readiness.md) and the
 [Live boundary](../docs/subscription-live-boundary.md).
 
@@ -838,7 +841,8 @@ Focused Live subscription tests pass 60/60 and all three rollback-only
 full-schema suites pass with twelve drafts, leaving no installed Live schema.
 Production has zero private subscription/billing tables. Final browser,
 capability/send and genuine signed Live shared-merchant acceptance remain open;
-Razorpay review prevents completing Live provider setup now. Work independent
+The later website verification permits preparing Live provider setup;
+full-schema staging still precedes dark Production installation. Work independent
 of the conflicting Vercel invoice proceeds on the owner's request.
 
 **30 September synthetic browser check complete:** the unchanged Live owner
@@ -867,6 +871,29 @@ activation, issuer checks and genuine Live shared-merchant
 acceptance remain. Follow the [ordered rollout sequence](../docs/production-readiness.md#starter-rollout-sequence);
 the owner authorizes continuing while the Vercel invoice discrepancy is retained
 for reconciliation. No duplicate payment or paid activation is requested by this record.
+
+**30 September clean cloud staging accepted:** the owner approved creation in
+`aarkay` at the provider's US$0/month quote. UsefulDesk Billing Staging
+(`otagotpezshybxkagtwv`) received the full 328-source schema with cron inactive.
+Three Live rollback suites, capability SQL, four real cloud Auth/API/RLS and
+mocked-worker checks, two staff/outsider isolation checks and staging-backed
+desktop/390 px settings acceptance passed. All synthetic users/tenants/payment
+and provider records were removed; all switches and access enforcement are off,
+bindings null and cron inactive. The old Test target remains paused.
+The renewal acceptance fixture now freezes capture time after its quote; no
+application rule changed. Production's missing independent-brand/legal-identity
+source explains seven older definitions and one absent brand-name RPC; its
+rollback staging replay preserves accepted definitions. The
+[26-source dark installation manifest](../docs/subscription-production-install-manifest.tsv)
+puts this prerequisite before the default-off billing drafts. All 26 sources
+subsequently installed in Production after a fresh encrypted database/Storage
+backup. Existing tenant/legal/access fingerprints and settings, 554 gym payments
+and both cron jobs were unchanged; RLS/default-off checks and post-installation
+Production health passed. The [installation record](../docs/subscription-production-install-record.md)
+keeps the mapping and next private configuration step. All gates remain off;
+SaaS credentials and webhook are uninstalled. Actual provider
+delivery, final native/capability activation, issuer checks and controlled Live
+acceptance remain. See the [staging record](../docs/subscription-staging-plan.md).
 
 The local default-off Test checkout, renewal, cancellation and refund slices
 below do not constitute Production automated billing. Later full-schema,
