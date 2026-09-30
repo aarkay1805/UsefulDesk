@@ -199,12 +199,13 @@ SELECT pg_temp.assert_true((SELECT NOT quotes_enabled AND NOT orders_enabled AND
  'Review revocation failed to stop initiation/preserve recovery');
 SELECT pg_temp.expect_error($q$UPDATE private.subscription_live_pilot_opening_reviews SET revoked_at=NULL$q$,'55000');
 ROLLBACK TO revoke_review;
-SELECT pg_temp.expect_error($q$INSERT INTO private.subscription_live_refund_reviews
+SELECT pg_temp.expect_error($q$WITH review_clock AS MATERIALIZED (SELECT clock_timestamp() AS observed_at)
+INSERT INTO private.subscription_live_refund_reviews
  (refund_request_id,organization_id,requested_by,provider_payment_id,merchant_id,amount_minor,
  approved_policy_reference,request_received_at,request_evidence_reference,owner_reviewed_at)
- VALUES('d6666666-6666-4666-8666-666666666666','8826d9aa-03f2-4ad7-ae91-0553052131f8',
+ SELECT 'd6666666-6666-4666-8666-666666666666','8826d9aa-03f2-4ad7-ae91-0553052131f8',
  'd1111111-1111-4111-8111-111111111111','pay_StarterOpeningSynthetic','acc_TCJwBqanN9LTrK',79900,
- 'unrelated-policy',clock_timestamp(),'synthetic-request',clock_timestamp())$q$,'55000');
+ 'unrelated-policy',review_clock.observed_at,'synthetic-request',review_clock.observed_at FROM review_clock$q$,'55000');
 -- A legitimate ownership transfer must not strand an organization refund.
 SAVEPOINT refund_after_owner_transfer;
 INSERT INTO auth.users(id,instance_id,aud,role,email,email_confirmed_at,raw_user_meta_data)
@@ -215,12 +216,13 @@ DELETE FROM public.organization_memberships
  AND user_id='d1111111-1111-4111-8111-111111111111';
 INSERT INTO public.organization_memberships(organization_id,user_id,role)
 VALUES('8826d9aa-03f2-4ad7-ae91-0553052131f8','d1212121-1212-4121-8121-121212121212','owner');
+WITH review_clock AS MATERIALIZED (SELECT clock_timestamp() AS observed_at)
 INSERT INTO private.subscription_live_refund_reviews
  (refund_request_id,organization_id,requested_by,provider_payment_id,merchant_id,amount_minor,
  approved_policy_reference,request_received_at,request_evidence_reference,owner_reviewed_at)
-VALUES('d6161616-6161-4616-8616-616161616161','8826d9aa-03f2-4ad7-ae91-0553052131f8',
+ SELECT 'd6161616-6161-4616-8616-616161616161','8826d9aa-03f2-4ad7-ae91-0553052131f8',
  'd1212121-1212-4121-8121-121212121212','pay_StarterOpeningSynthetic','acc_TCJwBqanN9LTrK',79900,
- 'synthetic-first-week-full-refund',clock_timestamp(),'synthetic-transferred-owner-request',clock_timestamp());
+ 'synthetic-first-week-full-refund',review_clock.observed_at,'synthetic-transferred-owner-request',review_clock.observed_at FROM review_clock;
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT pg_temp.assert_true(public.subscription_claim_live_refund('d6161616-6161-4616-8616-616161616161',
@@ -228,12 +230,13 @@ SELECT pg_temp.assert_true(public.subscription_claim_live_refund('d6161616-6161-
  'Legitimate current owner could not claim the organization first-payment refund');
 RESET ROLE;
 ROLLBACK TO refund_after_owner_transfer;
+WITH review_clock AS MATERIALIZED (SELECT clock_timestamp() AS observed_at)
 INSERT INTO private.subscription_live_refund_reviews
  (refund_request_id,organization_id,requested_by,provider_payment_id,merchant_id,amount_minor,
  approved_policy_reference,request_received_at,request_evidence_reference,owner_reviewed_at)
-VALUES('d6666666-6666-4666-8666-666666666666','8826d9aa-03f2-4ad7-ae91-0553052131f8',
+ SELECT 'd6666666-6666-4666-8666-666666666666','8826d9aa-03f2-4ad7-ae91-0553052131f8',
  'd1111111-1111-4111-8111-111111111111','pay_StarterOpeningSynthetic','acc_TCJwBqanN9LTrK',79900,
- 'synthetic-first-week-full-refund',clock_timestamp(),'synthetic-request',clock_timestamp());
+ 'synthetic-first-week-full-refund',review_clock.observed_at,'synthetic-request',review_clock.observed_at FROM review_clock;
 SAVEPOINT disabled_refund_initiation;
 UPDATE private.subscription_live_settings SET quotes_enabled=false,orders_enabled=false,refunds_enabled=false,
  complimentary_conversion_enabled=false WHERE singleton;

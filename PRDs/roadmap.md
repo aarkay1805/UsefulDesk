@@ -954,6 +954,31 @@ approval/current-contract delivery, genuine buyer/issuer facts, separately appro
 Production opening and authentic Live payment/refund proof remain. Preparation
 does not constitute paid rollout or close these external/consequential gates.
 
+**Built and staging accepted — financial recovery and payment-only scope, 1 October IST / 30 September UTC:**
+The user-selected Home office internal ₹799 first-term capture/refund run is now
+formally independent of Meta approval, with the approved 7/3/1 after-09:00 policy
+preserved. The new default-off protected recovery worker reuses provider GET only
+for original unbound order/refund claims and polls unfinished refunds without a
+later webhook. Fixed one-item recovery checks join both existing ops paths;
+operator POST remains bounded to five. Durable leases, canonical crash/race
+closeout, persisted hold reasons and append-only owned exception reviews preserve
+money/access authority. Automatic order binding never grants a term; financial
+holds still need individual review. See the
+[recovery acceptance](../docs/subscription-financial-recovery-acceptance.md) and
+[payment-only opening proposal](../docs/subscription-payment-only-opening-proposal.md).
+The additive recovery migration is installed **only on empty billing staging**;
+cloud rollback acceptance, RLS/grants, restored empty/off state and two actual
+concurrent local sessions passed. Independent review defects were fixed; required lint, TypeScript, 4,232 tests
+and build passed; public cron output contains aggregate counters only. Current Production remains
+`5920fa78` intake-only with 554 unchanged gym payments, matching tenant/access
+fingerprints and empty Live ledgers. Genuine internal-accounting references,
+exact Production release/install/opening decision and a human's authentic Live
+capture/full-refund evidence remain. Vercel invoice reconciliation and stale
+redundant GitHub natural schedules remain owned exceptions; primary workers are
+healthy. Meta approval/sync plus authorized delivery is a separate reminder gate;
+real buyer/issuer facts precede customer documents. Renewal/native Checkout/global
+capability activation stays outside the first-term scope.
+
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate

@@ -23,6 +23,17 @@ and [read-only preflight](../docs/subscription-rollout-preflight.md).
 The dated development sections below describe earlier states; they do not
 supersede this installed/intake-only baseline.
 
+**Owner-selected acceptance scope — 30 September 2026:** the
+[payment-only opening proposal](../docs/subscription-payment-only-opening-proposal.md)
+permits preparation of exact Home office ₹799 first-term capture/refund internal
+technical acceptance independently of Meta approval/current-contract delivery.
+The approved 7/3/1 after-09:00 policy and owner acknowledgement remain unchanged.
+Actual internal accounting review and release-specific Production opening/human
+payment/refund authorization remain required. This is neither broader Starter
+feature acceptance nor a customer sale/invoice. Reminder delivery and global
+capability activation remain separately gated; implementation permission supplies
+no fabricated review facts, provider proof or Production flags.
+
 ## Approved customer journey
 
 1. A new verified organization owner starts the existing **one organization-wide 14-day trial**. Signup does not require a tier or payment method. Branches and invited staff share the same deadline; a new branch or a later plan choice never restarts it.

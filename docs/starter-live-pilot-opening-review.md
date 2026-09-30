@@ -17,6 +17,14 @@ installation/opening authorization remain pending; see the
 
 ## Exact candidate
 
+The owner-selected [payment-only opening proposal](subscription-payment-only-opening-proposal.md)
+scopes this to internal first-term payment/refund technical acceptance. Meta
+approval/current-contract delivery is an independent reminder acceptance gate,
+not a prerequisite for that money run. The exact 7/3/1 after-09:00 policy and
+owner acknowledgement still apply. Internal accounting review and exact
+Production installation/opening/payment authority remain required; no evidence,
+offer/review row, switch or real payment is supplied by implementation approval.
+
 - Merchant: `acc_TCJwBqanN9LTrK`.
 - Organization: `8826d9aa-03f2-4ad7-ae91-0553052131f8`; one active INR branch.
 - Starter: ₹799 gross (`79900` minor units), one calendar month from signed
@@ -62,12 +70,12 @@ new quote/order/refund initiation; an application rollback cannot undo money.
 Already bound captures/refunds can reconcile after initiation closes, but closing
 complimentary conversion causes a later first conversion capture to be held as
 `review_required`, preserving complimentary access. No implemented resolver
-promotes that held payment later. An uncertain
-provider POST with no saved provider ID remains an operator-owned exception:
-perform the approved GET lookup for its exact receipt/request, verify and durably
-bind the result before reconciliation. The candidate adds no automatic recovery
-API for an unbound claim, and initiation endpoints refuse retries with their
-runtime flags off.
+promotes that held payment later. The follow-on recovery candidate adds a separately gated protected GET-only
+worker for original unbound claims and pending/failed refunds, plus a fixed
+one-item check in both existing ops schedules. Initiation stays closed during
+recovery. Durable exceptions retain an owner/next action and new capture holds
+persist their exact reason; the worker never grants a term from GET facts.
+See the [recovery acceptance](subscription-financial-recovery-acceptance.md).
 
 Use the [controlled acceptance walkthrough](subscription-live-acceptance-walkthrough.md)
 for actual provider/send evidence and the
@@ -87,7 +95,7 @@ same-proprietor run into a sale or invoice.
    never `supabase db push`. Inspect RLS, grants, constraints and the no-write
    state, then rollback disposable acceptance data. No Live credentials or
    real provider transactions belong in staging.
-3. Complete the actual renewal-template prerequisite. The 30 September
+3. Track the separate renewal-template prerequisite. The 30 September
    read-only inspection found the owner branch connected/registered/subscribed.
    `gym_service_renewal` matches the canonical Approved POSITIONAL contract;
    `gym_membership_renewal` previously retained older body/footer/buttons
@@ -97,6 +105,8 @@ same-proprietor run into a sale or invoice.
    replacement; it was submitted and shows **In review**, with five variables,
    no footer and one “Help me renew” reply button. Meta approval/sync and a specifically
    selected, authorized acceptance recipient remain before actual delivery.
+   This does not block the scoped internal payment/refund run after its own
+   reviewed gates close; it prevents reminder feature/delivery acceptance.
 4. For the exact Production opening review, refresh backup, deployment,
    environment and scheduling evidence. Present the real review/offer facts,
    selected switches and access consequences for approval. No offer/review row
@@ -190,7 +200,8 @@ deny-by-default ([Supabase linter reference](https://supabase.com/docs/guides/da
 Existing warnings remain at baseline; this is a scoped change review, not a
 claim that the entire project has no advisory warnings.
 
-Production installation/opening approval, final release SHA, approved/synced
-membership template and authorized real delivery, genuine Live capture/refund
-and shared-route proof remain pending. Local/staging synthetic fixtures do not
-close those release gates.
+Production installation/opening approval, final release SHA, actual internal
+accounting review, genuine Live capture/refund and shared-route proof remain
+pending. Approved/synced membership template and authorized real delivery remain
+separate reminder acceptance gates. Local/staging synthetic fixtures do not
+close either scope's gates.

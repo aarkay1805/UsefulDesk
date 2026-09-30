@@ -56,8 +56,12 @@ describe('GET /api/database-cron', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toMatchObject({ group: 'ops', dispatched: 9, failed: 0 });
-    expect(fetch).toHaveBeenCalledTimes(9);
+    expect(body).toMatchObject({ group: 'ops', dispatched: 10, failed: 0 });
+    expect(fetch).toHaveBeenCalledTimes(10);
+    expect(fetch).toHaveBeenCalledWith(
+      new URL('https://desk.example/api/subscriptions/live-recovery/cron'),
+      expect.objectContaining({ method: 'GET' })
+    );
     expect(fetch).toHaveBeenCalledWith(
       new URL('https://desk.example/api/push/cron'),
       expect.objectContaining({ method: 'GET' })
@@ -110,6 +114,28 @@ describe('GET /api/database-cron', () => {
         notes: ['local completion needs review'],
       },
     });
+  });
+
+  it('keeps other ops running when SaaS recovery needs a retry', async () => {
+    vi.mocked(fetch).mockImplementation(async (url) =>
+      new URL(String(url)).pathname === '/api/subscriptions/live-recovery/cron'
+        ? Response.json({ inspected: 1, failed: 1 }, { status: 503 })
+        : Response.json({ processed: 0 })
+    );
+
+    const response = await GET(request());
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({ dispatched: 10, failed: 1 });
+    expect(fetch).toHaveBeenCalledTimes(10);
+    expect(body.results).toContainEqual(
+      expect.objectContaining({
+        path: '/api/subscriptions/live-recovery/cron',
+        status: 503,
+        body: { inspected: 1, failed: 1 },
+      })
+    );
   });
 
   it('dispatches the lifecycle reminder worker with the same verified secret', async () => {

@@ -1,6 +1,7 @@
 # Subscription rollout preparation — refreshed evidence
 
-**Checked 30 September 2026, 23:20 IST (17:50 UTC). Production is intake-only.**
+**Baseline checked 30 September 2026, 23:20 IST (17:50 UTC); scheduler evidence
+refreshed at 18:19–18:20 UTC below. Production is intake-only.**
 This record completes the read-only preparation work; it grants no financial,
 deployment, migration, messaging or access activation authority. Refresh the
 time-sensitive checks at the actual opening. Primary incident/recovery owner:
@@ -84,6 +85,9 @@ exported. The counts also match the earlier installation record.
 
 ## Schedulers and recovery point
 
+The following is the 17:50 UTC baseline; the later read-only refresh below
+supersedes its scheduler freshness classification.
+
 Primary Supabase ops at **17:38 UTC** and renewals at **17:41 UTC** returned
 HTTP 200, `failed: 0`, no timeout. All eight latest retained HTTP results were
 200 with no timeout/error. The renewal worker's durable reminders response
@@ -116,6 +120,30 @@ verify job. This refresh checked metadata and redacted verification markers,
 not a new restore drill. Refresh the backup before the separately approved
 Production candidate installation/opening.
 
+### Read-only scheduler refresh, 18:19–18:20 UTC
+
+Approved SQL at 18:19:44 UTC found both established jobs active, with unchanged
+ops `8,23,38,53 * * * *` and renewals `41 * * * *` schedules. Latest primary
+ops at 18:08 UTC and renewals at 17:41 UTC returned HTTP 200, `failed: 0`, no
+timeout. All eight latest retained HTTP results were 200 with no timeout/error.
+No cron was invoked to collect this evidence; the healthy aggregate does not
+prove individual reminder delivery.
+
+Read-only GitHub lists still show the same last successful natural ops
+14:59:35 UTC, renewals 16:05:48 UTC and public health 13:02:56 UTC runs linked
+above. **Both redundant ops and renewals now exceed their 75-/120-minute
+limits**, while primary workers remain healthy and nightly backup remains
+within 30 hours. Repository/workflow metadata shows default `main`, non-fork,
+not archived/disabled, active workflows and no queued/in-progress runs. No
+workflow configuration defect or provider root cause is established.
+
+Keep this as Rajat's SEV-3 redundant-schedule exception; refresh at opening and
+inspect the next natural run. Follow the existing runbook escalation if primary
+paths also miss their windows. No dispatch, speculative schedule change,
+external watchdog or paid monitoring project was created. Exact run/configuration
+evidence and the scoped opening packet are in the
+[payment-only proposal](subscription-payment-only-opening-proposal.md).
+
 ## Exact-source staging evidence refresh
 
 The earlier 16:50 UTC record names fixture hash `c2d6b021…`; that payload's exact
@@ -139,21 +167,45 @@ in explicit `BEGIN/ROLLBACK` with no provider calls.
 
 ## Remaining external and consequential boundaries
 
-Meta template approval/sync and authorized real delivery remain pending.
+Meta template approval/sync and authorized real delivery remain pending as
+separate reminder acceptance gates. The owner-selected exact Home office ₹799
+first-term payment/refund internal technical acceptance may proceed independently
+of Meta approval after its own gates close; preserve the approved 7/3/1 after-09:00
+policy and owner acknowledgement. See the
+[payment-only proposal](subscription-payment-only-opening-proposal.md).
 Candidate Production installation/release/opening approval, authentic immutable
 offer/review references and controlled Live capture/refund/shared-route acceptance
-also remain pending. The runbooks document manual gaps instead of pretending
-that unbound claims, held payments or missing pending-refund events recover
-automatically.
+also remain pending. The follow-on recovery implementation adds separately gated original-claim
+GET recovery, missing-webhook refund polling, durable hold reasons and owned
+exceptions. It remains a tested release candidate until installed/deployed;
+financial holds still require an individual decision. See the
+[recovery acceptance](subscription-financial-recovery-acceptance.md).
 
-Vercel invoice `GQBCLHWV-0001` was refreshed read-only at approximately 17:45 UTC:
-still **Open / Payment failed**, US$23.60, including US$3.60 tax, while the owner
-previously reported payment. Keep it as a reconciliation exception; no duplicate
-charge or support message was initiated. The owner instruction allows independent
-preparation to continue. No bank settlement proof is available in this package.
+Vercel invoice `GQBCLHWV-0001` was refreshed read-only by the root operator with
+a UI reload at **18:27 UTC**: still **Total Due US$23.60, Open, Payment failed**.
+The earlier invoice view records US$3.60 tax within that total. The owner
+previously reported payment; keep this contradiction as a reconciliation
+exception. No duplicate payment or support message was initiated. The owner
+instruction allows independent preparation to continue. No bank settlement
+proof is available in this package.
 
 Home office is internal proprietor acceptance, with no self-invoice or customer
-sale. Final genuine-buyer facts and issuer treatment remain required before an
+sale. Its actual internal accounting classification/review remains pending.
+Final genuine-buyer facts and issuer treatment remain required before an
 actual customer offer or invoice; see the customer document packet. Native
 Checkout, renewals, paid add-ons and global capability activation remain separate
 scope. None of these preparation results opens Production billing.
+
+## Recovery candidate final preservation refresh
+
+The [recovery acceptance](subscription-financial-recovery-acceptance.md) records
+the follow-on migration's isolated staging installation and rollback proof.
+Production preflight at 18:47:57 UTC retained intake-only `5920fa78`, empty Live
+ledgers, 554 gym payments and matching tenant/access fingerprints; opening/recovery
+schemas remain absent. Primary ops 18:38 and renewals 18:41 returned 200/failed0.
+A fresh Production-only audit passed with zero blockers/five redaction/scope/
+Turnstile warnings using the CLI's existing managed sign-in after an expired
+cached-token error. No secret was printed; temporary exports were removed.
+Final required verification passed 4,232 tests across 525 files, lint, TypeScript
+and the 135-page build. These preparation facts do not open money gates or establish
+authentic Live financial acceptance.

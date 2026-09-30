@@ -132,3 +132,19 @@ Broader rollout, native Checkout changes, advanced add-ons, renewals and global
 capability activation remain separate scope. No Production mutation, money
 movement, switch/offer activation, external message, commit or push was performed
 by this review.
+
+## Follow-on recovery candidate, 1 October IST / 30 September UTC
+
+The historical review above pins `c3031efa`; it does not cover the later recovery
+code. The follow-on candidate adds default-off original-claim GET recovery,
+missing-webhook refund polling, fixed one-item checks in both ops pingers, durable
+hold reasons and owned append-only exception review. Independent review identified
+and fixed nonterminal lease-completion semantics and stranded queue metadata
+after canonical binding/refund crash or webhook races. Final cron output retains
+only aggregate counters for public logs. See the
+[exact recovery acceptance record](subscription-financial-recovery-acceptance.md)
+for source/fixture hashes, isolated staging installation, concurrency and fresh
+Production preservation. No current money/access decision was weakened; held
+financial outcomes still need individual review. The historical manual recovery
+limitations are replaced only when this follow-on release/schema are installed
+and its dedicated recovery gate is separately enabled.

@@ -51,6 +51,7 @@ const recoveryFlags = [
   'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED',
   'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
   'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+  'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED',
 ];
 const starterEnvironment = {
   ...intakeEnvironment,
@@ -67,6 +68,7 @@ const recoveryEnvironment = {
       recoveryFlags.includes(name) ? 'true' : 'false',
     ])
   ),
+  USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED: 'true',
 };
 const blocker = (check) =>
   expect.objectContaining({ severity: 'blocker', ...(check ? { check } : {}) });
@@ -100,6 +102,7 @@ describe('production environment readiness', () => {
     'USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED',
     'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
     'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+    'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED',
     'NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI',
     'NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI',
     'NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI',
@@ -425,6 +428,52 @@ describe('production environment readiness', () => {
         allowLiveRecoveryOnly: true,
       })
     ).toContainEqual(blocker('production-safety-flags'));
+  });
+
+  it('requires the dedicated worker flag for recovery while preserving the opening-only pilot audit', () => {
+    const name = 'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED';
+    for (const value of [
+      '',
+      'false',
+      '1',
+      'TRUE',
+      ' true ',
+      '[SENSITIVE]',
+      'yes',
+    ]) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...recoveryEnvironment, [name]: value },
+          { allowLiveRecoveryOnly: true }
+        )
+      ).toContainEqual(blocker());
+    }
+    for (const value of ['', 'false', 'true']) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...starterEnvironment, [name]: value },
+          { allowLiveStarterPilot: true }
+        )
+      ).not.toContainEqual(blocker());
+    }
+    for (const value of ['1', 'TRUE', ' true ', '[SENSITIVE]', 'yes']) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...starterEnvironment, [name]: value },
+          { allowLiveStarterPilot: true }
+        )
+      ).toContainEqual(blocker('production-safety-flags'));
+    }
+    expect(
+      evaluateProductionEnvironment(
+        {
+          ...starterEnvironment,
+          [name]: 'true',
+          USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID: 'acc_Foreign',
+        },
+        { allowLiveStarterPilot: true }
+      )
+    ).toContainEqual(blocker('subscription-live-boundary'));
   });
 
   it.each([

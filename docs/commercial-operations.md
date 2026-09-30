@@ -9,16 +9,34 @@ The commercial gate is defined in `docs/production-readiness.md`. Do not accept
 money for a paid term or activate paid access while that gate is **CLOSED**.
 The subscription decision brief is `PRDs/usefuldesk-subscriptions.md`.
 
-The local Test checkout, owner-initiated renewal, and full first-payment refund
-flows are disabled by default and unavailable in Production. Real separate
-Usefulmade Test capture/refund and minimal disposable-schema transactions were
-verified on 28 September; all local gates were restored off. Full application,
-native/RLS recovery and genuine provider webhook delivery remain unproven; see
-[the Test acceptance record](subscription-test-acceptance.md). All nine private
-subscription tables remain absent from Production. None of this opens the
-commercial gate. An intent or Test payment is not a customer charge or payable
-quote. The readiness record distinguishes a specifically approved manual pilot
-from the additional acceptance required for automated subscriptions.
+**Current baseline, 30 September 2026:** Production has the installed 26-source
+dark billing/legal schema, independent Live configuration and exact merchant/
+Home office binding. Approved PR #20 `5920fa78` enables only signed webhook
+intake; money, Test, capability, reminder-policy and advanced gates remain closed.
+SaaS ledgers exist and are empty, with no Live transaction, offer or paid grant.
+The closed first-term opening candidate is installed only on empty staging.
+See the [installation record](subscription-production-install-record.md),
+[release review](subscription-release-review.md) and
+[preflight](subscription-rollout-preflight.md).
+
+The 28 September minimal disposable-schema acceptance is historical. Subsequent
+full-schema Auth/API/RLS/worker and staging-backed desktop/phone checks passed,
+as did genuine Test capture/refund/provider-retry acceptance and signed physical
+iPhone Release access recovery. Staging fixtures returned to empty/off; those
+results do not establish genuine Live behavior. Actual current-contract reminder
+delivery, global capability activation, advanced native Checkout and genuine Live
+shared-merchant capture/refund acceptance remain separately open. See the
+[Test record](subscription-test-acceptance.md) and
+[staging record](subscription-staging-plan.md).
+
+The owner selected exact Home office ₹799 first-term payment/refund **internal
+technical acceptance**, independently of Meta approval/current-contract delivery.
+Follow the [payment-only proposal](subscription-payment-only-opening-proposal.md)
+after its actual internal accounting, exact release/opening and human money
+authorization gates close. The same-proprietor run creates no customer sale or
+self-invoice and does not use the manual-term procedure below. Genuine customer
+accounting/buyer/document readiness and broader feature acceptance remain open.
+Implementation authorization supplies no review facts, provider proof or flags.
 
 ## Offer and quote
 
@@ -50,7 +68,9 @@ The owner reports Punjab as Usefulmade's operating state, Usefulmade as their
 only business, zero current business turnover, and UsefulDesk as the only
 intended income-producing product. Confirm the relevant PAN-wide financial-year
 turnover, customer geography, possible compulsory-registration circumstances,
-and accounting treatment before a paid pilot.
+and accounting treatment before a genuine customer paid pilot. The internal
+acceptance run separately needs its actual accounting classification/review,
+without an issued customer invoice.
 Registration status alone does not settle whether or when Usefulmade may
 collect subscription payments. Keep the commercial gate closed, do not call
 the service exempt or zero-rated, and do not describe public prices as
@@ -67,8 +87,11 @@ delivery capacity. Technical rate limits, abuse controls, and usage monitoring
 remain, and Usefulmade's hosting, storage, and support costs still need review.
 Starter includes automatic renewal reminders on a standard schedule. Growth
 adds custom reminder schedules, bulk campaigns, and configurable automation
-rules; Ultimate inherits both tiers' capabilities. Exact standard days and
-times are undecided. Starter is not assumed to exclude every automatic send.
+rules; Ultimate inherits both tiers' capabilities. The approved standard schedule
+is 7, 3 and 1 days before expiry after 09:00 in the account timezone. The owner
+acknowledges that exact policy before the scoped first-term Checkout; it remains
+unchanged while Meta approval/current-contract delivery is pending. Starter is
+not assumed to exclude every automatic send.
 All sends still need the gym's connected WhatsApp account and relevant
 Approved/synced message template.
 Growth and Ultimate are planned to include gym-member Razorpay Payment Links
@@ -77,6 +100,14 @@ The gym bears its Razorpay merchant fees under its own terms; Usefulmade's SaaS
 merchant remains separate. This does not establish zero Usefulmade operating
 cost: support, event processing, storage, and any funded messages remain
 unquantified.
+
+Vercel Pro Active and the owner's reported payment do not resolve hosting invoice
+`GQBCLHWV-0001`: the root operator's UI reload at 18:27 UTC still showed Total
+Due US$23.60, Open and Payment failed; the earlier view records US$3.60 tax within
+that total. Keep that discrepancy open for reconciliation;
+use the [current preflight](subscription-rollout-preflight.md), avoid a duplicate
+payment, and do not infer bank settlement or customer tax clearance. The owner
+allows independent preparation to continue.
 
 The prices and policy examples in `docs/pricing-and-packaging-research.md` are
 research candidates, not current public packages. For each pilot, the founder
@@ -96,6 +127,10 @@ For every quote:
    evidence in Git, GitHub Actions, application audit reasons, or support notes.
 
 ## Trial and conversion
+
+This section is the separate founder-run manual customer procedure, available
+only after its commercial gate is evidenced. It does not replace the selected
+Live internal run's provider-verified transaction or manufacture acceptance.
 
 The product grants one 14-day full-feature trial to a new verified organization
 owner. Signup does not require a tier choice; the approved future conversion flow
@@ -171,9 +206,11 @@ After a provider-confirmed **full first-payment refund**, cancel its next
 renewal and end paid operational access at confirmation. Keep the gym's data,
 branches, and sign-in, with support and plan-selection recovery. Pending,
 failed, partial, or unverified refunds leave access and renewal as they were.
-The separate local Test adapter can execute and verify a full Test refund and
-atomically end disposable access; Production has none of that behavior. The
-Orders-only adapter has no SaaS recurring provider schedule to cancel.
+The separate Test adapter can execute and verify a full Test refund and
+atomically end disposable access. Production has the default-off Live refund
+review/reconciliation schema and adapter, but no enabled refund initiation or
+genuine Live acceptance. The Orders-only adapter has no SaaS recurring provider
+schedule to cancel.
 Exceptional corrections still need an individual access decision.
 
 Refunds are manual commercial operations:

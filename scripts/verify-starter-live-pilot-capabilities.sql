@@ -145,12 +145,13 @@ RELEASE starter_capability_expiry;
 
 -- Synthetic full refund is observed/committed through the real service-only
 -- RPCs. The outer savepoint restores it before the parent's separate checks.
+WITH review_clock AS MATERIALIZED (SELECT clock_timestamp() AS observed_at)
 INSERT INTO private.subscription_live_refund_reviews
  (refund_request_id,organization_id,requested_by,provider_payment_id,merchant_id,amount_minor,
  approved_policy_reference,request_received_at,request_evidence_reference,owner_reviewed_at)
- VALUES('e6666666-6666-4666-8666-666666666666','8826d9aa-03f2-4ad7-ae91-0553052131f8',
+ SELECT 'e6666666-6666-4666-8666-666666666666','8826d9aa-03f2-4ad7-ae91-0553052131f8',
  'd1111111-1111-4111-8111-111111111111','pay_StarterOpeningSynthetic','acc_TCJwBqanN9LTrK',79900,
- 'synthetic-first-week-full-refund',clock_timestamp(),'synthetic-capability-refund-request',clock_timestamp());
+ 'synthetic-first-week-full-refund',review_clock.observed_at,'synthetic-capability-refund-request',review_clock.observed_at FROM review_clock;
 SET LOCAL ROLE service_role;
 SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT public.subscription_claim_live_refund('e6666666-6666-4666-8666-666666666666',

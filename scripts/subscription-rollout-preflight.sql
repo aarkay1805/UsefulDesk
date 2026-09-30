@@ -13,6 +13,9 @@ SELECT jsonb_build_object(
   'live_settings', (SELECT to_jsonb(s) FROM private.subscription_live_settings s),
   'billing_settings', (SELECT to_jsonb(s) FROM private.subscription_billing_settings s),
   'opening_review_table', to_regclass('private.subscription_live_pilot_opening_reviews'),
+  'financial_recovery_table', to_regclass('private.subscription_live_recovery_queue'),
+  'financial_exception_table', to_regclass('private.subscription_live_recovery_exceptions'),
+  'financial_review_table', to_regclass('private.subscription_live_recovery_reviews'),
   'live_counts', jsonb_build_object(
     'quotes', (SELECT count(*) FROM private.subscription_live_quotes),
     'orders', (SELECT count(*) FROM private.subscription_live_orders),

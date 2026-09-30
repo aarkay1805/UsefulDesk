@@ -37,6 +37,7 @@ const UNSAFE_PRODUCTION_FLAGS = Object.freeze([
   'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED',
   'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
   'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+  'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED',
 ]);
 
 // Review boundary only: these modes never write settings or approve an offer.
@@ -54,6 +55,7 @@ const LIVE_RECOVERY_FLAGS = Object.freeze([
   'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED',
   'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
   'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+  'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED',
 ]);
 const STARTER_PILOT_MERCHANT = 'acc_TCJwBqanN9LTrK';
 const STARTER_PILOT_ORGANIZATION = '8826d9aa-03f2-4ad7-ae91-0553052131f8';
@@ -178,6 +180,11 @@ export function evaluateProductionEnvironment(
       : allowLiveRecoveryOnly
         ? LIVE_RECOVERY_FLAGS
         : [];
+  // The existing opening audit remains compatible with a closed worker. A
+  // separately reviewed pilot may enable it; recovery-only requires it.
+  const permittedLiveFlags = scopedLiveMode
+    ? [...requiredLiveFlags, 'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED']
+    : requiredLiveFlags;
   const intakeName = 'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED';
   const reviewedIntake =
     !conflictingModes &&
@@ -198,7 +205,7 @@ export function evaluateProductionEnvironment(
     (name) =>
       enabled(env[name]) &&
       !(name === intakeName && reviewedIntake) &&
-      !(requiredLiveFlags.includes(name) && env[name] === 'true')
+      !(permittedLiveFlags.includes(name) && env[name] === 'true')
   );
   const opaqueSafetyFlags = safetyFlagNames.filter((name) =>
     isOpaque(env[name])
@@ -270,7 +277,7 @@ export function evaluateProductionEnvironment(
         ? `The selected Live audit scope requires literal true for every required flag: ${incompleteFlags.join(', ')}`
         : allowLiveStarterPilot
           ? 'The complete initial Starter pilot flag set is present; renewal and capability activation remain outside this audit scope.'
-          : 'The required intake, settlement and refund reconciliation flags are present; quote/order/refund initiation and both Live UI flags must remain closed.'
+          : 'The required intake, settlement, refund reconciliation and financial recovery flags are present; quote/order/refund initiation and both Live UI flags must remain closed.'
     );
     const wrongRuntime = ['NODE_ENV', 'VERCEL_ENV'].filter(
       (name) => normalize(env[name]) && env[name] !== 'production'
@@ -523,7 +530,10 @@ For separately reviewed rollback recovery with initiation and UI closed:
 
 Starter mode requires all eight Live intake, quote/order/refund, settlement,
 refund-reconciliation and review/Checkout UI flags to be literal true together.
-Recovery mode requires literal true intake, settlement and refund reconciliation,
+The separately reviewed financial recovery worker may be enabled in Starter mode;
+its dedicated flag remains optional for an existing opening-only audit.
+Recovery mode requires literal true intake, settlement, refund reconciliation and
+USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED,
 with quote/order/refund and both Live UI flags false or unset. Both modes require
 the exact reviewed merchant/pilot and a visible Live key ID; Test, acceptance,
 capability and renewal switches are not allowed. Audit modes are mutually exclusive.

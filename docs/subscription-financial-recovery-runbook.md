@@ -26,16 +26,17 @@ evidence before log retention expires. Full financial IDs, raw webhook bodies,
 credentials, tax identifiers and customer material stay in the approved private
 evidence store; repository notes contain references and outcomes only.
 
-| Phase                              | Runtime switches                                                                                                                                                             | Database state and consequence                                                                                                                                                                                                                                                                                          |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Intake-only baseline               | Only `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true`; all money, reconciliation and Live UI flags false/unset                                                             | `webhook_intake_enabled=true`; other Live switches false; no offer/opening review. Signed bound evidence can be held, but access/refunds do not settle.                                                                                                                                                                 |
-| Separately reviewed initial pilot  | Intake, quotes, orders, refunds, settlements, refund reconciliation and both Live UI flags literal `true`                                                                    | Exact selected active offer/opening review; approved reminder policy true with a real version, days `[7,3,1]` and local hour `9`; `quotes_enabled`, `orders_enabled`, `refunds_enabled`, `complimentary_conversion_enabled`, `settlements_enabled`, intake true. Renewals remain false; global capabilities remain off. |
-| Recovery after stopping initiation | Intake, `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` literal `true`; quote/order/refund and both UI flags false/unset | Preserve merchant/pilot/review identities, intake and settlements. Close quotes, orders, refunds and complimentary conversion; renewals stay false. Bound evidence remains recoverable.                                                                                                                                 |
+| Phase                              | Runtime switches                                                                                                                                                                                                                   | Database state and consequence                                                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Intake-only baseline               | Only `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true`; all money, reconciliation and Live UI flags false/unset                                                                                                                   | `webhook_intake_enabled=true`; other Live switches false; no offer/opening review. Signed bound evidence can be held, but access/refunds do not settle.                                                                                                                                                                 |
+| Separately reviewed initial pilot  | Intake, quotes, orders, refunds, settlements, refund reconciliation, financial recovery and both Live UI flags literal `true`                                                                                                      | Exact selected active offer/opening review; approved reminder policy true with a real version, days `[7,3,1]` and local hour `9`; `quotes_enabled`, `orders_enabled`, `refunds_enabled`, `complimentary_conversion_enabled`, `settlements_enabled`, intake true. Renewals remain false; global capabilities remain off. |
+| Recovery after stopping initiation | Intake, `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` and `USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED` literal `true`; quote/order/refund and both UI flags false/unset | Preserve merchant/pilot/review identities, intake and settlements. Close quotes, orders, refunds and complimentary conversion; renewals stay false. Bound evidence remains recoverable.                                                                                                                                 |
 
 Runtime quote/order/refund names are `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED`,
 `USEFULDESK_SAAS_LIVE_ORDERS_ENABLED`, `USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED`;
 UI names are `NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI` and
-`NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI`. There is no separate database refund
+`NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI`. The new financial recovery flag is literal false/unset in intake-only and true
+in the proposed pilot/recovery phases. There is no separate database refund
 reconciliation boolean: the runtime gate controls that worker; its database
 lookups retain the exact merchant/pilot binding.
 
@@ -145,11 +146,22 @@ authorize another POST, another receipt or another quote to bypass the claim.
    a signed body or create a database webhook row. Without signed capture time,
    provider GET alone cannot grant a term.
 
-`POST /api/subscriptions/live-orders` returns 404 with initiation flags closed,
-even for recovery. There is no separate unbound-order operator HTTP API. Do not
-reopen the charge gates merely to get a convenient retry. Approved protected
-service execution of the existing bind RPC is required; if unavailable, keep the
-claim open and escalate the execution gap.
+`POST /api/subscriptions/live-orders` returns 404 with initiation closed. The
+new protected `POST /api/subscriptions/live-recovery` scans at most five original
+obligations, acquires a five-minute durable lease and performs the same GET
+verification before binding. Its runtime recovery, settlement, refund
+reconciliation and intake gates must be enabled; the database must independently
+allow settlement/intake with the exact merchant/pilot. It does not require new
+order/refund initiation to reopen. Invalid/zero/multiple provider results remain
+owned exceptions and never trigger another POST.
+
+The fixed one-item `GET /api/subscriptions/live-recovery/cron` joins the existing
+15-minute primary database ops group and redundant GitHub ops workflow in code.
+It authenticates the existing cron secret and returns a healthy disabled skip
+with no database/provider work when the recovery gate is off. It is not deployed
+or enabled in Production by this document. A pass can mean only order binding;
+`order_bound_signed_event_required` explicitly preserves the genuine signed
+capture requirement. Binding or a provider `paid` status does not grant access.
 
 ## Uncertain refund POST and terminal effects
 
@@ -211,7 +223,7 @@ It accepts no per-event or refund payload. Use protected tooling that keeps the
 secret out of command arguments/output. Record HTTP status and only the counters
 `inspected`, `reconciled`, `failed`.
 
-The route selects up to five held events per call, oldest first, scoped to this
+The existing event route selects up to five held events per call, oldest first, scoped to this
 merchant/pilot. It uses `subscription_list_live_held_events`, then the capture
 or refund helper, and `subscription_mark_live_event_reconciled`. HTTP 503 means
 one or more failed; successful events may still have completed. Re-query before
@@ -231,12 +243,27 @@ bounded worker marks it; event state alone is not financial status.
 not successful payment or completed refund. An identical event ID must retain
 its digest and facts. Changed digest is an exception, never an overwrite.
 
-**No general pending-refund scan is implemented.** Once `refund.created` is
-reconciled while pending, this endpoint does not poll that table row unless a
-later delivery remains held. Missing later signed delivery requires genuine
-provider retry or separately approved protected execution of existing
-`reconcileLiveRefund` after binding; there is no per-refund operator HTTP route.
-Do not describe the endpoint as automatic discovery of all missing obligations.
+The new financial recovery worker independently scans original unbound order
+and refund claims plus bound pending, failed and processed-but-unconfirmed
+refunds. It does not need a later held webhook to poll these rows. Every provider
+request is GET; a processed refund still requires the exact parent payment's
+fully refunded facts before the existing canonical commit. Five-minute leases,
+conditional claims and completion-token checks protect overlapping operator and
+cron calls. A crash leaves a lease to expire; subsequent binding/commit replays
+reuse canonical identities. Batches are bounded and retry observations become due
+after five minutes, with the scheduled wrapper checking every fifteen minutes.
+
+`POST /api/subscriptions/live-recovery` uses the same protected cron headers as
+`live-reconcile`. It accepts no item IDs or action payload, inspects at most five
+items and returns `inspected`, `recovered`, `exceptions`, `failed` and structured
+items. `recovered` means an original order binding or a confirmed full refund,
+never acceptance of a paid term. Cron fixes the limit at one to keep its maximum
+three 15-second provider GETs inside the existing 55-second dispatch budget.
+Provider/body/database diagnostics and credentials are excluded from reasons.
+HTTP 503 means a retry/recording failure; HTTP 200 may include a durable pending,
+failed or review-required exception. Inspect the register rather than equating
+200 with completed money. The existing signed-event reconciler remains a
+separate procedure and is not scheduled by this change.
 
 ## Owned exception register and closeout
 
@@ -254,10 +281,24 @@ Keep the register private; every unresolved fact has one owner and next action.
 Open rows include uncertain POST, multiple/zero lookup results, unbound IDs,
 missing signed capture/time, payment/refund hold, pending/failed refund, changed
 event digest, ambiguous shared-merchant routing and provider/local disagreement.
-A hold reason is returned by the SQL capture commit but is not persisted as a
-payment column or exposed by `settleCapturedLivePayment`; preserve any available
-redacted incident evidence, otherwise record the reason as unknown/inferred.
-Do not assert a diagnosis merely from `review_required`.
+New capture holds persist their exact computed `hold_reason` atomically in the
+immutable payment and expose it on commit/replay. Hold triggers and the recovery
+worker register exact scoped obligations in
+`private.subscription_live_recovery_exceptions`. Historical held payments with
+no saved reason explicitly record `prior_hold_reason_unavailable`; the migration
+does not infer or rewrite immutable evidence. Held refunds retain the saved
+reason or an explicit historical evidence gap.
+
+The service-only `subscription_review_live_recovery_exception` RPC requires the
+current owner of the exact bound organization, real authorization/evidence
+references, a named incident owner, status, next action and a finite due time.
+It writes an append-only `private.subscription_live_recovery_reviews` before/
+after audit. It cannot resolve a payment/refund hold, modify provider evidence,
+grant/end access or authorize a new POST. Automatic completion resolves only a
+canonically bound original order or confirmed refund; ordinary holds remain
+individually reviewed. Browser and direct service-role writes/TRUNCATE to these
+metadata tables are denied; service operators use the named RPCs. Preserve all
+original obligation IDs and original reasons even after later observations.
 
 Close only when the exact financial obligation and access effect are explained,
 all relevant immutable identities match, outstanding work has an explicit owner,

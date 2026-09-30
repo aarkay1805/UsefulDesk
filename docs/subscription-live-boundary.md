@@ -206,7 +206,14 @@ change gym payment/refund ledgers. Actual signed mixed-order/refund delivery,
 redelivery and reconciliation on the shared merchant remain acceptance gates.
 All payable switches stay closed.
 
-## Remaining before any Live pilot
+## Remaining before the scoped internal Live run
+
+The owner selected [payment-only internal acceptance](subscription-payment-only-opening-proposal.md).
+Exact first-term capture/refund technical acceptance can proceed independently
+of Meta approval/current-contract delivery after its own release, accounting and
+human authorization gates close. Preserve the approved 7/3/1 after-09:00 policy
+and owner quote acknowledgement. Reminder delivery, broader Starter feature
+acceptance, customer issuance and global capability activation remain separate.
 
 **External handoff:** the selected UsefulMade / Home office organization
 (`8826d9aa-03f2-4ad7-ae91-0553052131f8`, one active branch) has complimentary
@@ -238,7 +245,8 @@ customer wording/references into the immutable offer ledger. See
 [paid-pilot readiness](production-readiness.md#owner-decisions-and-acceptance-evidence)
 and the private [offer draft](starter-pilot-offer-draft.md).
 
-1. Finish the customer-payable offer: documented tax/receipt treatment,
+1. Finish the internal acceptance offer: actual internal accounting/technical
+   evidence classification without a self-invoice, documented review references,
    release-specific acceptance of the new Live refund review boundary, and
    acceptance for the selected complimentary pilot. The owner approved
    ₹799 gross, one active branch, web
@@ -267,8 +275,10 @@ and the private [offer draft](starter-pilot-offer-draft.md).
    classification. Review the exact candidate and Production manifest, refresh
    operational evidence, then obtain separate Production installation/opening
    approval through the [release review](subscription-release-review.md).
-4. Complete Meta approval/sync and an authorized current-contract reminder send,
-   then the [controlled Live acceptance](subscription-live-acceptance-walkthrough.md).
+4. Run the [controlled Live acceptance](subscription-live-acceptance-walkthrough.md)
+   after the payment-only scope's gates close. Complete Meta approval/sync and
+   an authorized current-contract reminder send separately before claiming
+   reminder feature acceptance.
    Home office is internal technical acceptance with the same proprietor;
    create no self-sale or invoice. Genuine customer issuance additionally needs
    a real buyer and fact-supported document treatment in the

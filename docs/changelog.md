@@ -6,6 +6,23 @@
 
 ---
 
+## 2026-10-01 — Implement original-obligation Live recovery and payment-only scope
+
+Added GET-only recovery in `src/lib/subscriptions/live-recovery.ts`, protected
+operator POST and fixed one-item cron GET; both existing ops pingers include the
+default-off worker. The additive recovery migration persists hold reasons, leases
+original claims/unfinished refunds and records owned append-only exception reviews.
+Canonical crash/webhook races close stale metadata without adding money/access
+authority. Cron output is aggregate-only for public logs. Payment-only Home office
+₹799 acceptance is independent of Meta approval, preserving the approved reminder
+policy; the proposal/runbooks distinguish internal evidence from customer sales.
+Required verification passed lint, TypeScript, 4,232 tests and build. Independent
+review, local rollback/idempotency, real two-session proof and empty cloud staging
+rollback passed; schema is staging-only, Production remains intake-only.
+Gotchas: GET order binding is no paid grant; financial holds are never automatically
+promoted; initiation can remain closed while recovery runs. Real accounting/opening
+references, human Live transactions and hosting invoice reconciliation stay pending.
+
 ## 2026-09-30 — Complete independent subscription rollout preparation
 
 Reviewed PR #21's exact `c3031efa` opening candidate with no code defects; lint,

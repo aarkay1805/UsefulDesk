@@ -13,6 +13,13 @@ the closed opening candidate has passed local/cloud staging checks. See the
 
 ## Exact acceptance and human review boundaries
 
+Follow the [payment-only opening proposal](subscription-payment-only-opening-proposal.md)
+for the owner-selected scope. Exact first-term payment/refund technical acceptance
+may proceed independently of Meta approval/current-contract delivery after its
+own release, internal accounting and human authorization gates close. Retain
+the approved 7/3/1 after-09:00 policy and quote acknowledgement. No reminder send,
+broader Starter feature acceptance or customer sale is included.
+
 | Item          | Selected contract                                                                                                                                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Merchant      | Existing UsefulMade Live `acc_TCJwBqanN9LTrK`                                                                                                                                                                      |

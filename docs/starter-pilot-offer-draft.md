@@ -6,6 +6,15 @@ The owner confirmed the legal business name UsefulMade, its Punjab business addr
 
 ## Owner-approved first offer
 
+The selected Home office run is scoped in the
+[payment-only opening proposal](subscription-payment-only-opening-proposal.md).
+Internal first-term payment/refund technical acceptance may proceed independently
+of Meta approval/current-contract delivery after its own reviewed gates close.
+The exact standard reminder policy/acknowledgement remains required, and no
+reminder feature acceptance or send is claimed. Internal accounting classification
+is still pending; the genuine customer/buyer/document gates below apply before
+customer issuance and are not converted into a same-proprietor sale.
+
 > **Starter — ₹799 total for one month.** Includes one active branch. The owner can use members and plans, memberships and renewals, attendance, manual payment recording, shared WhatsApp chats, and standard renewal reminders. Reminders run 7, 3, and 1 days before expiry after 09:00 in the gym's timezone when WhatsApp and the required message templates are ready. Meta messaging charges are separate. Custom reminder schedules, bulk campaigns, configurable automations, gym-member Payment Links, and AutoPay are not included.
 
 This pilot has no separate numeric member or staff cap. Existing roles and technical limits still apply.
