@@ -932,6 +932,28 @@ intake-only. This is no customer sale or
 self-invoice, and renewal/native Checkout/global capability opening remains
 outside this first-term candidate.
 
+**Completed — independent subscription rollout preparation, 30 September:**
+[PR #21](https://github.com/aarkay1805/UsefulDesk/pull/21) candidate `c3031efa`
+passed the scoped release review, lint, TypeScript, 4,183 tests and Production
+build; no code defect required a patch. The exact current assembled fixture
+passed fresh cloud staging rollback acceptance, resolving current-source proof
+separately from the earlier unreproduced fixture hash. The
+[release review](../docs/subscription-release-review.md),
+[operational preflight](../docs/subscription-rollout-preflight.md),
+[financial recovery runbook](../docs/subscription-financial-recovery-runbook.md),
+[Live acceptance walkthrough](../docs/subscription-live-acceptance-walkthrough.md)
+and [unissued customer document packet](../docs/subscription-customer-document-pack.md)
+are prepared. Current-status documentation distinguishes installed intake-only
+Production from the staging-only opening candidate. The read-only preflight SQL
+preserved 554 gym payments, exact current access/content fingerprints, empty Live
+ledgers and closed money/capability gates; the Production-only environment audit
+has zero blockers. Primary database workers and backup verification are healthy;
+late redundant GitHub schedules remain an owned operational exception. The Vercel
+invoice discrepancy remains unresolved without a duplicate charge. Meta
+approval/current-contract delivery, genuine buyer/issuer facts, separately approved
+Production opening and authentic Live payment/refund proof remain. Preparation
+does not constitute paid rollout or close these external/consequential gates.
+
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
@@ -945,8 +967,9 @@ branch review/archive, Test order, Test confirmation, and signed Test webhook
 routes under `src/app/api/subscriptions/`. Its separate Usefulmade Test merchant
 adapter checks the captured provider payment before the service-only SQL commit;
 the expired-trial UI opens Test Checkout only behind a non-Production flag.
-The private SQL draft `20260927200000_subscription_monthly_base_foundation.sql`
-has been applied only to an existing disposable local schema fixture. Real
+The private SQL source `20260927200000_subscription_monthly_base_foundation.sql`
+was initially applied to a disposable local schema fixture; it is now also
+installed in dark Production with its Test billing switch off. Real
 Razorpay Test bank failure, same-order retry, captured-payment verification, and
 one initial Starter entitlement commit passed on 28 September. Synthetic signed
 webhook duplicates, SQL delayed replay/isolation/archive/restore, and concurrent
@@ -955,8 +978,8 @@ loss now resumes the canonical intent; ambiguous order creation recovers only a
 unique matching receipt. Restore retains the existing product-access gate.
 The billing switch remains default off and local application flags remain false.
 [Acceptance evidence](../docs/subscription-test-acceptance.md) records the exact
-scope: full application-schema acceptance and genuine provider webhook delivery
-remain pending.
+scope and later full-schema/genuine Test-provider acceptance below. Genuine
+Live release acceptance remains pending.
 
 **Full-schema acceptance started, still local:** all 307 repository migrations
 now replay in a separate synthetic local database after a temporary historical
@@ -1022,8 +1045,8 @@ cancellation/refund/proration/renewal rules remain open for later offers;
 the first Starter pilot excludes those flows. Upgrade checkout, paid slots, and capability
 enforcement were subsequently built as disabled drafts, as recorded below. The Test refund execution has a second
 app/DB default-off gate; both local switches were restored off after acceptance.
-No Production migration, checkout, real charge, or automated paid access has
-shipped. The separate
+Dark Production schema and approved webhook intake have shipped; checkout,
+real SaaS charges and automated paid access remain closed. The separate
 [subscription brief](usefuldesk-subscriptions.md) records the customer journey,
 merchant separation, implementation order, and unresolved package, pricing,
 tax, and payment policies. Older Core/Scale and 30-day-trial recommendations in
@@ -1041,8 +1064,9 @@ setup are ready; Ultimate inherits both. The gym bears Razorpay merchant fees
 under its own terms. Usefulmade's support, processing, storage, and any funded
 message costs have not been quantified. The owner now requests using the
 existing UsefulMade merchant for SaaS billing, with independent direct-key configuration, webhook
-handling and ledger identity; product/domain approval and event-routing
-acceptance remain open. Other feature allocations and annual prices are still proposals.
+handling and ledger identity. Razorpay verified the SaaS domain on 30 September;
+genuine Live event-routing acceptance remains open. Other feature allocations
+and annual prices are still proposals.
 Provisional monthly INR software prices are approved for launch/pilot planning:
 Starter ₹799, Growth ₹1,499, Ultimate ₹3,999, and an eligible additional branch
 ₹499/month. Growth with its one paid extra branch has ₹1,998/month in listed

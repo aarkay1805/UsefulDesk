@@ -5,6 +5,16 @@ selected Home office internal acceptance path. It does not open payments, seed
 an offer, establish a customer sale, issue an invoice, send a WhatsApp message,
 or establish genuine Live provider acceptance.
 
+Production's installed 26-source dark schema, Live configuration and approved
+intake-only webhook remain on PR #20 main `5920fa78`; every money/capability/
+policy/advanced/Test switch is false, and no Live SaaS transactions or grants
+exist. PR #21 contains implementation `33df55bfe56495cfe24682cf67ea71ccd05f409f`
+and staged evidence `c3031efaf56868470c846ec0a5485dd301dc744e`. That candidate
+is closed and installed on staging only. Its final Production release and
+installation/opening authorization remain pending; see the
+[release review](subscription-release-review.md) and
+[latest read-only preflight](subscription-rollout-preflight.md).
+
 ## Exact candidate
 
 - Merchant: `acc_TCJwBqanN9LTrK`.
@@ -49,12 +59,22 @@ separately binds the selected approval/review and approved 7/3/1 after-09:00
 reminder policy. Global capability activation requires its own reviewed
 acceptance. Keep in-flight evidence and reconciliation available when stopping
 new quote/order/refund initiation; an application rollback cannot undo money.
-Already bound captures/refunds can reconcile after initiation closes. An uncertain
+Already bound captures/refunds can reconcile after initiation closes, but closing
+complimentary conversion causes a later first conversion capture to be held as
+`review_required`, preserving complimentary access. No implemented resolver
+promotes that held payment later. An uncertain
 provider POST with no saved provider ID remains an operator-owned exception:
 perform the approved GET lookup for its exact receipt/request, verify and durably
 bind the result before reconciliation. The candidate adds no automatic recovery
 API for an unbound claim, and initiation endpoints refuse retries with their
 runtime flags off.
+
+Use the [controlled acceptance walkthrough](subscription-live-acceptance-walkthrough.md)
+for actual provider/send evidence and the
+[financial recovery runbook](subscription-financial-recovery-runbook.md) for
+held or uncertain effects. The [customer document pack](subscription-customer-document-pack.md)
+contains conditional, unissued drafts for a genuine buyer; it does not turn this
+same-proprietor run into a sale or invoice.
 
 ## Required verification and activation sequence
 
@@ -118,9 +138,16 @@ SHA-256 is `c2c05979cd04bf7c815a7d22e3d131d6747970ae54cf3de983822f0abecada62`.
 This mapping records the existing connector/repository history divergence;
 do not repair it using `db push`.
 
-The exact assembled opening/capability fixture passed on cloud staging inside
+The 16:50 UTC execution record reports an assembled opening/capability fixture
+passing on cloud staging inside
 `BEGIN/ROLLBACK` (only psql meta-commands removed; fixture SHA-256
-`c2d6b0215339aba403910b10681b3b657cfe0124e0256fd1806458049209f953`). After
+`c2d6b0215339aba403910b10681b3b657cfe0124e0256fd1806458049209f953`).
+Release review cannot reproduce that hash from current pinned candidate bytes:
+the current psql-stripped fixture is
+`384c0bdc331f98cf35f9176c3c82aac1c2f7debdb1a322c34df6f2db4d146ebf`.
+The historical execution is retained, but its exact fixture-byte attribution is
+unresolved. The fresh exact-source replay below supplies current cloud acceptance;
+do not substitute its hash for the historical execution. After
 rollback: zero Auth users, accounts, organizations, offers, opening reviews,
 orders, payments, refunds, events, paid grants and active cron jobs; all Live/
 Test/capability switches false, merchant/pilot/review bindings null. All private
@@ -138,6 +165,24 @@ original grant/access/settings. That clock fixture is not provider settlement
 evidence. Production still has five organizations (one manual, two trial, two
 complimentary), no paid grants and capabilities disabled; refresh their actual
 state before considering any separate capability activation.
+
+### Exact-source staging replay, approximately 17:45 UTC
+
+The owner-authorized rollback-only staging preparation replayed the current
+candidate fixture through the approved SQL connector. The complete payload
+SHA-256 is `a9bd010e4d58b74cbabf97c34302fa0129a991f1c1f3c3cd17d6a9547764f0f9`;
+the psql-stripped fixture SHA-256 is
+`384c0bdc331f98cf35f9176c3c82aac1c2f7debdb1a322c34df6f2db4d146ebf`.
+All assertions passed. The 17:46:07 UTC postcheck found zero Auth users,
+accounts, organizations, financial/event/offer/review/grant rows; all flags false,
+merchant/pilot/review bindings null, cron inactive, and the immutable-grant trigger
+restored. This supplies exact-current-source cloud SQL acceptance while preserving
+the historical 16:50 hash discrepancy. It creates no Live provider evidence,
+Production install, activation or customer document. See the
+[release review](subscription-release-review.md) and
+[read-only preflight](subscription-rollout-preflight.md).
+
+### Earlier scoped advisor check
 
 Security advisors introduced no WARN/ERROR finding. The sole added INFO is the
 private opening-review table with RLS and no ordinary-user policy, intentional

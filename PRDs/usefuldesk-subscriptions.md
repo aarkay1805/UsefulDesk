@@ -1,6 +1,27 @@
 # UsefulDesk subscriptions — decision and implementation brief
 
-**Status:** trial policy, the three tier names, branch allowances and expansion rules, Growth's Razorpay collection scope, the messaging split below, no UsefulDesk monthly message-count caps or message overage charges at launch, the provisional monthly INR prices below, and the base-tier change timing below are approved. The narrow first Starter pilot scope, standard reminder schedule, initial term clock, and quote lifetime are recorded below. Higher tiers inherit lower-tier capabilities. Other tier contents, annual pricing, tax treatment, and paid checkout are not approved or shipped. This brief supersedes the trial, plan-name, and entitlement proposals in `multi_gym_saas_prd.md` and the trial-duration recommendation in `docs/pricing-and-packaging-research.md`. The shipped access boundary remains `trial-access-mvp.md` until subscription work is deployed.
+**Status:** trial policy, the three tier names, branch allowances and expansion rules, Growth's Razorpay collection scope, the messaging split below, no UsefulDesk monthly message-count caps or message overage charges at launch, the provisional monthly INR prices below, and the base-tier change timing below are approved. The narrow first Starter pilot scope, standard reminder schedule, initial term clock, and quote lifetime are recorded below. Higher tiers inherit lower-tier capabilities. Other tier contents, annual pricing, tax treatment, and paid checkout are not approved or shipped. This brief supersedes the trial, plan-name, and entitlement proposals in `multi_gym_saas_prd.md` and the trial-duration recommendation in `docs/pricing-and-packaging-research.md`. The shipped trial/manual/complimentary access boundary remains `trial-access-mvp.md`; subscription schema and disabled adapters are deployed, while paid activation remains closed.
+
+**Recorded implementation baseline — 30 September 2026, after 16:50 UTC:**
+Production has the installed 26-source dark billing/legal schema and independent
+Live credentials bound to the exact merchant/Home office pilot. Approved PR #20
+main `5920fa78` enables only signed intake with an Enabled provider webhook.
+Every money, capability, reminder-policy, advanced and Test switch is false.
+The SaaS ledgers exist and are empty; no Live transaction, paid grant or offer
+approval exists. The initial-term opening candidate `33df55bf` / `c3031efa` in
+PR #21 is closed and installed only on empty staging. Production installation
+and opening require separate review/approval. Meta approval/sync of the canonical
+membership template, an authorized actual send and genuine Live capture/refund
+proof remain pending. Home office shares the supplier's proprietor and is an
+internal acceptance candidate; do not create a self-sale or invoice.
+
+See the [installation record](../docs/subscription-production-install-record.md),
+[release review](../docs/subscription-release-review.md),
+[controlled acceptance walkthrough](../docs/subscription-live-acceptance-walkthrough.md),
+[financial recovery runbook](../docs/subscription-financial-recovery-runbook.md)
+and [read-only preflight](../docs/subscription-rollout-preflight.md).
+The dated development sections below describe earlier states; they do not
+supersede this installed/intake-only baseline.
 
 ## Approved customer journey
 
@@ -43,29 +64,30 @@ Starter's membership and service renewal reminders use the standard **7, 3,
 and 1 days before expiry, after 09:00 in each gym account's timezone**,
 subject to the exact approved WhatsApp contract and send-readiness gates.
 
-This approval is product scope only. The separately payable Meta/provider
-charges and customer-facing cancellation/refund wording need final review;
+This approval is product scope only. The owner approved the ₹799 gross customer
+text, separate Meta/provider charges and refund-handling timeline on 30 September;
+publication does not open billing. The current opening candidate excludes renewal
+and permits only the initial term, despite the approved later expiry-only direction;
 a documented fact-supported tax/receipt determination must establish the exact
 payable amount and wording, with qualified advice for unresolved exceptions. The owner selected UsefulMade / Home office
 (`8826d9aa-03f2-4ad7-ae91-0553052131f8`, one active branch) and requested
 the existing activated UsefulMade Razorpay merchant for the pilot. That
-organization currently has complimentary access and no trial dates. A local
-uninstalled, default-off Starter conversion now freezes the owner-reviewed
+organization has complimentary access and no trial dates in the recorded baseline.
+The installed, default-off Starter conversion freezes the owner-reviewed
 free-to-paid acknowledgement and access version, preserves complimentary access
-until signed capture, and holds conflicting captured funds. The merchant's SaaS
-product and `desk.usefulmade.com` coverage, signed mixed-event acceptance,
-final offer review, and
-separate real-money authorization remain open. The approval ledger is empty
+until signed capture, and holds conflicting captured funds. Razorpay verified `desk.usefulmade.com` on 30 September. Actual signed
+mixed-event acceptance, final offer/release review and separate real-money
+authorization remain open. The approval ledger is empty
 and no customer-payable quote may be issued.
 
-**Current local acceptance (29 September 2026):** the default-off advanced
+**Historical local acceptance (29 September 2026, before dark installation):** the default-off advanced
 Test flow passed genuine Razorpay Test Checkout, signed provider retry after a
 local database API outage, ambiguous-order recovery without a second order,
 late-capture review holds, and a processed full first-payment refund. The
 [acceptance record](../docs/subscription-test-acceptance.md) distinguishes
 these from synthetic fixtures. Signed physical iPhone Release HTTPS sign-in and
 branch recovery have since passed; advanced native Checkout and a genuine
-renewal/refund race remain open. The separate Live boundary is uninstalled and database-hard-closed
+renewal/refund race remain open. At that check the separate Live boundary was uninstalled and database-hard-closed
 for new orders and refunds. Production billing remains off; policy, merchant,
 tax/receipt, operational and explicit rollout approvals are still required.
 The rollback-only Live full-schema runner passed three synthetic suites on
@@ -74,7 +96,12 @@ installed Live schema. This did not exercise a Live provider or Production.
 
 ## What is live today
 
-`private.organization_product_access` already owns trial, manual, and complimentary access; verified-owner trials last 14 days. Its web/native/server/RLS boundary denies operations at expiry while preserving identity recovery and support. The deployed web trial/expiry screens compare Starter, Growth, and Ultimate and retain **Contact support**, with purchase actions unavailable. Production has no actionable paid tier selection, SaaS checkout, SaaS payment ledger, automatic paid entitlement, or tier-specific enforcement. Do not advertise self-serve paid conversion before these are implemented and verified.
+`private.organization_product_access` already owns trial, manual, and complimentary access; verified-owner trials last 14 days. Its web/native/server/RLS boundary denies operations at expiry while preserving identity recovery and support. The deployed web trial/expiry screens compare Starter, Growth, and Ultimate and retain **Contact support**, with purchase actions unavailable. Production has private SaaS payment/grant/offer ledgers and disabled subscription
+adapters, with only signed webhook intake enabled. It has no actionable paid-tier
+selection or Checkout, no Live SaaS transaction or paid grant, and no active
+paid-tier capability enforcement. The closed opening candidate is staging-only.
+Do not advertise self-serve paid conversion before separately approved activation
+and genuine provider/release acceptance.
 
 ### Trial-flow benchmark (checked 27 September 2026)
 
@@ -86,13 +113,13 @@ installed Live schema. This did not exercise a Live provider or Production.
 
 UsefulDesk follows the plan-agnostic trial pattern: **Start 14-day trial** is the signup action; no tier selection or card comes first. During the trial, the owner sees the current trial and the three future plans. At expiry, the recovery screen compares exactly **Starter, Growth, Ultimate**, explains active-branch capacity, and permits owner plan selection only when a verified payment path is actually ready. “Autopilot” was an exploratory label, not a fourth tier or a UI card. A selected plan does not itself grant access. The shipped comparison keeps support as its recovery action until the conversion path is complete.
 
-### Local base-payment integration draft (default off)
+### Historical local base-payment integration — 28 September 2026 (default off)
 
 The **local, default-off Test flow** now lets an expired organization owner review all branches, explicitly archive selected branches when the chosen base tier has fewer slots, choose Starter/Growth/Ultimate, create one Usefulmade Razorpay Test order, open Test Checkout, and confirm a captured Test payment. The server verifies Checkout HMAC or a raw-body webhook HMAC, then fetches the payment from the separate Usefulmade Test merchant before the service-only database commit. A browser callback alone never grants access. The local-only migration draft `20260927200000_subscription_monthly_base_foundation.sql` stores intent, payment, and first paid grant evidence privately; its disabled gate and exact merchant/order/payment/amount checks atomically grant the first monthly Test term. It also drafts active-branch create/restore limits, owner-only expired-trial branch review/archive, and an organization-first restore lock. The client and all routes require non-Production Test flags; Production has no new checkout or entitlement behavior. On 28 September, real Usefulmade Test Checkout failure/retry/capture reached one verified first-term commit in an existing disposable local schema fixture. SQL replay/isolation/capacity and concurrent slot checks passed; duplicate webhook route checks used synthetic signatures. Browser-loss recovery now resumes the canonical claimed intent, and ambiguous order creation looks up a unique receipt with matching organization notes. The draft retains restore’s existing product-access predicates. Subsequent full-schema and genuine signed-provider acceptance is documented in [the acceptance record](../docs/subscription-test-acceptance.md). This is **not** a customer-payable quote or saleable subscription: paid feature gates and tax/commercial readiness remain open.
 
 For a disposable local acceptance run, apply the draft migration only to that database, then set its private singleton `enabled=true` with the exact Usefulmade Test merchant account ID. Set `USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED=true`, `USEFULDESK_SAAS_RAZORPAY_MODE=test`, the separate `USEFULDESK_SAAS_RAZORPAY_TEST_KEY_ID`, `USEFULDESK_SAAS_RAZORPAY_TEST_KEY_SECRET`, `USEFULDESK_SAAS_RAZORPAY_TEST_WEBHOOK_SECRET`, `USEFULDESK_SAAS_RAZORPAY_TEST_MERCHANT_ID`, and `NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI=true` in the local runtime. Point the Test merchant webhook to `/api/subscriptions/test-webhook`. Verify success, failed payment, browser loss, duplicate and delayed webhook, cross-organization rejection, branch restore limits, and ambiguous order recovery with Test fixtures before any wider rollout. The initial Test Checkout creates a one-month grant; the separate owner-initiated renewal path below is not automatic recurring billing.
 
-### Local renewal and refund transactions (default off)
+### Historical local renewal and refund transactions — 28 September 2026 (default off)
 
 After the first Test payment, `POST /api/subscriptions/renewal-change` accepts an
 owner's lower target tier and exact archive choices, or a null target for
@@ -159,7 +186,7 @@ quotes and paid slots remain policy-gated, and tier enforcement remains
 uninstalled pending the standard reminder schedule and final acceptance. No
 additional tier contents or usage limits are inferred.
 
-### Advanced billing Test implementation — 29 September 2026
+### Historical advanced billing Test implementation — 29 September 2026
 
 The local-only, default-off draft now records immutable owner reviews for an
 upgrade, paid slot, or restart; freezes one payable quote only when the private
@@ -181,7 +208,7 @@ tax/receipt policy still need owner approval before the default-off switches
 can open payment. A genuine renewal/refund race and advanced native checkout
 remain unverified. No Production migration or real-money charge occurred.
 
-### Dark Usefulmade Live billing draft — 29 September 2026
+### Historical dark Usefulmade Live billing draft — 29 September 2026
 
 The local draft adds independent Usefulmade Live SaaS merchant configuration and
 service-only mode/merchant/pilot-bound quote, order, payment, grant, refund and
@@ -209,7 +236,7 @@ credentials or money were used. Rolled-back synthetic full-schema SQL passed;
 approved offer/tax references and genuine provider acceptance
 remain required before a pilot.
 
-### Capability-boundary draft — 28 September 2026
+### Historical capability-boundary draft — 28 September 2026
 
 The local draft `20260928160000_subscription_capability_boundary.sql` now
 mirrors the approved capability names in the existing authorized product-access
@@ -222,8 +249,10 @@ its separate `capabilities_enabled` switch is false. The 29 September continuati
 adds a database and settings boundary for custom renewal offsets, a claim and
 pre-send check for standard reminders, and a pre-provider AutoPay recheck.
 The owner approved Starter's 7/3/1 after 09:00 local cadence on 29 September.
-Activation still needs review of existing custom
-schedules; complete UI/native/send-boundary acceptance and rollout remain open.
+At that historical point activation needed review of existing custom
+schedules and complete UI/native/send-boundary acceptance. Subsequent web/API/worker
+and staging progress is recorded above; actual approved-template send, final native
+and Production capability activation remain open.
 Commercial proposals and the precise unfinished work are in
 `PRDs/roadmap.md` under **Subscription product continuation**. They are proposals,
 not approved terms, payable quotes, or permission to enable billing.
@@ -319,16 +348,33 @@ The Starter pilot list above is approved product scope, but remains unavailable 
 
 ## Implementation order
 
-**Code foundation (plan comparison deployed; Test billing remains local and disabled):** `src/lib/subscriptions/plans.ts` now defines the approved tier names, monthly listed software prices, branch allowance arithmetic, and the six approved capability predicates. The product-access gate has a plan comparison during the trial and after trial expiry, and keeps Production purchase actions unavailable while the commercial gate is closed; a separate non-Production flag shows local Test prices and Checkout after expiry. `BranchExpansionPrompt` is built and tested as a dismissible explanation; it is not mounted on branch creation until a verified organization tier and paid extra-branch slots exist. The pure model now counts active branches and projects both create and restore against the same allowance, including the approved five-active-branch trial limit. Complimentary and existing manual organizations retain their current branch behavior. `src/lib/subscriptions/branch-slots.ts` models pending, failed, and verified add-on orders, idempotent confirmation, and capacity from verified purchases only. Its `server_verified_payment` event is an input contract for a future trusted verifier, not live provider verification; no caller uses it to activate access today. `src/lib/subscriptions/conversion.ts` and `SubscriptionConversionReviewDialog` provide an organization-scoped owner-choice preview that refuses an over-cap conversion until the owner selects active branches to archive or verified slots cover them. In the local Test flow, the dialog submits explicitly selected branch IDs to the owner-only expired-trial archive RPC. The SQL migration has only been applied to a disposable local fixture; no live branch is changed. `src/lib/subscriptions/billing-transitions.ts` adds pure paise-exact base-tier proration and pending/verified upgrade plus scheduled downgrade/cancellation projections. `src/lib/subscriptions/renewal-grace.ts` models the fixed failed-paid-renewal window, preserves the old tier during grace, refuses cancelled renewals, and requires a trusted verified event for the next term. `src/lib/subscriptions/refund-policy.ts` evaluates the first-payment request using a frozen account billing timezone and reserves one organization claim without issuing a refund. `src/lib/subscriptions/refund-outcome.ts` models the confirmed full-refund access end and required renewal stop; pending/failed events are harmless and exact confirmed replays are idempotent. `src/lib/subscriptions/no-gst-billing.ts` prepares review-only monthly and prorated-upgrade amounts with a visible unregistered no-GST mode and ₹0 GST; it cannot issue a quote or charge. The pure billing and refund models use trusted-input events. The separate local Test adapter verifies the first captured provider payment and calls the draft entitlement transaction; its later local slices implement owner-initiated renewals and full first-payment refunds as described above. No Production paid tier is assigned, charged, refunded, or enforced by these local files.
+**Code foundation (dark schema installed; Test billing and paid activation disabled):** `src/lib/subscriptions/plans.ts` now defines the approved tier names, monthly listed software prices, branch allowance arithmetic, and the six approved capability predicates. The product-access gate has a plan comparison during the trial and after trial expiry, and keeps Production purchase actions unavailable while the commercial gate is closed; a separate non-Production flag shows local Test prices and Checkout after expiry. `BranchExpansionPrompt` is built and tested as a dismissible explanation; it is not mounted on branch creation until a verified organization tier and paid extra-branch slots exist. The pure model now counts active branches and projects both create and restore against the same allowance, including the approved five-active-branch trial limit. Complimentary and existing manual organizations retain their current branch behavior. `src/lib/subscriptions/branch-slots.ts` models pending, failed, and verified add-on orders, idempotent confirmation, and capacity from verified purchases only. Its `server_verified_payment` event is an input contract for a future trusted verifier, not live provider verification; no caller uses it to activate access today. `src/lib/subscriptions/conversion.ts` and `SubscriptionConversionReviewDialog` provide an organization-scoped owner-choice preview that refuses an over-cap conversion until the owner selects active branches to archive or verified slots cover them. In the local Test flow, the dialog submits explicitly selected branch IDs to the owner-only expired-trial archive RPC. The foundation migration is included in the closed Production installation; its Test gate is false and no live branch is changed by this rollout. `src/lib/subscriptions/billing-transitions.ts` adds pure paise-exact base-tier proration and pending/verified upgrade plus scheduled downgrade/cancellation projections. `src/lib/subscriptions/renewal-grace.ts` models the fixed failed-paid-renewal window, preserves the old tier during grace, refuses cancelled renewals, and requires a trusted verified event for the next term. `src/lib/subscriptions/refund-policy.ts` evaluates the first-payment request using a frozen account billing timezone and reserves one organization claim without issuing a refund. `src/lib/subscriptions/refund-outcome.ts` models the confirmed full-refund access end and required renewal stop; pending/failed events are harmless and exact confirmed replays are idempotent. `src/lib/subscriptions/no-gst-billing.ts` prepares review-only monthly and prorated-upgrade amounts with a visible unregistered no-GST mode and ₹0 GST; it cannot issue a quote or charge. The pure billing and refund models use trusted-input events. The separate local Test adapter verifies the first captured provider payment and calls the draft entitlement transaction; its later local slices implement owner-initiated renewals and full first-payment refunds as described above. No Production paid tier is assigned, charged, refunded, or enforced by these local files.
 
-**Database enforcement design for the next slice:** keep any paid entitlement beside `private.organization_product_access`, keyed by organization, with server-verified Usefulmade payment evidence and an explicit effective term. Never infer a grant from a pricing-card click or checkout return. Trial, complimentary, and existing manual access must preserve their current capabilities. Once active, mirror each named capability in a database predicate used by the relevant RLS policies and SECURITY DEFINER RPCs, with API/UI checks only as early feedback. Both `create_organization_branch_from_setup` and the legacy `create_organization_branch` path ultimately insert an active branch; `restore_branch` changes an archived branch to active. The existing setup-copy create RPC locks the organization row before its insert, while restore currently locks the target account first and has no organization lock. Before paid enforcement, both paths must serialize on the same organization row, count `accounts.branch_status = active` after acquiring that lock, and compare the proposed active count against five for a live trial, or against included branches plus **verified** extra slots from a private organization grant for a paid term. Trial capacity is organization-wide, never tied to the pricing card a gym clicked. The future billing write must verify the Usefulmade merchant, provider order/payment state, organization, currency, amount and immutable purchased quantity before committing a grant; unique purchase and provider-payment keys plus an idempotent transaction must keep duplicate or delayed callbacks from adding slots twice. Pending/failed orders contribute zero, and archiving changes the active count without mutating the paid add-on record. Change restore to take the organization lock before the target account lock; make a database trigger on active inserts and transitions to active the final check so direct writes and old clients cannot bypass either RPC. Keep the RPC check for clear errors and idempotent replay, and test simultaneous create/create, create/restore, and restore/restore transactions. A blocked restore must leave its archived history untouched. Trial, complimentary, and legacy manual terms retain their current branch behavior; a missing paid grant fails closed once paid enforcement is enabled. A future conversion transaction must take the organization lock, re-read the active roster and verified slots, check the owner's exact selected branch IDs and roles, then apply only those archives with the paid entitlement; it must reject stale rosters and leave history untouched on failure. Do not activate this check until that conversion transaction, actual provider-verification and paid-entitlement storage, and remaining billing terms are implemented and tested. For a trial already above its limit, preserve every branch and block only new active-branch transitions; never auto-archive or delete history. Gate custom schedules, bulk campaigns, automation activation, gym Payment Links, and AutoPay at their server/database write or send boundaries; retain provider readiness and existing product-access checks. No message-count gate is added. Keep this entire paid-enforcement rollout disabled until database, native/API, and recovery tests pass.
+**Installed database enforcement, activation still pending:** the 26-source dark
+installation keeps organization-level paid evidence beside
+`private.organization_product_access`, with named capability predicates and
+service-only billing writes. The branch-capacity trigger and organization-first
+restore lock are installed as part of the foundation; their subscription gates
+remain false. A pricing-card choice or browser return cannot grant access.
+Existing trial, manual and complimentary behavior and access enforcement were
+preserved by before/after installation checks. The dormant capability boundary
+guards custom schedules, campaigns, configurable automations, gym Payment Links
+and AutoPay at database/worker/API boundaries when separately activated; provider
+readiness and normal product-access checks still apply. No message-count gate is
+added. The complete Production capability activation, existing custom-schedule
+review, native/API/send acceptance and controlled Live recovery proof remain
+separate requirements. The scoped staging fixture checks nonpilot access
+preservation and paid Starter restrictions; see the opening/release records for
+the historical fixture hash discrepancy and the fresh 17:45 UTC exact-source
+rollback-only cloud replay. That replay passed all assertions and restored staging
+to empty/off; it does not prove genuine Live provider behavior. Do not turn on enforcement merely because schema exists.
 
 The future billing transaction must tie each base-tier upgrade quote to its organization, current entitlement version, actual period, requested time, target tier, exact INR amount, and one verified Usefulmade payment. Reject stale quotes after a changed period or tier; never grant an upgrade from a pending or failed event. At renewal, hold the organization lock while checking the scheduled downgrade or cancellation, current paid-through end, verified renewal evidence, and post-archive branch capacity. A failed paid renewal must retain the original paid-through end and compute its single 72-hour grace deadline from that immutable instant; a retry cannot reset it. While in grace, server/database gates must retain the previous tier and verified branch capacity but deny any unpaid tier or branch expansion. Apply a verified renewal entitlement and any owner-authorized downgrade archives atomically; duplicate callbacks must leave the same term and tier. A cancellation stops renewal at the stored end without revoking the paid term early and never enters grace. Quote expiry/repricing and other unresolved billing terms still block live enforcement.
 
 For a first-payment refund, the Test transaction now follows these invariants; full-schema and signed-provider acceptance is recorded in the linked Test record, while advanced native acceptance remains open. It must verify the immutable first Usefulmade SaaS payment and its organization, full captured amount, payment timestamp, and saved billing timezone; record the original refund request timestamp; and enforce a unique first-payment claim per organization. A duplicate request must read back the same claim rather than start another provider refund. Check merchant/provider refund status and ledger idempotency before any money movement. After matching provider confirmation of the **full** refund, atomically end only that organization's paid entitlement at confirmation and stop its future renewal, including any provider-side recurring schedule; retries must apply this once. Pending, failed, partial, or mismatched events do not end access. Preserve all account, branch, and member rows plus authentication. Reuse the existing blocked-access recovery boundary for sign-in and support. The local Test web panel now adds plan comparison for refunded paid organizations; Production remains support-only; restart Checkout is implemented only in the disabled local Test draft and passed genuine Test provider acceptance. Apply the same outcome in native, API, scheduled jobs, and RLS before enabling refunds. Corrections and individual reviews are separate audited paths, never an automatic partial-month refund on a later renewal.
 
 1. Approve the tier matrix and commercial/tax policies. Reconcile the older `multi_gym_saas_prd.md`, pricing research, and commercial operations note with those decisions.
-2. Add organization-level plan and SaaS billing records beside the current access row; implement named tier capabilities and database enforcement with migration/test acceptance. Preserve complimentary and manual terms during rollout.
-3. Add the three-card trial/expiry/billing experience and separate Usefulmade checkout/webhook integration. Payment confirmation, not a return URL, activates access.
+2. Review the installed dark organization billing/capability boundary and closed staging opening candidate against their recorded manifests and acceptance. Preserve complimentary and manual terms; Production candidate installation and activation require separate approval.
+3. Retain the deployed three-card trial/expiry comparison and intake-only Usefulmade integration. Review the gated initial-term web Checkout candidate; only verified captured settlement may activate paid access.
 4. Exercise provider Test mode success, failure, duplicate/delayed/out-of-order webhook, renewal, cancellation, refund, and recovery cases. Verify tenant isolation, backend gates, native/API behavior, and that gym-member ledger/mandates are untouched.
-5. Run a controlled, explicitly authorized live pilot before publishing paid promises broadly. Update `docs/changelog.md` and `PRDs/roadmap.md` when the feature actually ships.
+5. Follow the controlled acceptance walkthrough only after exact Production opening approval; classify Home office as internal technical acceptance. A customer offer/document additionally requires a real buyer and fact-supported issuer treatment in the [customer document pack](../docs/subscription-customer-document-pack.md). Run the real capture/refund acceptance before publishing paid promises broadly. Update `docs/changelog.md` and `PRDs/roadmap.md` when the feature actually ships.

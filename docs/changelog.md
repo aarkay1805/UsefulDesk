@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-09-30 — Complete independent subscription rollout preparation
+
+Reviewed PR #21's exact `c3031efa` opening candidate with no code defects; lint,
+TypeScript, 4,183 tests and build passed. Fresh exact-source cloud rollback
+acceptance supplies current fixture proof separately from the old unreproduced
+hash. Added release review, operational preflight, financial recovery and Live
+acceptance runbooks, unissued customer documents and the read-only
+`scripts/subscription-rollout-preflight.sql`; corrected stale current-status
+summaries. Production remains intake-only with unchanged access fingerprints,
+554 gym payments, empty Live ledgers and closed financial/capability gates.
+Gotchas: unbound claims, held payments and missing pending-refund events require
+owned manual recovery; GitHub redundant schedule lateness and the Vercel invoice
+discrepancy remain recorded. Meta delivery, actual buyer/issuer review, Production
+opening and authentic Live money acceptance are separate gates.
+
 ## 2026-09-30 — Prepare exact Starter pilot opening and bind provider order IDs
 
 The Live capture/refund adapter now reuses exact order-ID verification before

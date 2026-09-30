@@ -1,6 +1,6 @@
 # Starter pilot offer and invoice readiness
 
-**Status: customer policy approved and published, billing still closed, 30 September 2026.** This is not a payable quote, issued invoice, tax conclusion, or authorization to open Checkout. No approval-ledger row or real payment follows from this document. The owner's issuer address is in the private local draft, not this repository.
+**Status: customer policy approved and published; Production intake-only, money closed, 30 September 2026.** This is not a payable quote, issued invoice, tax conclusion, or authorization to open Checkout. No approval-ledger row or real payment follows from this document. The owner's issuer address is in the private local draft, not this repository.
 
 The owner confirmed the legal business name UsefulMade, its Punjab business address, no GST registration, no turnover yet, and no foreign-service purchase before checkout. No genuine first customer is identified. These are owner statements, not independent document verification. An ordinary invoice and payment receipt can be prepared now for review. Recheck the supplier's registration position and actual buyer before charging a customer; the later Vercel Pro checkout produced an open US$23.60 invoice (US$3.60 tax), which needs review as a foreign cloud-service purchase. The owner later reported payment, but Vercel still shows Open / Payment failed at the 30 September recheck; reconcile settlement before retrying.
 
@@ -10,7 +10,7 @@ The owner confirmed the legal business name UsefulMade, its Punjab business addr
 
 This pilot has no separate numeric member or staff cap. Existing roles and technical limits still apply.
 
-The owner reviews the exact payable amount and terms in a quote lasting 30 minutes, then pays through web Checkout. Access starts only after the payment is captured, independently verified, and committed. The first paid term ends one calendar month after the signed capture event. A capture after quote expiry is held for review; it gives no automatic access or refund. There is no automatic SaaS debit. Renewal is available only after expiry, when the owner reviews a new quote and pays again. Cancelling a paid term stops renewal and leaves access through its paid-through date; cancellation itself does not issue a refund. Reopening after cancellation or refund needs a separate reviewed path. A verified complete refund of an eligible first payment ends paid access when confirmed; pending, failed, partial, or mismatched refunds do not.
+The owner reviews the exact payable amount and terms in a quote lasting 30 minutes, then pays through web Checkout. Access starts only after the payment is captured, independently verified, and committed. The first paid term ends one calendar month after the signed capture event. A capture after quote expiry is held for review; it gives no automatic access or refund. There is no automatic SaaS debit. The prepared opening candidate permits only the initial term; renewal remains hard-closed until separate review/approval. The approved later renewal direction is available only after expiry, when the owner reviews a new quote and pays again. Cancelling a paid term stops renewal and leaves access through its paid-through date; cancellation itself does not issue a refund. Reopening after cancellation or refund needs a separate reviewed path. A verified complete refund of an eligible first payment ends paid access when confirmed; pending, failed, partial, or mismatched refunds do not.
 
 ## Approved customer-facing payment, cancellation and refund text
 
@@ -22,15 +22,24 @@ The owner reviews the exact payable amount and terms in a quote lasting 30 minut
 >
 > **First-payment refund.** Your organization may request one full refund of its first UsefulDesk subscription payment through contact@usefulmade.com. The payment date in the organization's billing timezone is day 0; send the request by the end of local day 7. A later renewal has no routine partial-month refund. We review duplicate or incorrect charges, accidental renewals, and serious service failures individually, without limiting applicable legal rights. A refund covers the UsefulDesk subscription payment, not charges paid separately to Meta or your gym's payment provider. Paid access ends only when a full refund is confirmed; your data, sign-in and support access remain. We acknowledge a request within two business days and, if eligible, initiate the refund within two business days after review; bank or provider settlement time depends on the payment method.
 
-The uninstalled Live refund review migration now freezes the first payment's billing timezone, requires the request timestamp and evidence reference, and rejects a standard request after local day 7. A separately documented exceptional correction needs its own reason and owner review. It passed rollback-only full-schema synthetic checks; it has not been applied to Production or accepted with a Live provider.
+The installed, default-off Live refund review migration freezes the first payment's billing timezone, requires the request timestamp and evidence reference, and rejects a standard request after local day 7. A separately documented exceptional correction needs its own reason and owner review. It is part of the 26-source dark Production installation and passed rollback-only full-schema synthetic checks. It remains disabled and has not been accepted with a genuine Live capture/refund.
 
 The owner approved the ₹799 gross Starter amount, first-payment refund window and service timeline on 30 September. UsefulMade [published the policy](https://usefulmade.com/useful-desk/refunds/) as `UsefulDesk Starter pilot v1`, effective 30 September 2026, alongside updated [terms](https://usefulmade.com/useful-desk/terms/) and [product page](https://usefulmade.com/usefuldesk/). These public pages do not open Checkout or settle the invoice tax treatment.
 
 For the selected UsefulMade / Home office pilot, current complimentary access continues until a verified captured payment commits Starter. It does not end when a quote is shown or Checkout opens. Once replaced by a paid term, access ends at that term's expiry or on an eligible, fully processed first-payment refund; there is no automatic return to complimentary access. This selected organization and the proposed supplier have the same proprietor. Treat it as an internal acceptance candidate, **not** an independent paying customer or a reason to create a self-invoice. A genuine customer invoice requires a real buyer and transaction.
 
+The closed candidate `33df55bf` / `c3031efa` is installed only on empty staging.
+Production remains on approved intake-only main `5920fa78`, with no Live SaaS
+transaction or grant. See the [release review](subscription-release-review.md),
+[controlled acceptance walkthrough](subscription-live-acceptance-walkthrough.md)
+and [financial recovery runbook](subscription-financial-recovery-runbook.md).
+The canonical membership template is In review; Meta approval/sync and an
+explicitly authorized actual send remain pending.
+
 ## Conditional ordinary invoice and payment receipt layout
 
-Use this layout only after the supplier's registration status, payable amount, document treatment, and actual customer are confirmed. The fields below are placeholders, not a numbered or issued document.
+Use the [customer document pack](subscription-customer-document-pack.md) to
+collect the real-buyer facts and review the unissued artifacts. Use this layout only after the supplier's registration status, payable amount, document treatment, and actual customer are confirmed. The fields below are placeholders, not a numbered or issued document.
 
 | Field          | Draft content                                                                                                                                                                                        |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
