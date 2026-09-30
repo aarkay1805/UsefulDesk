@@ -83,11 +83,13 @@ The [26-source installation](subscription-production-install-record.md) complete
 through the approved tool after a fresh encrypted database/Storage backup.
 Production's eight legal/brand definitions and privileges now match accepted
 staging. Tenant/legal/access fingerprints and settings, gym payment count and
-active cron were preserved. All new billing switches remain false, bindings
-null and payment/order/refund/event/offer records empty. Production login and
-scheduled-workflow freshness checks passed afterward. SaaS credentials and the
-provider webhook remain uninstalled; the separate paid opening change remains
-unprepared and unapproved.
+active cron were preserved. All new billing switches remain false and
+payment/order/refund/event/offer records empty. The owner then approved the
+Production-only Live credential transfer, merchant/pilot binding and closed
+redeployment. That release is READY on exact main `3eb8ce2f`; its audit has zero
+blockers, Live webhook/quote/order/refund POSTs return 404, and Production health
+passed. The provider webhook and paid opening change remain uninstalled; see
+the installation record and [intake-only proposal](subscription-live-intake-proposal.md).
 
 ## Ordered application and inspection
 

@@ -21,8 +21,14 @@ All 26 pinned sources then installed in Production after a fresh encrypted
 backup, preserving tenant/legal/access fingerprints and settings, 554 gym
 payments and both cron jobs. RLS/default-off and Production health checks pass.
 The installation record keeps the source/history mapping. Old Test remains
-paused; Live configuration/webhook and activation are separate steps, with no
-real payment/refund acceptance claimed.
+paused. The owner-approved Production-only Live credential transfer and
+merchant/pilot binding then completed with every gate off; the same main source
+redeployed READY, the audit has zero blockers, four Live POSTs return 404, and
+Production health passed. `production-env-readiness.mjs` now prepares an explicit
+intake-only audit option while its default refuses intake and all other
+Test/money/settlement/reconciliation/UI flags remain blocked. The intake proposal
+requires separate receiver/provider activation approval; no real payment/refund
+acceptance is claimed.
 
 ## 2026-09-30 — Accept local Starter capability and reminder boundaries
 

@@ -64,6 +64,13 @@ RLS/default-off checks and post-installation Production health passed. The
 source/connector mapping; no payable offer or opening migration was installed.
 The older cloud Test project remains paused and preserved.
 
+The owner-approved Production-only credential transfer, merchant/pilot binding
+and closed redeployment also passed: exact main `3eb8ce2f` is READY, the audit
+has zero blockers, four Live POSTs return 404, existing financial/access facts
+are unchanged and Production health passed. The prepared intake-only audit mode
+passed focused refusal/isolation tests; its provider activation proposal is
+unapproved. These checks create no Live provider/payment/refund evidence.
+
 | Case                                           | Result and boundary                                                                                                                                                                                                                                                                                                                                                                                              |
 | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Separate Test credentials                      | Read-only Orders API authentication returned 200. Only the `USEFULDESK_SAAS_RAZORPAY_TEST_*` credentials were used.                                                                                                                                                                                                                                                                                              |

@@ -890,8 +890,15 @@ subsequently installed in Production after a fresh encrypted database/Storage
 backup. Existing tenant/legal/access fingerprints and settings, 554 gym payments
 and both cron jobs were unchanged; RLS/default-off checks and post-installation
 Production health passed. The [installation record](../docs/subscription-production-install-record.md)
-keeps the mapping and next private configuration step. All gates remain off;
-SaaS credentials and webhook are uninstalled. Actual provider
+keeps the mapping. The owner-approved Production-only Live credential transfer
+and merchant/pilot binding are installed; exact main `3eb8ce2f` redeployed READY
+as `dpl_33qP9azFZjDUkBc2auiExeGBLLnh`. The audit has zero blockers/four
+protected-value/Turnstile warnings, four Live POSTs return 404, and Production
+health passed. All gates remain off and financial/access rows are unchanged.
+The [intake-only proposal](../docs/subscription-live-intake-proposal.md) and explicit
+audit mode are prepared for approval; default auditing still blocks intake, and
+every Test/money/settlement/reconciliation/UI flag stays blocked. No provider
+webhook or intake switch was activated. Actual provider
 delivery, final native/capability activation, issuer checks and controlled Live
 acceptance remain. See the [staging record](../docs/subscription-staging-plan.md).
 

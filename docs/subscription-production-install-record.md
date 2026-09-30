@@ -34,8 +34,8 @@ Production has 108 public base/partitioned tables and 313 public policies, with
 zero public tables lacking RLS. All 24 private billing/subscription tables have
 RLS and deny direct anon/authenticated SELECT, INSERT, UPDATE and DELETE.
 
-Every Test, capability, reminder-policy, advanced and Live switch is false.
-Test merchant, Live merchant and pilot bindings are null. Test intents, payments
+At schema installation, every Test, capability, reminder-policy, advanced and Live switch was false.
+Test merchant, Live merchant and pilot bindings were null. Test intents, payments
 and paid grants are empty; Live orders, payments, refunds and event records are
 empty; the offer approval ledger is empty. Hard-closed quote/order/refund,
 conversion and renewal constraints remain. No tenant data or synthetic fixture
@@ -49,11 +49,12 @@ payment facts, templates and fake provider configurations were removed; all gate
 and access enforcement are false, bindings null and cron inactive. The older
 Test project remains paused.
 
-## Next private configuration step
+## Closed Production configuration, 14:09 UTC
 
-The owner authorized saving the generated Live pair only in its private local
-file. Before transferring it to another service, obtain specific authorization
-for the UsefulDesk project's **Production Vercel environment only**. Prepare:
+The owner separately authorized transferring the existing private Live pair and
+prepared webhook secret to the UsefulDesk project's **Production Vercel environment
+only**, binding the existing merchant/pilot with all gates off, and redeploying.
+Six environment entries were installed through stdin without secret arguments:
 
 - `USEFULDESK_SAAS_RAZORPAY_MODE=live`.
 - `USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID` and `LIVE_KEY_SECRET`, under the same prefix.
@@ -61,10 +62,28 @@ for the UsefulDesk project's **Production Vercel environment only**. Prepare:
 - `USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID=acc_TCJwBqanN9LTrK`.
 - `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID=8826d9aa-03f2-4ad7-ae91-0553052131f8`.
 
-Keep intake, settlement, reconciliation, quote, order, refund, review/Checkout UI
-and capability switches off for this configuration step. Keep secrets out of
-source, PRs, screenshots and command arguments. Verify the resulting deployment
-and audit before a separately reviewed intake-only receiver/webhook setup.
+The key secret and webhook secret are write-only Vercel Secrets; mode, key ID,
+merchant ID and pilot ID are Config entries. The original files retained 0600
+permissions. Their merchant/domain/pilot metadata and secret presence/format
+were checked privately before transfer; no values were emitted. No Preview or
+Development credential was installed. The private export used for auditing was deleted.
+
+The database Live merchant/pilot now match the approved values above. Every
+Test, capability, policy, advanced and Live boolean remains false, including
+intake, settlement, reconciliation, quote/order/refund and review/Checkout UI.
+Existing access enforcement remains true. The audit passed with zero blockers
+and four warnings: the two original protected-value warnings already closed by
+owner attestation, protected Live secrets validated from their private source,
+and absent Turnstile (public lead forms fail closed).
+
+Production deployment `dpl_33qP9azFZjDUkBc2auiExeGBLLnh` is READY and serves
+`desk.usefulmade.com`, retaining exact main source
+`3eb8ce2fcfc8c5ced5915f00f69619386ac90e93`. Browser POST checks of the Live
+webhook, quotes, orders and refunds returned 404. The owner session still opened
+Home office. Counts remain 8 Auth users, 6 accounts, 5 organizations, 554 gym
+payments and 2 active cron jobs; Live quotes/orders/payments/refunds/events/grants
+and offer approvals are zero. [Production health 36726882870](https://github.com/aarkay1805/UsefulDesk/actions/runs/36726882870)
+passed after redeployment.
 
 The intended SaaS receiver is
 `https://desk.usefulmade.com/api/subscriptions/live-webhook`, for
@@ -74,3 +93,7 @@ provider webhook until the deployed receiver can safely accept its deliveries.
 Actual signed shared-merchant delivery, controlled human-completed Live
 payment/refund acceptance, real-buyer issuer determination and the separate
 hard-gate opening change remain required before a payable rollout.
+
+The [intake-only proposal](subscription-live-intake-proposal.md) is prepared for
+separate approval. Its explicit audit mode is a local review change; it has not
+enabled an environment/database switch or registered a provider webhook.

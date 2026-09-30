@@ -23,7 +23,85 @@ const validEnvironment = {
   NEXT_PUBLIC_GOOGLE_CLIENT_ID: 'google-client',
 };
 
+const intakeEnvironment = {
+  ...validEnvironment,
+  USEFULDESK_SAAS_RAZORPAY_MODE: 'live',
+  USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID: 'rzp_live_pilot',
+  USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_SECRET: 'private-live-secret',
+  USEFULDESK_SAAS_RAZORPAY_LIVE_WEBHOOK_SECRET: 'private-webhook-secret',
+  USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID: 'acc_UsefulmadeLive',
+  USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID:
+    '11111111-1111-4111-8111-111111111111',
+  USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED: 'true',
+};
+
 describe('production environment readiness', () => {
+  it('requires explicit intake-only auditing and reports the enabled boundary', () => {
+    expect(evaluateProductionEnvironment(intakeEnvironment)).toContainEqual(
+      expect.objectContaining({ severity: 'blocker' })
+    );
+    const results = evaluateProductionEnvironment(intakeEnvironment, {
+      allowLiveIntakeOnly: true,
+    });
+    expect(results).not.toContainEqual(
+      expect.objectContaining({ severity: 'blocker' })
+    );
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        severity: 'warning',
+        check: 'subscription-live-intake-only',
+      })
+    );
+    expect(JSON.stringify(results)).not.toContain('private-live-secret');
+    expect(JSON.stringify(results)).not.toContain('private-webhook-secret');
+  });
+
+  it.each([
+    'USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED',
+    'USEFULDESK_SUBSCRIPTION_REFUNDS_ENABLED',
+    'USEFULDESK_SAAS_LIVE_QUOTES_ENABLED',
+    'USEFULDESK_SAAS_LIVE_ORDERS_ENABLED',
+    'USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED',
+    'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
+    'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
+    'NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI',
+    'NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI',
+    'NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI',
+  ])('still blocks %s during intake-only auditing', (name) => {
+    for (const value of ['true', '1', '[SENSITIVE]']) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...intakeEnvironment, [name]: value },
+          { allowLiveIntakeOnly: true }
+        )
+      ).toContainEqual(
+        expect.objectContaining({
+          severity: 'blocker',
+          check: 'production-safety-flags',
+        })
+      );
+    }
+  });
+
+  it('refuses hidden/nonliteral intake and incomplete or Test configuration in intake-only auditing', () => {
+    const variants = [
+      { USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED: '[SENSITIVE]' },
+      { USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED: '1' },
+      { USEFULDESK_SAAS_RAZORPAY_LIVE_WEBHOOK_SECRET: '' },
+      { USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID: 'rzp_test_wrong' },
+      { USEFULDESK_SAAS_RAZORPAY_MODE: 'test' },
+      { USEFULDESK_SAAS_RAZORPAY_TEST_KEY_SECRET: 'wrong-test-secret' },
+    ];
+    for (const variant of variants) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...intakeEnvironment, ...variant },
+          { allowLiveIntakeOnly: true }
+        )
+      ).toContainEqual(expect.objectContaining({ severity: 'blocker' }));
+    }
+  });
+
   it.each([
     'USEFULDESK_SUBSCRIPTION_INTENTS_ENABLED',
     'USEFULDESK_SUBSCRIPTION_REFUNDS_ENABLED',

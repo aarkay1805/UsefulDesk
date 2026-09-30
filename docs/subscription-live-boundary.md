@@ -55,9 +55,12 @@ and staging-backed desktop/390 px settings checks. After a fresh encrypted
 backup, the [26-source dark installation](subscription-production-install-record.md)
 completed in Production. Existing tenant/legal/access fingerprints and settings,
 554 gym payments and both active cron jobs were unchanged. All 24 private billing
-tables deny browser access, every gate is off, bindings are null and billing
-records/offer approvals are empty. The SaaS credentials and webhook are still
-uninstalled. The Production login/freshness health run passed after installation.
+tables deny browser access and every gate is off. The subsequent owner-approved
+Production-only Live credential transfer and merchant/pilot binding completed;
+billing records/offer approvals remain empty. The closed redeployment is READY,
+the audit has zero blockers, four Live POSTs return 404 and Production health
+passed. The provider webhook is uninstalled; the intake-only proposal awaits
+approval.
 
 ## Boundaries
 
@@ -153,7 +156,7 @@ uninstalled. The Production login/freshness health run passed after installation
 
 | Layer                            | Default                     | Requirement before use                                                                                                                                                                                                                                                                                                                                                                                |
 | -------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live provider                    | absent                      | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, independent SaaS configuration for `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`.                                                       |
+| Live provider                    | configured, intake off      | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, independent SaaS configuration for `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`.                                                       |
 | Webhook intake                   | false                       | `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and the matching private database merchant/pilot/intake switch. Intake alone holds evidence; it does not grant or refund.                                                                                                                                                                                                                          |
 | Quote issuance                   | false, database-hard-closed | `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED=true`, one explicitly approved offer row, and the matching private database switch. The database `CHECK` prevents enabling issuance in this draft; the Production audit blocks the runtime flag.                                                                                                                                                                 |
 | Settlement and reconciliation    | false                       | Separate `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` flags plus private database settlement switch. The Production env audit currently blocks them.                                                                                                                                                                                           |
@@ -165,7 +168,9 @@ uninstalled. The Production login/freshness health run passed after installation
 The application does not enforce inequality between the Live SaaS merchant ID
 and a gym account's OAuth merchant. Production environment audit permits a complete dark Live
 configuration, rejects Test keys and money switches, and treats redacted
-protected values as unverified.
+protected values as unverified. Its prepared explicit intake-only audit mode
+permits only literal true intake after separate approval; default auditing still
+blocks intake. No runtime switch was enabled by this audit change.
 
 **Shared-merchant routing:** the follow-up code checks canonical provider
 order/payment facts before classifying signed deliveries. A provider-proven gym
@@ -184,10 +189,12 @@ owner acknowledgement and an unchanged source mode/version through order claim
 and signed settlement; it does not change Production access today. Razorpay
 verified `desk.usefulmade.com` on the existing activated UsefulMade merchant
 `acc_TCJwBqanN9LTrK` on 30 September. Live keys are now saved privately and
-read-only authentication passes. Isolated full-schema staging and dark Production schema installation have passed.
-Authorize transferring the privately saved credentials to Production Vercel,
-then configure the SaaS receiver/webhook independently of gym OAuth
-and prove signed mixed deliveries.
+read-only authentication passes. Isolated full-schema staging and dark Production
+schema installation passed. The owner-authorized Production-only credential
+transfer, merchant/pilot binding and closed redeployment also passed; every
+billing switch remains off. The [intake-only proposal](subscription-live-intake-proposal.md)
+is prepared but unapproved. Configure the independently verified SaaS receiver
+and provider webhook only after that approval, then prove signed mixed deliveries.
 The owner confirmed UsefulMade's legal business name, Punjab business address,
 no GST registration, no turnover yet and no foreign-service purchase before the
 later Vercel Pro checkout. Pro is now active; the owner reports payment, while
