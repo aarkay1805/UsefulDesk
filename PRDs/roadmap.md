@@ -858,10 +858,12 @@ dedupe, missed days and access revocation before send. Actual signed-in settings
 passed desktop/390 px inspection; all temporary data and switches were restored.
 The capability SQL fixture includes current transaction hooks, and its new
 explicit-container runner verifies rollback. No application code changed.
-The isolated Production environment audit passed with zero blockers/three warnings,
+The owner verified the canonical URL and 64-hex key from their original secure
+source, closing the protected-value check by attestation. The isolated Production
+environment audit passed with zero blockers/three redaction/Turnstile warnings,
 and exact `fbc8a9dd` Production is READY with SaaS billing absent. Operational
 full-schema staging, actual approved-template delivery, final capability/native
-activation, issuer/protected-value checks and genuine Live shared-merchant
+activation, issuer checks and genuine Live shared-merchant
 acceptance remain. Follow the [ordered rollout sequence](../docs/production-readiness.md#starter-rollout-sequence);
 the owner authorizes continuing while the Vercel invoice discrepancy is retained
 for reconciliation. No duplicate payment or paid activation is requested by this record.

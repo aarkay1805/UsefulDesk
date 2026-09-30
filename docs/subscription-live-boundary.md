@@ -38,7 +38,9 @@ days and access revocation before send. Fixtures and switches were restored.
 This closes local web/worker acceptance, not real WhatsApp delivery, final native
 capability activation, operational staging or Live acceptance. The isolated
 10:17 UTC Production export passed with zero blockers/three warnings and no
-SaaS billing configuration; protected URL/key values remain unverified. Follow
+SaaS billing configuration. The owner subsequently verified the canonical URL
+and 64-hex encryption-key format from their original secure source, closing B-05
+by attestation while export redaction warnings remain. Follow
 the [ordered rollout sequence](production-readiness.md#starter-rollout-sequence)
 before any activation.
 

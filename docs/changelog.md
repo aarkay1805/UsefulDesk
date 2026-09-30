@@ -19,7 +19,9 @@ checks on an explicitly named disposable container. The isolated Production
 environment audit passed with zero blockers/three warnings and no SaaS billing
 configuration. Readiness now gives an ordered rollout handoff and treats the
 open Vercel invoice as a reconciliation item under the owner's instruction to
-continue. Merchant approval, protected-value checks, final tax/receipt wording,
+continue. The owner confirmed the canonical URL and 64-hex key from their
+original secure source; B-05 closes by attestation without revealing or rotating
+secrets. Merchant approval, final tax/receipt wording,
 operational staging and genuine Live acceptance remain; billing is closed.
 
 ## 2026-09-30 — Record synthetic Starter browser acceptance

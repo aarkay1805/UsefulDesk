@@ -940,7 +940,8 @@ local only. No account, provider, Production flag or database was changed.
   viewport width at both phone sizes; no horizontal overflow was observed.
 
 The disposable fixture is outside the repository at
-`~/Library/Caches/usefuldesk-starter-ui-20260930`, listening on localhost:3240.
+`~/Library/Caches/usefuldesk-starter-ui-20260930`; it ran on localhost:3240 and
+was stopped after acceptance. Its temporary browser tab was closed.
 Screenshots are local artifacts in the 30 September continuation's
 visualizations directory. This completes the **synthetic component browser
 check**, not authenticated full-application acceptance, real refund processing,
@@ -1005,3 +1006,10 @@ authenticated web/API/RLS and mocked-worker checks. Operational full-schema
 staging acceptance, actual approved-template sends, final native/release checks
 for capability activation, and genuine Live shared-merchant payment/refund
 acceptance remain open.
+
+The repository's required `npm run verify` passed on the closeout package:
+lint, typecheck, **4,073 tests in 522 files**, and the optimized Production build.
+The environment-audit tests ran under Vitest as part of that suite. The owner
+also verified the original canonical URL and 64-hex encryption-key format on
+30 September; readiness B-05 is closed by attestation, without secret disclosure
+or rotation. Neither result opens paid billing.
