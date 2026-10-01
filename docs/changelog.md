@@ -6,6 +6,20 @@
 
 ---
 
+## 2026-10-01 — Consolidate production closeout investigation evidence
+
+`production-scheduler-rollout-record.md`, readiness and roadmap record the
+completed read-only scheduler/confirmation/provider review. GitHub natural
+freshness remains SEV-3 without a demonstrated configuration defect. Historical
+confirmation evidence shows five lookup attempts and zero provider attempts;
+the absent row strongly matches a member-deletion cascade, with exact request
+attribution still inferred pending usable existing R2 backup access or the
+verified archive/checksum (saved OAuth expired; same-scope refresh failed).
+No reminder replay
+or Production restore. Authentic duplicate/mixed proof and external owner
+paging remain pending; financial containment is preserved. This is documentation
+only and does not restart accepted functional scheduler proof.
+
 ## 2026-10-01 — Land a disabled read-only external watchdog
 
 Default-off `production-watchdog/[token]` checks the two primary aggregate
