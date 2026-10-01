@@ -3,8 +3,9 @@
 The read-only watchdog is implemented and disabled by default. No monitoring
 account, external probe or owner delivery is established by this code.
 The operator configuration is [prepared here](production-watchdog-config.json).
-The owner must choose the existing/free account and alert destination; do not
-purchase a service or infer an email/mobile destination from another system.
+The owner selected an existing monitoring account and its configured owner
+channel, naming Rajat Kashyap. Its service name/dashboard URL is still required
+to locate the account; do not purchase a service or infer a recipient elsewhere.
 
 `GET /api/production-watchdog/[token]` requires literal Production opt-in via
 `USEFULDESK_EXTERNAL_MONITOR_ENABLED=true` and a separate random 64-hex
@@ -23,7 +24,7 @@ unavailable database; ops freshness is 45 minutes and renewals 120 minutes.
 This checks primary health, not independent native/GitHub schedule freshness or
 backup freshness. Native natural logs and the backup workflow remain separate.
 
-After account/channel selection, review/land the exact release, install the
+After identifying the selected account, review/land the exact release, install the
 reviewed RPC through the approved Supabase migration tool, verify service-only
 grants, and provision the separate read-only token privately. Enable only the
 Production monitor flag and redeploy the verified release. Add the two monitors

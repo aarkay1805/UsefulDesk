@@ -32,14 +32,14 @@ explicitly delegated owner takes responsibility.
 
 ## Observability
 
-| Signal                | Source                                       | Healthy state                                                                                     | Retention / limitation                                                          |
-| --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Public availability   | `production-health` GitHub workflow          | `/login` returns successfully and contains the UsefulDesk title                                   | GitHub schedules are best-effort; this is not a hard ten-minute SLA             |
-| Critical workers      | Supabase Cron + `ops-crons` workflow         | latest database aggregate is HTTP 200/`failed: 0`; GitHub freshness warning clears within 75 min  | Supabase is primary; native Vercel is built but disabled pending acceptance     |
-| Renewal workers       | Supabase Cron + `renewals-cron` workflow     | latest database aggregate is HTTP 200/`failed: 0`; GitHub freshness warning clears within 2 hours | Supabase is primary; native Vercel is built but disabled pending acceptance     |
-| Backup recovery point | `Production backup` workflow                 | latest nightly database job succeeds; weekly/full run also verifies Storage                       | See `docs/backups.md`; old pre-rotation archives are not considered recoverable |
-| Server errors         | Vercel Runtime Logs, Production, Error level | no unexplained burst of errors after a release or alert                                           | Capture evidence promptly; verify retention in the current Pro project          |
-| Database/Auth         | Supabase Logs and Advisors                   | no correlated 5xx/Auth/database errors and no new error-severity advisor finding                  | Dashboard access is required                                                    |
+| Signal                | Source                                          | Healthy state                                                                                     | Retention / limitation                                                          |
+| --------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Public availability   | `production-health` GitHub workflow             | `/login` returns successfully and contains the UsefulDesk title                                   | GitHub schedules are best-effort; this is not a hard ten-minute SLA             |
+| Critical workers      | Supabase Cron + native Vercel + `ops-crons`     | latest database aggregate is HTTP 200/`failed: 0`; GitHub freshness warning clears within 75 min  | Supabase is primary; native Vercel and GitHub are active redundant paths        |
+| Renewal workers       | Supabase Cron + native Vercel + `renewals-cron` | latest database aggregate is HTTP 200/`failed: 0`; GitHub freshness warning clears within 2 hours | Supabase is primary; native Vercel and GitHub are active redundant paths        |
+| Backup recovery point | `Production backup` workflow                    | latest nightly database job succeeds; weekly/full run also verifies Storage                       | See `docs/backups.md`; old pre-rotation archives are not considered recoverable |
+| Server errors         | Vercel Runtime Logs, Production, Error level    | no unexplained burst of errors after a release or alert                                           | Capture evidence promptly; verify retention in the current Pro project          |
+| Database/Auth         | Supabase Logs and Advisors                      | no correlated 5xx/Auth/database errors and no new error-severity advisor finding                  | Dashboard access is required                                                    |
 
 Quick read-only triage:
 
@@ -77,8 +77,11 @@ secret store when a manual authenticated check is necessary.
 
 ## Native scheduler rollout
 
-The Vercel ops/renewal scheduler is built behind a default-off switch; it is not
-an active execution path until natural Production runs are verified. Follow
+The Vercel ops/renewal scheduler is active in Production as of 1 October 2026.
+Natural ten-worker ops and three-worker renewals passed on verified source
+`e010c23c`; exact evidence is in the
+[rollout record](production-scheduler-rollout-record.md). Code remains behind a
+default-off Production switch. Follow
 [activation and containment](automations-and-cron.md#native-vercel-scheduler).
 Record both groups' natural executions, fixed worker statuses and aggregate
 counts; missing/disabled runs do not prove worker health. Retain Supabase and
@@ -95,7 +98,7 @@ Treat a signal as actionable when any threshold below is met:
 - **SEV-1:** login is unavailable on two checks ten minutes apart; confirmed
   cross-tenant/security exposure; destructive data loss; or inbound/outbound
   provider processing is corrupting records. Owner response target: 10 minutes.
-- **SEV-2:** both execution paths miss a worker window; either database job is
+- **SEV-2:** all three execution paths miss a worker window; either database job is
   inactive; a database aggregate or GitHub critical-worker step fails; the
   nightly database backup is missed; or a new release produces repeated server
   errors. Owner response target: 30 minutes.

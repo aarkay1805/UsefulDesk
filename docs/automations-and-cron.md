@@ -122,7 +122,7 @@ Production availability, alert thresholds, escalation ownership, and rollback
 live in the [production runbook](production-runbook.md). GitHub documents that
 scheduled events can be delayed or dropped, so neither a historically green
 GitHub run nor a successful database dispatch proves the other scheduler is
-current. Monitor both active paths; inspect native Vercel separately once activated.
+current. Monitor all three active paths; inspect native Vercel fixed-status logs separately.
 
 Refund review is a hard reminder hold. Refund-aware balance views expose
 `collectible_balance=0` while a provider-confirmed refund lacks a safe complete
@@ -231,8 +231,11 @@ while preserving the daily import-draft cleanup:
 | `/api/platform-cron/renewals`       | :35 every hour                | The same three renewal/reminder workers as Supabase |
 | `/api/members/import-draft/cleanup` | daily 02:17                   | Existing cleanup; its authentication is unchanged   |
 
-The new grouped jobs are **built, disabled by default, not yet accepted in
-Production**. Registration does not activate dispatch:
+The grouped jobs are **active in Production as of 1 October 2026**, with natural
+ops and renewals passing on verified source `e010c23c`. See the dated
+[rollout record](production-scheduler-rollout-record.md) for exact deployment,
+worker outcomes and timed scans. The code remains disabled by default;
+registration alone does not activate dispatch:
 `USEFULDESK_VERCEL_CRONS_ENABLED` must be literal `true` and `VERCEL_ENV` must be
 `production`. Otherwise they return HTTP 200 with `dispatched: 0`, `failed: 0`,
 `skipped: disabled`, without database/provider access or worker calls. This

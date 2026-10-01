@@ -6,10 +6,11 @@ The bank debit evidence is saved privately. On 1 October the owner explicitly
 allowed other rollout work to proceed while bank refund-credit evidence is deferred.
 Provider-processed refund evidence does not establish receipt in the bank.
 
-**Current baseline — 1 October 2026:** exact implementation `71d897a6` is READY
-at canonical recovery-only deployment `dpl_5YCS5VSmqUBxKaYKcsynzHeeALEA`
-(13:37:47.820 UTC). History is 329 entries after separately reviewed containment
-`20261001132841`. One genuine signed Live ₹799 capture created one Starter month
+**Financial baseline — 1 October 2026:** reviewed implementation `71d897a6`
+was READY in recovery-only deployment `dpl_5YCS5VSmqUBxKaYKcsynzHeeALEA`
+at 13:37:47.820 UTC, before the scheduler rollout below. Financial containment
+installed as `20261001132841`, then history 329; the later readiness repair
+brings history to 330. One genuine signed Live ₹799 capture created one Starter month
 and advanced access once to version 2. The full original refund was processed;
 access ended once at 11:43:01 UTC, version 3, without complimentary restoration.
 The approved operator reconciled all three original signed events with zero
@@ -23,17 +24,32 @@ exact source/history mapping and pending authentic duplicate/mixed-delivery proo
 Vercel invoice GQBCLHWV-0001 is Paid / US$0.00 due. No customer sale or self-invoice
 is claimed. Meta approval/sync and authorized delivery are independent gates.
 
-**Next implementation batch — native scheduling:** Vercel Pro is active, while
-GitHub's natural ops and renewal runs remain stale at the latest closeout check.
-Supabase primary ops and renewal aggregates remain HTTP 200 / failed 0. The new
-`/api/platform-cron/ops` and `/api/platform-cron/renewals` routes and schedules are
-implemented with a default-off Production-only switch, strict reserved bearer
-authentication, configured HTTPS origin, no redirects and bounded dispatch.
-Deployment, secret verification and natural-run acceptance are still pending.
-See [native activation and rollback](automations-and-cron.md#native-vercel-scheduler).
-This code does not open subscription initiation or bypass provider readiness.
-An independent watchdog and proven owner paging still require their own setup;
-adding another execution path does not complete that alert-delivery item.
+**Native scheduling — accepted, 1 October:** PRs #22–#24 and
+#27 are merged. Exact main `e010c23c` passed CI/CodeQL; canonical Production
+`dpl_AEhWSKnkKDuZu1xkgtbTjh9FUQ3k` was READY at 17:11:23.744 UTC.
+Natural ops at 17:18:23.382 returned HTTP 200, dispatched 10 / failed 0;
+natural renewals at 17:35:12.247 returned HTTP 200, dispatched 3 / failed 0.
+Every worker returned 200. The +10- and +30-minute scans found zero runtime
+errors and deployment HTTP 5xx, with the final scan through 17:41:30 UTC.
+The first enabled attempts failed before worker HTTP responses; correcting the
+configured canonical HTTPS origin and rebuilding restored dispatch. Readiness
+claim source is installed as history `20261001155436` (330 entries); its leased
+scan now precedes provider recovery. Supabase remains primary and healthy;
+GitHub remains enabled; its renewed two-hour renewal freshness exception remains
+SEV-3 while primary/native renewals are healthy. The
+[scheduler rollout record](production-scheduler-rollout-record.md) pins exact
+checks, failed attempts, freshness limits and financial preservation.
+This does not open subscription initiation or bypass provider readiness.
+
+The independent watchdog is prepared in
+[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with current
+checks passing. The owner selected an existing monitoring account and its owner
+channel, naming Rajat Kashyap; its service name/dashboard URL is still needed.
+Production setup and actual owner alert receipt remain pending. Authentic
+duplicate/mixed provider delivery remains unproven. The formerly documented
+missed confirmation row was absent at the 16:26 database check, before the first
+enabled native dispatch; this historical evidence gap remains open and does
+not authorize recreating or replaying it.
 
 Use the [release review](subscription-release-review.md),
 [read-only preflight](subscription-rollout-preflight.md),
@@ -457,7 +473,7 @@ sensitive evidence privately; retain only status, date, and reference here.
 | B-01 | COMPLETE: owner payment reconciled with provider invoice.                                             | On 1 October the owner confirmed payment; refreshed invoice GQBCLHWV-0001 is Paid, US$23.60 paid and US$0.00 due. Pro Active remains verified. No duplicate payment or budget change was attempted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | B-02 | Review the temporary Supabase Free acceptance by 13 October 2026, or sooner at the recorded triggers. | Owner accepted Free through 13 October 2026 with earlier 50%-quota, pause, backup, or paid-user triggers; refresh before payment if that date has passed. Pro remains an option at published base US$25/month; no purchase authorized.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | B-03 | Complete the owner password-recovery flow if it is required for onboarding.                           | Owner-approved sign-in and recovery emails reached the inbox on 29 September. The first sign-in token was most likely replaced by the following recovery request. A separately approved single sign-in retest at 13:30–13:33 UTC redeemed successfully, created a new owner Auth session, and showed the owner dashboard. The recovery link authenticated the owner and reached the new-password form; only the owner may enter and submit a new password. Record any completed reset privately before paid-owner onboarding.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| B-04 | Retain missed-confirmation decision; accept native scheduler deployment separately.                   | The owner chose **missed; do not send** for the terminal failed confirmation. At the 1 October closeout, Supabase ops/renewals were healthy but GitHub natural schedules were stale. Native Vercel scheduling is now built, disabled by default, with configuration checks and bounded authenticated dispatch. Deploy/verify natural runs before claiming it active; no late resend is authorized.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| B-04 | Retain missed-confirmation decision; accept native scheduler deployment separately.                   | The owner chose **missed; do not send** for the terminal failed confirmation. At the 1 October scheduler rollout, Supabase primary remained healthy and natural native Vercel ops/renewals passed on `e010c23c`; see the dated rollout record for timed scans and GitHub freshness. The historical confirmation row is now absent, first observed before enabled native execution; investigate prior private snapshots without recreating/replaying it. No late resend is authorized.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | B-05 | COMPLETE: original canonical URL and encryption-key format verified.                                  | Both variables are saved as write-only Vercel Secrets. The list/export and 29 September Chrome edit view cannot reveal either value. On 30 September the owner confirmed both from their original secure source: https://desk.usefulmade.com and exactly 64 hexadecimal key characters. Record this as owner attestation; export cannot independently prove either value. No rotation or secret disclosure occurred.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | C-01 | Finish supplier registration, tax and receipt determination.                                          | On 30 September the owner confirmed legal business name UsefulMade, the Punjab business address and PIN, no GST registration, and no turnover yet. The private issuer draft records these statements; do not request them again or make the unrecovered Udyam certificate a drafting gate. Before a payable quote, record PAN-wide financial-year turnover, the actual buyer geography, and any compulsory-registration exception, especially reverse charge on received services. Resolve a real exception with qualified input. “GST not charged — supplier unregistered” is proposed ordinary-document wording, not tax clearance or a 0% GST rate.                                                                                                                                                                                                                                                                                                                                         |
 | C-02 | Finish exact Starter offer and customer-facing terms.                                                 | The [draft](starter-pilot-offer-draft.md) now gives reviewable ₹799 Starter, separate Meta and gym-merchant charges, expiry-only renewal, cancellation and day-7 first-payment refund wording. The owner approved the customer text and two-business-day handling timeline on 30 September; UsefulDesk Starter pilot v1 is published with the refund policy, product price and terms. The actual buyer and final tax-supported gross amount remain unresolved. The installed, default-off Live refund review migration requires the request timestamp/evidence and enforces local day 7 for standard requests, with separately reasoned exceptional reviews; genuine provider and service acceptance remain. UsefulMade / Home office is an internal acceptance candidate with complimentary access, not an independent buyer or self-invoice. No Production access changed or money moved.                                                                                                    |
