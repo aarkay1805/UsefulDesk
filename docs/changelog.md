@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-10-01 — Install closed Production Starter opening and recovery
+
+Merged PR #21 at `71d897a6`; main checks and canonical READY deployment passed.
+Installed both reviewed sources through Supabase after full verified DB/Storage
+backup; `subscription-production-install-record.md` and the new 28-source manifest
+pin actual history. Functions/catalogs match staging, all money gates stay off,
+Live ledgers empty and tenant/legal/access/gym-payment data unchanged. Natural ops
+proved recovery's deployed disabled skip. Vercel invoice is now Paid / US$0 due.
+`subscription-production-pilot-review.md` prepares exact ₹799 terms and identifies
+the actual accounting/opening facts still required; no synthetic financial review,
+provider effect, self-invoice, WhatsApp send or access change was created.
+
 ## 2026-10-01 — Implement original-obligation Live recovery and payment-only scope
 
 Added GET-only recovery in `src/lib/subscriptions/live-recovery.ts`, protected

@@ -979,6 +979,23 @@ healthy. Meta approval/sync plus authorized delivery is a separate reminder gate
 real buyer/issuer facts precede customer documents. Renewal/native Checkout/global
 capability activation stays outside the first-term scope.
 
+**Shipped — closed Production opening/recovery installation, 1 October:**
+PR #21 merged as `71d897a6`; main CI/CodeQL passed, and READY
+`dpl_5KoHAR59NNQyT2WWsikE2rYoDx8h` serves the canonical domain. The two reviewed
+additive migrations installed through the approved connector after full encrypted
+database/Storage backup 36846306908. All 16 changed functions and relevant schema
+catalogs match staging. RLS, service SELECT-only, enabled freezes, hard-closed
+renewal and empty offer/recovery ledgers are verified. Existing tenant/access
+fingerprints and 554 gym payments are unchanged; every financial gate remains
+off. Natural primary ops verified the deployed recovery worker's disabled skip.
+The owner-reported Vercel invoice is now provider-confirmed Paid / US$0.00 due.
+The [installation record](../docs/subscription-production-install-record.md) and
+[28-source manifest](../docs/subscription-production-pilot-install-manifest.tsv)
+retain exact source/history mapping. The [review packet](../docs/subscription-production-pilot-review.md)
+is prepared; factual internal accounting review and exact financial opening,
+human signed Live capture/full-refund, and independent Meta delivery acceptance
+remain. No invoice, offer/review, money or access change was fabricated.
+
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
