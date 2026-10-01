@@ -80,7 +80,19 @@ Its 0600 export/0700 directory were removed; no secrets were printed.
 The ten-minute error scan at approximately 10:17 UTC returned no runtime errors
 in the selected post-release range. A fresh browser reload confirmed the owner
 still opens Home office settings on the canonical release, with saved regional
-settings and no pending changes. The thirty-minute scan remains due.
+settings and no pending changes. The thirty-minute scan at 10:38:21 UTC also
+returned no runtime errors in the post-release range. At 10:37:46 UTC canonical
+release, tenant/legal/access fingerprints, counts, empty Live ledgers and all
+closed gates still matched. Natural primary ops at 10:38 returned HTTP 200,
+failed 0; the latest primary renewals success was 09:41. The independent GitHub
+renewals/health freshness exception remains open; no manual send-capable dispatch
+was used to replace natural evidence.
+
+The read-only Supabase security-advisor scan at 10:26 UTC returned zero ERRORs.
+No WARN targeted the affected functions or four new tables. Their INFO
+`rls_enabled_no_policy` findings reflect intentional deny-by-default private
+metadata. Existing unrelated warnings remain; this installation does not claim
+that the entire project is free of advisor warnings.
 
 Read-only Razorpay refresh retained Enabled webhook `TiJKErwIC7VvRr`, configured
 secret and exactly the five approved payment/refund events. The owner confirmed
@@ -94,7 +106,16 @@ its reviewer/date/evidence, then the exact financial opening decision, remain
 pending. No offer/opening record is invented. A human completes real payment;
 original payment/refund amount and access consequence are reviewed before refund.
 No genuine Live capture/refund, customer sale, reminder delivery or wider
-activation has occurred. Meta status is checked last and separately.
+activation has occurred.
+
+Meta was checked last, after the thirty-minute observation. At 10:39 UTC,
+UsefulDesk's Check status read the provider catalog and refreshed its local
+cache. `gym_membership_renewal` / `en_US` remains `PENDING` (In review), Marketing,
+POSITIONAL, with the exact five-variable body, no header/footer and one
+QUICK_REPLY “Help me renew”; no provider component-sync marker remains.
+`gym_service_renewal` remains `APPROVED` with its current contract. Membership
+reminder readiness and actual authorized delivery acceptance remain open. No
+provider template was submitted/changed/deleted and no WhatsApp send occurred.
 
 ## Installed source and recovery point
 

@@ -64,6 +64,11 @@ Genuine customer offers/documents require their separate buyer/issuer review.
   both database and Storage verification; established 23 August disposable
   restore evidence and accepted key-custody limits remain, without claiming a
   new restore drill. Exact completion is recorded in the installation record.
+- Observation: the ten- and thirty-minute post-release runtime scans were clean;
+  the final preservation snapshot retained exact fingerprints and closed gates.
+- Meta, checked last at 10:39 UTC: current membership renewal remains In review
+  after provider status sync; the exact five-variable contract is retained.
+  Service renewal remains Approved. No send or provider template change occurred.
 - Hosting: owner confirmation was reconciled read-only on 1 October: invoice
   GQBCLHWV-0001 is Paid, US$23.60 paid, US$0.00 due. No duplicate payment.
 

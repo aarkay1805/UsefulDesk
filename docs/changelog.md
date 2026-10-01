@@ -13,7 +13,9 @@ Installed both reviewed sources through Supabase after full verified DB/Storage
 backup; `subscription-production-install-record.md` and the new 28-source manifest
 pin actual history. Functions/catalogs match staging, all money gates stay off,
 Live ledgers empty and tenant/legal/access/gym-payment data unchanged. Natural ops
-proved recovery's deployed disabled skip. Vercel invoice is now Paid / US$0 due.
+proved recovery's deployed disabled skip; ten-/thirty-minute error scans are clean.
+Vercel invoice is now Paid / US$0 due. Meta checked last still reports the exact
+membership renewal In review after status sync.
 `subscription-production-pilot-review.md` prepares exact ₹799 terms and identifies
 the actual accounting/opening facts still required; no synthetic financial review,
 provider effect, self-invoice, WhatsApp send or access change was created.

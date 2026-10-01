@@ -987,6 +987,8 @@ renewal and empty offer/recovery ledgers are verified. Existing tenant/access
 fingerprints and 554 gym payments are unchanged; every financial gate remains
 off. Natural primary ops verified the deployed recovery worker's disabled skip.
 The owner-reported Vercel invoice is now provider-confirmed Paid / US$0.00 due.
+Ten- and thirty-minute runtime scans are clean. Meta, checked last at 10:39 UTC,
+still reports the exact membership renewal contract In review; no send occurred.
 The [installation record](../docs/subscription-production-install-record.md) and
 [28-source manifest](../docs/subscription-production-pilot-install-manifest.tsv)
 retain exact source/history mapping. The [review packet](../docs/subscription-production-pilot-review.md)
