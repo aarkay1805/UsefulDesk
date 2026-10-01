@@ -9,6 +9,12 @@ on:
     # GitHub recommends off-boundary minutes to reduce delayed/dropped runs.
     - cron: '4,14,24,34,44,54 * * * *'
   workflow_dispatch:
+    inputs:
+      reconcile_live_events:
+        description: 'Reconcile existing signed Home office SaaS events after owner approval'
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   actions: read
@@ -19,6 +25,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  reconcile-live-events:
+    name: Reconcile existing signed SaaS events
+    if: github.event_name == 'workflow_dispatch' && inputs.reconcile_live_events
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Reconcile the existing merchant and pilot event queue
+        env:
+          AUTOMATION_CRON_SECRET: ${{ secrets.AUTOMATION_CRON_SECRET }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          secret = os.environ.get('AUTOMATION_CRON_SECRET', '')
+          if len(secret) < 32:
+              raise SystemExit('Protected operator credential is unavailable')
+          request = urllib.request.Request(
+              'https://desk.usefulmade.com/api/subscriptions/live-reconcile',
+              data=b'',
+              headers={'x-cron-secret': secret},
+              method='POST',
+          )
+          try:
+              with urllib.request.urlopen(request, timeout=45) as response:
+                  result = json.load(response)
+          except urllib.error.HTTPError as error:
+              raise SystemExit(f'Reconciliation returned HTTP {error.code}') from None
+          if (not isinstance(result, dict)
+              or set(result) != {'inspected', 'reconciled', 'failed'}
+              or any(type(value) is not int or value < 0 for value in result.values())):
+              raise SystemExit('Unexpected reconciliation response')
+          print(json.dumps(result))
+          if result['failed']:
+              raise SystemExit('Existing event reconciliation needs review')
+          PY
+
   login-surface:
     runs-on: ubuntu-latest
     timeout-minutes: 3

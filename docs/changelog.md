@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-10-01 — Prepare manual signed-event reconciliation
+
+`production-health.yml` has an explicit manual, default-off operator input for
+the existing scoped `live-reconcile` route. The job uses the existing repository
+credential via environment, has no GitHub token permissions, prints aggregate
+counts and never dispatches messaging workers. Scheduled health checks retain
+their existing behavior. Actual Production execution is recorded separately.
+Bank debit evidence is received privately; the owner deferred bank-credit
+evidence while other closeout work proceeds.
+
 ## 2026-10-01 — Open the reviewed Home office internal ₹799 test
 
 Owner approval and bank debit/credit screenshot recording method are retained in

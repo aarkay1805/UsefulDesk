@@ -1006,10 +1006,17 @@ Live ₹799 signed capture at 11:24:59 UTC created one Starter month through
 1 November, with one access-version change. Tenant/legal data and 554 gym payments
 remain unchanged. See the [opening record](../docs/subscription-production-pilot-opening-record.md).
 The separately requested full ₹799 refund processed, signed refund events arrived
-and access ended once without complimentary restoration. Bank evidence, genuine
+and access ended once without complimentary restoration. Bank debit evidence is
+received privately; the owner deferred bank-credit evidence on 1 October. Genuine
 duplicate/mixed delivery and independent reminder acceptance remain pending.
 No customer sale, self-invoice, WhatsApp send, renewal, native Checkout or global
 capability activation is claimed.
+
+**Prepared — manual signed-event reconciliation operator:** the existing
+`production-health` workflow has a default-off manual input for the scoped
+reconciliation route, using the existing protected credential and aggregate-only
+output. It does not run on scheduled health checks. Actual execution and
+recovery-only containment belong in the internal opening record.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five

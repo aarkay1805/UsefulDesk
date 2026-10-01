@@ -6,6 +6,14 @@ bank debit/credit message and screenshot recording method in this chat. See the
 [review authority](subscription-production-pilot-review.md#owner-decision-and-accounting-record).
 No customer sale, self-invoice or external accounting clearance is asserted.
 
+**Latest closeout instruction:** the owner supplied the original bank-debit
+message, received at 12:00:41 UTC on 1 October, matching the original ₹799 payment
+reference. The unchanged screenshot and matching transaction references are
+saved privately outside Git with restricted permissions. The owner then asked
+to proceed with other pending work without bank refund-credit evidence. That
+credit evidence is deferred, not passed or required before technical closeout.
+Earlier pending-bank statements below describe their dated observations.
+
 ## Reviewed operator application
 
 Implementation remains PR #21 main `71d897a6dfd17b7938129d2b7a3cfbb808531a80`.

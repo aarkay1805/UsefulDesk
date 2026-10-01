@@ -232,6 +232,14 @@ It accepts no per-event or refund payload. Use protected tooling that keeps the
 secret out of command arguments/output. Record HTTP status and only the counters
 `inspected`, `reconciled`, `failed`.
 
+The existing `production-health.yml` now exposes a manual-only, default-false
+`reconcile_live_events` input for this exact route. Following owner approval,
+dispatch the reviewed branch with that input true. The isolated job receives
+the existing repository secret via environment, has no GitHub token permissions
+and reports only counters. It calls no messaging worker and never treats a
+manual dispatch as scheduled freshness evidence. Scheduled health behavior is
+unchanged. Do not extract the secret from GitHub or use opaque Vercel exports.
+
 The existing event route selects up to five held events per call, oldest first, scoped to this
 merchant/pilot. It uses `subscription_list_live_held_events`, then the capture
 or refund helper, and `subscription_mark_live_event_reconciled`. HTTP 503 means
