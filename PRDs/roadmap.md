@@ -1022,6 +1022,13 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
+**Built — readiness prerequisite ordering, 1 October:** the existing leased
+OAuth/readiness scan now runs before provider recovery phases, avoiding a
+recoverable daily expiry failing an earlier phase in the same cycle. Tests cover
+same-cycle webhook/refund recovery and failed readiness with lease release;
+connection/provider gates, batch limits and backoff are preserved. Deployment
+and natural acceptance remain separate from this implementation.
+
 **Built — scheduler acceptance follow-up, 1 October:** the OAuth scan claim now
 also becomes due when unknown-merchant readiness expires before its independent
 daily token scan. A completed post-expiry attempt retains failure backoff;
