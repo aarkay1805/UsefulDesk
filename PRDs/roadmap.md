@@ -1022,6 +1022,23 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
+**Completed — read-only production closeout investigations, 1 October:** scheduler
+configuration review found no repair to make; GitHub natural ops/renewals were
+101/153 minutes old at 18:12 UTC, an owned SEV-3 exception while primary/native
+workers and backup are healthy. Confirmation archaeology recovered terminal
+failure after five lookup attempts, zero provider attempts and no delivery.
+Its absent row strongly matches the existing contact-deletion cascade and the
+30 September 04:36:03 UTC member-deletion/invoice-detachment transaction;
+exact job/request attribution remains an inference. Targeted offline backup
+extraction needs usable existing R2 authentication or the verified encrypted
+archive/checksum: saved Wrangler OAuth expired and normal refresh failed before
+R2 permissions could be tested. No Production restore or reminder replay
+is authorized. Audit retention during member deletion is deferred to a separate
+scope. The refreshed provider log still contains only the three original HTTP
+200 deliveries; duplicate/eligible mixed proof awaits real provider traffic.
+Financial records and closed gates were preserved. Evidence and limits:
+[rollout record](../docs/production-scheduler-rollout-record.md).
+
 **Shipped disabled — independent watchdog, 1 October:** a default-off Production
 read-only token endpoint and service-only aggregate RPC check primary jobs,
 response failures and freshness. It never dispatches workers or reads Vault;
@@ -1046,9 +1063,11 @@ its bounded leased scan precedes recovery and preserves modes/grants/backoff.
 Supabase primary remains healthy, GitHub redundancy and daily cleanup remain
 active. Initial native failures were resolved by explicitly configuring the
 canonical HTTPS origin and rebuilding. Financial initiation stays closed.
-The historical confirmation-row evidence gap remains open; no reconstruction
-or missed reminder replay is authorized. The independent watchdog disabled
-release is tracked in [PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25);
+The confirmation investigation recovered historical failed-state evidence and a
+supported deletion-cascade explanation; exact attribution still needs existing
+R2 access. No reconstruction or missed reminder replay is authorized. The
+independent watchdog disabled release is landed in
+[PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), main `e44212fa`;
 its service-only RPC is installed as history `20261001180537`, with grants and
 output allowlist verified. Monitor flags/token remain unset. The owner chose an
 existing account and its owner channel; service identification, external probes
