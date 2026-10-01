@@ -59,3 +59,14 @@ export function isAuthorizedCronRequest(request: Request): boolean {
 
   return supplied.some((s) => secrets.some((secret) => safeEqual(s, secret)));
 }
+
+/** Native scheduler entry points accept only Vercel's reserved bearer token. */
+export function isAuthorizedVercelCronRequest(request: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  const bearer = request.headers.get('authorization');
+  return Boolean(
+    secret &&
+    bearer?.startsWith('Bearer ') &&
+    safeEqual(bearer.slice('Bearer '.length), secret)
+  );
+}

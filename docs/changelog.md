@@ -6,6 +6,19 @@
 
 ---
 
+## 2026-10-01 — Build guarded native Vercel ops and renewal scheduling
+
+`vercel.json` registers two grouped schedules while preserving daily cleanup.
+`src/lib/cron/dispatch.ts` shares worker groups with the Vault-authenticated
+Supabase dispatcher; redirects are refused. New `platform-cron` routes require
+literal Production opt-in and the reserved bearer secret, use the configured
+HTTPS origin, bound worker GETs, retain sibling execution on failure and expose
+only aggregate counts/fixed statuses. The environment audit checks native
+configuration without printing values. Runbooks/readiness now reflect the
+completed internal refund and recovery-only containment. Gotcha: default-off
+code and passing tests do not establish native activation/natural delivery or
+owner paging; keep existing schedulers and financial gates until those checks.
+
 ## 2026-10-01 — Reconcile signed events and close completed internal initiation
 
 `production-health.yml` has an explicit manual, default-off operator input for

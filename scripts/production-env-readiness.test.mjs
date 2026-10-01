@@ -74,6 +74,85 @@ const blocker = (check) =>
   expect.objectContaining({ severity: 'blocker', ...(check ? { check } : {}) });
 
 describe('production environment readiness', () => {
+  it('keeps the new native scheduler disabled by default', () => {
+    expect(evaluateProductionEnvironment(validEnvironment)).toContainEqual(
+      expect.objectContaining({ severity: 'pass', check: 'native-cron-switch' })
+    );
+  });
+
+  it('requires the reserved secret for enabled native dispatch', () => {
+    const results = evaluateProductionEnvironment({
+      ...validEnvironment,
+      USEFULDESK_VERCEL_CRONS_ENABLED: 'true',
+      VERCEL_ENV: 'production',
+    });
+    expect(results).toContainEqual(blocker('native-cron-secret'));
+  });
+
+  it('accepts native configuration without exposing its secret or proving delivery', () => {
+    const results = evaluateProductionEnvironment({
+      ...validEnvironment,
+      USEFULDESK_VERCEL_CRONS_ENABLED: 'true',
+      VERCEL_ENV: 'production',
+      CRON_SECRET: 'private-native-secret',
+    });
+    expect(results).not.toContainEqual(blocker());
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        severity: 'warning',
+        check: 'native-cron-acceptance',
+      })
+    );
+    expect(JSON.stringify(results)).not.toContain('private-native-secret');
+  });
+
+  it.each(['preview', 'development', '[SENSITIVE]'])(
+    'blocks enabled native dispatch with unproven runtime (%s)',
+    (runtime) => {
+      expect(
+        evaluateProductionEnvironment({
+          ...validEnvironment,
+          USEFULDESK_VERCEL_CRONS_ENABLED: 'true',
+          VERCEL_ENV: runtime,
+          CRON_SECRET: 'private-native-secret',
+        })
+      ).toContainEqual(blocker('native-cron-runtime'));
+    }
+  );
+
+  it.each(['1', 'TRUE', '[SENSITIVE]', ' false '])(
+    'blocks ambiguous native flag configuration (%s)',
+    (flag) => {
+      expect(
+        evaluateProductionEnvironment({
+          ...validEnvironment,
+          USEFULDESK_VERCEL_CRONS_ENABLED: flag,
+        })
+      ).toContainEqual(blocker('native-cron-switch'));
+    }
+  );
+
+  it('retains private-original verification when the native secret is opaque', () => {
+    expect(
+      evaluateProductionEnvironment({
+        ...validEnvironment,
+        USEFULDESK_VERCEL_CRONS_ENABLED: 'true',
+        CRON_SECRET: '[SENSITIVE]',
+      })
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          severity: 'warning',
+          check: 'native-cron-secret',
+        }),
+        expect.objectContaining({
+          severity: 'warning',
+          check: 'native-cron-runtime',
+        }),
+      ])
+    );
+  });
+
   it('requires explicit intake-only auditing and reports the enabled boundary', () => {
     expect(evaluateProductionEnvironment(intakeEnvironment)).toContainEqual(
       expect.objectContaining({ severity: 'blocker' })
