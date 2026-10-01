@@ -1001,7 +1001,7 @@ The owner supplied bank debit/credit messages/screenshots as the recording metho
 The separately hashed data-only operator source installed at 11:19:50 UTC as
 history `20261001111950`, selecting one actual immutable offer/opening review.
 Exact `71d897a6` rebuilt READY at canonical `dpl_Duze8duP4zeyKTHrQhViGPp4xczu`;
-Production audit passed and only the selected first-term phase is open. One real
+Production audit passed and only the selected first-term phase was opened. One real
 Live ₹799 signed capture at 11:24:59 UTC created one Starter month through
 1 November, with one access-version change. Tenant/legal data and 554 gym payments
 remain unchanged. See the [opening record](../docs/subscription-production-pilot-opening-record.md).
@@ -1012,17 +1012,21 @@ duplicate/mixed delivery and independent reminder acceptance remain pending.
 No customer sale, self-invoice, WhatsApp send, renewal, native Checkout or global
 capability activation is claimed.
 
-**Prepared — manual signed-event reconciliation operator:** the existing
+**Shipped and executed — manual signed-event reconciliation and containment:** the existing
 `production-health` workflow has a default-off manual input for the scoped
 reconciliation route, using the existing protected credential and aggregate-only
-output. It does not run on scheduled health checks. Actual execution and
-recovery-only containment belong in the internal opening record.
+output. It does not run on scheduled health checks. Run 36868967047 reconciled
+all three original events with zero failures and unchanged payment/refund/access
+facts. Separately hashed data-only containment installed as history
+`20261001132841`; initiation and both Live UI flags are closed in recovery-only
+Production, with intake/settlement/recovery retained. The internal opening record
+pins the actual source, deployment and preservation observations.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
 to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production exposes Live Checkout only to the separately approved Home office
-internal pilot above. Pure tier/branch/capability, verified-add-on
+internal pilot above, now closed after its full refund. Pure tier/branch/capability, verified-add-on
 state, owner-choice conversion rules, and pure base-tier billing transitions are coded and tested. The transition model prorates the listed base-price difference in paise over the actual paid period, keeps an upgrade pending until a trusted payment event, and projects downgrades/cancellations at the paid-through boundary. A pure renewal model keeps the old tier for one fixed 72-hour window after a failed paid renewal, denies new unpaid tier/branch capacity during grace, and resumes paid access only after a trusted verified renewal event. It does not verify provider payments or persist entitlements. The
 no-GST amount draft records listed software, ₹0 GST, and the matching draft total for monthly plans and base-tier upgrades; it is not wired to checkout. The reusable
 first-payment refund model evaluates the request date in the frozen billing-account timezone and reserves one full-refund request per organization. A separate pure confirmed-refund model ends paid access at full-refund confirmation and requires renewal to stop; pending/failed events leave access intact. Neither model calls a provider or changes runtime access. The reusable

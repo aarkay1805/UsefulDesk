@@ -6,13 +6,18 @@
 
 ---
 
-## 2026-10-01 — Prepare manual signed-event reconciliation
+## 2026-10-01 — Reconcile signed events and close completed internal initiation
 
 `production-health.yml` has an explicit manual, default-off operator input for
 the existing scoped `live-reconcile` route. The job uses the existing repository
 credential via environment, has no GitHub token permissions, prints aggregate
 counts and never dispatches messaging workers. Scheduled health checks retain
-their existing behavior. Actual Production execution is recorded separately.
+their existing behavior. Actual run 36868967047 reconciled three original events
+with zero failures and unchanged financial/access state. Data-only source
+`20261001132700_close_home_office_internal_acceptance_initiation.sql` installed
+as connector history `20261001132841`, closing initiation while preserving
+original review/intake/settlement. Exact `71d897a6` rebuilt READY in recovery-only
+mode; the opening record pins source, deployment and preservation evidence.
 Bank debit evidence is received privately; the owner deferred bank-credit
 evidence while other closeout work proceeds.
 

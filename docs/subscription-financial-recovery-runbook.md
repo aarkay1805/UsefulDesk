@@ -1,14 +1,14 @@
 # Subscription financial recovery runbook
 
-**Current status, 1 October 2026:** the owner-approved sole Home office internal
-₹799 run opened at 11:19:50 UTC on exact implementation `71d897a6`. One genuine
-capture, full-refund provider GET/commit, signed refund events and one access-end
-effect are recorded. Bank evidence and genuine Live duplicate/mixed delivery
-remain pending. See the
-[current opening record](subscription-production-pilot-opening-record.md) and
-[review authority](subscription-production-pilot-review.md). Earlier closed/
-staging-only status paragraphs below are historical preparation; the procedure
-and original-obligation review boundaries still apply.
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
 
 **Prepared procedure; no new Production authority.** Use this procedure within the separately approved first-term opening
 or to investigate existing evidence read-only. It does not authorize a charge,
@@ -78,6 +78,17 @@ other phases use `--allow-live-intake-only` or `--allow-live-starter-pilot`, one
 mode at a time. These commands inspect local input and do not set flags.
 
 ## Read-only evidence and preflight
+
+For an already verified/confirmed original signed-event queue, the explicit
+manual `production-health` input `reconcile_live_events=true` runs the bounded
+canonical reconciler using the existing protected repository credential. Inspect
+the exact branch/SHA and durable original records first. Use only the recorded
+owner-approved scope; the input defaults false and scheduled health runs skip
+this job. It does not create a provider event or call refund/order initiation.
+Check aggregate inspected/reconciled/failed counters and independently compare
+financial records, access version/end and audits afterward. Actual accepted run
+36868967047 and its source are pinned in the opening record. A manual run cannot
+prove scheduled freshness or genuine provider redelivery.
 
 Run on the verified target through the approved read-only database connector.
 The opening-review query applies only after the candidate schema is installed;

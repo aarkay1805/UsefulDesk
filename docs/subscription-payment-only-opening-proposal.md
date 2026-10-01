@@ -1,12 +1,14 @@
 # Home office payment-only opening proposal
 
-**Current status, 1 October 2026:** the owner-approved Home office internal test
-opened at 11:19:50 UTC on exact PR #21 implementation `71d897a6`. The owner supplied
-bank debit/credit messages and screenshots as the recording method. A real ₹799
-capture subsequently created one Starter month; the full original refund is now processed with signed delivery and one access-end effect. See the
-[current opening record](subscription-production-pilot-opening-record.md),
-[installation record](subscription-production-install-record.md) and
-[accounting/opening packet](subscription-production-pilot-review.md).
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
 
 The phase proposal below records the reviewed configuration now executed only
 for this internal first term. Genuine customer acceptance, reminder delivery,

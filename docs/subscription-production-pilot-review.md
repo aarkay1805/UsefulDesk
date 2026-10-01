@@ -1,8 +1,9 @@
 # Home office internal acceptance — Production review packet
 
-Prepared 1 October 2026. The sole Home office internal test is now open under
-the recorded owner approval and bank-message recording method. The operator
-opening and first capture are recorded in the [opening record](subscription-production-pilot-opening-record.md).
+Prepared 1 October 2026. The approved sole Home office internal capture/full
+refund is complete and new initiation is closed. The original approval, private
+bank-debit evidence and owner-deferred bank-credit proof remain distinct.
+Actual opening and closeout are in the [opening record](subscription-production-pilot-opening-record.md).
 This packet supplies review authority; it is not a customer invoice or bank receipt.
 
 ## Pinned release and scope

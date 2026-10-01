@@ -1,6 +1,8 @@
 # Home office internal Live opening — 1 October 2026
 
-Only the owner's Home office first-term ₹799 internal technical test is open.
+The owner's Home office first-term ₹799 internal technical test is complete.
+New payment/refund initiation and Live checkout UI are closed; signed intake,
+settlement and GET-only recovery remain enabled.
 The owner approved the classification, original full-refund/access outcome and
 bank debit/credit message and screenshot recording method in this chat. See the
 [review authority](subscription-production-pilot-review.md#owner-decision-and-accounting-record).
@@ -141,3 +143,96 @@ capture/refund audit remain. This is actual late signed delivery after GET
 reconciliation, not a fabricated duplicate test. Genuine same-event redelivery
 and mixed gym/SaaS routing remain pending. Natural primary ops at 11:38 returned
 200/failed 0.
+
+## Technical closeout with bank-credit evidence deferred
+
+The owner instructed this chat to proceed without bank refund-credit evidence.
+That evidence remains deferred, distinct from the privately retained original
+bank debit and provider-processed full refund.
+
+The explicit manual `production-health` operator job on source `199c1e1f`
+[36868967047](https://github.com/aarkay1805/UsefulDesk/actions/runs/36868967047)
+passed at 13:28:48 UTC: **inspected 3, reconciled 3, failed 0**. It used the
+existing protected credential via environment, no GitHub token privileges and
+aggregate-only output. The canonical route replayed already verified/confirmed
+records, then reconciled their original signed intake rows. Reconciliation times
+were 13:28:48.092845, .211289 and .269527 UTC for capture, refund.created and
+refund.processed. This proves idempotent existing-event reconciliation; it does
+not prove a new provider delivery of the same event.
+
+Data-only containment source
+`supabase/migrations/20261001132700_close_home_office_internal_acceptance_initiation.sql`,
+SHA-256 `9779808b6afd99dd6fa043b5ab96008b41d0ae6bc5d0458e1d51b10754f6dbe3`,
+passed actual-scope and same-source rollback-only preflight. The approved
+connector then installed it as history
+`20261001132841_close_home_office_internal_acceptance_initiation`, history
+328 → 329. Quotes, orders, refunds and complimentary conversion are false;
+intake and settlements remain true, selected review/offer identities retained,
+renewals/Test/capabilities/advanced remain false. No provider or access write
+is included. It remains separate from the unchanged 28-source implementation
+manifest.
+
+Five Production initiation/UI environment flags were closed, leaving intake,
+settlements, refund reconciliation and financial recovery enabled. Recovery-only
+audit returned zero blockers/eight warnings; restricted exports were removed
+without printing secret values. The existing exact `71d897a6` artifact rebuilt
+as `dpl_5YCS5VSmqUBxKaYKcsynzHeeALEA`, READY **13:37:47.820 UTC** and
+automatically aliased to `desk.usefulmade.com`. The record branch is not deployed.
+
+Canonical checks at 13:40 UTC: login 200; closed quote/order/refund initiation
+404; unauthenticated reconciliation/recovery 401; unsigned webhook 400. These
+invalid/unauthenticated probes do not create a financial record.
+
+The owner screen refreshed at 13:45 UTC retains expired access and support,
+with Live payment controls absent. Protected operator run
+[36871126603](https://github.com/aarkay1805/UsefulDesk/actions/runs/36871126603)
+at 13:46:09 UTC then returned **inspected 0, reconciled 0, failed 0**, proving
+the retained recovery route is available after containment and the queue is
+drained. The ten-minute runtime scan at **13:48:29 UTC** found no errors since
+READY. Record the final thirty-minute scan and last provider-status observation
+with timestamps in attached draft PR #22's closeout and private evidence,
+separate from the historical opening scans above.
+
+Read-only preservation at 13:37:36 UTC retained 8 users, 6 accounts,
+5 organizations, 554 gym payments, one original quote/order/payment/grant/refund
+and review, three reconciled events, zero recovery queue/exceptions and one
+capture/full-refund audit each. Access remains manual version 3, ended at
+11:43:01.122985 UTC. The exact post-refund aggregate access fingerprint remains
+`1259cac445b3b02acd8395381ff6968b`; account, organization and legal fingerprints
+remain the original baseline. All 14 Live private tables retain RLS and browser
+SELECT/DML denial. Primary ops 13:23 and renewals 12:41 returned 200/failed 0.
+
+The Live provider webhook logs at 13:36 UTC, extended to the available seven-day
+range at 13:41 UTC, show only the three original SaaS
+deliveries, each HTTP 200. The original refund.processed event detail has request,
+response and headers but no redelivery control. No eligible gym event appears
+in this selected log range. Genuine same-event provider redelivery and mixed
+gym/SaaS delivery remain pending; no body/signature/event was fabricated and no
+new charge is authorized to fill that gap. Provider retries normally follow
+non-2xx delivery failures ([Razorpay guidance](https://razorpay.com/docs/webhooks/best-practices/));
+the three observed original deliveries succeeded.
+
+Redundant GitHub ops/renewal schedules remain Rajat's SEV-3 exception. At 13:15
+UTC their last successful natural runs were 09:22:59 and 07:49:02 UTC; public
+health was 07:14:08. All workflows are active, default main is active, Actions
+are enabled, the latest actor/commit are current, and no disabled/queued/fork/
+archived condition or local workflow defect is established. GitHub's status
+reported Actions operational. The manual health pass verifies current login and
+operator availability; it cannot clear scheduled freshness. Next action is
+inspect the next natural run; escalate under the Production runbook if primary
+workers also miss their windows. No messaging worker was manually dispatched.
+
+| Closeout item                            | Status / evidence                                                            | Owner and next action                                                     |
+| ---------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Original capture/full refund/access      | Passed; one each, access ended once, original identities preserved           | Rajat; retain private evidence                                            |
+| Original signed-event queue              | Passed; three reconciled, failed zero, no additional financial/access effect | Rajat; inspect any later delivery before declaring its outcome            |
+| Initiation containment                   | Passed; database/runtime/UI closed, recovery retained                        | Rajat; no reopening under the completed test's authority                  |
+| Bank debit / refund credit               | Debit received privately; credit owner-deferred                              | Rajat; append actual credit evidence when supplied                        |
+| Provider same-event / mixed gym delivery | Pending; no redelivery control or eligible gym delivery in available logs    | Rajat; review authentic available evidence before broader Live acceptance |
+| Redundant GitHub schedule                | SEV-3 pending; active/valid, primary healthy, no established local cause     | Rajat; inspect next natural run and escalate if primary windows miss      |
+| Reminder acceptance                      | Separate provider approval/sync/delivery gate                                | Rajat; inspect current provider status last, retain no-send boundary      |
+
+These remaining delivery/operational facts are not falsely closed by a manual
+job or provider-processed refund. Wider customer activation remains outside this
+internal test. This table is the current review surface; the dated observations
+above retain the underlying evidence.

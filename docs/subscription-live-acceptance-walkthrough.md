@@ -1,14 +1,14 @@
 # First Starter Live acceptance walkthrough
 
-**Current status, 1 October 2026:** the owner-approved sole Home office internal
-₹799 run opened at 11:19:50 UTC on exact implementation `71d897a6`. One genuine
-capture, full-refund provider GET/commit, signed refund events and one access-end
-effect are recorded. Bank evidence and genuine Live duplicate/mixed delivery
-remain pending. See the
-[current opening record](subscription-production-pilot-opening-record.md) and
-[review authority](subscription-production-pilot-review.md). Earlier closed/
-staging-only status paragraphs below are historical preparation; the procedure
-and original-obligation review boundaries still apply.
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
 
 **Procedure; authority supplied separately.** This is the controlled UsefulMade / Home office
 internal technical acceptance plan for the first Starter term. No step below

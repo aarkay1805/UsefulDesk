@@ -267,3 +267,12 @@ durable retry evidence. HTTP 200 can include pending/failed/review exceptions;
 original order binding is not a paid grant. The signed-event reconciliation POST
 remains an independent operator procedure. See the
 [financial recovery runbook](subscription-financial-recovery-runbook.md).
+
+The existing `production-health` workflow also exposes a default-off explicit
+manual `reconcile_live_events` input. It calls only the bounded signed-event
+reconciler, with the existing protected credential via environment and aggregate
+output; scheduled health runs skip it. This is separate from send-capable ops/
+renewals dispatch. The approved internal run reconciled three original events
+without another financial/access effect. New internal initiation is now closed,
+while recovery remains enabled; actual current phase and source evidence are in
+the [opening record](subscription-production-pilot-opening-record.md).

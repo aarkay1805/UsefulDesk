@@ -1,12 +1,14 @@
 # Subscription financial recovery acceptance
 
-**Current status, 1 October 2026:** PR #21 merged as `71d897a6`, both reviewed
-opening/recovery sources installed with all financial gates off, and canonical
-Production is READY. See the [verified installation record](subscription-production-install-record.md)
-and [exact accounting/opening packet](subscription-production-pilot-review.md).
-Vercel invoice GQBCLHWV-0001 is Paid / US$0.00 due. The dated evidence below
-is historical where it describes the former staging-only candidate or invoice
-discrepancy; genuine Live payment/refund and actual accounting/opening remain pending.
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
 
 Built and accepted on isolated staging on **30 September 2026 UTC / 1 October IST**.
 Production remains the intake-only `5920fa78` deployment. This record supplies
