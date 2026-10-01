@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-10-01 — Install scheduler readiness fix and deploy native scheduling
+
+PRs #22–#24 are merged with exact-head/main checks. Readiness claim source is
+Production-installed as `20261001155436`; natural primary recovery is healthy.
+Native scheduling is enabled on verified main; initial natural attempts failed
+before worker HTTP responses, prompting explicit canonical-origin configuration
+and rebuild. Current natural acceptance remains in progress. The dated
+`production-scheduler-rollout-record.md` preserves deployment/attempts/scans,
+financial containment and the missing historical confirmation-row discrepancy.
+Independent watchdog/paging and authentic duplicate/mixed provider proof remain
+separate pending items.
+
 ## 2026-10-01 — Couple OAuth readiness scans to their validity window
 
 `20261001154214_razorpay_readiness_scan_freshness.sql` makes an unknown

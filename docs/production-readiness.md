@@ -6,10 +6,11 @@ The bank debit evidence is saved privately. On 1 October the owner explicitly
 allowed other rollout work to proceed while bank refund-credit evidence is deferred.
 Provider-processed refund evidence does not establish receipt in the bank.
 
-**Current baseline — 1 October 2026:** exact implementation `71d897a6` is READY
-at canonical recovery-only deployment `dpl_5YCS5VSmqUBxKaYKcsynzHeeALEA`
-(13:37:47.820 UTC). History is 329 entries after separately reviewed containment
-`20261001132841`. One genuine signed Live ₹799 capture created one Starter month
+**Financial baseline — 1 October 2026:** reviewed implementation `71d897a6`
+was READY in recovery-only deployment `dpl_5YCS5VSmqUBxKaYKcsynzHeeALEA`
+at 13:37:47.820 UTC, before the scheduler rollout below. Financial containment
+installed as `20261001132841`, then history 329; the later readiness repair
+brings history to 330. One genuine signed Live ₹799 capture created one Starter month
 and advanced access once to version 2. The full original refund was processed;
 access ended once at 11:43:01 UTC, version 3, without complimentary restoration.
 The approved operator reconciled all three original signed events with zero
@@ -23,17 +24,27 @@ exact source/history mapping and pending authentic duplicate/mixed-delivery proo
 Vercel invoice GQBCLHWV-0001 is Paid / US$0.00 due. No customer sale or self-invoice
 is claimed. Meta approval/sync and authorized delivery are independent gates.
 
-**Next implementation batch — native scheduling:** Vercel Pro is active, while
-GitHub's natural ops and renewal runs remain stale at the latest closeout check.
-Supabase primary ops and renewal aggregates remain HTTP 200 / failed 0. The new
-`/api/platform-cron/ops` and `/api/platform-cron/renewals` routes and schedules are
-implemented with a default-off Production-only switch, strict reserved bearer
-authentication, configured HTTPS origin, no redirects and bounded dispatch.
-Deployment, secret verification and natural-run acceptance are still pending.
-See [native activation and rollback](automations-and-cron.md#native-vercel-scheduler).
-This code does not open subscription initiation or bypass provider readiness.
-An independent watchdog and proven owner paging still require their own setup;
-adding another execution path does not complete that alert-delivery item.
+**Native scheduling — deployed; natural acceptance in progress:** PRs #22–#24
+are merged. Exact main `6a35e26d` passed CI/CodeQL and its corrected Production
+release `dpl_6Ab5V91yTwyX7yH2xNP6mEeuu6on` is canonical READY at
+16:39:16.178 UTC with native dispatch enabled. Both earlier disabled aggregates
+passed. The first enabled native ops/renewal attempts failed before worker HTTP
+responses, while Supabase primary remained healthy; Production's origin was
+then explicitly set to the canonical HTTPS URL and the exact commit rebuilt.
+Acceptance and ten-/thirty-minute scans restart from that corrected release.
+Readiness-scan source installed as history `20261001155436` (330 entries), and
+natural primary ops at 16:23/16:38 and renewals at 16:41 returned 200 / failed 0.
+The [scheduler rollout record](production-scheduler-rollout-record.md) separates
+configuration, failed attempts, current natural proof and remaining boundaries.
+This does not open subscription initiation or bypass provider readiness.
+The independent watchdog is concrete in
+[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with all checks
+passing; account/channel selection, Production setup and actual owner alert
+receipt remain pending. GitHub ops freshness and authentic duplicate/mixed
+provider delivery remain separate exceptions. The formerly documented missed
+confirmation row is absent at the 16:26 current database check, before the first
+enabled native dispatch; this is an unresolved historical evidence discrepancy,
+not proof of preservation or authority to recreate/replay it.
 
 Use the [release review](subscription-release-review.md),
 [read-only preflight](subscription-rollout-preflight.md),

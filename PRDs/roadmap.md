@@ -1022,24 +1022,23 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
-**Built — scheduler acceptance follow-up, 1 October:** the OAuth scan claim now
-also becomes due when unknown-merchant readiness expires before its independent
-daily token scan. A completed post-expiry attempt retains failure backoff;
-connection/lease/mode/grant boundaries remain unchanged. Disposable SQL
-rollback/replay acceptance passes. Native dispatch logs share the response's
-aggregate/status allowlist for natural-run acceptance. Production installation,
-healthy natural recovery and scheduler acceptance remain to be recorded.
-
-**Built — guarded native scheduler rollout batch, 1 October:** Vercel Pro ops
-and renewal schedules now share the existing Supabase worker groups, behind a
-literal Production-only opt-in and reserved bearer authentication. Canonical
-HTTPS targeting, no redirects, bounded independent calls, aggregate-only output
-and configuration auditing are implemented. Import-draft cleanup and current
-Supabase/GitHub schedules are preserved. Production deployment, private secret
-verification and natural-run acceptance remain pending; disabled HTTP 200 is not
-worker-health evidence. An independent watchdog and proven email/mobile paging
-remain separate setup items. The readiness checklist now records completed
-internal refund/containment and owner-deferred bank credit evidence.
+**Deployed — native scheduler acceptance in progress, 1 October:** PRs #22–#24
+are merged. The readiness claim preserves leases/mode/grants/backoff and is
+Production-installed as history `20261001155436`; natural primary ops at
+16:23/16:38 and renewals at 16:41 are healthy. Reserved-secret native dispatch
+is enabled on verified main `6a35e26d`, with Supabase/GitHub and daily cleanup
+retained. Initial natural native attempts failed before worker HTTP responses;
+Production's origin was explicitly set to canonical HTTPS and the same commit
+rebuilt READY at 16:39:16.178 UTC. Natural 10/3-worker acceptance and timed scans
+restart from that release. The
+[rollout record](../docs/production-scheduler-rollout-record.md) preserves the
+failed attempts, financial containment and missing historical confirmation-row
+evidence gap. No missed reminder replay is authorized. Independent monitoring
+is prepared in [draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25),
+with all checks passing; existing/free account, owner channel, Production setup
+and actual alert receipt remain pending. Authentic shared-merchant
+redelivery/mixed-event proof remains separate, bank-credit proof owner-deferred,
+and Meta approval work excluded.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
