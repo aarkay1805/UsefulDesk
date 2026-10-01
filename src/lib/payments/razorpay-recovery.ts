@@ -226,6 +226,77 @@ export async function runRazorpayRecovery(input: {
     notes: [],
   };
 
+  // Readiness/token freshness is a prerequisite for provider recovery. Repair
+  // it before any phase resolves a connection, so expiry cannot fail an early
+  // phase that the same run would otherwise repair only at its end.
+  if (!result.tokens.disabled) {
+    const tokenOwner = dependencies.owner();
+    const { data: tokenRows, error: tokenError } = await input.admin.rpc(
+      'claim_razorpay_oauth_refresh_scan_batch',
+      {
+        p_provider_mode: input.providerMode,
+        p_lease_owner: tokenOwner,
+        p_limit: RECOVERY_BATCH_LIMIT,
+        p_lease_seconds: RECOVERY_LEASE_SECONDS,
+      }
+    );
+    if (tokenError) {
+      throw new Error(`claim Razorpay token scan: ${tokenError.message}`);
+    }
+    const scans = (
+      Array.isArray(tokenRows) ? tokenRows : []
+    ) as RefreshScanRow[];
+    result.tokens.claimed = scans.length;
+
+    for (const row of scans) {
+      let errorText: string | null = null;
+      try {
+        const expiry = new Date(row.oauth_access_expires_at);
+        if (!Number.isFinite(expiry.getTime())) {
+          throw new Error('Razorpay OAuth access expiry is invalid');
+        }
+        if (
+          expiry.getTime() - dependencies.now().getTime() <=
+          RAZORPAY_OAUTH_REFRESH_WINDOW_MS
+        ) {
+          await dependencies.refreshConnection({
+            admin: input.admin,
+            accountId: row.account_id,
+          });
+          result.tokens.refreshed += 1;
+        } else {
+          result.tokens.skippedNotDue += 1;
+        }
+        if (readinessNeedsVerification(row, dependencies.now())) {
+          await dependencies.verifyReadiness({
+            admin: input.admin,
+            accountId: row.account_id,
+          });
+          result.tokens.readinessVerified += 1;
+        }
+      } catch (error) {
+        errorText = boundedRazorpayError(error);
+        result.tokens.failed += 1;
+        result.notes.push(`token:${row.account_id}:${errorText}`);
+      }
+
+      const { data: finished, error: finishError } = await input.admin.rpc(
+        'finish_razorpay_oauth_refresh_scan',
+        {
+          p_account_id: row.account_id,
+          p_lease_owner: tokenOwner,
+          p_error: errorText,
+        }
+      );
+      if (finishError || finished !== true) {
+        result.tokens.failed += errorText ? 0 : 1;
+        result.notes.push(
+          `token:${row.account_id}:finish:${finishError?.message ?? 'lease was not updated'}`
+        );
+      }
+    }
+  }
+
   const webhookOwner = dependencies.owner();
   const { data: webhookRows, error: webhookError } = await input.admin.rpc(
     'claim_razorpay_webhook_recovery_batch',
@@ -524,72 +595,6 @@ export async function runRazorpayRecovery(input: {
     } catch (error) {
       result.refundReconciliation.failed += 1;
       result.notes.push(`refund-reconciliation:${boundedRazorpayError(error)}`);
-    }
-  }
-
-  if (result.tokens.disabled) return result;
-
-  const tokenOwner = dependencies.owner();
-  const { data: tokenRows, error: tokenError } = await input.admin.rpc(
-    'claim_razorpay_oauth_refresh_scan_batch',
-    {
-      p_provider_mode: input.providerMode,
-      p_lease_owner: tokenOwner,
-      p_limit: RECOVERY_BATCH_LIMIT,
-      p_lease_seconds: RECOVERY_LEASE_SECONDS,
-    }
-  );
-  if (tokenError) {
-    throw new Error(`claim Razorpay token scan: ${tokenError.message}`);
-  }
-  const scans = (Array.isArray(tokenRows) ? tokenRows : []) as RefreshScanRow[];
-  result.tokens.claimed = scans.length;
-
-  for (const row of scans) {
-    let errorText: string | null = null;
-    try {
-      const expiry = new Date(row.oauth_access_expires_at);
-      if (!Number.isFinite(expiry.getTime())) {
-        throw new Error('Razorpay OAuth access expiry is invalid');
-      }
-      if (
-        expiry.getTime() - dependencies.now().getTime() <=
-        RAZORPAY_OAUTH_REFRESH_WINDOW_MS
-      ) {
-        await dependencies.refreshConnection({
-          admin: input.admin,
-          accountId: row.account_id,
-        });
-        result.tokens.refreshed += 1;
-      } else {
-        result.tokens.skippedNotDue += 1;
-      }
-      if (readinessNeedsVerification(row, dependencies.now())) {
-        await dependencies.verifyReadiness({
-          admin: input.admin,
-          accountId: row.account_id,
-        });
-        result.tokens.readinessVerified += 1;
-      }
-    } catch (error) {
-      errorText = boundedRazorpayError(error);
-      result.tokens.failed += 1;
-      result.notes.push(`token:${row.account_id}:${errorText}`);
-    }
-
-    const { data: finished, error: finishError } = await input.admin.rpc(
-      'finish_razorpay_oauth_refresh_scan',
-      {
-        p_account_id: row.account_id,
-        p_lease_owner: tokenOwner,
-        p_error: errorText,
-      }
-    );
-    if (finishError || finished !== true) {
-      result.tokens.failed += errorText ? 0 : 1;
-      result.notes.push(
-        `token:${row.account_id}:finish:${finishError?.message ?? 'lease was not updated'}`
-      );
     }
   }
 
