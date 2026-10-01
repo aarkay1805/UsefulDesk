@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-10-01 — Prepare a separate read-only external watchdog
+
+Default-off `production-watchdog/[token]` checks the two primary aggregate
+histories through a service-only fixed-shape RPC, without worker dispatch or
+provider/financial writes. It requires a separate read-only token, refuses cron
+credential reuse, bounds database access and exposes only fixed health reasons.
+`production-watchdog-config.json` prepares external probes; account/channel,
+Production installation and actual owner notification receipt remain pending.
+Gotcha: healthy HTTP or a configuration file does not prove paging, native/GitHub
+schedule freshness or backup freshness.
+
 ## 2026-10-01 — Couple OAuth readiness scans to their validity window
 
 `20261001154214_razorpay_readiness_scan_freshness.sql` makes an unknown

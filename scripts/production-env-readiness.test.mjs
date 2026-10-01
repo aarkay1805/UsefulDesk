@@ -74,6 +74,43 @@ const blocker = (check) =>
   expect.objectContaining({ severity: 'blocker', ...(check ? { check } : {}) });
 
 describe('production environment readiness', () => {
+  it('keeps external monitoring closed unless separately configured', () => {
+    expect(evaluateProductionEnvironment(validEnvironment)).toContainEqual(
+      expect.objectContaining({
+        severity: 'pass',
+        check: 'external-monitor-switch',
+      })
+    );
+  });
+  it.each(['', 'short', 'cron'])(
+    'refuses missing or dispatch-capable monitor tokens %s',
+    (token) => {
+      expect(
+        evaluateProductionEnvironment({
+          ...validEnvironment,
+          AUTOMATION_CRON_SECRET: token || 'worker',
+          USEFULDESK_EXTERNAL_MONITOR_ENABLED: 'true',
+          USEFULDESK_EXTERNAL_MONITOR_TOKEN: token,
+        })
+      ).toContainEqual(blocker('external-monitor-token'));
+    }
+  );
+  it('requires delivery acceptance even with a valid or provider-hidden monitor token', () => {
+    for (const token of ['d'.repeat(64), '[SENSITIVE]']) {
+      const checks = evaluateProductionEnvironment({
+        ...validEnvironment,
+        USEFULDESK_EXTERNAL_MONITOR_ENABLED: 'true',
+        USEFULDESK_EXTERNAL_MONITOR_TOKEN: token,
+      });
+      expect(checks).not.toContainEqual(blocker('external-monitor-token'));
+      expect(checks).toContainEqual(
+        expect.objectContaining({
+          severity: 'warning',
+          check: 'external-monitor-acceptance',
+        })
+      );
+    }
+  });
   it('keeps the new native scheduler disabled by default', () => {
     expect(evaluateProductionEnvironment(validEnvironment)).toContainEqual(
       expect.objectContaining({ severity: 'pass', check: 'native-cron-switch' })

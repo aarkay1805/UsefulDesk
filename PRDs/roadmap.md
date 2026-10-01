@@ -1022,6 +1022,15 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
+**Built — independent watchdog candidate, 1 October:** a default-off Production
+read-only token endpoint and service-only aggregate RPC check primary jobs,
+response failures and freshness. It never dispatches workers or reads Vault;
+a separate credential cannot be either cron secret. External HTTP configuration
+is prepared, with no provider account, alert destination, Production installation
+or verified owner notification claimed. Activate after the requested account/
+channel choice and actual natural-probe/notification acceptance. Details:
+[watchdog candidate](../docs/production-watchdog.md).
+
 **Built — scheduler acceptance follow-up, 1 October:** the OAuth scan claim now
 also becomes due when unknown-merchant readiness expires before its independent
 daily token scan. A completed post-expiry attempt retains failure backoff;
