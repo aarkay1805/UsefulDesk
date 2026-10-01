@@ -3,6 +3,14 @@
   "regions": ["sin1"],
   "crons": [
     {
+      "path": "/api/platform-cron/ops",
+      "schedule": "3,18,33,48 * * * *"
+    },
+    {
+      "path": "/api/platform-cron/renewals",
+      "schedule": "35 * * * *"
+    },
+    {
       "path": "/api/members/import-draft/cleanup",
       "schedule": "17 2 * * *"
     }

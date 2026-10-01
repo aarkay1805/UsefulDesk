@@ -143,6 +143,52 @@ export function evaluateProductionEnvironment(
     add('pass', 'canonical-url', 'Canonical Production origin is configured.');
   }
 
+  const nativeCronFlag = env.USEFULDESK_VERCEL_CRONS_ENABLED;
+  if (nativeCronFlag === 'true') {
+    const nativeSecret = normalize(env.CRON_SECRET);
+    add(
+      nativeSecret ? (isOpaque(nativeSecret) ? 'warning' : 'pass') : 'blocker',
+      'native-cron-secret',
+      nativeSecret
+        ? isOpaque(nativeSecret)
+          ? 'The native cron bearer secret is provider-hidden; verify its original value privately before activation.'
+          : 'The reserved native cron bearer secret is present.'
+        : 'Enabled native cron dispatch requires CRON_SECRET; the worker secret alone cannot authenticate Vercel.'
+    );
+    add(
+      !normalize(env.VERCEL_ENV)
+        ? 'warning'
+        : env.VERCEL_ENV === 'production'
+          ? 'pass'
+          : 'blocker',
+      'native-cron-runtime',
+      !normalize(env.VERCEL_ENV)
+        ? 'Verify the deployment is Vercel Production; system runtime metadata is absent from this export.'
+        : env.VERCEL_ENV === 'production'
+          ? 'Native cron dispatch is configured for Vercel Production.'
+          : 'Native cron dispatch cannot be enabled outside Vercel Production.'
+    );
+    add(
+      'warning',
+      'native-cron-acceptance',
+      'Verify natural native ops/renewal executions and worker outcomes after deployment. Configuration alone is not scheduler or alert-delivery evidence.'
+    );
+  } else {
+    add(
+      nativeCronFlag === undefined ||
+        nativeCronFlag === '' ||
+        nativeCronFlag === 'false'
+        ? 'pass'
+        : 'blocker',
+      'native-cron-switch',
+      nativeCronFlag === undefined ||
+        nativeCronFlag === '' ||
+        nativeCronFlag === 'false'
+        ? 'Native ops/renewal dispatch is disabled; existing schedulers remain authoritative.'
+        : 'USEFULDESK_VERCEL_CRONS_ENABLED must be literal true, false, or unset; hidden/malformed values cannot establish activation.'
+    );
+  }
+
   const encryptionKey = normalize(env.ENCRYPTION_KEY);
   if (isOpaque(encryptionKey)) {
     add(

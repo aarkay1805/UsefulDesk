@@ -1022,6 +1022,17 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
+**Built — guarded native scheduler rollout batch, 1 October:** Vercel Pro ops
+and renewal schedules now share the existing Supabase worker groups, behind a
+literal Production-only opt-in and reserved bearer authentication. Canonical
+HTTPS targeting, no redirects, bounded independent calls, aggregate-only output
+and configuration auditing are implemented. Import-draft cleanup and current
+Supabase/GitHub schedules are preserved. Production deployment, private secret
+verification and natural-run acceptance remain pending; disabled HTTP 200 is not
+worker-health evidence. An independent watchdog and proven email/mobile paging
+remain separate setup items. The readiness checklist now records completed
+internal refund/containment and owner-deferred bank credit evidence.
+
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate

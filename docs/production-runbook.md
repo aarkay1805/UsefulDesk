@@ -35,10 +35,10 @@ explicitly delegated owner takes responsibility.
 | Signal                | Source                                       | Healthy state                                                                                     | Retention / limitation                                                          |
 | --------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | Public availability   | `production-health` GitHub workflow          | `/login` returns successfully and contains the UsefulDesk title                                   | GitHub schedules are best-effort; this is not a hard ten-minute SLA             |
-| Critical workers      | Supabase Cron + `ops-crons` workflow         | latest database aggregate is HTTP 200/`failed: 0`; GitHub freshness warning clears within 75 min  | Supabase is primary; inspect GitHub warnings as redundant-path degradation      |
-| Renewal workers       | Supabase Cron + `renewals-cron` workflow     | latest database aggregate is HTTP 200/`failed: 0`; GitHub freshness warning clears within 2 hours | Supabase is primary; a delayed run can delay account-local reminders            |
+| Critical workers      | Supabase Cron + `ops-crons` workflow         | latest database aggregate is HTTP 200/`failed: 0`; GitHub freshness warning clears within 75 min  | Supabase is primary; native Vercel is built but disabled pending acceptance     |
+| Renewal workers       | Supabase Cron + `renewals-cron` workflow     | latest database aggregate is HTTP 200/`failed: 0`; GitHub freshness warning clears within 2 hours | Supabase is primary; native Vercel is built but disabled pending acceptance     |
 | Backup recovery point | `Production backup` workflow                 | latest nightly database job succeeds; weekly/full run also verifies Storage                       | See `docs/backups.md`; old pre-rotation archives are not considered recoverable |
-| Server errors         | Vercel Runtime Logs, Production, Error level | no unexplained burst of errors after a release or alert                                           | Hobby runtime logs retain only the latest hour; capture evidence promptly       |
+| Server errors         | Vercel Runtime Logs, Production, Error level | no unexplained burst of errors after a release or alert                                           | Capture evidence promptly; verify retention in the current Pro project          |
 | Database/Auth         | Supabase Logs and Advisors                   | no correlated 5xx/Auth/database errors and no new error-severity advisor finding                  | Dashboard access is required                                                    |
 
 Quick read-only triage:
@@ -74,6 +74,16 @@ The cron routes and their expected response shapes are documented in
 `docs/automations-and-cron.md`. Never put `AUTOMATION_CRON_SECRET` on a command
 line or in an incident note; read it into the environment or use an approved
 secret store when a manual authenticated check is necessary.
+
+## Native scheduler rollout
+
+The Vercel ops/renewal scheduler is built behind a default-off switch; it is not
+an active execution path until natural Production runs are verified. Follow
+[activation and containment](automations-and-cron.md#native-vercel-scheduler).
+Record both groups' natural executions, fixed worker statuses and aggregate
+counts; missing/disabled runs do not prove worker health. Retain Supabase and
+GitHub scheduling. The new execution path does not prove independent alert
+delivery during a GitHub outage; external watchdog setup remains pending.
 
 ## Alerts
 
@@ -124,7 +134,7 @@ watchdog for a total GitHub scheduler outage.
 2. Check public availability, both Supabase Cron jobs/responses, and the three
    GitHub workflows above. Open the failed step; do not rerun it yet.
 3. Capture the active Vercel deployment id/URL and Git commit. Query the latest
-   hour of Production error logs before Hobby retention expires.
+   hour of Production error logs and preserve relevant evidence promptly.
 4. Correlate with Supabase Logs and provider health. Redact all customer data.
 5. Identify the smallest affected path. Do not globally disable messaging,
    rotate credentials, send a canary, move money, or modify production data
@@ -141,8 +151,8 @@ production action and always requires his explicit approval.
 1. Preserve the failing deployment id, commit, UTC start time, relevant redacted
    logs, and any migration/version involved.
 2. Identify the immediately preceding **READY** production deployment and the
-   commit it serves. On Vercel Hobby, rollback is limited to that immediately
-   preceding production deployment.
+   commit it serves. Verify that deployment remains eligible for rollback
+   in the current Pro project.
 3. Confirm the suspected fault is application-only. Do not roll application
    code behind an incompatible database migration.
 4. After approval, execute `vercel rollback <previous-deployment-url-or-id>` or

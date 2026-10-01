@@ -60,7 +60,7 @@ The secret is `AUTOMATION_CRON_SECRET`; `CRON_SECRET` is accepted as an
 equivalent so a native-Vercel setup needs no extra provisioning. No
 secret configured → routes answer `503 cron not configured`.
 
-## Current schedulers: Supabase Cron + GitHub Actions
+## Current active schedulers: Supabase Cron + GitHub Actions
 
 Supabase Cron is the database-owned execution path. Migrations
 `20260827064004_database_owned_cron_scheduler.sql`,
@@ -122,7 +122,7 @@ Production availability, alert thresholds, escalation ownership, and rollback
 live in the [production runbook](production-runbook.md). GitHub documents that
 scheduled events can be delayed or dropped, so neither a historically green
 GitHub run nor a successful database dispatch proves the other scheduler is
-current. Monitor both paths.
+current. Monitor both active paths; inspect native Vercel separately once activated.
 
 Refund review is a hard reminder hold. Refund-aware balance views expose
 `collectible_balance=0` while a provider-confirmed refund lacks a safe complete
@@ -220,34 +220,60 @@ ORDER BY created DESC
 LIMIT 20;
 ```
 
-## If the project moves to Vercel Pro
+## Native Vercel scheduler
 
-Native crons become viable (40 jobs, minute granularity). Add
-`CRON_SECRET` (same value) to Vercel env — its cron invocations then
-authenticate automatically — and create `vercel.json`:
+Vercel Pro is active. `vercel.json` now registers two additional grouped jobs,
+while preserving the daily import-draft cleanup:
 
-```json
-{
-  "crons": [
-    { "path": "/api/follow-ups/cron", "schedule": "*/15 * * * *" },
-    { "path": "/api/automations/cron", "schedule": "*/15 * * * *" },
-    { "path": "/api/flows/cron", "schedule": "*/15 * * * *" },
-    { "path": "/api/whatsapp/webhook", "schedule": "*/15 * * * *" },
-    { "path": "/api/v1/broadcasts/cron", "schedule": "*/15 * * * *" },
-    {
-      "path": "/api/payments/razorpay/recovery/cron",
-      "schedule": "*/15 * * * *"
-    },
-    { "path": "/api/meta/leads/recovery/cron", "schedule": "*/15 * * * *" },
-    { "path": "/api/push/cron", "schedule": "*/15 * * * *" },
-    { "path": "/api/renewals/cron", "schedule": "30 * * * *" },
-    { "path": "/api/payment-installments/cron", "schedule": "30 * * * *" }
-  ]
-}
-```
+| Path                                | Schedule (UTC)                | Group                                               |
+| ----------------------------------- | ----------------------------- | --------------------------------------------------- |
+| `/api/platform-cron/ops`            | :03, :18, :33, :48 every hour | The same ten ops workers as Supabase                |
+| `/api/platform-cron/renewals`       | :35 every hour                | The same three renewal/reminder workers as Supabase |
+| `/api/members/import-draft/cleanup` | daily 02:17                   | Existing cleanup; its authentication is unchanged   |
 
-Then delete the two GitHub workflows (or leave them — doubled pings are
-harmless, just noisy).
+The new grouped jobs are **built, disabled by default, not yet accepted in
+Production**. Registration does not activate dispatch:
+`USEFULDESK_VERCEL_CRONS_ENABLED` must be literal `true` and `VERCEL_ENV` must be
+`production`. Otherwise they return HTTP 200 with `dispatched: 0`, `failed: 0`,
+`skipped: disabled`, without database/provider access or worker calls. This
+minimal disabled response is public and contains no operational evidence.
+
+Enabled calls require `Authorization: Bearer <CRON_SECRET>`; a worker
+`x-cron-secret` or `AUTOMATION_CRON_SECRET` bearer cannot authenticate the native
+entry point. Missing native configuration returns 503; invalid authorization
+returns 401. Provision a long random reserved `CRON_SECRET` privately. It may
+match the existing worker secret; no existing credential rotation is required.
+Never copy the Vault scheduler token into Vercel.
+
+`NEXT_PUBLIC_SITE_URL` must be the configured canonical HTTPS origin with no
+credentials, path, query or fragment. Dispatch ignores request Host/forwarded
+headers. It forwards only the existing worker credential, refuses redirects,
+and bounds each independent GET to 55 seconds. One failed/timed-out worker does
+not suppress siblings; any failure makes the group return 503. Responses include
+only group counts and fixed worker paths/statuses, never worker response bodies
+or exception details. Existing worker leases, account opt-ins, access and
+provider-readiness checks still decide whether work may run. External sends retain
+the documented crash-window ambiguity; more schedulers are not exactly-once proof.
+
+Activation and verification:
+
+1. Review the exact deployment, confirm the reserved secret privately and check
+   the canonical URL. Run `audit:production-env` on an isolated protected export
+   in the current recovery-only mode. The audit reports native configuration
+   without printing secrets and keeps natural-run acceptance explicit.
+2. Deploy with the native switch false/unset. Check both new routes return the
+   disabled response and Preview cannot dispatch. Keep existing schedulers.
+3. In the separately approved scheduler activation, set the Production switch
+   to literal true and redeploy the verified release. Inspect natural scheduled
+   executions for both groups, HTTP status, `dispatched` (10/3), `failed` (0),
+   matching worker outcomes and clean ten-/thirty-minute runtime scans. A
+   disabled HTTP 200 or manual invocation does not satisfy natural-run evidence.
+4. Keep Supabase primary and GitHub redundancy until that evidence is recorded.
+   To contain native dispatch, set the switch false and redeploy the verified
+   release; preserve financial recovery and the existing execution paths.
+
+This adds execution redundancy. GitHub inbox remains the only verified alert
+channel; an independent watchdog and email/mobile paging are still pending.
 
 ## UsefulDesk access
 
