@@ -1022,6 +1022,18 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
+**Shipped disabled — independent watchdog, 1 October:** a default-off Production
+read-only token endpoint and service-only aggregate RPC check primary jobs,
+response failures and freshness. It never dispatches workers or reads Vault;
+a separate credential cannot be either cron secret. External HTTP configuration
+is prepared. The owner chose an existing account and its configured owner
+channel. The service-only RPC is Production-installed as history
+`20261001180537`, with grants and output allowlist verified; monitor flags/token
+remain unset. Service identification, external probe setup and verified owner
+notification remain pending. Enable only after identifying that account, then
+complete natural-probe/notification acceptance. Details:
+[watchdog setup](../docs/production-watchdog.md).
+
 **Shipped — native scheduler accepted, 1 October:** PRs #22–#24 and
 #27 are merged; exact main `e010c23c` passed CI/CodeQL. Canonical Production
 was READY at 17:11:23.744 UTC. Natural ops at 17:18:23.382 and renewals at
@@ -1035,10 +1047,12 @@ Supabase primary remains healthy, GitHub redundancy and daily cleanup remain
 active. Initial native failures were resolved by explicitly configuring the
 canonical HTTPS origin and rebuilding. Financial initiation stays closed.
 The historical confirmation-row evidence gap remains open; no reconstruction
-or missed reminder replay is authorized. Independent monitoring is prepared in
-[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with current
-checks passing. The owner chose an existing account and its owner channel;
-service identification, Production setup and actual alert receipt remain pending.
+or missed reminder replay is authorized. The independent watchdog disabled
+release is tracked in [PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25);
+its service-only RPC is installed as history `20261001180537`, with grants and
+output allowlist verified. Monitor flags/token remain unset. The owner chose an
+existing account and its owner channel; service identification, external probes
+and actual alert receipt remain pending.
 Authentic shared-merchant redelivery/mixed-event proof remains separate,
 bank-credit proof owner-deferred, and Meta approval work excluded.
 

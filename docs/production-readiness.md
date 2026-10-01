@@ -41,11 +41,13 @@ SEV-3 while primary/native renewals are healthy. The
 checks, failed attempts, freshness limits and financial preservation.
 This does not open subscription initiation or bypass provider readiness.
 
-The independent watchdog is prepared in
-[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with current
-checks passing. The owner selected an existing monitoring account and its owner
-channel, naming Rajat Kashyap; its service name/dashboard URL is still needed.
-Production setup and actual owner alert receipt remain pending. Authentic
+The independent watchdog disabled release is tracked in
+[PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25). Its read-only RPC is
+Production-installed as history `20261001180537`; service-only grants and output
+allowlist passed. Production monitor flags/token remain unset. The owner selected
+an existing monitoring account and its owner channel, naming Rajat Kashyap;
+its service name/dashboard URL is still needed. External probe setup, natural
+successful probes and actual owner alert receipt remain pending. Authentic
 duplicate/mixed provider delivery remains unproven. The formerly documented
 missed confirmation row was absent at the 16:26 database check, before the first
 enabled native dispatch; this historical evidence gap remains open and does

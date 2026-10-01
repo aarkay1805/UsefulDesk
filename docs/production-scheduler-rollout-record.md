@@ -128,10 +128,17 @@ mixed gym delivery was available. No event/signature or new charge was created
 to fill that gap; next action is inspect the real next eligible delivery.
 Bank refund-credit evidence remains owner-deferred. Meta approval work is excluded.
 
-The independent watchdog is prepared in
-[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with default-off
-code, rollback/replay acceptance and external probe configuration. Its RPC and
-Production flags are not installed. The owner selected an existing monitoring
+The independent watchdog release is tracked in
+[PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with default-off
+code, rollback/replay acceptance and external probe configuration. Its read-only
+RPC was installed at **18:05 UTC** as history `20261001180537`; service-role
+execution, denied anon/authenticated/PUBLIC execution, fixed search path and
+output allowlist were verified. The natural primary snapshot at 18:05:59.891
+contained ops 17:53 (10/0/HTTP 200) and renewals 17:41 (3/0/HTTP 200), active
+and not timed out. No new watchdog security-advisor finding appeared.
+Production monitor flags/token remain unset. Focused project-note and current
+browser-tab discovery found no identifiable monitoring provider.
+The owner selected an existing monitoring
 account and its configured owner channel, naming Rajat Kashyap. The service name
 or dashboard URL is still required to locate it; setup, natural external probes
 and actual notification receipt remain pending. GitHub inbox is the only previously proven alert channel. Execution

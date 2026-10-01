@@ -1,0 +1,39 @@
+{
+  "status": "prepared_not_configured",
+  "account": null,
+  "owner_alert_channel": null,
+  "monitors": [
+    {
+      "name": "UsefulDesk public availability",
+      "method": "GET",
+      "url": "https://desk.usefulmade.com/login",
+      "interval_seconds": 300,
+      "timeout_seconds": 20,
+      "expected_status": 200,
+      "expected_content": "UsefulDesk",
+      "consecutive_failures_before_alert": 3
+    },
+    {
+      "name": "UsefulDesk primary worker health",
+      "method": "GET",
+      "private_url_template": "https://desk.usefulmade.com/api/production-watchdog/{MONITOR_TOKEN}",
+      "interval_seconds": 300,
+      "timeout_seconds": 20,
+      "expected_status": 200,
+      "consecutive_failures_before_alert": 2
+    }
+  ],
+  "acceptance": [
+    "Owner-selected existing monitoring account and its configured owner channel",
+    "A separate private read-only token; no cron, Vault or service-role credential shared",
+    "Natural external successful probes for both monitors",
+    "Provider notification test actually reaches the selected owner channel",
+    "Record the test time and delivery outcome without recipient details or secrets"
+  ],
+  "limits": [
+    "Worker check covers Supabase primary aggregates and database availability",
+    "Native and GitHub schedule evidence remain separate",
+    "Backup freshness still uses the existing backup workflow",
+    "No external monitor or owner paging is active merely because this file exists"
+  ]
+}

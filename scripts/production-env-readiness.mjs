@@ -143,6 +143,37 @@ export function evaluateProductionEnvironment(
     add('pass', 'canonical-url', 'Canonical Production origin is configured.');
   }
 
+  const monitorFlag = env.USEFULDESK_EXTERNAL_MONITOR_ENABLED;
+  if (monitorFlag === 'true') {
+    const token = normalize(env.USEFULDESK_EXTERNAL_MONITOR_TOKEN);
+    const opaque = isOpaque(token);
+    const valid =
+      opaque ||
+      (/^[a-f0-9]{64}$/.test(token) &&
+        token !== normalize(env.CRON_SECRET) &&
+        token !== normalize(env.AUTOMATION_CRON_SECRET));
+    add(
+      valid ? (opaque ? 'warning' : 'pass') : 'blocker',
+      'external-monitor-token',
+      valid
+        ? 'Separate read-only monitor credential is present; provider-hidden values require private verification.'
+        : 'External monitoring requires a separate 64-hex read-only token; never share a cron dispatch credential.'
+    );
+    add(
+      'warning',
+      'external-monitor-acceptance',
+      'Verify the external account, natural probes and actual owner alert delivery; configuration alone does not prove paging.'
+    );
+  } else {
+    add(
+      monitorFlag === undefined || monitorFlag === '' || monitorFlag === 'false'
+        ? 'pass'
+        : 'blocker',
+      'external-monitor-switch',
+      'External monitoring must be explicitly enabled or remain false/unset.'
+    );
+  }
+
   const nativeCronFlag = env.USEFULDESK_VERCEL_CRONS_ENABLED;
   if (nativeCronFlag === 'true') {
     const nativeSecret = normalize(env.CRON_SECRET);
