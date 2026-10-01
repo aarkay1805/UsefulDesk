@@ -177,6 +177,104 @@ describe('Razorpay recovery worker', () => {
     expect(result.tokens.skippedNotDue).toBe(1);
   });
 
+  it('repairs expired readiness before webhook and refund recovery in the same cycle', async () => {
+    const admin = adminWithRpc({
+      claim_razorpay_webhook_recovery_batch: [
+        {
+          event_id: 'held',
+          account_id: 'account',
+          payload: { event: 'subscription.pending', payload: {} },
+          created_at: '2026-08-09T09:58:00.000Z',
+        },
+      ],
+      claim_razorpay_oauth_refresh_scan_batch: [
+        {
+          account_id: 'account',
+          oauth_access_expires_at: '2026-09-10T00:00:00.000Z',
+          merchant_status: 'unknown',
+          activation_verified_at: '2026-08-07T09:00:00.000Z',
+        },
+      ],
+      finish_razorpay_oauth_refresh_scan: true,
+    });
+    let ready = false;
+    const requireReadiness = () => {
+      if (!ready) throw new Error('readiness expired');
+    };
+    const result = await runRazorpayRecovery({
+      admin: admin as never,
+      providerMode: 'test',
+      dependencies: {
+        now: () => new Date('2026-08-09T10:00:00.000Z'),
+        owner: () => 'lease',
+        oauthEnabled: () => true,
+        refundsEnabled: () => true,
+        verifyReadiness: async () => {
+          ready = true;
+        },
+        processClaimed: async () => {
+          requireReadiness();
+          return { outcome: 'processed' };
+        },
+        initializeRefunds: async () => {
+          requireReadiness();
+          return 1;
+        },
+        reconcileRefunds: async () => {
+          requireReadiness();
+          return { claimed: 0, scanned: 0, unrelated: 0 };
+        },
+      },
+    });
+    expect(result.tokens.readinessVerified).toBe(1);
+    expect(result.tokens.failed).toBe(0);
+    expect(result.webhooks.processed).toBe(1);
+    expect(result.webhooks.failed).toBe(0);
+    expect(result.refundReconciliation.initializedAccounts).toBe(1);
+    expect(result.refundReconciliation.failed).toBe(0);
+    expect(result.notes).toEqual([]);
+  });
+
+  it('keeps recovery fail-closed and releases the scan lease when early readiness fails', async () => {
+    const admin = adminWithRpc({
+      claim_razorpay_oauth_refresh_scan_batch: [
+        {
+          account_id: 'account',
+          oauth_access_expires_at: '2026-09-10T00:00:00.000Z',
+          merchant_status: 'unknown',
+          activation_verified_at: null,
+        },
+      ],
+      finish_razorpay_oauth_refresh_scan: true,
+    });
+    const result = await runRazorpayRecovery({
+      admin: admin as never,
+      providerMode: 'test',
+      dependencies: {
+        now: () => new Date('2026-08-09T10:00:00.000Z'),
+        owner: () => 'lease',
+        oauthEnabled: () => true,
+        refundsEnabled: () => true,
+        verifyReadiness: async () => {
+          throw new Error('readiness rejected');
+        },
+        initializeRefunds: async () => {
+          throw new Error('readiness rejected');
+        },
+        reconcileRefunds: async () => {
+          throw new Error('readiness rejected');
+        },
+      },
+    });
+    expect(result.tokens.readinessVerified).toBe(0);
+    expect(result.tokens.failed).toBe(1);
+    expect(result.refundReconciliation.failed).toBe(2);
+    expect(admin.rpc).toHaveBeenCalledWith(
+      'finish_razorpay_oauth_refresh_scan',
+      expect.objectContaining({ p_error: 'readiness rejected' })
+    );
+  });
+
   it('isolates Payment Link reconciliation failures inside the leased batch', async () => {
     const admin = adminWithRpc({
       claim_razorpay_webhook_recovery_batch: [],

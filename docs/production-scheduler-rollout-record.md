@@ -48,6 +48,13 @@ from this corrected deployment; both failed runs are preserved. A registered
 request, configuration or unauthenticated probe does not establish dispatch
 success. No manual authenticated native worker invocation is used.
 
+At **16:48:23 UTC**, corrected native ops passed naturally: HTTP 200,
+dispatched 10 / failed 0, with each worker response HTTP 200 and matching
+canonical worker request logs. The corrected release's **+10-minute scan at
+16:49:55 UTC** found zero runtime error clusters and zero deployment HTTP 5xx
+responses through 16:49:35 UTC. Native renewals at :35 and the corrected
++30-minute scan remain pending.
+
 ## Readiness repair and primary preservation
 
 Reviewed source `20261001154214_razorpay_readiness_scan_freshness.sql` was
@@ -86,7 +93,8 @@ prior private snapshots. The old failed record must not be reconstructed or
 replayed. The gym payment count remains 554.
 
 The authentic shared-merchant webhook log in the seven-day range still showed
-only the three original successful SaaS deliveries at the 15:51 UTC inspection.
+only the three original successful SaaS deliveries at 15:51 UTC, unchanged on
+the refreshed 16:52 UTC inspection.
 No duplicate or eligible mixed gym delivery was available, and no event/signature
 or new charge was manufactured. Its owner/next action remains the real next
 eligible provider delivery; bank refund-credit proof remains owner-deferred.
@@ -105,3 +113,9 @@ Set the native switch false and rebuild the same verified release. Confirm both
 new endpoints return the disabled aggregate. Keep Supabase/GitHub, signed intake,
 settlement and scoped financial recovery; preserve immutable evidence and the
 missed confirmation's terminal state. Do not reuse the watchdog token for dispatch.
+
+Corrected release observations: native ops also passed at 17:03:23.213 UTC
+(10/0/all worker HTTP 200); the +30-minute scan at 17:10:18 UTC found zero
+runtime errors/HTTP 5xx through 17:09:30 UTC. PR #27 readiness prerequisite
+ordering passed all checks and is landing; final release acceptance will
+include its source before declaring complete.

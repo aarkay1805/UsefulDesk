@@ -1023,7 +1023,10 @@ Production, with intake/settlement/recovery retained. The internal opening recor
 pins the actual source, deployment and preservation observations.
 
 **Deployed — native scheduler acceptance in progress, 1 October:** PRs #22–#24
-are merged. The readiness claim preserves leases/mode/grants/backoff and is
+are merged. PR #27 also merged as `e010c23c`, moving its existing readiness scan
+before provider recovery; tests prove same-cycle stale-readiness repair and
+failed-readiness isolation. Final release deployment/acceptance is pending.
+The readiness claim preserves leases/mode/grants/backoff and is
 Production-installed as history `20261001155436`; natural primary ops at
 16:23/16:38 and renewals at 16:41 are healthy. Reserved-secret native dispatch
 is enabled on verified main `6a35e26d`, with Supabase/GitHub and daily cleanup
