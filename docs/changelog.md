@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-10-01 — Couple OAuth readiness scans to their validity window
+
+`20261001154214_razorpay_readiness_scan_freshness.sql` makes an unknown
+merchant's expired readiness due even when its independent daily token scan
+is later. A post-expiry attempt retains the existing failure backoff; leases,
+provider-mode isolation, connection checks and service-only grants are preserved.
+Disposable rollback/replay acceptance is in
+`scripts/razorpay-readiness-scan-acceptance.sql`. Native scheduler logs use the
+same aggregate/status allowlist as responses, enabling natural-run verification
+without worker bodies or provider identifiers. Installation and natural recovery
+must be evidenced separately; this change does not refresh readiness itself.
+
 ## 2026-10-01 — Build guarded native Vercel ops and renewal scheduling
 
 `vercel.json` registers two grouped schedules while preserving daily cleanup.

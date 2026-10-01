@@ -1022,6 +1022,14 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
+**Built — scheduler acceptance follow-up, 1 October:** the OAuth scan claim now
+also becomes due when unknown-merchant readiness expires before its independent
+daily token scan. A completed post-expiry attempt retains failure backoff;
+connection/lease/mode/grant boundaries remain unchanged. Disposable SQL
+rollback/replay acceptance passes. Native dispatch logs share the response's
+aggregate/status allowlist for natural-run acceptance. Production installation,
+healthy natural recovery and scheduler acceptance remain to be recorded.
+
 **Built — guarded native scheduler rollout batch, 1 October:** Vercel Pro ops
 and renewal schedules now share the existing Supabase worker groups, behind a
 literal Production-only opt-in and reserved bearer authentication. Canonical
