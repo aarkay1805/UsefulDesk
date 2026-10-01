@@ -1,5 +1,12 @@
 # Subscription financial recovery runbook
 
+**Current Production status, 1 October 2026:** PR #21 merged as `71d897a6`;
+both reviewed opening/recovery sources are installed and canonical Production
+is READY, with financial activation off. The [installation record](subscription-production-install-record.md)
+pins actual source/history, backup and preservation evidence. Historical staging
+and candidate-review statements below do not override this verified installation.
+Actual accounting/opening review and genuine Live capture/refund remain pending.
+
 **Prepared procedure; no new Production authority.** Production is currently
 intake-only. Use this procedure after a separately approved first-term opening
 or to investigate existing evidence read-only. It does not authorize a charge,
@@ -158,8 +165,8 @@ owned exceptions and never trigger another POST.
 The fixed one-item `GET /api/subscriptions/live-recovery/cron` joins the existing
 15-minute primary database ops group and redundant GitHub ops workflow in code.
 It authenticates the existing cron secret and returns a healthy disabled skip
-with no database/provider work when the recovery gate is off. It is not deployed
-or enabled in Production by this document. A pass can mean only order binding;
+with no database/provider work when the recovery gate is off. It is deployed but disabled in Production; the natural 1 October ops
+run verified its disabled skip. This document does not enable it. A pass can mean only order binding;
 `order_bound_signed_event_required` explicitly preserves the genuine signed
 capture requirement. Binding or a provider `paid` status does not grant access.
 

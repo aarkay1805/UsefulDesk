@@ -77,6 +77,11 @@ The fresh Production-only environment audit passed zero blockers/five recorded
 warnings and retained only intake, no Test configuration or recovery activation.
 Its 0600 export/0700 directory were removed; no secrets were printed.
 
+The ten-minute error scan at approximately 10:17 UTC returned no runtime errors
+in the selected post-release range. A fresh browser reload confirmed the owner
+still opens Home office settings on the canonical release, with saved regional
+settings and no pending changes. The thirty-minute scan remains due.
+
 Read-only Razorpay refresh retained Enabled webhook `TiJKErwIC7VvRr`, configured
 secret and exactly the five approved payment/refund events. The owner confirmed
 Vercel payment succeeded; refreshed invoice GQBCLHWV-0001 now shows Paid on

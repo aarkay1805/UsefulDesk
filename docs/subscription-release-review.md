@@ -1,5 +1,12 @@
 # Subscription release review — preparation only
 
+**Current Production status, 1 October 2026:** PR #21 merged as `71d897a6`;
+both reviewed opening/recovery sources are installed and canonical Production
+is READY, with financial activation off. The [installation record](subscription-production-install-record.md)
+pins actual source/history, backup and preservation evidence. Historical staging
+and candidate-review statements below do not override this verified installation.
+Actual accounting/opening review and genuine Live capture/refund remain pending.
+
 Reviewed on 30 September 2026. The candidate passed the scoped code review and
 local verification below. No application or SQL defect requiring a patch was
 identified. This is preparation evidence, not Production installation, opening

@@ -1,5 +1,12 @@
 # Subscription staging migration plan — 30 September 2026
 
+**Current Production status, 1 October 2026:** PR #21 merged as `71d897a6`;
+both reviewed opening/recovery sources are installed and canonical Production
+is READY, with financial activation off. The [installation record](subscription-production-install-record.md)
+pins actual source/history, backup and preservation evidence. Historical staging
+and candidate-review statements below do not override this verified installation.
+Actual accounting/opening review and genuine Live capture/refund remain pending.
+
 Production billing remains closed. Razorpay verified `desk.usefulmade.com`;
 owner-authorized Live keys are privately saved, and read-only authentication
 passed. Production-only Live credentials and exact merchant/pilot bindings are installed.
