@@ -17,6 +17,7 @@ an existing account and its owner channel. The RPC is Production-installed as
 history `20261001180537`; service-only grants and the output allowlist passed.
 Production monitor flags/token remain unset. Service identification, external
 probe setup and actual notification receipt remain pending.
+Readiness, roadmap and runbook references agree on this installed/disabled state.
 Gotcha: healthy HTTP or a configuration file does not prove paging, native/GitHub
 schedule freshness or backup freshness.
 

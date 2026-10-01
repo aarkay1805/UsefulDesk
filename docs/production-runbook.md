@@ -87,9 +87,10 @@ Record both groups' natural executions, fixed worker statuses and aggregate
 counts; missing/disabled runs do not prove worker health. Retain Supabase and
 GitHub scheduling. The new execution path does not prove independent alert
 delivery during a GitHub outage. A separate default-off
-[read-only watchdog candidate](production-watchdog.md) and concrete probe
-configuration are prepared; external account/channel and owner delivery remain
-pending.
+[read-only watchdog](production-watchdog.md) has its service-only RPC installed;
+its Production monitor flags/token remain unset and concrete probe configuration
+is prepared. Identifying the owner-selected existing service, external probes
+and actual owner delivery remain pending.
 
 ## Alerts
 

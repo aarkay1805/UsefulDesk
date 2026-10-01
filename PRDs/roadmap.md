@@ -1047,10 +1047,12 @@ Supabase primary remains healthy, GitHub redundancy and daily cleanup remain
 active. Initial native failures were resolved by explicitly configuring the
 canonical HTTPS origin and rebuilding. Financial initiation stays closed.
 The historical confirmation-row evidence gap remains open; no reconstruction
-or missed reminder replay is authorized. Independent monitoring is prepared in
-[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with current
-checks passing. The owner chose an existing account and its owner channel;
-service identification, Production setup and actual alert receipt remain pending.
+or missed reminder replay is authorized. The independent watchdog disabled
+release is tracked in [PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25);
+its service-only RPC is installed as history `20261001180537`, with grants and
+output allowlist verified. Monitor flags/token remain unset. The owner chose an
+existing account and its owner channel; service identification, external probes
+and actual alert receipt remain pending.
 Authentic shared-merchant redelivery/mixed-event proof remains separate,
 bank-credit proof owner-deferred, and Meta approval work excluded.
 
