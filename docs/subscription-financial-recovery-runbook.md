@@ -1,7 +1,16 @@
 # Subscription financial recovery runbook
 
-**Prepared procedure; no new Production authority.** Production is currently
-intake-only. Use this procedure after a separately approved first-term opening
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
+
+**Prepared procedure; no new Production authority.** Use this procedure within the separately approved first-term opening
 or to investigate existing evidence read-only. It does not authorize a charge,
 refund, switch change, deployment, event replay, access correction, or message.
 Rajat Kashyap owns the incident and approves consequential recovery actions;
@@ -69,6 +78,17 @@ other phases use `--allow-live-intake-only` or `--allow-live-starter-pilot`, one
 mode at a time. These commands inspect local input and do not set flags.
 
 ## Read-only evidence and preflight
+
+For an already verified/confirmed original signed-event queue, the explicit
+manual `production-health` input `reconcile_live_events=true` runs the bounded
+canonical reconciler using the existing protected repository credential. Inspect
+the exact branch/SHA and durable original records first. Use only the recorded
+owner-approved scope; the input defaults false and scheduled health runs skip
+this job. It does not create a provider event or call refund/order initiation.
+Check aggregate inspected/reconciled/failed counters and independently compare
+financial records, access version/end and audits afterward. Actual accepted run
+36868967047 and its source are pinned in the opening record. A manual run cannot
+prove scheduled freshness or genuine provider redelivery.
 
 Run on the verified target through the approved read-only database connector.
 The opening-review query applies only after the candidate schema is installed;
@@ -158,8 +178,8 @@ owned exceptions and never trigger another POST.
 The fixed one-item `GET /api/subscriptions/live-recovery/cron` joins the existing
 15-minute primary database ops group and redundant GitHub ops workflow in code.
 It authenticates the existing cron secret and returns a healthy disabled skip
-with no database/provider work when the recovery gate is off. It is not deployed
-or enabled in Production by this document. A pass can mean only order binding;
+with no database/provider work when the recovery gate is off. It is deployed but disabled in Production; the natural 1 October ops
+run verified its disabled skip. This document does not enable it. A pass can mean only order binding;
 `order_bound_signed_event_required` explicitly preserves the genuine signed
 capture requirement. Binding or a provider `paid` status does not grant access.
 
@@ -222,6 +242,14 @@ After approved recovery-phase activation, **POST**
 It accepts no per-event or refund payload. Use protected tooling that keeps the
 secret out of command arguments/output. Record HTTP status and only the counters
 `inspected`, `reconciled`, `failed`.
+
+The existing `production-health.yml` now exposes a manual-only, default-false
+`reconcile_live_events` input for this exact route. Following owner approval,
+dispatch the reviewed branch with that input true. The isolated job receives
+the existing repository secret via environment, has no GitHub token permissions
+and reports only counters. It calls no messaging worker and never treats a
+manual dispatch as scheduled freshness evidence. Scheduled health behavior is
+unchanged. Do not extract the secret from GitHub or use opaque Vercel exports.
 
 The existing event route selects up to five held events per call, oldest first, scoped to this
 merchant/pilot. It uses `subscription_list_live_held_events`, then the capture

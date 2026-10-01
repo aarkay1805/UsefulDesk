@@ -1,5 +1,13 @@
 # Subscription staging migration plan — 30 September 2026
 
+**Current Production status, 1 October 2026:** exact PR #21 implementation
+`71d897a6` is READY in recovery-only mode. The approved internal ₹799 capture/full
+refund and three original signed-event reconciliations are complete, access is
+ended and new initiation/UI are closed. Bank debit proof is private; bank-credit
+proof is owner-deferred. Genuine duplicate/mixed provider delivery and reminder
+acceptance remain separate. See the [opening/closeout record](subscription-production-pilot-opening-record.md).
+Historical staging/candidate statements below retain their original dates.
+
 Production billing remains closed. Razorpay verified `desk.usefulmade.com`;
 owner-authorized Live keys are privately saved, and read-only authentication
 passed. Production-only Live credentials and exact merchant/pilot bindings are installed.

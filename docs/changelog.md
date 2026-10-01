@@ -6,6 +6,49 @@
 
 ---
 
+## 2026-10-01 — Reconcile signed events and close completed internal initiation
+
+`production-health.yml` has an explicit manual, default-off operator input for
+the existing scoped `live-reconcile` route. The job uses the existing repository
+credential via environment, has no GitHub token permissions, prints aggregate
+counts and never dispatches messaging workers. Scheduled health checks retain
+their existing behavior. Actual run 36868967047 reconciled three original events
+with zero failures and unchanged financial/access state. Data-only source
+`20261001132700_close_home_office_internal_acceptance_initiation.sql` installed
+as connector history `20261001132841`, closing initiation while preserving
+original review/intake/settlement. Exact `71d897a6` rebuilt READY in recovery-only
+mode; the opening record pins source, deployment and preservation evidence.
+Bank debit evidence is received privately; the owner deferred bank-credit
+evidence while other closeout work proceeds.
+
+## 2026-10-01 — Open the reviewed Home office internal ₹799 test
+
+Owner approval and bank debit/credit screenshot recording method are retained in
+`subscription-production-pilot-review.md`. The data-only operator migration
+`20261001111500_open_home_office_starter_internal_acceptance.sql` installed as
+connector history `20261001111950`; exact `71d897a6` redeployed READY with only
+the scoped Live phase. `subscription-production-pilot-opening-record.md` pins
+source, deployment and actual observation. One genuine signed ₹799 capture
+created one calendar month and advanced access once; the full original refund is processed,
+access ended once and genuine signed refund events arrived.
+Test, renewals, advanced/global capabilities remain off. No self-invoice,
+customer acceptance or WhatsApp delivery is claimed. Replaying the operator
+source cannot reopen contained flags; keep provider IDs/bank evidence outside Git.
+
+## 2026-10-01 — Install closed Production Starter opening and recovery
+
+Merged PR #21 at `71d897a6`; main checks and canonical READY deployment passed.
+Installed both reviewed sources through Supabase after full verified DB/Storage
+backup; `subscription-production-install-record.md` and the new 28-source manifest
+pin actual history. Functions/catalogs match staging, all money gates stay off,
+Live ledgers empty and tenant/legal/access/gym-payment data unchanged. Natural ops
+proved recovery's deployed disabled skip; ten-/thirty-minute error scans are clean.
+Vercel invoice is now Paid / US$0 due. Meta checked last still reports the exact
+membership renewal In review after status sync.
+`subscription-production-pilot-review.md` prepares exact ₹799 terms and identifies
+the actual accounting/opening facts still required; no synthetic financial review,
+provider effect, self-invoice, WhatsApp send or access change was created.
+
 ## 2026-10-01 — Implement original-obligation Live recovery and payment-only scope
 
 Added GET-only recovery in `src/lib/subscriptions/live-recovery.ts`, protected

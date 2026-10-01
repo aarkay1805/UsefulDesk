@@ -1,7 +1,123 @@
-# Closed billing installation — 30 September 2026
+# Closed billing installation — refreshed 1 October 2026
 
-Production billing remains closed. This records schema installation and
-preservation checks; it authorizes no paid offer, order, refund or access change.
+This records the closed PR #21 installation and its preservation checks. The
+subsequent owner-approved Home office internal test opened at 11:19:50 UTC;
+[current opening/capture evidence](subscription-production-pilot-opening-record.md)
+supersedes the intake-only status for that sole pilot. General customer launch,
+renewals, global capabilities and reminder delivery remain separately gated.
+The historical 30 September installation follows the closed 1 October record below.
+
+## Closed PR #21 release/install — 1 October 2026
+
+The owner explicitly authorized continuing the closed Production release/install
+in this separate chat. PR #21's reviewed head
+`aa645e8d95cd5535128fb62294541c918b3c304f` still had successful CI 36763339264,
+CodeQL 36763335272 and READY preview, and was mergeable. It was marked ready and
+merged at **15:31:25 IST (10:01:25 UTC)** to exact main
+`71d897a6dfd17b7938129d2b7a3cfbb808531a80`. Main
+[CI 36846490310](https://github.com/aarkay1805/UsefulDesk/actions/runs/36846490310)
+and [CodeQL 36846489827](https://github.com/aarkay1805/UsefulDesk/actions/runs/36846489827)
+passed. The source acceptance remains 4,232 tests / 525 files, lint, TypeScript,
+135-page build and accepted rollback/idempotency/concurrency evidence.
+
+Fresh [full backup 36846306908](https://github.com/aarkay1805/UsefulDesk/actions/runs/36846306908)
+succeeded before schema installation. At 10:06:39 UTC the log verified encrypted
+`database/2026/10/database-2026-10-01T10-00-57Z.tar.gz.age` and
+`storage/2026/10/storage-2026-10-01T10-00-57Z.tar.gz.age`. The Storage snapshot
+contained 44 objects / 2,737,820 bytes across five buckets. The established
+23 August disposable restore drill remains accepted historical evidence; no new
+restore or custody change is claimed.
+
+The complete [28-source manifest](subscription-production-pilot-install-manifest.tsv)
+retains all original 26 hashes and appends the two reviewed sources. Its SHA-256
+is `21abf5bd14a46d4feaf6510c92e82280489a9f85883d4c3106f5d6d63d53c494`.
+Only the two absent sources were applied through the approved Supabase migration
+connector to Production `fwqthstqrkrwtaehefks`, in the reviewed order:
+
+| Source                                                      | SHA-256                                                            | Actual installed connector history                             |
+| ----------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| `20260930164040_starter_live_pilot_opening_preparation.sql` | `c2c05979cd04bf7c815a7d22e3d131d6747970ae54cf3de983822f0abecada62` | `20261001100710_closed_starter_live_pilot_opening_preparation` |
+| `20260930180000_subscription_live_recovery_queue.sql`       | `6585daeee0232133e5e450574c32168b7b25802599ebb839c3e19176ad26c272` | `20261001100718_closed_subscription_live_recovery_queue`       |
+
+History increased from 325 to 327 entries. Source filenames and installed history
+versions differ; never repair this with `supabase db push`. Idempotency was proved
+in disposable acceptance, not by repeating a Production migration. Installation
+seeded no offer/review, switches or synthetic fixture.
+
+At 10:07:40 UTC, the read-only preflight retained 8 users, 6 accounts,
+5 organizations and 554 gym payments. Account/organization/legal/access content
+fingerprints were exactly unchanged from 10:07:00 before installation and the
+prior 30 September baseline. All Live financial/offer/refund-review/event/grant
+and four new metadata ledgers remain empty. Intake is true; all money, settlement,
+conversion, renewal, Test, capability, policy and advanced gates remain false;
+`pilot_opening_review_id` is null. The selected Home office branch retains
+complimentary access version 1, not suspended, with one active INR branch.
+
+All 14 private Live tables have RLS and deny browser SELECT/DML. Service-role
+direct INSERT/UPDATE/DELETE/TRUNCATE is denied. Public tables without RLS: zero;
+disabled Live triggers: zero. The retained renewal constraint is
+`CHECK (NOT renewals_enabled)`. All 16 affected function definitions, owners,
+empty search paths and role grants exactly match accepted cloud staging.
+Relevant new-table columns, Live constraints and enabled trigger definitions
+also match staging by deterministic catalog fingerprints.
+
+Production `dpl_5KoHAR59NNQyT2WWsikE2rYoDx8h` is READY for exact main `71d897a6`.
+Its Git build initially had only main/team aliases while CI ran; after main CI
+passed, the canonical domain and all four Production aliases moved to it. A
+managed-sign-in promote request returned 409 because it was already current;
+no second deployment or settings change was made. Previous READY
+`dpl_Hx7CKFZx6YP9iDgwPExBNGCWmTkG` / `5920fa78` remains the identified
+application rollback candidate before any money, with the additive schema
+retained and owner approval required for rollback.
+
+At 10:08 UTC, `/login` returned 200 with UsefulDesk title. Quote/order/refund,
+operator recovery and signed-event reconciliation POSTs return 404; unsigned
+intake returns 400 Invalid signature; unauthenticated recovery cron GET returns 401. The natural primary ops run at 10:08 returned HTTP 200 / failed 0 and the
+new authenticated recovery route returned 200 with `skipped=disabled`,
+`inspected=0`, proving deployed disabled-path integration without manual dispatch.
+The fresh Production-only environment audit passed zero blockers/five recorded
+warnings and retained only intake, no Test configuration or recovery activation.
+Its 0600 export/0700 directory were removed; no secrets were printed.
+
+The ten-minute error scan at approximately 10:17 UTC returned no runtime errors
+in the selected post-release range. A fresh browser reload confirmed the owner
+still opens Home office settings on the canonical release, with saved regional
+settings and no pending changes. The thirty-minute scan at 10:38:21 UTC also
+returned no runtime errors in the post-release range. At 10:37:46 UTC canonical
+release, tenant/legal/access fingerprints, counts, empty Live ledgers and all
+closed gates still matched. Natural primary ops at 10:38 returned HTTP 200,
+failed 0; the latest primary renewals success was 09:41. The independent GitHub
+renewals/health freshness exception remains open; no manual send-capable dispatch
+was used to replace natural evidence.
+
+The read-only Supabase security-advisor scan at 10:26 UTC returned zero ERRORs.
+No WARN targeted the affected functions or four new tables. Their INFO
+`rls_enabled_no_policy` findings reflect intentional deny-by-default private
+metadata. Existing unrelated warnings remain; this installation does not claim
+that the entire project is free of advisor warnings.
+
+Read-only Razorpay refresh retained Enabled webhook `TiJKErwIC7VvRr`, configured
+secret and exactly the five approved payment/refund events. The owner confirmed
+Vercel payment succeeded; refreshed invoice GQBCLHWV-0001 now shows Paid on
+1 October, US$23.60 paid and US$0.00 due. The stale provider discrepancy is closed
+without attempting another charge.
+
+The [exact review packet](subscription-production-pilot-review.md) pins the offer,
+owner, source access and manifest. Actual internal accounting classification and
+its reviewer/date/evidence, then the exact financial opening decision, remain
+pending. No offer/opening record is invented. A human completes real payment;
+original payment/refund amount and access consequence are reviewed before refund.
+No genuine Live capture/refund, customer sale, reminder delivery or wider
+activation has occurred.
+
+Meta was checked last, after the thirty-minute observation. At 10:39 UTC,
+UsefulDesk's Check status read the provider catalog and refreshed its local
+cache. `gym_membership_renewal` / `en_US` remains `PENDING` (In review), Marketing,
+POSITIONAL, with the exact five-variable body, no header/footer and one
+QUICK_REPLY “Help me renew”; no provider component-sync marker remains.
+`gym_service_renewal` remains `APPROVED` with its current contract. Membership
+reminder readiness and actual authorized delivery acceptance remain open. No
+provider template was submitted/changed/deleted and no WhatsApp send occurred.
 
 ## Installed source and recovery point
 

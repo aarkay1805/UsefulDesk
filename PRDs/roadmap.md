@@ -966,23 +966,67 @@ money/access authority. Automatic order binding never grants a term; financial
 holds still need individual review. See the
 [recovery acceptance](../docs/subscription-financial-recovery-acceptance.md) and
 [payment-only opening proposal](../docs/subscription-payment-only-opening-proposal.md).
-The additive recovery migration is installed **only on empty billing staging**;
-cloud rollback acceptance, RLS/grants, restored empty/off state and two actual
-concurrent local sessions passed. Independent review defects were fixed; required lint, TypeScript, 4,232 tests
-and build passed; public cron output contains aggregate counters only. Current Production remains
-`5920fa78` intake-only with 554 unchanged gym payments, matching tenant/access
-fingerprints and empty Live ledgers. Genuine internal-accounting references,
-exact Production release/install/opening decision and a human's authentic Live
-capture/full-refund evidence remain. Vercel invoice reconciliation and stale
-redundant GitHub natural schedules remain owned exceptions; primary workers are
-healthy. Meta approval/sync plus authorized delivery is a separate reminder gate;
+Initial empty-staging recovery installation, cloud rollback acceptance, RLS/grants,
+restored empty/off state and two concurrent local sessions passed. Independent
+review defects were fixed; lint, TypeScript, 4,232 tests and build passed; public
+cron output contains aggregate counters only. The closed Production installation
+and paid-invoice reconciliation below now supersede that staging-only status.
+The subsequent owner-approved internal opening and genuine capture are recorded
+below; full-refund evidence remains; the redundant GitHub freshness exception
+remains owned while primary workers are healthy. Meta approval/sync plus authorized delivery is a separate reminder gate;
 real buyer/issuer facts precede customer documents. Renewal/native Checkout/global
 capability activation stays outside the first-term scope.
+
+**Shipped — closed Production opening/recovery installation, 1 October:**
+PR #21 merged as `71d897a6`; main CI/CodeQL passed, and READY
+`dpl_5KoHAR59NNQyT2WWsikE2rYoDx8h` serves the canonical domain. The two reviewed
+additive migrations installed through the approved connector after full encrypted
+database/Storage backup 36846306908. All 16 changed functions and relevant schema
+catalogs match staging. RLS, service SELECT-only, enabled freezes, hard-closed
+renewal and empty offer/recovery ledgers are verified. Existing tenant/access
+fingerprints and 554 gym payments are unchanged; every financial gate remains
+off. Natural primary ops verified the deployed recovery worker's disabled skip.
+The owner-reported Vercel invoice is now provider-confirmed Paid / US$0.00 due.
+Ten- and thirty-minute runtime scans are clean. Meta, checked last at 10:39 UTC,
+still reports the exact membership renewal contract In review; no send occurred.
+The [installation record](../docs/subscription-production-install-record.md) and
+[28-source manifest](../docs/subscription-production-pilot-install-manifest.tsv)
+retain exact source/history mapping. The [review packet](../docs/subscription-production-pilot-review.md)
+records the owner's subsequent “Confirmed and approved” for internal
+classification and the ₹799 payment/full-refund access outcome. Its closed
+snapshot is historical; the separately approved internal opening follows.
+
+**Shipped — scoped Home office internal opening and first capture, 1 October:**
+The owner supplied bank debit/credit messages/screenshots as the recording method.
+The separately hashed data-only operator source installed at 11:19:50 UTC as
+history `20261001111950`, selecting one actual immutable offer/opening review.
+Exact `71d897a6` rebuilt READY at canonical `dpl_Duze8duP4zeyKTHrQhViGPp4xczu`;
+Production audit passed and only the selected first-term phase was opened. One real
+Live ₹799 signed capture at 11:24:59 UTC created one Starter month through
+1 November, with one access-version change. Tenant/legal data and 554 gym payments
+remain unchanged. See the [opening record](../docs/subscription-production-pilot-opening-record.md).
+The separately requested full ₹799 refund processed, signed refund events arrived
+and access ended once without complimentary restoration. Bank debit evidence is
+received privately; the owner deferred bank-credit evidence on 1 October. Genuine
+duplicate/mixed delivery and independent reminder acceptance remain pending.
+No customer sale, self-invoice, WhatsApp send, renewal, native Checkout or global
+capability activation is claimed.
+
+**Shipped and executed — manual signed-event reconciliation and containment:** the existing
+`production-health` workflow has a default-off manual input for the scoped
+reconciliation route, using the existing protected credential and aggregate-only
+output. It does not run on scheduled health checks. Run 36868967047 reconciled
+all three original events with zero failures and unchanged payment/refund/access
+facts. Separately hashed data-only containment installed as history
+`20261001132841`; initiation and both Live UI flags are closed in recovery-only
+Production, with intake/settlement/recovery retained. The internal opening record
+pins the actual source, deployment and preservation observations.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
-to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production does not offer checkout. Pure tier/branch/capability, verified-add-on
+to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production exposes Live Checkout only to the separately approved Home office
+internal pilot above, now closed after its full refund. Pure tier/branch/capability, verified-add-on
 state, owner-choice conversion rules, and pure base-tier billing transitions are coded and tested. The transition model prorates the listed base-price difference in paise over the actual paid period, keeps an upgrade pending until a trusted payment event, and projects downgrades/cancellations at the paid-through boundary. A pure renewal model keeps the old tier for one fixed 72-hour window after a failed paid renewal, denies new unpaid tier/branch capacity during grace, and resumes paid access only after a trusted verified renewal event. It does not verify provider payments or persist entitlements. The
 no-GST amount draft records listed software, ₹0 GST, and the matching draft total for monthly plans and base-tier upgrades; it is not wired to checkout. The reusable
 first-payment refund model evaluates the request date in the frozen billing-account timezone and reserves one full-refund request per organization. A separate pure confirmed-refund model ends paid access at full-refund confirmation and requires renewal to stop; pending/failed events leave access intact. Neither model calls a provider or changes runtime access. The reusable

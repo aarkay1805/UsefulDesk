@@ -1,10 +1,20 @@
 # First Starter Live acceptance walkthrough
 
-**Prepared, not executed.** This is the controlled UsefulMade / Home office
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
+
+**Procedure; authority supplied separately.** This is the controlled UsefulMade / Home office
 internal technical acceptance plan for the first Starter term. No step below
 authorizes Production installation, flags, provider changes, money movement or
 WhatsApp delivery. The owner must approve the concrete release-specific opening
-and the exact payment/refund separately. Current Production remains intake-only;
+and the exact payment/refund separately. The earlier intake-only baseline is historical;
 the closed opening candidate has passed local/cloud staging checks. See the
 [opening review](starter-live-pilot-opening-review.md),
 [installation record](subscription-production-install-record.md),

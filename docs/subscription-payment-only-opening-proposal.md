@@ -1,11 +1,20 @@
 # Home office payment-only opening proposal
 
-**Reviewable preparation, not an executed opening.** The owner selected internal
-first-term payment/refund technical acceptance independently of Meta approval.
-Implementation authorization does not supply missing review facts, authorize a
-real payment or prove genuine provider delivery. Production remains intake-only
-until the exact installation/opening is approved and verified. This proposal
-must be refreshed against the final tested release and migration manifest.
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
+
+The phase proposal below records the reviewed configuration now executed only
+for this internal first term. Genuine customer acceptance, reminder delivery,
+renewals and broader activation remain separate. Vercel invoice GQBCLHWV-0001
+is Paid / US$0.00 due. Earlier staging-only and invoice-discrepancy observations
+are historical.
 
 ## Exact scope and outcome
 
@@ -21,12 +30,14 @@ merchant/organization or global capability activation belongs to this run.
 Supplier and selected organization share a proprietor. Classify the run as
 internal technical acceptance and retain an unissued technical evidence record;
 create no self-sale, customer invoice or assertion of genuine customer acceptance.
-Internal accounting classification/review is still pending. Genuine buyer,
+The owner approved internal technical-acceptance classification and the access
+outcome in this chat on 1 October; the bank-message/screenshot recording method is recorded in the review packet.
+Genuine buyer,
 geography and fact-supported issuer/document treatment remain a separate
 customer-offer gate; see the [customer document pack](subscription-customer-document-pack.md).
 
 The approved Starter policy stays 7/3/1 days before expiry after 09:00
-account-local. The owner still acknowledges that policy for the quote, and
+account-local. The owner acknowledged that policy for the quote, and
 settlement still normalizes its schedules. That acknowledgement does not depend
 on Meta approval. Missing approval/sync of the exact canonical template prevents
 reminder delivery and feature acceptance, while this payment/refund run may

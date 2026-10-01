@@ -1,6 +1,16 @@
 # Starter Live pilot opening — review candidate
 
-**Prepared and verified on empty staging; Production remains intake-only.** This package prepares the
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
+
+**Historical candidate, prepared and verified on empty staging.** This package prepares the
 selected Home office internal acceptance path. It does not open payments, seed
 an offer, establish a customer sale, issue an invoice, send a WhatsApp message,
 or establish genuine Live provider acceptance.

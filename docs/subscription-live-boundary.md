@@ -1,5 +1,15 @@
 # Usefulmade Live SaaS billing draft
 
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
+
 **Recorded baseline (30 September 2026, after 16:50 UTC): Production is
 intake-only on merged PR #20, exact main
 `5920fa78bfd60d513906616bab86e87ddddd896b`.** The 26-source dark schema,

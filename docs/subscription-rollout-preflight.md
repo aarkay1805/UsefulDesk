@@ -1,5 +1,15 @@
 # Subscription rollout preparation — refreshed evidence
 
+**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+refund is complete, access remains ended, and all three original signed events
+are reconciled without another financial/access effect. New initiation is closed;
+signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
+is retained privately; the owner deferred bank-credit proof. Genuine provider
+same-event redelivery/mixed gym delivery and independent reminder acceptance
+remain pending. See the [current opening record](subscription-production-pilot-opening-record.md)
+for actual source/history/runtime evidence. Earlier closed/staging-only
+observations below are dated preparation, not current-state claims.
+
 **Baseline checked 30 September 2026, 23:20 IST (17:50 UTC); scheduler evidence
 refreshed at 18:19–18:20 UTC below. Production is intake-only.**
 This record completes the read-only preparation work; it grants no financial,

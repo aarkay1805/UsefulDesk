@@ -1,5 +1,13 @@
 # Subscription release review — preparation only
 
+**Current Production status, 1 October 2026:** exact PR #21 implementation
+`71d897a6` is READY in recovery-only mode. The approved internal ₹799 capture/full
+refund and three original signed-event reconciliations are complete, access is
+ended and new initiation/UI are closed. Bank debit proof is private; bank-credit
+proof is owner-deferred. Genuine duplicate/mixed provider delivery and reminder
+acceptance remain separate. See the [opening/closeout record](subscription-production-pilot-opening-record.md).
+Historical staging/candidate statements below retain their original dates.
+
 Reviewed on 30 September 2026. The candidate passed the scoped code review and
 local verification below. No application or SQL defect requiring a patch was
 identified. This is preparation evidence, not Production installation, opening
