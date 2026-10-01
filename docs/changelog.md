@@ -6,15 +6,17 @@
 
 ---
 
-## 2026-10-01 — Prepare a separate read-only external watchdog
+## 2026-10-01 — Land a disabled read-only external watchdog
 
 Default-off `production-watchdog/[token]` checks the two primary aggregate
 histories through a service-only fixed-shape RPC, without worker dispatch or
 provider/financial writes. It requires a separate read-only token, refuses cron
 credential reuse, bounds database access and exposes only fixed health reasons.
 `production-watchdog-config.json` prepares external probes; the owner selected
-an existing account and its owner channel. Service identification, Production
-installation and actual notification receipt remain pending.
+an existing account and its owner channel. The RPC is Production-installed as
+history `20261001180537`; service-only grants and the output allowlist passed.
+Production monitor flags/token remain unset. Service identification, external
+probe setup and actual notification receipt remain pending.
 Gotcha: healthy HTTP or a configuration file does not prove paging, native/GitHub
 schedule freshness or backup freshness.
 

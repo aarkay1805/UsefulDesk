@@ -1022,15 +1022,17 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
-**Built — independent watchdog candidate, 1 October:** a default-off Production
+**Shipped disabled — independent watchdog, 1 October:** a default-off Production
 read-only token endpoint and service-only aggregate RPC check primary jobs,
 response failures and freshness. It never dispatches workers or reads Vault;
 a separate credential cannot be either cron secret. External HTTP configuration
 is prepared. The owner chose an existing account and its configured owner
-channel; service identification, Production installation and verified owner
-notification remain pending. Activate after identifying that account and actual
-natural-probe/notification acceptance. Details:
-[watchdog candidate](../docs/production-watchdog.md).
+channel. The service-only RPC is Production-installed as history
+`20261001180537`, with grants and output allowlist verified; monitor flags/token
+remain unset. Service identification, external probe setup and verified owner
+notification remain pending. Enable only after identifying that account, then
+complete natural-probe/notification acceptance. Details:
+[watchdog setup](../docs/production-watchdog.md).
 
 **Shipped — native scheduler accepted, 1 October:** PRs #22–#24 and
 #27 are merged; exact main `e010c23c` passed CI/CodeQL. Canonical Production

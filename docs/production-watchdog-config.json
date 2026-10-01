@@ -24,7 +24,7 @@
     }
   ],
   "acceptance": [
-    "Owner-selected existing or free monitoring account",
+    "Owner-selected existing monitoring account and its configured owner channel",
     "A separate private read-only token; no cron, Vault or service-role credential shared",
     "Natural external successful probes for both monitors",
     "Provider notification test actually reaches the selected owner channel",

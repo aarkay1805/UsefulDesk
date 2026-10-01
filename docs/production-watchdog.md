@@ -1,4 +1,4 @@
-# Independent production watchdog candidate
+# Independent production watchdog — disabled release
 
 The read-only watchdog is implemented and disabled by default. No monitoring
 account, external probe or owner delivery is established by this code.
@@ -6,6 +6,13 @@ The operator configuration is [prepared here](production-watchdog-config.json).
 The owner selected an existing monitoring account and its configured owner
 channel, naming Rajat Kashyap. Its service name/dashboard URL is still required
 to locate the account; do not purchase a service or infer a recipient elsewhere.
+
+The reviewed RPC is installed in Production as migration history
+`20261001180537` (source `20261001155527_production_watchdog_snapshot.sql`).
+At 18:05 UTC on 1 October, service-role execution and the fixed output allowlist
+passed; anon/authenticated/PUBLIC execution was denied and the search path was
+empty. The snapshot contained healthy natural primary ops and renewal aggregates.
+Production monitor flags/token remain unset; no external probe or paging is active.
 
 `GET /api/production-watchdog/[token]` requires literal Production opt-in via
 `USEFULDESK_EXTERNAL_MONITOR_ENABLED=true` and a separate random 64-hex
@@ -24,9 +31,8 @@ unavailable database; ops freshness is 45 minutes and renewals 120 minutes.
 This checks primary health, not independent native/GitHub schedule freshness or
 backup freshness. Native natural logs and the backup workflow remain separate.
 
-After identifying the selected account, review/land the exact release, install the
-reviewed RPC through the approved Supabase migration tool, verify service-only
-grants, and provision the separate read-only token privately. Enable only the
+After identifying the selected account, verify the landed release and installed
+service-only RPC, then provision the separate read-only token privately. Enable only the
 Production monitor flag and redeploy the verified release. Add the two monitors
 from the prepared configuration; substitute the private token only in the
 selected provider's private URL field. URL paths can appear in request logs, so
