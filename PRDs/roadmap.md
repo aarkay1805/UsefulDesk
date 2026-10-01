@@ -966,16 +966,14 @@ money/access authority. Automatic order binding never grants a term; financial
 holds still need individual review. See the
 [recovery acceptance](../docs/subscription-financial-recovery-acceptance.md) and
 [payment-only opening proposal](../docs/subscription-payment-only-opening-proposal.md).
-The additive recovery migration is installed **only on empty billing staging**;
-cloud rollback acceptance, RLS/grants, restored empty/off state and two actual
-concurrent local sessions passed. Independent review defects were fixed; required lint, TypeScript, 4,232 tests
-and build passed; public cron output contains aggregate counters only. Current Production remains
-`5920fa78` intake-only with 554 unchanged gym payments, matching tenant/access
-fingerprints and empty Live ledgers. Genuine internal-accounting references,
-exact Production release/install/opening decision and a human's authentic Live
-capture/full-refund evidence remain. Vercel invoice reconciliation and stale
-redundant GitHub natural schedules remain owned exceptions; primary workers are
-healthy. Meta approval/sync plus authorized delivery is a separate reminder gate;
+Initial empty-staging recovery installation, cloud rollback acceptance, RLS/grants,
+restored empty/off state and two concurrent local sessions passed. Independent
+review defects were fixed; lint, TypeScript, 4,232 tests and build passed; public
+cron output contains aggregate counters only. The closed Production installation
+and paid-invoice reconciliation below now supersede that staging-only status.
+Genuine internal accounting/opening review and a human's authentic Live
+capture/full-refund evidence remain; the redundant GitHub freshness exception
+remains owned while primary workers are healthy. Meta approval/sync plus authorized delivery is a separate reminder gate;
 real buyer/issuer facts precede customer documents. Renewal/native Checkout/global
 capability activation stays outside the first-term scope.
 
