@@ -17,6 +17,15 @@ Production installation and actual owner notification receipt remain pending.
 Gotcha: healthy HTTP or a configuration file does not prove paging, native/GitHub
 schedule freshness or backup freshness.
 
+## 2026-10-01 — Verify readiness before provider recovery
+
+`runRazorpayRecovery` runs its existing bounded, leased OAuth/readiness scan
+before webhook and financial phases. This prevents a recoverable daily expiry
+from failing an early phase while the same run repairs readiness later. Disabled
+scan behavior, provider gates, leases/backoff and recovery scope are unchanged.
+Regression tests cover same-cycle recovery after expiry and fail-closed behavior
+with scan-lease release when readiness fails; natural rollout proof is separate.
+
 ## 2026-10-01 — Couple OAuth readiness scans to their validity window
 
 `20261001154214_razorpay_readiness_scan_freshness.sql` makes an unknown
