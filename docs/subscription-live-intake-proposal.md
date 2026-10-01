@@ -1,11 +1,13 @@
 # Live webhook intake proposal — 30 September 2026
 
-**PREPARED; NOT ACTIVATED.** The approved closed configuration is installed and
-verified in the [installation record](subscription-production-install-record.md).
+**APPROVED AND ACTIVATED, 30 September 2026, 16:15 UTC.** The owner approved
+this exact intake-only change and private-secret transmission to the existing
+Razorpay merchant. See the [installation record](subscription-production-install-record.md#approved-intake-only-activation-1615-utc)
+for deployed and provider evidence. The following records the approved scope.
 This proposal opens only signed event intake. It creates no offer, quote, order,
 charge, refund, paid grant, renewal or capability activation.
 
-## Exact change awaiting approval
+## Approved change
 
 Review and merge PR #20, which adds the explicit `--allow-live-intake-only` mode
 to `scripts/production-env-readiness.mjs`. Its default still blocks intake. The
@@ -14,7 +16,7 @@ Test, money, settlement, reconciliation, review/Checkout UI flag. Incomplete,
 Test-key and provider-hidden safety configurations remain blockers. It prints
 a distinct intake warning and confers no operational authorization.
 
-After approval, set only
+The approved procedure sets only
 `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` in UsefulDesk Production
 Vercel as readable Config, and set only
 `private.subscription_live_settings.webhook_intake_enabled=true` for the
@@ -59,8 +61,8 @@ configuration, all other blocked billing/UI switches, hidden safety flags,
 nonliteral intake and incomplete/Test credentials. Existing receiver tests cover
 signature refusal, unrelated gym events, uncertain ownership, dedupe and disabled
 settlement/refund behavior. Required verification passed lint, TypeScript, all **4,085 tests in 522 files**,
-and the optimized Production build. No runtime switch or provider webhook was
-activated by these checks.
+and the optimized Production build. These checks themselves did not activate a runtime switch or provider webhook;
+the separately approved activation is recorded below.
 
 [Razorpay's current guidance](https://razorpay.com/docs/webhooks/best-practices/)
 describes non-2xx retries and disablement after continued failures for 24 hours,
@@ -79,3 +81,27 @@ verify webhook/quote/order/refund 404 and rerun the default closed audit. Preser
 any durable events for review. Do not delete/rotate the saved keys or existing gym
 webhooks. After a future money-opening change, use the separate financial recovery
 procedure, which retains settlement/reconciliation for in-flight obligations.
+
+## Activation result
+
+PR #20 merged as `5920fa78bfd60d513906616bab86e87ddddd896b`; its branch was
+deleted. Main CI and CodeQL passed. Fresh Production deployment
+`dpl_Hx7CKFZx6YP9iDgwPExBNGCWmTkG` is READY on `desk.usefulmade.com` for
+that exact SHA, with only the environment/database intake switch enabled.
+An unsigned webhook POST returned 400 `Invalid signature`; quote/order/refund
+POSTs returned 404. The explicit audit passed with zero blockers and five
+protected-value/Turnstile/intake warnings; its private export was removed.
+
+Razorpay webhook `TiJKErwIC7VvRr` was created at 16:15:34 UTC in Live mode.
+Its details show Enabled, the exact canonical URL, the five events above,
+“Secret was provided during webhook setup”, and the existing merchant alert
+email. No SMS challenge occurred. The saved private preparation record holds
+its reference; no secret appears in repository records.
+
+After creation, every other Live/Test/capability/policy/advanced switch remains
+false. Existing access enforcement is preserved. Counts remain 8 Auth users,
+6 accounts, 5 organizations, 554 gym payments and 2 active cron jobs; Live
+quotes/orders/payments/refunds/events/grants and offer approvals are zero.
+[Production health 36742907792](https://github.com/aarkay1805/UsefulDesk/actions/runs/36742907792)
+passed. Enabled is configuration evidence only: genuine signed mixed-merchant
+delivery and controlled Live payment/refund acceptance remain pending.

@@ -223,6 +223,43 @@ describe('Usefulmade Live merchant adapter', () => {
     ).rejects.toThrow('matching capture');
   });
 
+  it.each([
+    ['changed order ID', { ...order, id: 'order_Different' }],
+    ['changed receipt', { ...order, receipt: refundRequestId }],
+    [
+      'changed request note',
+      {
+        ...order,
+        notes: { ...order.notes, usefuldesk_request_id: refundRequestId },
+      },
+    ],
+  ])(
+    'refuses capture and refund preflight with a %s',
+    async (_reason, value) => {
+      const fetchImpl = vi.fn(async () => response(value));
+      await expect(
+        fetchCapturedLivePayment(
+          config,
+          { ...facts, orderId, paymentId },
+          fetchImpl
+        )
+      ).rejects.toThrow('identity');
+      expect(fetchImpl).toHaveBeenCalledOnce();
+      fetchImpl.mockClear();
+      await expect(
+        createLiveFullRefund(config, refundFacts, fetchImpl, {
+          ...env,
+          USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED: 'true',
+        })
+      ).rejects.toThrow('identity');
+      expect(fetchImpl).toHaveBeenCalledOnce();
+      expect(fetchImpl).toHaveBeenCalledWith(
+        `https://api.razorpay.com/v1/orders/${orderId}`,
+        expect.objectContaining({ method: 'GET' })
+      );
+    }
+  );
+
   it('classifies only exact pilot order notes as SaaS on a shared merchant', async () => {
     const fetchImpl = vi.fn(async () =>
       response(order)

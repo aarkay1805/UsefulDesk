@@ -2,9 +2,16 @@
 
 Production billing remains closed. Razorpay verified `desk.usefulmade.com`;
 owner-authorized Live keys are privately saved, and read-only authentication
-passed. The independent SaaS webhook configuration is prepared privately but
-uninstalled. Clean full-schema staging and closed Production installation have
-now passed; their dated evidence and remaining gates are recorded below.
+passed. Production-only Live credentials and exact merchant/pilot bindings are installed.
+Approved PR #20 main `5920fa78` enables signed intake only, with an Enabled
+provider webhook; every other money/capability/policy/advanced/Test switch stays
+false. Billing ledgers exist but contain no Live transactions or paid grants.
+Clean full-schema staging and the 26-source dark Production installation passed.
+The latest opening candidate `33df55bf` / `c3031efa` is closed and installed on
+staging only; Production candidate review/install approval and genuine Live
+acceptance remain pending. Dated evidence follows; see the
+[release review](subscription-release-review.md) and
+[latest read-only preflight](subscription-rollout-preflight.md).
 
 ## Target and preservation
 
@@ -50,10 +57,10 @@ Post-cleanup counts are zero, access enforcement is restored to false, all Test
 and Live switches are false, merchant/pilot bindings are null, and cron is inactive.
 Temporary passwords and service-key file copies were removed.
 
-The schema comparison finds no missing/different Production column definitions.
+The pre-installation schema comparison found no missing/different Production column definitions.
 Function comparison identified three intentionally changed subscription wrappers
-and seven older Production onboarding/legal-name definitions. Production also
-lacks `save_organization_brand_name(uuid,text)`. Its history omits
+and seven older Production onboarding/legal-name definitions. At that comparison Production also
+lacked `save_organization_brand_name(uuid,text)`. Its history omitted
 `20260924110000_independent_gym_brand_and_legal_identity.sql`; that existing
 source restores the independent brand/legal identity without changing existing
 tenant rows. Rollback-only reapplication in staging leaves all eight accepted
@@ -70,7 +77,7 @@ credential rows and two WhatsApp configurations. Both database cron jobs were
 inactive during the read-only inspection. No data, schema or credential changed;
 the project returned to INACTIVE.
 
-Production's connector history has 299 entries, ending at
+Before installation, Production's connector history had 299 entries, ending at
 `20260927125734_google_signup_locale_completion`. A fresh schema-only audit
 compared columns and function definitions: the older Test snapshot lacks current
 reminder, collection, mobile-push and onboarding changes. At that pre-installation
@@ -83,15 +90,39 @@ The [26-source installation](subscription-production-install-record.md) complete
 through the approved tool after a fresh encrypted database/Storage backup.
 Production's eight legal/brand definitions and privileges now match accepted
 staging. Tenant/legal/access fingerprints and settings, gym payment count and
-active cron were preserved. All new billing switches remain false and
-payment/order/refund/event/offer records empty. The owner then approved the
-Production-only Live credential transfer, merchant/pilot binding and closed
-redeployment. That release is READY on exact main `3eb8ce2f`; its audit has zero
-blockers, Live webhook/quote/order/refund POSTs return 404, and Production health
-passed. The provider webhook and paid opening change remain uninstalled; see
-the installation record and [intake-only proposal](subscription-live-intake-proposal.md).
+active cron were preserved. At installation, all new billing switches were false
+and payment/order/refund/event/offer records empty. The owner then approved
+Production-only credential transfer, merchant/pilot binding and the closed
+redeployment on main `3eb8ce2f`. The subsequent approved intake-only PR #20
+activation deployed main `5920fa78` and registered the Enabled provider webhook;
+unsigned intake returns 400 while quote/order/refund endpoints remain 404.
+All other switches remain false and financial/event/offer records remain empty.
+See the [installation record](subscription-production-install-record.md) and
+[approved intake scope](subscription-live-intake-proposal.md).
 
-## Ordered application and inspection
+At 16:50 UTC the approved connector installed only the closed opening candidate
+`20260930164040_starter_live_pilot_opening_preparation.sql` on empty staging,
+with history entry `20260930165031_starter_live_pilot_opening_preparation`.
+Opening/capability SQL acceptance passed inside rollback; all synthetic data was
+removed, all switches remain false and merchant/pilot/review bindings null.
+The [opening review](starter-live-pilot-opening-review.md#validation-record)
+records the source hash, historical fixture hash discrepancy and scoped advisor
+check. A fresh exact-source rollback-only replay at approximately 17:45 UTC
+passed all assertions through the approved connector. Payload SHA-256:
+`a9bd010e4d58b74cbabf97c34302fa0129a991f1c1f3c3cd17d6a9547764f0f9`;
+psql-stripped fixture SHA-256:
+`384c0bdc331f98cf35f9176c3c82aac1c2f7debdb1a322c34df6f2db4d146ebf`.
+The 17:46:07 UTC postcheck retained zero users/tenants/financial/event/offer/review/
+grant rows, all flags false, bindings null, cron inactive and the immutable-grant
+trigger restored. This does not
+install the opening candidate in Production, authorize a real-money run, or
+prove actual Meta delivery or Live capture/refund.
+
+## Completed baseline replay procedure and inspection
+
+The following preserves the baseline replay procedure used for the 26-source
+installation; it is not a new instruction to repeat Production mutations. The
+latest opening candidate needs its separate release review.
 
 1. Pin source to main `3eb8ce2fcfc8c5ced5915f00f69619386ac90e93`.
    The source manifest contains 328 repository migrations and SHA-256 hashes.
@@ -127,8 +158,8 @@ the installation record and [intake-only proposal](subscription-live-intake-prop
    fresh encrypted database/Storage backup before applying it, preserve existing
    access enforcement and cron, and compare tenant/access/financial facts after
    installation. Prepare independent SaaS configuration only after this check.
-7. Prepare a separately reviewed dark Production migration/configuration change
-   only after staging acceptance. The SaaS endpoint is
+7. The separately approved dark Production configuration and intake activation
+   are completed in the installation record. The SaaS endpoint is
    `/api/subscriptions/live-webhook`, with `payment.captured`, `payment.failed`,
    `refund.created`, `refund.processed` and `refund.failed`. The webhook secret
    is independent of gym OAuth. Do not enable a provider webhook while its

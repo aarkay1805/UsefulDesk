@@ -14,6 +14,7 @@ const OPS_PATHS = [
   '/api/whatsapp/webhook',
   '/api/v1/broadcasts/cron',
   '/api/payments/razorpay/recovery/cron',
+  '/api/subscriptions/live-recovery/cron',
   '/api/meta/leads/recovery/cron',
   '/api/push/cron',
   '/api/attendance/reminders/cron',

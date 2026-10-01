@@ -6,6 +6,67 @@
 
 ---
 
+## 2026-10-01 — Implement original-obligation Live recovery and payment-only scope
+
+Added GET-only recovery in `src/lib/subscriptions/live-recovery.ts`, protected
+operator POST and fixed one-item cron GET; both existing ops pingers include the
+default-off worker. The additive recovery migration persists hold reasons, leases
+original claims/unfinished refunds and records owned append-only exception reviews.
+Canonical crash/webhook races close stale metadata without adding money/access
+authority. Cron output is aggregate-only for public logs. Payment-only Home office
+₹799 acceptance is independent of Meta approval, preserving the approved reminder
+policy; the proposal/runbooks distinguish internal evidence from customer sales.
+Required verification passed lint, TypeScript, 4,232 tests and build. Independent
+review, local rollback/idempotency, real two-session proof and empty cloud staging
+rollback passed; schema is staging-only, Production remains intake-only.
+Gotchas: GET order binding is no paid grant; financial holds are never automatically
+promoted; initiation can remain closed while recovery runs. Real accounting/opening
+references, human Live transactions and hosting invoice reconciliation stay pending.
+
+## 2026-09-30 — Complete independent subscription rollout preparation
+
+Reviewed PR #21's exact `c3031efa` opening candidate with no code defects; lint,
+TypeScript, 4,183 tests and build passed. Fresh exact-source cloud rollback
+acceptance supplies current fixture proof separately from the old unreproduced
+hash. Added release review, operational preflight, financial recovery and Live
+acceptance runbooks, unissued customer documents and the read-only
+`scripts/subscription-rollout-preflight.sql`; corrected stale current-status
+summaries. Production remains intake-only with unchanged access fingerprints,
+554 gym payments, empty Live ledgers and closed financial/capability gates.
+Gotchas: unbound claims, held payments and missing pending-refund events require
+owned manual recovery; GitHub redundant schedule lateness and the Vercel invoice
+discrepancy remain recorded. Meta delivery, actual buyer/issuer review, Production
+opening and authentic Live money acceptance are separate gates.
+
+## 2026-09-30 — Prepare exact Starter pilot opening and bind provider order IDs
+
+The Live capture/refund adapter now reuses exact order-ID verification before
+payment checks or refund creation (`src/lib/subscriptions/live-provider.ts`).
+Changed ID/receipt/request-note regressions pass. The default-closed pilot
+migration and explicit pilot/recovery environment audit prepare only the selected
+Home office ₹799 first Starter term, with immutable operator review and offer
+binding; they seed no evidence and enable no runtime switch. Scope, submitted
+membership-template correction, activation and rollback are recorded in
+`docs/starter-live-pilot-opening-review.md`. Full verification passed (4,183
+tests), plus local/cloud staging rollback and capability preservation checks;
+the membership replacement is In review. Closed candidate installed only on
+empty billing staging; Production installation/opening is separately pending.
+Production remains intake-only and genuine Live acceptance remains open.
+
+## 2026-09-30 — Activate approved Live webhook intake only
+
+PR #20 merged as `5920fa78`; its branch was deleted and CI/CodeQL passed.
+Only the Production environment/database webhook-intake switch was enabled.
+Fresh exact-source deployment is READY on the canonical domain; unsigned intake
+returns 400 and quote/order/refund endpoints remain 404. Live Razorpay webhook
+`TiJKErwIC7VvRr` is Enabled with the five approved events and a configured
+private secret. Preservation counts and empty financial/access ledgers passed;
+Production health passed. Evidence and rollback live in
+`docs/subscription-production-install-record.md` and
+`docs/subscription-live-intake-proposal.md`. Every money/capability gate stays
+closed; Enabled does not establish genuine signed delivery or Live payment/refund
+acceptance.
+
 ## 2026-09-30 — Verify merchant approval and accept isolated cloud staging
 
 Razorpay verified the SaaS domain; owner-authorized Live keys were saved privately

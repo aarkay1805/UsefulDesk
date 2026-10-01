@@ -1,13 +1,29 @@
 # Usefulmade Live SaaS billing draft
 
-**Status (30 September 2026): PR #19 default-off release deployed, billing schema installed
-with every gate off; Live configuration uninstalled.** This is a reviewable initial-term, expiry-only renewal
-and first-full-refund boundary, not a payable offer or billing activation. Gym
-Razorpay OAuth, webhooks, mandates and member ledgers remain separate.
+**Recorded baseline (30 September 2026, after 16:50 UTC): Production is
+intake-only on merged PR #20, exact main
+`5920fa78bfd60d513906616bab86e87ddddd896b`.** The 26-source dark schema,
+Production-only Live credentials, exact merchant/pilot binding and enabled
+provider webhook are installed. Every money, capability, reminder-policy,
+advanced and Test switch remains false; the SaaS ledgers exist and are empty.
+There are no Live SaaS transactions or paid grants. PR #19 is superseded by
+that deployed baseline. The closed opening candidate `33df55bf`, with its staged
+evidence commit `c3031efa`, is in PR #21 and installed only on empty staging;
+Production installation and financial opening require separate review/approval.
+See the [installation record](subscription-production-install-record.md),
+[release review](subscription-release-review.md) and
+[latest read-only preflight](subscription-rollout-preflight.md).
+Gym Razorpay OAuth, webhooks, mandates and member ledgers remain separate.
+
+## Earlier release and acceptance history
+
+The following dated checks precede the installation/configuration/intake steps
+recorded later; absence at an earlier check is not the current state.
+
 PR #17 merged at `a1a0ddab7432e0204cfdc027f042b9c87b01115e`; hosted
 CI and CodeQL passed and canonical Production was READY at
-`dpl_AZtfZQ2qs1TiLhTBt6JdeoZN2vtM` on 29 September. The last read-only database audit found
-no SaaS billing schema or configured Live SaaS path.
+`dpl_AZtfZQ2qs1TiLhTBt6JdeoZN2vtM` on 29 September. The 29 September read-only database audit found
+no SaaS billing schema or configured Live SaaS path at that time.
 The owner has since requested reuse of the existing activated UsefulMade
 merchant. The `acc_` identity can be shared technically, while direct SaaS
 key configuration, webhook handling, order identity and billing records stay
@@ -26,7 +42,8 @@ verified. The owner authorized Live key generation and completed SMS
 verification; the key pair was saved privately with 0600 permissions and
 authenticated a read-only Orders API request (200). No provider order,
 payment, refund or access activation occurred. The independent SaaS webhook
-configuration is prepared privately; it is not installed or enabled.
+configuration was prepared privately and was not yet installed or enabled
+at that pre-installation check.
 
 The unchanged owner-review component also passed an isolated synthetic Chrome
 browser check on 30 September using actual shared controls/styles at desktop
@@ -54,13 +71,16 @@ six authenticated API/isolation/worker checks, rollback billing/capability SQL
 and staging-backed desktop/390 px settings checks. After a fresh encrypted
 backup, the [26-source dark installation](subscription-production-install-record.md)
 completed in Production. Existing tenant/legal/access fingerprints and settings,
-554 gym payments and both active cron jobs were unchanged. All 24 private billing
-tables deny browser access and every gate is off. The subsequent owner-approved
+554 gym payments and both active cron jobs were unchanged. At schema installation, all 24 private billing
+tables denied browser access and every gate was off. The subsequent owner-approved
 Production-only Live credential transfer and merchant/pilot binding completed;
 billing records/offer approvals remain empty. The closed redeployment is READY,
 the audit has zero blockers, four Live POSTs return 404 and Production health
-passed. The provider webhook is uninstalled; the intake-only proposal awaits
-approval.
+passed. The subsequent owner-approved intake-only activation is complete on
+exact main `5920fa78`: the provider webhook is Enabled with the five approved
+events and a configured secret, unsigned intake returns 400, and money
+endpoints remain 404. Every other gate stays closed; actual signed delivery
+and genuine Live acceptance remain pending. See the installation record.
 
 ## Boundaries
 
@@ -154,10 +174,16 @@ approval.
 
 ## Switches and isolation
 
+The table records the current Production baseline. The separately prepared
+[first-term opening candidate](starter-live-pilot-opening-review.md) has passed
+local/cloud staging rollback checks with all gates restored off. Its explicit
+environment audit modes describe reviewed pilot and recovery phases; they do not
+authorize activation. Production has not installed that opening candidate.
+
 | Layer                            | Default                     | Requirement before use                                                                                                                                                                                                                                                                                                                                                                                |
 | -------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live provider                    | configured, intake off      | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, independent SaaS configuration for `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`.                                                       |
-| Webhook intake                   | false                       | `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and the matching private database merchant/pilot/intake switch. Intake alone holds evidence; it does not grant or refund.                                                                                                                                                                                                                          |
+| Live provider                    | configured, intake on       | `USEFULDESK_SAAS_RAZORPAY_MODE=live`, independent SaaS configuration for `LIVE_KEY_ID`, `LIVE_KEY_SECRET`, `LIVE_WEBHOOK_SECRET`, `LIVE_MERCHANT_ID`, and one `USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID`; the full names use the `USEFULDESK_SAAS_RAZORPAY_` prefix. Runtime also requires `NODE_ENV=production` and `VERCEL_ENV=production`.                                                       |
+| Webhook intake                   | true, owner-approved        | `USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED=true` and the matching private database merchant/pilot/intake switch. Intake alone holds evidence; it does not grant or refund.                                                                                                                                                                                                                          |
 | Quote issuance                   | false, database-hard-closed | `USEFULDESK_SAAS_LIVE_QUOTES_ENABLED=true`, one explicitly approved offer row, and the matching private database switch. The database `CHECK` prevents enabling issuance in this draft; the Production audit blocks the runtime flag.                                                                                                                                                                 |
 | Settlement and reconciliation    | false                       | Separate `USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED` flags plus private database settlement switch. The Production env audit currently blocks them.                                                                                                                                                                                           |
 | New order and refund initiation  | false, database-hard-closed | Separate `USEFULDESK_SAAS_LIVE_ORDERS_ENABLED` and `USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED` flags. Database `CHECK` constraints forbid enabling either; a later reviewed migration must deliberately replace them. The Production env audit also blocks both.                                                                                                                                           |
@@ -168,9 +194,9 @@ approval.
 The application does not enforce inequality between the Live SaaS merchant ID
 and a gym account's OAuth merchant. Production environment audit permits a complete dark Live
 configuration, rejects Test keys and money switches, and treats redacted
-protected values as unverified. Its prepared explicit intake-only audit mode
+protected values as unverified. Its explicit intake-only audit mode
 permits only literal true intake after separate approval; default auditing still
-blocks intake. No runtime switch was enabled by this audit change.
+blocks intake. The separately approved activation enabled only intake; the audit itself grants no authority.
 
 **Shared-merchant routing:** the follow-up code checks canonical provider
 order/payment facts before classifying signed deliveries. A provider-proven gym
@@ -180,7 +206,14 @@ change gym payment/refund ledgers. Actual signed mixed-order/refund delivery,
 redelivery and reconciliation on the shared merchant remain acceptance gates.
 All payable switches stay closed.
 
-## Remaining before any Live pilot
+## Remaining before the scoped internal Live run
+
+The owner selected [payment-only internal acceptance](subscription-payment-only-opening-proposal.md).
+Exact first-term capture/refund technical acceptance can proceed independently
+of Meta approval/current-contract delivery after its own release, accounting and
+human authorization gates close. Preserve the approved 7/3/1 after-09:00 policy
+and owner quote acknowledgement. Reminder delivery, broader Starter feature
+acceptance, customer issuance and global capability activation remain separate.
 
 **External handoff:** the selected UsefulMade / Home office organization
 (`8826d9aa-03f2-4ad7-ae91-0553052131f8`, one active branch) has complimentary
@@ -192,9 +225,9 @@ verified `desk.usefulmade.com` on the existing activated UsefulMade merchant
 read-only authentication passes. Isolated full-schema staging and dark Production
 schema installation passed. The owner-authorized Production-only credential
 transfer, merchant/pilot binding and closed redeployment also passed; every
-billing switch remains off. The [intake-only proposal](subscription-live-intake-proposal.md)
-is prepared but unapproved. Configure the independently verified SaaS receiver
-and provider webhook only after that approval, then prove signed mixed deliveries.
+billing switch except intake remains off. The [approved intake-only activation](subscription-live-intake-proposal.md#activation-result)
+is complete with an Enabled provider webhook and signature refusal verified.
+Genuine signed mixed deliveries and Live financial acceptance remain pending.
 The owner confirmed UsefulMade's legal business name, Punjab business address,
 no GST registration, no turnover yet and no foreign-service purchase before the
 later Vercel Pro checkout. Pro is now active; the owner reports payment, while
@@ -212,7 +245,8 @@ customer wording/references into the immutable offer ledger. See
 [paid-pilot readiness](production-readiness.md#owner-decisions-and-acceptance-evidence)
 and the private [offer draft](starter-pilot-offer-draft.md).
 
-1. Finish the customer-payable offer: documented tax/receipt treatment,
+1. Finish the internal acceptance offer: actual internal accounting/technical
+   evidence classification without a self-invoice, documented review references,
    release-specific acceptance of the new Live refund review boundary, and
    acceptance for the selected complimentary pilot. The owner approved
    ₹799 gross, one active branch, web
@@ -229,22 +263,31 @@ and the private [offer draft](starter-pilot-offer-draft.md).
    approval row is seeded; quote issuance and Checkout remain hard-closed
    pending an explicitly reviewed opening migration.
 2. Accept the approved Starter 7/3/1 reminder schedule after 09:00 account-local
-   in final capability/send testing. Initial renewal is owner-initiated.
+   in final capability/send testing. The prepared opening permits the first term
+   only; expiry-only renewal remains hard-closed pending separate review.
    Upgrades, paid add-ons, automated restart, and native Checkout are excluded
    from the first offer. The expiry-only Starter renewal order, settlement,
    customer review and cancellation flow is implemented behind closed gates.
    Its full-schema synthetic checks pass; genuine provider and final offer-specific
    release acceptance are still required before renewal is offered. There is no automatic SaaS debit.
-3. Repeat full-schema Test acceptance through the approved migration path and
-   inspect resulting tables, policies and function grants. The rollback-only
-   synthetic full-schema SQL suite and the scoped two-session race checks passed
-   locally; neither installed the Live schema on an operational Test project or
-   used a Live provider.
-4. Complete genuine provider Test delivery/outage recovery and Release web/native
-   acceptance for the final offer. Only then review a separate Production
-   migration, dark deployment, configuration and explicitly authorized
-   real-money pilot. A synthetic capture alone does not establish Live readiness.
+3. Use the completed cloud full-schema and closed opening-candidate acceptance
+   in the [staging record](subscription-staging-plan.md); retain its synthetic
+   classification. Review the exact candidate and Production manifest, refresh
+   operational evidence, then obtain separate Production installation/opening
+   approval through the [release review](subscription-release-review.md).
+4. Run the [controlled Live acceptance](subscription-live-acceptance-walkthrough.md)
+   after the payment-only scope's gates close. Complete Meta approval/sync and
+   an authorized current-contract reminder send separately before claiming
+   reminder feature acceptance.
+   Home office is internal technical acceptance with the same proprietor;
+   create no self-sale or invoice. Genuine customer issuance additionally needs
+   a real buyer and fact-supported document treatment in the
+   [customer document pack](subscription-customer-document-pack.md).
+   Provider preflight precedes the run; genuine capture/refund proof follows
+   it and remains pending until observed.
 
 Rollback disables new quote/order/refund initiation first while retaining
 signed webhook intake and reconciliation for in-flight money. Every uncertain
-payment/refund remains an owned review item until reconciled.
+payment/refund remains an owned review item until reconciled. Follow the
+[financial recovery runbook](subscription-financial-recovery-runbook.md);
+a code rollback cannot reverse money already moved.
