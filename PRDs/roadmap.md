@@ -1022,26 +1022,25 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
-**Deployed — native scheduler acceptance in progress, 1 October:** PRs #22–#24
-are merged. PR #27 also merged as `e010c23c`, moving its existing readiness scan
-before provider recovery; tests prove same-cycle stale-readiness repair and
-failed-readiness isolation. Final release deployment/acceptance is pending.
-The readiness claim preserves leases/mode/grants/backoff and is
-Production-installed as history `20261001155436`; natural primary ops at
-16:23/16:38 and renewals at 16:41 are healthy. Reserved-secret native dispatch
-is enabled on verified main `6a35e26d`, with Supabase/GitHub and daily cleanup
-retained. Initial natural native attempts failed before worker HTTP responses;
-Production's origin was explicitly set to canonical HTTPS and the same commit
-rebuilt READY at 16:39:16.178 UTC. Natural 10/3-worker acceptance and timed scans
-restart from that release. The
-[rollout record](../docs/production-scheduler-rollout-record.md) preserves the
-failed attempts, financial containment and missing historical confirmation-row
-evidence gap. No missed reminder replay is authorized. Independent monitoring
-is prepared in [draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25),
-with all checks passing; existing/free account, owner channel, Production setup
-and actual alert receipt remain pending. Authentic shared-merchant
-redelivery/mixed-event proof remains separate, bank-credit proof owner-deferred,
-and Meta approval work excluded.
+**Shipped — native scheduler accepted, 1 October:** PRs #22–#24 and
+#27 are merged; exact main `e010c23c` passed CI/CodeQL. Canonical Production
+was READY at 17:11:23.744 UTC. Natural ops at 17:18:23.382 and renewals at
+17:35:12.247 returned HTTP 200, dispatched 10/3 respectively, failed 0, with
+all worker statuses 200. Ten-/thirty-minute runtime scans were clean through
+17:41:30 UTC; exact deployment and GitHub freshness exceptions are in the
+[rollout record](../docs/production-scheduler-rollout-record.md).
+The readiness claim is Production-installed as history `20261001155436`;
+its bounded leased scan precedes recovery and preserves modes/grants/backoff.
+Supabase primary remains healthy, GitHub redundancy and daily cleanup remain
+active. Initial native failures were resolved by explicitly configuring the
+canonical HTTPS origin and rebuilding. Financial initiation stays closed.
+The historical confirmation-row evidence gap remains open; no reconstruction
+or missed reminder replay is authorized. Independent monitoring is prepared in
+[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with current
+checks passing. The owner chose an existing account and its owner channel;
+service identification, Production setup and actual alert receipt remain pending.
+Authentic shared-merchant redelivery/mixed-event proof remains separate,
+bank-credit proof owner-deferred, and Meta approval work excluded.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five

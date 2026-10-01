@@ -1,121 +1,146 @@
 # Production scheduler rollout — 1 October 2026
 
+**Native scheduler acceptance is complete. Natural ops/renewals and timed scans passed.**
+Supabase remains primary and GitHub redundant. Subscription initiation stays closed.
+Independent paging and authentic duplicate/mixed provider delivery remain separate.
+
+## Current functional release
+
+PRs #22–#24 and #27 are merged. Final main
+`e010c23c55c3ceb2c782c4d6904ca0abf031ccf3` passed
+[CI 36897472192](https://github.com/aarkay1805/UsefulDesk/actions/runs/36897472192)
+and [CodeQL 36897471806](https://github.com/aarkay1805/UsefulDesk/actions/runs/36897471806),
+verified at 17:15:43 UTC. Canonical Production deployment
+`dpl_AEhWSKnkKDuZu1xkgtbTjh9FUQ3k` is READY at **17:11:23.744 UTC**;
+canonical metadata was observed at 17:14:33 UTC. Native dispatch remains
+Production-only, authenticated with the reserved bearer secret, against the
+explicit configured canonical origin `https://desk.usefulmade.com`.
+
+- Natural **ops at 17:18:23.382 UTC:** HTTP 200, dispatched 10 / failed 0;
+  all ten worker responses HTTP 200, with matching canonical request logs.
+- **+10-minute scan at 17:22:23 UTC:** zero runtime error clusters and zero
+  deployment HTTP 5xx responses, from READY through 17:22:00 UTC.
+- Natural **renewals at 17:35:12.247 UTC:** HTTP 200, dispatched 3 / failed 0;
+  all three worker responses HTTP 200, with matching canonical request logs.
+- **+30-minute scan at 17:41:46 UTC:** zero runtime error clusters and zero
+  deployment HTTP 5xx responses, from READY through 17:41:30 UTC.
+
+There was no manual authenticated native worker invocation. Request counts,
+disabled HTTP 200 and configuration are not execution or message-delivery proof.
+
 ## Reviewed source and disabled deployment
 
-PR #22 merged after exact-head CI/security checks, then stacked PR #23 was
-retargeted to main, updated and checked before merging. PR #24 closes the
-readiness validity/cadence mismatch and logs only native aggregate/status facts.
-Its main commit `6a35e26d08245109fc9398831f7fd9fb63b7a99f` passed
+PR #22 merged after exact-head CI/security checks. Stacked PR #23 was retargeted
+to main, updated and checked before merging. PR #24 adds the readiness validity/
+cadence repair and redacted native outcomes. Its exact main `6a35e26d` passed
 [CI 36889908975](https://github.com/aarkay1805/UsefulDesk/actions/runs/36889908975)
 and [CodeQL 36889909653](https://github.com/aarkay1805/UsefulDesk/actions/runs/36889909653).
-Canonical off release `dpl_94NgbzhQVyQhGzrg4idR64cYjfPN` returned both
-HTTP 200 disabled aggregates, dispatched 0 / failed 0, at 16:17 UTC.
-The earlier PR #23 off release passed the same canonical check at 15:54 UTC.
+Canonical off release `dpl_94NgbzhQVyQhGzrg4idR64cYjfPN` returned both HTTP 200
+disabled aggregates, dispatched 0 / failed 0, at 16:17 UTC. The earlier PR #23
+off release passed the same canonical check at 15:54 UTC.
 
-## Deployed configuration
+## Configuration, first failures and correction
 
-The exact reviewed main commit was rebuilt into Production as
-`dpl_BLSjneoZFgPn7jbc3gDLdsUwcckT`, READY/aliased to
-`https://desk.usefulmade.com` at **16:19:37.354 UTC**.
-`USEFULDESK_VERCEL_CRONS_ENABLED=true` applies only to Production.
-A new reserved `CRON_SECRET` was provisioned privately; its original random
-64-hex value is retained with 0600 permissions. The existing worker credential and encryption key were retained. The original
-protected URL/key had the owner's 30 September verification; opaque exports
-cannot re-verify their plaintext. The Production audit has zero blockers and
-explicit protected-value/natural-acceptance warnings. Both enabled canonical
-routes reject unauthenticated requests with HTTP 401 without dispatch. The
-provider project cron definitions point to this exact deployment, including
-ops (:03/:18/:33/:48), renewals (:35) and retained daily cleanup (02:17 UTC).
+The initial enabled `6a35e26d` rebuild
+`dpl_BLSjneoZFgPn7jbc3gDLdsUwcckT` was READY/aliased at **16:19:37.354 UTC**.
+`USEFULDESK_VERCEL_CRONS_ENABLED=true` applies only to Production. A new
+reserved `CRON_SECRET` was provisioned privately; its original random 64-hex
+value is retained with 0600 permissions. The existing worker credential and
+encryption key were retained. Opaque protected exports cannot re-verify their
+plaintext; the key retains the owner's original 30 September format attestation.
+Production auditing had zero blockers and explicit protected-value/natural-proof
+warnings. Enabled unauthenticated canonical routes return HTTP 401 without dispatch.
 
-## Natural execution acceptance
-
-The initial **+10-minute scan at 16:29:42 UTC** found zero runtime error clusters
-and zero deployment HTTP 5xx responses since READY. However, the first natural
-native ops request at **16:33:23 UTC** returned HTTP 503, dispatched 10 / failed 10,
-with all worker statuses 0 (no HTTP response). Supabase canonical dispatch was
-healthy. The retained configured-origin path was therefore not accepted.
-
-The first natural renewals request at **16:35:12.248 UTC** also returned HTTP
-503, dispatched 3 / failed 3, with all worker statuses 0.
+The initial +10-minute scan was clean at 16:29:42 UTC. However, natural ops at
+**16:33:23 UTC** returned HTTP 503, dispatched 10 / failed 10; renewals at
+**16:35:12.248 UTC** returned HTTP 503, dispatched 3 / failed 3. All worker statuses
+were 0 (no HTTP response), while Supabase canonical dispatch was healthy.
+Those failed attempts are retained and do not count as acceptance.
 
 At 16:37 UTC, Production `NEXT_PUBLIC_SITE_URL` was explicitly written as
-`https://desk.usefulmade.com`; the original protected Preview record was retained
-separately, with no credential change. Because Next.js inlines this setting at
-build time, the verified commit was rebuilt into
+`https://desk.usefulmade.com`. The original protected Preview record was retained
+separately, with no credential change. Next.js freezes this public setting at
+build time, so the exact verified commit was rebuilt as
 `dpl_6Ab5V91yTwyX7yH2xNP6mEeuu6on`, READY/aliased at **16:39:16.178 UTC**.
-Unauthenticated canonical ops remains HTTP 401. Acceptance/timed scans restart
-from this corrected deployment; both failed runs are preserved. A registered
-request, configuration or unauthenticated probe does not establish dispatch
-success. No manual authenticated native worker invocation is used.
+Natural ops then passed at **16:48:23 UTC** and **17:03:23.213 UTC**, each HTTP 200,
+dispatched 10 / failed 0 / all worker HTTP 200. Its +10 scan at 16:49:55 UTC and
++30 scan at 17:10:18 UTC had zero runtime errors and HTTP 5xx. Final acceptance
+restarts on the later functional release above, including prerequisite ordering.
 
-At **16:48:23 UTC**, corrected native ops passed naturally: HTTP 200,
-dispatched 10 / failed 0, with each worker response HTTP 200 and matching
-canonical worker request logs. The corrected release's **+10-minute scan at
-16:49:55 UTC** found zero runtime error clusters and zero deployment HTTP 5xx
-responses through 16:49:35 UTC. Native renewals at :35 and the corrected
-+30-minute scan remain pending.
+Provider cron definitions point to the active deployment: ops (:03/:18/:33/:48),
+renewals (:35), and unchanged daily import-draft cleanup (02:17 UTC).
 
 ## Readiness repair and primary preservation
 
-Reviewed source `20261001154214_razorpay_readiness_scan_freshness.sql` was
-installed through the approved migration tool as history
-`20261001155436` (330 entries). Replay/rollback tests preserve leases,
-provider-mode isolation and the post-expiry failure backoff. The installed
-function remains invoker, with empty search path and service-only EXECUTE;
-Security Advisors had no ERROR findings or finding for this function.
-At natural primary ops **16:08 UTC**, token scan claimed 1 / readiness verified 1 /
-failed 0 / refreshed 0. The same aggregate reports one earlier refund-reconciliation
-failure because that phase precedes the readiness scan; the next natural cycle
-must establish recovery health. At **16:23 UTC**, natural primary ops returned
-HTTP 200, dispatched 10 / failed 0 / no timeout, with all ten workers HTTP 200,
-including gym and SaaS financial recovery. The merchant activation check is now dated
-16:08:04.384 UTC and the scan lease is released. No reconnect or token rotation
-was needed.
+Reviewed source `20261001154214_razorpay_readiness_scan_freshness.sql` installed
+through the approved migration tool as history `20261001155436` (330 entries).
+Replay/rollback tests preserve leases, provider-mode isolation and failure
+backoff. The installed function remains invoker, with empty search path and
+service-only EXECUTE; Security Advisors had no ERROR findings or finding for it.
 
-Supabase ops (:08/:23/:38/:53) and renewals (:41) remain primary and active.
-GitHub workflows remain enabled as redundant paths; ops natural freshness was
-still a SEV-3 exception at 16:19 UTC, while renewal scheduling recovered at
-15:40:49 UTC. Manual checks do not clear natural freshness. The pre-install full
-backup [36846306908](https://github.com/aarkay1805/UsefulDesk/actions/runs/36846306908)
-passed, including encrypted database and 44-object Storage verification.
+Natural primary ops **16:08 UTC** claimed 1 / readiness verified 1 / failed 0 /
+refreshed 0. Its aggregate retained one earlier refund-reconciliation failure
+because that phase preceded the scan. Primary ops **16:23, 16:38, 16:53, 17:08 UTC**
+then returned HTTP 200, dispatched 10 / failed 0 / no timeout. The final release's
+primary ops at **17:23:00.260 UTC** and **17:38:00.250 UTC** also passed
+10/0/no timeout, with the 17:23 token
+claimed/refreshed/failed all 0. Primary renewals
+**16:41 UTC** and **17:41:00.144 UTC** returned HTTP 200, dispatched 3 /
+failed 0 / no timeout.
+
+PR #27 moves the same bounded, leased scan before provider recovery, so claimed
+expired readiness is repaired before dependent recovery phases. Its regression
+failed on the old order and passes after the move; failed readiness still blocks
+recovery and releases its lease. Full verification passed 4,269 tests/526 files.
+No reconnect, forced token rotation, financial opening or new schema was needed.
+
+Supabase jobs remain active: ops (:08/:23/:38/:53), renewals (:41). GitHub remains
+enabled. At 17:39 UTC, its latest successful natural ops run
+[36892744314](https://github.com/aarkay1805/UsefulDesk/actions/runs/36892744314)
+started **16:32:19 UTC**, within 75 minutes at observation. Latest natural renewals
+[36886155223](https://github.com/aarkay1805/UsefulDesk/actions/runs/36886155223)
+started **15:40:49 UTC**; its two-hour limit expired at 17:40:49 UTC, leaving a
+SEV-3 freshness exception while primary/native renewals are healthy. Ops expires
+at 17:47:19 UTC without a newer successful natural run. Recheck at closeout;
+a past pass does not keep a schedule fresh. Manual runs do not clear freshness.
+Full pre-install backup
+[36846306908](https://github.com/aarkay1805/UsefulDesk/actions/runs/36846306908)
+passed, with encrypted database and 44-object Storage verification.
 
 ## Financial and external boundaries
 
-Subscription quote/order/refund initiation, complimentary conversion, renewals,
-Test and broader capabilities stay closed. Signed intake, settlement and scoped
-financial recovery stay available. The original full-refund access consequence
-is retained. At 16:26 UTC, the lifecycle table contained zero rows; the previously
-documented owner-marked missed confirmation could not be found. This inspection
-precededs the first enabled native dispatch. Catalog/repository checks found no
-explicit lifecycle-row cleanup function or archive; its disappearance is an open
-historical preservation discrepancy, owned by Rajat for investigation against
-prior private snapshots. The old failed record must not be reconstructed or
-replayed. The gym payment count remains 554.
+Quote/order/refund initiation, complimentary conversion, renewals, Test and
+broader capabilities stay closed. Signed intake, settlement and scoped
+financial recovery stay available. Read-only checks at **17:40 UTC** retain one original
+quote/order/payment/grant/refund, three signed events, 554 gym payments and
+manual access version 3 with the original full-refund end time.
 
-The authentic shared-merchant webhook log in the seven-day range still showed
-only the three original successful SaaS deliveries at 15:51 UTC, unchanged on
-the refreshed 16:52 UTC inspection.
-No duplicate or eligible mixed gym delivery was available, and no event/signature
-or new charge was manufactured. Its owner/next action remains the real next
-eligible provider delivery; bank refund-credit proof remains owner-deferred.
+At **16:26 UTC**, the lifecycle table contained zero rows; the previously
+documented owner-marked missed confirmation could not be found. This predates
+the first enabled native dispatch. No explicit lifecycle cleanup function or
+archive was found. Its disappearance remains a historical preservation evidence
+gap, owned by Rajat for investigation against prior private snapshots. The old
+record must not be reconstructed or replayed; no late send is authorized.
+
+The refreshed seven-day provider log at **16:52 UTC** still contained only the
+three original successful SaaS deliveries. No authentic duplicate or eligible
+mixed gym delivery was available. No event/signature or new charge was created
+to fill that gap; next action is inspect the real next eligible delivery.
+Bank refund-credit evidence remains owner-deferred. Meta approval work is excluded.
 
 The independent watchdog is prepared in
-[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with all local
-4,304 tests and hosted CI/security/Preview passing. Its RPC and Production flags
-are not installed. Existing/free account and owner alert channel selection remain
-pending, followed by natural external probes and actual owner notification
-receipt. GitHub inbox is the only previously proven alert channel. Native
-execution redundancy does not establish independent paging. Meta work is excluded.
+[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with default-off
+code, rollback/replay acceptance and external probe configuration. Its RPC and
+Production flags are not installed. The owner selected an existing monitoring
+account and its configured owner channel, naming Rajat Kashyap. The service name
+or dashboard URL is still required to locate it; setup, natural external probes
+and actual notification receipt remain pending. GitHub inbox is the only previously proven alert channel. Execution
+redundancy does not establish independent paging.
 
 ## Containment
 
-Set the native switch false and rebuild the same verified release. Confirm both
-new endpoints return the disabled aggregate. Keep Supabase/GitHub, signed intake,
-settlement and scoped financial recovery; preserve immutable evidence and the
-missed confirmation's terminal state. Do not reuse the watchdog token for dispatch.
-
-Corrected release observations: native ops also passed at 17:03:23.213 UTC
-(10/0/all worker HTTP 200); the +30-minute scan at 17:10:18 UTC found zero
-runtime errors/HTTP 5xx through 17:09:30 UTC. PR #27 readiness prerequisite
-ordering passed all checks and is landing; final release acceptance will
-include its source before declaring complete.
+Set the native switch false and rebuild the verified release. Confirm both new
+endpoints return the disabled aggregate. Keep Supabase/GitHub, signed intake,
+settlement and scoped financial recovery. Preserve immutable evidence and the
+missed confirmation's non-replay instruction. Do not reuse watchdog credentials
+for dispatch.
