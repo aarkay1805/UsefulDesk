@@ -6,6 +6,20 @@
 
 ---
 
+## 2026-10-01 — Activate native scheduling and install readiness repair
+
+PRs #22–#24 and #27 are merged with exact-source checks. Readiness claim source
+is Production-installed as `20261001155436`; its leased scan now precedes
+provider recovery. Natural native ops (10 workers) and renewals (3 workers)
+passed on `e010c23c`, with every worker HTTP 200 and zero failures; ten-/thirty-
+minute runtime scans were clean. Supabase
+primary, GitHub redundancy and daily cleanup remain enabled. The dated
+`docs/production-scheduler-rollout-record.md` pins deployment/timed scans,
+initial failures repaired by a canonical-origin rebuild, financial containment
+and the missing historical confirmation-row evidence gap. Independent owner
+paging and authentic duplicate/mixed provider proof remain pending; scheduler
+execution does not establish either, and no missed reminder replay is authorized.
+
 ## 2026-10-01 — Verify readiness before provider recovery
 
 `runRazorpayRecovery` runs its existing bounded, leased OAuth/readiness scan

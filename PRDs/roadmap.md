@@ -1022,31 +1022,25 @@ facts. Separately hashed data-only containment installed as history
 Production, with intake/settlement/recovery retained. The internal opening record
 pins the actual source, deployment and preservation observations.
 
-**Built — readiness prerequisite ordering, 1 October:** the existing leased
-OAuth/readiness scan now runs before provider recovery phases, avoiding a
-recoverable daily expiry failing an earlier phase in the same cycle. Tests cover
-same-cycle webhook/refund recovery and failed readiness with lease release;
-connection/provider gates, batch limits and backoff are preserved. Deployment
-and natural acceptance remain separate from this implementation.
-
-**Built — scheduler acceptance follow-up, 1 October:** the OAuth scan claim now
-also becomes due when unknown-merchant readiness expires before its independent
-daily token scan. A completed post-expiry attempt retains failure backoff;
-connection/lease/mode/grant boundaries remain unchanged. Disposable SQL
-rollback/replay acceptance passes. Native dispatch logs share the response's
-aggregate/status allowlist for natural-run acceptance. Production installation,
-healthy natural recovery and scheduler acceptance remain to be recorded.
-
-**Built — guarded native scheduler rollout batch, 1 October:** Vercel Pro ops
-and renewal schedules now share the existing Supabase worker groups, behind a
-literal Production-only opt-in and reserved bearer authentication. Canonical
-HTTPS targeting, no redirects, bounded independent calls, aggregate-only output
-and configuration auditing are implemented. Import-draft cleanup and current
-Supabase/GitHub schedules are preserved. Production deployment, private secret
-verification and natural-run acceptance remain pending; disabled HTTP 200 is not
-worker-health evidence. An independent watchdog and proven email/mobile paging
-remain separate setup items. The readiness checklist now records completed
-internal refund/containment and owner-deferred bank credit evidence.
+**Shipped — native scheduler accepted, 1 October:** PRs #22–#24 and
+#27 are merged; exact main `e010c23c` passed CI/CodeQL. Canonical Production
+was READY at 17:11:23.744 UTC. Natural ops at 17:18:23.382 and renewals at
+17:35:12.247 returned HTTP 200, dispatched 10/3 respectively, failed 0, with
+all worker statuses 200. Ten-/thirty-minute runtime scans were clean through
+17:41:30 UTC; exact deployment and GitHub freshness exceptions are in the
+[rollout record](../docs/production-scheduler-rollout-record.md).
+The readiness claim is Production-installed as history `20261001155436`;
+its bounded leased scan precedes recovery and preserves modes/grants/backoff.
+Supabase primary remains healthy, GitHub redundancy and daily cleanup remain
+active. Initial native failures were resolved by explicitly configuring the
+canonical HTTPS origin and rebuilding. Financial initiation stays closed.
+The historical confirmation-row evidence gap remains open; no reconstruction
+or missed reminder replay is authorized. Independent monitoring is prepared in
+[draft PR #25](https://github.com/aarkay1805/UsefulDesk/pull/25), with current
+checks passing. The owner chose an existing account and its owner channel;
+service identification, Production setup and actual alert receipt remain pending.
+Authentic shared-merchant redelivery/mixed-event proof remains separate,
+bank-credit proof owner-deferred, and Meta approval work excluded.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
