@@ -61,18 +61,18 @@ export async function runVercelCron(request: Request, group: CronGroup) {
     group === 'ops' ? OPS_PATHS : RENEWAL_PATHS,
     secret
   );
-  return NextResponse.json(
-    {
-      group,
-      dispatched: result.dispatched,
-      failed: result.failed,
-      // Platform responses carry only counts and fixed worker paths/statuses.
-      results: result.results.map(({ path, status, ok }) => ({
-        path,
-        status,
-        ok,
-      })),
-    },
-    { status: result.failed > 0 ? 503 : 200 }
-  );
+  // Logs and responses share the same allowlist. Natural-run acceptance needs
+  // durable counts/statuses without exposing worker bodies or provider errors.
+  const summary = {
+    group,
+    dispatched: result.dispatched,
+    failed: result.failed,
+    results: result.results.map(({ path, status, ok }) => ({
+      path,
+      status,
+      ok,
+    })),
+  };
+  console.info('[native cron]', JSON.stringify(summary));
+  return NextResponse.json(summary, { status: result.failed > 0 ? 503 : 200 });
 }

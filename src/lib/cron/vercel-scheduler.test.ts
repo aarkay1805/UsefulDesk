@@ -21,6 +21,7 @@ function request(headers = { authorization: `Bearer ${NATIVE_SECRET}` }) {
 
 describe('native Vercel scheduler', () => {
   beforeEach(() => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
     vi.stubEnv('VERCEL_ENV', 'production');
     vi.stubEnv('USEFULDESK_VERCEL_CRONS_ENABLED', 'true');
     vi.stubEnv('CRON_SECRET', NATIVE_SECRET);
@@ -33,6 +34,7 @@ describe('native Vercel scheduler', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -51,6 +53,7 @@ describe('native Vercel scheduler', () => {
         skipped: 'disabled',
       });
       expect(fetch).not.toHaveBeenCalled();
+      expect(console.info).not.toHaveBeenCalled();
     }
   );
 
@@ -171,5 +174,12 @@ describe('native Vercel scheduler', () => {
       ok: false,
     });
     expect(JSON.stringify(body)).not.toContain('private');
+    expect(console.info).toHaveBeenCalledExactlyOnceWith(
+      '[native cron]',
+      JSON.stringify(body)
+    );
+    expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toContain(
+      WORKER_SECRET
+    );
   });
 });

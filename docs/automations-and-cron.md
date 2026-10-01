@@ -272,6 +272,10 @@ Activation and verification:
    To contain native dispatch, set the switch false and redeploy the verified
    release; preserve financial recovery and the existing execution paths.
 
+Enabled native executions log `[native cron]` followed by the same aggregate and
+fixed worker statuses as their response. These logs exclude worker bodies and
+provider errors; retain them with the platform request time for natural evidence.
+
 This adds execution redundancy. GitHub inbox remains the only verified alert
 channel; an independent watchdog and email/mobile paging are still pending.
 
