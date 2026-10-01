@@ -1,14 +1,16 @@
 # Starter Live pilot opening — review candidate
 
-**Current status, 1 October 2026:** PR #21 merged as `71d897a6`, both reviewed
-opening/recovery sources installed with all financial gates off, and canonical
-Production is READY. See the [verified installation record](subscription-production-install-record.md)
-and [exact accounting/opening packet](subscription-production-pilot-review.md).
-Vercel invoice GQBCLHWV-0001 is Paid / US$0.00 due. The dated evidence below
-is historical where it describes the former staging-only candidate or invoice
-discrepancy; genuine Live payment/refund and actual accounting/opening remain pending.
+**Current status, 1 October 2026:** the owner-approved sole Home office internal
+₹799 run opened at 11:19:50 UTC on exact implementation `71d897a6`. One genuine
+capture, full-refund provider GET/commit, signed refund events and one access-end
+effect are recorded. Bank evidence and genuine Live duplicate/mixed delivery
+remain pending. See the
+[current opening record](subscription-production-pilot-opening-record.md) and
+[review authority](subscription-production-pilot-review.md). Earlier closed/
+staging-only status paragraphs below are historical preparation; the procedure
+and original-obligation review boundaries still apply.
 
-**Prepared and verified on empty staging; Production remains intake-only.** This package prepares the
+**Historical candidate, prepared and verified on empty staging.** This package prepares the
 selected Home office internal acceptance path. It does not open payments, seed
 an offer, establish a customer sale, issue an invoice, send a WhatsApp message,
 or establish genuine Live provider acceptance.

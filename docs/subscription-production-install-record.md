@@ -1,9 +1,11 @@
 # Closed billing installation — refreshed 1 October 2026
 
-Production remains intake-only. PR #21 and both reviewed opening/recovery sources
-are now installed; financial activation remains closed. This records schema
-installation and preservation checks, with no paid offer, order, refund or access
-change. The historical 30 September installation follows the latest record below.
+This records the closed PR #21 installation and its preservation checks. The
+subsequent owner-approved Home office internal test opened at 11:19:50 UTC;
+[current opening/capture evidence](subscription-production-pilot-opening-record.md)
+supersedes the intake-only status for that sole pilot. General customer launch,
+renewals, global capabilities and reminder delivery remain separately gated.
+The historical 30 September installation follows the closed 1 October record below.
 
 ## Closed PR #21 release/install — 1 October 2026
 

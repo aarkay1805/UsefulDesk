@@ -971,8 +971,8 @@ restored empty/off state and two concurrent local sessions passed. Independent
 review defects were fixed; lint, TypeScript, 4,232 tests and build passed; public
 cron output contains aggregate counters only. The closed Production installation
 and paid-invoice reconciliation below now supersede that staging-only status.
-Genuine internal accounting/opening review and a human's authentic Live
-capture/full-refund evidence remain; the redundant GitHub freshness exception
+The subsequent owner-approved internal opening and genuine capture are recorded
+below; full-refund evidence remains; the redundant GitHub freshness exception
 remains owned while primary workers are healthy. Meta approval/sync plus authorized delivery is a separate reminder gate;
 real buyer/issuer facts precede customer documents. Renewal/native Checkout/global
 capability activation stays outside the first-term scope.
@@ -992,14 +992,30 @@ still reports the exact membership renewal contract In review; no send occurred.
 The [installation record](../docs/subscription-production-install-record.md) and
 [28-source manifest](../docs/subscription-production-pilot-install-manifest.tsv)
 retain exact source/history mapping. The [review packet](../docs/subscription-production-pilot-review.md)
-is prepared; factual internal accounting review and exact financial opening,
-human signed Live capture/full-refund, and independent Meta delivery acceptance
-remain. No invoice, offer/review, money or access change was fabricated.
+records the owner's subsequent “Confirmed and approved” for internal
+classification and the ₹799 payment/full-refund access outcome. Its closed
+snapshot is historical; the separately approved internal opening follows.
+
+**Shipped — scoped Home office internal opening and first capture, 1 October:**
+The owner supplied bank debit/credit messages/screenshots as the recording method.
+The separately hashed data-only operator source installed at 11:19:50 UTC as
+history `20261001111950`, selecting one actual immutable offer/opening review.
+Exact `71d897a6` rebuilt READY at canonical `dpl_Duze8duP4zeyKTHrQhViGPp4xczu`;
+Production audit passed and only the selected first-term phase is open. One real
+Live ₹799 signed capture at 11:24:59 UTC created one Starter month through
+1 November, with one access-version change. Tenant/legal data and 554 gym payments
+remain unchanged. See the [opening record](../docs/subscription-production-pilot-opening-record.md).
+The separately requested full ₹799 refund processed, signed refund events arrived
+and access ended once without complimentary restoration. Bank evidence, genuine
+duplicate/mixed delivery and independent reminder acceptance remain pending.
+No customer sale, self-invoice, WhatsApp send, renewal, native Checkout or global
+capability activation is claimed.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
-to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production does not offer checkout. Pure tier/branch/capability, verified-add-on
+to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production exposes Live Checkout only to the separately approved Home office
+internal pilot above. Pure tier/branch/capability, verified-add-on
 state, owner-choice conversion rules, and pure base-tier billing transitions are coded and tested. The transition model prorates the listed base-price difference in paise over the actual paid period, keeps an upgrade pending until a trusted payment event, and projects downgrades/cancellations at the paid-through boundary. A pure renewal model keeps the old tier for one fixed 72-hour window after a failed paid renewal, denies new unpaid tier/branch capacity during grace, and resumes paid access only after a trusted verified renewal event. It does not verify provider payments or persist entitlements. The
 no-GST amount draft records listed software, ₹0 GST, and the matching draft total for monthly plans and base-tier upgrades; it is not wired to checkout. The reusable
 first-payment refund model evaluates the request date in the frozen billing-account timezone and reserves one full-refund request per organization. A separate pure confirmed-refund model ends paid access at full-refund confirmation and requires renewal to stop; pending/failed events leave access intact. Neither model calls a provider or changes runtime access. The reusable

@@ -6,6 +6,20 @@
 
 ---
 
+## 2026-10-01 — Open the reviewed Home office internal ₹799 test
+
+Owner approval and bank debit/credit screenshot recording method are retained in
+`subscription-production-pilot-review.md`. The data-only operator migration
+`20261001111500_open_home_office_starter_internal_acceptance.sql` installed as
+connector history `20261001111950`; exact `71d897a6` redeployed READY with only
+the scoped Live phase. `subscription-production-pilot-opening-record.md` pins
+source, deployment and actual observation. One genuine signed ₹799 capture
+created one calendar month and advanced access once; the full original refund is processed,
+access ended once and genuine signed refund events arrived.
+Test, renewals, advanced/global capabilities remain off. No self-invoice,
+customer acceptance or WhatsApp delivery is claimed. Replaying the operator
+source cannot reopen contained flags; keep provider IDs/bank evidence outside Git.
+
 ## 2026-10-01 — Install closed Production Starter opening and recovery
 
 Merged PR #21 at `71d897a6`; main checks and canonical READY deployment passed.

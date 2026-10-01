@@ -1,14 +1,16 @@
 # Subscription financial recovery runbook
 
-**Current Production status, 1 October 2026:** PR #21 merged as `71d897a6`;
-both reviewed opening/recovery sources are installed and canonical Production
-is READY, with financial activation off. The [installation record](subscription-production-install-record.md)
-pins actual source/history, backup and preservation evidence. Historical staging
-and candidate-review statements below do not override this verified installation.
-Actual accounting/opening review and genuine Live capture/refund remain pending.
+**Current status, 1 October 2026:** the owner-approved sole Home office internal
+₹799 run opened at 11:19:50 UTC on exact implementation `71d897a6`. One genuine
+capture, full-refund provider GET/commit, signed refund events and one access-end
+effect are recorded. Bank evidence and genuine Live duplicate/mixed delivery
+remain pending. See the
+[current opening record](subscription-production-pilot-opening-record.md) and
+[review authority](subscription-production-pilot-review.md). Earlier closed/
+staging-only status paragraphs below are historical preparation; the procedure
+and original-obligation review boundaries still apply.
 
-**Prepared procedure; no new Production authority.** Production is currently
-intake-only. Use this procedure after a separately approved first-term opening
+**Prepared procedure; no new Production authority.** Use this procedure within the separately approved first-term opening
 or to investigate existing evidence read-only. It does not authorize a charge,
 refund, switch change, deployment, event replay, access correction, or message.
 Rajat Kashyap owns the incident and approves consequential recovery actions;

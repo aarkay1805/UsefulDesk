@@ -1,8 +1,9 @@
 # Home office internal acceptance — Production review packet
 
-Prepared 1 October 2026. Financial initiation remains closed. This packet records
-actual release preparation and the remaining factual accounting decision; it is
-not an inserted offer, invoice, opening review or completed payment.
+Prepared 1 October 2026. The sole Home office internal test is now open under
+the recorded owner approval and bank-message recording method. The operator
+opening and first capture are recorded in the [opening record](subscription-production-pilot-opening-record.md).
+This packet supplies review authority; it is not a customer invoice or bank receipt.
 
 ## Pinned release and scope
 
@@ -13,10 +14,13 @@ head `aa645e8d95cd5535128fb62294541c918b3c304f`. The complete
 The [installation record](subscription-production-install-record.md) supplies
 actual connector history and deployment evidence after verification.
 
-The owner's new-chat instruction authorizes the closed release/install. The
-internal accounting classification and exact financial opening decision still
-need actual human review facts. Do not use that installation authorization as
-an accounting clearance or payment/refund authorization.
+The owner's new-chat instruction authorized the closed release/install. On
+1 October, after the two review decisions were restated in this chat, the owner
+replied **“Confirmed and approved”**. This supplies the owner's approval of
+internal technical-acceptance classification, no self-sale/self-invoice, and the
+₹799 payment/full-refund scope including the confirmed access consequence.
+The owner then supplied bank debit/credit messages and screenshots as the
+recording method. This records an owner review, not a qualified external review.
 
 | Fact                         | Selected value                                                                                                  |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
@@ -72,20 +76,31 @@ Genuine customer offers/documents require their separate buyer/issuer review.
 - Hosting: owner confirmation was reconciled read-only on 1 October: invoice
   GQBCLHWV-0001 is Paid, US$23.60 paid, US$0.00 due. No duplicate payment.
 
-## Remaining factual accounting review
+## Owner decision and accounting record
 
-Status: **pending**, no review or approval row inserted.
+Recorded 1 October 2026 at approximately 11:05 UTC / 16:35 IST, from the
+owner's direct **“Confirmed and approved”** reply in this chat. Reviewer: Rajat
+Kashyap, matching the verified organization-owner UUID above. Evidence: the
+immediately preceding two-point review explanation and that reply, retained in
+this chat; no external accountant or invented evidence ID is asserted.
 
-The human supplies the actual accounting classification for this same-proprietor
-₹799 capture/full-refund technical run, who reviewed it, when, and its evidence
-reference. The review must acknowledge no self-invoice/customer sale and how the
-actual provider charge/refund/fees will be recorded. An owner statement may
-record an actual owner review; it must not impersonate a qualified external
-review or establish customer tax clearance. Known supplier facts are already in
-the private issuer draft and do not need to be requested again.
+Approved: same-proprietor internal technical acceptance, no customer sale or
+self-invoice, ₹799 initial payment followed by full original ₹799 refund, and
+processed refund ending paid access without restoring complimentary access.
+The original payment/refund identity and actual request still need inspection
+before a provider refund. No real payment, processed refund or paid grant is
+claimed by this approval.
 
-After these facts and the exact financial opening decision are received, prepare
-one reviewed operator migration with the real immutable offer/opening references,
+The owner supplied the recording method in this chat: **“I'll record this from
+my banking message I received, and I'll share the screenshot once I see the debit
+amount or credit amount.”** Record actual bank debit/credit messages and supplied
+screenshots as internal test evidence. Link the original charge/refund and actual
+Razorpay fee/settlement facts when available; do not infer zero fees or claim bank
+credit from a processed-provider status. No accounting-account name or external
+tax clearance is asserted. Actual bank/fee evidence follows the human run.
+
+This completes the factual owner review and scoped opening authority. The applied
+reviewed operator migration creates the real immutable offer/opening references,
 matching owner IDs and current timestamps, selected review binding and actual
 approved reminder-policy version. Follow the exact phase table in the
 [payment-only opening proposal](subscription-payment-only-opening-proposal.md).
@@ -93,4 +108,24 @@ Never insert placeholders or use a new provider transaction as proof of missing
 preflight. A human completes the original real payment. Its exact original
 payment/refund request and access consequence are separately reviewed before a
 real refund. Signed capture, dedupe, one-month grant and processed full-refund
-acceptance remain unproven until that run.
+acceptance are assessed separately in the opening record; refund provider/signature/access outcomes are now recorded there.
+
+## Reviewed operator selector
+
+Source: `20261001111500_open_home_office_starter_internal_acceptance.sql`,
+SHA-256 `ad700825d0ebf6946370003a8b717e7a76dbaebda4d082e4289cea25bf5e9b9e`.
+It guards the exact owner, complimentary version 1, one active INR branch, closed
+settings, empty ledgers and preservation fingerprints. It generates actual
+approval/review UUIDs in the database, pins the approved implementation and its
+28-source manifest, selects the reviewed policy and opens only the first-term
+pilot. Replays preserve the existing review and cannot reopen contained flags.
+No RLS/grant/constraint relaxation or paid-access write is included.
+
+A Production rollback-only preflight of these actual reviewed operator values
+passed insertion, selected scope and same-source replay. It rolled back both
+review rows and every switch; 554 gym payments and the exact access fingerprint
+remained. No synthetic customer, payment or signed event was inserted. Permanent
+application followed READY/runtime verification of the same approved code, at
+11:19:50 UTC, as connector history
+`20261001111950_open_home_office_starter_internal_acceptance`. See the opening
+record for the deployment, real capture and outstanding acceptance evidence.

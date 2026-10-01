@@ -1,25 +1,26 @@
 # UsefulDesk paid-pilot production readiness
 
-**Gate status: CLOSED.** Before accepting money or activating the first paid
-UsefulDesk term, close the common operational and commercial decisions below.
-Automated subscriptions require the additional subscription acceptance gate.
-The owner-selected payment-only internal run follows its own concrete
-[opening proposal](subscription-payment-only-opening-proposal.md); genuine
-customer and reminder acceptance remain separate. An environment audit or a
-Test payment does not authorize a paid launch.
+**General customer launch: CLOSED. Sole Home office internal ₹799 test: OPEN.**
+The owner approved the internal classification and full-refund access consequence,
+then supplied bank debit/credit messages/screenshots as the recording method.
+Customer issuance, reminder delivery and broader subscription activation retain
+their separate gates.
 
-**Current baseline — 1 October 2026:** Production is intake-only on merged
-PR #21 main `71d897a6`, READY `dpl_5KoHAR59NNQyT2WWsikE2rYoDx8h` at the
-canonical domain. Both reviewed opening/recovery sources are installed after
-fresh full backup 36846306908; the complete 28-source manifest and connector
-mapping are in the [installation record](subscription-production-install-record.md).
-Every financial/capability/policy/advanced/Test gate remains closed, all SaaS
-ledgers empty and existing access/data unchanged. Vercel invoice GQBCLHWV-0001
-is now Paid / US$0.00 due, matching the owner's confirmation. The
-[exact review packet](subscription-production-pilot-review.md) is prepared;
-actual internal accounting/opening review and a human's genuine Live capture/refund
-remain before financial activation. Meta approval/sync and authorized delivery
-are independent reminder gates; no customer sale or self-invoice is claimed.
+**Current baseline — 1 October 2026:** exact implementation `71d897a6` is READY
+at canonical deployment `dpl_Duze8duP4zeyKTHrQhViGPp4xczu` (11:17:35.977 UTC).
+The reviewed operator opening installed at 11:19:50 UTC, after backup, protected
+Production flag audit and runtime verification. History is 328 entries; one real
+offer/opening review selects the sole pilot. At 11:30 UTC, one quote, bound order,
+verified Live ₹799 payment and one-month Starter grant exist. The subsequent
+full original refund is now processed; signed refund events arrived and access
+ended once at 11:43:01 UTC, version 3.
+Access advanced once to version 2 from the signed capture at 11:24:59 UTC. Tenant,
+organization and legal fingerprints plus all 554 gym payments remain unchanged.
+Test, renewals, global capabilities and advanced payments remain disabled.
+See the [opening record](subscription-production-pilot-opening-record.md) for
+exact source/history mapping, observation and pending acceptance evidence.
+Vercel invoice GQBCLHWV-0001 is Paid / US$0.00 due. No customer sale or self-invoice
+is claimed. Meta approval/sync and authorized delivery are independent gates.
 
 Use the [release review](subscription-release-review.md),
 [read-only preflight](subscription-rollout-preflight.md),
@@ -27,7 +28,7 @@ Use the [release review](subscription-release-review.md),
 [financial recovery runbook](subscription-financial-recovery-runbook.md) and
 [conditional customer document pack](subscription-customer-document-pack.md).
 The dated checks below preserve the earlier uninstalled/closed snapshots;
-those earlier observations do not override the current intake-only baseline.
+those earlier observations do not override the scoped internal opening above.
 
 **30 September public-policy update:** the owner approved ₹799 gross for an
 invited Starter month, the local day-7 first-payment refund request window,
@@ -207,7 +208,7 @@ conversion are deployed, while Live schema and billing remain absent. Other
 Production observations below remain dated
 snapshots and must be refreshed for the actual paid rollout.
 
-## Decision record
+## Closed-installation decision record — 1 October, before internal opening
 
 | Area                         | Status                                | Evidence and practical limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ---------------------------- | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -236,16 +237,18 @@ issuance. The concurrent clone omitted unrelated cron/realtime/vault objects;
 no Live provider, Production migration or real-money acceptance was involved.
 The Production status in the table remains closed.
 
-### Closeout handoff: intake-only installation versus paid activation
+### Closeout handoff: scoped internal test versus customer activation
 
 The disabled foundation and 28-source schema are installed. The owner approved
 PR #21's closed release/install in this separate chat; exact `71d897a6` is now
 canonical READY and preservation/schema checks pass. That release installed
-no offer/opening review or money/capability activation. Keep the paid gate CLOSED.
+no offer/opening review or money/capability activation. The subsequent separately
+approved operator opening is recorded above; keep the general customer gate CLOSED.
 
-Use the [exact review packet](subscription-production-pilot-review.md) for actual
-internal accounting classification/reviewer/date/evidence and the financial
-opening decision. Main release, installed source/history mapping, backup,
+The [exact review packet](subscription-production-pilot-review.md) now records
+Rajat's 1 October owner approval of internal classification, ₹799 payment/full
+refund and the access outcome. The bank debit/credit message and screenshot recording method
+is supplied, and the scoped opening is executed. Main release, installed source/history mapping, backup,
 environment and provider prerequisite evidence are now concrete. Genuine signed
 capture/refund evidence follows the human run and cannot be invented beforehand.
 
@@ -255,8 +258,9 @@ access in the recorded baseline. The default-off conversion preserves that
 access until signed captured settlement and requires an unchanged reviewed
 access version. An eligible processed full first-payment refund ends the paid
 term without restoring complimentary access. Existing enforcement remains true;
-no Production access changed. This organization shares the supplier's proprietor,
-so label its future controlled run internal technical acceptance and create no
+the real signed capture subsequently advanced only this organization's access.
+This organization shares the supplier's proprietor,
+so label its controlled run internal technical acceptance and create no
 self-sale or invoice. An ordinary customer document additionally needs a genuine
 buyer and final fact-supported issuer treatment.
 
@@ -273,7 +277,8 @@ and global capability activation remain separate.
 The owner-selected [payment-only proposal](subscription-payment-only-opening-proposal.md)
 separates Home office ₹799 first-term capture/refund internal technical acceptance
 from Meta approval/current-contract delivery. Its own exact release/opening,
-internal accounting and human payment/refund gates must close first. Retain the
+internal accounting and human payment gates are now recorded. The separately requested
+original-payment refund processed with signed events and one access-end effect. Retain the
 7/3/1 after-09:00 policy and owner acknowledgement; no reminder send, broader
 feature acceptance or customer sale/invoice follows from this run.
 
@@ -467,13 +472,13 @@ release is healthy with billing closed; it is not ready to accept paid orders.
 The Vercel invoice discrepancy is reconciled: the 1 October provider refresh
 shows Paid and US$0 due. Do not attempt another charge.
 
-| Step                                                                 | Completion evidence                                                                                                                                                                                                                                                                                                                           | Current result                                                                                                                                                                                                                                                                                                                                                                                                              |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Close external and issuer prerequisites                           | Razorpay approval for the SaaS product/domain on the existing merchant; actual internal accounting classification without a self-invoice; pass/fail checks of the original protected canonical URL and encryption-key format. Genuine buyer/tax/document determination remains separate before customer issuance.                             | Domain verified; Live keys saved privately/read-only authentication passed; issuer layout conditional; protected values owner-verified from originals. Home office is an internal acceptance candidate, not a customer sale.                                                                                                                                                                                                |
-| 2. Accept the complete schema in an isolated operational Test target | Review the ordered migration dependencies against actual schema/history, use the approved Supabase migration tool, inspect tables/RLS/function grants, then run final offer, capability, worker, refund and native acceptance. Preserve synthetic/provider evidence separately.                                                               | Local and clean cloud full-schema SQL/Auth/API/worker checks plus staging-backed desktop/390 px settings passed. Synthetic data and gates returned to empty/off; old Test remains paused. See the [staging record](subscription-staging-plan.md).                                                                                                                                                                           |
-| 3. Review the exact dark Production change                           | Pin the release SHA and migration file hashes; confirm backup and recovery ownership; install only through the approved migration tool with billing/capability/money switches off. Verify schema/grants and default-off endpoints, then save the independent SaaS configuration and webhook secret securely.                                  | COMPLETE for closed PR #21 release/install: exact `71d897a6` is canonical READY; main checks passed; both reviewed sources installed after full backup 36846306908, no offer/review or financial switches seeded. Functions/catalogs/grants match staging and tenant/access/554 gym payments are preserved. See installation record.                                                                                        |
-| 4. Review and approve the controlled opening                         | Separately approve the exact first-term quote/order/refund/conversion candidate, environment phases, immutable offer/release review and 7/3/1 after-09:00 policy. Renewals stay hard-closed. Refresh deployment, environment, scheduler and backup evidence at activation.                                                                    | Exact Home office ₹799 offer and policy are selected; both reviewed opening/recovery sources are now installed with all financial gates off. The populated release/preflight packet is ready, but actual internal accounting classification/reviewer/date/evidence and exact financial opening remain pending. Meta approval/current-contract delivery is a separate reminder gate. See the Production pilot review packet. |
-| 5. Run controlled Live acceptance and close recovery                 | After exact Production installation/opening approval, a human completes the selected real payment. Verify signed SaaS/gym routing, exact bound order/receipt, dedupe, late-capture holds and the reviewed full-refund outcome/reconciliation. Renewal remains hard-closed. Classify the same-proprietor run as internal technical acceptance. | Earlier genuine Test evidence exists; final Live capture/refund/shared-merchant evidence remains pending. Actual approved-template delivery remains a separate reminder acceptance gate. Use the [acceptance walkthrough](subscription-live-acceptance-walkthrough.md) and [financial recovery runbook](subscription-financial-recovery-runbook.md).                                                                        |
+| Step                                                                 | Completion evidence                                                                                                                                                                                                                                                                                                                           | Current result                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Close external and issuer prerequisites                           | Razorpay approval for the SaaS product/domain on the existing merchant; actual internal accounting classification without a self-invoice; pass/fail checks of the original protected canonical URL and encryption-key format. Genuine buyer/tax/document determination remains separate before customer issuance.                             | Domain verified; Live keys saved privately/read-only authentication passed; issuer layout conditional; protected values owner-verified from originals. Home office is an internal acceptance candidate, not a customer sale.                                                                                                                                                                                  |
+| 2. Accept the complete schema in an isolated operational Test target | Review the ordered migration dependencies against actual schema/history, use the approved Supabase migration tool, inspect tables/RLS/function grants, then run final offer, capability, worker, refund and native acceptance. Preserve synthetic/provider evidence separately.                                                               | Local and clean cloud full-schema SQL/Auth/API/worker checks plus staging-backed desktop/390 px settings passed. Synthetic data and gates returned to empty/off; old Test remains paused. See the [staging record](subscription-staging-plan.md).                                                                                                                                                             |
+| 3. Review the exact dark Production change                           | Pin the release SHA and migration file hashes; confirm backup and recovery ownership; install only through the approved migration tool with billing/capability/money switches off. Verify schema/grants and default-off endpoints, then save the independent SaaS configuration and webhook secret securely.                                  | COMPLETE for closed PR #21 release/install: exact `71d897a6` is canonical READY; main checks passed; both reviewed sources installed after full backup 36846306908, no offer/review or financial switches seeded. Functions/catalogs/grants match staging and tenant/access/554 gym payments are preserved. See installation record.                                                                          |
+| 4. Review and approve the controlled opening                         | Separately approve the exact first-term quote/order/refund/conversion candidate, environment phases, immutable offer/release review and 7/3/1 after-09:00 policy. Renewals stay hard-closed. Refresh deployment, environment, scheduler and backup evidence at activation.                                                                    | COMPLETE for the sole internal test: owner classification/scope and bank-message recording method recorded; real immutable offer/opening installed at 11:19:50 UTC, protected audit and exact READY release verified. Only selected first-term gates opened. See the opening record. Meta/current-contract delivery remains separate.                                                                         |
+| 5. Run controlled Live acceptance and close recovery                 | After exact Production installation/opening approval, a human completes the selected real payment. Verify signed SaaS/gym routing, exact bound order/receipt, dedupe, late-capture holds and the reviewed full-refund outcome/reconciliation. Renewal remains hard-closed. Classify the same-proprietor run as internal technical acceptance. | One genuine Live ₹799 capture and one full-refund provider GET/commit are recorded. Signed refund delivery also arrived. Genuine Live dedupe/mixed-delivery and bank evidence remain pending. Actual approved-template delivery remains separate. Use the [acceptance walkthrough](subscription-live-acceptance-walkthrough.md) and [financial recovery runbook](subscription-financial-recovery-runbook.md). |
 
 Every step requires its own dated evidence before the next dependent action.
 Rollback first stops **new quote, order and refund initiation** while keeping
