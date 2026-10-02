@@ -1075,7 +1075,7 @@ and actual alert receipt remain pending.
 Authentic shared-merchant redelivery/mixed-event proof remains separate,
 bank-credit proof owner-deferred, and Meta approval work excluded.
 
-**Built and staging accepted — Starter web rollout delivery evidence, 2 October:**
+**Shipped collection / authentic acceptance pending — Starter web rollout delivery evidence, 2 October:**
 The owner selected Starter web billing first; renewals/upgrades/add-ons/native
 Checkout remain outside this opening. Default-off private append-only webhook
 receipts now retain each completed signed handling, including repeated arrivals
@@ -1084,8 +1084,13 @@ listener/merchant, durable SaaS event identity and conflicts; browsers have no
 access, service has no direct DML, and financial/access authority is unchanged.
 Local full-schema rollback/replay and staging acceptance passed with empty/off
 state restored; source installed on staging as history `20261002021926`.
-Production installation/flag activation and authentic provider evidence remain
-pending. Fresh provider GETs at 02:21:36 UTC confirm exact membership and service
+Production installation is verified as history `20261002024027` after the full
+encrypted backup. Collection alone is enabled on canonical exact-main
+`dpl_3JCvxyoykucMAixZGyXAg2cQcE41`; the recovery-only audit has zero blockers,
+initial runtime scans are clean and fresh preservation checks pass. Authentic
+provider repeat/mixed evidence remains pending with zero receipts at 02:49 UTC.
+See the [Production receipt release record](../docs/subscription-delivery-receipts-production-record.md).
+Fresh provider GETs at 02:21:36 UTC confirm exact membership and service
 renewal contracts Approved, closing the earlier template prerequisite; actual
 delivery remains pending. First buyer/issuer facts, exact customer opening,
 capability activation and selected monitoring-service setup/owner notification

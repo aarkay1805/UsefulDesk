@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-10-02 — Enable Starter delivery receipts in Production
+
+PR #29 is merged; the additive receipt migration is Production-installed as
+`20261002024027` after the verified encrypted database/Storage backup. Schema,
+RLS/grants and fresh financial/access/tenant preservation checks passed. Only the
+evidence flag is enabled on exact-main canonical deployment `dpl_3JCvxyoykucMAixZGyXAg2cQcE41`;
+recovery-only audit has zero blockers and bounded startup scans are clean. Evidence lives in
+`docs/subscription-delivery-receipts-production-record.md`. No authentic repeats
+or gym/SaaS mixed traffic have arrived; no customer initiation/capabilities open.
+
 ## 2026-10-02 — Prepare Starter web rollout delivery evidence
 
 The webhook's separately opted-in private append-only receipts retain each

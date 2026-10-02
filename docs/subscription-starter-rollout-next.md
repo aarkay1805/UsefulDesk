@@ -11,7 +11,7 @@ its initiation. Bank refund-credit evidence remains owner-deferred.
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
 | Original Live money/access      | Passed: one verified ₹799 payment, one processed full refund, three reconciled original events, zero recovery items/exceptions and 554 gym payments at the 2 October 02:05:53 UTC Production check. Quotes/orders/refunds/conversion/renewals and tier capabilities remain off; intake/settlement remain on. | Rajat                    |
 | Exact renewal templates         | Prerequisite passed: fresh provider GETs at **02:21:36 UTC** report membership and service renewal APPROVED, POSITIONAL, exact current body/buttons, no header/footer. Stored Production contracts also match. Actual delivery remains pending.                                                              | Rajat                    |
-| Delivery receipts               | Implemented, default off; local rollback/replay and isolated staging checks passed. Production installation and flag activation remain before collecting natural traffic.                                                                                                                                    | Release operator         |
+| Delivery receipts               | Production-installed and collection enabled on exact-main canonical deployment after verified full backup; schema/grants, initial runtime and financial/access preservation passed. Zero natural receipts at 02:49 UTC; authentic acceptance remains pending.                                                | Release operator         |
 | Authentic same-event redelivery | Pending genuine provider traffic: repeated provider event ID and identical body hash, original financial/access preservation and actual provider response logs. Digest fallback and manual reconciliation do not supply this proof.                                                                          | Rajat                    |
 | Mixed gym/SaaS routing          | Pending authentic matching deliveries. An unrelated receipt proves only a foreign order or orderless payment. Correlate private identities with real gym ingress/ledger evidence and verify both financial/access boundaries before calling it gym routing.                                                  | Rajat                    |
 | Reminder delivery               | Select the actual acceptance recipient; prepare and authorize the exact current-contract message, then record its real delivery outcome. Worker HTTP 200 and template approval are separate.                                                                                                                 | Rajat                    |
@@ -69,8 +69,12 @@ The original 28-source opening manifest remains historical and unchanged.
   rollback. At **02:20:13 UTC**, receipts/organizations/payments/events were zero,
   merchant/pilot unbound, all Live gates false and receipt RLS enabled.
 
-Production receipt installation/activation and authentic traffic acceptance are
-not established by these synthetic results.
+These synthetic results do not establish authentic traffic acceptance. Production
+installation is verified separately as history `20261002024027`, following the
+verified full backup. Collection alone is enabled on the exact-source canonical
+deployment with a zero-blocker recovery-only audit and clean initial runtime/
+preservation checks, recorded in the
+[Production receipt release record](subscription-delivery-receipts-production-record.md).
 
 ## Customer opening implementation still required
 
