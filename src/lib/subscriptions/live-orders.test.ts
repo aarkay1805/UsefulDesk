@@ -46,6 +46,53 @@ function admin(claimData: unknown = claim) {
 }
 
 describe('one Live order per frozen quote', () => {
+  it('refuses a customer renewal claim before provider I/O when its runtime gate is closed', async () => {
+    const customer = '33333333-3333-4333-8333-333333333333';
+    const db = admin({
+      ...claim,
+      organization_id: customer,
+      renewal_of_request_id: requestId,
+    });
+    const claimRpc = db.rpc.getMockImplementation()!;
+    db.rpc.mockImplementation(async (name: string) =>
+      name === 'subscription_resolve_live_scope'
+        ? {
+            data: {
+              request_id: requestId,
+              organization_id: customer,
+              merchant_id: config.merchantId,
+              amount_minor: 79900,
+              currency: 'INR',
+              scope: 'customer_sale',
+              renewal_of_request_id: requestId,
+            },
+            error: null,
+          }
+        : claimRpc(name)
+    );
+    const createOrder = vi.fn();
+    await expect(
+      prepareLiveCheckout(
+        { ...input, organizationId: customer },
+        {
+          admin: db as never,
+          config,
+          createOrder,
+          env: {
+            ...env,
+            USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED: 'true',
+            USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED: 'true',
+          },
+        }
+      )
+    ).rejects.toThrow('renewal');
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(
+      db.rpc.mock.calls.some(
+        ([name]) => name === 'subscription_claim_live_order'
+      )
+    ).toBe(false);
+  });
   it('never claims or posts while either money gate is off', async () => {
     const db = admin();
     const createOrder = vi.fn();

@@ -437,6 +437,57 @@ describe('ProductAccessGate', () => {
 });
 
 describe('Live billing access after the initial term', () => {
+  it('keeps customer paid billing reachable with all purchase UI flags closed', async () => {
+    auth.isOrganizationOwner = true;
+    const paid: ProductAccessSnapshot = {
+      ...snapshot,
+      status: 'active',
+      access: {
+        ...access,
+        mode: 'manual',
+        access_starts_at: '2026-09-01T00:00:00Z',
+        access_ends_at: '2099-11-02T12:24:56Z',
+      },
+    };
+    rpc.mockImplementation(async (name: string) => ({
+      error: null,
+      data:
+        name === 'subscription_live_owner_term'
+          ? {
+              request_id: '11111111-1111-4111-8111-111111111111',
+              tier: 'starter',
+              paid_through_end: paid.access.access_ends_at,
+              expired: false,
+              refunded: false,
+              renewal_stopped: false,
+              renewal_available: false,
+            }
+          : name === 'product_access_for_account'
+            ? paid
+            : null,
+    }));
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: auth.accountId,
+          organizationId: auth.organizationId,
+          snapshot: paid,
+        }}
+      >
+        Gym content
+      </ProductAccessGate>
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Open billing' })
+    );
+    expect(await screen.findByText('UsefulDesk Starter')).toBeTruthy();
+    expect(
+      await screen.findByRole('button', { name: 'Cancel renewal' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Review renewal amount' })
+    ).toBeNull();
+  });
   it('offers Live review only to the selected complimentary pilot owner', async () => {
     vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI', 'true');
     auth.isOrganizationOwner = true;
@@ -465,12 +516,14 @@ describe('Live billing access after the initial term', () => {
   function renderPaid(expired: boolean, owner = true) {
     vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI', 'true');
     auth.isOrganizationOwner = owner;
+    auth.organizationId = '8826d9aa-03f2-4ad7-ae91-0553052131f8';
     const paid: ProductAccessSnapshot = {
       ...snapshot,
       allowed: !expired,
       status: expired ? 'expired' : 'active',
       access: {
         ...access,
+        organization_id: auth.organizationId,
         mode: 'manual',
         access_starts_at: '2026-08-01T00:00:00Z',
         access_ends_at: expired

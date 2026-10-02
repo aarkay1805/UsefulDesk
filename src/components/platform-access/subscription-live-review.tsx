@@ -28,9 +28,10 @@ interface LiveTerm {
   renewal_stopped: boolean;
   refunded: boolean;
   expired: boolean;
+  renewal_available?: boolean;
 }
 
-function isTerm(value: unknown): value is LiveTerm {
+export function isLiveTerm(value: unknown): value is LiveTerm {
   if (!value || typeof value !== 'object') return false;
   const term = value as Partial<LiveTerm>;
   return (
@@ -55,6 +56,7 @@ interface LiveOfferPreview {
 }
 
 interface LiveQuote {
+  order_state?: 'claimed' | 'bound' | 'review_required' | null;
   renewal_of_request_id?: string | null;
   payment_state?: 'verified' | 'review_required' | null;
   request_id: string;
@@ -157,14 +159,13 @@ export function SubscriptionLiveReview({
           data != null &&
           (!isQuote(data) ||
             data.tier !== 'starter' ||
-            data.amount_minor !== 79900 ||
-            data.renewal_of_request_id))
+            data.amount_minor !== 79900))
       ) {
         setError('Could not load your plan amount. Try again.');
         return;
       }
       setError('');
-      setTerm(isTerm(termResult.data) ? termResult.data : null);
+      setTerm(isLiveTerm(termResult.data) ? termResult.data : null);
       setLoaded(true);
       setQuote(
         isQuote(data) && data.payment_state !== 'verified' ? data : null
@@ -194,11 +195,17 @@ export function SubscriptionLiveReview({
     quote.starter_reminder_policy_version === policy?.version;
 
   const stopped = term?.renewal_stopped || term?.refunded;
+  const customerRenewalOpen =
+    process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_RENEWALS_UI === 'true' &&
+    term?.renewal_available === true;
+  const orderUnresolved = !!quote?.order_state;
   const canReview =
     loaded &&
     !error &&
     !stopped &&
-    (starterCustomer ? !term : !term || term.expired);
+    (starterCustomer
+      ? !term || (term.expired && customerRenewalOpen)
+      : !term || term.expired);
 
   async function cancelRenewal() {
     if (!term || !cancelAccepted || action) return;
@@ -211,7 +218,11 @@ export function SubscriptionLiveReview({
           p_seen_request_id: term.request_id,
         }
       );
-      if (result.error || !isTerm(result.data) || !result.data.renewal_stopped)
+      if (
+        result.error ||
+        !isLiveTerm(result.data) ||
+        !result.data.renewal_stopped
+      )
         throw (
           result.error ??
           new Error('Could not cancel renewal. Refresh and try again.')
@@ -274,7 +285,7 @@ export function SubscriptionLiveReview({
         (result.data.tier !== 'starter' ||
           result.data.amount_minor !== 79900 ||
           result.data.complimentary_conversion ||
-          result.data.renewal_of_request_id)) ||
+          (!!result.data.renewal_of_request_id && !customerRenewalOpen))) ||
       (term && result.data.renewal_of_request_id !== term.request_id)
     ) {
       toast.error(
@@ -356,6 +367,10 @@ export function SubscriptionLiveReview({
       !!error ||
       stopped ||
       quote.payment_state === 'review_required' ||
+      quote.order_state === 'review_required' ||
+      (starterCustomer &&
+        !!quote.renewal_of_request_id &&
+        !customerRenewalOpen) ||
       action ||
       (quote.tier === 'starter' && !acknowledged) ||
       (starterCustomer
@@ -451,10 +466,11 @@ export function SubscriptionLiveReview({
             <p>
               {stopped
                 ? 'Renewal is cancelled. Contact support to buy again.'
-                : starterCustomer
+                : starterCustomer && !customerRenewalOpen
                   ? 'Contact support to renew after expiry.'
-                  : 'Renew after expiry. Each payment buys one month from payment confirmation.'}
+                  : 'Renew after expiry. Each payment buys one calendar month from payment confirmation.'}
             </p>
+            <p>We do not debit you automatically.</p>
             {!stopped ? (
               <>
                 <div className="flex items-start gap-2">
@@ -598,6 +614,12 @@ export function SubscriptionLiveReview({
         ) : null}
         {quote && !stopped ? (
           <>
+            {orderUnresolved && quote.payment_state !== 'review_required' ? (
+              <p>
+                Payment setup needs a check. Refresh billing before paying
+                again. Contact support if the amount has expired.
+              </p>
+            ) : null}
             <p className="text-foreground text-lg font-semibold tabular-nums">
               {fmt.money(quote.amount_minor / 100, 'INR')} for one month
             </p>
@@ -649,14 +671,21 @@ export function SubscriptionLiveReview({
                 <p>Starter reminders need a review. Contact support.</p>
               )
             ) : null}
-            {quote.payment_state === 'review_required' ? null : expired ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setQuote(null)}
-              >
-                Review a new amount
-              </Button>
+            {quote.payment_state === 'review_required' ||
+            quote.order_state === 'review_required' ? null : expired ? (
+              orderUnresolved ? null : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuote(null)}
+                >
+                  Review a new amount
+                </Button>
+              )
+            ) : starterCustomer &&
+              quote.renewal_of_request_id &&
+              !customerRenewalOpen ? (
+              <p>Contact support to review your renewal.</p>
             ) : (starterCustomer
                 ? process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI
                 : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI) ===

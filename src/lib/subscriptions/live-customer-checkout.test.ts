@@ -207,8 +207,8 @@ describe('separate customer authority and original-pilot isolation', () => {
       amountMinor: 79900,
     });
     expect(db.rpc.mock.calls.map(([name]) => name)).toEqual([
-      'subscription_claim_live_order',
       'subscription_resolve_live_scope',
+      'subscription_claim_live_order',
       'subscription_bind_live_order',
       'subscription_claim_live_order',
     ]);

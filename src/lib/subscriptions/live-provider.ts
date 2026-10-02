@@ -94,6 +94,15 @@ export function liveCustomerRefundsEnabled(
   );
 }
 
+export function liveCustomerRenewalsEnabled(
+  env: NodeJS.ProcessEnv = process.env
+) {
+  return (
+    liveCustomerCheckoutEnabled(env) &&
+    env.USEFULDESK_SAAS_LIVE_CUSTOMER_RENEWALS_ENABLED === 'true'
+  );
+}
+
 export function liveRefundsEnabled(env: NodeJS.ProcessEnv = process.env) {
   return env.USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED === 'true';
 }

@@ -14,6 +14,7 @@ import {
   liveBillingConfig,
   liveQuotesEnabled,
   liveCustomerCheckoutEnabled,
+  liveCustomerRenewalsEnabled,
 } from '@/lib/subscriptions/live-provider';
 
 export const runtime = 'nodejs';
@@ -63,7 +64,8 @@ export async function POST(request: Request) {
         : !liveCustomerCheckoutEnabled() ||
           fields.tier !== 'starter' ||
           fields.seenAmountMinor !== 79900 ||
-          fields.renewalOfRequestId !== undefined ||
+          (fields.renewalOfRequestId !== undefined &&
+            !liveCustomerRenewalsEnabled()) ||
           fields.complimentaryConversionAccepted !== undefined)
     )
       return NextResponse.json(

@@ -457,4 +457,71 @@ describe('Live expiry-only renewal and cancellation', () => {
     expect(screen.queryByRole('button', { name: 'Pay for plan' })).toBeNull();
     expect(openUsefulmadeLiveCheckout).not.toHaveBeenCalled();
   });
+
+  it('reviews an expired customer term through the separate renewal gate', async () => {
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_RENEWALS_UI', 'true');
+    const customerTerm = {
+      request_id: quote.request_id,
+      tier: 'starter',
+      paid_through_end: '2026-10-01T00:00:00Z',
+      renewal_stopped: false,
+      refunded: false,
+      expired: true,
+      renewal_available: true,
+    };
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_live_owner_term'
+          ? customerTerm
+          : name === 'subscription_live_renewal_preview'
+            ? {
+                approval_id: quote.request_id,
+                tier: 'starter',
+                amount_minor: 79900,
+                currency: 'INR',
+                customer_tax_note: 'Reviewed tax note',
+                customer_terms_note: 'One month',
+                renewal_of_request_id: quote.request_id,
+              }
+            : null,
+      error: null,
+    }));
+    render(
+      <SubscriptionLiveReview
+        organizationId={organizationId}
+        accountId={accountId}
+        starterCustomer
+      />
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Review renewal amount' })
+    );
+    expect(await screen.findByText('₹799.00 for one month')).toBeTruthy();
+    expect(screen.queryByRole('combobox')).toBeNull();
+  });
+
+  it('keeps an expired ambiguous order in recovery instead of offering another quote', async () => {
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_live_owner_term'
+          ? null
+          : {
+              ...quote,
+              expires_at: '2026-01-01T00:00:00Z',
+              order_state: 'claimed',
+            },
+      error: null,
+    }));
+    render(
+      <SubscriptionLiveReview
+        organizationId={organizationId}
+        accountId={accountId}
+      />
+    );
+    expect(await screen.findByText(/Payment setup needs a check/)).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Review a new amount' })
+    ).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Pay for plan' })).toBeNull();
+  });
 });

@@ -853,3 +853,15 @@ it('permits only the separately reviewed customer checkout flag set', () => {
     })
   ).toEqual(expect.arrayContaining([blocker('subscription-live-audit-mode')]));
 });
+
+it.each([
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_RENEWALS_ENABLED',
+  'NEXT_PUBLIC_USEFULDESK_CUSTOMER_RENEWALS_UI',
+])('blocks renewal activation in the first-customer audit: %s', (flag) => {
+  expect(
+    evaluateProductionEnvironment(
+      { ...customerCheckoutEnvironment, [flag]: 'true' },
+      { allowLiveCustomerCheckout: true }
+    )
+  ).toContainEqual(blocker('production-safety-flags'));
+});

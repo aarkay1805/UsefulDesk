@@ -21,7 +21,7 @@ import { accessSupportMessage, accessSupportWhatsApp } from './ui-contract';
 import { SubscriptionPlanCards } from './subscription-plan-cards';
 import { SubscriptionTestBilling } from './subscription-test-billing';
 import { SubscriptionCustomerReview } from './subscription-customer-review';
-import { SubscriptionLiveReview } from './subscription-live-review';
+import { SubscriptionLiveReview, isLiveTerm } from './subscription-live-review';
 import {
   SubscriptionConversionReviewDialog,
   type ConversionReviewBranch,
@@ -52,11 +52,6 @@ export interface InitialProductAccess {
   organizationId: string;
   snapshot: ProductAccessSnapshot;
 }
-
-const LiveBillingReview =
-  process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI === 'true'
-    ? SubscriptionCustomerReview
-    : SubscriptionLiveReview;
 
 export function ProductAccessGate({
   children,
@@ -117,6 +112,9 @@ function AccountProductAccess({
   const [requested, setRequested] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
   const [billingOpen, setBillingOpen] = useState(false);
+  const [liveTermOrganization, setLiveTermOrganization] = useState<
+    string | null
+  >(null);
   const [reviewTier, setReviewTier] = useState<SubscriptionTier | null>(null);
   const [conversionBranches, setConversionBranches] = useState<
     ConversionReviewBranch[] | null
@@ -130,8 +128,41 @@ function AccountProductAccess({
     process.env.NODE_ENV !== 'production' &&
     process.env.NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI === 'true';
   const liveReviewUi =
+    (snapshot?.access.mode === 'manual' &&
+      liveTermOrganization === organizationId) ||
+    process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_RENEWALS_UI === 'true' ||
     process.env.NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI === 'true' ||
     process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI === 'true';
+  const LiveBillingReview =
+    organizationId === '8826d9aa-03f2-4ad7-ae91-0553052131f8'
+      ? SubscriptionLiveReview
+      : SubscriptionCustomerReview;
+  useEffect(() => {
+    if (
+      !isOrganizationOwner ||
+      !organizationId ||
+      snapshot?.access.mode !== 'manual'
+    )
+      return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const result = await createClient().rpc(
+          'subscription_live_owner_term',
+          { p_organization_id: organizationId }
+        );
+        if (!cancelled)
+          setLiveTermOrganization(
+            !result.error && isLiveTerm(result.data) ? organizationId : null
+          );
+      } catch {
+        if (!cancelled) setLiveTermOrganization(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [organizationId, isOrganizationOwner, snapshot?.access.mode, nonce]);
   const organizationName =
     branches.find((branch) => branch.account_id === accountId)
       ?.organization_name ||

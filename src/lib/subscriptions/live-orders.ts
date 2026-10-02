@@ -9,6 +9,7 @@ import {
   liveBillingConfig,
   liveOrdersEnabled,
   liveCustomerCheckoutEnabled,
+  liveCustomerRenewalsEnabled,
   liveSettlementsEnabled,
   recoverLiveOrder,
   type LiveBillingConfig,
@@ -45,6 +46,18 @@ export async function prepareLiveCheckout(
   if (customer ? !liveCustomerCheckoutEnabled(env) : !liveOrdersEnabled(env))
     throw new Error('Live checkout scope is disabled');
   const admin = dependencies.admin ?? supabaseAdmin();
+  const authority = customer
+    ? await resolveLiveProviderAuthority(
+        { requestId: input.requestId },
+        config,
+        admin
+      )
+    : undefined;
+  if (authority && authority.organizationId !== input.organizationId)
+    throw new Error('Live checkout authority changed organization');
+  // Check runtime containment before reserving the one provider POST.
+  if (authority?.renewalOfRequestId && !liveCustomerRenewalsEnabled(env))
+    throw new Error('Customer renewal is disabled');
   const { data, error } = await admin.rpc('subscription_claim_live_order', {
     p_request_id: input.requestId,
     p_organization_id: input.organizationId,
@@ -62,19 +75,17 @@ export async function prepareLiveCheckout(
     data.currency !== 'INR'
   )
     throw new Error('Live order claim did not match the reviewed quote');
+  if (
+    customer &&
+    data.renewal_of_request_id &&
+    !liveCustomerRenewalsEnabled(env)
+  )
+    throw new Error('Customer renewal is disabled');
   const facts = {
     requestId: input.requestId,
     organizationId: input.organizationId,
     amountMinor: data.amount_minor,
-    ...(customer
-      ? {
-          authority: await resolveLiveProviderAuthority(
-            { requestId: input.requestId },
-            config,
-            admin
-          ),
-        }
-      : {}),
+    ...(authority ? { authority } : {}),
   };
   if (
     facts.authority &&

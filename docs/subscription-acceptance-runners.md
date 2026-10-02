@@ -21,16 +21,18 @@ clone restore roles remain caller-specific.
 
 ## Existing commands and lifecycle
 
-| Runner                                              | Target | Proof and cleanup                                                                                                                   |
-| --------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `verify-subscription-capabilities-full.mjs`         | Full   | Restores baseline settings and account/user counts after its rollback fixture.                                                      |
-| `verify-subscription-live-full.mjs`                 | Full   | Live boundary, renewal, complimentary and receipt cases; Live schema absent before/after rollback.                                  |
-| `verify-subscription-live-recovery.mjs`             | Full   | Original obligations, holds and recovery; current Starter capability migration is replayed before its updated branch-limit fixture. |
-| `verify-starter-live-pilot-opening.mjs`             | Full   | Default pilot checks; `--customer` adds owner/customer cases; `--documents` also adds documents and prospective signup selection.   |
-| `verify-starter-document-concurrency.mjs`           | Full   | Generated clone: stale-access issuance refusal, exact retry and one-branch races; clone dropped and source unchanged.               |
-| `verify-subscription-live-recovery-concurrency.mjs` | Full   | Generated clone: one original recovery obligation claimed once; clone dropped and source unchanged.                                 |
-| `verify-subscription-test-concurrency.mjs`          | Test   | Trial create/restore capacity races; restores the original gate and retains synthetic fixture rows.                                 |
-| `verify-subscription-renewal-concurrency.mjs`       | Test   | Renewal/refund exactly-once races; restores original settings and retains the printed synthetic organization.                       |
+| Runner                                              | Target | Proof and cleanup                                                                                                                                 |
+| --------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `verify-subscription-capabilities-full.mjs`         | Full   | Restores baseline settings and account/user counts after its rollback fixture.                                                                    |
+| `verify-subscription-live-full.mjs`                 | Full   | Live boundary, renewal, complimentary and receipt cases; Live schema absent before/after rollback.                                                |
+| `verify-subscription-live-recovery.mjs`             | Full   | Original obligations, holds and recovery; current Starter capability migration is replayed before its updated branch-limit fixture.               |
+| `verify-starter-live-pilot-opening.mjs`             | Full   | Default pilot checks; `--customer` adds owner/customer cases; `--documents` also adds documents and prospective signup selection.                 |
+| `verify-starter-document-concurrency.mjs`           | Full   | Generated clone: stale-access issuance refusal, exact retry and one-branch races; clone dropped and source unchanged.                             |
+| `verify-subscription-live-recovery-concurrency.mjs` | Full   | Generated clone: one original recovery obligation claimed once; clone dropped and source unchanged.                                               |
+| `verify-subscription-test-concurrency.mjs`          | Test   | Trial create/restore capacity races; restores the original gate and retains synthetic fixture rows.                                               |
+| `verify-subscription-renewal-concurrency.mjs`       | Test   | Renewal/refund exactly-once races; restores original settings and retains the printed synthetic organization.                                     |
+| `verify-starter-live-renewals.mjs`                  | Full   | Customer renewal source replay and expiry-only/hold/history cases; synthetic opening and all Live schema roll back.                               |
+| `verify-starter-renewal-concurrency.mjs`            | Full   | Generated clone: overlapping quotes, one-create claim, both capture/cancellation outcomes and shutdown races; clone dropped and source unchanged. |
 
 Example with an already prepared disposable full-schema database:
 

@@ -12,7 +12,8 @@ vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ rpc }) }));
 vi.mock('@/hooks/use-locale', () => ({
   useLocale: () => ({ fmt: { money: (value: number) => `₹${value}` } }),
 }));
-vi.mock('./subscription-live-review', () => ({
+vi.mock('./subscription-live-review', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./subscription-live-review')>()),
   SubscriptionLiveReview: () => (
     <div>Existing owner quote and payment flow</div>
   ),

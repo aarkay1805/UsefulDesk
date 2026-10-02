@@ -1,5 +1,24 @@
 # Roadmap
 
+## Built — Customer Starter renewal, closed release (2026-10-02)
+
+**Status: implementation and local acceptance complete; Production installation,
+deployment and opening pending.** Existing paid Starter customers have an
+owner-reviewed ₹799 expiry-only renewal path with separate runtime/UI switches
+and immutable per-customer release authority. The additive migration retains
+the hard-closed constraint and seeds no authority. Paid billing/cancellation
+remain reachable when purchase UI is hidden. One-order recovery, signed
+capture settlement, owned capture holds and original term history are preserved.
+
+**Validation:** 4,395 tests in 536 files, lint, typecheck and production build;
+rolled-back source replay/preservation; independent-session quote/order and
+capture/cancellation/shutdown races; synthetic desktop/390px/320px browser
+inspection; independent review with no outstanding Critical/Important finding.
+Genuine Auth/cloud/provider acceptance is still required. The
+[release packet](../docs/subscription-starter-renewal-release.md) contains the
+source manifest, exact Justin scope, closed-installation contract, containment
+and remaining release acceptance before **2 November 2026, 17:54:56 IST**.
+
 ## Built — Invoice download deployment fix (2026-10-02)
 
 **Status: built and verified locally; deployment pending.** Invoice document

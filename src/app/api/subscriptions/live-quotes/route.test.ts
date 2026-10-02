@@ -263,4 +263,38 @@ describe('Live renewal quote identity', () => {
     rpc.mockResolvedValueOnce({ data: null, error: { code: '55000' } });
     expect((await POST(request(fields))).status).toBe(409);
   });
+
+  it('issues customer renewal only through its separate gate and freezes the predecessor', async () => {
+    const customer = '66666666-6666-4666-8666-666666666666';
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_QUOTES_ENABLED', 'false');
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED', 'true');
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED', 'true');
+    const fields = { ...renewal, organizationId: customer };
+    expect((await POST(request(fields))).status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_RENEWALS_ENABLED', 'true');
+    rpc.mockResolvedValue({
+      data: {
+        request_id: requestId,
+        organization_id: customer,
+        approval_id: approvalId,
+        tier: 'starter',
+        amount_minor: 79900,
+        currency: 'INR',
+        expires_at: '2099-10-02T12:00:00Z',
+        renewal_of_request_id: previous,
+      },
+      error: null,
+    });
+    const response = await POST(request(fields));
+    expect(response.status).toBe(202);
+    expect((await response.json()).quote.renewal_of_request_id).toBe(previous);
+    expect(rpc).toHaveBeenCalledWith(
+      'subscription_create_live_renewal_quote',
+      expect.objectContaining({
+        p_organization_id: customer,
+        p_previous_request_id: previous,
+      })
+    );
+  });
 });

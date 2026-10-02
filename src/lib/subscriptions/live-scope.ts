@@ -14,6 +14,7 @@ export interface LiveProviderAuthority {
   readonly merchantId: string;
   readonly amountMinor: number;
   readonly keyId: string;
+  readonly renewalOfRequestId?: string | null;
 }
 
 export async function resolveLiveProviderAuthority(
@@ -39,6 +40,9 @@ export async function resolveLiveProviderAuthority(
     row.merchant_id !== config.merchantId ||
     row.amount_minor !== 79900 ||
     row.currency !== 'INR' ||
+    (row.renewal_of_request_id != null &&
+      (typeof row.renewal_of_request_id !== 'string' ||
+        !UUID.test(row.renewal_of_request_id))) ||
     !['internal_acceptance', 'customer_sale'].includes(String(row.scope)) ||
     (row.scope === 'internal_acceptance' &&
       row.organization_id !== config.pilotOrganizationId) ||
@@ -52,6 +56,7 @@ export async function resolveLiveProviderAuthority(
     merchantId: config.merchantId,
     amountMinor: row.amount_minor as number,
     keyId: config.keyId,
+    renewalOfRequestId: (row.renewal_of_request_id ?? null) as string | null,
   });
   issued.add(authority);
   return authority;
