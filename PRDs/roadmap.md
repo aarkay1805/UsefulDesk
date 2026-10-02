@@ -1075,6 +1075,25 @@ and actual alert receipt remain pending.
 Authentic shared-merchant redelivery/mixed-event proof remains separate,
 bank-credit proof owner-deferred, and Meta approval work excluded.
 
+**Built and staging accepted — Starter web rollout delivery evidence, 2 October:**
+The owner selected Starter web billing first; renewals/upgrades/add-ons/native
+Checkout remain outside this opening. Default-off private append-only webhook
+receipts now retain each completed signed handling, including repeated arrivals
+and provider-proven unrelated traffic. Service-only RPC checks exact active
+listener/merchant, durable SaaS event identity and conflicts; browsers have no
+access, service has no direct DML, and financial/access authority is unchanged.
+Local full-schema rollback/replay and staging acceptance passed with empty/off
+state restored; source installed on staging as history `20261002021926`.
+Production installation/flag activation and authentic provider evidence remain
+pending. Fresh provider GETs at 02:21:36 UTC confirm exact membership and service
+renewal contracts Approved, closing the earlier template prerequisite; actual
+delivery remains pending. First buyer/issuer facts, exact customer opening,
+capability activation and selected monitoring-service setup/owner notification
+remain. See the [current rollout actions](../docs/subscription-starter-rollout-next.md).
+The installed review/quote/provider routes are pinned to the completed internal
+organization; the first customer also needs a separately reviewed default-closed
+customer scope preserving original-event recovery. Flags alone cannot open it.
+
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate

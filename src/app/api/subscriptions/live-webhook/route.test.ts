@@ -70,6 +70,7 @@ describe('Usefulmade Live webhook intake', () => {
     vi.stubEnv('USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID', merchantId);
     vi.stubEnv('USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID', organizationId);
     vi.stubEnv('USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED', 'true');
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED', 'false');
     rpc.mockResolvedValue({ data: { status: 'held' }, error: null });
     classifyLiveWebhookOrder.mockResolvedValue('saas');
     fetchLivePaymentOrderId.mockResolvedValue('order_Live123');
@@ -277,5 +278,116 @@ describe('Usefulmade Live webhook intake', () => {
     );
     expect(settleCapturedLivePayment).not.toHaveBeenCalled();
     expect(reconcileLiveRefund).not.toHaveBeenCalled();
+  });
+
+  describe('opt-in delivery receipts', () => {
+    beforeEach(() => {
+      vi.stubEnv('USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED', 'true');
+      rpc.mockImplementation(async (name: string) => ({
+        data:
+          name === 'subscription_record_live_delivery_receipt'
+            ? { status: 'recorded' }
+            : { status: 'held' },
+        error: null,
+      }));
+    });
+
+    it('retains each repeated signed delivery after durable SaaS handling', async () => {
+      vi.stubEnv('USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED', 'true');
+      expect((await POST(signedRequest(captured))).status).toBe(200);
+      rpc.mockImplementation(async (name: string) => ({
+        data:
+          name === 'subscription_record_live_delivery_receipt'
+            ? { status: 'recorded' }
+            : { status: 'duplicate' },
+        error: null,
+      }));
+      expect((await POST(signedRequest(captured))).status).toBe(200);
+      const receipts = rpc.mock.calls.filter(
+        ([name]) => name === 'subscription_record_live_delivery_receipt'
+      );
+      expect(receipts).toHaveLength(2);
+      expect(receipts[0][1]).toEqual(receipts[1][1]);
+      expect(receipts[0][1]).toMatchObject({
+        p_event_id_source: 'provider',
+        p_classification: 'saas',
+        p_provider_order_id: 'order_Live123',
+      });
+      expect(rpc.mock.invocationCallOrder[1]).toBeGreaterThan(
+        settleCapturedLivePayment.mock.invocationCallOrder[0]
+      );
+    });
+
+    it('records provider-proven unrelated receipts without claiming or settling SaaS work', async () => {
+      classifyLiveWebhookOrder.mockResolvedValue('unrelated');
+      expect((await POST(signedRequest(captured))).status).toBe(200);
+      expect(rpc).toHaveBeenCalledExactlyOnceWith(
+        'subscription_record_live_delivery_receipt',
+        expect.objectContaining({ p_classification: 'unrelated_order' })
+      );
+      expect(settleCapturedLivePayment).not.toHaveBeenCalled();
+      expect(reconcileLiveRefund).not.toHaveBeenCalled();
+
+      rpc.mockClear();
+      fetchLivePaymentOrderId.mockResolvedValueOnce(null);
+      const noOrder = {
+        ...captured,
+        payload: { payment: { entity: { id: 'pay_Gym123', order_id: null } } },
+      };
+      expect((await POST(signedRequest(noOrder))).status).toBe(200);
+      expect(rpc).toHaveBeenCalledExactlyOnceWith(
+        'subscription_record_live_delivery_receipt',
+        expect.objectContaining({
+          p_classification: 'unrelated_no_order',
+          p_provider_order_id: null,
+        })
+      );
+    });
+
+    it('distinguishes the body-digest fallback from a provider event ID', async () => {
+      const request = signedRequest(captured);
+      request.headers.delete('x-razorpay-event-id');
+      expect((await POST(request)).status).toBe(200);
+      const receipt = rpc.mock.calls.find(
+        ([name]) => name === 'subscription_record_live_delivery_receipt'
+      )?.[1];
+      expect(receipt.p_event_id_source).toBe('body_digest');
+      expect(receipt.p_event_id).toBe(receipt.p_body_sha256);
+    });
+
+    it('never records rejected signatures, uncertain ownership or failed handling', async () => {
+      expect((await POST(signedRequest(captured, '0'.repeat(64)))).status).toBe(
+        400
+      );
+      classifyLiveWebhookOrder.mockRejectedValueOnce(
+        new Error('unknown owner')
+      );
+      expect((await POST(signedRequest(captured))).status).toBe(503);
+      expect(rpc).not.toHaveBeenCalled();
+      vi.stubEnv('USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED', 'true');
+      settleCapturedLivePayment.mockRejectedValueOnce(
+        new Error('provider down')
+      );
+      expect((await POST(signedRequest(captured))).status).toBe(503);
+      expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+        'subscription_record_live_webhook_event',
+      ]);
+    });
+
+    it('asks for retry if an enabled receipt cannot be persisted', async () => {
+      classifyLiveWebhookOrder.mockResolvedValue('unrelated');
+      rpc.mockResolvedValueOnce({ data: null, error: { code: 'database' } });
+      expect((await POST(signedRequest(captured))).status).toBe(503);
+      expect(settleCapturedLivePayment).not.toHaveBeenCalled();
+    });
+
+    it.each(['TRUE', '1', ' true '])(
+      'requires literal opt-in (%s)',
+      async (flag) => {
+        vi.stubEnv('USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED', flag);
+        expect((await POST(signedRequest(captured))).status).toBe(200);
+        expect(rpc).toHaveBeenCalledOnce();
+      }
+    );
   });
 });

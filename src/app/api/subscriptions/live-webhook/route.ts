@@ -20,7 +20,7 @@ function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Live SaaS deliveries are held durably; no delivery grants access or refunds. */
+/** Signed intake precedes the separately gated settlement/refund paths. */
 export async function POST(request: Request) {
   let config;
   try {
@@ -88,23 +88,60 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid event' }, { status: 400 });
 
   const digest = createHash('sha256').update(raw).digest('hex');
-  const eventId = request.headers.get('x-razorpay-event-id') ?? digest;
+  const providerEventId = request.headers.get('x-razorpay-event-id');
+  const eventId = providerEventId ?? digest;
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(eventId))
     return NextResponse.json({ error: 'Invalid event ID' }, { status: 400 });
 
   try {
+    // This opt-in records completed handling, not a provider HTTP-response log
+    // or a commercial acceptance decision. Never backfill historical receipts.
+    const saveDelivery = async (
+      orderId: string | null,
+      classification: 'saas' | 'unrelated_order' | 'unrelated_no_order'
+    ) => {
+      if (process.env.USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED !== 'true')
+        return;
+      const receipt = await supabaseAdmin().rpc(
+        'subscription_record_live_delivery_receipt',
+        {
+          p_merchant_id: config.merchantId,
+          p_pilot_organization_id: config.pilotOrganizationId,
+          p_event_id: eventId,
+          p_event_id_source:
+            providerEventId === null ? 'body_digest' : 'provider',
+          p_event_type: type,
+          p_provider_order_id: orderId,
+          p_provider_payment_id: paymentId,
+          p_provider_refund_id: refundId,
+          p_body_sha256: digest,
+          p_provider_event_at: eventAt,
+          p_classification: classification,
+        }
+      );
+      if (
+        receipt.error ||
+        !record(receipt.data) ||
+        receipt.data.status !== 'recorded'
+      )
+        throw new Error('Live delivery receipt was not saved');
+    };
     const orderId =
       isRefund || payment?.order_id == null
         ? await fetchLivePaymentOrderId(config, paymentId)
         : payment?.order_id;
     // SaaS Checkout is always order-bound. Confirm a missing webhook order
     // against the provider before treating it as another merchant flow.
-    if (orderId === null)
+    if (orderId === null) {
+      await saveDelivery(null, 'unrelated_no_order');
       return NextResponse.json({ received: true, unrelated: true });
+    }
     if (typeof orderId !== 'string' || !/^order_[A-Za-z0-9]+$/.test(orderId))
       return NextResponse.json({ error: 'Invalid event' }, { status: 400 });
-    if ((await classifyLiveWebhookOrder(config, orderId)) === 'unrelated')
+    if ((await classifyLiveWebhookOrder(config, orderId)) === 'unrelated') {
+      await saveDelivery(orderId, 'unrelated_order');
       return NextResponse.json({ received: true, unrelated: true });
+    }
     const { data, error } = await supabaseAdmin().rpc(
       'subscription_record_live_webhook_event',
       {
@@ -150,6 +187,7 @@ export async function POST(request: Request) {
       });
     if (isRefund && liveRefundReconciliationEnabled())
       await reconcileLiveRefund({ paymentId, refundId: refundId as string });
+    await saveDelivery(orderId, 'saas');
     return NextResponse.json({ received: true });
   } catch {
     // A non-2xx response asks the provider to retry; no event is acknowledged

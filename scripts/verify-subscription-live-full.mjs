@@ -53,9 +53,22 @@ const input = [
   ...migrations.map((name) =>
     readFileSync(`${root}/supabase/migrations/${name}`, 'utf8')
   ),
+  // Replay the additive evidence source before fixtures to check idempotency.
+  readFileSync(
+    `${root}/supabase/migrations/20261002023000_subscription_live_delivery_receipts.sql`,
+    'utf8'
+  ),
   ...checks.flatMap((name) => [
     'SAVEPOINT acceptance_fixture;',
     readFileSync(`${root}/scripts/${name}`, 'utf8'),
+    ...(name === 'verify-subscription-live-full.sql'
+      ? [
+          readFileSync(
+            `${root}/scripts/verify-subscription-live-delivery-receipts.sql`,
+            'utf8'
+          ),
+        ]
+      : []),
     'ROLLBACK TO acceptance_fixture;',
     'RELEASE acceptance_fixture;',
   ]),

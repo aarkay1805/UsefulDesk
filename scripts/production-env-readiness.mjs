@@ -38,6 +38,7 @@ const UNSAFE_PRODUCTION_FLAGS = Object.freeze([
   'USEFULDESK_SAAS_LIVE_SETTLEMENTS_ENABLED',
   'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
   'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED',
+  'USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED',
 ]);
 
 // Review boundary only: these modes never write settings or approve an offer.
@@ -267,6 +268,19 @@ export function evaluateProductionEnvironment(
     !conflictingModes &&
     allowLiveIntakeOnly &&
     normalize(env[intakeName]) === 'true';
+  const deliveryEvidenceName = 'USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED';
+  if (
+    (scopedLiveMode || reviewedIntake) &&
+    env[intakeName] === 'true' &&
+    env[deliveryEvidenceName] === 'true'
+  ) {
+    permittedLiveFlags.push(deliveryEvidenceName);
+    add(
+      'warning',
+      'subscription-live-delivery-evidence',
+      'Install and verify the service-only delivery-receipt migration before enabling evidence collection. Receipts record completed signed handling; provider response logs, gym-ledger preservation and reviewer acceptance remain separate.'
+    );
+  }
   // Newly introduced SaaS switches cannot silently inherit an audit exception.
   const safetyFlagNames = [
     ...new Set([

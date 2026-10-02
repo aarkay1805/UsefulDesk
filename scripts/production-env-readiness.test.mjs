@@ -74,6 +74,53 @@ const blocker = (check) =>
   expect.objectContaining({ severity: 'blocker', ...(check ? { check } : {}) });
 
 describe('production environment readiness', () => {
+  it('permits delivery evidence only with explicitly reviewed, enabled Live intake', () => {
+    const name = 'USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED';
+    const checks = evaluateProductionEnvironment(
+      { ...recoveryEnvironment, [name]: 'true' },
+      { allowLiveRecoveryOnly: true }
+    );
+    expect(checks).not.toContainEqual(blocker());
+    expect(checks).toContainEqual(
+      expect.objectContaining({
+        severity: 'warning',
+        check: 'subscription-live-delivery-evidence',
+      })
+    );
+    expect(
+      evaluateProductionEnvironment({ ...intakeEnvironment, [name]: 'true' })
+    ).toContainEqual(blocker('production-safety-flags'));
+    expect(
+      evaluateProductionEnvironment(
+        { ...intakeEnvironment, [name]: 'true' },
+        { allowLiveIntakeOnly: true }
+      )
+    ).not.toContainEqual(blocker());
+    expect(
+      evaluateProductionEnvironment(
+        { ...starterEnvironment, [name]: 'true' },
+        { allowLiveStarterPilot: true }
+      )
+    ).not.toContainEqual(blocker());
+    for (const value of ['1', 'TRUE', ' true ', '[SENSITIVE]']) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...recoveryEnvironment, [name]: value },
+          { allowLiveRecoveryOnly: true }
+        )
+      ).toContainEqual(blocker('production-safety-flags'));
+    }
+    expect(
+      evaluateProductionEnvironment(
+        {
+          ...intakeEnvironment,
+          [name]: 'true',
+          USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED: 'false',
+        },
+        { allowLiveIntakeOnly: true }
+      )
+    ).toContainEqual(blocker('production-safety-flags'));
+  });
   it('keeps external monitoring closed unless separately configured', () => {
     expect(evaluateProductionEnvironment(validEnvironment)).toContainEqual(
       expect.objectContaining({
