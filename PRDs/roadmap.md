@@ -1,8 +1,32 @@
 # Roadmap
 
-## Built — Invoice download deployment fix (2026-10-02)
+## Shipped — Invoice download recovery and useful errors (2026-10-02)
 
-**Status: built and verified locally; deployment pending.** Invoice document
+**Status: database recovery applied and live download verified; app copy included in this release.** A member's
+name saved after an invoice was created can now complete the missing name in
+its first document payload. Captured names and all other invoice facts stay
+unchanged; retries retain the first reserved name, and ready PDFs reuse their
+original bytes. The service-only RPC keeps its tenant and actor checks.
+
+`20261002173354_invoice_document_missing_customer_name.sql` adds this recovery.
+The document and share routes and `invoice-document-errors.ts` give a concrete
+next step for missing names, invoice setup, generation in progress and damaged
+files. Unexpected failures include retry guidance and the invoice number in
+the toast. Invoice setup links now open Settings → Business details.
+
+**Validation:** all 4,395 tests, lint, typecheck, build and isolated deployment
+bundle acceptance pass. The disposable Postgres runner
+`scripts/verify-invoice-customer-name.mjs` reproduces the old failure after a
+name save, then verifies recovery, unchanged invoice identity/amounts, retries,
+ready reuse, actor checks, service-only grants and idempotency with rollback.
+The connector applied the migration as `20261002174706`. Chrome downloaded
+`INV-000560` with the saved member name and correct ₹1,000 total; its 20,221
+bytes match the stored SHA-256. The original invoice row remains identical,
+and invoice/payment/line counts did not change. No WhatsApp message was sent.
+
+## Shipped — Invoice download deployment fix (2026-10-02)
+
+**Status: deployed to Production; original module-load crash resolved.** Invoice document
 and share routes now explicitly include the renderer's Noto Sans fonts in
 their deployment traces (`next.config.ts`). This fixes the production
 module-load crash behind **Could not download the invoice** in member Billing.
@@ -12,6 +36,17 @@ reproduced the missing-font failure before the fix and loads both rebuilt
 handlers afterward without credentials, customer writes, or WhatsApp sends.
 Build and all 4,387 tests pass. Private storage and immutable PDF reuse retain
 their existing contracts.
+
+Production deployment `dpl_1s6Ero6P79eVdX8XooFtTGoSYKW6` (main `9473819b`)
+became READY on `desk.usefulmade.com` at 22:47 IST. Live download attempts
+now reach document validation. A separate remaining blocker affects
+`INV-000560`: its immutable customer snapshot has no name, so the RPC returns
+**Invoice customer snapshot is incomplete** (HTTP 409). Read-only inspection
+found one such invoice among the branch's 560 invoices; no document exists for
+it. Completing the live contact name alone could not repair that frozen
+snapshot. The separate recovery above completes the first document's missing
+name while retaining the invoice's original identity. This deployment check
+changed no Production invoice facts and did not claim a successful download.
 
 ## Built — Enquiry team names and reliable edits (2026-10-02)
 
