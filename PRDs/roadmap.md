@@ -1,8 +1,8 @@
 # Roadmap
 
-## Built — Invoice download recovery and useful errors (2026-10-02)
+## Shipped — Invoice download recovery and useful errors (2026-10-02)
 
-**Status: database recovery applied and live download verified; app copy release in progress.** A member's
+**Status: database recovery applied and live download verified; app copy included in this release.** A member's
 name saved after an invoice was created can now complete the missing name in
 its first document payload. Captured names and all other invoice facts stay
 unchanged; retries retain the first reserved name, and ready PDFs reuse their
@@ -14,7 +14,8 @@ next step for missing names, invoice setup, generation in progress and damaged
 files. Unexpected failures include retry guidance and the invoice number in
 the toast. Invoice setup links now open Settings → Business details.
 
-**Validation:** 164 focused tests pass. The disposable Postgres runner
+**Validation:** all 4,395 tests, lint, typecheck, build and isolated deployment
+bundle acceptance pass. The disposable Postgres runner
 `scripts/verify-invoice-customer-name.mjs` reproduces the old failure after a
 name save, then verifies recovery, unchanged invoice identity/amounts, retries,
 ready reuse, actor checks, service-only grants and idempotency with rollback.
