@@ -45,14 +45,16 @@ Rajat now wants a wider Production rollout. Recommended sequence:
    actual owner test alert. Rajat confirmed in this chat that **no monitoring
    service/account exists**; the earlier assumed existing-account selection is
    superseded. StatusCake Free is the researched small-business candidate; its free
-   account is now signed in by Rajat. Explicit alert email is still requested.
+   account is now signed in by Rajat. Explicit alert email was supplied privately.
    No monitor/token/notification has been created.
-5. The latest human selection is “any new gym member who signs up from now on”;
-   clarify gym business accounts versus individual gym members before expanding
-   onboarding. The original small reviewed Starter-only batch uses exact per-customer
-   preparation and genuine owner approvals. Broader self-service checkout needs
-   a separate onboarding/offer-review implementation; current activation remains
-   per organization. Preserve signed settlement/recovery when containing checkout.
+5. The human explicitly selected **every new gym business account registering
+   for UsefulDesk from now on**, superseding the small named batch. Prepare a
+   separately reviewed onboarding/offer path: retain each organization's trial,
+   require complete buyer/setup review and genuine owner terms/amount/reminder
+   approval, and grant paid access only after verified payment. Existing customer
+   eligibility remains unchanged. Keep broader activation closed until authentic
+   provider and external-alert acceptance complete. Preserve signed financial
+   intake/settlement/recovery when containing checkout.
 
 Justin's gym still needs a real membership plan; setup remains unfinished.
 His WhatsApp connection/delivery remains deferred at Rajat's instruction.
@@ -80,13 +82,8 @@ The completed document/capability steps above supersede their former pending sta
 | Reminder delivery               | Select the actual acceptance recipient; prepare and authorize the exact current-contract message, then record its real delivery outcome. Worker HTTP 200 and template approval are separate.                                                                                                                                                                                                                                                                                                                                      | Rajat                    |
 | Customer opening                | Justin's fitness selected; saved billing legal name/address/phone verified complete at 10:14:19 UTC. Justin's ₹799 agreement, intended billing location/contact and FY 2026–27 zero PAN-wide turnover/no GST/only-business statements confirmed by Rajat. C01 operator disposition, audited defaults/setup finding, exact offer/preparation and verified runtime opening are complete at 11:55:57 UTC. Justin’s genuine owner approval, quote/reminder acknowledgment, payment and issuance remain; see the final opening record. | Rajat                    |
 | Starter capabilities            | Existing local/cloud Auth/API/RLS/worker acceptance passed. Refresh actual candidate schedules, branch roster, access and policy checks, then review exact capability activation with customer opening.                                                                                                                                                                                                                                                                                                                           | Release operator / Rajat |
-| <<<<<<< HEAD                    |
-| Independent watchdog            | Code/RPC exist. Create the selected no-cost service account; configure the prepared probes and separate token; verify natural probes and actual owner notification.                                                                                                                                                                                                                                                                                                                                                               | Rajat                    |
-| =======                         |
-| Independent watchdog            | Code/RPC exist. Identify the chosen existing service/account; configure the prepared probes and separate token; verify natural probes and actual owner notification.                                                                                                                                                                                                                                                                                                                                                              | Rajat                    |
-
-> > > > > > > origin/main
-> > > > > > > | Operations | Primary ops/renewals are healthy; GitHub natural runs resumed but cadence is intermittent. Native scheduler acceptance passed. Review Supabase temporary Free acceptance by 13 October or its earlier triggers. | Rajat |
+| Independent watchdog            | StatusCake Free account signed in; exact owner alert destination supplied privately. Prepare probes/read-only token and verify actual test delivery; authentic provider acceptance remains prior to activation.                                                                                                                                                                                                                                                                                                                   | Rajat                    |
+| Operations                      | Primary ops/renewals are healthy; GitHub cadence is intermittent. Native scheduler acceptance passed. Review Supabase temporary Free acceptance by 13 October or its earlier triggers.                                                                                                                                                                                                                                                                                                                                            | Rajat                    |
 
 ## Receipt behavior and release
 

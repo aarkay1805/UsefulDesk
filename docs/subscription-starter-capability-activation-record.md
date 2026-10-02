@@ -109,3 +109,9 @@ is accessible. The exact alert email remains requested before channel/test setup
 He selected “any new gym member who signs up from now on” for rollout; gym business
 accounts versus individual gym members is being clarified before implementing
 that broader onboarding scope. No new customer preparation/approval was invented.
+
+The human clarified that the new selection covers **every future gym business
+account registering for UsefulDesk**, rather than individual gym members. This
+supersedes the small named batch and requires a separate onboarding/offer path
+with genuine owner review; it does not authorize bypassing trials or recording
+future approvals. The exact owner alert email was supplied privately.

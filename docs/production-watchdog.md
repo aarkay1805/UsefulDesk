@@ -6,7 +6,7 @@ The operator configuration is [prepared here](production-watchdog-config.json).
 StatusCake Free was researched on 2 October as a no-cost small-business candidate
 (ten monitors, five-minute intervals); its free signup page is open for the owner.
 Rajat completed free signup/sign-in; the dashboard is accessible without a paid
-trial. Exact alert email is still requested. No monitor token, monitor or test
+trial. Exact alert email was explicitly supplied privately. No monitor token, monitor or test
 notification has been created. Authentic provider acceptance remains the prior
 ordered rollout step.
 On 2 October, Rajat clarified that he has **no monitoring service/account**.
