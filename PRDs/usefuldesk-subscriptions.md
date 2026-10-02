@@ -34,6 +34,16 @@ feature acceptance nor a customer sale/invoice. Reminder delivery and global
 capability activation remain separately gated; implementation permission supplies
 no fabricated review facts, provider proof or Production flags.
 
+**Customer implementation update — 2 October 2026:** Starter web customer
+checkout is built behind separate default-off switches and immutable operator-
+reviewed scopes. Local rollback/replay and isolated staging acceptance passed;
+Production installation and real customer activation are pending. The completed
+internal capture/refund remains separate technical acceptance. An authentic buyer
+is required for actual commercial issuance, not development or disposable tests.
+Live renewals, upgrades/add-ons, native Checkout and capabilities stay outside
+this opening. See the [customer implementation record](../docs/subscription-starter-customer-checkout.md)
+and [current rollout actions](../docs/subscription-starter-rollout-next.md).
+
 ## Approved customer journey
 
 1. A new verified organization owner starts the existing **one organization-wide 14-day trial**. Signup does not require a tier or payment method. Branches and invited staff share the same deadline; a new branch or a later plan choice never restarts it.

@@ -7,8 +7,11 @@ import {
   liveBillingConfig,
   liveRefundReconciliationEnabled,
   liveSettlementsEnabled,
+  liveCustomerScopeEnabled,
 } from '@/lib/subscriptions/live-provider';
 import { reconcileLiveRefund } from '@/lib/subscriptions/live-refunds';
+
+import { liveRecoveryScopes } from '@/lib/subscriptions/live-scope';
 
 export const runtime = 'nodejs';
 
@@ -29,25 +32,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
   const admin = supabaseAdmin();
-  const pending = await admin.rpc('subscription_list_live_held_events', {
-    p_provider_merchant_id: config.merchantId,
-    p_pilot_organization_id: config.pilotOrganizationId,
-    p_limit: 5,
-    p_capture_enabled: liveSettlementsEnabled(),
-    p_refund_enabled: liveRefundReconciliationEnabled(),
-  });
-  if (pending.error || !Array.isArray(pending.data))
+  const events: unknown[] = [];
+  try {
+    const scopes = liveCustomerScopeEnabled()
+      ? await liveRecoveryScopes(config, admin)
+      : [config.pilotOrganizationId];
+    for (const organizationId of scopes) {
+      if (events.length >= 5) break;
+      const pending = await admin.rpc('subscription_list_live_held_events', {
+        p_provider_merchant_id: config.merchantId,
+        p_pilot_organization_id: organizationId,
+        p_limit: 5 - events.length,
+        p_capture_enabled: liveSettlementsEnabled(),
+        p_refund_enabled: liveRefundReconciliationEnabled(),
+      });
+      if (
+        pending.error ||
+        !Array.isArray(pending.data) ||
+        pending.data.length > 5 - events.length ||
+        pending.data.some(
+          (event) => !record(event) || event.organization_id !== organizationId
+        )
+      )
+        throw new Error('Live recovery event scope changed');
+      events.push(...pending.data);
+    }
+  } catch {
     return NextResponse.json({ error: 'Retry later' }, { status: 503 });
+  }
   let reconciled = 0;
   let failed = 0;
-  for (const event of pending.data) {
+  for (const event of events) {
     if (
       !record(event) ||
       typeof event.event_id !== 'string' ||
       typeof event.body_sha256 !== 'string' ||
       typeof event.provider_order_id !== 'string' ||
       typeof event.provider_payment_id !== 'string' ||
-      event.organization_id !== config.pilotOrganizationId
+      typeof event.organization_id !== 'string'
     ) {
       failed += 1;
       continue;
@@ -78,7 +100,7 @@ export async function POST(request: Request) {
         'subscription_mark_live_event_reconciled',
         {
           p_provider_merchant_id: config.merchantId,
-          p_pilot_organization_id: config.pilotOrganizationId,
+          p_pilot_organization_id: event.organization_id,
           p_event_id: event.event_id,
           p_body_sha256: event.body_sha256,
         }
@@ -95,7 +117,7 @@ export async function POST(request: Request) {
     }
   }
   return NextResponse.json(
-    { inspected: pending.data.length, reconciled, failed },
+    { inspected: events.length, reconciled, failed },
     { status: failed ? 503 : 200 }
   );
 }

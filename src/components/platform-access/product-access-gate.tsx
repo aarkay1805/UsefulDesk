@@ -124,7 +124,8 @@ function AccountProductAccess({
     process.env.NODE_ENV !== 'production' &&
     process.env.NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI === 'true';
   const liveReviewUi =
-    process.env.NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI === 'true';
+    process.env.NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI === 'true' ||
+    process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI === 'true';
   const organizationName =
     branches.find((branch) => branch.account_id === accountId)
       ?.organization_name ||
@@ -480,6 +481,10 @@ function AccountProductAccess({
                 </DialogHeader>
                 {liveReviewUi ? (
                   <SubscriptionLiveReview
+                    starterCustomer={
+                      process.env
+                        .NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI === 'true'
+                    }
                     key={`${organizationId}:${accountId}`}
                     organizationId={organizationId}
                     accountId={accountId}
@@ -551,6 +556,10 @@ function AccountProductAccess({
               />
               {liveReviewUi && isOrganizationOwner && organizationId ? (
                 <SubscriptionLiveReview
+                  starterCustomer={
+                    process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI ===
+                    'true'
+                  }
                   key={`${organizationId}:${accountId}`}
                   organizationId={organizationId}
                   accountId={accountId}
@@ -585,6 +594,10 @@ function AccountProductAccess({
           organizationId &&
           snapshot?.access.mode === 'manual' ? (
             <SubscriptionLiveReview
+              starterCustomer={
+                process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI ===
+                'true'
+              }
               key={`${organizationId}:${accountId}`}
               organizationId={organizationId}
               accountId={accountId}

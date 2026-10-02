@@ -10,11 +10,16 @@ export async function openUsefulmadeLiveCheckout(input: {
   orderId: string;
   amountMinor: number;
   planLabel: string;
+  starterCustomer?: boolean;
   onPayment: (result: CheckoutResult) => void;
 }): Promise<void> {
   if (
     process.env.NODE_ENV !== 'production' ||
-    process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI !== 'true' ||
+    (input.starterCustomer
+      ? process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI !== 'true' ||
+        input.amountMinor !== 79900 ||
+        input.planLabel !== 'Starter'
+      : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI !== 'true') ||
     !/^rzp_live_[A-Za-z0-9]+$/.test(input.keyId) ||
     !/^order_[A-Za-z0-9]+$/.test(input.orderId) ||
     !Number.isSafeInteger(input.amountMinor) ||
@@ -38,7 +43,9 @@ export async function openUsefulmadeLiveCheckout(input: {
     currency: 'INR',
     order_id: input.orderId,
     name: 'UsefulDesk',
-    description: `${input.planLabel} monthly plan · Usefulmade Live pilot`,
+    description: input.starterCustomer
+      ? `${input.planLabel} monthly plan`
+      : `${input.planLabel} monthly plan · Usefulmade Live pilot`,
     handler: input.onPayment,
   }).open();
 }

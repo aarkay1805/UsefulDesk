@@ -9,10 +9,15 @@ import {
   fetchSettledLiveFullRefund,
   liveBillingConfig,
   liveRefundsEnabled,
+  liveCustomerRefundsEnabled,
+  liveCustomerScopeEnabled,
+  fetchLivePaymentOrderId,
   recoverLiveFullRefund,
   type LiveBillingConfig,
   type LiveRefundFacts,
 } from './live-provider';
+
+import { resolveLiveProviderAuthority } from './live-scope';
 
 export class LiveRefundReviewRequired extends Error {}
 
@@ -38,10 +43,12 @@ export async function prepareLiveFullRefund(
   } = {}
 ) {
   const env = dependencies.env ?? process.env;
-  if (!liveRefundsEnabled(env)) throw new Error('Live refunds are disabled');
+  if (!liveRefundsEnabled(env) && !liveCustomerRefundsEnabled(env))
+    throw new Error('Live refunds are disabled');
   const config = dependencies.config ?? liveBillingConfig(env);
-  if (input.organizationId !== config.pilotOrganizationId)
-    throw new Error('Organization is outside the Live pilot');
+  const customer = input.organizationId !== config.pilotOrganizationId;
+  if (customer ? !liveCustomerRefundsEnabled(env) : !liveRefundsEnabled(env))
+    throw new Error('Live refund scope is disabled');
   const admin = dependencies.admin ?? supabaseAdmin();
   const { data, error } = await admin.rpc('subscription_claim_live_refund', {
     p_refund_request_id: input.refundRequestId,
@@ -70,7 +77,21 @@ export async function prepareLiveFullRefund(
     paymentId: data.provider_payment_id,
     orderId: data.provider_order_id,
     amountMinor: data.amount_minor,
+    ...(customer
+      ? {
+          authority: await resolveLiveProviderAuthority(
+            { requestId: data.request_id },
+            config,
+            admin
+          ),
+        }
+      : {}),
   };
+  if (
+    facts.authority &&
+    facts.authority.organizationId !== input.organizationId
+  )
+    throw new Error('Live refund authority changed organization');
   if (data.action === 'confirmed' || data.action === 'review_required')
     return { status: data.action, refundId: data.provider_refund_id ?? null };
   let observed;
@@ -156,11 +177,20 @@ export async function reconcileLiveRefund(
 ) {
   const config = dependencies.config ?? liveBillingConfig();
   const admin = dependencies.admin ?? supabaseAdmin();
+  const orderId = liveCustomerScopeEnabled()
+    ? await fetchLivePaymentOrderId(config, input.paymentId)
+    : null;
+  const authority =
+    liveCustomerScopeEnabled() && orderId
+      ? await resolveLiveProviderAuthority({ orderId }, config, admin)
+      : undefined;
+  const organizationId =
+    authority?.organizationId ?? config.pilotOrganizationId;
   const lookup = await admin.rpc('subscription_live_refund_for_payment', {
     p_provider_payment_id: input.paymentId,
     p_provider_refund_id: input.refundId,
     p_provider_merchant_id: config.merchantId,
-    p_pilot_organization_id: config.pilotOrganizationId,
+    p_pilot_organization_id: organizationId,
   });
   const row = lookup.data;
   if (
@@ -168,7 +198,7 @@ export async function reconcileLiveRefund(
     !record(row) ||
     typeof row.refund_request_id !== 'string' ||
     typeof row.request_id !== 'string' ||
-    row.organization_id !== config.pilotOrganizationId ||
+    row.organization_id !== organizationId ||
     row.provider_payment_id !== input.paymentId ||
     row.provider_refund_id !== input.refundId ||
     typeof row.provider_order_id !== 'string' ||
@@ -183,10 +213,11 @@ export async function reconcileLiveRefund(
   const facts: LiveRefundFacts = {
     refundRequestId: row.refund_request_id,
     requestId: row.request_id,
-    organizationId: config.pilotOrganizationId,
+    organizationId,
     paymentId: input.paymentId,
     orderId: row.provider_order_id,
     amountMinor: row.amount_minor,
+    authority,
   };
   const observed = await (dependencies.fetchRefund ?? fetchLiveRefund)(
     config,

@@ -13,13 +13,14 @@ import { requireSubscriptionOwner } from '@/lib/subscriptions/owner';
 import {
   liveBillingConfig,
   liveQuotesEnabled,
+  liveCustomerCheckoutEnabled,
 } from '@/lib/subscriptions/live-provider';
 
 export const runtime = 'nodejs';
 
 /** Copies an already approved offer after the owner confirms its exact amount. */
 export async function POST(request: Request) {
-  if (!liveQuotesEnabled())
+  if (!liveQuotesEnabled() && !liveCustomerCheckoutEnabled())
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   let config;
   try {
@@ -57,7 +58,13 @@ export async function POST(request: Request) {
       !['starter', 'growth', 'ultimate'].includes(String(fields.tier)) ||
       !Number.isSafeInteger(fields.seenAmountMinor) ||
       (fields.seenAmountMinor as number) < 1 ||
-      fields.organizationId !== config.pilotOrganizationId
+      (fields.organizationId === config.pilotOrganizationId
+        ? !liveQuotesEnabled()
+        : !liveCustomerCheckoutEnabled() ||
+          fields.tier !== 'starter' ||
+          fields.seenAmountMinor !== 79900 ||
+          fields.renewalOfRequestId !== undefined ||
+          fields.complimentaryConversionAccepted !== undefined)
     )
       return NextResponse.json(
         { error: 'Review the amount again' },

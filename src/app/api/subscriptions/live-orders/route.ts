@@ -16,14 +16,18 @@ import { requireSubscriptionOwner } from '@/lib/subscriptions/owner';
 import {
   liveBillingConfig,
   liveOrdersEnabled,
+  liveCustomerCheckoutEnabled,
   liveSettlementsEnabled,
 } from '@/lib/subscriptions/live-provider';
 
 export const runtime = 'nodejs';
 
-/** No UI calls this route; both environment and database charge gates are off. */
+/** Owner Checkout requires separately enabled runtime and database scope gates. */
 export async function POST(request: Request) {
-  if (!liveOrdersEnabled() || !liveSettlementsEnabled())
+  if (
+    (!liveOrdersEnabled() && !liveCustomerCheckoutEnabled()) ||
+    !liveSettlementsEnabled()
+  )
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   let config;
   try {
@@ -44,7 +48,9 @@ export async function POST(request: Request) {
       Object.keys(fields).length !== 2 ||
       !isBranchAccountId(fields.organizationId) ||
       !isBranchAccountId(fields.requestId) ||
-      fields.organizationId !== config.pilotOrganizationId
+      (fields.organizationId === config.pilotOrganizationId
+        ? !liveOrdersEnabled()
+        : !liveCustomerCheckoutEnabled())
     )
       return NextResponse.json(
         { error: 'Invalid Live order' },

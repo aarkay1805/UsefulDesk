@@ -1095,9 +1095,20 @@ renewal contracts Approved, closing the earlier template prerequisite; actual
 delivery remains pending. First buyer/issuer facts, exact customer opening,
 capability activation and selected monitoring-service setup/owner notification
 remain. See the [current rollout actions](../docs/subscription-starter-rollout-next.md).
-The installed review/quote/provider routes are pinned to the completed internal
-organization; the first customer also needs a separately reviewed default-closed
-customer scope preserving original-event recovery. Flags alone cannot open it.
+**Built/default closed — Starter web customer checkout, 2 October:** separate
+immutable customer reviews and per-organization quote/order/refund gates now
+preserve the completed internal pilot while server-owned quote/order authority
+routes customer provider events, settlement, receipts and recovery. Existing owner,
+expired-trial/one-INR-branch/₹799/30-minute/capture-month/reminder and refund-history
+invariants remain. The web customer mode offers Starter first-term only; all new
+runtime/UI flags default off, renewals/native Checkout/capabilities stay closed.
+Local rollback/replay and isolated staging acceptance passed; final closed source
+is staging-installed as `20261002083552`, with zero fixture/authority/financial
+rows and all gates off. A real buyer is not a build/test prerequisite. Production
+installation, authentic buyer/issuer/document review and separately authorized
+customer activation remain pending; Justin's active trial/AED tenant was untouched.
+See the [implementation and acceptance record](../docs/subscription-starter-customer-checkout.md).
+Flags alone cannot authorize a customer.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five

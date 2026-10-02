@@ -8,11 +8,15 @@ import { reconcileLiveRefund } from '@/lib/subscriptions/live-refunds';
 import {
   classifyLiveWebhookOrder,
   fetchLivePaymentOrderId,
+  fetchLiveOrder,
+  liveCustomerScopeEnabled,
   liveBillingConfig,
   liveRefundReconciliationEnabled,
   liveSettlementsEnabled,
   verifyLiveWebhookSignature,
 } from '@/lib/subscriptions/live-provider';
+
+import { resolveLiveProviderAuthority } from '@/lib/subscriptions/live-scope';
 
 export const runtime = 'nodejs';
 
@@ -142,11 +146,24 @@ export async function POST(request: Request) {
       await saveDelivery(orderId, 'unrelated_order');
       return NextResponse.json({ received: true, unrelated: true });
     }
+    const authority = liveCustomerScopeEnabled()
+      ? await resolveLiveProviderAuthority({ orderId }, config, supabaseAdmin())
+      : undefined;
+    const organizationId =
+      authority?.organizationId ?? config.pilotOrganizationId;
+    if (authority)
+      await fetchLiveOrder(config, {
+        requestId: authority.requestId,
+        organizationId,
+        amountMinor: authority.amountMinor,
+        orderId,
+        authority,
+      });
     const { data, error } = await supabaseAdmin().rpc(
       'subscription_record_live_webhook_event',
       {
         p_merchant_id: config.merchantId,
-        p_pilot_organization_id: config.pilotOrganizationId,
+        p_pilot_organization_id: organizationId,
         p_event_id: eventId,
         p_event_type: type,
         p_provider_order_id: orderId,
@@ -167,7 +184,7 @@ export async function POST(request: Request) {
         'subscription_mark_live_event_reconciled',
         {
           p_provider_merchant_id: config.merchantId,
-          p_pilot_organization_id: config.pilotOrganizationId,
+          p_pilot_organization_id: organizationId,
           p_event_id: eventId,
           p_body_sha256: digest,
         }

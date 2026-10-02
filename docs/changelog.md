@@ -6,6 +6,20 @@
 
 ---
 
+## 2026-10-02 — Build default-closed Starter customer web checkout
+
+Separate immutable customer reviews/scopes now authorize Starter quotes/orders,
+provider-proven intake/settlement, receipts and late-event/financial recovery while
+preserving the completed internal pilot binding. First-payment refunds retain
+separate gates/review/history; web customer controls offer Starter only. Code:
+`20261002080000_starter_customer_checkout_scope.sql`, `live-scope.ts`, existing
+Live routes/helpers and review component. Local replay/rollback and empty Billing
+Staging acceptance passed; final source installed as `20261002083552`, every
+fixture rolled back and gate off. Production installation/customer activation
+remain pending. Keep customer identity/recovery support enabled after any approved
+customer order; contain initiation separately. Real buyer/issuer facts are needed
+for issuance, not implementation. Evidence: `subscription-starter-customer-checkout.md`.
+
 ## 2026-10-02 — Enable Starter delivery receipts in Production
 
 PR #29 is merged; the additive receipt migration is Production-installed as

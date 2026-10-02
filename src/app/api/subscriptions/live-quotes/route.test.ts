@@ -9,6 +9,7 @@ vi.mock('@/lib/automations/admin-client', () => ({
   supabaseAdmin: () => ({ rpc }),
 }));
 import { POST } from './route';
+import { ForbiddenError } from '@/lib/auth/account';
 
 const organizationId = '11111111-1111-4111-8111-111111111111';
 const accountId = '22222222-2222-4222-8222-222222222222';
@@ -207,5 +208,59 @@ describe('Live renewal quote identity', () => {
     crossSite.headers.set('sec-fetch-site', 'cross-site');
     expect((await POST(crossSite)).status).toBe(403);
     expect(rpc).not.toHaveBeenCalled();
+  });
+  it('issues only the separately authorized customer Starter amount with original initiation off', async () => {
+    const customer = '55555555-5555-4555-8555-555555555555';
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_QUOTES_ENABLED', 'false');
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED', 'true');
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED', 'true');
+    rpc.mockResolvedValue({
+      data: {
+        request_id: requestId,
+        organization_id: customer,
+        approval_id: approvalId,
+        tier: 'starter',
+        amount_minor: 79900,
+        currency: 'INR',
+        expires_at: '2099-10-02T12:00:00Z',
+      },
+      error: null,
+    });
+    const fields = {
+      ...body,
+      organizationId: customer,
+      tier: 'starter',
+      seenAmountMinor: 79900,
+    };
+    expect((await POST(request(fields))).status).toBe(202);
+    expect(requireSubscriptionOwner).toHaveBeenCalledWith(customer, accountId);
+    for (const extra of [
+      { tier: 'growth' },
+      { seenAmountMinor: 79901 },
+      { renewalOfRequestId: requestId },
+      { complimentaryConversionAccepted: true },
+      { organizationId },
+    ]) {
+      rpc.mockClear();
+      expect((await POST(request({ ...fields, ...extra }))).status).toBe(400);
+      expect(rpc).not.toHaveBeenCalled();
+    }
+  });
+
+  it('refuses customer staff before SQL and respects closed or changed customer reviews', async () => {
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_QUOTES_ENABLED', 'false');
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED', 'true');
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED', 'true');
+    const fields = {
+      ...body,
+      organizationId: '55555555-5555-4555-8555-555555555555',
+      tier: 'starter',
+      seenAmountMinor: 79900,
+    };
+    requireSubscriptionOwner.mockRejectedValueOnce(new ForbiddenError());
+    expect((await POST(request(fields))).status).toBe(403);
+    expect(rpc).not.toHaveBeenCalled();
+    rpc.mockResolvedValueOnce({ data: null, error: { code: '55000' } });
+    expect((await POST(request(fields))).status).toBe(409);
   });
 });
