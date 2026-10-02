@@ -41,6 +41,7 @@ if (sql(absent).trim() !== 't')
 const baseline = readdirSync(`${root}/supabase/migrations`)
   .filter((name) => /^\d+_subscription_live_.*\.sql$/.test(name))
   .sort();
+const customer = '20261002080000_starter_customer_checkout_scope.sql';
 const preparation = '20260930164040_starter_live_pilot_opening_preparation.sql';
 const acceptance = readFileSync(
   `${root}/scripts/verify-starter-live-pilot-opening.sql`,
@@ -64,7 +65,21 @@ const input = [
   ),
   migration,
   migration, // Idempotency: same preparation source twice before fixtures.
+  ...(process.argv[3] === '--customer'
+    ? [
+        readFileSync(`${root}/supabase/migrations/${customer}`, 'utf8'),
+        readFileSync(`${root}/supabase/migrations/${customer}`, 'utf8'),
+      ]
+    : []),
   acceptance,
+  ...(process.argv[3] === '--customer'
+    ? [
+        readFileSync(
+          `${root}/scripts/verify-starter-customer-checkout.sql`,
+          'utf8'
+        ),
+      ]
+    : []),
   'ROLLBACK;',
 ].join('\n');
 const output = sql(input);

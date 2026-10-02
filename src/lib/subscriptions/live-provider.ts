@@ -2,6 +2,11 @@ import 'server-only';
 
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+import {
+  assertLiveProviderAuthority,
+  type LiveProviderAuthority,
+} from './live-scope';
+
 const API_BASE = 'https://api.razorpay.com/v1';
 const PROVIDER_TIMEOUT_MS = 15_000;
 const UUID =
@@ -63,6 +68,28 @@ export function liveOrdersEnabled(env: NodeJS.ProcessEnv = process.env) {
 
 export function liveQuotesEnabled(env: NodeJS.ProcessEnv = process.env) {
   return env.USEFULDESK_SAAS_LIVE_QUOTES_ENABLED === 'true';
+}
+
+export function liveCustomerScopeEnabled(env: NodeJS.ProcessEnv = process.env) {
+  return env.USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED === 'true';
+}
+
+export function liveCustomerCheckoutEnabled(
+  env: NodeJS.ProcessEnv = process.env
+) {
+  return (
+    liveCustomerScopeEnabled(env) &&
+    env.USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED === 'true'
+  );
+}
+
+export function liveCustomerRefundsEnabled(
+  env: NodeJS.ProcessEnv = process.env
+) {
+  return (
+    liveCustomerScopeEnabled(env) &&
+    env.USEFULDESK_SAAS_LIVE_CUSTOMER_REFUNDS_ENABLED === 'true'
+  );
 }
 
 export function liveRefundsEnabled(env: NodeJS.ProcessEnv = process.env) {
@@ -142,6 +169,7 @@ export interface LiveOrderFacts {
   requestId: string;
   organizationId: string;
   amountMinor: number;
+  authority?: LiveProviderAuthority;
 }
 
 function assertFacts(facts: LiveOrderFacts) {
@@ -157,11 +185,16 @@ function assertFacts(facts: LiveOrderFacts) {
 function assertMoneyGate(
   config: LiveBillingConfig,
   kind: 'orders' | 'refunds',
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  customer = false
 ) {
   const current = liveBillingConfig(env);
   if (
-    (kind === 'orders' ? !liveOrdersEnabled(env) : !liveRefundsEnabled(env)) ||
+    (kind === 'orders'
+      ? !(customer ? liveCustomerCheckoutEnabled(env) : liveOrdersEnabled(env))
+      : !(customer
+          ? liveCustomerRefundsEnabled(env)
+          : liveRefundsEnabled(env))) ||
     current.keyId !== config.keyId ||
     current.keySecret !== config.keySecret ||
     current.merchantId !== config.merchantId ||
@@ -198,10 +231,14 @@ export async function createLiveOrder(
   fetchImpl: typeof fetch = fetch,
   env: NodeJS.ProcessEnv = process.env
 ) {
-  assertMoneyGate(config, 'orders', env);
+  assertLiveProviderAuthority(config, facts);
+  assertMoneyGate(
+    config,
+    'orders',
+    env,
+    facts.organizationId !== config.pilotOrganizationId
+  );
   assertFacts(facts);
-  if (facts.organizationId !== config.pilotOrganizationId)
-    throw new Error('Organization is outside the Live pilot');
   return verifiedOrder(
     await request(
       config,
@@ -232,8 +269,7 @@ export async function recoverLiveOrder(
   fetchImpl: typeof fetch = fetch
 ) {
   assertFacts(facts);
-  if (facts.organizationId !== config.pilotOrganizationId)
-    throw new Error('Organization is outside the Live pilot');
+  assertLiveProviderAuthority(config, facts);
   const result = await request(
     config,
     `/orders?receipt=${encodeURIComponent(facts.requestId)}&count=2`,
@@ -252,10 +288,8 @@ export async function fetchLiveOrder(
   fetchImpl: typeof fetch = fetch
 ) {
   assertFacts(facts);
-  if (
-    facts.organizationId !== config.pilotOrganizationId ||
-    !ORDER_ID.test(facts.orderId)
-  )
+  assertLiveProviderAuthority(config, facts);
+  if (!ORDER_ID.test(facts.orderId))
     throw new Error('Invalid Live order identity');
   const result = verifiedOrder(
     await request(config, `/orders/${facts.orderId}`, {}, fetchImpl),
@@ -273,11 +307,8 @@ export async function fetchCapturedLivePayment(
   fetchImpl: typeof fetch = fetch
 ) {
   assertFacts(facts);
-  if (
-    facts.organizationId !== config.pilotOrganizationId ||
-    !ORDER_ID.test(facts.orderId) ||
-    !PAYMENT_ID.test(facts.paymentId)
-  )
+  assertLiveProviderAuthority(config, facts);
+  if (!ORDER_ID.test(facts.orderId) || !PAYMENT_ID.test(facts.paymentId))
     throw new Error('Invalid Live payment identity');
   await fetchLiveOrder(config, facts, fetchImpl);
   const payment = await request(
@@ -354,7 +385,10 @@ export async function classifyLiveWebhookOrder(
   if (
     UUID.test(receipt ?? '') &&
     fields.usefuldesk_request_id === receipt &&
-    fields.usefuldesk_organization_id === config.pilotOrganizationId
+    typeof fields.usefuldesk_organization_id === 'string' &&
+    UUID.test(fields.usefuldesk_organization_id) &&
+    (fields.usefuldesk_organization_id === config.pilotOrganizationId ||
+      liveCustomerScopeEnabled())
   )
     return 'saas';
   if (hasRequest || hasOrganization || UUID.test(receipt ?? ''))
@@ -396,7 +430,13 @@ export async function createLiveFullRefund(
   fetchImpl: typeof fetch = fetch,
   env: NodeJS.ProcessEnv = process.env
 ) {
-  assertMoneyGate(config, 'refunds', env);
+  assertLiveProviderAuthority(config, facts);
+  assertMoneyGate(
+    config,
+    'refunds',
+    env,
+    facts.organizationId !== config.pilotOrganizationId
+  );
   if (!UUID.test(facts.refundRequestId))
     throw new Error('Invalid Live refund request');
   await fetchCapturedLivePayment(config, facts, fetchImpl);
@@ -441,10 +481,8 @@ export async function recoverLiveFullRefund(
   fetchImpl: typeof fetch = fetch
 ) {
   assertFacts(facts);
-  if (
-    facts.organizationId !== config.pilotOrganizationId ||
-    !UUID.test(facts.refundRequestId)
-  )
+  assertLiveProviderAuthority(config, facts);
+  if (!UUID.test(facts.refundRequestId))
     throw new Error('Invalid Live refund identity');
   const result = await request(
     config,
@@ -465,11 +503,8 @@ export async function fetchLiveRefund(
   fetchImpl: typeof fetch = fetch
 ) {
   assertFacts(facts);
-  if (
-    facts.organizationId !== config.pilotOrganizationId ||
-    !UUID.test(facts.refundRequestId) ||
-    !REFUND_ID.test(refundId)
-  )
+  assertLiveProviderAuthority(config, facts);
+  if (!UUID.test(facts.refundRequestId) || !REFUND_ID.test(refundId))
     throw new Error('Invalid Live refund identity');
   const result = verifiedRefund(
     await request(

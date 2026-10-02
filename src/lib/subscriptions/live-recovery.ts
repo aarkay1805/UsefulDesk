@@ -10,11 +10,14 @@ import {
   liveBillingConfig,
   liveRefundReconciliationEnabled,
   liveSettlementsEnabled,
+  liveCustomerScopeEnabled,
   recoverLiveFullRefund,
   recoverLiveOrder,
   type LiveBillingConfig,
   type LiveRefundFacts,
 } from './live-provider';
+
+import { liveRecoveryScopes, resolveLiveProviderAuthority } from './live-scope';
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -69,7 +72,8 @@ function record(value: unknown): value is Record<string, unknown> {
 function validItem(
   value: unknown,
   config: LiveBillingConfig,
-  leaseToken: string
+  leaseToken: string,
+  organizationId = config.pilotOrganizationId
 ): value is RecoveryItem {
   if (
     !record(value) ||
@@ -79,7 +83,7 @@ function validItem(
     value.lease_token !== leaseToken ||
     typeof value.request_id !== 'string' ||
     !UUID.test(value.request_id) ||
-    value.organization_id !== config.pilotOrganizationId ||
+    value.organization_id !== organizationId ||
     value.provider_merchant_id !== config.merchantId ||
     value.amount_minor !== 79900 ||
     value.currency !== 'INR'
@@ -120,7 +124,21 @@ async function recoverItem(
       requestId: item.request_id,
       organizationId: item.organization_id,
       amountMinor: item.amount_minor,
+      ...(item.organization_id !== config.pilotOrganizationId
+        ? {
+            authority: await resolveLiveProviderAuthority(
+              { requestId: item.request_id },
+              config,
+              admin
+            ),
+          }
+        : {}),
     };
+    if (
+      facts.authority &&
+      facts.authority.organizationId !== item.organization_id
+    )
+      return { outcome: 'retry', reason: 'invalid_claim' };
     if (item.item_type === 'order') {
       const order = await recoverLiveOrder(config, facts, fetchImpl);
       if (!order)
@@ -130,13 +148,13 @@ async function recoverItem(
         p_request_id: item.request_id,
         p_provider_order_id: order.id,
         p_provider_merchant_id: config.merchantId,
-        p_pilot_organization_id: config.pilotOrganizationId,
+        p_pilot_organization_id: item.organization_id,
       });
       if (
         bound.error ||
         !record(bound.data) ||
         bound.data.request_id !== item.request_id ||
-        bound.data.organization_id !== config.pilotOrganizationId ||
+        bound.data.organization_id !== item.organization_id ||
         bound.data.provider_order_id !== order.id
       )
         return { outcome: 'retry', reason: failure };
@@ -239,26 +257,36 @@ export async function recoverLiveFinancialObligations(
     throw new Error('Invalid recovery batch limit');
   const leaseToken = dependencies.leaseToken ?? randomUUID();
   if (!UUID.test(leaseToken)) throw new Error('Invalid recovery lease');
-  const claimed = await admin.rpc('subscription_claim_live_recovery_items', {
-    p_provider_merchant_id: config.merchantId,
-    p_pilot_organization_id: config.pilotOrganizationId,
-    p_limit: batchLimit,
-    p_lease_token: leaseToken,
-  });
-  if (
-    claimed.error ||
-    !Array.isArray(claimed.data) ||
-    claimed.data.length > batchLimit
-  )
-    throw new Error('Live financial recovery scan failed');
-  // Fail the changed contract before touching provider or financial RPCs.
-  if (
-    claimed.data.some((item) => !validItem(item, config, leaseToken)) ||
-    new Set(
-      claimed.data.map(
-        (item: RecoveryItem) => `${item.item_type}:${item.item_id}`
+  const scopes = liveCustomerScopeEnabled(env)
+    ? await liveRecoveryScopes(config, admin)
+    : [config.pilotOrganizationId];
+  const claimedItems: RecoveryItem[] = [];
+  for (const organizationId of scopes) {
+    const remaining = batchLimit - claimedItems.length;
+    if (!remaining) break;
+    const claimed = await admin.rpc('subscription_claim_live_recovery_items', {
+      p_provider_merchant_id: config.merchantId,
+      p_pilot_organization_id: organizationId,
+      p_limit: remaining,
+      p_lease_token: leaseToken,
+    });
+    if (
+      claimed.error ||
+      !Array.isArray(claimed.data) ||
+      claimed.data.length > remaining
+    )
+      throw new Error('Live financial recovery scan failed');
+    if (
+      claimed.data.some(
+        (item) => !validItem(item, config, leaseToken, organizationId)
       )
-    ).size !== claimed.data.length
+    )
+      throw new Error('Live financial recovery claim changed identity');
+    claimedItems.push(...claimed.data);
+  }
+  if (
+    new Set(claimedItems.map((item) => `${item.item_type}:${item.item_id}`))
+      .size !== claimedItems.length
   )
     throw new Error('Live financial recovery claim changed identity');
   const items: Array<{
@@ -268,7 +296,7 @@ export async function recoverLiveFinancialObligations(
     reason: Reason;
     recorded: boolean;
   }> = [];
-  for (const item of claimed.data as RecoveryItem[]) {
+  for (const item of claimedItems) {
     let observation = await recoverItem(
       item,
       config,
@@ -284,7 +312,7 @@ export async function recoverLiveFinancialObligations(
           p_item_id: item.item_id,
           p_lease_token: leaseToken,
           p_provider_merchant_id: config.merchantId,
-          p_pilot_organization_id: config.pilotOrganizationId,
+          p_pilot_organization_id: item.organization_id,
           p_outcome: observation.outcome,
           p_reason: observation.reason,
         }

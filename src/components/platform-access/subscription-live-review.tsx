@@ -109,10 +109,12 @@ export function SubscriptionLiveReview({
   organizationId,
   accountId,
   onChanged,
+  starterCustomer = false,
 }: {
   organizationId: string;
   accountId: string;
   onChanged?: () => void;
+  starterCustomer?: boolean;
 }) {
   const { fmt } = useLocale();
   const [term, setTerm] = useState<LiveTerm | null>(null);
@@ -148,7 +150,16 @@ export function SubscriptionLiveReview({
       const { data, error: readError } = quoteResult;
       if (cancelled) return;
       setRefreshing(false);
-      if (readError || termResult.error) {
+      if (
+        readError ||
+        termResult.error ||
+        (starterCustomer &&
+          data != null &&
+          (!isQuote(data) ||
+            data.tier !== 'starter' ||
+            data.amount_minor !== 79900 ||
+            data.renewal_of_request_id))
+      ) {
         setError('Could not load your plan amount. Try again.');
         return;
       }
@@ -162,7 +173,7 @@ export function SubscriptionLiveReview({
     return () => {
       cancelled = true;
     };
-  }, [organizationId, nonce]);
+  }, [organizationId, nonce, starterCustomer]);
 
   useEffect(() => {
     if (!quote) return;
@@ -183,7 +194,11 @@ export function SubscriptionLiveReview({
     quote.starter_reminder_policy_version === policy?.version;
 
   const stopped = term?.renewal_stopped || term?.refunded;
-  const canReview = loaded && !error && !stopped && (!term || term.expired);
+  const canReview =
+    loaded &&
+    !error &&
+    !stopped &&
+    (starterCustomer ? !term : !term || term.expired);
 
   async function cancelRenewal() {
     if (!term || !cancelAccepted || action) return;
@@ -255,6 +270,11 @@ export function SubscriptionLiveReview({
       result.error ||
       !isPreview(result.data) ||
       result.data.tier !== selectedTier ||
+      (starterCustomer &&
+        (result.data.tier !== 'starter' ||
+          result.data.amount_minor !== 79900 ||
+          result.data.complimentary_conversion ||
+          result.data.renewal_of_request_id)) ||
       (term && result.data.renewal_of_request_id !== term.request_id)
     ) {
       toast.error(
@@ -338,7 +358,9 @@ export function SubscriptionLiveReview({
       quote.payment_state === 'review_required' ||
       action ||
       (quote.tier === 'starter' && !acknowledged) ||
-      process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI !== 'true'
+      (starterCustomer
+        ? process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI !== 'true'
+        : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI !== 'true')
     )
       return;
     setAction('checkout');
@@ -370,6 +392,7 @@ export function SubscriptionLiveReview({
       )
         throw new Error('Live Checkout did not match the reviewed amount');
       await openUsefulmadeLiveCheckout({
+        ...(starterCustomer ? { starterCustomer: true } : {}),
         keyId: checkout.keyId,
         orderId: checkout.orderId,
         amountMinor: quote.amount_minor,
@@ -396,7 +419,9 @@ export function SubscriptionLiveReview({
 
   return (
     <Alert>
-      <AlertTitle>Usefulmade Live pilot</AlertTitle>
+      <AlertTitle>
+        {starterCustomer ? 'UsefulDesk Starter' : 'Usefulmade Live pilot'}
+      </AlertTitle>
       <AlertDescription className="space-y-3">
         {error ? <p>{error}</p> : null}
         <Button
@@ -426,7 +451,9 @@ export function SubscriptionLiveReview({
             <p>
               {stopped
                 ? 'Renewal is cancelled. Contact support to buy again.'
-                : 'Renew after expiry. Each payment buys one month from payment confirmation.'}
+                : starterCustomer
+                  ? 'Contact support to renew after expiry.'
+                  : 'Renew after expiry. Each payment buys one month from payment confirmation.'}
             </p>
             {!stopped ? (
               <>
@@ -464,7 +491,7 @@ export function SubscriptionLiveReview({
                 ? 'Review the Starter renewal amount.'
                 : 'Choose a plan to see the exact amount.'}
             </p>
-            {!term ? (
+            {!term && !starterCustomer ? (
               <div className="space-y-2">
                 <Label htmlFor="live-plan-choice">Plan</Label>
                 <Select
@@ -518,7 +545,9 @@ export function SubscriptionLiveReview({
                 }
               />
               <Label htmlFor="live-amount-review">
-                I reviewed this exact Live pilot amount.
+                {starterCustomer
+                  ? 'I reviewed this Starter amount and its terms.'
+                  : 'I reviewed this exact Live pilot amount.'}
               </Label>
             </div>
             {preview.complimentary_conversion ? (
@@ -628,7 +657,9 @@ export function SubscriptionLiveReview({
               >
                 Review a new amount
               </Button>
-            ) : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI ===
+            ) : (starterCustomer
+                ? process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI
+                : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI) ===
               'true' ? (
               <Button
                 loading={action === 'checkout'}

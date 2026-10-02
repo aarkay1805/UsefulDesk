@@ -5,12 +5,14 @@ const {
   rpc,
   classifyLiveWebhookOrder,
   fetchLivePaymentOrderId,
+  fetchLiveOrder,
   settleCapturedLivePayment,
   reconcileLiveRefund,
 } = vi.hoisted(() => ({
   rpc: vi.fn(),
   classifyLiveWebhookOrder: vi.fn(),
   fetchLivePaymentOrderId: vi.fn(),
+  fetchLiveOrder: vi.fn(),
   settleCapturedLivePayment: vi.fn(),
   reconcileLiveRefund: vi.fn(),
 }));
@@ -23,6 +25,7 @@ vi.mock('@/lib/subscriptions/live-provider', async (importOriginal) => ({
   >()),
   classifyLiveWebhookOrder,
   fetchLivePaymentOrderId,
+  fetchLiveOrder,
 }));
 vi.mock('@/lib/subscriptions/live-flow', () => ({ settleCapturedLivePayment }));
 vi.mock('@/lib/subscriptions/live-refunds', () => ({ reconcileLiveRefund }));
@@ -389,5 +392,67 @@ describe('Usefulmade Live webhook intake', () => {
         expect(rpc).toHaveBeenCalledOnce();
       }
     );
+  });
+  it('attributes customer SaaS from durable order authority while retaining the original receipt listener', async () => {
+    const customer = '22222222-2222-4222-8222-222222222222';
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED', 'true');
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED', 'true');
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_resolve_live_scope'
+          ? {
+              request_id: '33333333-3333-4333-8333-333333333333',
+              organization_id: customer,
+              merchant_id: merchantId,
+              amount_minor: 79900,
+              currency: 'INR',
+              scope: 'customer_sale',
+            }
+          : {
+              status:
+                name === 'subscription_record_live_delivery_receipt'
+                  ? 'recorded'
+                  : 'held',
+            },
+      error: null,
+    }));
+    fetchLiveOrder.mockResolvedValue({ id: 'order_Live123' });
+    expect(
+      (
+        await POST(
+          signedRequest({ ...captured, organization_id: organizationId })
+        )
+      ).status
+    ).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('subscription_resolve_live_scope', {
+      p_provider_merchant_id: merchantId,
+      p_provider_order_id: 'order_Live123',
+    });
+    expect(fetchLiveOrder).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        organizationId: customer,
+        authority: expect.any(Object),
+      })
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      'subscription_record_live_webhook_event',
+      expect.objectContaining({ p_pilot_organization_id: customer })
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      'subscription_record_live_delivery_receipt',
+      expect.objectContaining({ p_pilot_organization_id: organizationId })
+    );
+  });
+
+  it('keeps an apparent customer SaaS delivery retryable without durable authority', async () => {
+    vi.stubEnv('USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED', 'true');
+    rpc.mockResolvedValue({ data: null, error: { code: '55000' } });
+    expect((await POST(signedRequest(captured))).status).toBe(503);
+    expect(fetchLiveOrder).not.toHaveBeenCalled();
+    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+      'subscription_resolve_live_scope',
+    ]);
+    expect(settleCapturedLivePayment).not.toHaveBeenCalled();
   });
 });

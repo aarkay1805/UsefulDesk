@@ -76,24 +76,21 @@ deployment with a zero-blocker recovery-only audit and clean initial runtime/
 preservation checks, recorded in the
 [Production receipt release record](subscription-delivery-receipts-production-record.md).
 
-## Customer opening implementation still required
+## Customer implementation built; activation remains closed
 
-The installed `20260930164040` opening review permits only
-`commercial_context='internal_acceptance'`; its quote trigger hard-codes Home
-office and the accepted merchant. `subscription_pin_live_merchant` and the opening
-review guard freeze that pilot/review after the original quote. The HTTP quote
-and order routes, provider classification, settlement and recovery also require
-the single configured pilot organization. Changing a flag or offer row cannot
-create an independent customer path, and changing that binding would strand
-late original-event recovery.
+The original `20260930164040` review remains internal-only and pinned. The new
+`20261002080000_starter_customer_checkout_scope.sql` supplies separate immutable
+customer reviews and default-closed per-organization gates. Quote/order routes,
+provider authority, signed intake, settlement, receipts, financial/event recovery
+and first-payment refund review preserve the original internal binding and late
+events. The existing web component has a separate Starter-only mode; renewals,
+upgrades/add-ons, native Checkout and capabilities remain closed.
 
-After identifying the first customer, prepare a separately reviewed default-closed
-customer scope with its real commercial/issuer/offer references. Preserve the
-original internal merchant/organization/review and recovery. Resolve the new
-owner request and provider-proven order through server-owned scope authority;
-never choose an organization from an unverified browser/webhook field. Keep
-one-branch Starter/₹799/30-minute/capture-month rules, original claim/idempotency,
-refund history and the 7/3/1-after-09:00 policy. Validate original late-event
-recovery, customer/staff/outsider isolation, changed-review/capture holds and
-closed renewals/capabilities before enabling that exact customer. This receipt
-release does not implement or open that path.
+Implementation and disposable acceptance do not require a real paying customer.
+Local full-schema rollback/replay and isolated cloud SQL acceptance passed;
+Billing Staging has the final closed source as history `20261002083552`, with all
+fixture/authority/financial rows rolled back and all gates false. Production
+installation, buyer/issuer/document review and exact customer activation remain
+pending. Justin Signup Test Gym's persona is unconfirmed and its active trial/AED
+currency was neither changed nor treated as a sale. See the
+[customer implementation and acceptance record](subscription-starter-customer-checkout.md).

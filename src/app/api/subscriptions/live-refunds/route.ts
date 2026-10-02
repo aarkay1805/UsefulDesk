@@ -12,6 +12,7 @@ import { requireSubscriptionOwner } from '@/lib/subscriptions/owner';
 import {
   liveBillingConfig,
   liveRefundsEnabled,
+  liveCustomerRefundsEnabled,
 } from '@/lib/subscriptions/live-provider';
 import {
   LiveRefundReviewRequired,
@@ -22,7 +23,7 @@ export const runtime = 'nodejs';
 
 /** No UI calls this route; environment and database refund gates are off. */
 export async function POST(request: Request) {
-  if (!liveRefundsEnabled())
+  if (!liveRefundsEnabled() && !liveCustomerRefundsEnabled())
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   let config;
   try {
@@ -43,7 +44,9 @@ export async function POST(request: Request) {
       Object.keys(fields).length !== 2 ||
       !isBranchAccountId(fields.organizationId) ||
       !isBranchAccountId(fields.refundRequestId) ||
-      fields.organizationId !== config.pilotOrganizationId
+      (fields.organizationId === config.pilotOrganizationId
+        ? !liveRefundsEnabled()
+        : !liveCustomerRefundsEnabled())
     )
       return NextResponse.json(
         { error: 'Invalid Live refund' },

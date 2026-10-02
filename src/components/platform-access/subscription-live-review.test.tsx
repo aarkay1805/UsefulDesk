@@ -380,4 +380,81 @@ describe('Live expiry-only renewal and cancellation', () => {
     ).toBeNull();
     expect(screen.queryByRole('button', { name: 'Cancel renewal' })).toBeNull();
   });
+  it('uses Starter alone for customer review and never offers expiry renewal', async () => {
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_live_offer_preview'
+          ? {
+              approval_id: quote.request_id,
+              tier: 'starter',
+              amount_minor: 79900,
+              currency: 'INR',
+              customer_tax_note: 'Unissued tax review',
+              customer_terms_note: 'One month',
+            }
+          : null,
+      error: null,
+    }));
+    render(
+      <SubscriptionLiveReview
+        organizationId={organizationId}
+        accountId={accountId}
+        starterCustomer
+      />
+    );
+    const review = await screen.findByRole('button', {
+      name: 'Review plan amount',
+    });
+    expect(screen.queryByRole('combobox')).toBeNull();
+    fireEvent.click(review);
+    expect(await screen.findByText('₹799.00 for one month')).toBeTruthy();
+    expect(rpc).toHaveBeenCalledWith(
+      'subscription_live_offer_preview',
+      expect.objectContaining({ p_tier: 'starter' })
+    );
+    cleanup();
+    rpc.mockImplementation(async (name: string) => ({
+      data:
+        name === 'subscription_live_owner_term'
+          ? {
+              request_id: quote.request_id,
+              tier: 'starter',
+              paid_through_end: '2026-10-01T00:00:00Z',
+              renewal_stopped: false,
+              refunded: false,
+              expired: true,
+            }
+          : null,
+      error: null,
+    }));
+    render(
+      <SubscriptionLiveReview
+        organizationId={organizationId}
+        accountId={accountId}
+        starterCustomer
+      />
+    );
+    expect(
+      await screen.findByText('Contact support to renew after expiry.')
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: 'Review renewal amount' })
+    ).toBeNull();
+  });
+
+  it('refuses customer Checkout for a non-Starter or changed amount', async () => {
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'true');
+    render(
+      <SubscriptionLiveReview
+        organizationId={organizationId}
+        accountId={accountId}
+        starterCustomer
+      />
+    );
+    expect(
+      await screen.findByText('Could not load your plan amount. Try again.')
+    ).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Pay for plan' })).toBeNull();
+    expect(openUsefulmadeLiveCheckout).not.toHaveBeenCalled();
+  });
 });

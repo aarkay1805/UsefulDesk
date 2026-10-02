@@ -8,10 +8,13 @@ import {
   fetchLiveOrder,
   liveBillingConfig,
   liveOrdersEnabled,
+  liveCustomerCheckoutEnabled,
   liveSettlementsEnabled,
   recoverLiveOrder,
   type LiveBillingConfig,
 } from './live-provider';
+
+import { resolveLiveProviderAuthority } from './live-scope';
 
 export class LiveOrderReviewRequired extends Error {}
 
@@ -32,11 +35,15 @@ export async function prepareLiveCheckout(
   } = {}
 ) {
   const env = dependencies.env ?? process.env;
-  if (!liveOrdersEnabled(env) || !liveSettlementsEnabled(env))
+  if (
+    (!liveOrdersEnabled(env) && !liveCustomerCheckoutEnabled(env)) ||
+    !liveSettlementsEnabled(env)
+  )
     throw new Error('Live orders are disabled');
   const config = dependencies.config ?? liveBillingConfig(env);
-  if (input.organizationId !== config.pilotOrganizationId)
-    throw new Error('Organization is outside the Live pilot');
+  const customer = input.organizationId !== config.pilotOrganizationId;
+  if (customer ? !liveCustomerCheckoutEnabled(env) : !liveOrdersEnabled(env))
+    throw new Error('Live checkout scope is disabled');
   const admin = dependencies.admin ?? supabaseAdmin();
   const { data, error } = await admin.rpc('subscription_claim_live_order', {
     p_request_id: input.requestId,
@@ -59,7 +66,21 @@ export async function prepareLiveCheckout(
     requestId: input.requestId,
     organizationId: input.organizationId,
     amountMinor: data.amount_minor,
+    ...(customer
+      ? {
+          authority: await resolveLiveProviderAuthority(
+            { requestId: input.requestId },
+            config,
+            admin
+          ),
+        }
+      : {}),
   };
+  if (
+    facts.authority &&
+    facts.authority.organizationId !== input.organizationId
+  )
+    throw new Error('Live checkout authority changed organization');
   let orderId: string;
   if (data.action === 'bound' && typeof data.provider_order_id === 'string') {
     const order = await (dependencies.fetchOrder ?? fetchLiveOrder)(config, {
@@ -84,7 +105,7 @@ export async function prepareLiveCheckout(
       p_request_id: input.requestId,
       p_provider_order_id: orderId,
       p_provider_merchant_id: config.merchantId,
-      p_pilot_organization_id: config.pilotOrganizationId,
+      p_pilot_organization_id: input.organizationId,
     });
     if (
       bound.error ||
