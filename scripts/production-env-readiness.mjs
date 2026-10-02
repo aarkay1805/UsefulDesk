@@ -390,7 +390,7 @@ export function evaluateProductionEnvironment(
         : allowLiveStarterPilot
           ? 'The complete initial Starter pilot flag set is present; renewal and capability activation remain outside this audit scope.'
           : allowLiveCustomerCheckout
-            ? 'Customer scope, checkout and UI plus financial recovery are present. Original initiation, customer refunds, renewals and capabilities remain closed. Verify exact operator preparation and genuine owner approval independently.'
+            ? 'Customer scope, checkout and UI plus financial recovery are present. Original initiation, customer refunds and renewals remain closed. Verify database-controlled capabilities, exact operator preparation and genuine owner approval independently.'
             : 'The required intake, settlement, refund reconciliation and financial recovery flags are present; quote/order/refund initiation and both Live UI flags must remain closed.'
     );
     const wrongRuntime = ['NODE_ENV', 'VERCEL_ENV'].filter(
@@ -421,7 +421,9 @@ export function evaluateProductionEnvironment(
     add(
       'warning',
       'subscription-live-database-verification',
-      'Verify the reviewed database merchant/pilot binding, scoped opening constraints and matching settings independently; renewals and tier capabilities must remain closed.'
+      allowLiveCustomerCheckout
+        ? 'Verify the reviewed database merchant/pilot binding, scoped opening constraints and matching settings independently. Renewals must remain closed; verify the separately reviewed capability setting in the database.'
+        : 'Verify the reviewed database merchant/pilot binding, scoped opening constraints and matching settings independently; renewals and tier capabilities must remain closed.'
     );
     add(
       'warning',
@@ -646,8 +648,9 @@ For an exact operator-prepared customer with genuine owner approval:
   cat <dotenv-file> | node scripts/production-env-readiness.mjs --dotenv-stdin --allow-live-customer-checkout
 
 Customer mode requires financial recovery, customer scope/checkout and customer UI
-flags true. Original pilot initiation/UI, customer refunds, renewals and capabilities
-remain closed. Exact database preparation and actual owner review are separate checks.
+flags true. Original pilot initiation/UI, customer refunds and renewals remain closed.
+Database-controlled capabilities, exact preparation and actual owner review are
+separate checks; this environment audit does not read or prove database settings.
 
 Starter mode requires all eight Live intake, quote/order/refund, settlement,
 refund-reconciliation and review/Checkout UI flags to be literal true together.
@@ -657,7 +660,7 @@ Recovery mode requires literal true intake, settlement, refund reconciliation an
 USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED,
 with quote/order/refund and both Live UI flags false or unset. Both modes require
 the exact reviewed merchant/pilot and a visible Live key ID; Test, acceptance,
-capability and renewal switches are not allowed. Audit modes are mutually exclusive.
+capability and renewal environment switches are not allowed. Audit modes are mutually exclusive.
 Database settings/constraints, immutable offer, tax/receipt clearance, approval and
 acceptance remain separate checks. This preparation does not seed an offer or
 open any gate. A passing audit never authorizes payment or activation.
