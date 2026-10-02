@@ -46,6 +46,8 @@ import {
   type LeadColumnKey,
 } from '@/lib/leads/status';
 import { isUniqueViolation } from '@/lib/contacts/dedupe';
+import { updateContact } from '@/lib/contacts/update-contact';
+import { saveContactCustomValues } from '@/lib/contacts/save-custom-values';
 import { addContactTag, deleteContactTag } from '@/lib/contacts/tag-api';
 import { getErrorMessage } from '@/lib/errors';
 import {
@@ -2058,15 +2060,10 @@ export default function LeadsPage() {
       try {
         if (edit.kind === 'status') {
           const status = columnToStatus(rawValue as LeadColumnKey);
-          const { error } = await supabase
-            .from('contacts')
-            .update({
-              lead_status: status,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', contact.id);
-          if (error) {
-            toast.error('Could not change the stage');
+          try {
+            await updateContact(supabase, contact.id, { lead_status: status });
+          } catch (error) {
+            toast.error(getErrorMessage(error, 'Could not change the stage'));
             return;
           }
           setContacts((prev) =>
@@ -2124,22 +2121,15 @@ export default function LeadsPage() {
           }
         } else if (edit.kind === 'custom') {
           const trimmed = rawValue.trim();
-          const { error } = trimmed
-            ? await supabase.from('contact_custom_values').upsert(
-                {
-                  contact_id: contact.id,
-                  custom_field_id: edit.fieldId,
-                  value: trimmed,
-                },
-                { onConflict: 'contact_id,custom_field_id' }
-              )
-            : await supabase
-                .from('contact_custom_values')
-                .delete()
-                .eq('contact_id', contact.id)
-                .eq('custom_field_id', edit.fieldId);
-          if (error) {
-            toast.error('Could not save');
+          try {
+            await saveContactCustomValues(
+              supabase,
+              contact.id,
+              { [edit.fieldId]: trimmed },
+              contact.customValues ?? {}
+            );
+          } catch (error) {
+            toast.error(getErrorMessage(error, 'Could not save'));
             return;
           }
           setContacts((prev) =>
@@ -2162,18 +2152,15 @@ export default function LeadsPage() {
             toast.error('Enter a phone number');
             return;
           }
-          const { error } = await supabase
-            .from('contacts')
-            .update({
+          try {
+            await updateContact(supabase, contact.id, {
               [edit.column]: trimmed || null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', contact.id);
-          if (error) {
+            });
+          } catch (error) {
             if (isUniqueViolation(error)) {
               toast.error('An enquiry with this phone number already exists');
             } else {
-              toast.error('Could not save');
+              toast.error(getErrorMessage(error, 'Could not save'));
             }
             return;
           }

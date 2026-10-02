@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { updateContact } from '@/lib/contacts/update-contact';
+import { saveContactCustomValues } from '@/lib/contacts/save-custom-values';
+
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
@@ -98,6 +101,7 @@ export function ContactForm({
 
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [customValues, setCustomValues] = useState<Record<string, string>>({});
+  const savedCustomValuesRef = useRef<Record<string, string>>({});
   const [loadingCustom, setLoadingCustom] = useState(false);
 
   useEffect(() => {
@@ -149,6 +153,7 @@ export function ContactForm({
         map[value.custom_field_id] = value.value ?? '';
       });
       setCustomValues(map);
+      savedCustomValuesRef.current = map;
       setLoadingCustom(false);
     })();
 
@@ -216,19 +221,14 @@ export function ContactForm({
       let contactId = contact?.id;
 
       if (isEdit && contactId) {
-        const { error } = await supabase
-          .from('contacts')
-          .update({
-            name: name.trim() || null,
-            phone: phone.trim(),
-            email: email.trim() || null,
-            lead_status: leadStatus || null,
-            source: source || null,
-            gender: gender || null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', contactId);
-        if (error) throw error;
+        await updateContact(supabase, contactId, {
+          name: name.trim() || null,
+          phone: phone.trim(),
+          email: email.trim() || null,
+          lead_status: leadStatus || null,
+          source: source || null,
+          gender: gender || null,
+        });
       } else {
         const { data, error } = await supabase
           .from('contacts')
@@ -273,30 +273,18 @@ export function ContactForm({
         }
       }
 
-      // Sync custom field values (delete + re-insert non-empty)
+      // Save changed custom values without deleting the rest of the profile.
       if (contactId) {
-        await supabase
-          .from('contact_custom_values')
-          .delete()
-          .eq('contact_id', contactId);
-
-        const valueRows = Object.entries(customValues)
-          .filter(([, val]) => val.trim())
-          .map(([fieldId, val]) => ({
-            contact_id: contactId!,
-            custom_field_id: fieldId,
-            value: val.trim(),
-          }));
-
-        if (valueRows.length > 0) {
-          const { error: cfError } = await supabase
-            .from('contact_custom_values')
-            .insert(valueRows);
-          if (cfError) throw cfError;
-        }
+        await saveContactCustomValues(
+          supabase,
+          contactId,
+          customValues,
+          savedCustomValuesRef.current
+        );
+        savedCustomValuesRef.current = { ...customValues };
       }
 
-      toast.success(isEdit ? 'Contact updated' : 'Contact created');
+      toast.success(isEdit ? 'Enquiry updated' : 'Enquiry added');
       onOpenChange(false);
       onSaved();
     } catch (err: unknown) {
@@ -316,7 +304,7 @@ export function ContactForm({
         }
         return;
       }
-      toast.error(getErrorMessage(err, 'Could not save contact'));
+      toast.error(getErrorMessage(err, 'Could not save enquiry'));
     } finally {
       setSaving(false);
     }
@@ -327,12 +315,12 @@ export function ContactForm({
       <DialogContent className="bg-popover border-border text-popover-foreground flex max-h-[calc(100vh-4rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
         <DialogHeader className="shrink-0 p-4 pb-2">
           <DialogTitle className="text-popover-foreground">
-            {isEdit ? 'Edit Contact' : 'Add Contact'}
+            {isEdit ? 'Edit enquiry' : 'Add enquiry'}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
             {isEdit
-              ? 'Update the contact details below.'
-              : 'Fill in the details to create a new contact.'}
+              ? 'Update the enquiry details below.'
+              : 'Enter their details to add an enquiry.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -379,7 +367,7 @@ export function ContactForm({
                     <p>
                       {dupMatch.exact
                         ? 'Someone with this phone number is already saved.'
-                        : 'A contact with a very similar number already exists.'}
+                        : 'Someone with a very similar phone number is already saved.'}
                     </p>
                     {onViewExisting && (
                       <button
@@ -598,11 +586,15 @@ export function ContactForm({
             </Button>
             <Button
               type="submit"
-              disabled={saving || checkingDup || (!isEdit && !!dupMatch?.exact)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
+              loading={saving}
+              disabled={
+                checkingDup ||
+                loadingTags ||
+                loadingCustom ||
+                (!isEdit && !!dupMatch?.exact)
+              }
             >
-              {saving && <Loader2 className="size-4 animate-spin" />}
-              {isEdit ? 'Update' : 'Create'}
+              {isEdit ? 'Save changes' : 'Add enquiry'}
             </Button>
           </DialogFooter>
         </form>

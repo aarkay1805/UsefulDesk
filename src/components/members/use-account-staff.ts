@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
+import { getErrorMessage } from '@/lib/errors';
 
 export interface StaffMember {
   user_id: string;
@@ -11,9 +12,9 @@ export interface StaffMember {
 }
 
 /**
- * Load the account's teammates for assignee pickers/labels. RLS on
- * profiles lets any member read rows in their own account, so this is
- * naturally account-scoped (same read the Members roster API does).
+ * Load the selected branch's teammates for assignee pickers/labels.
+ * list_account_members authorizes the branch and resolves membership through
+ * account_memberships; profiles.account_id is only the legacy home branch.
  */
 type StaffSnapshot = {
   staff: StaffMember[];
@@ -61,24 +62,23 @@ async function loadStaff(accountId: string, force = false) {
   notify(entry);
   const request = (async () => {
     try {
-      const { data, error } = await createClient()
-        .from('profiles')
-        .select('user_id, full_name, avatar_url')
-        .eq('account_id', accountId)
-        .order('full_name', { ascending: true });
+      const { data, error } = await createClient().rpc('list_account_members', {
+        p_account_id: accountId,
+      });
       if (error) throw error;
       if (entry.generation !== generation) return;
-      entry.staff = ((data as StaffMember[]) ?? []).map((staff) => ({
-        user_id: staff.user_id,
-        full_name: staff.full_name || 'Team member',
-        avatar_url: staff.avatar_url ?? null,
-      }));
+      entry.staff = ((data as StaffMember[]) ?? [])
+        .map((staff) => ({
+          user_id: staff.user_id,
+          full_name: staff.full_name?.trim() || 'Team member',
+          avatar_url: staff.avatar_url ?? null,
+        }))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name));
     } catch (error) {
       if (entry.generation !== generation) return;
-      entry.error =
-        error instanceof Error
-          ? error
-          : new Error('Team members could not be loaded');
+      entry.error = new Error(
+        getErrorMessage(error, 'Team members could not be loaded')
+      );
     } finally {
       if (entry.generation === generation) {
         entry.loading = false;

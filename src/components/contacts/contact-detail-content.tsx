@@ -1,5 +1,8 @@
 'use client';
 
+import { updateContact } from '@/lib/contacts/update-contact';
+import { saveContactCustomValues } from '@/lib/contacts/save-custom-values';
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -355,12 +358,10 @@ export function ContactDetailContent({
   ): Promise<boolean> {
     if (!contactId) return false;
     const next = val.trim() || null;
-    const { error } = await supabase
-      .from('contacts')
-      .update({ [column]: next, updated_at: new Date().toISOString() })
-      .eq('id', contactId);
-    if (error) {
-      toast.error('Could not update');
+    try {
+      await updateContact(supabase, contactId, { [column]: next });
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not update'));
       return false;
     }
     setContact((c) => (c ? { ...c, [column]: next } : c));
@@ -377,12 +378,10 @@ export function ContactDetailContent({
     next: string | null
   ): Promise<boolean> {
     if (!contactId) return false;
-    const { error } = await supabase
-      .from('contacts')
-      .update({ [column]: next, updated_at: new Date().toISOString() })
-      .eq('id', contactId);
-    if (error) {
-      toast.error('Could not update');
+    try {
+      await updateContact(supabase, contactId, { [column]: next });
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not update'));
       return false;
     }
     setContact((c) => (c ? { ...c, [column]: next } : c));
@@ -510,8 +509,7 @@ export function ContactDetailContent({
     }
   }
 
-  // Save one custom field value inline — delete + re-insert for that field
-  // only, so no unique constraint on the value table is assumed.
+  // Replace one custom value in place and confirm the database write.
   async function saveCustomField(
     fieldId: string,
     val: string
@@ -519,26 +517,16 @@ export function ContactDetailContent({
     if (!contactId) return false;
     const trimmed = val.trim();
 
-    const del = await supabase
-      .from('contact_custom_values')
-      .delete()
-      .eq('contact_id', contactId)
-      .eq('custom_field_id', fieldId);
-    if (del.error) {
-      toast.error('Could not update');
+    try {
+      await saveContactCustomValues(
+        supabase,
+        contactId,
+        { [fieldId]: trimmed },
+        customValues
+      );
+    } catch (error) {
+      toast.error(getErrorMessage(error, 'Could not update'));
       return false;
-    }
-
-    if (trimmed) {
-      const { error } = await supabase.from('contact_custom_values').insert({
-        contact_id: contactId,
-        custom_field_id: fieldId,
-        value: trimmed,
-      });
-      if (error) {
-        toast.error('Could not update');
-        return false;
-      }
     }
 
     setCustomValues((prev) => ({ ...prev, [fieldId]: trimmed }));
