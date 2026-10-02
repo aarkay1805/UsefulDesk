@@ -3,7 +3,10 @@
 **2 October scope/evidence update:** the owner selected Starter web billing first.
 Fresh provider GETs at 02:21:36 UTC confirm the exact membership/service renewal
 contracts Approved; actual delivery remains pending. Default-off receipt collection
-is built and staging accepted to retain future authentic repeat/unrelated traffic.
+is Production-installed as history `20261002024027` and collection alone enabled
+on canonical `dpl_3JCvxyoykucMAixZGyXAg2cQcE41`, following the verified full
+backup and exact-main checks. Initial runtime/preservation checks pass; no natural
+receipt has arrived. See the [receipt release record](subscription-delivery-receipts-production-record.md).
 Customer facts/opening, capability activation and independent owner paging remain
 separate. See the [current rollout actions](subscription-starter-rollout-next.md).
 
