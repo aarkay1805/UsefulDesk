@@ -1,5 +1,26 @@
 # Justin Starter purchase opening — 2 October 2026
 
+**First-sale documents issued — 12:57:24 UTC:** invoice `UM/2026-27/000001` and receipt `UM-R/2026-27/000001` are preserved privately against the genuine ₹799 payment and unchanged term. Exact retry and all 22 preservation checks passed. Delivery remains separately pending; see the [first-sale issuance record](subscription-starter-document-issuance-record.md). Earlier dated unissued/approval-pending statements below are historical.
+
+**Paid customer update — 12:29 UTC:** Justin's actual owner review was saved at
+12:18:45 UTC; his ₹799 quote and standard reminder choice were acknowledged.
+Request `9e7cdc5f-f287-496a-a3cd-257ecaff6999` has a bound order, verified INR
+79900 payment and an unsuspended matching paid grant/access term from
+**2 October 2026 12:24:56 UTC to 2 November 2026 12:24:56 UTC**
+(5:54:56 pm IST). One authentic provider-ID SaaS receipt is recorded; replay/mixed
+acceptance and commercial document issuance remain pending. The current
+[wider rollout sequence](subscription-starter-rollout-next.md) supersedes the
+owner-action handoff below; historical opening proofs remain intact.
+
+**Post-payment reconciliation — 12:32 UTC:** rollout preparation ran
+[Production health 37007089214](https://github.com/aarkay1805/UsefulDesk/actions/runs/37007089214)
+against main `94ab3d6bd36f2448fe07731d99fd40e1a5e80ad7`. Existing signed-event
+GET-only reconciliation, public login and scheduled-workflow freshness passed.
+All four signed events (the original three plus Justin's capture) are now
+reconciled. Justin still has exactly one payment and the unchanged paid term;
+recovery queue/open exceptions are zero. This manual run establishes neither
+provider same-event redelivery nor external paging. No charge/refund was initiated.
+
 **Available to Justin’s authenticated owner session from 11:55:57 UTC / 5:25:57 pm IST.**
 Only the exact prepared first-term offer is available. Justin still authors his own
 approval, reviews the quote/reminder policy and makes the real payment. At the

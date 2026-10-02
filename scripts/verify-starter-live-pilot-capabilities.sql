@@ -127,6 +127,26 @@ SELECT pg_temp.assert_true((SELECT days_before=ARRAY[7,3,1] AND service_days_bef
  'Rejected custom writes changed persisted standard schedules');
 SELECT 'PASS: rollback capability activation leaves nonpilot manual/trial/complimentary unchanged; paid Starter has only standard reminders; custom writes refused';
 
+-- Live Starter capacity must not depend on the separate, closed Test switch.
+SELECT pg_temp.expect_error($q$INSERT INTO public.accounts(id,name,organization_id,owner_user_id,legal_entity_id)
+ VALUES('e9999999-9999-4999-8999-999999999999','Synthetic second Starter branch',
+ '8826d9aa-03f2-4ad7-ae91-0553052131f8','d1111111-1111-4111-8111-111111111111',
+ 'd3333333-3333-4333-8333-333333333333')$q$,'22023');
+SELECT 'PASS: Live Starter second active branch refused while Test billing remains closed';
+SAVEPOINT starter_capacity_activation;
+INSERT INTO public.accounts(id,name,organization_id,owner_user_id,legal_entity_id,branch_status)
+ VALUES('e9999999-9999-4999-8999-999999999999','Synthetic archived Starter branch',
+ '8826d9aa-03f2-4ad7-ae91-0553052131f8','d1111111-1111-4111-8111-111111111111',
+ 'd3333333-3333-4333-8333-333333333333','archived');
+SELECT pg_temp.expect_error($q$UPDATE public.accounts SET branch_status='active'
+ WHERE id='e9999999-9999-4999-8999-999999999999'$q$,'22023');
+UPDATE private.subscription_billing_settings SET capabilities_enabled=false WHERE singleton;
+UPDATE public.accounts SET branch_status='active' WHERE id='e9999999-9999-4999-8999-999999999999';
+SELECT pg_temp.expect_error($q$UPDATE private.subscription_billing_settings SET capabilities_enabled=true WHERE singleton$q$,'55000');
+ROLLBACK TO starter_capacity_activation;
+RELEASE starter_capacity_activation;
+SELECT 'PASS: Live Starter restore and over-capacity activation refused';
+
 SAVEPOINT starter_capability_expiry;
 UPDATE private.organization_product_access SET access_starts_at=now()-interval '2 hours',
  access_ends_at=now()-interval '1 hour'
@@ -179,6 +199,54 @@ SELECT pg_temp.assert_true((SELECT bool_and(private.subscription_capability_allo
  FROM pg_temp.starter_nonpilot_fixtures f CROSS JOIN pg_temp.starter_capability_names n),
  'Pilot expiry/refund changed a valid nonpilot capability');
 SELECT 'PASS: expired Starter denies access/capabilities; confirmed synthetic full refund revokes every paid capability';
+
+SAVEPOINT starter_refunded_manual;
+-- Reproduce a real post-refund admin activation without changing paid history.
+INSERT INTO private.platform_admins(user_id) VALUES('d1111111-1111-4111-8111-111111111111')
+ ON CONFLICT DO NOTHING;
+SET LOCAL ROLE authenticated;
+SET LOCAL request.jwt.claims='{"sub":"d1111111-1111-4111-8111-111111111111","role":"authenticated","aal":"aal2"}';
+SELECT public.platform_admin_update_access('8826d9aa-03f2-4ad7-ae91-0553052131f8',
+ 'activate',now()+interval '90 days','Synthetic explicit post-refund manual activation',
+ (SELECT (public.product_access_for_account('d4444444-4444-4444-8444-444444444444')->'access'->>'version')::integer));
+RESET ROLE;
+SET LOCAL request.jwt.claims='{}';
+-- status uses fixed NOW(), so compare against an earlier synthetic refund/start.
+ALTER TABLE private.subscription_live_grants DISABLE TRIGGER subscription_freeze_live_grant_evidence;
+UPDATE private.subscription_live_grants SET refund_confirmed_at=now()-interval '2 minutes'
+ WHERE organization_id='8826d9aa-03f2-4ad7-ae91-0553052131f8';
+ALTER TABLE private.subscription_live_grants ENABLE TRIGGER subscription_freeze_live_grant_evidence;
+UPDATE private.organization_product_access SET access_starts_at=now()-interval '1 minute'
+ WHERE organization_id='8826d9aa-03f2-4ad7-ae91-0553052131f8';
+UPDATE private.product_access_audit h SET created_at=a.access_starts_at,after_state=to_jsonb(a)
+ FROM private.organization_product_access a WHERE h.organization_id=a.organization_id
+ AND h.action='activate' AND h.reason='Synthetic explicit post-refund manual activation';
+SELECT pg_temp.assert_true((SELECT bool_and(private.subscription_capability_allowed(
+ 'd4444444-4444-4444-8444-444444444444',capability)) FROM pg_temp.starter_capability_names),
+ 'Audited post-refund manual term lost capabilities');
+UPDATE private.subscription_billing_settings SET capabilities_enabled=false WHERE singleton;
+UPDATE public.renewal_reminder_settings SET days_before=ARRAY[14,7,3,1],service_days_before=ARRAY[14,7,3,1]
+ WHERE account_id='d4444444-4444-4444-8444-444444444444';
+UPDATE private.subscription_billing_settings SET capabilities_enabled=true WHERE singleton;
+INSERT INTO public.accounts(id,name,organization_id,owner_user_id,legal_entity_id)
+ VALUES('e9999999-9999-4999-8999-999999999999','Synthetic second grandfathered manual branch',
+ '8826d9aa-03f2-4ad7-ae91-0553052131f8','d1111111-1111-4111-8111-111111111111',
+ 'd3333333-3333-4333-8333-333333333333');
+SAVEPOINT manual_missing_audit;
+DELETE FROM private.product_access_audit WHERE organization_id='8826d9aa-03f2-4ad7-ae91-0553052131f8' AND action='activate';
+SELECT pg_temp.assert_true((SELECT bool_and(NOT private.subscription_capability_allowed(
+ 'd4444444-4444-4444-8444-444444444444',capability)) FROM pg_temp.starter_capability_names),
+ 'Unaudited refunded manual term gained capabilities');
+ROLLBACK TO manual_missing_audit;
+RELEASE manual_missing_audit;
+UPDATE private.organization_product_access SET access_ends_at=access_ends_at+interval '1 day'
+ WHERE organization_id='8826d9aa-03f2-4ad7-ae91-0553052131f8';
+SELECT pg_temp.assert_true((SELECT bool_and(NOT private.subscription_capability_allowed(
+ 'd4444444-4444-4444-8444-444444444444',capability)) FROM pg_temp.starter_capability_names),
+ 'Mismatched audited manual term gained capabilities');
+ROLLBACK TO starter_refunded_manual;
+RELEASE starter_refunded_manual;
+SELECT 'PASS: audited post-refund manual term preserves capabilities, schedules and capacity; absent or mismatched audit denied';
 
 ROLLBACK TO starter_capability_acceptance;
 RELEASE starter_capability_acceptance;

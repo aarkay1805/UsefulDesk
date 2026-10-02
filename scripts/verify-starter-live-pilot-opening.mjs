@@ -66,7 +66,7 @@ const input = [
   ),
   migration,
   migration, // Idempotency: same preparation source twice before fixtures.
-  ...(process.argv[3] === '--customer'
+  ...(['--customer', '--documents'].includes(process.argv[3])
     ? [
         readFileSync(`${root}/supabase/migrations/${customer}`, 'utf8'),
         readFileSync(`${root}/supabase/migrations/${customer}`, 'utf8'),
@@ -74,15 +74,46 @@ const input = [
         readFileSync(`${root}/supabase/migrations/${ownerReview}`, 'utf8'),
       ]
     : []),
+  ...(process.argv[3] === '--documents'
+    ? [
+        readFileSync(
+          `${root}/supabase/migrations/20261002124500_starter_subscription_documents.sql`,
+          'utf8'
+        ),
+        readFileSync(
+          `${root}/supabase/migrations/20261002124500_starter_subscription_documents.sql`,
+          'utf8'
+        ),
+      ]
+    : []),
+  readFileSync(
+    `${root}/supabase/migrations/20261002132000_starter_live_capability_activation.sql`,
+    'utf8'
+  ),
+  readFileSync(
+    `${root}/supabase/migrations/20261002132000_starter_live_capability_activation.sql`,
+    'utf8'
+  ),
   acceptance,
-  ...(process.argv[3] === '--customer'
+  ...(['--customer', '--documents'].includes(process.argv[3])
     ? [
         readFileSync(
           `${root}/scripts/verify-starter-customer-checkout.sql`,
           'utf8'
+        ).replace(
+          'Synthetic unissued tax note',
+          'GST not charged — supplier unregistered.'
         ),
         readFileSync(
           `${root}/scripts/verify-starter-customer-owner-review.sql`,
+          'utf8'
+        ),
+      ]
+    : []),
+  ...(process.argv[3] === '--documents'
+    ? [
+        readFileSync(
+          `${root}/scripts/verify-starter-subscription-documents.sql`,
           'utf8'
         ),
       ]

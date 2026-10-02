@@ -1,5 +1,16 @@
 # Justin's fitness — genuine owner Starter purchase
 
+**First-sale documents issued — 12:57:24 UTC:** invoice `UM/2026-27/000001` and receipt `UM-R/2026-27/000001` are preserved privately against the genuine ₹799 payment and unchanged term. Exact retry and all 22 preservation checks passed. Delivery remains separately pending; see the [first-sale issuance record](subscription-starter-document-issuance-record.md). Earlier dated unissued/approval-pending statements below are historical.
+
+**Paid customer update — 12:29 UTC, 2 October 2026:** genuine owner approval,
+amount review and reminder acknowledgment are complete. His ₹799 payment is
+verified and exact paid access runs until **2 November 2026, 5:54:56 pm IST**.
+See the [opening/payment record](subscription-justin-starter-opening-record.md)
+and [current rollout sequence](subscription-starter-rollout-next.md).
+Invoice/receipt issuance, his gym membership plan and wider acceptance remain;
+WhatsApp delivery is still deferred. Earlier pending approval/payment statements
+are retained as dated preparation history.
+
 **Current status — 11:55:57 UTC / 5:25:57 pm IST, 2 October 2026:** Justin’s
 exact ₹799 first-term purchase path is available in his own session. The
 [opening record](subscription-justin-starter-opening-record.md) pins deployed
