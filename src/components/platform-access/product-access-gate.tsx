@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { accessSupportMessage, accessSupportWhatsApp } from './ui-contract';
 import { SubscriptionPlanCards } from './subscription-plan-cards';
 import { SubscriptionTestBilling } from './subscription-test-billing';
+import { SubscriptionCustomerReview } from './subscription-customer-review';
 import { SubscriptionLiveReview } from './subscription-live-review';
 import {
   SubscriptionConversionReviewDialog,
@@ -51,6 +52,11 @@ export interface InitialProductAccess {
   organizationId: string;
   snapshot: ProductAccessSnapshot;
 }
+
+const LiveBillingReview =
+  process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI === 'true'
+    ? SubscriptionCustomerReview
+    : SubscriptionLiveReview;
 
 export function ProductAccessGate({
   children,
@@ -480,11 +486,7 @@ function AccountProductAccess({
                   </DialogDescription>
                 </DialogHeader>
                 {liveReviewUi ? (
-                  <SubscriptionLiveReview
-                    starterCustomer={
-                      process.env
-                        .NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI === 'true'
-                    }
+                  <LiveBillingReview
                     key={`${organizationId}:${accountId}`}
                     organizationId={organizationId}
                     accountId={accountId}
@@ -555,11 +557,7 @@ function AccountProductAccess({
                 pendingTier={pendingTier}
               />
               {liveReviewUi && isOrganizationOwner && organizationId ? (
-                <SubscriptionLiveReview
-                  starterCustomer={
-                    process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI ===
-                    'true'
-                  }
+                <LiveBillingReview
                   key={`${organizationId}:${accountId}`}
                   organizationId={organizationId}
                   accountId={accountId}
@@ -593,11 +591,7 @@ function AccountProductAccess({
           isOrganizationOwner &&
           organizationId &&
           snapshot?.access.mode === 'manual' ? (
-            <SubscriptionLiveReview
-              starterCustomer={
-                process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI ===
-                'true'
-              }
+            <LiveBillingReview
               key={`${organizationId}:${accountId}`}
               organizationId={organizationId}
               accountId={accountId}

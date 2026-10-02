@@ -6,6 +6,25 @@
 
 ---
 
+## 2026-10-02 — Prepare Justin’s genuine owner Starter checkout
+
+Operator preparation and the authenticated customer review are distinct. The owner
+reviews the exact offer, commits an initially closed scope, then the server consumes
+one-time opening authority; operator containment cannot be reopened by an owner retry.
+Code: `20261002111500_starter_customer_owner_review.sql`,
+`live-customer-review/route.ts`, `subscription-customer-review.tsx`, and the separate
+customer environment-audit mode. Justin’s preserved trial-end and commercial evidence
+live in `subscription-justin-customer-review.md`. Purchase and document issuance
+require genuine owner acknowledgment and verified signed payment.
+
+Justin Starter opening update, 2 October: explicit Justin consent reported by
+Rajat authorizes the audited early trial end at 10:52:27 UTC. A guarded operator
+transaction corrects the intervening expired manual activation to expired,
+unsuspended trial version 4 and retains before/after history. Fresh verification
+passes the trial predicate; all 22 unrelated financial/gym/tenant/access
+fingerprints match. Customer authority/quotes/orders/payments remain zero and
+checkout stays closed. See `docs/subscription-justin-customer-review.md`.
+
 ## 2026-10-02 — Release Starter customer implementation closed in Production
 
 PR #31 is merged. The exact customer migration is connector-installed as

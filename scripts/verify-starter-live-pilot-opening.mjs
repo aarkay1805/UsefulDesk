@@ -41,6 +41,7 @@ if (sql(absent).trim() !== 't')
 const baseline = readdirSync(`${root}/supabase/migrations`)
   .filter((name) => /^\d+_subscription_live_.*\.sql$/.test(name))
   .sort();
+const ownerReview = '20261002111500_starter_customer_owner_review.sql';
 const customer = '20261002080000_starter_customer_checkout_scope.sql';
 const preparation = '20260930164040_starter_live_pilot_opening_preparation.sql';
 const acceptance = readFileSync(
@@ -69,6 +70,8 @@ const input = [
     ? [
         readFileSync(`${root}/supabase/migrations/${customer}`, 'utf8'),
         readFileSync(`${root}/supabase/migrations/${customer}`, 'utf8'),
+        readFileSync(`${root}/supabase/migrations/${ownerReview}`, 'utf8'),
+        readFileSync(`${root}/supabase/migrations/${ownerReview}`, 'utf8'),
       ]
     : []),
   acceptance,
@@ -76,6 +79,10 @@ const input = [
     ? [
         readFileSync(
           `${root}/scripts/verify-starter-customer-checkout.sql`,
+          'utf8'
+        ),
+        readFileSync(
+          `${root}/scripts/verify-starter-customer-owner-review.sql`,
           'utf8'
         ),
       ]

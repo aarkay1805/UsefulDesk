@@ -96,10 +96,17 @@ customer scope support switch, original listener, signed intake, settlement and
 GET recovery. Do not rebind the original pilot or revoke evidence merely to test
 containment. Held captures have no automatic promotion/refund resolver.
 
-Justin Signup Test Gym (`4c549182-7ad3-4f0b-8977-ff8ca79d2992`) is not an accepted
-buyer. Its owner persona is unconfirmed; its existing active trial through
-11 October and AED gym currency are incompatible with this expired-trial/INR
-path. No Production tenant, trial, currency, legal detail or access was changed.
+At the earlier release check, Justin's candidate identity was unconfirmed and
+the branch used AED. Later on 2 October, Rajat confirmed the handover and selected
+Justin's fitness as the real customer candidate. Fresh checks confirm owner
+Justin Credible and one active INR branch, Old Ambala. Rajat later confirmed
+Justin's consent to end the trial early; an audited operator correction at
+10:52:27 UTC records an expired unsuspended trial, version 4. Legacy entity
+currency still says AED. This satisfies trial eligibility without opening checkout.
+Billing/issuer evidence and customer approval remain pending. See
+[Justin's preparation record](subscription-justin-customer-review.md). Candidate
+selection alone does not open checkout or alter the trial; the later trial
+change has its own explicit owner-consent record.
 
 ## Acceptance record
 
@@ -149,3 +156,16 @@ Authentic repeat/mixed gym/SaaS traffic, authorized reminder delivery, actual
 customer billing/issuer opening and identified external watchdog setup remain
 separate pending dependencies. Exact renewal templates are Approved; that does
 not establish delivery. See [current rollout actions](subscription-starter-rollout-next.md).
+
+## Genuine owner review implementation — 2 October
+
+Operator preparation is now distinct from authenticated owner approval. The actual owner
+reviews the prepared ₹799 terms, creates an initially closed scope, then a separate
+server transaction consumes one-time opening authority. Retries cannot reopen
+containment; original Home office initiation, customer refunds, renewals and global
+capabilities remain closed. Local/cloud rolled-back acceptance and full verification
+passed. Justin’s C01 document disposition and legacy business-default cleanup are
+complete. Setup review records missing active plan, without marking setup ready.
+Genuine owner checkout approval/reminder acknowledgment and payment remain.
+See [Justin’s dated record](subscription-justin-customer-review.md) for fresh backup, provider/recovery evidence and the explicit bounded first-customer
+disposition; authentic repeat/mixed delivery and external paging remain wider work.

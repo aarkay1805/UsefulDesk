@@ -62,6 +62,12 @@ const LIVE_RECOVERY_FLAGS = Object.freeze([
   'USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED',
   'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED',
 ]);
+const CUSTOMER_CHECKOUT_FLAGS = Object.freeze([
+  ...LIVE_RECOVERY_FLAGS,
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED',
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED',
+  'NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI',
+]);
 const STARTER_PILOT_MERCHANT = 'acc_TCJwBqanN9LTrK';
 const STARTER_PILOT_ORGANIZATION = '8826d9aa-03f2-4ad7-ae91-0553052131f8';
 
@@ -108,6 +114,7 @@ export function evaluateProductionEnvironment(
     allowLiveIntakeOnly = false,
     allowLiveStarterPilot = false,
     allowLiveRecoveryOnly = false,
+    allowLiveCustomerCheckout = false,
   } = {}
 ) {
   const results = [];
@@ -243,25 +250,33 @@ export function evaluateProductionEnvironment(
   }
 
   const conflictingModes =
-    [allowLiveIntakeOnly, allowLiveStarterPilot, allowLiveRecoveryOnly].filter(
-      Boolean
-    ).length > 1;
+    [
+      allowLiveIntakeOnly,
+      allowLiveStarterPilot,
+      allowLiveRecoveryOnly,
+      allowLiveCustomerCheckout,
+    ].filter(Boolean).length > 1;
   if (conflictingModes) {
     add(
       'blocker',
       'subscription-live-audit-mode',
-      'Live intake-only, Starter pilot and recovery-only audit modes are mutually exclusive.'
+      'Live intake-only, Starter pilot, recovery-only and customer-checkout audit modes are mutually exclusive.'
     );
   }
   const scopedLiveMode =
-    !conflictingModes && (allowLiveStarterPilot || allowLiveRecoveryOnly);
+    !conflictingModes &&
+    (allowLiveStarterPilot ||
+      allowLiveRecoveryOnly ||
+      allowLiveCustomerCheckout);
   const requiredLiveFlags = conflictingModes
     ? []
     : allowLiveStarterPilot
       ? STARTER_PILOT_FLAGS
       : allowLiveRecoveryOnly
         ? LIVE_RECOVERY_FLAGS
-        : [];
+        : allowLiveCustomerCheckout
+          ? CUSTOMER_CHECKOUT_FLAGS
+          : [];
   // The existing opening audit remains compatible with a closed worker. A
   // separately reviewed pilot may enable it; recovery-only requires it.
   const permittedLiveFlags = scopedLiveMode
@@ -361,7 +376,9 @@ export function evaluateProductionEnvironment(
   if (scopedLiveMode) {
     const scopeCheck = allowLiveStarterPilot
       ? 'subscription-live-starter-pilot'
-      : 'subscription-live-recovery-only';
+      : allowLiveCustomerCheckout
+        ? 'subscription-live-customer-checkout'
+        : 'subscription-live-recovery-only';
     const incompleteFlags = requiredLiveFlags.filter(
       (name) => env[name] !== 'true'
     );
@@ -372,7 +389,9 @@ export function evaluateProductionEnvironment(
         ? `The selected Live audit scope requires literal true for every required flag: ${incompleteFlags.join(', ')}`
         : allowLiveStarterPilot
           ? 'The complete initial Starter pilot flag set is present; renewal and capability activation remain outside this audit scope.'
-          : 'The required intake, settlement, refund reconciliation and financial recovery flags are present; quote/order/refund initiation and both Live UI flags must remain closed.'
+          : allowLiveCustomerCheckout
+            ? 'Customer scope, checkout and UI plus financial recovery are present. Original initiation, customer refunds, renewals and capabilities remain closed. Verify exact operator preparation and genuine owner approval independently.'
+            : 'The required intake, settlement, refund reconciliation and financial recovery flags are present; quote/order/refund initiation and both Live UI flags must remain closed.'
     );
     const wrongRuntime = ['NODE_ENV', 'VERCEL_ENV'].filter(
       (name) => normalize(env[name]) && env[name] !== 'production'
@@ -623,6 +642,13 @@ After separately reviewed initial Starter pilot activation:
 For separately reviewed rollback recovery with initiation and UI closed:
   cat <dotenv-file> | node scripts/production-env-readiness.mjs --dotenv-stdin --allow-live-recovery-only
 
+For an exact operator-prepared customer with genuine owner approval:
+  cat <dotenv-file> | node scripts/production-env-readiness.mjs --dotenv-stdin --allow-live-customer-checkout
+
+Customer mode requires financial recovery, customer scope/checkout and customer UI
+flags true. Original pilot initiation/UI, customer refunds, renewals and capabilities
+remain closed. Exact database preparation and actual owner review are separate checks.
+
 Starter mode requires all eight Live intake, quote/order/refund, settlement,
 refund-reconciliation and review/Checkout UI flags to be literal true together.
 The separately reviewed financial recovery worker may be enabled in Starter mode;
@@ -657,6 +683,9 @@ remain explicit warnings or blockers instead of being guessed.`);
       ),
       allowLiveRecoveryOnly: process.argv.includes(
         '--allow-live-recovery-only'
+      ),
+      allowLiveCustomerCheckout: process.argv.includes(
+        '--allow-live-customer-checkout'
       ),
     })
   );
