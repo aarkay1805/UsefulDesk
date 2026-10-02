@@ -1,5 +1,11 @@
 # First Starter customer documents — 2 October 2026
 
+**Email send completed — 18:15:19 UTC:** Rajat explicitly approved sending the
+original pair to Justin’s registered email. Gmail reports SENT; customer inbox
+receipt/reading remain unproven. Old Ambala setup was reviewed as ready at
+18:18:05 UTC after Rajat confirmed Justin’s own genuine plan. The dated issuance
+checks below remain preserved; see the [setup/delivery record](subscription-justin-setup-delivery-record.md).
+
 Justin's genuine initial subscription sale has one issued ordinary commercial
 invoice and one payment receipt. Issuance completed at **12:57:24.866979 UTC**
 (6:27:24 pm IST), with actual operator attribution, without impersonating his
@@ -84,7 +90,8 @@ process. Pending/failed/partial/unknown results preserve paid access. Only a
 verified full processed refund may end access, preserving data/sign-in/support
 and linking any later confirmation to these immutable originals.
 
-Delivery is pending an explicitly authorized recipient and method. Issuance and
-local availability do not establish delivery. Justin's WhatsApp setup and messages
-remain deferred. His gym still lacks a genuine active membership plan; no plan or
-setup-ready stamp was created by this work.
+The original pair was emailed through the explicitly approved channel at
+18:15:19 UTC. Send evidence is recorded separately from the immutable issue;
+customer inbox receipt/reading remain unproven. Justin’s WhatsApp setup and
+messages remain deferred. The later setup review used Justin’s own approved
+active plan and pricing; this issuance created no plan or setup-ready stamp.

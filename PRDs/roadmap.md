@@ -1,5 +1,31 @@
 # Roadmap
 
+## Completed — Justin gym setup and subscription document email (2026-10-02)
+
+**Status: actual plan confirmed, setup reviewed, original documents sent by
+approved email.** Justin had created Standard with active pricing for 1 month
+₹1,000, 3 months ₹2,700 and 12 months ₹9,000, each with ₹0 joining fee. Rajat
+confirmed these as Justin-entered and approved. Old Ambala is now ready with
+Rajat’s actual delegated-operator attribution; no plan, branch role or customer
+Auth approval was fabricated. WhatsApp setup/messages remain human-deferred.
+
+Rajat explicitly approved the saved Gmail draft to Justin’s registered email.
+Invoice `UM/2026-27/000001` and receipt `UM-R/2026-27/000001` were attached as
+the original issued bytes, verified against both durable hashes. Gmail SENT
+and header/attachment read-back are recorded; customer inbox receipt/reading
+remain unproven. The immutable issue, financial history and paid term remain
+unchanged.
+
+**Validation:** guarded connector rollback, changed-price refusal, committed
+setup/send evidence and idempotent retry; 28 relation fingerprints preserved
+apart from approved branch readiness fields. The new read-only
+`scripts/subscription-justin-setup-delivery-status.sql` passed Production
+acceptance. Main retains both renewal and invoice-recovery histories; the
+merged source passes 4,403 tests in 537 files, lint, typecheck and build.
+See the [setup/delivery record](../docs/subscription-justin-setup-delivery-record.md).
+No remaining plan or email-send blocker belongs to this step; optional UPI,
+customer acknowledgment and deferred WhatsApp are separate actions.
+
 ## Built — Customer Starter renewal, closed release (2026-10-02)
 
 **Status: implementation and local acceptance complete; Production installation,
