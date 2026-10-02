@@ -36,25 +36,22 @@ Rajat now wants a wider Production rollout. Recommended sequence:
    Justin now permits only standard renewal reminders; trials, complimentary,
    grandfathered manual and independently audited post-refund manual access are
    preserved. See the [capability activation record](subscription-starter-capability-activation-record.md).
-3. Complete authentic provider same-event redelivery and matching mixed gym/SaaS
-   acceptance with provider response logs and financial/access preservation.
-   Manual reconciliation and synthetic fixtures are different evidence. Fresh logs
-   show original HTTP 200 responses; Razorpay’s dashboard excludes acknowledged
-   events from replay, so authentic repeat acceptance needs provider assistance.
-4. Set up external public-availability and primary-worker probes, then verify an
-   actual owner test alert. Rajat confirmed in this chat that **no monitoring
-   service/account exists**; the earlier assumed existing-account selection is
-   superseded. StatusCake Free is the researched small-business candidate; its free
-   account is now signed in by Rajat. Explicit alert email was supplied privately.
-   No monitor/token/notification has been created.
+3. **Skipped by the human:** provider-redelivery/support acceptance. Original
+   genuine HTTP 200 logs are retained; authentic repeat/mixed acceptance remains
+   unproven. No support message, fabricated webhook or new transaction was sent.
+4. **Configured:** StatusCake Free public/worker checks and a separate read-only
+   token. A real test alert reached the explicitly selected owner Gmail channel at
+   13:42:41 UTC; its harmless test monitor is paused. The independent worker probe is Healthy from 13:53 UTC. See [monitoring acceptance](production-watchdog.md).
 5. The human explicitly selected **every new gym business account registering
-   for UsefulDesk from now on**, superseding the small named batch. Prepare a
-   separately reviewed onboarding/offer path: retain each organization's trial,
-   require complete buyer/setup review and genuine owner terms/amount/reminder
-   approval, and grant paid access only after verified payment. Existing customer
-   eligibility remains unchanged. Keep broader activation closed until authentic
-   provider and external-alert acceptance complete. Preserve signed financial
-   intake/settlement/recovery when containing checkout.
+   for UsefulDesk from now on**, superseding the small named batch. An immutable
+   prospective selection queue records new organizations and assigns commercial
+   review to Rajat. Individual gym members/branches and existing organizations
+   do not enter this cohort. This selection does not approve a customer offer,
+   open checkout, shorten a trial or grant paid access. Each gym still needs
+   actual buyer/tax/setup readiness and genuine owner terms/amount/reminder review
+   followed by verified payment through the existing scoped flow. No new gym
+   business has registered since the selection checkpoint. See the
+   [future-signup record](subscription-starter-future-signups.md).
 
 Justin's gym still needs a real membership plan; setup remains unfinished.
 His WhatsApp connection/delivery remains deferred at Rajat's instruction.
@@ -82,7 +79,7 @@ The completed document/capability steps above supersede their former pending sta
 | Reminder delivery               | Select the actual acceptance recipient; prepare and authorize the exact current-contract message, then record its real delivery outcome. Worker HTTP 200 and template approval are separate.                                                                                                                                                                                                                                                                                                                                      | Rajat                    |
 | Customer opening                | Justin's fitness selected; saved billing legal name/address/phone verified complete at 10:14:19 UTC. Justin's ₹799 agreement, intended billing location/contact and FY 2026–27 zero PAN-wide turnover/no GST/only-business statements confirmed by Rajat. C01 operator disposition, audited defaults/setup finding, exact offer/preparation and verified runtime opening are complete at 11:55:57 UTC. Justin’s genuine owner approval, quote/reminder acknowledgment, payment and issuance remain; see the final opening record. | Rajat                    |
 | Starter capabilities            | Existing local/cloud Auth/API/RLS/worker acceptance passed. Refresh actual candidate schedules, branch roster, access and policy checks, then review exact capability activation with customer opening.                                                                                                                                                                                                                                                                                                                           | Release operator / Rajat |
-| Independent watchdog            | StatusCake Free account signed in; exact owner alert destination supplied privately. Prepare probes/read-only token and verify actual test delivery; authentic provider acceptance remains prior to activation.                                                                                                                                                                                                                                                                                                                   | Rajat                    |
+| Independent watchdog            | StatusCake Free: both five-minute public/worker monitors healthy, separate read-only token, and real owner email alert delivered at 13:42:41 UTC. Harmless test paused; no paid trial or purchase. Provider acceptance was explicitly skipped.                                                                                                                                                                                                                                                                                    | Rajat                    |
 | Operations                      | Primary ops/renewals are healthy; GitHub cadence is intermittent. Native scheduler acceptance passed. Review Supabase temporary Free acceptance by 13 October or its earlier triggers.                                                                                                                                                                                                                                                                                                                                            | Rajat                    |
 
 ## Receipt behavior and release

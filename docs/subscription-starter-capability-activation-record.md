@@ -115,3 +115,11 @@ account registering for UsefulDesk**, rather than individual gym members. This
 supersedes the small named batch and requires a separate onboarding/offer path
 with genuine owner review; it does not authorize bypassing trials or recording
 future approvals. The exact owner alert email was supplied privately.
+
+## Later rollout decisions
+
+The human explicitly skipped provider-redelivery/support acceptance on 2 October;
+it remains unproven and no support request was sent. StatusCake Free public and
+worker monitors now record healthy external probes, and a real owner alert was
+delivered at 13:42:41 UTC. See `production-watchdog.md`. The new-business selection
+now has a prospective private queue; see `subscription-starter-future-signups.md`.

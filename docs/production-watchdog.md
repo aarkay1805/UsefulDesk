@@ -1,26 +1,36 @@
-# Independent production watchdog — disabled release
+# Independent production watchdog — active
 
-The read-only watchdog is implemented and disabled by default. No monitoring
-account, external probe or owner delivery is established by this code.
-The operator configuration is [prepared here](production-watchdog-config.json).
-StatusCake Free was researched on 2 October as a no-cost small-business candidate
-(ten monitors, five-minute intervals); its free signup page is open for the owner.
-Rajat completed free signup/sign-in; the dashboard is accessible without a paid
-trial. Exact alert email was explicitly supplied privately. No monitor token, monitor or test
-notification has been created. Authentic provider acceptance remains the prior
-ordered rollout step.
-On 2 October, Rajat clarified that he has **no monitoring service/account**.
-This supersedes the earlier assumed existing-account selection. New account
-setup, owner alert-channel selection and verified test delivery remain necessary;
-do not claim that probes or notifications exist, purchase a service, or infer an
-alert recipient from unrelated account details.
+StatusCake Free is configured in the owner-created account, with no paid trial or purchase.
+The owner explicitly selected the email channel and approved sharing the separate read-only monitoring URL.
+Two five-minute HTTP monitors cover public login availability and primary worker/database health.
+The public monitor first recorded healthy checks at 13:39 UTC on 2 October.
+The worker route returned HTTP 200 with healthy ops/renewals and no-store headers after
+READY Production deployment `dpl_4yLpexKqg6Ls3KxYyv7drYSjGxxd` (main `eeeb5442`).
+The independent worker monitor first recorded **Healthy at 13:53 UTC**. Both
+external monitors are running; the notification test remains paused.
+
+An actual StatusCake alert reached the explicitly selected Gmail inbox at **13:42:41 UTC
+(19:12:41 IST)**. Gmail delivery and sender authentication were verified through the connected
+owner inbox. The harmless dedicated missing-page test was paused after receipt; the
+production site/workers remained available. Monitor IDs: public `8032323`, worker
+`8032327`, paused notification test `8032326`. Recipient and token stay outside Git.
+
+Both monitors use two confirmation servers; alert delays are ten minutes for public
+availability and five minutes for worker health. These are elapsed alert delays, not
+claims of a configurable consecutive-failure count. Content matching and explicit SSL
+validation are paid features in this account; no upgrade was started. The provider
+default unhealthy HTTP status set includes 404 and 503. The expected healthy response
+is HTTP 200. Three of ten free monitor slots are used, including the paused test.
+
+The concrete configuration is [recorded here](production-watchdog-config.json).
 
 The reviewed RPC is installed in Production as migration history
 `20261001180537` (source `20261001155527_production_watchdog_snapshot.sql`).
 At 18:05 UTC on 1 October, service-role execution and the fixed output allowlist
 passed; anon/authenticated/PUBLIC execution was denied and the search path was
 empty. The snapshot contained healthy natural primary ops and renewal aggregates.
-Production monitor flags/token remain unset; no external probe or paging is active.
+That was the disabled baseline. The separate 256-bit token is now a Vercel Production
+secret and the monitoring flag is enabled; neither dispatch credential was shared.
 
 `GET /api/production-watchdog/[token]` requires literal Production opt-in via
 `USEFULDESK_EXTERNAL_MONITOR_ENABLED=true` and a separate random 64-hex
@@ -39,19 +49,11 @@ unavailable database; ops freshness is 45 minutes and renewals 120 minutes.
 This checks primary health, not independent native/GitHub schedule freshness or
 backup freshness. Native natural logs and the backup workflow remain separate.
 
-After identifying the selected account, verify the landed release and installed
-service-only RPC, then provision the separate read-only token privately. Enable only the
-Production monitor flag and redeploy the verified release. Add the two monitors
-from the prepared configuration; substitute the private token only in the
-selected provider's private URL field. URL paths can appear in request logs, so
-the token must never authorize dispatch and must not appear in Git/evidence.
+For recovery, keep the token in the owner's private monitoring records and Vercel
+Production secret. URL paths can appear in request logs; this credential must never
+authorize dispatch or enter Git. A successful health response alone does not prove
+notification receipt; the delivered test above is the separate channel acceptance.
 
-Verify natural external successful probes and then an actual provider test
-notification received by the chosen owner. Record only channel type, test time
-and factual delivery result. Prefer the provider's notification test; otherwise
-use a dedicated test monitor with a deliberately unavailable target, removing
-that test after delivery. Do not break the production application or workers.
-Configuration or a successful health response does not prove notification receipt.
 To contain monitoring, set its flag false and redeploy; existing schedulers and
 financial recovery remain available.
 

@@ -94,6 +94,18 @@ const input = [
     `${root}/supabase/migrations/20261002132000_starter_live_capability_activation.sql`,
     'utf8'
   ),
+  ...(process.argv[3] === '--documents'
+    ? [
+        readFileSync(
+          `${root}/supabase/migrations/20261002140000_starter_future_signup_selection.sql`,
+          'utf8'
+        ),
+        readFileSync(
+          `${root}/supabase/migrations/20261002140000_starter_future_signup_selection.sql`,
+          'utf8'
+        ),
+      ]
+    : []),
   acceptance,
   ...(['--customer', '--documents'].includes(process.argv[3])
     ? [
@@ -114,6 +126,10 @@ const input = [
     ? [
         readFileSync(
           `${root}/scripts/verify-starter-subscription-documents.sql`,
+          'utf8'
+        ),
+        readFileSync(
+          `${root}/scripts/verify-starter-future-signups.sql`,
           'utf8'
         ),
       ]
