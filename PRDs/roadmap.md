@@ -1095,7 +1095,7 @@ renewal contracts Approved, closing the earlier template prerequisite; actual
 delivery remains pending. First buyer/issuer facts, exact customer opening,
 capability activation and selected monitoring-service setup/owner notification
 remain. See the [current rollout actions](../docs/subscription-starter-rollout-next.md).
-**Built/default closed — Starter web customer checkout, 2 October:** separate
+**Shipped closed / customer activation pending — Starter web customer checkout, 2 October:** separate
 immutable customer reviews and per-organization quote/order/refund gates now
 preserve the completed internal pilot while server-owned quote/order authority
 routes customer provider events, settlement, receipts and recovery. Existing owner,
@@ -1104,10 +1104,16 @@ invariants remain. The web customer mode offers Starter first-term only; all new
 runtime/UI flags default off, renewals/native Checkout/capabilities stay closed.
 Local rollback/replay and isolated staging acceptance passed; final closed source
 is staging-installed as `20261002083552`, with zero fixture/authority/financial
-rows and all gates off. A real buyer is not a build/test prerequisite. Production
-installation, authentic buyer/issuer/document review and separately authorized
-customer activation remain pending; Justin's active trial/AED tenant was untouched.
-See the [implementation and acceptance record](../docs/subscription-starter-customer-checkout.md).
+rows and all gates off. PR #31 is merged; Production source is installed as
+`20261002090428` after the verified full encrypted backup and deployed on canonical
+`dpl_m6uiUuVstikocsJueXpuMQU6HYNC` after exact-source CI/CodeQL passed. Fresh
+schema/function permissions and 22 financial/access/tenant/gym preservation
+checks passed; all new switches remain closed with zero customer authority rows.
+A real buyer is not a build/test prerequisite. Authentic buyer/issuer/document
+review and separately authorized customer activation remain pending; Justin's
+active trial/AED tenant was untouched. See the
+[closed Production release record](../docs/subscription-starter-customer-production-record.md)
+and [implementation and acceptance record](../docs/subscription-starter-customer-checkout.md).
 Flags alone cannot authorize a customer.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
