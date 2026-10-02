@@ -7,18 +7,18 @@ its initiation. Bank refund-credit evidence remains owner-deferred.
 
 ## Current evidence and remaining work
 
-| Item                            | Evidence and next action                                                                                                                                                                                                                                                                                     | Owner                    |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
-| Original Live money/access      | Passed: one verified ₹799 payment, one processed full refund, three reconciled original events, zero recovery items/exceptions and 554 gym payments at the 2 October 02:05:53 UTC Production check. Quotes/orders/refunds/conversion/renewals and tier capabilities remain off; intake/settlement remain on. | Rajat                    |
-| Exact renewal templates         | Prerequisite passed: fresh provider GETs at **02:21:36 UTC** report membership and service renewal APPROVED, POSITIONAL, exact current body/buttons, no header/footer. Stored Production contracts also match. Actual delivery remains pending.                                                              | Rajat                    |
-| Delivery receipts               | Production-installed and collection enabled on exact-main canonical deployment after verified full backup; schema/grants, initial runtime and financial/access preservation passed. Zero natural receipts at 02:49 UTC; authentic acceptance remains pending.                                                | Release operator         |
-| Authentic same-event redelivery | Pending genuine provider traffic: repeated provider event ID and identical body hash, original financial/access preservation and actual provider response logs. Digest fallback and manual reconciliation do not supply this proof.                                                                          | Rajat                    |
-| Mixed gym/SaaS routing          | Pending authentic matching deliveries. An unrelated receipt proves only a foreign order or orderless payment. Correlate private identities with real gym ingress/ledger evidence and verify both financial/access boundaries before calling it gym routing.                                                  | Rajat                    |
-| Reminder delivery               | Select the actual acceptance recipient; prepare and authorize the exact current-contract message, then record its real delivery outcome. Worker HTTP 200 and template approval are separate.                                                                                                                 | Rajat                    |
-| Customer opening                | Identify the genuine first buyer/organization, billing geography, financial-year PAN-wide turnover confirmation and fact-supported issuer/document treatment. Reuse supplied supplier identity/address; prepare the exact immutable customer offer/opening review before issuance.                           | Rajat                    |
-| Starter capabilities            | Existing local/cloud Auth/API/RLS/worker acceptance passed. Refresh actual candidate schedules, branch roster, access and policy checks, then review exact capability activation with customer opening.                                                                                                      | Release operator / Rajat |
-| Independent watchdog            | Code/RPC exist. Identify the chosen existing service/account; configure the prepared probes and separate token; verify natural probes and actual owner notification.                                                                                                                                         | Rajat                    |
-| Operations                      | Primary ops/renewals are healthy; GitHub natural runs resumed but cadence is intermittent. Native scheduler acceptance passed. Review Supabase temporary Free acceptance by 13 October or its earlier triggers.                                                                                              | Rajat                    |
+| Item                            | Evidence and next action                                                                                                                                                                                                                                                                                                                                                                                                                   | Owner                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| Original Live money/access      | Passed: one verified ₹799 payment, one processed full refund, three reconciled original events, zero recovery items/exceptions and 554 gym payments at the 2 October 02:05:53 UTC Production check. Quotes/orders/refunds/conversion/renewals and tier capabilities remain off; intake/settlement remain on.                                                                                                                               | Rajat                    |
+| Exact renewal templates         | Prerequisite passed: fresh provider GETs at **02:21:36 UTC** report membership and service renewal APPROVED, POSITIONAL, exact current body/buttons, no header/footer. Stored Production contracts also match. Actual delivery remains pending.                                                                                                                                                                                            | Rajat                    |
+| Delivery receipts               | Production-installed and collection enabled on exact-main canonical deployment after verified full backup; schema/grants, initial runtime and financial/access preservation passed. Zero natural receipts at 02:49 UTC; authentic acceptance remains pending.                                                                                                                                                                              | Release operator         |
+| Authentic same-event redelivery | Pending genuine provider traffic: repeated provider event ID and identical body hash, original financial/access preservation and actual provider response logs. Digest fallback and manual reconciliation do not supply this proof.                                                                                                                                                                                                        | Rajat                    |
+| Mixed gym/SaaS routing          | Pending authentic matching deliveries. An unrelated receipt proves only a foreign order or orderless payment. Correlate private identities with real gym ingress/ledger evidence and verify both financial/access boundaries before calling it gym routing.                                                                                                                                                                                | Rajat                    |
+| Reminder delivery               | Select the actual acceptance recipient; prepare and authorize the exact current-contract message, then record its real delivery outcome. Worker HTTP 200 and template approval are separate.                                                                                                                                                                                                                                               | Rajat                    |
+| Customer opening                | Justin's fitness selected; saved billing legal name/address/phone verified complete at 10:14:19 UTC. Justin's ₹799 agreement, intended billing location/contact and FY 2026–27 zero PAN-wide turnover/no GST/only-business statements confirmed by Rajat. Finish issuer/document treatment and owner checkout review. Reuse supplied supplier identity/address; prepare the exact immutable customer offer/opening review before issuance. | Rajat                    |
+| Starter capabilities            | Existing local/cloud Auth/API/RLS/worker acceptance passed. Refresh actual candidate schedules, branch roster, access and policy checks, then review exact capability activation with customer opening.                                                                                                                                                                                                                                    | Release operator / Rajat |
+| Independent watchdog            | Code/RPC exist. Identify the chosen existing service/account; configure the prepared probes and separate token; verify natural probes and actual owner notification.                                                                                                                                                                                                                                                                       | Rajat                    |
+| Operations                      | Primary ops/renewals are healthy; GitHub natural runs resumed but cadence is intermittent. Native scheduler acceptance passed. Review Supabase temporary Free acceptance by 13 October or its earlier triggers.                                                                                                                                                                                                                            | Rajat                    |
 
 ## Receipt behavior and release
 
@@ -95,7 +95,36 @@ verified full encrypted backup. Canonical deployment and exact merged-source
 checks passed with all four new switches closed, zero customer reviews/scopes,
 unchanged original/gym/tenant/access fingerprints and clean bounded startup checks.
 See the [closed Production release record](subscription-starter-customer-production-record.md).
-Buyer/issuer/document review and exact customer activation remain pending.
-Justin Signup Test Gym's persona is unconfirmed and its active trial/AED
-currency was neither changed nor treated as a sale. See the
+Justin's fitness is the selected real customer candidate; fresh checks confirm
+Justin Credible as owner and Old Ambala as its single active INR branch. Its
+trial was ended early with Justin's consent at 10:52:27 UTC / 4:22:27 pm IST;
+expired unsuspended version 4 now passes the trial condition. Buyer/issuer/document review and
+customer activation remain pending. Saved billing legal name/address/phone now
+verify complete; Justin agreed to Starter at ₹799 per Rajat. SaaS recipient/contact is
+confirmed by Rajat, along with FY 2026–27 supplier statements. Final issuer/document
+review and owner checkout review remain. Customer WhatsApp setup/delivery
+is deferred at Rajat's instruction; actual owner reminder acknowledgment remains
+required. Regional settings correctly saves INR to the branch; legacy entity AED
+has no customer-facing editor and needs app-side cleanup. See [Justin's preparation record](subscription-justin-customer-review.md)
+and the
 [customer implementation and acceptance record](subscription-starter-customer-checkout.md).
+
+At 10:54:17 UTC, Justin's owner-consented early trial correction is verified:
+expired, unsuspended, version 4, zero customer authority/quote/order/payment rows.
+The prior manual activation did not end the trial and is retained in audit
+history. Twenty-two preservation checks match outside his intended access-row
+change. Trial eligibility is now satisfied; exact offer/review/scope, runtime
+opening and owner purchase review remain pending. See his preparation record.
+
+## Justin first-customer disposition — 2 October
+
+Operator preparation is now distinct from authenticated owner approval. The actual owner
+reviews the prepared ₹799 terms, creates an initially closed scope, then a separate
+server transaction consumes one-time opening authority. Retries cannot reopen
+containment; original Home office initiation, customer refunds, renewals and global
+capabilities remain closed. Local/cloud rolled-back acceptance and full verification
+passed. Justin’s C01 document disposition and legacy business-default cleanup are
+complete. Setup review records missing active plan, without marking setup ready.
+Genuine owner checkout approval/reminder acknowledgment and payment remain.
+See [Justin’s dated record](subscription-justin-customer-review.md) for fresh backup, provider/recovery evidence and the explicit bounded first-customer
+disposition; authentic repeat/mixed delivery and external paging remain wider work.

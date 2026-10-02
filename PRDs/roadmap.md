@@ -1110,11 +1110,34 @@ rows and all gates off. PR #31 is merged; Production source is installed as
 schema/function permissions and 22 financial/access/tenant/gym preservation
 checks passed; all new switches remain closed with zero customer authority rows.
 A real buyer is not a build/test prerequisite. Authentic buyer/issuer/document
-review and separately authorized customer activation remain pending; Justin's
-active trial/AED tenant was untouched. See the
+review and separately authorized customer activation remain pending. Justin's
+fitness is now selected as the real customer candidate: ownership and one active
+INR branch verified. Justin later consented to an early trial end; the audited
+10:52:27 UTC correction leaves an expired unsuspended trial at version 4.
+Saved billing legal name/address/phone verified complete at 10:14:19 UTC. Legacy
+entity cleanup/setup, owner checkout review and C01 remain pending. Billing
+location/contact and FY 2026–27 zero PAN-wide turnover/no GST/only-business
+statements are now owner-confirmed; no accountant/tax adviser is retained. Rajat confirms Justin agreed to Starter at ₹799; this
+customer's WhatsApp setup/delivery is deferred, while required owner reminder
+acknowledgment remains. Production customer authority/gates remain unchanged;
+the explicit owner-consented trial correction is recorded separately. See
+[Justin's preparation record](../docs/subscription-justin-customer-review.md), the
 [closed Production release record](../docs/subscription-starter-customer-production-record.md)
 and [implementation and acceptance record](../docs/subscription-starter-customer-checkout.md).
 Flags alone cannot authorize a customer.
+
+Justin's 2 October preparation now includes an actual Vercel invoice/receipt
+inspection and an ordinary ₹799 invoice/receipt recommendation supported by
+current official GST sources. C01 final disposition, exact customer offer/review/
+scope and runtime opening remain pending; the fresh 10:33:35 UTC check still has
+an active trial and zero customer authority/quotes. No more buyer/turnover details
+are currently requested. Full pending items remain in his preparation record.
+
+The owner-consented early trial correction is now verified at 10:54:17 UTC:
+expired, unsuspended, version 4; zero customer reviews/scopes/quotes/orders/payments.
+The prior manual activation and original expiry remain in audit history. All 22
+preservation checks outside Justin's intended access-row change match; exact
+customer opening remains pending.
 
 **Approved subscription direction (foundation in code, paid rollout pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
@@ -3185,3 +3208,16 @@ hard stop is necessary, separately authorize disconnecting the affected Pages.
 Pausing recovery requires accounting for both database and GitHub schedulers and
 still does not stop signed webhooks. Preserve captured leads, notes, and durable
 event history; do not reverse additive migrations or delete evidence.
+
+**Shipped implementation / exact customer opening in progress — genuine owner review, 2 October:**
+
+Operator preparation is now distinct from authenticated owner approval. The actual owner
+reviews the prepared ₹799 terms, creates an initially closed scope, then a separate
+server transaction consumes one-time opening authority. Retries cannot reopen
+containment; original Home office initiation, customer refunds, renewals and global
+capabilities remain closed. Local/cloud rolled-back acceptance and full verification
+passed. Justin’s C01 document disposition and legacy business-default cleanup are
+complete. Setup review records missing active plan, without marking setup ready.
+Genuine owner checkout approval/reminder acknowledgment and payment remain.
+See [Justin’s dated record](../docs/subscription-justin-customer-review.md) for fresh backup, provider/recovery evidence and the explicit bounded first-customer
+disposition; authentic repeat/mixed delivery and external paging remain wider work.

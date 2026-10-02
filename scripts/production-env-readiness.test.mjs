@@ -800,3 +800,56 @@ describe('production environment readiness', () => {
     );
   });
 });
+
+const customerCheckoutEnvironment = {
+  ...recoveryEnvironment,
+  USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED: 'true',
+  USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED: 'true',
+  NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI: 'true',
+};
+it('permits only the separately reviewed customer checkout flag set', () => {
+  const opts = { allowLiveCustomerCheckout: true };
+  expect(
+    evaluateProductionEnvironment(customerCheckoutEnvironment, opts)
+  ).not.toEqual(expect.arrayContaining([blocker()]));
+  for (const name of [
+    'USEFULDESK_SAAS_LIVE_QUOTES_ENABLED',
+    'USEFULDESK_SAAS_LIVE_ORDERS_ENABLED',
+    'USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED',
+    'USEFULDESK_SAAS_LIVE_CUSTOMER_REFUNDS_ENABLED',
+    'NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI',
+    'USEFULDESK_SUBSCRIPTION_CAPABILITIES_ENABLED',
+  ]) {
+    expect(
+      evaluateProductionEnvironment(
+        { ...customerCheckoutEnvironment, [name]: 'true' },
+        opts
+      )
+    ).toEqual(expect.arrayContaining([blocker('production-safety-flags')]));
+  }
+  for (const name of [
+    'USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED',
+    'USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED',
+    'NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI',
+  ]) {
+    expect(
+      evaluateProductionEnvironment(
+        { ...customerCheckoutEnvironment, [name]: 'false' },
+        opts
+      )
+    ).toEqual(
+      expect.arrayContaining([blocker('subscription-live-customer-checkout')])
+    );
+  }
+  expect(
+    evaluateProductionEnvironment(customerCheckoutEnvironment, {
+      allowLiveRecoveryOnly: true,
+    })
+  ).toEqual(expect.arrayContaining([blocker()]));
+  expect(
+    evaluateProductionEnvironment(customerCheckoutEnvironment, {
+      ...opts,
+      allowLiveRecoveryOnly: true,
+    })
+  ).toEqual(expect.arrayContaining([blocker('subscription-live-audit-mode')]));
+});
