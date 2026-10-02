@@ -18,6 +18,7 @@ vi.mock('@/lib/finance/invoice-document-service', async (importOriginal) => {
 });
 
 import { InvoiceDocumentConflictError } from '@/lib/finance/invoice-document-service';
+import { invoiceDocumentErrorMessage } from '@/lib/finance/invoice-document-errors';
 import { GET, runtime } from './route';
 
 const accountId = '11111111-1111-4111-8111-111111111111';
@@ -156,6 +157,11 @@ describe('GET /api/invoices/[invoiceId]/document', () => {
     const response = await GET(request(), context());
 
     expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: message });
+    expect(await response.json()).toEqual({
+      error: invoiceDocumentErrorMessage(
+        new InvoiceDocumentConflictError(message),
+        ''
+      ),
+    });
   });
 });

@@ -17,7 +17,7 @@ import {
   canManageInvoiceProfile,
   canShareInvoiceDocuments,
 } from '@/lib/auth/roles';
-import { getErrorMessage } from '@/lib/errors';
+import { invoiceDocumentErrorMessage } from '@/lib/finance/invoice-document-errors';
 import {
   invoiceDocumentActionPresentation,
   type InvoiceDocumentBlockerCode,
@@ -123,7 +123,7 @@ function documentBlocker(
           ? {
               resolution: {
                 label: 'Finish invoice setup',
-                href: '/settings?tab=payments',
+                href: '/settings?tab=business-details',
               },
             }
           : {}),
@@ -302,6 +302,7 @@ export function InvoiceDocumentActions({
   if (!presentation.download.show && !presentation.share.show) return null;
 
   async function downloadInvoice() {
+    const fallback = `Could not download the invoice. Try again. If it still fails, contact support with ${invoice.reference}.`;
     setDownloading(true);
     try {
       const response = await fetch(`/api/invoices/${invoice.id}/document`, {
@@ -309,9 +310,7 @@ export function InvoiceDocumentActions({
       });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
-        throw new Error(
-          responseErrorMessage(body, 'Could not download the invoice')
-        );
+        throw new Error(responseErrorMessage(body, fallback));
       }
       const blob = await response.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -331,13 +330,14 @@ export function InvoiceDocumentActions({
           : current
       );
     } catch (error) {
-      toast.error(getErrorMessage(error, 'Could not download the invoice'));
+      toast.error(invoiceDocumentErrorMessage(error, fallback));
     } finally {
       setDownloading(false);
     }
   }
 
   async function shareInvoice() {
+    const fallback = `Could not send the invoice on WhatsApp. Try again. If it still fails, contact support with ${invoice.reference}.`;
     setSharing(true);
     try {
       const response = await fetch(`/api/invoices/${invoice.id}/share`, {
@@ -345,9 +345,7 @@ export function InvoiceDocumentActions({
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(
-          responseErrorMessage(body, 'Could not send the invoice on WhatsApp')
-        );
+        throw new Error(responseErrorMessage(body, fallback));
       }
       setLoadedReadiness((current) =>
         current?.identity === readinessIdentity
@@ -356,9 +354,7 @@ export function InvoiceDocumentActions({
       );
       toast.success('Invoice sent on WhatsApp');
     } catch (error) {
-      toast.error(
-        getErrorMessage(error, 'Could not send the invoice on WhatsApp')
-      );
+      toast.error(invoiceDocumentErrorMessage(error, fallback));
     } finally {
       setSharing(false);
     }

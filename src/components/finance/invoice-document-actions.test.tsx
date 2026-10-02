@@ -334,7 +334,7 @@ describe('InvoiceDocumentActions', () => {
     expect(within(blocker).queryByRole('link')).toBeNull();
   });
 
-  it('links an incomplete invoice profile to payment settings for an admin', async () => {
+  it('links an incomplete invoice profile to Business details for an admin', async () => {
     accountRole = 'admin';
     render(
       <InvoiceDocumentActions
@@ -358,7 +358,9 @@ describe('InvoiceDocumentActions', () => {
       name: 'Finish invoice setup',
     });
     expect(resolution.tagName).toBe('A');
-    expect(resolution.getAttribute('href')).toBe('/settings?tab=payments');
+    expect(resolution.getAttribute('href')).toBe(
+      '/settings?tab=business-details'
+    );
   });
 
   it('explains a missing phone without offering a settings CTA', async () => {
@@ -759,6 +761,25 @@ describe('InvoiceDocumentActions', () => {
         'Invoice document storage is unavailable'
       )
     );
+  });
+
+  it.each([
+    [
+      'Invoice customer snapshot is incomplete',
+      "Could not make the invoice PDF. Add the member's name in Details, then try again.",
+    ],
+    [
+      'Internal server error',
+      'Could not download the invoice. Try again. If it still fails, contact support with INV-000042.',
+    ],
+  ])('shows instructional download errors: %s', async (message, expected) => {
+    vi.mocked(fetch).mockResolvedValue(jsonResponse({ error: message }, 409));
+    await renderReady();
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Download invoice' })
+    );
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expected));
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
   it('confirms a successful explicit WhatsApp share', async () => {

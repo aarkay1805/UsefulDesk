@@ -321,7 +321,7 @@ describe('invoice document action presentation', () => {
         ...complete,
         seller_snapshot: null,
       }).download.reason
-    ).toBe('Add your invoice details in Settings → Payments first.');
+    ).toBe('Add your invoice details in Settings → Business details first.');
     expect(
       invoiceDocumentActionPresentation({
         ...complete,
