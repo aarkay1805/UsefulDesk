@@ -1,5 +1,24 @@
 # Roadmap
 
+## Built — Subsequent-gym Starter preparation, closed (2026-10-03)
+
+**Status: implementation accepted and schema installed closed in Production;
+app deployment and actual per-customer review pending.** Platform admins with MFA
+can save partial buyer/setup/commercial work with an operator, status and next step,
+then explicitly freeze one exact ₹799 Starter offer and immutable operator preparation.
+Owner approval, scoped one-time opening and verified payment remain separate.
+Natural expiry follows the full existing 14-day trial. Changed facts block new authority;
+bookkeeping and legitimate paid transitions do not invalidate commercial review.
+
+**Validation:** 4,409 tests / 538 files, lint, typecheck and build; composed current
+rollback/replay including closed renewal source; independent authenticated invoice
+upsert/retry, freeze/save, changed-buyer capture and document-issuance races;
+desktop/389px/320px synthetic UI checks; independent review with no outstanding
+Critical/Important finding. Production `20261002193254` preserves all 33 relation
+fingerprints. The fresh 19:34:12 UTC observation contains zero selected gyms/work
+rows. Rajat owns the next actual registration review; no customer was activated.
+See the [preparation operating record](../docs/subscription-starter-signup-preparation.md).
+
 ## Completed — Justin gym setup and subscription document email (2026-10-02)
 
 **Status: actual plan confirmed, setup reviewed, original documents sent by
@@ -3365,7 +3384,7 @@ is not shipped. See [the rollout sequence](../docs/subscription-starter-rollout-
 
 **Shipped / approved Starter restrictions — 2 October, 13:17 UTC:** Production enforces Justin’s standard-reminder-only Starter matrix and one-active-branch allowance with Test billing closed. Exact admin-audited post-refund manual access is preserved, alongside trials, complimentary and grandfathered manual accounts; no payment/refund/access/gym row changed. Disposable/cloud rollback, concurrent create, API/UI/native checks and fresh reviews passed. Provider logs confirm original HTTP 200 deliveries, but acknowledged events cannot be replayed through Razorpay’s dashboard. Authentic repeat/mixed acceptance was later skipped by the human and remains unproven; completed monitoring and prospective business selection are recorded below. See [the activation record](../docs/subscription-starter-capability-activation-record.md).
 
-**Shipped / future Starter registration selection — 2 October:** the human selected every new gym business registration, rather than individual gym members or a named existing batch. The private prospective queue (`20261002140000_starter_future_signup_selection.sql`) preserves an immutable UUID/time selection and exposes current review stages only to an MFA platform admin. It preserves trials, existing organizations and the business erasure path; commercial readiness, actual operator preparation, genuine owner approval and verified payment remain required for each future customer. No future customer approval, payment or access has been manufactured. See [the future-signup record](../docs/subscription-starter-future-signups.md).
+**Shipped / future Starter registration selection — 2 October:** the human selected every new gym business registration, rather than individual gym members or a named existing batch. The private prospective queue (`20261002140000_starter_future_signup_selection.sql`) preserves an immutable UUID/time selection and exposes current review stages only to an MFA platform admin. It preserves trials, existing organizations and the business erasure path. The subsequent-gym preparation workflow is built and installed closed (3 October), with app deployment pending; actual commercial review, genuine owner approval and verified payment remain required for each future customer. No future customer approval, payment or access has been manufactured. See [the future-signup record](../docs/subscription-starter-future-signups.md).
 
 **Shipped / independent monitoring — 2 October:** StatusCake Free public/worker HTTP checks use five-minute intervals, two confirmation servers and a separate read-only credential. A real test alert reached the explicitly selected owner email at 13:42:41 UTC; the dedicated harmless test is paused. Independent worker-probe acceptance is recorded in [the watchdog record](../docs/production-watchdog.md). Provider redelivery/support was explicitly skipped by the human and remains unproven.
 

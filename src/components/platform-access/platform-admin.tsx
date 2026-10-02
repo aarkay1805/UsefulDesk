@@ -12,6 +12,7 @@ import type {
   AccessStatus,
   OrganizationAccess,
 } from '@/lib/platform-access/model';
+import { StarterSignupQueue } from './starter-signup-queue';
 import { AccessStatusBadge } from './access-status-badge';
 import { availableAccessActions, validAccessReason } from './ui-contract';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -90,7 +91,13 @@ export function PlatformAdmin({ mfaRequired }: { mfaRequired: boolean }) {
       {mfaRequired ? (
         <AdminMfa onVerified={() => router.refresh()} />
       ) : (
-        <OrganizationList />
+        <>
+          <StarterSignupQueue />
+          <section aria-label="Organization access" className="space-y-4">
+            <h2 className="font-semibold">Organization access</h2>
+            <OrganizationList />
+          </section>
+        </>
       )}
     </main>
   );

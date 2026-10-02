@@ -1,6 +1,6 @@
 # Starter web billing — current operating summary
 
-Updated after the 2 October 2026 rollout, cleanup and Justin setup/email completion. This is the current action
+Updated after the 3 October 2026 closed subsequent-gym preparation installation. This is the current action
 list, not a live health report. Recheck the relevant records before opening a new
 customer or changing any gate. Earlier release checks live in the
 [dated rollout archive](subscription-starter-rollout-history-2026-10-02.md).
@@ -24,12 +24,12 @@ queue; do not turn that dated zero into a permanent claim.
 
 ## Next actions and ownership
 
-| Action                      | Owner                    | Required next step                                                                                                                                                                                                                   |
-| --------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Accept Live Starter renewal | Release operator / Rajat | Implementation/local acceptance complete. Review the [closed release packet](subscription-starter-renewal-release.md), complete genuine cloud/provider acceptance and separately authorize opening before 2 November, 17:54:56 IST.  |
-| Review each new gym         | Rajat                    | Complete actual buyer/setup and supplier/tax/refund-support readiness, then prepare its exact Starter offer. Preserve the normal trial; open only after expiry and genuine authenticated owner review, followed by verified payment. |
-| Accept reminder delivery    | Rajat                    | Select a connected, explicitly authorized recipient and the exact Approved/synced template before a real send. Justin's WhatsApp connection/delivery remains deferred by the human.                                                  |
-| Review Production hosting   | Rajat                    | Review temporary Supabase Free acceptance by 13 October or its earlier triggers, as recorded in [Production readiness](production-readiness.md).                                                                                     |
+| Action                      | Owner                    | Required next step                                                                                                                                                                                                                                                           |
+| --------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Accept Live Starter renewal | Release operator / Rajat | Implementation/local acceptance complete. Review the [closed release packet](subscription-starter-renewal-release.md), complete genuine cloud/provider acceptance and separately authorize opening before 2 November, 17:54:56 IST.                                          |
+| Review each new gym         | Rajat                    | Deploy the reviewed preparation form, then follow the [preparation record](subscription-starter-signup-preparation.md) for actual buyer/setup and commercial evidence. Queue is zero at 19:34:12 UTC; preserve trials and require genuine owner review and verified payment. |
+| Accept reminder delivery    | Rajat                    | Select a connected, explicitly authorized recipient and the exact Approved/synced template before a real send. Justin's WhatsApp connection/delivery remains deferred by the human.                                                                                          |
+| Review Production hosting   | Rajat                    | Review temporary Supabase Free acceptance by 13 October or its earlier triggers, as recorded in [Production readiness](production-readiness.md).                                                                                                                             |
 
 Original internal initiation, customer refund initiation, Live renewals, higher
 tiers, upgrades, add-ons and native Checkout retain their existing closed gates.
@@ -41,6 +41,7 @@ permission to message a customer.
 ## Operating and acceptance references
 
 - [Financial recovery runbook](subscription-financial-recovery-runbook.md): existing obligations, owned exceptions and containment.
+- [Selected-gym preparation](subscription-starter-signup-preparation.md): closed installation, actual review checklist, source drift and accountable handoff.
 - [Customer checkout contract](subscription-starter-customer-checkout.md): operator preparation, actual owner review and scoped opening.
 - [Acceptance runner guide](subscription-acceptance-runners.md): local target boundaries, baseline requirements and rollback/concurrency checks.
 - [Cloud staging record](subscription-staging-plan.md): preserved historical cloud acceptance; restore the paused current staging target only when needed.

@@ -43,7 +43,7 @@ const input = [
   ),
   migration,
   migration, // Idempotency: same preparation source twice before fixtures.
-  ...(['--customer', '--documents'].includes(process.argv[3])
+  ...(['--customer', '--documents', '--preparation'].includes(process.argv[3])
     ? [
         readFileSync(`${root}/supabase/migrations/${customer}`, 'utf8'),
         readFileSync(`${root}/supabase/migrations/${customer}`, 'utf8'),
@@ -51,7 +51,7 @@ const input = [
         readFileSync(`${root}/supabase/migrations/${ownerReview}`, 'utf8'),
       ]
     : []),
-  ...(process.argv[3] === '--documents'
+  ...(['--documents', '--preparation'].includes(process.argv[3])
     ? [
         readFileSync(
           `${root}/supabase/migrations/20261002124500_starter_subscription_documents.sql`,
@@ -71,7 +71,7 @@ const input = [
     `${root}/supabase/migrations/20261002132000_starter_live_capability_activation.sql`,
     'utf8'
   ),
-  ...(process.argv[3] === '--documents'
+  ...(['--documents', '--preparation'].includes(process.argv[3])
     ? [
         readFileSync(
           `${root}/supabase/migrations/20261002140000_starter_future_signup_selection.sql`,
@@ -79,12 +79,28 @@ const input = [
         ),
         readFileSync(
           `${root}/supabase/migrations/20261002140000_starter_future_signup_selection.sql`,
+          'utf8'
+        ),
+      ]
+    : []),
+  ...(process.argv[3] === '--preparation'
+    ? [
+        readFileSync(
+          `${root}/supabase/migrations/20261002170000_starter_live_customer_renewals.sql`,
+          'utf8'
+        ),
+        readFileSync(
+          `${root}/supabase/migrations/20261003003000_starter_signup_preparation.sql`,
+          'utf8'
+        ),
+        readFileSync(
+          `${root}/supabase/migrations/20261003003000_starter_signup_preparation.sql`,
           'utf8'
         ),
       ]
     : []),
   acceptance,
-  ...(['--customer', '--documents'].includes(process.argv[3])
+  ...(['--customer', '--documents', '--preparation'].includes(process.argv[3])
     ? [
         readFileSync(
           `${root}/scripts/verify-starter-customer-checkout.sql`,
@@ -99,7 +115,7 @@ const input = [
         ),
       ]
     : []),
-  ...(process.argv[3] === '--documents'
+  ...(['--documents', '--preparation'].includes(process.argv[3])
     ? [
         readFileSync(
           `${root}/scripts/verify-starter-subscription-documents.sql`,
@@ -107,6 +123,14 @@ const input = [
         ),
         readFileSync(
           `${root}/scripts/verify-starter-future-signups.sql`,
+          'utf8'
+        ),
+      ]
+    : []),
+  ...(process.argv[3] === '--preparation'
+    ? [
+        readFileSync(
+          `${root}/scripts/verify-starter-signup-preparation.sql`,
           'utf8'
         ),
       ]

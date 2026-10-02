@@ -22,25 +22,24 @@ trial or enables payment. Personal details and gym names are not stored in the
 selection history; the live admin queue joins current organizations. Existing
 business erasure remains available, and erased organizations leave the live queue.
 
-**Owner: Rajat. Next action for a future selected gym: commercial review.**
-Use the existing actual per-customer readiness/preparation process in
-`subscription-starter-customer-checkout.md`: complete buyer/setup details,
-current supplier/tax and refund support review, the exact Starter offer and
-saved reminder policy. Keep opening unavailable until the trial has expired.
-The gym's actual authenticated owner must review the terms/amount and reminders;
-the separate service transaction then opens only its initial Starter checkout.
-Verified genuine payment remains the only source of a paid term. Selection is
-not standing tax clearance or customer consent. Renewals/refund initiation,
-higher tiers/add-ons/native Checkout and customer messages retain their existing gates.
+**Owner: Rajat. Next action: deploy the reviewed preparation form; review the next actual registration.**
+The [3 October preparation workflow](subscription-starter-signup-preparation.md)
+saves partial work with an assigned operator, status and next step and freezes an
+exact Starter offer/operator preparation while opening stays closed. It exposes
+missing actual buyer/setup and commercial references to an MFA platform admin.
+The fresh **2026-10-02 19:34:12.968467 UTC** Production observation has zero selected
+gyms and zero work rows; this is a dated observation, not a permanent empty queue.
 
-The read-only `platform_admin_starter_signup_queue(limit, offset)` uses the existing
-platform-admin predicate, including MFA (`aal2`). Its stages are derived from
-actual ledgers: commercial review required, owner review required, owner reviewed,
-effective checkout opened/paused, or payment verified. Raw scope flags alone do
-not claim current checkout availability during global shutdown or loss of ownership.
-The RPC is an operator query; no new customer-facing checkout UI is introduced.
-No future gym exists yet, so no future commercial preparation or owner action can
-be truthfully recorded now.
+`platform_admin_starter_signup_queue(limit, offset)` uses the existing platform-admin
+predicate including MFA (`aal2`). Its ledger-derived stages include commercial review,
+closed preparation, owner review, effective checkout opened/paused and payment verified.
+Raw flags do not imply current checkout availability. Changed reviewed facts stop new
+authority, while bookkeeping and legitimate paid transitions preserve commercial review.
+Keep the full normal trial; a release operator separately authorizes owner review after
+actual expiry. The real authenticated owner approves terms/amount/reminders in their
+own account, and verified genuine payment alone grants the paid term. Selection and
+a saved checklist are not standing tax clearance or customer consent. Renewals/refund
+initiation, higher tiers/add-ons/native Checkout and messages keep their existing gates.
 
 Both queue tables deny browser writes and service-role mutation/TRUNCATE. Historical
 selection and policy economics are immutable; an operator can disable/revoke selection
