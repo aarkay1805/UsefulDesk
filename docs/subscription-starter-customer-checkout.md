@@ -1,7 +1,7 @@
 # Starter web customer checkout — closed implementation
 
-**2 October 2026: built and accepted with disposable local/cloud fixtures;
-Production installation and customer activation remain pending.** A real buyer
+**2 October 2026: built, accepted with disposable local/cloud fixtures and
+installed closed in Production; customer activation remains pending.** A real buyer
 is required for issuance/opening review, not for building or testing this path.
 No customer authority or commercial facts are seeded by the migration.
 
@@ -141,7 +141,9 @@ customer replay/settlement/refund authority, signed webhook scope isolation,
 owner HTTP denial and Starter-only web controls. `npm run verify` passed: lint,
 TypeScript, **4,340 tests in 529 files**, and the Next.js production build
 (137 generated pages). `git diff --check` and changed-file formatting checks
-also passed. The implementation PR records these results.
+also passed. The implementation PR records these results. The later closed
+Production release is recorded in [the Production release record](subscription-starter-customer-production-record.md);
+its fresh checks and source manifest do not supply customer commercial authority.
 
 Authentic repeat/mixed gym/SaaS traffic, authorized reminder delivery, actual
 customer billing/issuer opening and identified external watchdog setup remain

@@ -6,6 +6,20 @@
 
 ---
 
+## 2026-10-02 — Release Starter customer implementation closed in Production
+
+PR #31 is merged. The exact customer migration is connector-installed as
+`20261002090428` after a fresh verified encrypted database/full Storage backup;
+canonical deployment `dpl_m6uiUuVstikocsJueXpuMQU6HYNC` passed merged-source
+CI/CodeQL with all four new customer switches closed. New schema/functions match
+accepted Staging; 22 original/gym/access/tenant fingerprints remain unchanged,
+customer reviews/scopes are empty and bounded startup checks passed. Evidence,
+historical source manifest and read-only preservation SQL live in
+`subscription-starter-customer-production-record.md`,
+`subscription-starter-customer-release-manifest.tsv` and
+`scripts/subscription-starter-customer-preservation.sql`. Actual buyer/issuer
+facts, sends/provider acceptance and customer activation remain separate.
+
 ## 2026-10-02 — Build default-closed Starter customer web checkout
 
 Separate immutable customer reviews/scopes now authorize Starter quotes/orders,

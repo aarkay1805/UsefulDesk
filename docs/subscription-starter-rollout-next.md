@@ -89,8 +89,13 @@ upgrades/add-ons, native Checkout and capabilities remain closed.
 Implementation and disposable acceptance do not require a real paying customer.
 Local full-schema rollback/replay and isolated cloud SQL acceptance passed;
 Billing Staging has the final closed source as history `20261002083552`, with all
-fixture/authority/financial rows rolled back and all gates false. Production
-installation, buyer/issuer/document review and exact customer activation remain
-pending. Justin Signup Test Gym's persona is unconfirmed and its active trial/AED
+fixture/authority/financial rows rolled back and all gates false. PR #31 is merged;
+Production installed the exact closed source as `20261002090428` after a fresh
+verified full encrypted backup. Canonical deployment and exact merged-source
+checks passed with all four new switches closed, zero customer reviews/scopes,
+unchanged original/gym/tenant/access fingerprints and clean bounded startup checks.
+See the [closed Production release record](subscription-starter-customer-production-record.md).
+Buyer/issuer/document review and exact customer activation remain pending.
+Justin Signup Test Gym's persona is unconfirmed and its active trial/AED
 currency was neither changed nor treated as a sale. See the
 [customer implementation and acceptance record](subscription-starter-customer-checkout.md).
