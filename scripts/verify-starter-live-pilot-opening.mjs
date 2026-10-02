@@ -1,37 +1,14 @@
 /** Explicit local-only rollback acceptance; no .env, cloud or provider access. */
-import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-const container = process.argv[2];
-if (
-  !container ||
-  !/^supabase_db_usefuldesk-subscription-full-[a-z0-9]+$/.test(container)
-) {
-  throw new Error(
-    'Pass an explicit disposable subscription-full local database container'
-  );
-}
+import { createDisposablePostgres } from './lib/disposable-postgres.mjs';
+
+const { sql } = createDisposablePostgres(process.argv[2], {
+  errorMessage:
+    'Pass an explicit disposable subscription-full local database container',
+});
 const root = fileURLToPath(new URL('../', import.meta.url));
-function sql(input) {
-  return execFileSync(
-    'docker',
-    [
-      'exec',
-      '-i',
-      container,
-      'psql',
-      '-X',
-      '-U',
-      'postgres',
-      '-d',
-      'postgres',
-      '-Atq',
-      '-v',
-      'ON_ERROR_STOP=1',
-    ],
-    { input, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }
-  );
-}
+
 const absent =
   "SELECT to_regclass('private.subscription_live_settings') IS NULL AND to_regclass('private.subscription_live_pilot_opening_reviews') IS NULL;";
 if (sql(absent).trim() !== 't')

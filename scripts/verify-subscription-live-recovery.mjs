@@ -1,38 +1,15 @@
 /** Explicit local-only rollback acceptance; no .env, cloud or provider access. */
-import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-const container = process.argv[2];
-if (
-  !container ||
-  !/^supabase_db_usefuldesk-subscription-full-[a-z0-9]+$/.test(container)
-) {
-  throw new Error(
-    'Pass an explicit disposable subscription-full local database container'
-  );
-}
+import { createDisposablePostgres } from './lib/disposable-postgres.mjs';
+
+const { sql } = createDisposablePostgres(process.argv[2], {
+  errorMessage:
+    'Pass an explicit disposable subscription-full local database container',
+});
 const root = fileURLToPath(new URL('../', import.meta.url));
-function sql(input) {
-  return execFileSync(
-    'docker',
-    [
-      'exec',
-      '-i',
-      container,
-      'psql',
-      '-X',
-      '-U',
-      'postgres',
-      '-d',
-      'postgres',
-      '-Atq',
-      '-v',
-      'ON_ERROR_STOP=1',
-    ],
-    { input, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }
-  );
-}
+
 const absent =
   "SELECT to_regclass('private.subscription_live_settings') IS NULL AND to_regclass('private.subscription_live_pilot_opening_reviews') IS NULL;";
 if (sql(absent).trim() !== 't')
@@ -59,6 +36,10 @@ const acceptance = readFileSync(
 );
 const recovery = readFileSync(
   `${root}/supabase/migrations/20260930180000_subscription_live_recovery_queue.sql`,
+  'utf8'
+);
+const capabilities = readFileSync(
+  `${root}/supabase/migrations/20261002132000_starter_live_capability_activation.sql`,
   'utf8'
 );
 const orderFixture = readFileSync(
@@ -134,6 +115,8 @@ const input = [
   migration, // Idempotency: same preparation source twice before fixtures.
   recovery,
   recovery, // Recovery migration replay must preserve grants and reason evidence.
+  capabilities,
+  capabilities, // Match the current branch-limit fixture and check replay.
   recoveryAcceptance,
   'ROLLBACK;',
 ].join('\n');
@@ -145,5 +128,5 @@ for (const line of output
 if (sql(absent).trim() !== 't')
   throw new Error('Live schema survived rollback');
 console.log(
-  `PASS: ${baseline.length} Live baseline migrations plus scoped preparation and recovery replay rolled back; no Live tables remain`
+  `PASS: ${baseline.length} Live baseline migrations plus scoped preparation, recovery and current capability replay rolled back; no Live tables remain`
 );

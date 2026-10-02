@@ -7,33 +7,16 @@ import { randomUUID } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import { createDisposablePostgres } from './lib/disposable-postgres.mjs';
+
 const container = process.argv[2];
-if (
-  !/^supabase_db_usefuldesk-subscription-full-[a-z0-9]+$/.test(container ?? '')
-)
-  throw new Error('Pass the explicit disposable local full-schema container');
+const { args, sql: executeSql } = createDisposablePostgres(container, {
+  errorMessage: 'Pass the explicit disposable local full-schema container',
+  maxBuffer: 32 * 1024 * 1024,
+});
 const root = fileURLToPath(new URL('../', import.meta.url));
 const clone = `subscription_recovery_${randomUUID().replaceAll('-', '')}`;
-const args = (db) => [
-  'exec',
-  '-i',
-  container,
-  'psql',
-  '-X',
-  '-U',
-  'postgres',
-  '-d',
-  db,
-  '-Atq',
-  '-v',
-  'ON_ERROR_STOP=1',
-];
-const sql = (db, input) =>
-  execFileSync('docker', args(db), {
-    input,
-    encoding: 'utf8',
-    maxBuffer: 32 * 1024 * 1024,
-  }).trim();
+const sql = (db, input) => executeSql(input, { database: db }).trim();
 const run = (input) =>
   new Promise((resolve, reject) => {
     const child = spawn('docker', args(clone), {
@@ -71,8 +54,7 @@ try {
   );
   sql('postgres', `CREATE DATABASE ${clone};`);
   created = true;
-  const restoreArgs = args(clone);
-  restoreArgs[restoreArgs.indexOf('postgres')] = 'supabase_admin';
+  const restoreArgs = args(clone, 'supabase_admin');
   execFileSync('docker', restoreArgs, {
     input: dump,
     encoding: 'utf8',
