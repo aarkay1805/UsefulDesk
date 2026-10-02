@@ -330,6 +330,18 @@ contracts (`gym_payment_confirmation`,
 `gym_autopay_payment_help`) must be Approved and synced before any enabled job
 can send. Provider acceptance remains distinct from delivery/read status.
 
+## Starter delivery acceptance
+
+The current [Starter acceptance packet](starter-whatsapp-reminder-acceptance.md)
+separates read-only readiness from an authorized send and genuine delivery.
+`scripts/whatsapp-renewal-delivery-status.sql` checks existing connection,
+identity, exact templates, cohorts and stored statuses without claiming work.
+A bound membership quote uses its selected active option's current price,
+never its historical joining fee. Missing or archived bound prices block;
+legacy memberships with no option keep their agreed fee. Manual Remind reloads
+current branch/member facts. Readiness retains attempted/ambiguous service
+claims just as the worker does; age alone never makes a retry safe.
+
 ## Controlled pilot
 
 1. Keep both schedules off.

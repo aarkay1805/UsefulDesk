@@ -13,7 +13,10 @@ import {
   selectRenewalTemplate,
   targetEndDates,
 } from '@/lib/memberships/renewal-reminders';
-import { isRenewalChaseable } from '@/lib/memberships/pricing';
+import {
+  isRenewalChaseable,
+  membershipRenewalPrice,
+} from '@/lib/memberships/pricing';
 import { runLegacyReminderDelivery } from '@/lib/reminders/legacy-delivery';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
@@ -61,6 +64,17 @@ class ReminderEligibilityChangedError extends Error {
 /** Shape of a membership row hydrated for a reminder (to-one embeds). */
 interface ReminderCandidate {
   id: string;
+  account_id: string;
+  plan_id: string | null;
+  pricing_option_id?: string | null;
+  is_trial?: boolean;
+  pricing_option?: {
+    id: string;
+    account_id: string;
+    plan_id: string;
+    price: number;
+    is_active: boolean;
+  } | null;
   contact_id: string;
   start_date: string;
   fee_amount: number;
@@ -68,7 +82,11 @@ interface ReminderCandidate {
   status?: string;
   collection_mode?: string;
   contact: { id: string; name: string | null; phone: string | null } | null;
-  plan: { name: string | null; plan_type: string | null } | null;
+  plan: {
+    name: string | null;
+    plan_type: string | null;
+    is_active?: boolean;
+  } | null;
 }
 
 export async function GET(request: Request) {
@@ -241,10 +259,11 @@ export async function GET(request: Request) {
       const { data, error: mErr } = await admin
         .from('memberships')
         .select(
-          'id, contact_id, start_date, fee_amount, end_date, contact:contacts(id, name, phone), plan:membership_plans(name, plan_type)'
+          'id, account_id, plan_id, pricing_option_id, is_trial, contact_id, start_date, fee_amount, end_date, contact:contacts(id, name, phone), plan:membership_plans(name, plan_type, is_active), pricing_option:plan_pricing_options(id, account_id, plan_id, price, is_active)'
         )
         .eq('account_id', accountId)
         .eq('status', 'active')
+        .eq('is_trial', false)
         .eq('collection_mode', 'manual')
         .eq('end_date', target.endDate);
 
@@ -267,6 +286,14 @@ export async function GET(request: Request) {
       for (const m of memberships) {
         if (summary.sent >= MAX_SENDS_PER_RUN) break;
 
+        const renewalPrice = membershipRenewalPrice(m);
+        if (renewalPrice === null) {
+          summary.skipped_ineligible++;
+          notes.push(
+            `account ${accountId} membership ${m.id}: blocked: current renewal price unavailable`
+          );
+          continue;
+        }
         const phone = m.contact?.phone?.trim();
         if (!phone) continue; // no way to reach them — skip silently
 
@@ -386,7 +413,7 @@ export async function GET(request: Request) {
                 m.contact?.name?.trim() || 'there',
                 m.plan?.name || 'membership',
                 fmt.date(target.endDate),
-                fmt.money(m.fee_amount),
+                fmt.money(renewalPrice),
                 legalIdentity.name,
               ];
               return engineSendTemplate({
@@ -405,7 +432,7 @@ export async function GET(request: Request) {
                     admin
                       .from('memberships')
                       .select(
-                        'id, contact_id, start_date, fee_amount, end_date, status, collection_mode, contact:contacts(id, name, phone), plan:membership_plans(name, plan_type)'
+                        'id, account_id, plan_id, pricing_option_id, is_trial, contact_id, start_date, fee_amount, end_date, status, collection_mode, contact:contacts(id, name, phone), plan:membership_plans(name, plan_type, is_active), pricing_option:plan_pricing_options(id, account_id, plan_id, price, is_active)'
                       )
                       .eq('account_id', accountId)
                       .eq('id', m.id)
@@ -441,6 +468,7 @@ export async function GET(request: Request) {
                     current.status !== 'active' ||
                     current.collection_mode !== 'manual' ||
                     !isRenewalChaseable(current.plan) ||
+                    membershipRenewalPrice(current) === null ||
                     !current.contact?.phone?.trim()
                   ) {
                     throw new ReminderEligibilityChangedError(
@@ -451,7 +479,7 @@ export async function GET(request: Request) {
                   params[0] = current.contact.name?.trim() || 'there';
                   params[1] = current.plan?.name || 'membership';
                   params[2] = fmt.date(current.end_date);
-                  params[3] = fmt.money(Number(current.fee_amount));
+                  params[3] = fmt.money(membershipRenewalPrice(current)!);
                   await markProviderAttempt();
                 },
                 accountId,

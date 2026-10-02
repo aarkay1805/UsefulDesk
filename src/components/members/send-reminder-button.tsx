@@ -8,6 +8,9 @@ import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
 import { useLocale } from '@/hooks/use-locale';
 import type { LocaleFormatters } from '@/lib/locale/format';
+import { membershipRenewalPrice } from '@/lib/memberships/pricing';
+import { loadLegalBusinessName } from '@/lib/whatsapp/legal-business-name';
+import { getErrorMessage } from '@/lib/errors';
 import type { Membership } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -68,18 +71,23 @@ export function useReminderReadiness(): ReminderReadiness {
     let cancelled = false;
 
     (async () => {
-      const [{ data: config }, { data: templates }] = await Promise.all([
-        supabase
-          .from('whatsapp_config')
-          .select('status')
-          .eq('account_id', accountId)
-          .maybeSingle(),
-        supabase
-          .from('message_templates')
-          .select('*')
-          .eq('account_id', accountId)
-          .in('name', [...RENEWAL_TEMPLATE_NAMES]),
-      ]);
+      const [{ data: config }, { data: templates }, legalIdentity] =
+        await Promise.all([
+          supabase
+            .from('whatsapp_config')
+            .select('status')
+            .eq('account_id', accountId)
+            .maybeSingle(),
+          supabase
+            .from('message_templates')
+            .select('*')
+            .eq('account_id', accountId)
+            .in('name', [...RENEWAL_TEMPLATE_NAMES]),
+          loadLegalBusinessName(
+            supabase as unknown as Parameters<typeof loadLegalBusinessName>[0],
+            accountId
+          ),
+        ]);
       if (cancelled) return;
 
       const readiness = evaluateTemplateReadiness(
@@ -111,6 +119,23 @@ export function useReminderReadiness(): ReminderReadiness {
           resolution: {
             label: 'Open message templates',
             href: '/settings?tab=templates',
+          },
+          templateLanguage: 'en_US',
+          templateName: RENEWAL_TEMPLATE_NAME,
+        });
+        return;
+      }
+      if (!legalIdentity.ok) {
+        setState({
+          loading: false,
+          ready: false,
+          reason:
+            legalIdentity.code === 'legal_business_identity_missing'
+              ? 'Add your legal business name in Settings → Business details before sending reminders.'
+              : 'Could not check your legal business name. Try again before sending reminders.',
+          resolution: {
+            label: 'Open business details',
+            href: '/settings?tab=business-details',
           },
           templateLanguage: 'en_US',
           templateName: RENEWAL_TEMPLATE_NAME,
@@ -149,7 +174,26 @@ export async function sendRenewalReminder(
 ): Promise<void> {
   // {{3}} expiry + {{4}} fee rendered the way the gym writes them
   // (locale settings, migration 055) — mirrors the cron's params.
-  const params = buildMembershipRenewalParams(membership, fmt);
+  const { data, error } = await createClient()
+    .from('memberships')
+    .select(
+      '*, contact:contacts(*), plan:membership_plans(*), pricing_option:plan_pricing_options(*)'
+    )
+    .eq('account_id', membership.account_id)
+    .eq('id', membership.id)
+    .maybeSingle();
+  if (error) throw error;
+  const current = data as unknown as Membership | null;
+  if (
+    !current ||
+    current.account_id !== membership.account_id ||
+    current.contact_id !== membership.contact_id
+  ) {
+    throw new Error(
+      'Could not find this member. Refresh the member list and try again.'
+    );
+  }
+  const params = buildMembershipRenewalParams(current, fmt);
   const res = await fetch('/api/whatsapp/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -172,11 +216,17 @@ export function buildMembershipRenewalParams(
   membership: Membership,
   fmt: Pick<LocaleFormatters, 'date' | 'money'>
 ): string[] {
+  const price = membershipRenewalPrice(membership);
+  if (price === null) {
+    throw new Error(
+      'Could not check the renewal price. Ask an admin to review this member’s price in Settings → Plans.'
+    );
+  }
   return [
     membership.contact?.name?.trim() || 'there',
     membership.plan?.name || 'membership',
     fmt.date(membership.end_date),
-    fmt.money(membership.fee_amount),
+    fmt.money(price),
   ];
 }
 
@@ -264,12 +314,16 @@ export function SendReminderButton({
       onSent?.();
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Could not send reminder'
+        getErrorMessage(err, 'Could not send the reminder. Try again.')
       );
     } finally {
       setSending(false);
     }
   }, [blocked, readiness, membership, fmt, onSent]);
+
+  // A trial has no renewal-price quote; its existing conversion and
+  // follow-up actions apply instead.
+  if (membership.is_trial) return null;
 
   return (
     <ResolvableAction

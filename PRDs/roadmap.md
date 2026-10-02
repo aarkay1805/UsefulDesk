@@ -1,5 +1,28 @@
 # Roadmap
 
+## Built — Starter standard reminder readiness repairs (2026-10-03)
+
+**Status: implementation and read-only Production preflight; app deployment and
+real recipient/message delivery acceptance pending.** Standard renewal schedules
+remain 7/3/1 days before expiry after 09:00 account-local time. Membership
+reminders quote the selected active option's current price without the joining
+fee; unavailable bound prices block and legacy unbound fees remain. Manual
+Remind reloads current branch/member facts. Readiness checks legal identity and
+standard capability, and mirrors the worker's non-retryable attempted/ambiguous
+service claims.
+
+The connector-tested read-only status runner observes both exact Marketing
+POSITIONAL contracts ready on Home office and Zirakpur. Neither branch/recipient
+is automatically authorized. No current-template delivery evidence or enabled
+date-matched candidates was found. Rajat must select the actual branch/recipient
+and subject, review the fully rendered message, approve the exact send and
+retain its genuine delivery webhook. Justin's WhatsApp remains explicitly
+deferred. No schedule, paid-access, provider template or customer was changed.
+**Validation:** 4,431 tests / 539 files, lint, typecheck, production build and
+formatting pass; independent review has no outstanding finding. Each read-only
+status query passed through the approved Production connector.
+See the [acceptance packet](../docs/starter-whatsapp-reminder-acceptance.md).
+
 ## Built — Subsequent-gym Starter preparation, closed (2026-10-03)
 
 **Status: implementation accepted and schema installed closed in Production;

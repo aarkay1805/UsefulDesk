@@ -18,12 +18,15 @@ export interface ReminderDiagnosticInput {
   enabled: boolean;
   whatsappConnected: boolean;
   template: ReminderDiagnosticTemplate;
+  /** A sender prerequisite shared by every candidate in this branch. */
+  setupBlocker?: string | null;
   /** Exact date-matched worker candidates before phone/claim/window gates. */
   dateMatchedCount: number;
   /** Current, unclaimed candidates that could send in the active window. */
   pendingCount: number;
-  /** Date-matched candidates that lack a required send prerequisite (phone). */
+  /** Date-matched candidates missing a phone or a current renewal price. */
   blockedCount: number;
+  priceBlockedCount?: number;
   /** Current, unclaimed candidates held only by the account-local send window. */
   deferredCount: number;
 }
@@ -100,6 +103,19 @@ export function diagnoseReminder(
     };
   }
 
+  if (input.setupBlocker) {
+    return {
+      kind: input.kind,
+      state: 'blocked',
+      dateMatchedCount: input.dateMatchedCount,
+      pendingCount: input.pendingCount,
+      blockedCount: input.blockedCount,
+      deferredCount: input.deferredCount,
+      reason: input.setupBlocker,
+      templateContract,
+    };
+  }
+
   if (input.dateMatchedCount === 0) {
     return {
       kind: input.kind,
@@ -147,7 +163,9 @@ export function diagnoseReminder(
       pendingCount: 0,
       blockedCount: input.blockedCount,
       deferredCount: 0,
-      reason: `${input.blockedCount} reminder${input.blockedCount === 1 ? '' : 's'} cannot send because ${input.blockedCount === 1 ? 'the member has' : 'the members have'} no contact phone number.`,
+      reason: input.priceBlockedCount
+        ? 'Some reminders need a current renewal price. Ask an admin to check Settings → Plans.'
+        : `${input.blockedCount} reminder${input.blockedCount === 1 ? '' : 's'} cannot send because ${input.blockedCount === 1 ? 'the member has' : 'the members have'} no contact phone number.`,
       templateContract,
     };
   }

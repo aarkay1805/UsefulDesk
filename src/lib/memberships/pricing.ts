@@ -12,7 +12,12 @@
  */
 
 import { addDuration } from '@/lib/memberships/expiry';
-import type { DurationUnit, MembershipPlan, PlanPricingOption } from '@/types';
+import type {
+  DurationUnit,
+  Membership,
+  MembershipPlan,
+  PlanPricingOption,
+} from '@/types';
 
 /** A plan's active options, ordered as the settings UI arranged them. */
 export function activeOptions(plan: MembershipPlan): PlanPricingOption[] {
@@ -47,6 +52,44 @@ export function firstCycleFee(
 /** Every later cycle's fee: price alone — never the setup fee again. */
 export function renewalFee(option: Pick<PlanPricingOption, 'price'>): number {
   return Number(option.price);
+}
+
+/** Current bound option price for renewal messages; never repeat a joining fee.
+ * A legacy membership without an option retains its explicitly agreed fee.
+ * Modern bound rows fail closed when their option is missing or unavailable.
+ */
+export function membershipRenewalPrice(
+  membership: Pick<Membership, 'fee_amount'> &
+    Partial<
+      Pick<
+        Membership,
+        'account_id' | 'plan_id' | 'pricing_option_id' | 'is_trial'
+      >
+    > & {
+      plan?: { is_active?: boolean } | null;
+      pricing_option?: Pick<
+        PlanPricingOption,
+        'id' | 'account_id' | 'plan_id' | 'price' | 'is_active'
+      > | null;
+    }
+): number | null {
+  if (membership.is_trial || membership.plan?.is_active === false) return null;
+  if (!membership.pricing_option_id) {
+    const fee = Number(membership.fee_amount);
+    return Number.isFinite(fee) && fee >= 0 ? fee : null;
+  }
+  const option = membership.pricing_option;
+  if (
+    !option ||
+    !option.is_active ||
+    option.id !== membership.pricing_option_id ||
+    option.account_id !== membership.account_id ||
+    option.plan_id !== membership.plan_id ||
+    option.price == null
+  )
+    return null;
+  const price = renewalFee(option);
+  return Number.isFinite(price) && price >= 0 ? price : null;
 }
 
 export interface MonthlyPriceInsight {

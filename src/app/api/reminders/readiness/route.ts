@@ -14,17 +14,34 @@ import {
   REMINDER_SEND_HOUR_LOCAL,
   targetEndDates,
 } from '@/lib/memberships/renewal-reminders';
-import { isRenewalChaseable } from '@/lib/memberships/pricing';
+import { requireProductAccess } from '@/lib/platform-access/server';
+import {
+  isRenewalChaseable,
+  membershipRenewalPrice,
+} from '@/lib/memberships/pricing';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
+import { loadLegalBusinessName } from '@/lib/whatsapp/legal-business-name';
 import { evaluateTemplateReadiness } from '@/lib/whatsapp/template-readiness';
 
 export const runtime = 'nodejs';
 
 type MembershipCandidate = {
   id: string;
+  account_id: string;
+  plan_id: string | null;
+  pricing_option_id: string | null;
+  fee_amount: number;
+  is_trial: boolean;
+  pricing_option: {
+    id: string;
+    account_id: string;
+    plan_id: string;
+    price: number;
+    is_active: boolean;
+  } | null;
   end_date: string;
   contact: { phone: string | null } | null;
-  plan: { plan_type: string | null } | null;
+  plan: { plan_type: string | null; is_active?: boolean } | null;
 };
 
 type ServiceCandidate = {
@@ -58,7 +75,7 @@ type ReminderLedger = {
   anchor_date: string;
   days_before: number;
   status?: string | null;
-  claimed_at?: string | null;
+  provider_attempted_at?: string | null;
 };
 
 interface CandidateCounts {
@@ -66,6 +83,7 @@ interface CandidateCounts {
   pendingCount: number;
   blockedCount: number;
   deferredCount: number;
+  priceBlockedCount: number;
 }
 
 function countCurrentCandidates(
@@ -74,6 +92,7 @@ function countCurrentCandidates(
     anchorDate: string;
     daysBefore: number;
     hasPhone: boolean;
+    hasPrice?: boolean;
   }[],
   handled: ReadonlySet<string>,
   beforeSendHour: boolean
@@ -83,12 +102,14 @@ function countCurrentCandidates(
     pendingCount: 0,
     blockedCount: 0,
     deferredCount: 0,
+    priceBlockedCount: 0,
   };
   for (const candidate of candidates) {
     const key = `${candidate.subjectId}|${candidate.anchorDate}|${candidate.daysBefore}`;
     if (handled.has(key)) continue;
-    if (!candidate.hasPhone) {
+    if (!candidate.hasPhone || candidate.hasPrice === false) {
       counts.blockedCount++;
+      if (candidate.hasPrice === false) counts.priceBlockedCount++;
     } else if (beforeSendHour) {
       counts.deferredCount++;
     } else {
@@ -124,6 +145,7 @@ export async function GET() {
   try {
     const ctx = await requireAutomatedMessageActivityAccess();
     const db = ctx.supabase;
+    await requireProductAccess(db, ctx.accountId, 'standard_renewal_reminders');
 
     const [settingsResult, configResult, templatesResult, accountResult] =
       await Promise.all([
@@ -160,6 +182,16 @@ export async function GET() {
       accountResult.error;
     if (firstError) throw firstError;
 
+    const legalIdentity = await loadLegalBusinessName(
+      db as unknown as Parameters<typeof loadLegalBusinessName>[0],
+      ctx.accountId
+    );
+    const setupBlocker = legalIdentity.ok
+      ? null
+      : legalIdentity.code === 'legal_business_identity_missing'
+        ? 'Add your legal business name in Settings → Business details before sending reminders.'
+        : 'Could not check your legal business name. Try again before sending reminders.';
+
     const settings = settingsResult.data;
     const timezone = accountResult.data?.timezone ?? 'UTC';
     const today = todayInTz(timezone);
@@ -181,10 +213,11 @@ export async function GET() {
           ? db
               .from('memberships')
               .select(
-                'id, end_date, contact:contacts(phone), plan:membership_plans(plan_type)'
+                'id, account_id, plan_id, pricing_option_id, fee_amount, is_trial, end_date, contact:contacts(phone), plan:membership_plans(plan_type, is_active), pricing_option:plan_pricing_options(id, account_id, plan_id, price, is_active)'
               )
               .eq('account_id', ctx.accountId)
               .eq('status', 'active')
+              .eq('is_trial', false)
               .eq('collection_mode', 'manual')
               .in(
                 'end_date',
@@ -275,7 +308,7 @@ export async function GET() {
         ? db
             .from('service_renewal_reminders_sent')
             .select(
-              'member_service_id, end_date, days_before, status, claimed_at'
+              'member_service_id, end_date, days_before, status, provider_attempted_at'
             )
             .eq('account_id', ctx.accountId)
             .in(
@@ -311,6 +344,7 @@ export async function GET() {
                 anchorDate: row.end_date,
                 daysBefore,
                 hasPhone: Boolean(row.contact?.phone?.trim()),
+                hasPrice: membershipRenewalPrice(row) !== null,
               },
             ];
       }),
@@ -334,18 +368,15 @@ export async function GET() {
       end_date: string;
       days_before: number;
       status: string | null;
-      claimed_at: string | null;
+      provider_attempted_at: string | null;
     }[];
     const activeServiceClaims = new Set(
       serviceRows
         .filter(
+          // Match the worker RPC: only an explicit pre-provider failure
+          // reopens. Age never makes a claim or unknown outcome retryable.
           (row) =>
-            row.status === 'sent' ||
-            row.status === 'retired' ||
-            (row.status === 'claimed' &&
-              row.claimed_at !== null &&
-              new Date(row.claimed_at).getTime() >
-                diagnosticNow.getTime() - 15 * 60 * 1000)
+            !(row.status === 'failed' && row.provider_attempted_at === null)
         )
         .map(
           (row) => `${row.member_service_id}|${row.end_date}|${row.days_before}`
@@ -401,6 +432,7 @@ export async function GET() {
           enabled: Boolean(settings?.enabled),
           whatsappConnected,
           template: templateDiagnostic(templates, 'membership_renewal'),
+          setupBlocker,
           ...membershipCounts,
         }),
         diagnoseReminder({
@@ -408,6 +440,7 @@ export async function GET() {
           enabled: Boolean(settings?.service_enabled),
           whatsappConnected,
           template: templateDiagnostic(templates, 'service_renewal'),
+          setupBlocker,
           ...serviceCounts,
         }),
         diagnoseReminder({
@@ -417,6 +450,7 @@ export async function GET() {
           enabled: true,
           whatsappConnected,
           template: templateDiagnostic(templates, 'installment_reminder'),
+          setupBlocker,
           ...installmentCounts,
         }),
       ],

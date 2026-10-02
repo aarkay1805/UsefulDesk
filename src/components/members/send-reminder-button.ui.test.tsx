@@ -18,6 +18,32 @@ vi.mock('@/hooks/use-auth', () => ({
   useAuth: () => auth,
 }));
 
+vi.mock('@/lib/supabase/client', () => ({
+  createClient: () => ({
+    from: () => {
+      const query = {
+        select: () => query,
+        eq: () => query,
+        maybeSingle: () =>
+          Promise.resolve({
+            data: {
+              ...membership,
+              pricing_option: {
+                id: 'pricing-option-1',
+                account_id: 'account-1',
+                plan_id: 'plan-1',
+                price: 3999,
+                is_active: true,
+              },
+            },
+            error: null,
+          }),
+      };
+      return query;
+    },
+  }),
+}));
+
 vi.mock('next/navigation', () => ({
   usePathname: () => '/members',
   useRouter: () => ({ push: vi.fn() }),
@@ -93,6 +119,21 @@ function readiness(
 }
 
 describe('SendReminderButton blockers', () => {
+  it('omits renewal reminders for a trial instead of offering a price repair', () => {
+    const fetch = vi.fn();
+    vi.stubGlobal('fetch', fetch);
+
+    render(
+      <SendReminderButton
+        membership={{ ...membership, is_trial: true }}
+        readiness={readiness()}
+      />
+    );
+
+    expect(screen.queryByRole('button', { name: 'Remind' })).toBeNull();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('keeps the ready reminder action available to an agent', async () => {
     const fetch = vi.fn().mockResolvedValue({
       ok: true,

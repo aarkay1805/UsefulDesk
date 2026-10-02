@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TEMPLATE_CONTRACTS } from '@/lib/whatsapp/template-contracts';
 
 const h = vi.hoisted(() => ({
+  hour: 10,
   settingsInitial: [] as Record<string, unknown>[],
   settingsCurrent: null as Record<string, unknown> | null,
   membershipsInitial: [] as Record<string, unknown>[],
@@ -54,7 +55,7 @@ vi.mock('@/lib/locale/format', () => ({
     date: (value: string) => `date:${value}`,
     money: (value: number) => `money:${value}`,
   }),
-  hourInTz: () => 10,
+  hourInTz: () => h.hour,
   todayInTz: () => '2026-09-10',
 }));
 vi.mock('@/lib/automations/meta-send', () => {
@@ -275,6 +276,7 @@ function service(overrides: Record<string, unknown> = {}) {
 describe('GET /api/renewals/cron current eligibility boundary', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    h.hour = 10;
     h.db = createDb();
     h.settingsInitial = [
       { account_id: 'account-1', enabled: true, days_before: [1] },
@@ -307,6 +309,22 @@ describe('GET /api/renewals/cron current eligibility boundary', () => {
     h.retiredMembershipClaim = false;
     h.retiredServiceClaim = false;
   });
+
+  it.each([
+    [8, 0],
+    [9, 1],
+  ])(
+    'at local hour %s sends %s membership reminders',
+    async (hour, expected) => {
+      h.hour = hour;
+      const body = await (
+        await GET(new Request('https://desk.example/api/renewals/cron'))
+      ).json();
+      expect(body.sent).toBe(expected);
+      expect(h.providerCalls).toBe(expected);
+      expect(body.accounts_before_send_hour).toBe(hour < 9 ? 1 : 0);
+    }
+  );
 
   it('releases the pre-provider claim and sends nothing when the rule is switched off after selection', async () => {
     h.settingsCurrent = { enabled: false, days_before: [1] };
@@ -367,6 +385,74 @@ describe('GET /api/renewals/cron current eligibility boundary', () => {
         payload: expect.objectContaining({ delivery_state: 'attempting' }),
       })
     );
+  });
+
+  it('quotes the selected current option price without repeating the joining fee', async () => {
+    const facts = {
+      account_id: 'account-1',
+      plan_id: 'plan-1',
+      pricing_option_id: 'option-1',
+      fee_amount: 1500,
+      plan: {
+        id: 'plan-1',
+        name: 'Gold',
+        plan_type: 'recurring',
+        is_active: true,
+      },
+      pricing_option: {
+        id: 'option-1',
+        account_id: 'account-1',
+        plan_id: 'plan-1',
+        price: 1200,
+        setup_fee: 300,
+        is_active: true,
+      },
+    };
+    h.membershipsInitial = [membership(facts)];
+    h.membershipCurrent = membership({
+      ...facts,
+      pricing_option: { ...facts.pricing_option, price: 1300 },
+    });
+    const body = await (
+      await GET(new Request('https://desk.example/api/renewals/cron'))
+    ).json();
+    expect(body).toMatchObject({ sent: 1, accepted: 1, failed: 0 });
+    expect(h.sentParams[0][3]).toBe('money:1300');
+  });
+
+  it('skips a bound membership whose pricing option was archived before sending', async () => {
+    h.membershipCurrent = membership({
+      account_id: 'account-1',
+      plan_id: 'plan-1',
+      pricing_option_id: 'option-1',
+      plan: {
+        id: 'plan-1',
+        name: 'Gold',
+        plan_type: 'recurring',
+        is_active: true,
+      },
+      pricing_option: {
+        id: 'option-1',
+        account_id: 'account-1',
+        plan_id: 'plan-1',
+        price: 1200,
+        is_active: false,
+      },
+    });
+    const body = await (
+      await GET(new Request('https://desk.example/api/renewals/cron'))
+    ).json();
+    expect(body).toMatchObject({ sent: 0, skipped_ineligible: 1 });
+    expect(h.providerCalls).toBe(0);
+  });
+
+  it('skips a membership converted back to a trial before sending', async () => {
+    h.membershipCurrent = membership({ is_trial: true });
+    const body = await (
+      await GET(new Request('https://desk.example/api/renewals/cron'))
+    ).json();
+    expect(body).toMatchObject({ sent: 0, skipped_ineligible: 1 });
+    expect(h.providerCalls).toBe(0);
   });
 
   it('stops a membership reminder when the tier changes before Meta', async () => {
