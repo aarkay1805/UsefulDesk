@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     default: 'UsefulDesk',
     template: '%s — UsefulDesk',
   },
-  description: 'UsefulDesk — self-hostable CRM for WhatsApp.',
+  description: 'UsefulDesk — WhatsApp-first CRM for Indian gyms.',
   robots: {
     index: false,
     follow: false,
