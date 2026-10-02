@@ -20,11 +20,19 @@ describe('invoice document recovery copy', () => {
     expect(result).toEqual({
       status: 409,
       error:
-        "Could not make the invoice PDF. Add the member's name in Details, then try again.",
+        "Could not make the invoice PDF. Add the member's name in Profile, then try again.",
     });
     expect(
       invoiceDocumentErrorMessage(
         new Error('Invoice customer snapshot is incomplete'),
+        'Fallback'
+      )
+    ).toBe(result?.error);
+    expect(
+      invoiceDocumentErrorMessage(
+        new Error(
+          "Could not make the invoice PDF. Add the member's name in Details, then try again."
+        ),
         'Fallback'
       )
     ).toBe(result?.error);
@@ -43,7 +51,7 @@ describe('invoice document recovery copy', () => {
 
   it('keeps authored database instructions but hides unknown SQL validation details', () => {
     const instruction =
-      "Could not make the invoice PDF. Add the member's name in Details, then try again.";
+      "Could not make the invoice PDF. Add the member's name in Profile, then try again.";
     expect(
       invoiceDocumentErrorResponse(
         failure('InvoiceDocumentConflictError', instruction)

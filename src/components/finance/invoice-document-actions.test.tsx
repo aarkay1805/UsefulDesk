@@ -766,7 +766,7 @@ describe('InvoiceDocumentActions', () => {
   it.each([
     [
       'Invoice customer snapshot is incomplete',
-      "Could not make the invoice PDF. Add the member's name in Details, then try again.",
+      "Could not make the invoice PDF. Add the member's name in Profile, then try again.",
     ],
     [
       'Internal server error',
