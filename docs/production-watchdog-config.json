@@ -1,7 +1,7 @@
 {
-  "status": "prepared_not_configured",
-  "account": null,
-  "owner_alert_channel": null,
+  "status": "configured_and_delivery_verified",
+  "account": "owner-created StatusCake Free",
+  "owner_alert_channel": "explicitly selected email; recipient kept private",
   "monitors": [
     {
       "name": "UsefulDesk public availability",
@@ -10,8 +10,11 @@
       "interval_seconds": 300,
       "timeout_seconds": 20,
       "expected_status": 200,
-      "expected_content": "UsefulDesk",
-      "consecutive_failures_before_alert": 3
+      "provider_monitor_id": "8032323",
+      "confirmation_servers": 2,
+      "alert_delay_seconds": 600,
+      "first_healthy_provider_time_utc_minute": "2026-10-02T13:39:00Z",
+      "status": "active"
     },
     {
       "name": "UsefulDesk primary worker health",
@@ -20,7 +23,11 @@
       "interval_seconds": 300,
       "timeout_seconds": 20,
       "expected_status": 200,
-      "consecutive_failures_before_alert": 2
+      "provider_monitor_id": "8032327",
+      "confirmation_servers": 2,
+      "alert_delay_seconds": 300,
+      "first_healthy_provider_time_utc_minute": "2026-10-02T13:53:00Z",
+      "status": "active"
     }
   ],
   "acceptance": [
@@ -31,9 +38,17 @@
     "Record the test time and delivery outcome without recipient details or secrets"
   ],
   "limits": [
-    "Worker check covers Supabase primary aggregates and database availability",
-    "Native and GitHub schedule evidence remain separate",
-    "Backup freshness still uses the existing backup workflow",
-    "No external monitor or owner paging is active merely because this file exists"
-  ]
+    "Worker check covers fixed primary worker freshness and database availability",
+    "Native/GitHub schedule evidence and backup freshness remain separate",
+    "Free plan content matching and explicit SSL validation are unavailable; no paid trial or purchase",
+    "Two active checks plus one paused notification test use three of ten free slots",
+    "The private read-only URL and recipient are not stored in this file"
+  ],
+  "acceptance_record": "docs/production-watchdog.md",
+  "notification_test": {
+    "monitor_id": "8032326",
+    "status": "paused_after_verified_delivery",
+    "delivered_at_utc": "2026-10-02T13:42:41Z",
+    "method": "dedicated harmless missing-page target; no production outage"
+  }
 }
