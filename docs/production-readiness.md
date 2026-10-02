@@ -1,6 +1,15 @@
 # UsefulDesk paid-pilot production readiness
 
-**2 October scope/evidence update:** the owner selected Starter web billing first.
+**Current closeout, 2 October 2026:** Justin's genuine Starter payment and commercial
+documents are complete; approved Starter restrictions, independent monitoring and
+actual owner alert delivery are verified. The future gym-business selection policy
+is active; each gym still needs commercial preparation, genuine owner review and
+verified payment. Provider repeat/mixed acceptance was explicitly skipped and remains
+unproven. Billing Staging is now paused; Production does not depend on it. See the
+[current rollout actions](subscription-starter-rollout-next.md) and
+[cleanup record](subscription-cleanup-record.md). Earlier checks below retain their dates.
+
+**Historical 2 October early scope/evidence update:** the owner selected Starter web billing first.
 Fresh provider GETs at 02:21:36 UTC confirm the exact membership/service renewal
 contracts Approved; actual delivery remains pending. Default-off receipt collection
 is Production-installed as history `20261002024027` and collection alone enabled
