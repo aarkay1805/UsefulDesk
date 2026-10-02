@@ -6,6 +6,16 @@
 
 ---
 
+## 2026-10-02 — Open Justin’s prepared Starter purchase path
+
+The exact ₹799 calendar-month offer is available in Justin’s own session after
+verified PR #33/main CI, Production rebuild, fresh full backup and preservation
+checks. Only operator preparation is enabled: owner review, quote acknowledgment
+and genuine payment remain his actions. C01 disposition and business defaults are
+complete; setup review records missing plan without marking ready. See
+`subscription-justin-starter-opening-record.md` for actual authority/audits and
+wider acceptance still pending. Original initiation and customer refunds stay closed.
+
 ## 2026-10-02 — Prepare Justin’s genuine owner Starter checkout
 
 Operator preparation and the authenticated customer review are distinct. The owner

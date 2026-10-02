@@ -1095,55 +1095,48 @@ renewal contracts Approved, closing the earlier template prerequisite; actual
 delivery remains pending. First buyer/issuer facts, exact customer opening,
 capability activation and selected monitoring-service setup/owner notification
 remain. See the [current rollout actions](../docs/subscription-starter-rollout-next.md).
-**Shipped closed / customer activation pending — Starter web customer checkout, 2 October:** separate
-immutable customer reviews and per-organization quote/order/refund gates now
-preserve the completed internal pilot while server-owned quote/order authority
-routes customer provider events, settlement, receipts and recovery. Existing owner,
-expired-trial/one-INR-branch/₹799/30-minute/capture-month/reminder and refund-history
-invariants remain. The web customer mode offers Starter first-term only; all new
-runtime/UI flags default off, renewals/native Checkout/capabilities stay closed.
-Local rollback/replay and isolated staging acceptance passed; final closed source
-is staging-installed as `20261002083552`, with zero fixture/authority/financial
-rows and all gates off. PR #31 is merged; Production source is installed as
-`20261002090428` after the verified full encrypted backup and deployed on canonical
-`dpl_m6uiUuVstikocsJueXpuMQU6HYNC` after exact-source CI/CodeQL passed. Fresh
-schema/function permissions and 22 financial/access/tenant/gym preservation
-checks passed; all new switches remain closed with zero customer authority rows.
-A real buyer is not a build/test prerequisite. Authentic buyer/issuer/document
-review and separately authorized customer activation remain pending. Justin's
-fitness is now selected as the real customer candidate: ownership and one active
-INR branch verified. Justin later consented to an early trial end; the audited
-10:52:27 UTC correction leaves an expired unsuspended trial at version 4.
-Saved billing legal name/address/phone verified complete at 10:14:19 UTC. Legacy
-entity cleanup/setup, owner checkout review and C01 remain pending. Billing
-location/contact and FY 2026–27 zero PAN-wide turnover/no GST/only-business
-statements are now owner-confirmed; no accountant/tax adviser is retained. Rajat confirms Justin agreed to Starter at ₹799; this
-customer's WhatsApp setup/delivery is deferred, while required owner reminder
-acknowledgment remains. Production customer authority/gates remain unchanged;
-the explicit owner-consented trial correction is recorded separately. See
-[Justin's preparation record](../docs/subscription-justin-customer-review.md), the
-[closed Production release record](../docs/subscription-starter-customer-production-record.md)
-and [implementation and acceptance record](../docs/subscription-starter-customer-checkout.md).
-Flags alone cannot authorize a customer.
+**Shipped / prepared first customer available — Starter web customer checkout, 2 October:**
+Immutable customer reviews and per-organization gates preserve the completed
+internal pilot while customer quote/order authority routes provider events,
+settlement, receipts and recovery. The first-term web flow retains the owner,
+expired-unsuspended-trial, one-INR-branch, ₹799, 30-minute quote, capture-calendar-month,
+reminder acknowledgment and refund-history invariants. Renewals, native Checkout,
+customer refund initiation and global capabilities remain closed.
 
-Justin's 2 October preparation now includes an actual Vercel invoice/receipt
-inspection and an ordinary ₹799 invoice/receipt recommendation supported by
-current official GST sources. C01 final disposition, exact customer offer/review/
-scope and runtime opening remain pending; the fresh 10:33:35 UTC check still has
-an active trial and zero customer authority/quotes. No more buyer/turnover details
-are currently requested. Full pending items remain in his preparation record.
+The initial closed release, PR #31, passed local/cloud rollback acceptance and was
+installed as staging history `20261002083552` and Production `20261002090428`,
+then deployed on `dpl_m6uiUuVstikocsJueXpuMQU6HYNC` with all new flags closed.
+PR #33 adds genuine authenticated owner approval, initially closed scope creation
+and separate one-time server opening. Its Production migration `20261002113153`,
+exact-source CI/CodeQL, canonical deployment `dpl_28eXKcpURVEbMG1grVTuByRPNhDs`,
+frozen ten-source manifest, fresh post-offer full backup and preservation passed.
+The historical release manifest and source hashes remain unchanged.
 
-The owner-consented early trial correction is now verified at 10:54:17 UTC:
-expired, unsuspended, version 4; zero customer reviews/scopes/quotes/orders/payments.
-The prior manual activation and original expiry remain in audit history. All 22
-preservation checks outside Justin's intended access-row change match; exact
-customer opening remains pending.
+Justin’s fitness is the exact prepared customer. At **11:55:57 UTC**, operator
+preparation was enabled; his owner session shows the ₹799 calendar-month offer
+for Old Ambala with unchecked approval. Genuine owner approval, quote/reminder
+acknowledgment, payment and customer document issuance remain. No customer
+review/scope/quote/order/payment/grant existed at **11:56:23 UTC**. Only customer
+scope/checkout/public UI flags are enabled; original Home office initiation stays
+closed and financial intake/recovery remains available.
 
-**Approved subscription direction (foundation in code, paid rollout pending):** every new verified
+C01 operator commercial/document disposition and audited legacy entity-default
+cleanup are complete. Setup review records zero active membership plans with active
+pricing, leaving readiness `setup`. Owner-consented early trial expiry leaves an
+expired unsuspended trial at version 4; original expiry and manual history remain
+in audit. Saved complete buyer profile, intended billing geography/contact and
+FY 2026–27 supplier statements are confirmed. WhatsApp setup/delivery is deferred
+for Justin, while his required reminder-policy acknowledgment remains. Wider
+authentic same-event/mixed delivery and external paging remain pending. See the
+[final opening record](../docs/subscription-justin-starter-opening-record.md),
+[dated customer review](../docs/subscription-justin-customer-review.md) and
+[implementation record](../docs/subscription-starter-customer-checkout.md).
+Flags alone cannot authorize an unprepared customer.
+
+**Approved subscription direction (first prepared customer available; paid sale pending):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
-to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production exposes Live Checkout only to the separately approved Home office
-internal pilot above, now closed after its full refund. Pure tier/branch/capability, verified-add-on
+to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production exposes the genuine owner purchase path only to the exact prepared Justin Starter customer. Home office’s internal initiation remains closed after its full refund; other unprepared organizations have no payable flow. Pure tier/branch/capability, verified-add-on
 state, owner-choice conversion rules, and pure base-tier billing transitions are coded and tested. The transition model prorates the listed base-price difference in paise over the actual paid period, keeps an upgrade pending until a trusted payment event, and projects downgrades/cancellations at the paid-through boundary. A pure renewal model keeps the old tier for one fixed 72-hour window after a failed paid renewal, denies new unpaid tier/branch capacity during grace, and resumes paid access only after a trusted verified renewal event. It does not verify provider payments or persist entitlements. The
 no-GST amount draft records listed software, ₹0 GST, and the matching draft total for monthly plans and base-tier upgrades; it is not wired to checkout. The reusable
 first-payment refund model evaluates the request date in the frozen billing-account timezone and reserves one full-refund request per organization. A separate pure confirmed-refund model ends paid access at full-refund confirmation and requires renewal to stop; pending/failed events leave access intact. Neither model calls a provider or changes runtime access. The reusable
@@ -3221,3 +3214,15 @@ complete. Setup review records missing active plan, without marking setup ready.
 Genuine owner checkout approval/reminder acknowledgment and payment remain.
 See [Justin’s dated record](../docs/subscription-justin-customer-review.md) for fresh backup, provider/recovery evidence and the explicit bounded first-customer
 disposition; authentic repeat/mixed delivery and external paging remain wider work.
+
+**Shipped / prepared first customer available — 2 October, 11:55:57 UTC:**
+Justin’s genuine owner session now displays the exact ₹799 calendar-month offer.
+PR #33, main CI/CodeQL, immutable ten-source manifest, additive Production
+migration and runtime rebuild are verified. Exact operator preparation is enabled;
+actual owner approval creates its scope closed before separate one-time opening.
+No owner acknowledgment, quote, payment or paid grant was manufactured. C01 review,
+audited legacy defaults, truthful missing-plan setup review, fresh full backup and
+22 preservation checks are complete. Owner approval/reminder acknowledgment,
+genuine payment and document issuance remain; WhatsApp delivery is deferred.
+Wider authentic repeat/mixed traffic and external paging remain pending. See the
+[final opening record](../docs/subscription-justin-starter-opening-record.md).

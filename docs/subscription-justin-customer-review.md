@@ -1,13 +1,14 @@
 # Justin's fitness — genuine owner Starter purchase
 
-**2 October 2026: real customer selected; owner-consented early trial end recorded;
-customer checkout remains closed.**
-Rajat confirmed the handover to Justin Credible and instructed us to proceed
-with this gym in the current chat. Production checks below were read-only.
-Rajat subsequently confirmed Justin agreed to Starter at ₹799 and requested
-that automated reminders be skipped because Justin has no Meta WhatsApp business
-account. This human confirmation is recorded here; checkout owner review and
-reminder-policy acknowledgment remain required in the actual owner flow.
+**Current status — 11:55:57 UTC / 5:25:57 pm IST, 2 October 2026:** Justin’s
+exact ₹799 first-term purchase path is available in his own session. The
+[opening record](subscription-justin-starter-opening-record.md) pins deployed
+source, preparation, audits, fresh backup and preservation checks. Actual owner
+approval/reminder acknowledgment and payment remain; no document was issued.
+WhatsApp setup and delivery are deferred because Justin has no Meta account.
+
+The sections below retain dated preparation and trial-end observations. The final
+opening record supersedes their earlier pending operator/release items.
 
 ## Verified account facts
 

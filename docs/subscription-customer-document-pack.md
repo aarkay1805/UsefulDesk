@@ -241,3 +241,12 @@ Buyer/location, FY statements and operator C01 disposition complete; actual owne
 pending; review drafts ready; no documents issued.**
 
 **Justin-specific C01 disposition, 2 October:** `justin-C01-20261002-v1` accepts ordinary commercial invoice/payment receipt at ₹799 total, no separate GST, “GST not charged — supplier unregistered.” The [dated operator review](subscription-justin-customer-review.md#operator-disposition-and-genuine-owner-implementation--1129-utc-2-october) covers the actual buyer, supplier/FY statements and paid foreign-service invoice. Templates remain unissued; genuine owner approval, verified capture and final private document references remain. This does not approve a different customer or later changed facts.
+
+**Justin purchase path available — 11:55:57 UTC, 2 October:** operator preparation
+for his exact ₹799 calendar-month offer is enabled on the verified Production
+release. His actual owner session shows unchecked approval; reviews/scopes/quotes/
+orders/payments/grants remained zero at 11:56:23 UTC. Operator C01 review, audited
+default cleanup, setup finding, fresh full backup and preservation are complete.
+Genuine owner approval/reminder acknowledgment/payment and document issuance remain.
+WhatsApp delivery is deferred; wider repeat/mixed traffic and external paging remain
+pending. See the [final opening record](subscription-justin-starter-opening-record.md).
