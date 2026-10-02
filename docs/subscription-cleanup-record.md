@@ -38,14 +38,29 @@ after private evidence/credential inventory and verified off-site export.
 See [Supabase restoration](https://supabase.com/docs/guides/platform/upgrading#time-limits)
 and [backup limitations](https://supabase.com/docs/guides/platform/backups).
 
-## Next code cleanup
+## Completed code consolidation
 
-1. Share the repeated disposable Docker/SQL execution helper across the acceptance
-   runners, preserving explicit-container checks, fail-fast SQL and rollback checks.
-2. Separate current operating instructions from dated rollout evidence. Keep one
-   current summary with links to immutable release manifests and dated records.
-3. Review duplicate Test/Live provider parsing and signature helpers for a small
-   shared core while preserving explicit credentials, money gates and domain boundaries.
+Eight acceptance runners now share `scripts/lib/disposable-postgres.mjs`, retaining
+their target kinds, fail-fast SQL, output comparisons, buffers, restore roles and
+rollback/clone cleanup. The recovery runner also replays the current Starter
+capability migration before its branch-limit fixture: the unchanged earlier runner
+failed that expectation because its setup omitted the migration.
+
+The [current operating summary](subscription-starter-rollout-next.md) now contains
+completed status and owned next actions. The former mixed sequence is preserved in
+the [dated archive](subscription-starter-rollout-history-2026-10-02.md); no release
+manifest or financial evidence was removed.
+
+`src/lib/subscriptions/provider-utils.ts` owns duplicated JSON-record, HMAC and
+uncached timed request primitives. Test and Live modules retain credential/configuration,
+identifier, merchant, economics, authority and money-gate checks plus their original
+public interfaces and errors. No gym OAuth helper was merged into this path.
+
+Verification brackets the refactor: the existing 301 payment/API tests pass before
+and after; 20 shared-runner guard/failure/restore-role tests pass. All eight real
+local runners pass, including rollback and separate-session concurrency proofs.
+See the [runner guide](subscription-acceptance-runners.md) for target and lifecycle
+details. No Production schema, environment, gate, money or customer action changed.
 
 Keep Test routes, regression fixtures, migration history, delivery receipts and
 financial recovery. Pausing a test project does not make this code obsolete;

@@ -1,29 +1,15 @@
 // Only the disposable local subscription fixture. No application .env or money.
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
-const container = process.argv[2];
-if (
-  !/^supabase_db_usefuldesk-subscription-test\.[A-Za-z0-9]+$/.test(
-    container ?? ''
-  )
-)
-  throw new Error('Pass the disposable subscription Test container');
-const args = [
-  'exec',
-  '-i',
-  container,
-  'psql',
-  '-U',
-  'postgres',
-  '-d',
-  'postgres',
-  '-v',
-  'ON_ERROR_STOP=1',
-  '-Atq',
-];
-const sql = (input) =>
-  execFileSync('docker', args, { input, encoding: 'utf8' }).trim();
+import { createDisposablePostgres } from './lib/disposable-postgres.mjs';
+
+const database = createDisposablePostgres(process.argv[2], {
+  kind: 'test',
+  errorMessage: 'Pass the disposable subscription Test container',
+});
+const args = database.args();
+const sql = (input) => database.sql(input).trim();
 const concurrent = (input) =>
   new Promise((resolve, reject) => {
     const child = spawn('docker', args);

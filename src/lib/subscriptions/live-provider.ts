@@ -1,14 +1,16 @@
 import 'server-only';
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import {
+  isProviderRecord as record,
+  matchesProviderHmac as hmacMatches,
+  requestSubscriptionProvider,
+} from './provider-utils';
 
 import {
   assertLiveProviderAuthority,
   type LiveProviderAuthority,
 } from './live-scope';
 
-const API_BASE = 'https://api.razorpay.com/v1';
-const PROVIDER_TIMEOUT_MS = 15_000;
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ORDER_ID = /^order_[A-Za-z0-9]+$/;
@@ -106,21 +108,6 @@ export function liveRefundReconciliationEnabled(
   return env.USEFULDESK_SAAS_LIVE_REFUND_RECONCILIATION_ENABLED === 'true';
 }
 
-function record(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function hmacMatches(
-  payload: string,
-  signature: string | null,
-  secret: string
-) {
-  if (!signature || !/^[a-f0-9]{64}$/i.test(signature)) return false;
-  const expected = createHmac('sha256', secret).update(payload).digest();
-  const actual = Buffer.from(signature, 'hex');
-  return timingSafeEqual(expected, actual);
-}
-
 export function verifyLiveWebhookSignature(
   rawBody: string,
   signature: string | null,
@@ -148,21 +135,7 @@ async function request(
   init: { method?: 'GET' | 'POST'; body?: unknown } = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<unknown> {
-  const response = await fetchImpl(`${API_BASE}${path}`, {
-    method: init.method ?? 'GET',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64')}`,
-      'Content-Type': 'application/json',
-    },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-    cache: 'no-store',
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-  });
-  if (!response.ok)
-    throw new Error(
-      `Usefulmade Live provider request failed (${response.status})`
-    );
-  return response.json() as Promise<unknown>;
+  return requestSubscriptionProvider('Live', config, path, init, fetchImpl);
 }
 
 export interface LiveOrderFacts {

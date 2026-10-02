@@ -1,37 +1,15 @@
 /** Rollback-only capability checks on an explicitly named disposable database. */
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-const container = process.argv[2];
-if (
-  !/^supabase_db_usefuldesk-subscription-full-[a-z0-9]+$/.test(container ?? '')
-) {
-  throw new Error(
-    'Pass an explicit disposable subscription-full database container'
-  );
-}
+import { createDisposablePostgres } from './lib/disposable-postgres.mjs';
+
+const { sql } = createDisposablePostgres(process.argv[2], {
+  errorMessage:
+    'Pass an explicit disposable subscription-full database container',
+});
 const root = fileURLToPath(new URL('../', import.meta.url));
-function sql(input) {
-  return execFileSync(
-    'docker',
-    [
-      'exec',
-      '-i',
-      container,
-      'psql',
-      '-X',
-      '-U',
-      'postgres',
-      '-d',
-      'postgres',
-      '-Atq',
-      '-v',
-      'ON_ERROR_STOP=1',
-    ],
-    { input, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }
-  );
-}
+
 const baselineQuery = `SELECT row_to_json(s) FROM private.subscription_billing_settings s;
 SELECT row_to_json(s) FROM private.product_access_settings s;
 SELECT count(*) FROM public.accounts; SELECT count(*) FROM auth.users;`;

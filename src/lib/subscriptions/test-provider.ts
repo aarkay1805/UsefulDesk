@@ -1,9 +1,10 @@
 import 'server-only';
 
-import { createHmac, timingSafeEqual } from 'node:crypto';
-
-const API_BASE = 'https://api.razorpay.com/v1';
-const PROVIDER_TIMEOUT_MS = 15_000;
+import {
+  isProviderRecord as isRecord,
+  matchesProviderHmac as matchesHmac,
+  requestSubscriptionProvider,
+} from './provider-utils';
 
 export interface TestBillingConfig {
   keyId: string;
@@ -44,21 +45,6 @@ export function testBillingConfig(
   return { keyId, keySecret, webhookSecret, merchantId };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function matchesHmac(
-  payload: string,
-  signature: string | null,
-  secret: string
-): boolean {
-  if (!signature || !/^[a-f0-9]{64}$/i.test(signature)) return false;
-  const expected = createHmac('sha256', secret).update(payload).digest();
-  const actual = Buffer.from(signature, 'hex');
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
-}
-
 export function verifyTestCheckoutSignature(
   orderId: string,
   paymentId: string,
@@ -82,21 +68,7 @@ async function providerRequest(
   init: { method?: string; body?: unknown } = {},
   fetchImpl: typeof fetch = fetch
 ): Promise<unknown> {
-  const response = await fetchImpl(`${API_BASE}${path}`, {
-    method: init.method ?? 'GET',
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${config.keyId}:${config.keySecret}`).toString('base64')}`,
-      'Content-Type': 'application/json',
-    },
-    body: init.body === undefined ? undefined : JSON.stringify(init.body),
-    cache: 'no-store',
-    signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS),
-  });
-  if (!response.ok)
-    throw new Error(
-      `Usefulmade Test provider request failed (${response.status})`
-    );
-  return response.json() as Promise<unknown>;
+  return requestSubscriptionProvider('Test', config, path, init, fetchImpl);
 }
 
 export interface VerifiedTestOrder {

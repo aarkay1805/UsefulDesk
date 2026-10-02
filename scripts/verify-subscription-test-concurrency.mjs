@@ -1,36 +1,17 @@
 // Explicit disposable-local acceptance; never connects through the app's .env.
 // Keeps synthetic fixture rows as evidence and restores the original gate value.
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
 
-const container = process.argv[2];
-if (
-  !/^supabase_db_usefuldesk-subscription-test\.[A-Za-z0-9]+$/.test(
-    container ?? ''
-  )
-) {
-  throw new Error('Pass the exact disposable subscription Test container name');
-}
-const args = [
-  'exec',
-  '-i',
-  container,
-  'psql',
-  '-U',
-  'postgres',
-  '-d',
-  'postgres',
-  '-v',
-  'ON_ERROR_STOP=1',
-  '-Atq',
-];
-const sql = (input) =>
-  execFileSync('docker', args, {
-    input,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  }).trim();
+import { createDisposablePostgres } from './lib/disposable-postgres.mjs';
+
+const database = createDisposablePostgres(process.argv[2], {
+  kind: 'test',
+  errorMessage: 'Pass the exact disposable subscription Test container name',
+});
+const args = database.args();
+const sql = (input) => database.sql(input).trim();
 const concurrentSql = (input) =>
   new Promise((resolve) => {
     const child = spawn('docker', args, { stdio: ['pipe', 'pipe', 'pipe'] });
