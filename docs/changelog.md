@@ -1,5 +1,7 @@
 # Changelog — what shipped, and why
 
+- **2 October 2026 — App metadata description:** `src/app/layout.tsx` now describes UsefulDesk as a WhatsApp-first CRM for Indian gyms instead of the inherited "self-hostable CRM for WhatsApp". It shows in link previews of shared app URLs such as `/signup`. The app stays `noindex, nofollow`; `robots.txt` stays absent (404 = crawl allowed), so crawlers can read the noindex.
+
 - **2 October 2026 — Consolidate subscription acceptance and provider helpers:** eight local runners share `scripts/lib/disposable-postgres.mjs`; recovery setup now loads the missing current Starter capability dependency. Test/Live payment modules share server-only record/HMAC/transport primitives while retaining separate authority and money checks. `docs/subscription-starter-rollout-next.md` is the current action list; prior observations are preserved in the dated archive. Existing payment tests and all eight local rollback/concurrency runners passed; see `docs/subscription-acceptance-runners.md`.
 
 - **2 October 2026 — Retire rollout branches and pause staging:** removed 16 verified merged task branches locally/remotely after a private Git bundle backup; Billing Staging is paused after zero-customer/financial/worker inventory and runtime-reference checks. `scripts/production-env-readiness.mjs` now distinguishes database-controlled Starter capability checks from environment flag restrictions. Existing Test evidence and migration/recovery code remain; see `docs/subscription-cleanup-record.md`.
