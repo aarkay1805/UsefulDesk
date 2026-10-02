@@ -3221,3 +3221,15 @@ complete. Setup review records missing active plan, without marking setup ready.
 Genuine owner checkout approval/reminder acknowledgment and payment remain.
 See [Justin’s dated record](../docs/subscription-justin-customer-review.md) for fresh backup, provider/recovery evidence and the explicit bounded first-customer
 disposition; authentic repeat/mixed delivery and external paging remain wider work.
+
+**Shipped / prepared first customer available — 2 October, 11:55:57 UTC:**
+Justin’s genuine owner session now displays the exact ₹799 calendar-month offer.
+PR #33, main CI/CodeQL, immutable ten-source manifest, additive Production
+migration and runtime rebuild are verified. Exact operator preparation is enabled;
+actual owner approval creates its scope closed before separate one-time opening.
+No owner acknowledgment, quote, payment or paid grant was manufactured. C01 review,
+audited legacy defaults, truthful missing-plan setup review, fresh full backup and
+22 preservation checks are complete. Owner approval/reminder acknowledgment,
+genuine payment and document issuance remain; WhatsApp delivery is deferred.
+Wider authentic repeat/mixed traffic and external paging remain pending. See the
+[final opening record](../docs/subscription-justin-starter-opening-record.md).

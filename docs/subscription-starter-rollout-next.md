@@ -128,3 +128,12 @@ complete. Setup review records missing active plan, without marking setup ready.
 Genuine owner checkout approval/reminder acknowledgment and payment remain.
 See [Justin’s dated record](subscription-justin-customer-review.md) for fresh backup, provider/recovery evidence and the explicit bounded first-customer
 disposition; authentic repeat/mixed delivery and external paging remain wider work.
+
+**Justin purchase path available — 11:55:57 UTC, 2 October:** operator preparation
+for his exact ₹799 calendar-month offer is enabled on the verified Production
+release. His actual owner session shows unchecked approval; reviews/scopes/quotes/
+orders/payments/grants remained zero at 11:56:23 UTC. Operator C01 review, audited
+default cleanup, setup finding, fresh full backup and preservation are complete.
+Genuine owner approval/reminder acknowledgment/payment and document issuance remain.
+WhatsApp delivery is deferred; wider repeat/mixed traffic and external paging remain
+pending. See the [final opening record](subscription-justin-starter-opening-record.md).
