@@ -46,6 +46,7 @@ import {
 } from '@/lib/finance/invoice-document-service';
 import { UnauthorizedError } from '@/lib/auth/account';
 import { SendMessageError } from '@/lib/whatsapp/send-message';
+import { invoiceDocumentErrorMessage } from '@/lib/finance/invoice-document-errors';
 import { POST } from './route';
 
 const accountId = '11111111-1111-4111-8111-111111111111';
@@ -336,7 +337,12 @@ describe('POST /api/invoices/[invoiceId]/share', () => {
       const response = await POST(request(), context());
 
       expect(response.status).toBe(409);
-      expect(await response.json()).toEqual({ error: message });
+      expect(await response.json()).toEqual({
+        error: invoiceDocumentErrorMessage(
+          new InvoiceDocumentConflictError(message),
+          ''
+        ),
+      });
       expect(h.createSignedUrl).not.toHaveBeenCalled();
       expect(h.sendMessageToConversation).not.toHaveBeenCalled();
     }
@@ -387,8 +393,7 @@ describe('POST /api/invoices/[invoiceId]/share', () => {
 
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({
-      error:
-        'Invoice document generation is already in progress. Please retry shortly.',
+      error: 'The invoice PDF is already being made. Try again in a minute.',
     });
     expect(h.createSignedUrl).not.toHaveBeenCalled();
   });

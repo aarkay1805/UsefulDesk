@@ -33,6 +33,8 @@ The backfill does not invent a seller identity, V1 payload, or document row. Sel
 
 When generation is reserved, `reserve_invoice_document` authors the immutable V1 `payload_snapshot` and creates or claims the `invoice_documents` row. That database-authored payload freezes the seller, customer, lines, issue date, currency, subtotal, immutable adjustments, and total used by the document. Browser-authored snapshot JSON is not trusted.
 
+Migration `20261002173354_invoice_document_missing_customer_name.sql` handles members whose name was absent when the invoice was created. Only that missing name may be completed for the first document, using the captured legacy name or the linked member in the same account. It does not update the invoice identity or replace any other captured customer field. A captured name always wins over later member edits. Once reserved, the completed name survives failed-generation retries; ready documents reuse the original payload and bytes. If no name is available, add it in the member's Details before retrying. A missing member link or damaged saved identity requires support.
+
 Historical backfill orders invoices within each account by `issued_at`, then `created_at`, then `id`. Connected verification found 557 invoices numbered and customer-snapshotted, zero profiles, zero invoice documents, and all 557 seller snapshots still null. This is the expected pre-profile, pre-generation state.
 
 ## Authorization matrix
@@ -108,15 +110,19 @@ Creating or submitting the template requires separate, explicit authorization fo
 
 Use the exact recovery copy shown by the product:
 
-| State                           | Recovery                                                                    |
-| ------------------------------- | --------------------------------------------------------------------------- |
-| Invoice details incomplete      | `Finish Invoice details in Settings -> Business details first.`             |
-| Customer phone missing          | `Add a phone number before sending on WhatsApp.`                            |
-| WhatsApp disconnected           | `Connect WhatsApp in Settings before sending.`                              |
-| Invoice template unavailable    | `Approve and sync gym_invoice_document in en_US before sending.`            |
-| Another request owns generation | `Invoice document generation is already in progress. Please retry shortly.` |
-| Voided invoice                  | `Voided invoices cannot generate documents`                                 |
-| Refund review open              | `Resolve the invoice refund review before generating a document`            |
+| State                           | Recovery                                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Invoice details incomplete      | `Finish Invoice details in Settings -> Business details first.`                                                  |
+| Customer phone missing          | `Add a phone number before sending on WhatsApp.`                                                                 |
+| WhatsApp disconnected           | `Connect WhatsApp in Settings before sending.`                                                                   |
+| Invoice template unavailable    | `Approve and sync gym_invoice_document in en_US before sending.`                                                 |
+| Member name missing             | `Could not make the invoice PDF. Add the member's name in Details, then try again.`                              |
+| Another request owns generation | `The invoice PDF is already being made. Try again in a minute.`                                                  |
+| Voided invoice                  | `Could not make the invoice PDF. This invoice was cancelled.`                                                    |
+| Refund review open              | `Could not make the invoice PDF. Sort out the refund in this invoice, then try again.`                           |
+| Saved file missing or damaged   | `Could not open the saved invoice PDF. The file is missing or damaged. Contact support with the invoice number.` |
+
+Server-side invoice setup errors direct staff to Settings → Business details. Unexpected download or send failures advise a retry, then contacting support with the displayed invoice number. Internal validation text and storage paths stay in operator logs.
 
 Template readiness requires an exact provider-backed row with Approved status, successful sync, Utility category, `en_US`, POSITIONAL parameters, one document header, and the exact four body parameters. Submission, a local row, or a returned WhatsApp message ID does not prove readiness or delivery.
 
@@ -131,3 +137,5 @@ If the stored byte count or SHA-256 checksum does not match, treat the artifact 
 ## Verification safety boundary
 
 Tests may validate payload construction, use the harmless sample, render local PDFs, and exercise rollback-only or disposable data. They must not submit a template to Meta, select a real customer, or send a customer message. Keep this no-real-send rule in force. Only separate, explicit action-time authorization for one exact send can change it.
+
+`node scripts/verify-invoice-customer-name.mjs <disposable-full-container> --baseline` reproduces the missing-name error after saving a member name. Without `--baseline`, it applies the recovery twice inside a rollback transaction and verifies immutable identity and amounts, retry/ready reuse, actor checks and service-only execution grants. It refuses cloud databases and preserves the original row counts.

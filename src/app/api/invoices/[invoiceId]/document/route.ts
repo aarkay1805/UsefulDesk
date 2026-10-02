@@ -6,10 +6,8 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account';
 import { canDownloadInvoiceDocuments } from '@/lib/auth/roles';
-import {
-  ensureInvoiceDocument,
-  InvoiceDocumentConflictError,
-} from '@/lib/finance/invoice-document-service';
+import { ensureInvoiceDocument } from '@/lib/finance/invoice-document-service';
+import { invoiceDocumentErrorResponse } from '@/lib/finance/invoice-document-errors';
 import { invoiceDocumentFilename } from '@/lib/finance/invoice-documents';
 
 export const runtime = 'nodejs';
@@ -65,8 +63,13 @@ export async function GET(
       },
     });
   } catch (error) {
-    if (error instanceof InvoiceDocumentConflictError) {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+    const documentError = invoiceDocumentErrorResponse(error);
+    if (documentError) {
+      console.error('[invoice document] download failed:', error);
+      return NextResponse.json(
+        { error: documentError.error },
+        { status: documentError.status }
+      );
     }
     return toErrorResponse(error);
   }

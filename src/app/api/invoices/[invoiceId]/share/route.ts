@@ -6,10 +6,8 @@ import {
   toErrorResponse,
 } from '@/lib/auth/account';
 import { canShareInvoiceDocuments } from '@/lib/auth/roles';
-import {
-  ensureInvoiceDocument,
-  InvoiceDocumentConflictError,
-} from '@/lib/finance/invoice-document-service';
+import { ensureInvoiceDocument } from '@/lib/finance/invoice-document-service';
+import { invoiceDocumentErrorResponse } from '@/lib/finance/invoice-document-errors';
 import { assertInvoiceDocumentPayload } from '@/lib/finance/invoice-documents';
 import { supabaseAdmin } from '@/lib/flows/admin-client';
 import { buildFormatters } from '@/lib/locale/format';
@@ -206,8 +204,13 @@ export async function POST(
       whatsapp_message_id: result.whatsappMessageId,
     });
   } catch (error) {
-    if (error instanceof InvoiceDocumentConflictError) {
-      return conflict(error.message);
+    const documentError = invoiceDocumentErrorResponse(error);
+    if (documentError) {
+      console.error('[invoice document] share failed:', error);
+      return NextResponse.json(
+        { error: documentError.error },
+        { status: documentError.status }
+      );
     }
     if (error instanceof SendMessageError) {
       return NextResponse.json(

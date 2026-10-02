@@ -179,7 +179,7 @@ export interface InvoiceDocumentActionPresentation {
 }
 
 const INVOICE_PROFILE_RECOVERY =
-  'Add your invoice details in Settings → Payments first.';
+  'Add your invoice details in Settings → Business details first.';
 const VOID_DOCUMENT_RECOVERY = 'Cancelled invoices cannot be made into a PDF';
 const REFUND_REVIEW_RECOVERY =
   'Sort out the refund before making the invoice PDF';
