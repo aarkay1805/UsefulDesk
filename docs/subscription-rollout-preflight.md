@@ -1,5 +1,14 @@
 # Subscription rollout preparation — refreshed evidence
 
+**2 October follow-up:** the [Starter web rollout record](subscription-starter-rollout-next.md)
+supersedes earlier pending-template status: fresh provider GETs confirm both
+renewal contracts Approved and exact. Delivery, customer opening, capabilities
+and independent paging remain pending. Production recheck at 02:05:53 UTC found
+three reconciled events, one original payment/grant/processed refund, zero recovery
+items/exceptions, 554 gym payments and initiation/capabilities closed. Receipt
+collection is implemented default off and staging installed; Production remains
+unchanged.
+
 **Current status, 1 October 2026:** the approved internal ₹799 capture/full
 refund is complete, access remains ended, and all three original signed events
 are reconciled without another financial/access effect. New initiation is closed;

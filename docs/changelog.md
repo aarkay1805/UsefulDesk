@@ -6,6 +6,21 @@
 
 ---
 
+## 2026-10-02 — Prepare Starter web rollout delivery evidence
+
+The webhook's separately opted-in private append-only receipts retain each
+completed signed handling, including repeats and provider-proven unrelated
+events, without financial/access effects. Code: `live-webhook/route.ts`,
+`20261002023000_subscription_live_delivery_receipts.sql`, environment audit and
+aggregate inspection/full-schema acceptance scripts. Migration is staging-installed
+as `20261002021926`; synthetic fixtures rolled back. Production installation and
+flag activation remain pending. Provider event IDs and hash fallbacks are distinct;
+receipts are candidates for private provider/gym-ledger review, not automatic
+acceptance. Fresh provider GETs confirm exact renewal contracts Approved; actual
+delivery/customer opening/paging remain pending. Owner chose Starter web first;
+renewals/upgrades/add-ons/native Checkout stay outside this rollout. Current
+evidence/actions: `docs/subscription-starter-rollout-next.md`.
+
 ## 2026-10-01 — Consolidate production closeout investigation evidence
 
 `production-scheduler-rollout-record.md`, readiness and roadmap record the

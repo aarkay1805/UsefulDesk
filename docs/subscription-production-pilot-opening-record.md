@@ -1,5 +1,12 @@
 # Home office internal Live opening — 1 October 2026
 
+**2 October follow-up:** the owner selected Starter web billing first. Fresh
+provider GETs at 02:21:36 UTC confirm both current renewal templates Approved
+and exact-contract; actual reminder delivery remains pending. The
+[next rollout record](subscription-starter-rollout-next.md) tracks default-off
+delivery receipts and remaining customer/monitoring facts. The internal test
+remains complete with initiation closed.
+
 The owner's Home office first-term ₹799 internal technical test is complete.
 New payment/refund initiation and Live checkout UI are closed; signed intake,
 settlement and GET-only recovery remain enabled.
@@ -230,7 +237,7 @@ workers also miss their windows. No messaging worker was manually dispatched.
 | Bank debit / refund credit               | Debit received privately; credit owner-deferred                              | Rajat; append actual credit evidence when supplied                        |
 | Provider same-event / mixed gym delivery | Pending; no redelivery control or eligible gym delivery in available logs    | Rajat; review authentic available evidence before broader Live acceptance |
 | Redundant GitHub schedule                | SEV-3 pending; active/valid, primary healthy, no established local cause     | Rajat; inspect next natural run and escalate if primary windows miss      |
-| Reminder acceptance                      | Separate provider approval/sync/delivery gate                                | Rajat; inspect current provider status last, retain no-send boundary      |
+| Reminder acceptance                      | Current templates Approved/exact at 2 October refresh; delivery pending      | Rajat; select and authorize actual recipient/message before delivery      |
 
 These remaining delivery/operational facts are not falsely closed by a manual
 job or provider-processed refund. Wider customer activation remains outside this

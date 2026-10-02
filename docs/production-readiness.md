@@ -1,5 +1,12 @@
 # UsefulDesk paid-pilot production readiness
 
+**2 October scope/evidence update:** the owner selected Starter web billing first.
+Fresh provider GETs at 02:21:36 UTC confirm the exact membership/service renewal
+contracts Approved; actual delivery remains pending. Default-off receipt collection
+is built and staging accepted to retain future authentic repeat/unrelated traffic.
+Customer facts/opening, capability activation and independent owner paging remain
+separate. See the [current rollout actions](subscription-starter-rollout-next.md).
+
 **General customer launch: CLOSED. Home office internal ₹799 payment/refund: COMPLETE; new initiation CLOSED.**
 The owner approved the internal classification and full-refund access consequence.
 The bank debit evidence is saved privately. On 1 October the owner explicitly
