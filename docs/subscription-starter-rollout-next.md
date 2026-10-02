@@ -1,9 +1,72 @@
 # Starter web rollout — 2 October 2026
 
+## Current position after the first customer payment
+
+Justin completed genuine owner approval, amount review and reminder acknowledgment.
+His ₹799 payment is verified; Starter access runs from **2 October 2026,
+12:24:56 UTC**, to **2 November 2026, 12:24:56 UTC** (5:54:56 pm IST).
+The 12:29 UTC check confirms one active branch, matching unsuspended access,
+zero financial recovery queue items and zero exceptions. One authentic provider-ID
+SaaS delivery receipt exists; authentic same-event redelivery and mixed gym/SaaS
+acceptance still have no evidence. These facts supersede earlier pending owner
+approval/payment statements below. Commercial invoice/receipt issuance completed at 12:57:24 UTC; see the [first-sale issuance record](subscription-starter-document-issuance-record.md). Delivery remains separately pending.
+
+At 12:32 UTC, [Production health 37007089214](https://github.com/aarkay1805/UsefulDesk/actions/runs/37007089214)
+passed existing signed-event GET-only reconciliation, public login and scheduled
+workflow freshness. Justin's capture and the original three signed events are
+reconciled; his one payment and term are unchanged, with zero recovery queue/open
+exceptions. This is not authentic provider repeat-delivery acceptance.
+
+Canonical Production at 12:28 UTC is READY deployment
+`dpl_A3ptZvdSxuJVfZGKkPUXsPz3y4Ct`, main SHA
+`94ab3d6bd36f2448fe07731d99fd40e1a5e80ad7` (the documentation-only PR #34
+successor to the accepted runtime source). A fresh protected customer-mode
+environment audit has zero blockers / 11 warnings. The checked Production 5xx
+window beginning 12:18 UTC contains no entries. These are bounded checks.
+
+Rajat now wants a wider Production rollout. Recommended sequence:
+
+1. **Completed at 12:57:24 UTC:** issued the first-sale invoice/receipt using verified capture/service dates,
+   the existing private issuer/buyer records and the approved C01 treatment.
+   Record actual issuance and sequential numbers only when issued. Keep renewal
+   and first-payment-refund support owned; customer renewal/refund initiation
+   remains closed and must not be advertised as self-service.
+2. **Completed at 13:17:42 UTC:** activated approved Starter restrictions after
+   actual-roster, schedule/claim, RLS/API/worker/native and branch-capacity checks.
+   Justin now permits only standard renewal reminders; trials, complimentary,
+   grandfathered manual and independently audited post-refund manual access are
+   preserved. See the [capability activation record](subscription-starter-capability-activation-record.md).
+3. Complete authentic provider same-event redelivery and matching mixed gym/SaaS
+   acceptance with provider response logs and financial/access preservation.
+   Manual reconciliation and synthetic fixtures are different evidence. Fresh logs
+   show original HTTP 200 responses; Razorpay’s dashboard excludes acknowledged
+   events from replay, so authentic repeat acceptance needs provider assistance.
+4. Set up external public-availability and primary-worker probes, then verify an
+   actual owner test alert. Rajat confirmed in this chat that **no monitoring
+   service/account exists**; the earlier assumed existing-account selection is
+   superseded. StatusCake Free is the researched small-business candidate; its free
+   account is now signed in by Rajat. Explicit alert email is still requested.
+   No monitor/token/notification has been created.
+5. The latest human selection is “any new gym member who signs up from now on”;
+   clarify gym business accounts versus individual gym members before expanding
+   onboarding. The original small reviewed Starter-only batch uses exact per-customer
+   preparation and genuine owner approvals. Broader self-service checkout needs
+   a separate onboarding/offer-review implementation; current activation remains
+   per organization. Preserve signed settlement/recovery when containing checkout.
+
+Justin's gym still needs a real membership plan; setup remains unfinished.
+His WhatsApp connection/delivery remains deferred at Rajat's instruction.
+Choose a connected, explicitly authorized acceptance recipient for standard
+reminder delivery before promising operational sends to the wider batch.
+Growth, Ultimate, upgrades, add-ons and native Checkout remain later work.
+
 The owner selected **Starter web billing first** in this chat. Live renewals,
 upgrades, add-ons and native Checkout remain outside this opening. The completed
 Home office internal payment/refund is not a customer sale or authority to reopen
 its initiation. Bank refund-credit evidence remains owner-deferred.
+
+The table and earlier release sections retain their explicitly dated checks.
+The completed document/capability steps above supersede their former pending states.
 
 ## Current evidence and remaining work
 
@@ -17,7 +80,7 @@ its initiation. Bank refund-credit evidence remains owner-deferred.
 | Reminder delivery               | Select the actual acceptance recipient; prepare and authorize the exact current-contract message, then record its real delivery outcome. Worker HTTP 200 and template approval are separate.                                                                                                                                                                                                                                                                                                                                      | Rajat                    |
 | Customer opening                | Justin's fitness selected; saved billing legal name/address/phone verified complete at 10:14:19 UTC. Justin's ₹799 agreement, intended billing location/contact and FY 2026–27 zero PAN-wide turnover/no GST/only-business statements confirmed by Rajat. C01 operator disposition, audited defaults/setup finding, exact offer/preparation and verified runtime opening are complete at 11:55:57 UTC. Justin’s genuine owner approval, quote/reminder acknowledgment, payment and issuance remain; see the final opening record. | Rajat                    |
 | Starter capabilities            | Existing local/cloud Auth/API/RLS/worker acceptance passed. Refresh actual candidate schedules, branch roster, access and policy checks, then review exact capability activation with customer opening.                                                                                                                                                                                                                                                                                                                           | Release operator / Rajat |
-| Independent watchdog            | Code/RPC exist. Identify the chosen existing service/account; configure the prepared probes and separate token; verify natural probes and actual owner notification.                                                                                                                                                                                                                                                                                                                                                              | Rajat                    |
+| Independent watchdog            | Code/RPC exist. Create the selected no-cost service account; configure the prepared probes and separate token; verify natural probes and actual owner notification.                                                                                                                                                                                                                                                                                                                                                               | Rajat                    |
 | Operations                      | Primary ops/renewals are healthy; GitHub natural runs resumed but cadence is intermittent. Native scheduler acceptance passed. Review Supabase temporary Free acceptance by 13 October or its earlier triggers.                                                                                                                                                                                                                                                                                                                   | Rajat                    |
 
 ## Receipt behavior and release

@@ -1,5 +1,7 @@
 # Starter customer document pack — unissued review drafts
 
+**2 October, 12:57 UTC:** Justin’s genuine invoice/receipt pair is now issued once; see the [first-sale issuance record](subscription-starter-document-issuance-record.md). This packet remains the unissued template for other customers and corrections, not permission to issue them. Original dated preparation states below remain historical.
+
 **2 October refresh:** Justin's fitness is selected as the real customer candidate;
 its [preparation record](subscription-justin-customer-review.md) tracks verified
 account facts, verified saved billing details and Rajat's confirmation of Justin's agreement to Starter at ₹799. The internal

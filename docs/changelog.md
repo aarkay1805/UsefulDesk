@@ -1,10 +1,24 @@
 # Changelog — what shipped, and why
 
+- **2 October 2026 — Activate approved Starter restrictions:** Production capability switch enabled after roster/staging/concurrency acceptance. `20261002132000_starter_live_capability_activation.sql` preserves exact audited post-refund manual terms and enforces Live create/restore capacity independently of Test billing. Only Justin’s capability matrix changed; money/access/gym records are preserved. Authentic repeat/mixed delivery, external alerts and selected batch remain pending; see `docs/subscription-starter-capability-activation-record.md`.
+
+- **2 October 2026 — Starter first-sale documents:** immutable private subscription invoice/receipt ledger and service-only sequential atomic issuance (`20261002124500_starter_subscription_documents.sql`); Justin’s genuine pair issued once from C01/payment/term. Private final bytes/hash/operator evidence, concurrent suspension/retry acceptance and 22 preservation checks passed; delivery and wider rollout remain pending. See `docs/subscription-starter-document-issuance-record.md`.
+
 > **Archaeology.** Read a section only when you need the _reasoning_ behind a past decision. The durable **rules** extracted from this work live in `CLAUDE.md`, `docs/ui-patterns.md`, and `docs/gym-domain.md` — those are the sources of truth; this file is the record.
 >
 > **Append here** when you land a feature: what shipped, where the code lives, what a future session must not re-litigate. Terse.
 
 ---
+
+## 2026-10-02 — Verify the first genuine Starter customer payment
+
+Justin's actual owner approval, amount/reminder review and verified ₹799 capture
+produced matching unsuspended one-calendar-month access through 2 November at
+5:54:56 pm IST. Evidence lives in `subscription-justin-starter-opening-record.md`;
+`subscription-starter-rollout-next.md` now separates first-sale completion from
+wider rollout. Capability enforcement, authentic replay/mixed acceptance,
+documents and external alerts remain pending. Rajat clarified that no monitoring
+account exists; the watchdog record no longer assumes one.
 
 ## 2026-10-02 — Open Justin’s prepared Starter purchase path
 

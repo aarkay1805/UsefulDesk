@@ -3,9 +3,17 @@
 The read-only watchdog is implemented and disabled by default. No monitoring
 account, external probe or owner delivery is established by this code.
 The operator configuration is [prepared here](production-watchdog-config.json).
-The owner selected an existing monitoring account and its configured owner
-channel, naming Rajat Kashyap. Its service name/dashboard URL is still required
-to locate the account; do not purchase a service or infer a recipient elsewhere.
+StatusCake Free was researched on 2 October as a no-cost small-business candidate
+(ten monitors, five-minute intervals); its free signup page is open for the owner.
+Rajat completed free signup/sign-in; the dashboard is accessible without a paid
+trial. Exact alert email is still requested. No monitor token, monitor or test
+notification has been created. Authentic provider acceptance remains the prior
+ordered rollout step.
+On 2 October, Rajat clarified that he has **no monitoring service/account**.
+This supersedes the earlier assumed existing-account selection. New account
+setup, owner alert-channel selection and verified test delivery remain necessary;
+do not claim that probes or notifications exist, purchase a service, or infer an
+alert recipient from unrelated account details.
 
 The reviewed RPC is installed in Production as migration history
 `20261001180537` (source `20261001155527_production_watchdog_snapshot.sql`).

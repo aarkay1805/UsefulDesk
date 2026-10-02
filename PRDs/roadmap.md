@@ -3226,3 +3226,18 @@ audited legacy defaults, truthful missing-plan setup review, fresh full backup a
 genuine payment and document issuance remain; WhatsApp delivery is deferred.
 Wider authentic repeat/mixed traffic and external paging remain pending. See the
 [final opening record](../docs/subscription-justin-starter-opening-record.md).
+
+**Shipped / first genuine Starter customer paid — 2 October, 12:29 UTC check:**
+Justin's own approval, exact amount review and reminder acknowledgment are
+complete. Verified ₹799 capture at 12:24:56 UTC committed matching unsuspended
+access until 2 November, 5:54:56 pm IST. One authentic SaaS receipt exists;
+financial recovery queue/exceptions are empty. Wider rollout preparation now
+has completed first-sale documents, owned renewal/refund support and validated
+Starter capability activation (13:17 UTC). Authentic repeat/mixed acceptance and new external
+monitoring with owner alert delivery. Rajat clarified that no monitoring account
+exists. Current per-customer opening is available; broader self-service checkout
+is not shipped. See [the rollout sequence](../docs/subscription-starter-rollout-next.md).
+
+**Shipped / first Starter commercial documents — 2 October, 12:57 UTC:** Justin’s ordinary invoice `UM/2026-27/000001` and receipt `UM-R/2026-27/000001` are issued and preserved privately through the new immutable service-only subscription ledger. Sequential atomic issuance, conflict/exact retry, concurrent access-change refusal, final PDF/text checks and all 22 financial/access/tenant preservation checks passed. Delivery remains separately pending. Starter capability activation completed at 13:17 UTC. Authentic repeat/mixed provider acceptance, external alert delivery and explicitly selected customer batch remain ordered next steps; see `docs/subscription-starter-document-issuance-record.md`.
+
+**Shipped / approved Starter restrictions — 2 October, 13:17 UTC:** Production enforces Justin’s standard-reminder-only Starter matrix and one-active-branch allowance with Test billing closed. Exact admin-audited post-refund manual access is preserved, alongside trials, complimentary and grandfathered manual accounts; no payment/refund/access/gym row changed. Disposable/cloud rollback, concurrent create, API/UI/native checks and fresh reviews passed. Provider logs confirm original HTTP 200 deliveries, but acknowledged events cannot be replayed through Razorpay’s dashboard. Authentic repeat/mixed acceptance needs provider assistance; monitoring signup/alert destination and the small customer selection are requested. See [the activation record](../docs/subscription-starter-capability-activation-record.md).
