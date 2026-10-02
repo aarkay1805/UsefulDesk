@@ -82,7 +82,7 @@ BEGIN
     PERFORM public.reserve_invoice_document(v_detached_invoice,v_user);
     RAISE EXCEPTION 'A nameless member unexpectedly generated a document';
   EXCEPTION WHEN SQLSTATE '22023' THEN
-    IF SQLERRM <> 'Could not make the invoice PDF. Add the member''s name in Details, then try again.' THEN RAISE; END IF;
+    IF SQLERRM <> 'Could not make the invoice PDF. Add the member''s name in Profile, then try again.' THEN RAISE; END IF;
   END;
   IF EXISTS (SELECT 1 FROM public.invoice_documents WHERE invoice_id=v_detached_invoice) THEN
     RAISE EXCEPTION 'Missing-name rejection left a document lease';

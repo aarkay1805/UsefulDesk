@@ -12,7 +12,8 @@ original bytes. The service-only RPC keeps its tenant and actor checks.
 The document and share routes and `invoice-document-errors.ts` give a concrete
 next step for missing names, invoice setup, generation in progress and damaged
 files. Unexpected failures include retry guidance and the invoice number in
-the toast. Invoice setup links now open Settings → Business details.
+the toast. Missing-name instructions open the member's Profile tab; invoice
+setup links open Settings → Business details.
 
 **Validation:** all 4,395 tests, lint, typecheck, build and isolated deployment
 bundle acceptance pass. The disposable Postgres runner
@@ -23,6 +24,9 @@ The connector applied the migration as `20261002174706`. Chrome downloaded
 `INV-000560` with the saved member name and correct ₹1,000 total; its 20,221
 bytes match the stored SHA-256. The original invoice row remains identical,
 and invoice/payment/line counts did not change. No WhatsApp message was sent.
+The Profile wording follow-up (`20261002181033`) is connector-applied as
+`20261002181249`; it replaces only the recovery sentence and retains the
+service-only grants, fixed search path and existing document checksum.
 
 ## Shipped — Invoice download deployment fix (2026-10-02)
 

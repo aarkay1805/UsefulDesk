@@ -9,8 +9,12 @@ export function invoiceDocumentErrorMessage(
   fallback: string
 ): string {
   const message = error instanceof Error ? error.message : '';
-  if (message === 'Invoice customer snapshot is incomplete') {
-    return "Could not make the invoice PDF. Add the member's name in Details, then try again.";
+  if (
+    message === 'Invoice customer snapshot is incomplete' ||
+    message ===
+      "Could not make the invoice PDF. Add the member's name in Details, then try again."
+  ) {
+    return "Could not make the invoice PDF. Add the member's name in Profile, then try again.";
   }
   if (/^Finish Invoice details in Settings/.test(message)) {
     return 'Could not make the invoice PDF. Complete Invoice details in Settings → Business details, then try again.';

@@ -7,9 +7,14 @@ import { createDisposablePostgres } from './lib/disposable-postgres.mjs';
 const { sql } = createDisposablePostgres(process.argv[2]);
 const read = (path) =>
   readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
-const migration = read(
-  'supabase/migrations/20261002173354_invoice_document_missing_customer_name.sql'
-);
+const migration =
+  read(
+    'supabase/migrations/20261002173354_invoice_document_missing_customer_name.sql'
+  ) +
+  '\n' +
+  read(
+    'supabase/migrations/20261002181033_invoice_member_profile_recovery_copy.sql'
+  );
 const fixture = read('supabase/tests/invoice_customer_name_recovery.sql');
 const baselineQuery = `SELECT count(*) FROM public.invoices;
 SELECT count(*) FROM public.invoice_documents;
