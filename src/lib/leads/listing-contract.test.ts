@@ -129,7 +129,8 @@ describe('lead listing SQL contract', () => {
   });
 
   it('sorts and hydrates in PostgreSQL after bounding the ordinary page', () => {
-    expect(migration).toContain('public.profiles AS assignee');
+    expect(migration).toContain('public.list_account_members(p_account_id)');
+    expect(migration).toContain('LEFT JOIN branch_staff AS assignee');
     expect(migration).toContain('LEFT JOIN LATERAL');
     expect(migration).toContain('MIN(tag.name) AS value');
     expect(migration).toContain('custom_sort_value::NUMERIC');

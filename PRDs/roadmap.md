@@ -1,5 +1,32 @@
 # Roadmap
 
+## Built — Enquiry team names and reliable edits (2026-10-02)
+
+**Status: built and verified; sort migration applied to Production; app deployment pending.** Received by,
+Added by and Assigned to resolve names/photos from selected-branch membership,
+including staff whose legacy profile points to another branch. The shared roster
+also fixes team pickers, board, follow-ups and exports. Assigned to and Added by
+sorts use that authorized roster in `lead_listing_snapshot`; the contact read
+keeps its existing RLS, cohort, pagination and grants.
+
+Core edits in the table, edit form and enquiry/Chats detail panel now confirm
+the updated contact before reporting success. Custom-field saves replace values
+in place and clear only changed fields, preserving unrelated values and the
+old value if its replacement fails. The form waits for fields to load and uses
+the canonical Enquiry labels and pending-button behavior.
+
+**Validation:** roster and write regressions; a disposable Postgres acceptance
+runner (`scripts/accept-lead-staff-listing.mjs`) reproduces the previous sort
+failure and checks both name sorts, both directions and all four listing modes
+under RLS. Full suite: 535 files / 4,387 tests; lint, typecheck and build pass.
+The migration is connector-applied as `20261002160135`; all 16 signed-in live
+sort variants match the branch roster, while the affected branch's default
+rows, total and quick-filter counts match their pre-migration values. The
+listing remains SECURITY INVOKER with authenticated-only grants. No synthetic
+enquiries are written to Production. Rollback for the
+sort migration restores only `lead_listing_snapshot` from
+`20260927130000_enquiry_reads_exclude_service_customers.sql`.
+
 ## Shipped — Unused tag-filter read removed (2026-09-27)
 
 **Status: shipped; migration applied to Production. No app change.**
