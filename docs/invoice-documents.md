@@ -60,6 +60,15 @@ Generation records a format version, byte count, and lowercase SHA-256 checksum.
 
 The authenticated download route streams `application/pdf` as an attachment and sets `Cache-Control: private, no-store`. It does not create or expose a public URL.
 
+The renderer resolves local Noto Sans fonts through `createRequire`.
+`next.config.ts` must explicitly include the registered regular/bold WOFF
+files and their package metadata in both invoice document and share route
+traces; automatic tracing misses them and the deployed handler crashes before
+invoice lookup. After `npm run build`, run
+`node scripts/verify-invoice-document-bundles.mjs` to load each handler using
+only its traced deployment files. This check requires no credentials and
+does not generate an invoice or send a message.
+
 WhatsApp sharing creates a signed URL valid for five minutes so Meta can fetch the document header. UsefulDesk message history stores the stable authenticated document route and does not persist the signed URL.
 
 ## Download and share flow

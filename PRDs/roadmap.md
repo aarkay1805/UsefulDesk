@@ -1,5 +1,18 @@
 # Roadmap
 
+## Built — Invoice download deployment fix (2026-10-02)
+
+**Status: built and verified locally; deployment pending.** Invoice document
+and share routes now explicitly include the renderer's Noto Sans fonts in
+their deployment traces (`next.config.ts`). This fixes the production
+module-load crash behind **Could not download the invoice** in member Billing.
+The isolated-bundle acceptance runner
+(`scripts/verify-invoice-document-bundles.mjs`, run after `npm run build`)
+reproduced the missing-font failure before the fix and loads both rebuilt
+handlers afterward without credentials, customer writes, or WhatsApp sends.
+Build and all 4,387 tests pass. Private storage and immutable PDF reuse retain
+their existing contracts.
+
 ## Built — Enquiry team names and reliable edits (2026-10-02)
 
 **Status: built and verified; sort migration applied to Production; app deployment pending.** Received by,

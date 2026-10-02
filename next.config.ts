@@ -75,7 +75,32 @@ const SECURITY_HEADERS = [
   },
 ] as const;
 
+// Invoice PDFs resolve fonts at runtime through createRequire; automatic
+// tracing cannot see those assets. Keep both invoice routes self-contained.
+const invoicePdfAssets = [
+  './node_modules/@fontsource/noto-sans/package.json',
+  './node_modules/@fontsource/noto-sans/files/noto-sans-{latin,latin-ext}-{400,700}-normal.woff',
+  ...[
+    'devanagari',
+    'bengali',
+    'gurmukhi',
+    'gujarati',
+    'oriya',
+    'tamil',
+    'telugu',
+    'kannada',
+    'malayalam',
+  ].flatMap((script) => [
+    `./node_modules/@fontsource/noto-sans-${script}/package.json`,
+    `./node_modules/@fontsource/noto-sans-${script}/files/noto-sans-${script}-${script}-{400,700}-normal.woff`,
+  ]),
+];
+
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: {
+    '/api/invoices/*/document': invoicePdfAssets,
+    '/api/invoices/*/share': invoicePdfAssets,
+  },
   // Meta App Review needs an HTTPS build that can exercise the business-login
   // popup before Advanced Access is granted. Keep the public Production env
   // unset; only this exact temporary Vercel Preview branch receives the
