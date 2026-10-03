@@ -865,3 +865,219 @@ it.each([
     )
   ).toContainEqual(blocker('production-safety-flags'));
 });
+
+const customerRenewalFlags = [
+  ...recoveryFlags,
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED',
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED',
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_RENEWALS_ENABLED',
+  'NEXT_PUBLIC_USEFULDESK_CUSTOMER_RENEWALS_UI',
+];
+const customerRenewalEnvironment = {
+  ...recoveryEnvironment,
+  ...Object.fromEntries(customerRenewalFlags.map((name) => [name, 'true'])),
+};
+
+describe('separate customer renewal environment audit', () => {
+  const options = { allowLiveCustomerRenewals: true };
+
+  it('checks the complete renewal scope without requiring first-purchase UI', () => {
+    const results = evaluateProductionEnvironment(
+      customerRenewalEnvironment,
+      options
+    );
+    expect(results).not.toContainEqual(blocker());
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        severity: 'pass',
+        check: 'subscription-live-customer-renewals',
+      })
+    );
+    for (const check of [
+      'subscription-live-database-verification',
+      'subscription-live-offer-verification',
+      'subscription-live-activation-authority',
+    ]) {
+      expect(results).toContainEqual(
+        expect.objectContaining({ severity: 'warning', check })
+      );
+    }
+    expect(JSON.stringify(results)).toContain('renewal release');
+  });
+
+  it('permits existing first-purchase UI only with a literal reviewed value', () => {
+    const name = 'NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI';
+    for (const value of ['', 'false', 'true']) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...customerRenewalEnvironment, [name]: value },
+          options
+        )
+      ).not.toContainEqual(blocker());
+    }
+    for (const value of ['1', 'TRUE', ' true ', '[SENSITIVE]', 'yes']) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...customerRenewalEnvironment, [name]: value },
+          options
+        )
+      ).toContainEqual(blocker('production-safety-flags'));
+    }
+  });
+
+  it.each(customerRenewalFlags)('requires literal true for %s', (name) => {
+    for (const value of [
+      undefined,
+      '',
+      'false',
+      '1',
+      'TRUE',
+      ' true ',
+      '[SENSITIVE]',
+    ]) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...customerRenewalEnvironment, [name]: value },
+          options
+        )
+      ).toContainEqual(blocker('subscription-live-customer-renewals'));
+    }
+  });
+
+  it('keeps renewals blocked in every existing audit mode', () => {
+    for (const oldOptions of [
+      {},
+      { allowLiveIntakeOnly: true },
+      { allowLiveStarterPilot: true },
+      { allowLiveRecoveryOnly: true },
+      { allowLiveCustomerCheckout: true },
+    ]) {
+      expect(
+        evaluateProductionEnvironment(customerRenewalEnvironment, oldOptions)
+      ).toContainEqual(blocker('production-safety-flags'));
+    }
+  });
+
+  it.each([
+    'allowLiveIntakeOnly',
+    'allowLiveStarterPilot',
+    'allowLiveRecoveryOnly',
+    'allowLiveCustomerCheckout',
+  ])('refuses combination with %s', (name) => {
+    expect(
+      evaluateProductionEnvironment(customerRenewalEnvironment, {
+        ...options,
+        [name]: true,
+      })
+    ).toContainEqual(blocker('subscription-live-audit-mode'));
+  });
+
+  it('refuses original initiation, refunds, Test and higher-tier switches', () => {
+    for (const name of [
+      'USEFULDESK_SAAS_LIVE_QUOTES_ENABLED',
+      'USEFULDESK_SAAS_LIVE_ORDERS_ENABLED',
+      'USEFULDESK_SAAS_LIVE_REFUNDS_ENABLED',
+      'USEFULDESK_SAAS_LIVE_CUSTOMER_REFUNDS_ENABLED',
+      'NEXT_PUBLIC_USEFULDESK_LIVE_REVIEW_UI',
+      'NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI',
+      'RAZORPAY_PROVIDER_ACCEPTANCE_ONLY',
+      'NEXT_PUBLIC_USEFULDESK_TEST_BILLING_UI',
+      'USEFULDESK_SUBSCRIPTION_CAPABILITIES_ENABLED',
+      'USEFULDESK_SAAS_LIVE_FUTURE_ENABLED',
+    ]) {
+      for (const value of ['true', '1', 'TRUE', '[SENSITIVE]', 'yes']) {
+        expect(
+          evaluateProductionEnvironment(
+            { ...customerRenewalEnvironment, [name]: value },
+            options
+          )
+        ).toContainEqual(blocker('production-safety-flags'));
+      }
+    }
+  });
+
+  it('refuses changed or hidden identities and non-Production runtime', () => {
+    for (const [name, value] of [
+      ['USEFULDESK_SAAS_RAZORPAY_MODE', 'test'],
+      ['USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID', 'rzp_test_wrong'],
+      ['USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID', '[SENSITIVE]'],
+      ['USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID', 'acc_Other'],
+      ['USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID', '[SENSITIVE]'],
+      [
+        'USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID',
+        '11111111-1111-4111-8111-111111111111',
+      ],
+      ['USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID', '[SENSITIVE]'],
+      ['NODE_ENV', 'development'],
+      ['VERCEL_ENV', 'preview'],
+    ]) {
+      expect(
+        evaluateProductionEnvironment(
+          { ...customerRenewalEnvironment, [name]: value },
+          options
+        )
+      ).toContainEqual(blocker());
+    }
+  });
+
+  it('reports protected secrets as warnings without printing any identity or secret value', () => {
+    const environment = {
+      ...customerRenewalEnvironment,
+      USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_SECRET: '[SENSITIVE]',
+      USEFULDESK_SAAS_RAZORPAY_LIVE_WEBHOOK_SECRET: '[SENSITIVE]',
+      USEFULDESK_SAAS_LIVE_DELIVERY_EVIDENCE_ENABLED: 'true',
+    };
+    const results = evaluateProductionEnvironment(environment, options);
+    expect(results).not.toContainEqual(blocker());
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        severity: 'warning',
+        check: 'subscription-live-boundary',
+      })
+    );
+    expect(results).toContainEqual(
+      expect.objectContaining({
+        severity: 'warning',
+        check: 'subscription-live-delivery-evidence',
+      })
+    );
+    const output = JSON.stringify(results);
+    for (const name of [
+      'USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_ID',
+      'USEFULDESK_SAAS_RAZORPAY_LIVE_MERCHANT_ID',
+      'USEFULDESK_SAAS_LIVE_PILOT_ORGANIZATION_ID',
+      'USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_SECRET',
+      'USEFULDESK_SAAS_RAZORPAY_LIVE_WEBHOOK_SECRET',
+    ]) {
+      expect(output).not.toContain(environment[name]);
+    }
+  });
+
+  it('uses the separate CLI option and exits nonzero for an incomplete or conflicting audit', () => {
+    const script = fileURLToPath(
+      new URL('./production-env-readiness.mjs', import.meta.url)
+    );
+    const input = Object.entries(customerRenewalEnvironment)
+      .map(([name, value]) => `${name}=${JSON.stringify(value)}`)
+      .join('\n');
+    const run = (...args) =>
+      spawnSync(process.execPath, [script, '--dotenv-stdin', ...args], {
+        input,
+        encoding: 'utf8',
+        env: {},
+      });
+    expect(run().status).toBe(1);
+    const accepted = run('--allow-live-customer-renewals');
+    expect(accepted.status).toBe(0);
+    expect(accepted.stdout).toContain(
+      'PASS subscription-live-customer-renewals'
+    );
+    expect(accepted.stdout).not.toContain(
+      customerRenewalEnvironment.USEFULDESK_SAAS_RAZORPAY_LIVE_KEY_SECRET
+    );
+    expect(
+      run('--allow-live-customer-renewals', '--allow-live-customer-checkout')
+        .status
+    ).toBe(1);
+  });
+});

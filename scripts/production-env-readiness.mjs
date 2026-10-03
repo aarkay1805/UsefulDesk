@@ -70,6 +70,13 @@ const CUSTOMER_CHECKOUT_FLAGS = Object.freeze([
   'USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED',
   'NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI',
 ]);
+const CUSTOMER_RENEWAL_FLAGS = Object.freeze([
+  ...LIVE_RECOVERY_FLAGS,
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED',
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED',
+  'USEFULDESK_SAAS_LIVE_CUSTOMER_RENEWALS_ENABLED',
+  'NEXT_PUBLIC_USEFULDESK_CUSTOMER_RENEWALS_UI',
+]);
 const STARTER_PILOT_MERCHANT = 'acc_TCJwBqanN9LTrK';
 const STARTER_PILOT_ORGANIZATION = '8826d9aa-03f2-4ad7-ae91-0553052131f8';
 
@@ -117,6 +124,7 @@ export function evaluateProductionEnvironment(
     allowLiveStarterPilot = false,
     allowLiveRecoveryOnly = false,
     allowLiveCustomerCheckout = false,
+    allowLiveCustomerRenewals = false,
   } = {}
 ) {
   const results = [];
@@ -257,19 +265,21 @@ export function evaluateProductionEnvironment(
       allowLiveStarterPilot,
       allowLiveRecoveryOnly,
       allowLiveCustomerCheckout,
+      allowLiveCustomerRenewals,
     ].filter(Boolean).length > 1;
   if (conflictingModes) {
     add(
       'blocker',
       'subscription-live-audit-mode',
-      'Live intake-only, Starter pilot, recovery-only and customer-checkout audit modes are mutually exclusive.'
+      'Live intake-only, Starter pilot, recovery-only, customer-checkout and customer-renewals audit modes are mutually exclusive.'
     );
   }
   const scopedLiveMode =
     !conflictingModes &&
     (allowLiveStarterPilot ||
       allowLiveRecoveryOnly ||
-      allowLiveCustomerCheckout);
+      allowLiveCustomerCheckout ||
+      allowLiveCustomerRenewals);
   const requiredLiveFlags = conflictingModes
     ? []
     : allowLiveStarterPilot
@@ -278,12 +288,19 @@ export function evaluateProductionEnvironment(
         ? LIVE_RECOVERY_FLAGS
         : allowLiveCustomerCheckout
           ? CUSTOMER_CHECKOUT_FLAGS
-          : [];
+          : allowLiveCustomerRenewals
+            ? CUSTOMER_RENEWAL_FLAGS
+            : [];
   // The existing opening audit remains compatible with a closed worker. A
   // separately reviewed pilot may enable it; recovery-only requires it.
   const permittedLiveFlags = scopedLiveMode
     ? [...requiredLiveFlags, 'USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED']
     : requiredLiveFlags;
+  // A paid owner can reach renewal review with first-purchase UI closed.
+  // Preserve a separately reviewed existing first-purchase UI when present.
+  if (!conflictingModes && allowLiveCustomerRenewals) {
+    permittedLiveFlags.push('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI');
+  }
   const intakeName = 'USEFULDESK_SAAS_LIVE_WEBHOOK_INTAKE_ENABLED';
   const reviewedIntake =
     !conflictingModes &&
@@ -380,7 +397,9 @@ export function evaluateProductionEnvironment(
       ? 'subscription-live-starter-pilot'
       : allowLiveCustomerCheckout
         ? 'subscription-live-customer-checkout'
-        : 'subscription-live-recovery-only';
+        : allowLiveCustomerRenewals
+          ? 'subscription-live-customer-renewals'
+          : 'subscription-live-recovery-only';
     const incompleteFlags = requiredLiveFlags.filter(
       (name) => env[name] !== 'true'
     );
@@ -393,7 +412,9 @@ export function evaluateProductionEnvironment(
           ? 'The complete initial Starter pilot flag set is present; renewal and capability activation remain outside this audit scope.'
           : allowLiveCustomerCheckout
             ? 'Customer scope, checkout and UI plus financial recovery are present. Original initiation, customer refunds and renewals remain closed. Verify database-controlled capabilities, exact operator preparation and genuine owner approval independently.'
-            : 'The required intake, settlement, refund reconciliation and financial recovery flags are present; quote/order/refund initiation and both Live UI flags must remain closed.'
+            : allowLiveCustomerRenewals
+              ? 'Customer scope, checkout, renewal server/UI and financial recovery flags are present. Original pilot initiation and all refund initiation remain closed. Verify the exact customer renewal release and owner review separately.'
+              : 'The required intake, settlement, refund reconciliation and financial recovery flags are present; quote/order/refund initiation and both Live UI flags must remain closed.'
     );
     const wrongRuntime = ['NODE_ENV', 'VERCEL_ENV'].filter(
       (name) => normalize(env[name]) && env[name] !== 'production'
@@ -423,9 +444,11 @@ export function evaluateProductionEnvironment(
     add(
       'warning',
       'subscription-live-database-verification',
-      allowLiveCustomerCheckout
-        ? 'Verify the reviewed database merchant/pilot binding, scoped opening constraints and matching settings independently. Renewals must remain closed; verify the separately reviewed capability setting in the database.'
-        : 'Verify the reviewed database merchant/pilot binding, scoped opening constraints and matching settings independently; renewals and tier capabilities must remain closed.'
+      allowLiveCustomerRenewals
+        ? 'Verify the exact immutable customer renewal release, organization/current-owner/review/merchant binding, release SHA/manifest and authorization/provider/backup references. Only the approved customer may open; all other renewal scopes and original pilot renewal remain closed. This audit does not read database authority or verify deployed build-time UI values.'
+        : allowLiveCustomerCheckout
+          ? 'Verify the reviewed database merchant/pilot binding, scoped opening constraints and matching settings independently. Renewals must remain closed; verify the separately reviewed capability setting in the database.'
+          : 'Verify the reviewed database merchant/pilot binding, scoped opening constraints and matching settings independently; renewals and tier capabilities must remain closed.'
     );
     add(
       'warning',
@@ -654,6 +677,17 @@ flags true. Original pilot initiation/UI, customer refunds and renewals remain c
 Database-controlled capabilities, exact preparation and actual owner review are
 separate checks; this environment audit does not read or prove database settings.
 
+For a separately authorized per-customer Starter renewal release:
+  cat <dotenv-file> | node scripts/production-env-readiness.mjs --dotenv-stdin --allow-live-customer-renewals
+
+Renewal mode requires literal true financial recovery, customer scope/checkout,
+customer renewal initiation and renewal UI flags. First-purchase customer UI may
+remain false/unset or retain a separately reviewed literal true. Original pilot
+initiation/UI, all refund initiation, higher tiers and Test switches stay closed.
+Inspect the exact immutable customer renewal release and current owner/review
+binding separately. Verify the deployed build-time UI fingerprint independently.
+This audit neither opens a customer scope nor proves genuine provider acceptance.
+
 Starter mode requires all eight Live intake, quote/order/refund, settlement,
 refund-reconciliation and review/Checkout UI flags to be literal true together.
 The separately reviewed financial recovery worker may be enabled in Starter mode;
@@ -662,7 +696,8 @@ Recovery mode requires literal true intake, settlement, refund reconciliation an
 USEFULDESK_SAAS_LIVE_FINANCIAL_RECOVERY_ENABLED,
 with quote/order/refund and both Live UI flags false or unset. Both modes require
 the exact reviewed merchant/pilot and a visible Live key ID; Test, acceptance,
-capability and renewal environment switches are not allowed. Audit modes are mutually exclusive.
+capability and renewal environment switches are not allowed in those modes.
+Audit modes are mutually exclusive.
 Database settings/constraints, immutable offer, tax/receipt clearance, approval and
 acceptance remain separate checks. This preparation does not seed an offer or
 open any gate. A passing audit never authorizes payment or activation.
@@ -691,6 +726,9 @@ remain explicit warnings or blockers instead of being guessed.`);
       ),
       allowLiveCustomerCheckout: process.argv.includes(
         '--allow-live-customer-checkout'
+      ),
+      allowLiveCustomerRenewals: process.argv.includes(
+        '--allow-live-customer-renewals'
       ),
     })
   );

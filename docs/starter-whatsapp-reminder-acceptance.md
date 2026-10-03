@@ -66,6 +66,29 @@ and no stored messages for either current renewal template. The local morning
 send window was closed. No cron, message, template edit/submission/sync, account
 change, financial action or customer activation was performed.
 
+### Fresh continuation preflight, 3 October
+
+At **07:49:22.925914 UTC (13:19:22 IST)** the same connector read found
+Home office and Zirakpur connected, with standard capability, canonical legal
+identity and both exact contracts ready. Saved schedules remained unchanged;
+the account-local morning window was open. Old Ambala remained unconnected.
+The other three status queries again returned no enabled date-matched
+membership/service candidates and no stored current-template message groups.
+The [continuation evidence](subscription-next-billing-evidence-2026-10-03.json)
+records these reads separately from the earlier release observations.
+
+Rajat requested using Justin's details and clarified that the intended message
+is about Justin's ₹799 UsefulDesk subscription. This is separate from accepting
+either gym reminder contract. The **07:57:48.769565 UTC** read confirmed zero
+Old Ambala WhatsApp configuration rows, one existing membership belonging to a
+different customer and no purchased services. Justin's SaaS term cannot supply
+gym-membership parameters. Rajat then confirmed the actual recipient number;
+the connected UsefulMade Home office sender was verified in owner Settings.
+That sender has no existing chat to the recipient or saved subscription-specific
+template. An exact subscription-status draft is prepared outside Git; template
+submission approval remains pending. No message was sent and no delivery is
+accepted. No subject, schedule, template or account changed.
+
 ## Local validation
 
 The final full suite passes **4,431 tests across 539 files**. A focused run

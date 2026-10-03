@@ -1,5 +1,30 @@
 # Roadmap
 
+## Built locally — Starter renewal environment audit (2026-10-03)
+
+**Status: separate audit preparation implemented; publication and customer
+opening pending.** The explicit customer-renewals audit requires the renewal
+server/UI, customer scope/checkout and financial-recovery flags together.
+First-purchase customer UI is optional for a paid owner. Existing audit modes
+continue to block renewal activation; original pilot/refund initiation,
+Test/acceptance and higher-tier switches remain closed. Environment results
+require separate database/release, owner, provider and deployed-UI evidence.
+
+Read-only continuation checks retain Home office/Zirakpur reminder readiness,
+zero current-template delivery evidence, zero selected-gym queue/work, and
+zero renewal releases/quotes with validated hard closure. Justin's reviewed
+binding and version-5 paid term remain intact. Rajat selected a message about
+Justin's own UsefulDesk subscription; this is separate from the still-pending
+gym-reminder contract acceptance. Prepare that exact message and recipient
+before requesting send approval. Complete separately authorized provider
+acceptance before a scoped renewal opening source and approval.
+**Validation:** 4,452 tests / 539 files, lint, typecheck, production build and
+changed-file formatting; independent review found no substantive finding and
+separately passed 158 audit tests. Recipient number is now confirmed; an exact
+subscription-status draft awaits template submission approval outside Git.
+See the [release audit boundary](../docs/subscription-starter-renewal-release.md)
+and [dated evidence](../docs/subscription-next-billing-evidence-2026-10-03.json).
+
 ## Shipped closed — Coordinated billing Production release (2026-10-03)
 
 **Status: approved source/schema deployed; customer renewal opening remains closed.**

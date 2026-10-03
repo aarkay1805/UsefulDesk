@@ -93,10 +93,48 @@ An old app without the renewal identity field fails closed for new initiation;
 install the migration before deploying the matching app.
 
 The production environment audit rejects both new switches in all existing
-accepted modes, including first-customer checkout. A later opening needs an
-explicitly reviewed renewal audit mode and scoped activation migration/receipt
-which removes the hard-closed constraint and binds only accepted real release
-authority. Neither is supplied as an executable opening shortcut here.
+accepted modes, including first-customer checkout. The separate renewal audit
+is now implemented as local release preparation; see below. A later opening
+still needs a scoped activation migration/receipt which removes the hard-closed
+constraint and binds only accepted real release authority. No activation source
+or customer authority is supplied by this audit change.
+
+### Separate renewal environment audit, 3 October
+
+`scripts/production-env-readiness.mjs --allow-live-customer-renewals` checks
+the intended renewal configuration without writing any environment, database,
+payment or provider state. This mode is mutually exclusive with every earlier
+audit mode. It requires literal `true` for the existing four financial-recovery
+flags, customer scope/checkout, renewal initiation and renewal UI. The existing
+first-purchase customer UI may be false/unset or retain separately reviewed
+literal `true`; a paid owner can reach renewal review without it. Original pilot
+initiation/UI, all refund initiation, Test/acceptance and higher-tier switches
+remain forbidden. Exact reviewed merchant/pilot and visible Live key identity
+checks are preserved; hidden secrets remain unverified warnings.
+
+The audit requires separate inspection of the immutable customer renewal
+release, current owner/review/merchant binding, source SHA/manifest and actual
+authorization/provider/backup references. It does not read database authority,
+prove buyer approval or genuine provider delivery, or confirm build-time UI
+values on a deployed artifact. A successful environment audit grants no
+activation or payment authority. This change has not been published or used
+against a live renewal-enabled environment.
+
+**Validation:** the new behavior first failed in 16 targeted tests, then passed
+all 158 environment-audit tests. Lint, typecheck, all **4,452 tests / 539 files**,
+production build and changed-file formatting pass. Independent read-only review
+found no substantive finding and separately reran the 158 audit tests.
+
+The [continuation evidence](subscription-next-billing-evidence-2026-10-03.json)
+records a read-only **07:51:04.245856 UTC** closure check: zero renewal releases
+and renewal quotes, all customer false/null renewal fields, global renewals
+false and validated hard closure. Canonical `c9da8c47` remained READY in `sin1`.
+At **07:55:52.645002 UTC**, Justin's existing review remained active, original
+request/merchant binding and unsuspended version-5 paid term were unchanged,
+and his renewal fields remained false/null. These reads do not re-establish
+all historical relation fingerprints, backup decryption or provider acceptance.
+The selected-gym queue and preparation work remained empty in the bounded
+read-only checks. No closed source was replayed and Staging remained untouched.
 
 The [source manifest](subscription-starter-renewal-manifest.tsv) hashes the
 implementation, regressions and local SQL acceptance files. Baseline parent is
