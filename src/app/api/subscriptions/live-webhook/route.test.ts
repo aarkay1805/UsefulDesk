@@ -407,6 +407,12 @@ describe('Usefulmade Live webhook intake', () => {
               amount_minor: 79900,
               currency: 'INR',
               scope: 'customer_sale',
+              offer_contract_version: 'starter_v1',
+              catalog_version: null,
+              monthly_offer_id: null,
+              tier: 'starter',
+              included_branches: 1,
+              paid_extra_branch_slots: 0,
             }
           : {
               status:

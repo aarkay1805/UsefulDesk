@@ -227,6 +227,27 @@ SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT public.subscription_claim_live_order('c9000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000001','e6000000-0000-4000-8000-000000000001','acc_TCJwBqanN9LTrK');
 SELECT pg_temp.assert_true(public.subscription_claim_live_order('c9000000-0000-4000-8000-000000000001','c1000000-0000-4000-8000-000000000001','e6000000-0000-4000-8000-000000000001','acc_TCJwBqanN9LTrK')->>'action'='recovery','Ambiguous claim allowed another create');
 SELECT pg_temp.expect_error($q$SELECT pg_temp.monthly_quote('c9000000-0000-4000-8000-000000000002')$q$,'55000');
+SELECT pg_temp.assert_true(public.subscription_resolve_live_scope('acc_TCJwBqanN9LTrK','c9000000-0000-4000-8000-000000000001',NULL) @>
+ (SELECT jsonb_build_object('offer_contract_version',contract_version,'catalog_version',catalog_version,'monthly_offer_id',monthly_offer_id,
+  'tier',tier,'amount_minor',amount_minor,'included_branches',included_branches,'paid_extra_branch_slots',0) FROM monthly_selected),
+ 'Monthly resolver lost durable contract economics');
+RESET ROLE;
+SAVEPOINT monthly_get_recovery_projection;
+UPDATE private.subscription_live_customer_scopes SET quotes_enabled=FALSE,orders_enabled=FALSE WHERE organization_id='c1000000-0000-4000-8000-000000000001';
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims='{"role":"service_role"}';
+SELECT pg_temp.assert_true(public.subscription_list_live_recovery_scopes('acc_TCJwBqanN9LTrK') @> '["c1000000-0000-4000-8000-000000000001"]'::JSONB,
+ 'Contained monthly obligation disappeared from inventory');
+SELECT pg_temp.assert_true((SELECT item @> (SELECT jsonb_build_object('offer_contract_version',contract_version,'catalog_version',catalog_version,
+ 'monthly_offer_id',monthly_offer_id,'tier',tier,'amount_minor',amount_minor,'included_branches',included_branches,'paid_extra_branch_slots',0) FROM monthly_selected)
+ FROM jsonb_array_elements(public.subscription_claim_live_recovery_items('acc_TCJwBqanN9LTrK','c1000000-0000-4000-8000-000000000001',5,
+ 'c9000000-0000-4000-8000-000000000099')) item WHERE item->>'request_id'='c9000000-0000-4000-8000-000000000001'),
+ 'Monthly leased GET recovery omitted durable economics');
+RESET ROLE;
+ROLLBACK TO monthly_get_recovery_projection;
+RELEASE SAVEPOINT monthly_get_recovery_projection;
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims='{"role":"service_role"}';
 SELECT public.subscription_bind_live_order('c9000000-0000-4000-8000-000000000001','order_MonthlySynthetic','acc_TCJwBqanN9LTrK','c1000000-0000-4000-8000-000000000001');
 SELECT pg_temp.expect_error($q$SELECT public.subscription_bind_live_order('c9000000-0000-4000-8000-000000000001','order_ChangedMonthly','acc_TCJwBqanN9LTrK','c1000000-0000-4000-8000-000000000001')$q$,'23505');
 RESET ROLE;

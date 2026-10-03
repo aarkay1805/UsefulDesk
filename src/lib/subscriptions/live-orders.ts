@@ -10,12 +10,17 @@ import {
   liveOrdersEnabled,
   liveCustomerCheckoutEnabled,
   liveCustomerRenewalsEnabled,
+  liveMonthlyCheckoutEnabled,
   liveSettlementsEnabled,
   recoverLiveOrder,
   type LiveBillingConfig,
 } from './live-provider';
 
-import { resolveLiveProviderAuthority } from './live-scope';
+import {
+  assertLiveProviderAuthority,
+  matchesLiveContractAuthority,
+  resolveLiveProviderAuthority,
+} from './live-scope';
 
 export class LiveOrderReviewRequired extends Error {}
 
@@ -55,6 +60,9 @@ export async function prepareLiveCheckout(
     : undefined;
   if (authority && authority.organizationId !== input.organizationId)
     throw new Error('Live checkout authority changed organization');
+  const monthly = authority?.contractVersion === 'monthly_first_v1';
+  if (monthly && !liveMonthlyCheckoutEnabled(env))
+    throw new Error('Monthly Live checkout is disabled');
   // Check runtime containment before reserving the one provider POST.
   if (authority?.renewalOfRequestId && !liveCustomerRenewalsEnabled(env))
     throw new Error('Customer renewal is disabled');
@@ -72,7 +80,10 @@ export async function prepareLiveCheckout(
     typeof data.amount_minor !== 'number' ||
     !Number.isSafeInteger(data.amount_minor) ||
     data.amount_minor < 1 ||
-    data.currency !== 'INR'
+    data.currency !== 'INR' ||
+    !matchesLiveContractAuthority(data, authority) ||
+    (data.renewal_of_request_id ?? null) !==
+      (authority?.renewalOfRequestId ?? null)
   )
     throw new Error('Live order claim did not match the reviewed quote');
   if (
@@ -92,6 +103,7 @@ export async function prepareLiveCheckout(
     facts.authority.organizationId !== input.organizationId
   )
     throw new Error('Live checkout authority changed organization');
+  assertLiveProviderAuthority(config, facts);
   let orderId: string;
   if (data.action === 'bound' && typeof data.provider_order_id === 'string') {
     const order = await (dependencies.fetchOrder ?? fetchLiveOrder)(config, {
@@ -145,10 +157,22 @@ export async function prepareLiveCheckout(
     recheck.data.organization_id !== input.organizationId ||
     recheck.data.provider_order_id !== orderId ||
     recheck.data.amount_minor !== data.amount_minor ||
-    recheck.data.currency !== 'INR'
+    recheck.data.currency !== 'INR' ||
+    !matchesLiveContractAuthority(recheck.data, authority) ||
+    (recheck.data.renewal_of_request_id ?? null) !==
+      (authority?.renewalOfRequestId ?? null)
   )
     throw new LiveOrderReviewRequired(
       'Live order changed during payment setup'
+    );
+  if (
+    !liveSettlementsEnabled(env) ||
+    (customer ? !liveCustomerCheckoutEnabled(env) : !liveOrdersEnabled(env)) ||
+    (monthly && !liveMonthlyCheckoutEnabled(env)) ||
+    (authority?.renewalOfRequestId && !liveCustomerRenewalsEnabled(env))
+  )
+    throw new LiveOrderReviewRequired(
+      'Live checkout is disabled during payment setup'
     );
   return {
     requestId: input.requestId,

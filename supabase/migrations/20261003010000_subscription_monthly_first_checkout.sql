@@ -512,6 +512,7 @@ DO $capture$ DECLARE spec TEXT; src REGPROCEDURE; dest TEXT; definition TEXT; BE
  'public.subscription_create_live_quote(uuid,uuid,uuid,uuid,uuid,bigint,text,text,boolean)',
  'private.subscription_customer_review_active(uuid,uuid)',
  'public.subscription_resolve_live_scope(text,uuid,text)',
+ 'public.subscription_claim_live_recovery_items(text,uuid,integer,uuid)',
  'public.subscription_live_order_for_capture(text,text,uuid)',
  'public.subscription_live_owner_quote(uuid)'] LOOP
   src:=spec::REGPROCEDURE;
@@ -1062,10 +1063,19 @@ END $$;
 CREATE OR REPLACE FUNCTION public.subscription_resolve_live_scope(
  p_provider_merchant_id TEXT,p_request_id UUID DEFAULT NULL,p_provider_order_id TEXT DEFAULT NULL)
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
-DECLARE result JSONB;
+DECLARE result JSONB; q private.subscription_live_quotes;
 BEGIN
  result:=private.subscription_resolve_live_scope_before_monthly(p_provider_merchant_id,p_request_id,p_provider_order_id);
- RETURN result||coalesce(private.subscription_monthly_quote_identity((result->>'request_id')::UUID),'{}'::JSONB);
+ SELECT * INTO q FROM private.subscription_live_quotes WHERE request_id=(result->>'request_id')::UUID;
+ IF q.monthly_offer_id IS NOT NULL THEN
+  RETURN result||private.subscription_monthly_quote_identity(q.request_id);
+ END IF;
+ IF q.offer_contract_version IS NOT NULL OR q.catalog_version IS NOT NULL THEN
+  RAISE EXCEPTION 'Incomplete provider contract identity' USING ERRCODE='55000'; END IF;
+ -- Project the original identity without changing any historical row. Its exact
+ -- Starter economics are still checked by the adapter, including renewals.
+ RETURN result||jsonb_build_object('offer_contract_version','starter_v1','catalog_version',NULL,
+  'monthly_offer_id',NULL,'tier',q.tier,'included_branches',1,'paid_extra_branch_slots',0);
 END;
 $$;
 CREATE OR REPLACE FUNCTION public.subscription_live_order_for_capture(p_provider_order_id TEXT,p_provider_merchant_id TEXT,p_pilot_organization_id UUID)
@@ -1101,3 +1111,23 @@ BEGIN
  RETURN result||coalesce(private.subscription_monthly_quote_identity((result->>'request_id')::UUID),'{}'::JSONB);
 END;
 $$;
+
+-- Durable recovery never consults monthly initiation/UI switches. Preserve the
+-- original five-item leased scanner and add monthly identity via request/quote.
+CREATE OR REPLACE FUNCTION public.subscription_claim_live_recovery_items(
+ p_provider_merchant_id TEXT,p_pilot_organization_id UUID,p_limit INTEGER DEFAULT 5,
+ p_lease_token UUID DEFAULT gen_random_uuid())
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE result JSONB; item JSONB; projected JSONB:='[]'::JSONB;
+BEGIN
+ result:=private.subscription_claim_live_recovery_items_before_monthly(p_provider_merchant_id,p_pilot_organization_id,p_limit,p_lease_token);
+ FOR item IN SELECT value FROM jsonb_array_elements(result) LOOP
+  projected:=projected||jsonb_build_array(item||coalesce(
+   private.subscription_monthly_quote_identity((item->>'request_id')::UUID),'{}'::JSONB));
+ END LOOP;
+ RETURN projected;
+END;
+$$;
+ALTER FUNCTION public.subscription_claim_live_recovery_items(TEXT,UUID,INTEGER,UUID) OWNER TO postgres;
+REVOKE ALL ON FUNCTION public.subscription_claim_live_recovery_items(TEXT,UUID,INTEGER,UUID) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.subscription_claim_live_recovery_items(TEXT,UUID,INTEGER,UUID) TO service_role;

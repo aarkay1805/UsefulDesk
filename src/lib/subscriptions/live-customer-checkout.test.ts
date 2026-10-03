@@ -41,6 +41,12 @@ const identity = {
   amount_minor: 79900,
   currency: 'INR',
   scope: 'customer_sale',
+  offer_contract_version: 'starter_v1',
+  catalog_version: null,
+  monthly_offer_id: null,
+  tier: 'starter',
+  included_branches: 1,
+  paid_extra_branch_slots: 0,
 };
 const facts = { requestId, organizationId: customer, amountMinor: 79900 };
 const order = {
@@ -149,6 +155,12 @@ describe('separate customer authority and original-pilot isolation', () => {
           authority: {
             ...identity,
             ...facts,
+            contractVersion: 'starter_v1',
+            catalogVersion: null,
+            catalogTier: 'starter',
+            monthlyOfferId: null,
+            includedBranches: 1,
+            paidExtraBranchSlots: 0,
             merchantId: config.merchantId,
             keyId: config.keyId,
           },

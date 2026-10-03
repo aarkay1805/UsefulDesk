@@ -85,6 +85,15 @@ export function liveCustomerCheckoutEnabled(
   );
 }
 
+export function liveMonthlyCheckoutEnabled(
+  env: NodeJS.ProcessEnv = process.env
+): boolean {
+  return (
+    liveCustomerCheckoutEnabled(env) &&
+    env.USEFULDESK_SAAS_LIVE_MONTHLY_CHECKOUT_ENABLED === 'true'
+  );
+}
+
 export function liveCustomerRefundsEnabled(
   env: NodeJS.ProcessEnv = process.env
 ) {
@@ -185,6 +194,18 @@ function assertMoneyGate(
     throw new Error(`Live ${kind} are disabled or unbound`);
 }
 
+function monthlyOrderNotes(facts: LiveOrderFacts) {
+  const authority = facts.authority;
+  return authority?.contractVersion === 'monthly_first_v1'
+    ? {
+        usefuldesk_contract_version: authority.contractVersion,
+        usefuldesk_catalog_version: authority.catalogVersion,
+        usefuldesk_catalog_tier: authority.catalogTier,
+        usefuldesk_monthly_offer_id: authority.monthlyOfferId,
+      }
+    : {};
+}
+
 function verifiedOrder(value: unknown, facts: LiveOrderFacts) {
   if (
     !record(value) ||
@@ -196,7 +217,11 @@ function verifiedOrder(value: unknown, facts: LiveOrderFacts) {
     !['created', 'attempted', 'paid'].includes(String(value.status)) ||
     !record(value.notes) ||
     value.notes.usefuldesk_organization_id !== facts.organizationId ||
-    value.notes.usefuldesk_request_id !== facts.requestId
+    value.notes.usefuldesk_request_id !== facts.requestId ||
+    !Object.entries(monthlyOrderNotes(facts)).every(
+      ([key, expected]) =>
+        value.notes && record(value.notes) && value.notes[key] === expected
+    )
   )
     throw new Error('Usefulmade Live order identity does not match');
   return {
@@ -214,6 +239,11 @@ export async function createLiveOrder(
   env: NodeJS.ProcessEnv = process.env
 ) {
   assertLiveProviderAuthority(config, facts);
+  if (
+    facts.authority?.contractVersion === 'monthly_first_v1' &&
+    !liveMonthlyCheckoutEnabled(env)
+  )
+    throw new Error('Monthly Live checkout is disabled');
   assertMoneyGate(
     config,
     'orders',
@@ -235,6 +265,7 @@ export async function createLiveOrder(
           notes: {
             usefuldesk_organization_id: facts.organizationId,
             usefuldesk_request_id: facts.requestId,
+            ...monthlyOrderNotes(facts),
           },
         },
       },

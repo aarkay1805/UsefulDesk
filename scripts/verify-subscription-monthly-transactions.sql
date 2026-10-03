@@ -1,5 +1,13 @@
 -- All evidence and organizations in this fixture are synthetic and rolled back.
 SAVEPOINT monthly_transaction_acceptance;
+-- Existing rows are never backfilled: the service resolver explicitly projects
+-- their original Starter contract while exposing no monthly offer.
+SET LOCAL ROLE service_role;
+SET LOCAL request.jwt.claims='{"role":"service_role"}';
+SELECT pg_temp.assert_true(public.subscription_resolve_live_scope('acc_TCJwBqanN9LTrK',NULL,'order_StarterOpeningSynthetic') @>
+ '{"offer_contract_version":"starter_v1","catalog_version":null,"monthly_offer_id":null,"tier":"starter","included_branches":1,"paid_extra_branch_slots":0,"amount_minor":79900,"currency":"INR"}'::JSONB,
+ 'Original provider resolver omitted explicit Starter identity');
+RESET ROLE;
 RESET ROLE;
 SET LOCAL request.jwt.claims='{}';
 INSERT INTO public.organizations(id,name) VALUES('c1000000-0000-4000-8000-000000000001','Synthetic monthly gym');

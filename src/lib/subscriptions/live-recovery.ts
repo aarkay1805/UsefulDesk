@@ -17,7 +17,12 @@ import {
   type LiveRefundFacts,
 } from './live-provider';
 
-import { liveRecoveryScopes, resolveLiveProviderAuthority } from './live-scope';
+import {
+  liveRecoveryScopes,
+  matchesLiveContractAuthority,
+  validLiveContractIdentity,
+  resolveLiveProviderAuthority,
+} from './live-scope';
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -51,7 +56,7 @@ interface Observation {
   outcome: Outcome;
   reason: Reason;
 }
-interface RecoveryItem {
+interface RecoveryItem extends Record<string, unknown> {
   item_type: 'order' | 'refund';
   item_id: string;
   lease_token: string;
@@ -85,7 +90,10 @@ function validItem(
     !UUID.test(value.request_id) ||
     value.organization_id !== organizationId ||
     value.provider_merchant_id !== config.merchantId ||
-    value.amount_minor !== 79900 ||
+    !(value.offer_contract_version === 'monthly_first_v1'
+      ? organizationId !== config.pilotOrganizationId &&
+        validLiveContractIdentity(value)
+      : matchesLiveContractAuthority(value)) ||
     value.currency !== 'INR'
   )
     return false;
@@ -136,7 +144,8 @@ async function recoverItem(
     };
     if (
       facts.authority &&
-      facts.authority.organizationId !== item.organization_id
+      (facts.authority.organizationId !== item.organization_id ||
+        !matchesLiveContractAuthority(item, facts.authority))
     )
       return { outcome: 'retry', reason: 'invalid_claim' };
     if (item.item_type === 'order') {

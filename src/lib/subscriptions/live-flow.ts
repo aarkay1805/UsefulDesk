@@ -11,7 +11,10 @@ import {
   type LiveBillingConfig,
 } from './live-provider';
 
-import { resolveLiveProviderAuthority } from './live-scope';
+import {
+  matchesLiveContractAuthority,
+  resolveLiveProviderAuthority,
+} from './live-scope';
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -61,7 +64,9 @@ export async function settleCapturedLivePayment(
     typeof data.amount_minor !== 'number' ||
     !Number.isSafeInteger(data.amount_minor) ||
     data.amount_minor < 1 ||
-    data.currency !== 'INR'
+    data.currency !== 'INR' ||
+    !matchesLiveContractAuthority(data, authority) ||
+    (authority && data.request_id !== authority.requestId)
   )
     throw new Error('Live order is not a bound pilot quote');
   const replay = await admin.rpc('subscription_live_payment_replay_status', {
