@@ -1,8 +1,12 @@
 # Three-tier monthly first checkout — closed local delivery
 
 **3 October 2026: Built locally, closed; cloud installation/deployment/activation
-unperformed.** Tasks 1–8 passed independent task reviews; delivery and final
-whole-branch independent reviews remain pending. This record describes performed
+unperformed.** Tasks 1–9 passed independent task reviews. The final whole-change
+review returned Needs fixes for F1 root recovery; the single correction is
+implemented and verified, awaiting the controller-owned scoped re-review.
+Final source readiness remains pending. M1 baseline jsdom noise is nonblocking
+and unchanged; its final disposition belongs to the controller.
+This record describes performed
 local evidence, not a current Production inspection or authority to open sales.
 The approved [design](superpowers/specs/2026-10-03-three-tier-monthly-checkout-design.md)
 and [execution plan](superpowers/plans/2026-10-03-three-tier-monthly-checkout.md)
@@ -123,6 +127,15 @@ including after expiry, full refund or containment; it never restores access.
 
 Owner status exposes frozen actual tier, amount, included branches, period and
 held/refund facts with refresh/support recovery even with purchase flags closed.
+The expired-trial root now discovers an existing exact monthly quote/bound order
+or captured review hold through the owner-scoped read RPC independently of
+presentation flags, and dispatches the existing monthly status component.
+Organization, billing branch, authenticated actor or owner-status changes remount
+the gate and cancel old discovery/status reads; root refresh uses its existing
+nonce. A failed quote-discovery read cannot erase an already discovered
+obligation. With no
+obligation, the closed root retains comparison/support only. New offer selection,
+approval, quote/order initiation and SDK Checkout retain their existing gates.
 Documents use explicit original/monthly eligibility and the single private
 `subscription_build_document_candidate` shared implementation. Existing
 `subscription_issue_live_document_pair` retains its signature, global/fiscal
@@ -224,7 +237,8 @@ closed flags, plus focused frozen-refresh/support rerenders. Synthetic screensho
 are outside private financial evidence; temporary fixtures/routes/server/tab
 were removed. This does not prove remote Auth, native or genuine provider behavior.
 
-**Final Task 9 verification (3 October):** `npm run verify` exited 0: full ESLint,
+**Task 9 verification before final review (3 October, `d694053f`):**
+`npm run verify` exited 0: full ESLint,
 TypeScript, **548 files / 4898 tests** (28.95s) and successful Next.js production
 build (**141/141 generated pages**). The explicit corrected command
 `npx vitest run scripts/production-env-readiness.test.mjs scripts/lib/disposable-postgres.test.mjs`
@@ -233,14 +247,41 @@ pass explicit Prettier check; `git diff --check` passes. No source changes were
 needed during delivery. Existing nine non-failing jsdom scrollTo diagnostics
 remain; actual browser checks cover the changed UI controls.
 
+**Final F1 fix verification (3 October):** the actual `ProductAccessGate` plus
+production Live/Customer status children reproduce the bound pending order and
+held capture disappearing with all purchase flags closed (14 tests: 8 failed /
+6 passed before the fix). Final expanded recovery suite passes 18 tests, including
+refresh/support, no new selection/POST/Checkout, null/malformed discovery,
+organization/account/owner/actor cancellation, failed root reads, original
+Starter and manual paid/expired/refunded/internal compatibility. Root pair:
+**2 files / 44 tests**; covering platform-access and original/monthly billing/SDK:
+**17 files / 214 tests**. Final `npm run verify` exits 0 with lint/types,
+**549 files / 4916 tests** and **141/141 production pages**. Both explicit script
+Vitest files pass **322 tests**. Changed-file Prettier and diff checks pass.
+No SQL/provider source, UI master or jsdom harness changed. The final run emitted
+10 non-failing scrollTo diagnostics (M1); the earlier Task 9 run emitted nine.
+An earlier full run in this wave emitted 12; isolated new-file and covering
+checks emitted none.
+This is the unchanged harness-noise class, with no asserted cause for the count
+difference. No additional browser/SQL acceptance was run:
+this fix changes discovery/dispatch, retaining the prior status layouts and
+Task 8 evidence. It proves local synthetic root reachability, not genuine
+financial/provider/remote-Auth acceptance.
+
 Final local Docker inspection confirms both permitted full/Test containers
 stopped with named volumes preserved. Task 8 verified no remaining monthly clone
-and stable source fingerprints before stopping; Task 9 did not restart either DB.
+and stable source fingerprints before stopping; Task 9 and the final fix wave
+did not restart either DB.
 Port 4177 has no listener and temporary Task 7 fixture paths are absent. No
 task-started UI process/route/fixture remains; unrelated ignored scratch was
 left untouched.
 
 The [plan execution record](superpowers/plans/2026-10-03-three-tier-monthly-checkout.md#execution-record-and-rulings)
 retains task commits, review outcomes and binding execution rulings with their
-reasons/costs. Final independent delivery/whole-branch review stays pending until
-the controller records it; local validation never supplies rollout authority.
+reasons/costs. All 17 current rulings, including the eight final declined-scope
+decisions,
+are preserved verbatim in that durable plan ledger. Task 9 independent delivery
+review is Approved. The final broad review returned Needs fixes for F1; the
+implemented correction awaits one scoped re-review before the controller may
+record final readiness and M1 disposition. Local validation supplies no rollout
+authority.

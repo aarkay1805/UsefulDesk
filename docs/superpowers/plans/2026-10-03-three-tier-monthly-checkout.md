@@ -281,8 +281,13 @@ Interfaces use the same new version identifiers, `monthly_offer_id`, offer-set/o
 
 **Execution state:** the user approved the plan and selected subagent-driven
 execution on 3 October 2026. Tasks 1–8 are implemented, locally committed and
-independently approved including their recorded fix rounds. Task 9 delivery is locally complete and verified; independent Task 9 and final
-whole-branch reviews remain pending.
+independently approved including their recorded fix rounds. Task 9 delivery
+passed independent Spec Compliance and Quality reviews (Approved).
+The final whole-change review found F1 (Important/P2): closed presentation hid
+existing unpaid/held monthly recovery from the expired-trial root. The single
+fix wave is implemented and verified; final readiness remains pending the
+controller-owned scoped re-review. M1 baseline jsdom noise is nonblocking and
+unchanged, with final disposition reserved for the controller.
 The deliverable is **Built locally, closed; cloud installation/deployment/activation
 unperformed**. No implementation-time money or cloud action is authorized.
 
@@ -297,17 +302,17 @@ original/new identity dispatch and remaining operational gates. Each test named
 here is retained in the repository; synthetic evidence does not become genuine
 commercial/provider acceptance.
 
-| Task | Final local commit(s)                        | Performed evidence and independent review outcome                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ---- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1    | `704e3ae7`, fix `6210ba6a`                   | Catalog/audit RED→GREEN, closed schema/ACL/RLS, migration replay/rollback, original fingerprints plus NULL additive identities. Fix permits six-branch source rosters before archive. Independent review/fix review approved.                                                                                                                                                                                                                        |
-| 2    | `4672c125`                                   | All/subset offers, exact economics, MFA/admin denials, six-active-branch preparation, source locks and supersession; operator/component and original signup checks. Independent review approved.                                                                                                                                                                                                                                                     |
-| 3    | `4b0fbcc2`, acceptance refactor `0b5a1f59`   | All-tier owner/archive/opening/quote/claim/capture/hold/replay SQL; original pilot/customer/preparation/renewal behavior. Shared tier fixture replaces duplicate scenarios with matching assertions. Independent review/fix review approved.                                                                                                                                                                                                         |
-| 4    | `adb33fa7`                                   | Synthetic versioned provider/resolver/one-POST/GET-only recovery and final containment tests; original refund/webhook/client preservation. Independent review approved.                                                                                                                                                                                                                                                                              |
-| 5    | `7fabb9ef`, refactor `d8f676c5`              | Strict monthly owner routes including multi-org binding, two-owner author, six-branch archive-five and saved-review recovery. Shared route helper fixes duplication; 15 covering files / 349 tests after fix. Independent review/fix review approved.                                                                                                                                                                                                |
-| 6    | `d89492a4`, refactor `fb2a523f`              | All-tier frozen term/documents/full refunds, source/issuer/buyer/treatment denials, local-day7/day8 after timezone edit, numbering and issued readback; original parity. One shared candidate builder fixes duplicate common logic. Private PDF workflow boundary documented; no renderer added. Independent review/fix review approved.                                                                                                             |
-| 7    | `ce01c7bd`, fix `f2c9947d`                   | Final 14 covering files / 117 tests; 548 files / 4886 full tests after frozen refresh/request and delayed-SDK expiry fixes. Actual-component synthetic phone/desktop, keyboard/archive/locale, 33 final status-width outcomes plus focused fix rerenders; fixture/server/tab cleanup. Independent review/fix review approved.                                                                                                                        |
-| 8    | `f12a4b56`                                   | Negative control fails for missing monthly source guard, then real independent-session all-tier claim/capture/refund/document/source/restore races pass. Six serial full-target runners exit0, source fingerprints/NULL legacy identity/Test/gym preservation, actual all-tier RLS and API/worker readiness matrix. 548 files / 4898 tests and 12 covering files / 278 tests. No product defect or source fix required; independent review approved. |
-| 9    | Documentation commit recorded in Git history | Spec/docs reconciliation; full verify lint/types/548 files/4898 tests/141-page build, explicit two Vitest script files/322 tests, nine-file formatting/diff/cleanup pass; actual final results are recorded in the operating record. Independent delivery and final whole-branch reviews pending.                                                                                                                                                    |
+| Task | Final local commit(s)                      | Performed evidence and independent review outcome                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ---- | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | `704e3ae7`, fix `6210ba6a`                 | Catalog/audit RED→GREEN, closed schema/ACL/RLS, migration replay/rollback, original fingerprints plus NULL additive identities. Fix permits six-branch source rosters before archive. Independent review/fix review approved.                                                                                                                                                                                                                        |
+| 2    | `4672c125`                                 | All/subset offers, exact economics, MFA/admin denials, six-active-branch preparation, source locks and supersession; operator/component and original signup checks. Independent review approved.                                                                                                                                                                                                                                                     |
+| 3    | `4b0fbcc2`, acceptance refactor `0b5a1f59` | All-tier owner/archive/opening/quote/claim/capture/hold/replay SQL; original pilot/customer/preparation/renewal behavior. Shared tier fixture replaces duplicate scenarios with matching assertions. Independent review/fix review approved.                                                                                                                                                                                                         |
+| 4    | `adb33fa7`                                 | Synthetic versioned provider/resolver/one-POST/GET-only recovery and final containment tests; original refund/webhook/client preservation. Independent review approved.                                                                                                                                                                                                                                                                              |
+| 5    | `7fabb9ef`, refactor `d8f676c5`            | Strict monthly owner routes including multi-org binding, two-owner author, six-branch archive-five and saved-review recovery. Shared route helper fixes duplication; 15 covering files / 349 tests after fix. Independent review/fix review approved.                                                                                                                                                                                                |
+| 6    | `d89492a4`, refactor `fb2a523f`            | All-tier frozen term/documents/full refunds, source/issuer/buyer/treatment denials, local-day7/day8 after timezone edit, numbering and issued readback; original parity. One shared candidate builder fixes duplicate common logic. Private PDF workflow boundary documented; no renderer added. Independent review/fix review approved.                                                                                                             |
+| 7    | `ce01c7bd`, fix `f2c9947d`                 | Final 14 covering files / 117 tests; 548 files / 4886 full tests after frozen refresh/request and delayed-SDK expiry fixes. Actual-component synthetic phone/desktop, keyboard/archive/locale, 33 final status-width outcomes plus focused fix rerenders; fixture/server/tab cleanup. Independent review/fix review approved.                                                                                                                        |
+| 8    | `f12a4b56`                                 | Negative control fails for missing monthly source guard, then real independent-session all-tier claim/capture/refund/document/source/restore races pass. Six serial full-target runners exit0, source fingerprints/NULL legacy identity/Test/gym preservation, actual all-tier RLS and API/worker readiness matrix. 548 files / 4898 tests and 12 covering files / 278 tests. No product defect or source fix required; independent review approved. |
+| 9    | `d694053f`                                 | Spec/docs reconciliation; full verify lint/types/548 files/4898 tests/141-page build, explicit two Vitest script files/322 tests, nine-file formatting/diff/cleanup pass; actual final results are recorded in the operating record. Independent Task 9 Spec Compliance and Quality Approved; final whole-change review Needs fixes (F1), single root-recovery fix awaiting scoped review.                                                           |
 
 Tasks 1–8 task steps above are checked from performed RED/GREEN/commit evidence,
 not inferred from a plan. Step wording describing expected failure retains the
@@ -318,11 +323,32 @@ claim 30 minutes of wall-clock waiting. GREEN concurrency uses 16 distinct mock
 order creates / 3 refund creates and zero provider network. Clone cleanup and
 whole source public/private/auth fingerprints passed on failure and success.
 
-- [ ] Independent Task 9 delivery review (controller-owned after commit).
-- [ ] Final fresh whole-branch review and any required covering/full revalidation
-      (controller-owned after delivery review).
+- [x] Independent Task 9 delivery review: Spec Compliance and Quality Approved.
+- [x] Final fresh whole-change review: Needs fixes for F1 root recovery; no Critical
+      finding or financial-authority bypass. M1 unchanged and nonblocking.
+- [x] Single final F1 fix: actual production-root RED→GREEN; read-only monthly quote
+      discovery and status dispatch independent of presentation. New initiation
+      gates and original/manual/internal dispatch remain; organization/account/
+      owner/actor changes cancel stale discovery and mounted status reads.
+- [x] Final covering/full revalidation after all runtime changes: root pair
+      2 files / 44 tests, covering 17 files / 214 tests; `npm run verify` passes
+      lint/types/549 files/4916 tests/141-page build; explicit script Vitest
+      2 files / 322 tests. Format/diff and stopped-DB cleanup checks pass.
+- [ ] Controller-owned scoped re-review of F1 and fix-induced behavior; final source
+      readiness and M1 disposition remain pending.
 
-The following binding rulings record the reason and cost of execution changes:
+The final F1 correction lives in `product-access-gate.tsx` and the retained
+`product-access-recovery.test.tsx`. Before the fix, the 14-test production-root
+suite failed 8 assertions (including both bound-order and captured-hold status
+reachability); 6 baseline cases passed. After adding failure/compatibility
+coverage, its 18 tests pass with real Live/Customer status children and mocked
+I/O/auth/access/SDK boundaries only. The closed path does not read a new offer
+preview or submit any POST/Checkout. Existing recovery stays mounted across a
+failed quote-discovery read. No financial SQL/provider source or shared UI master changed.
+No new browser matrix was needed for the unchanged status layout; prior Task 7
+browser evidence is retained with its original standalone-component limitation.
+
+The following 17 binding rulings record the reason and cost of execution changes:
 
 - Final whole-branch review runs after Task 9 delivery/documentation commit; Task 9 performs its own spec reconciliation first, and any final fixes receive covering/full required validation and corrected evidence — avoids a review/documentation dependency cycle — cost if wrong: one further documentation correction, no rollout authority.
 
@@ -341,6 +367,22 @@ The following binding rulings record the reason and cost of execution changes:
 - Extract only the existing synthetic monthly transaction seed into a focused shared SQL fixture, composed by both the rollback runner and committed-clone concurrency runner, using fixed pg_temp/private fixture-only helper namespaces — avoids duplicated financial setup while enabling independent sessions to share committed synthetic identities — cost if wrong: small fixture-composition rework or missed setup coverage, mitigated by both runner entry points and preserved assertions. Fixture helpers stay outside product migration, restricted to disposable clones; real actor RPC/RLS checks must not use privileged helper bypasses.
 
 - Run the two final production-environment/disposable-boundary test files with Vitest instead of the plan's node --test command — both files import Vitest, and disposable tests use vi.mock; the Node invocation already failed as a tooling mismatch while proper focused/full suites passed — cost if wrong: a native-Node test path could be omitted, mitigated by inspecting both imports and running both explicitly plus npm run verify. Task9 must correct the plan command and report actual outcomes.
+
+- Accept final reviewer declining current Production/cloud state — cloud reads/installations were explicitly excluded and local or historical evidence cannot establish present state — cost if wrong: a separate current-state acceptance must find and resolve drift before rollout.
+
+- Accept declining publication, merge, deployment, migration installation, gate activation and genuine offer/refund authorization — each is a separately reviewed action outside this local source handoff — cost if wrong: release sequencing or authorization rework before a later rollout.
+
+- Accept declining genuine provider/native/mobile/remote-Auth/event-redelivery acceptance — only web first purchase and local deterministic provider/database evidence are in scope — cost if wrong: external integration defects may require later acceptance fixes; no real sale is authorized.
+
+- Accept declining genuine tax/accounting/customer/supplier/commercial eligibility — implemented evidence/treatment boundaries and synthetic facts are not approval of a real sale — cost if wrong: real-customer offers or totals may need refusal or a new reviewed contract.
+
+- Accept declining genuine rendered invoice/receipt/refund content and a SaaS renderer/download — current approved private operator workflow has only local envelope/hash/readback proof — cost if wrong: operator content/template correction or separately approved renderer work before issuance.
+
+- Accept declining actual WhatsApp delivery and merchant onboarding/readiness — code retains named prerequisites but no actual send or external account validation was authorized — cost if wrong: separate readiness acceptance may require connector/template fixes.
+
+- Accept declining later renewals/annual/non-INR/add-ons/proration/upgrades/downgrades/restarts and paid/manual/complimentary conversion — explicitly excluded first-purchase scope; accidental authority was reviewed — cost if wrong: a later approved billing project must extend the contract.
+
+- Accept declining redesign of the disabled global capability fallback/general rollout — existing behavior was deliberately preserved and paid enforcement proven with the separately enabled gate — cost if wrong: separate global policy/readiness work before opening monthly offers.
 
 Both final script files import Vitest, and the disposable suite uses `vi.mock`.
 The earlier failed Node test invocation was a corrected tooling mistake, not

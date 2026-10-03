@@ -23,7 +23,12 @@ import { SubscriptionTestBilling } from './subscription-test-billing';
 import { canManageSubscriptionBilling } from '@/lib/auth/roles';
 import { SubscriptionMonthlyReview } from './subscription-monthly-review';
 import { SubscriptionCustomerReview } from './subscription-customer-review';
-import { SubscriptionLiveReview, isLiveTerm } from './subscription-live-review';
+import {
+  SubscriptionLiveReview,
+  isLiveTerm,
+  isLiveQuote,
+} from './subscription-live-review';
+import { monthlyIdentityFromRow } from '@/lib/subscriptions/monthly-offer-preview';
 import {
   SubscriptionConversionReviewDialog,
   type ConversionReviewBranch,
@@ -62,13 +67,20 @@ export function ProductAccessGate({
   children: ReactNode;
   initialAccess?: InitialProductAccess | null;
 }) {
-  const { accountId, accountStatus, branchAccessError } = useAuth();
+  const {
+    accountId,
+    accountStatus,
+    branchAccessError,
+    organizationId,
+    user,
+    isOrganizationOwner,
+  } = useAuth();
   // Hydration and branch errors retain their existing recovery surface.
   if (accountStatus !== 'ready' || !accountId || branchAccessError)
     return children;
   return (
     <AccountProductAccess
-      key={accountId}
+      key={`${organizationId}:${accountId}:${user?.id}:${isOrganizationOwner}`}
       accountId={accountId}
       initialAccess={initialAccess}
     >
@@ -122,6 +134,8 @@ function AccountProductAccess({
   const [liveTermOrganization, setLiveTermOrganization] = useState<
     string | null
   >(null);
+  const [monthlyRecoveryOrganization, setMonthlyRecoveryOrganization] =
+    useState<string | null>(null);
   const [reviewTier, setReviewTier] = useState<SubscriptionTier | null>(null);
   const [conversionBranches, setConversionBranches] = useState<
     ConversionReviewBranch[] | null
@@ -279,6 +293,34 @@ function AccountProductAccess({
     : null;
   const expiredTrial =
     resolved?.status === 'expired' && snapshot?.access.mode === 'trial';
+  const monthlyRecovery = monthlyRecoveryOrganization === organizationId;
+  useEffect(() => {
+    if (!expiredTrial || !subscriptionOwner || !organizationId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        // A durable quote/order or captured hold survives presentation closure.
+        // Read only its identity; selection and initiation retain their own gates.
+        const result = await createClient().rpc(
+          'subscription_live_owner_quote',
+          {
+            p_organization_id: organizationId,
+          }
+        );
+        if (!cancelled && !result.error)
+          setMonthlyRecoveryOrganization(
+            isLiveQuote(result.data) && monthlyIdentityFromRow(result.data)
+              ? organizationId
+              : null
+          );
+      } catch {
+        // A failed read cannot disprove an already discovered obligation.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [expiredTrial, subscriptionOwner, organizationId, accountId, nonce]);
   useEffect(() => {
     if (!expiredTrial || !testUi || !isOrganizationOwner || !organizationId)
       return;
@@ -586,13 +628,25 @@ function AccountProductAccess({
           </Alert>
           {expiredTrial ? (
             <>
-              {monthlyReviewUi && subscriptionOwner && organizationId ? (
-                <SubscriptionMonthlyReview
-                  key={`${organizationId}:${accountId}`}
-                  organizationId={organizationId}
-                  accountId={accountId}
-                  onChanged={() => setNonce((n) => n + 1)}
-                />
+              {(monthlyReviewUi || monthlyRecovery) &&
+              subscriptionOwner &&
+              organizationId ? (
+                monthlyReviewUi ? (
+                  <SubscriptionMonthlyReview
+                    key={`${organizationId}:${accountId}`}
+                    organizationId={organizationId}
+                    accountId={accountId}
+                    onChanged={() => setNonce((n) => n + 1)}
+                  />
+                ) : (
+                  <SubscriptionLiveReview
+                    key={`${organizationId}:${accountId}`}
+                    monthlyCustomer
+                    organizationId={organizationId}
+                    accountId={accountId}
+                    onChanged={() => setNonce((n) => n + 1)}
+                  />
+                )
               ) : (
                 <SubscriptionPlanCards
                   purchaseMode={testUi ? 'test' : 'comparison'}
@@ -605,6 +659,7 @@ function AccountProductAccess({
                 />
               )}
               {!monthlyReviewUi &&
+              !monthlyRecovery &&
               liveReviewUi &&
               isOrganizationOwner &&
               organizationId ? (
@@ -615,7 +670,10 @@ function AccountProductAccess({
                   onChanged={() => setNonce((n) => n + 1)}
                 />
               ) : null}
-              {!testUi && !liveReviewUi && !monthlyReviewUi ? (
+              {!testUi &&
+              !liveReviewUi &&
+              !monthlyReviewUi &&
+              !monthlyRecovery ? (
                 <p className="text-muted-foreground text-sm">
                   Plan prices and payment are not available yet. Contact support
                   for help.

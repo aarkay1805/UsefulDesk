@@ -16,25 +16,31 @@ The approved base-tier capability matrix is implemented and tested with existing
 global enforcement enabled; separate readiness/review/activation remains required.
 This change does not activate that gate or alter its disabled fallback. Monthly
 paid status remains reachable with both new flags closed and always disables
-renewal. The private reviewed PDF workflow has a frozen tier/amount/base-branch
+renewal. The final F1 correction also makes existing monthly quotes, bound orders
+and captured holds reachable from the expired-trial root with all purchase UI
+flags closed, including Refresh/support. New selection/payment initiation stays
+gated; organization/account/owner/actor switches cancel obsolete reads.
+The private reviewed PDF workflow has a frozen tier/amount/base-branch
 monthly template; no SaaS PDF renderer/download endpoint was added. Full refunds
 retain frozen-timezone local day 7 and once-per-organization eligibility; customer
 refund initiation remains separately closed.
 
-**Validation:** Tasks 1–8 independently approved; all-tier rollback/replay, real
+**Validation:** Tasks 1–9 independently approved; all-tier rollback/replay, real
 independent-session lock/race/RLS checks, original/Test/gym preservation, provider
 mocks and actual-component synthetic 320/390/1280px keyboard/locale/status checks
-passed. Final `npm run verify` passes lint/typecheck, **548 files / 4898 tests**
+passed. Final `npm run verify` passes lint/typecheck, **549 files / 4916 tests**
 and production build (**141 pages**); two explicit Vitest script suites pass
-**322 tests**. Changed-file formatting and diff checks pass. Delivery/whole-branch
-independent reviews remain pending in
+**322 tests**; final root pair 44 tests and covering 214 tests pass. Changed-file
+formatting and diff checks pass. Final broad review returned Needs fixes for F1;
+the correction awaits scoped re-review. M1 remains unchanged/nonblocking in
 [the operating record](../docs/subscription-monthly-first-checkout.md).
 No current Production state was inspected or new genuine acceptance created.
 
-**Next:** independent delivery/whole-branch review; separately approved cloud
+**Next:** scoped F1/fix-induced review and final source-readiness/M1 disposition;
+separately approved cloud
 installation/deployment with flags closed; genuine per-customer commercial,
 issuer/buyer/tax/provider/document acceptance; global readiness/activation and
-exact scoped opening. The first-purchase implementation is complete locally.
+exact scoped opening. Final local readiness awaits the scoped review verdict.
 Renewals under this catalog, upgrades/downgrades/restarts, branch add-ons, annual
 pricing, automatic debit, manual/complimentary conversion and native Checkout
 remain outside this change. Original Starter/internal/sale/renewal history remains
