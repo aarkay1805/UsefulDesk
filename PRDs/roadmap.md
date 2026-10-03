@@ -926,6 +926,19 @@ connector version `20260927125734`.
 
 ## Operations-ready in code — founder-led paid pilots (2026-09-20)
 
+**Built / hosting review and financial Storage backup repair — 3 October:**
+the [dated review](../docs/production-hosting-review-2026-10-03.md) refreshes actual
+Production health, shared/project usage, backups and independent monitoring.
+Upcoming log ingestion at 60% meets the early-review rule; enforced usage is below
+50%. The exporter now covers private gym invoice PDFs and expense receipts;
+default export/restore regression and real read-only 49-object checksum acceptance
+pass, alongside all 4,433 tests. The corrected encrypted GitHub/R2 full run remains
+pending coordinated release. Rajat owns the 8 October usage refresh and Pro Micro
+decision by the unchanged 13 October Free deadline; $25/month before tax/usage is
+recommended, with no purchase or new risk acceptance. Existing GitHub redundancy,
+encryption-key custody and maintenance/restore limits remain explicit. Step 4's
+real WhatsApp delivery acceptance is still pending recipient/message approval.
+
 The commercial operating path is now explicit in
 `docs/commercial-operations.md`: quote the exact founder-approved pilot offer, independently
 verify settled funds, activate an exact manual term through the audited

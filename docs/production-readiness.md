@@ -1,5 +1,17 @@
 # UsefulDesk paid-pilot production readiness
 
+**Current hosting review, 3 October 2026:** Production is healthy on Supabase
+Free and the existing Vercel Pro plan. The early review rule is met by the
+published upcoming log-ingest allowance at 60%; no enforced usage quota is at
+50% in the checked billing period. The exporter omitted gym invoice/expense
+buckets; the seven-bucket fix and real read-only export/hash acceptance pass,
+while the corrected encrypted GitHub/R2 run is pending release. Temporary Free
+acceptance still ends 13 October; recommended Pro Micro is $25/month before
+tax/usage, with no purchase authorized. See the
+[dated review and owned actions](production-hosting-review-2026-10-03.md).
+Earlier status tables below retain their observation dates and do not supersede
+this review or the current rollout summary.
+
 **Current closeout, 2 October 2026:** Justin's genuine Starter payment and commercial
 documents are complete; approved Starter restrictions, independent monitoring and
 actual owner alert delivery are verified. The future gym-business selection policy

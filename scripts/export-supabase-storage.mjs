@@ -10,7 +10,9 @@ import { createClient } from '@supabase/supabase-js';
 export const STORAGE_BACKUP_BUCKETS = [
   'avatars',
   'chat-media',
+  'expense-receipts',
   'flow-media',
+  'invoice-documents',
   'member-import-drafts',
   'payment-receipts',
 ];

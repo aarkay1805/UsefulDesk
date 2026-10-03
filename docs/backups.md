@@ -15,16 +15,27 @@ accepting the resulting single-vault resilience risk.
 
 ## What runs
 
+**3 October coverage review:** the former five-bucket exporter omitted private
+gym invoice PDFs and expense receipts. The corrected seven-bucket exporter passed
+real read-only Production export/hash acceptance for all 49 objects; a corrected
+encrypted GitHub/R2 full run remains pending the coordinated release. Do not use an
+older successful run as evidence that these files are protected. See the
+[dated hosting review](production-hosting-review-2026-10-03.md).
+
 The [Production backup workflow](../.github/workflows/production-backup.yml)
 runs at 02:00 IST:
 
 - Every night: Supabase roles, schema, and data dumps produced by the pinned
   Supabase CLI.
-- Monday IST: a full snapshot of `avatars`, `chat-media`, `flow-media`, and
-  `payment-receipts`, plus `member-import-drafts`, including a per-object
-  SHA-256 manifest.
+- Monday IST: a full snapshot of `avatars`, `chat-media`, `flow-media`,
+  `payment-receipts`, `member-import-drafts`, `invoice-documents` and
+  `expense-receipts`, including a per-object SHA-256 manifest.
 - On demand: the same database backup, with an option to include Storage. Run
   this immediately before and after a high-risk member import or migration.
+
+When adding a durable Storage bucket, update `STORAGE_BACKUP_BUCKETS` in the same
+change and verify its default export/restore coverage. Older archives cannot
+recover a bucket they never exported.
 
 `member-import-drafts` is temporary, author-private working data with its own
 30-day cleanup. It is nevertheless included so the Storage files remain
@@ -37,10 +48,15 @@ remote R2 object size with `HeadObject`, and removes the temporary directory on
 success or failure. GitHub artifacts are not used. R2 receives only `.age`
 archives and their SHA-256 files.
 
-This gives the one-gym pilot a database recovery point of at most 24 hours and
-a media recovery point of at most seven days. It is not point-in-time recovery;
-Supabase Pro remains the upgrade path when shorter recovery objectives are
-needed.
+Daily database and weekly media backups are recovery-point targets, not strict
+24-hour/seven-day guarantees: GitHub scheduling can delay or miss a run. Inspect
+the actual archive timestamp; the health workflow blocks on a scheduled database
+backup older than 30 hours. StatusCake's primary-worker checks do not cover backup
+freshness. Supabase Pro adds managed daily database backups with seven-day
+retention, but a shorter database recovery point requires the separate PITR add-on
+and Small or larger compute. Neither managed option includes Storage file bytes;
+retain this external file backup. Current options are in the
+[3 October review](production-hosting-review-2026-10-03.md).
 
 ## One-time setup
 

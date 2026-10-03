@@ -78,6 +78,88 @@ describe('Supabase Storage backup export', () => {
     );
   });
 
+  it.each(['invoice-documents', 'expense-receipts'])(
+    'preserves %s PDFs in the default backup and restore',
+    async (bucket) => {
+      const outputDirectory = await mkdtemp(
+        join(tmpdir(), 'financial-backup-')
+      );
+      temporaryDirectories.push(outputDirectory);
+      const client = createStorageClient(
+        {
+          [bucket]: {
+            '': [
+              {
+                created_at: '2026-10-03T00:00:00.000Z',
+                id: 'financial-pdf',
+                last_accessed_at: null,
+                metadata: {
+                  cacheControl: 'max-age=0',
+                  contentLength: 12,
+                  eTag: 'financial-pdf-etag',
+                  httpStatusCode: 200,
+                  lastModified: '2026-10-03T00:00:00.000Z',
+                  mimetype: 'application/pdf',
+                  size: 12,
+                },
+                name: 'document.pdf',
+                updated_at: '2026-10-03T00:00:00.000Z',
+              },
+            ],
+          },
+        },
+        { [`${bucket}/document.pdf`]: 'paid invoice' }
+      );
+
+      const manifest = await exportStorageBackup({
+        outputDirectory,
+        supabase: client,
+      });
+
+      expect(manifest.objects).toHaveLength(1);
+      expect(manifest.objects[0]).toMatchObject({
+        bucket,
+        path: 'document.pdf',
+        bytes: 12,
+        content_type: 'application/pdf',
+        cache_control: 'max-age=0',
+      });
+      await expect(
+        readFile(
+          join(outputDirectory, 'objects', bucket, 'document.pdf'),
+          'utf8'
+        )
+      ).resolves.toBe('paid invoice');
+
+      const restored = new Map<string, Uint8Array>();
+      const result = await restoreStorageBackup({
+        inputDirectory: outputDirectory,
+        supabase: {
+          storage: {
+            from(destinationBucket: string) {
+              return {
+                async upload(path: string, bytes: Uint8Array) {
+                  restored.set(`${destinationBucket}/${path}`, bytes);
+                  return { error: null };
+                },
+                async download(path: string) {
+                  const bytes = restored.get(`${destinationBucket}/${path}`);
+                  return bytes
+                    ? { data: new Blob([bytes as BlobPart]), error: null }
+                    : { data: null, error: new Error('missing restored PDF') };
+                },
+              };
+            },
+          },
+        },
+      });
+      expect(result).toEqual({ objects: 1, totalBytes: 12 });
+      expect(
+        Buffer.from(restored.get(`${bucket}/document.pdf`)!).toString('utf8')
+      ).toBe('paid invoice');
+    }
+  );
+
   it('exports nested objects and writes a stable checksum manifest', async () => {
     const outputDirectory = await mkdtemp(join(tmpdir(), 'storage-backup-'));
     temporaryDirectories.push(outputDirectory);

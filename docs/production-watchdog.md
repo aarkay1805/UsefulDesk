@@ -1,5 +1,11 @@
 # Independent production watchdog — active
 
+**3 October read-only refresh:** both production monitors remain active with
+300-second checks and displayed Healthy → Ongoing history; the harmless test
+remains paused. The original 2 October alert receipt remains the channel acceptance,
+with no new alert sent. Backup coverage/freshness and redundant schedule limits
+remain separate; see the [hosting review](production-hosting-review-2026-10-03.md).
+
 StatusCake Free is configured in the owner-created account, with no paid trial or purchase.
 The owner explicitly selected the email channel and approved sharing the separate read-only monitoring URL.
 Two five-minute HTTP monitors cover public login availability and primary worker/database health.
