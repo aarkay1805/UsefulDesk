@@ -22,6 +22,8 @@ const RAZORPAY_ENVIRONMENT = Object.freeze([
 
 const UNSAFE_PRODUCTION_FLAGS = Object.freeze([
   'WHATSAPP_TEMPLATES_DRY_RUN',
+  'USEFULDESK_SAAS_LIVE_MONTHLY_CHECKOUT_ENABLED',
+  'NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI',
   'USEFULDESK_SAAS_LIVE_CUSTOMER_SCOPE_ENABLED',
   'USEFULDESK_SAAS_LIVE_CUSTOMER_CHECKOUT_ENABLED',
   'USEFULDESK_SAAS_LIVE_CUSTOMER_REFUNDS_ENABLED',
@@ -339,6 +341,17 @@ export function evaluateProductionEnvironment(
   const opaqueSafetyFlags = safetyFlagNames.filter((name) =>
     isOpaque(env[name])
   );
+  const monthlyNames = [
+    'USEFULDESK_SAAS_LIVE_MONTHLY_CHECKOUT_ENABLED',
+    'NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI',
+  ];
+  const malformedMonthlyFlags = monthlyNames.filter(
+    (name) =>
+      env[name] !== undefined &&
+      env[name] !== 'false' &&
+      !enabled(env[name]) &&
+      !isOpaque(env[name])
+  );
   const malformedClosedFlags = scopedLiveMode
     ? safetyFlagNames.filter(
         (name) =>
@@ -363,6 +376,13 @@ export function evaluateProductionEnvironment(
       `Provider-hidden safety flags require a dashboard value check: ${opaqueSafetyFlags.join(', ')}`
     );
   }
+  if (malformedMonthlyFlags.length) {
+    add(
+      'blocker',
+      'production-safety-flags',
+      `Monthly checkout flags must be literal false or unset in every current audit mode: ${malformedMonthlyFlags.join(', ')}`
+    );
+  }
   if (malformedClosedFlags.length) {
     add(
       'blocker',
@@ -373,7 +393,8 @@ export function evaluateProductionEnvironment(
   if (
     !unsafeFlags.length &&
     !opaqueSafetyFlags.length &&
-    !malformedClosedFlags.length
+    !malformedClosedFlags.length &&
+    !malformedMonthlyFlags.length
   ) {
     add(
       'pass',

@@ -1081,3 +1081,54 @@ describe('separate customer renewal environment audit', () => {
     ).toBe(1);
   });
 });
+
+// Monthly opening needs a future separately reviewed audit scope. Every current
+// mode requires literal false or unset, including malformed/hidden values.
+describe('closed monthly checkout flags', () => {
+  const names = [
+    'USEFULDESK_SAAS_LIVE_MONTHLY_CHECKOUT_ENABLED',
+    'NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI',
+  ];
+  const modes = [
+    {},
+    { allowLiveIntakeOnly: true },
+    { allowLiveStarterPilot: true },
+    { allowLiveRecoveryOnly: true },
+    { allowLiveCustomerCheckout: true },
+    { allowLiveCustomerRenewals: true },
+  ];
+  for (const mode of modes) {
+    for (const name of names) {
+      it.each([undefined, 'false'])(
+        'accepts closed ' + name + ' %s in ' + JSON.stringify(mode),
+        (value) => {
+          expect(
+            evaluateProductionEnvironment(
+              { ...validEnvironment, [name]: value },
+              mode
+            ).filter((r) => r.check === 'production-safety-flags')
+          ).not.toContainEqual(blocker());
+        }
+      );
+      it.each([
+        'true',
+        '1',
+        'TRUE',
+        ' true ',
+        'FALSE',
+        ' false ',
+        'yes',
+        '0',
+        '',
+        '[SENSITIVE]',
+      ])('refuses ' + name + ' %s in ' + JSON.stringify(mode), (value) => {
+        expect(
+          evaluateProductionEnvironment(
+            { ...validEnvironment, [name]: value },
+            mode
+          )
+        ).toContainEqual(blocker('production-safety-flags'));
+      });
+    }
+  }
+});
