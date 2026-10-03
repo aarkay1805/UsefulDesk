@@ -515,8 +515,7 @@ DO $capture$ DECLARE spec TEXT; src REGPROCEDURE; dest TEXT; definition TEXT; BE
  'public.subscription_claim_live_recovery_items(text,uuid,integer,uuid)',
  'public.subscription_live_order_for_capture(text,text,uuid)',
  'public.subscription_live_owner_quote(uuid)',
- 'public.subscription_live_owner_term(uuid)',
- 'private.subscription_document_candidate(uuid,jsonb)'] LOOP
+ 'public.subscription_live_owner_term(uuid)'] LOOP
   src:=spec::REGPROCEDURE;
   SELECT 'private.'||proname||'_before_monthly' INTO dest FROM pg_proc WHERE oid=src;
   IF to_regprocedure(dest||substring(spec FROM position('(' IN spec))) IS NULL THEN
@@ -1175,7 +1174,7 @@ BEGIN
   'refund_review_reason',(SELECT f.review_reason FROM private.subscription_live_refunds f WHERE f.provider_payment_id=p.provider_payment_id));
 END;
 $$;
-CREATE OR REPLACE FUNCTION private.subscription_document_candidate(p_request_id UUID,p_issuer JSONB)
+CREATE OR REPLACE FUNCTION private.subscription_build_document_candidate(p_request_id UUID,p_issuer JSONB,p_contract_eligible BOOLEAN)
 RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
 DECLARE
  q private.subscription_live_quotes; p private.subscription_live_payments;
@@ -1184,12 +1183,6 @@ DECLARE
  o private.subscription_live_offer_approvals; b public.invoice_profiles;
  v_day DATE; v_year INTEGER; v_next INTEGER; v_suffix TEXT;
 BEGIN
- SELECT * INTO q FROM private.subscription_live_quotes WHERE request_id=p_request_id;
- IF q.monthly_offer_id IS NULL THEN RETURN private.subscription_document_candidate_before_monthly(p_request_id,p_issuer); END IF;
- PERFORM private.subscription_monthly_lock_sources(q.organization_id);
- IF NOT private.subscription_monthly_document_contract(p_request_id)
-  OR NOT private.subscription_monthly_current(q.monthly_offer_id,q.requested_by,FALSE) THEN
-  RAISE EXCEPTION 'Exact monthly document contract and unchanged reviewed source required' USING ERRCODE='55000'; END IF;
  -- Issuer is supplied from the existing private operator review, never inferred
  -- from a gym's own invoice profile. Other supplier/tax treatments need review.
  IF p_issuer IS NULL OR jsonb_typeof(p_issuer)<>'object'
@@ -1207,14 +1200,13 @@ BEGIN
  SELECT * INTO r FROM private.subscription_live_customer_reviews WHERE review_id=q.customer_review_id;
  SELECT * INTO o FROM private.subscription_live_offer_approvals WHERE approval_id=q.offer_approval_id;
  SELECT * INTO b FROM public.invoice_profiles WHERE account_id=q.billing_account_id;
- IF q.request_id IS NULL OR p.provider_payment_id IS NULL OR t.request_id IS NULL
+ IF NOT coalesce(p_contract_eligible,FALSE) OR q.request_id IS NULL OR p.provider_payment_id IS NULL OR t.request_id IS NULL
   OR r.review_id IS NULL OR r.commercial_context<>'customer_sale'
   OR r.organization_id IS DISTINCT FROM q.organization_id
   OR r.offer_approval_id IS DISTINCT FROM q.offer_approval_id
   OR r.merchant_id IS DISTINCT FROM q.merchant_id
   OR r.reviewed_by IS DISTINCT FROM q.requested_by OR r.revoked_at IS NOT NULL
   OR q.renewal_of_request_id IS NOT NULL OR q.currency<>'INR'
-  OR a.version IS DISTINCT FROM q.source_access_version+1
   OR p.state<>'verified' OR p.hold_reason IS NOT NULL OR p.provider_mode<>'live'
   OR p.organization_id IS DISTINCT FROM q.organization_id OR p.merchant_id IS DISTINCT FROM q.merchant_id
   OR p.amount_minor IS DISTINCT FROM q.amount_minor OR p.currency IS DISTINCT FROM q.currency
@@ -1251,12 +1243,40 @@ BEGIN
   'provider_order_id',p.provider_order_id,'merchant_id',p.merchant_id,'capture_event_at',p.capture_event_at,
   'period_start',t.period_start,'paid_through_end',t.paid_through_end,'billing_timezone',p.billing_timezone,
   'tier',q.tier,'issue_date',v_day,'financial_year',v_year,'sequence_number',v_next,
-  'invoice_number','UM/'||v_suffix,'receipt_number','UM-R/'||v_suffix,
-  'document_treatment','usefulmade_unregistered_invoice_receipt_v1')||private.subscription_monthly_quote_identity(p_request_id);
+  'invoice_number','UM/'||v_suffix,'receipt_number','UM-R/'||v_suffix);
+END;
+$$;
+ALTER FUNCTION private.subscription_build_document_candidate(UUID,JSONB,BOOLEAN) OWNER TO postgres;
+REVOKE ALL ON FUNCTION private.subscription_build_document_candidate(UUID,JSONB,BOOLEAN) FROM PUBLIC,anon,authenticated,service_role;
+
+-- Both contracts share supplier validation, sale/access checks, fiscal numbering
+-- and the base snapshot. Only their eligibility and monthly additions differ.
+CREATE OR REPLACE FUNCTION private.subscription_document_candidate(p_request_id UUID,p_issuer JSONB)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE q private.subscription_live_quotes; eligible BOOLEAN; snapshot JSONB;
+BEGIN
+ SELECT * INTO q FROM private.subscription_live_quotes WHERE request_id=p_request_id;
+ IF q.monthly_offer_id IS NULL THEN
+  -- Preserve original Starter economics and output without relabeling NULL rows.
+  eligible:=q.tier='starter' AND q.amount_minor=79900;
+ ELSE
+  PERFORM private.subscription_monthly_lock_sources(q.organization_id);
+  IF NOT private.subscription_monthly_document_contract(p_request_id)
+   OR NOT private.subscription_monthly_current(q.monthly_offer_id,q.requested_by,FALSE) THEN
+   RAISE EXCEPTION 'Exact monthly document contract and unchanged reviewed source required' USING ERRCODE='55000'; END IF;
+  SELECT a.version=q.source_access_version+1 INTO eligible
+   FROM private.organization_product_access a WHERE a.organization_id=q.organization_id;
+ END IF;
+ snapshot:=private.subscription_build_document_candidate(p_request_id,p_issuer,eligible);
+ IF q.monthly_offer_id IS NULL THEN RETURN snapshot; END IF;
+ RETURN snapshot||jsonb_build_object('document_treatment','usefulmade_unregistered_invoice_receipt_v1')
+  ||private.subscription_monthly_quote_identity(p_request_id);
 END;
 $$;
 ALTER FUNCTION private.subscription_document_candidate(UUID,JSONB) OWNER TO postgres;
 REVOKE ALL ON FUNCTION private.subscription_document_candidate(UUID,JSONB) FROM PUBLIC,anon,authenticated,service_role;
+-- Remove the obsolete copy when replaying over the earlier Task 6 candidate.
+DROP FUNCTION IF EXISTS private.subscription_document_candidate_before_monthly(UUID,JSONB);
 
 CREATE OR REPLACE FUNCTION private.subscription_guard_starter_pilot_refund_review()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$

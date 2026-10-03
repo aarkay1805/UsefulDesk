@@ -66,11 +66,43 @@ SELECT pg_temp.assert_true(pg_temp.monthly_document_preview()->>'sequence_number
 RESET ROLE;
 ROLLBACK TO monthly_document_year_partition;
 RELEASE SAVEPOINT monthly_document_year_partition;
--- Preserve the exact reviewed original April rollover calculation and timezone.
-SELECT pg_temp.assert_true(
- substring(pg_get_functiondef('private.subscription_document_candidate(uuid,jsonb)'::regprocedure) FROM 'v_day:=[\s\S]+?v_suffix:=')=
- substring(pg_get_functiondef('private.subscription_document_candidate_before_monthly(uuid,jsonb)'::regprocedure) FROM 'v_day:=[\s\S]+?v_suffix:='),
- 'Monthly fiscal year or numbering algorithm drifted from original');
+-- Behavioral parity: original and monthly candidates share supplier review,
+-- numbering and snapshot rules, while original output has no monthly identity.
+CREATE TEMP TABLE monthly_original_document_candidate AS SELECT private.subscription_document_candidate(
+ 'e5000000-0000-4000-8000-000000000001',(SELECT snapshot->'issuer' FROM monthly_document_candidate)) snapshot;
+SELECT pg_temp.assert_true((SELECT
+ (legacy.snapshot-ARRAY['request_id','organization_id','billing_account_id','customer_review_id','offer_approval_id',
+ 'offer_reference','tax_decision_reference','document_review_reference','refund_policy_reference','buyer',
+ 'amount_minor','provider_payment_id','provider_order_id','capture_event_at','period_start','paid_through_end','tier']) =
+ (monthly.snapshot-ARRAY['request_id','organization_id','billing_account_id','customer_review_id','offer_approval_id',
+ 'offer_reference','tax_decision_reference','document_review_reference','refund_policy_reference','buyer',
+ 'amount_minor','provider_payment_id','provider_order_id','capture_event_at','period_start','paid_through_end','tier',
+ 'monthly_offer_id','offer_contract_version','catalog_version','included_branches','paid_extra_branch_slots','document_treatment'])
+ AND legacy.snapshot->>'tier'='starter' AND legacy.snapshot->>'amount_minor'='79900'
+ AND NOT legacy.snapshot ?| ARRAY['monthly_offer_id','offer_contract_version','catalog_version','included_branches','paid_extra_branch_slots','document_treatment']
+ FROM monthly_original_document_candidate legacy CROSS JOIN monthly_document_candidate monthly),
+ 'Shared document fields or original contract shape differ');
+SELECT pg_temp.assert_true((SELECT
+ (candidate.snapshot-ARRAY['issuer','issue_date','financial_year','sequence_number','invoice_number','receipt_number'])=
+ (issued.snapshot-ARRAY['issuer','issue_date','financial_year','sequence_number','invoice_number','receipt_number'])
+ AND candidate.snapshot->'financial_year'=issued.snapshot->'financial_year'
+ FROM monthly_original_document_candidate candidate CROSS JOIN private.subscription_live_document_issues issued
+ WHERE issued.request_id='e5000000-0000-4000-8000-000000000001'),
+ 'Original commercial snapshot changed from pre-migration issued document');
+SELECT pg_temp.assert_true(NOT has_function_privilege('anon','private.subscription_build_document_candidate(uuid,jsonb,boolean)','EXECUTE')
+ AND NOT has_function_privilege('authenticated','private.subscription_build_document_candidate(uuid,jsonb,boolean)','EXECUTE')
+ AND NOT has_function_privilege('service_role','private.subscription_build_document_candidate(uuid,jsonb,boolean)','EXECUTE')
+ AND (SELECT pg_get_userbyid(proowner)='postgres' AND prosecdef AND proconfig=ARRAY['search_path=""']
+ FROM pg_proc WHERE oid='private.subscription_build_document_candidate(uuid,jsonb,boolean)'::regprocedure)
+ AND to_regprocedure('private.subscription_document_candidate_before_monthly(uuid,jsonb)') IS NULL,
+ 'Shared document builder exposed or obsolete duplicate retained');
+SELECT pg_temp.expect_error($q$SELECT private.subscription_document_candidate('e5000000-0000-4000-8000-000000000001','{}')$q$,'22023');
+SAVEPOINT original_document_buyer;
+UPDATE public.invoice_profiles SET legal_name=NULL WHERE account_id='e2000000-0000-4000-8000-000000000001';
+SELECT pg_temp.expect_error($q$SELECT private.subscription_document_candidate('e5000000-0000-4000-8000-000000000001',
+ (SELECT snapshot->'issuer' FROM monthly_document_candidate))$q$,'55000');
+ROLLBACK TO original_document_buyer;
+RELEASE SAVEPOINT original_document_buyer;
 SAVEPOINT document_buyer;
 UPDATE public.invoice_profiles SET city='Synthetic changed after preview' WHERE account_id='c2000000-0000-4000-8000-000000000001';
 SET LOCAL ROLE service_role;
