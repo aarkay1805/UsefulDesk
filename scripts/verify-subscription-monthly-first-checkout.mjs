@@ -67,6 +67,36 @@ const legacyCompare = legacyTables
   )
   .join('\n');
 const checks = read('scripts/verify-subscription-monthly-first-checkout.sql');
+// One maintained scenario exercises the same real SQL boundaries for every tier.
+// These fixed cases are fixture data, never caller-selected financial authority.
+const monthlyTierCases = [
+  { tier: 'starter', archive: true, reminderAck: true, populatedReplay: true },
+  { tier: 'growth', archive: true, reminderAck: false, populatedReplay: false },
+  {
+    tier: 'ultimate',
+    archive: false,
+    reminderAck: false,
+    populatedReplay: false,
+  },
+];
+const monthlyTierScenario = read(
+  'scripts/verify-subscription-monthly-tier.sql'
+).replace('-- MONTHLY_POPULATED_REPLAY', () => monthly);
+const monthlyTransactions = read(
+  'scripts/verify-subscription-monthly-transactions.sql'
+).replace('-- MONTHLY_TIER_SCENARIOS', () =>
+  monthlyTierCases
+    .map(
+      ({ tier, archive, reminderAck, populatedReplay }) =>
+        String.raw`\set monthly_tier ${tier}
+\set monthly_archive ${archive}
+\set monthly_starter ${reminderAck}
+\set monthly_populated_replay ${populatedReplay}
+` + monthlyTierScenario
+    )
+    .join('\n')
+);
+
 const output = sql(
   [
     'BEGIN; SET LOCAL client_min_messages=warning;',
@@ -88,18 +118,12 @@ const output = sql(
     monthly,
     checks,
     read('scripts/verify-subscription-monthly-preparation.sql'),
-    read('scripts/verify-subscription-monthly-transactions.sql').replace(
-      '-- MONTHLY_POPULATED_REPLAY',
-      () => monthly
-    ),
+    monthlyTransactions,
     legacyCompare,
     monthly,
     checks,
     read('scripts/verify-subscription-monthly-preparation.sql'),
-    read('scripts/verify-subscription-monthly-transactions.sql').replace(
-      '-- MONTHLY_POPULATED_REPLAY',
-      () => monthly
-    ),
+    monthlyTransactions,
     legacyCompare,
     "SELECT 'PASS: both migration applications preserved every legacy column';",
     'ROLLBACK;',
