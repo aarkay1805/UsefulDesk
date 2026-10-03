@@ -115,3 +115,61 @@ it('refuses a preview naming another billing branch', async () => {
     screen.queryByRole('button', { name: 'Approve Starter offer' })
   ).toBeNull();
 });
+
+it('resets original consent when a different branch replaces the preview', async () => {
+  const view = render(
+    <SubscriptionCustomerReview
+      organizationId={organizationId}
+      accountId={accountId}
+    />
+  );
+  fireEvent.click(await screen.findByRole('checkbox'));
+  expect(screen.getByRole('checkbox').getAttribute('aria-checked')).toBe(
+    'true'
+  );
+  rpc.mockImplementation(async (name: string) => ({
+    data:
+      name === 'subscription_customer_review_preview'
+        ? { ...offer, billing_account_id: 'new-branch' }
+        : null,
+  }));
+  view.rerender(
+    <SubscriptionCustomerReview
+      organizationId={organizationId}
+      accountId="new-branch"
+    />
+  );
+  expect(
+    (await screen.findByRole('checkbox')).getAttribute('aria-checked')
+  ).toBe('false');
+});
+
+it('spins and blocks repeated original review refresh while the request is pending', async () => {
+  rpc.mockResolvedValue({
+    data: null,
+    error: new Error('synthetic unavailable'),
+  });
+  render(
+    <SubscriptionCustomerReview
+      organizationId={organizationId}
+      accountId={accountId}
+    />
+  );
+  const retry = await screen.findByRole('button', { name: 'Try again' });
+  let resolve!: (value: unknown) => void;
+  rpc.mockImplementation((name: string) =>
+    name === 'subscription_customer_review_preview'
+      ? new Promise((r) => {
+          resolve = r;
+        })
+      : Promise.resolve({ data: null })
+  );
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  expect(retry.getAttribute('aria-busy')).toBe('true');
+  expect(retry.hasAttribute('disabled')).toBe(true);
+  resolve({ data: offer, error: null });
+  expect(
+    await screen.findByRole('button', { name: 'Approve Starter offer' })
+  ).toBeTruthy();
+});

@@ -20,6 +20,8 @@ import { Label } from '@/components/ui/label';
 import { accessSupportMessage, accessSupportWhatsApp } from './ui-contract';
 import { SubscriptionPlanCards } from './subscription-plan-cards';
 import { SubscriptionTestBilling } from './subscription-test-billing';
+import { canManageSubscriptionBilling } from '@/lib/auth/roles';
+import { SubscriptionMonthlyReview } from './subscription-monthly-review';
 import { SubscriptionCustomerReview } from './subscription-customer-review';
 import { SubscriptionLiveReview, isLiveTerm } from './subscription-live-review';
 import {
@@ -92,6 +94,11 @@ function AccountProductAccess({
     isOrganizationOwner,
   } = useAuth();
   const { fmt } = useLocale();
+  const subscriptionOwner = canManageSubscriptionBilling(
+    isOrganizationOwner ? 'owner' : null
+  );
+  const monthlyReviewUi =
+    process.env.NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI === 'true';
   const router = useRouter();
   const wasBlocked = useRef(false);
   const initialSnapshot =
@@ -579,15 +586,28 @@ function AccountProductAccess({
           </Alert>
           {expiredTrial ? (
             <>
-              <SubscriptionPlanCards
-                formatMoney={fmt.money}
-                showProvisionalPrices={testUi}
-                onSelect={
-                  testUi && isOrganizationOwner ? chooseTestPlan : undefined
-                }
-                pendingTier={pendingTier}
-              />
-              {liveReviewUi && isOrganizationOwner && organizationId ? (
+              {monthlyReviewUi && subscriptionOwner && organizationId ? (
+                <SubscriptionMonthlyReview
+                  key={`${organizationId}:${accountId}`}
+                  organizationId={organizationId}
+                  accountId={accountId}
+                  onChanged={() => setNonce((n) => n + 1)}
+                />
+              ) : (
+                <SubscriptionPlanCards
+                  purchaseMode={testUi ? 'test' : 'comparison'}
+                  formatMoney={fmt.money}
+                  showProvisionalPrices={testUi}
+                  onSelect={
+                    testUi && isOrganizationOwner ? chooseTestPlan : undefined
+                  }
+                  pendingTier={pendingTier}
+                />
+              )}
+              {!monthlyReviewUi &&
+              liveReviewUi &&
+              isOrganizationOwner &&
+              organizationId ? (
                 <LiveBillingReview
                   key={`${organizationId}:${accountId}`}
                   organizationId={organizationId}
@@ -595,7 +615,7 @@ function AccountProductAccess({
                   onChanged={() => setNonce((n) => n + 1)}
                 />
               ) : null}
-              {!testUi && !liveReviewUi ? (
+              {!testUi && !liveReviewUi && !monthlyReviewUi ? (
                 <p className="text-muted-foreground text-sm">
                   Plan prices and payment are not available yet. Contact support
                   for help.

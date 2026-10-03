@@ -147,3 +147,43 @@ describe('SubscriptionConversionReviewDialog', () => {
     expect(screen.queryByRole('checkbox')).toBeNull();
   });
 });
+
+it('requires separate archive consent and resets it when selected branches change', () => {
+  const archive = vi.fn(async () => {});
+  render(
+    <SubscriptionConversionReviewDialog
+      open
+      onOpenChange={() => {}}
+      organizationId="org-1"
+      organizationRole="owner"
+      tier="starter"
+      branches={branches.slice(0, 3)}
+      purchases={[]}
+      keepAccountId="branch-1"
+      archiveConsequence="These branches will be archived now, even if you do not finish payment. Their history stays saved."
+      onArchive={archive}
+    />
+  );
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Branch 2' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Branch 3' }));
+  const button = screen.getByRole('button', {
+    name: 'Archive selected branches',
+  });
+  expect(button.hasAttribute('disabled')).toBe(true);
+  fireEvent.click(
+    screen.getByRole('checkbox', {
+      name: 'I understand these branches will be archived now.',
+    })
+  );
+  expect(button.hasAttribute('disabled')).toBe(false);
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Branch 2' }));
+  fireEvent.click(screen.getByRole('checkbox', { name: 'Branch 2' }));
+  expect(
+    screen
+      .getByRole('checkbox', {
+        name: 'I understand these branches will be archived now.',
+      })
+      .getAttribute('aria-checked')
+  ).toBe('false');
+  expect(archive).not.toHaveBeenCalled();
+});

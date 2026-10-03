@@ -119,3 +119,147 @@ describe('Live Checkout client gate', () => {
     expect(open).toHaveBeenCalledOnce();
   });
 });
+
+import { monthlyCatalogOffer } from './monthly-contract';
+it('uses the exact monthly identity under its own gate and refuses mixed modes', async () => {
+  vi.stubEnv('NODE_ENV', 'production');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'false');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI', 'false');
+  const create = vi.fn();
+  vi.stubGlobal(
+    'Razorpay',
+    class {
+      constructor(options: unknown) {
+        create(options);
+      }
+      open = vi.fn();
+    }
+  );
+  const input = {
+    monthlyCustomer: monthlyCatalogOffer('growth'),
+    keyId: 'rzp_live_Usefulmade',
+    orderId: 'order_Monthly123',
+    amountMinor: 149900,
+    planLabel: 'Growth',
+    onPayment: vi.fn(),
+  };
+  await openUsefulmadeLiveCheckout(input);
+  expect(create).toHaveBeenCalledWith(
+    expect.objectContaining({
+      amount: 149900,
+      description: 'Growth monthly plan',
+    })
+  );
+  await expect(
+    openUsefulmadeLiveCheckout({ ...input, starterCustomer: true })
+  ).rejects.toThrow('unavailable');
+  await expect(
+    openUsefulmadeLiveCheckout({ ...input, amountMinor: 79900 })
+  ).rejects.toThrow('unavailable');
+});
+
+it.each(['starter', 'growth', 'ultimate'] as const)(
+  'uses the listed %s monthly amount while original flags stay closed',
+  async (tier) => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'false');
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI', 'false');
+    const identity = monthlyCatalogOffer(tier);
+    const create = vi.fn();
+    vi.stubGlobal(
+      'Razorpay',
+      class {
+        constructor(options: unknown) {
+          create(options);
+        }
+        open = vi.fn();
+      }
+    );
+    await openUsefulmadeLiveCheckout({
+      monthlyCustomer: identity,
+      keyId: 'rzp_live_Usefulmade',
+      orderId: 'order_Monthly123',
+      amountMinor: identity.amountMinor,
+      planLabel: tier[0].toUpperCase() + tier.slice(1),
+      onPayment: vi.fn(),
+    });
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: identity.amountMinor })
+    );
+  }
+);
+it('monthly public flag opens neither the original Starter nor internal pilot client', async () => {
+  vi.stubEnv('NODE_ENV', 'production');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'false');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI', 'false');
+  const input = {
+    keyId: 'rzp_live_Usefulmade',
+    orderId: 'order_Monthly123',
+    amountMinor: 79900,
+    planLabel: 'Starter',
+    onPayment: vi.fn(),
+  };
+  await expect(openUsefulmadeLiveCheckout(input)).rejects.toThrow(
+    'unavailable'
+  );
+  await expect(
+    openUsefulmadeLiveCheckout({ ...input, starterCustomer: true })
+  ).rejects.toThrow('unavailable');
+});
+it.each(['false', ''])(
+  'closed monthly flag %s refuses even exact monthly identity with original gates open',
+  async (flag) => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', flag);
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'true');
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI', 'true');
+    await expect(
+      openUsefulmadeLiveCheckout({
+        monthlyCustomer: monthlyCatalogOffer('starter'),
+        keyId: 'rzp_live_Usefulmade',
+        orderId: 'order_Monthly123',
+        amountMinor: 79900,
+        planLabel: 'Starter',
+        onPayment: vi.fn(),
+      })
+    ).rejects.toThrow('unavailable');
+  }
+);
+
+it('does not open a monthly payment window after its context changes during SDK loading', async () => {
+  vi.stubEnv('NODE_ENV', 'production');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+  vi.stubGlobal('Razorpay', undefined);
+  let current = true;
+  const pending = openUsefulmadeLiveCheckout({
+    monthlyCustomer: monthlyCatalogOffer('growth'),
+    keyId: 'rzp_live_Usefulmade',
+    orderId: 'order_Monthly123',
+    amountMinor: 149900,
+    planLabel: 'Growth',
+    isCurrent: () => current,
+    onPayment: vi.fn(),
+  });
+  const script = document.querySelector(
+    'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+  ) as HTMLScriptElement;
+  expect(script).toBeTruthy();
+  current = false;
+  const create = vi.fn();
+  vi.stubGlobal(
+    'Razorpay',
+    class {
+      constructor(options: unknown) {
+        create(options);
+      }
+      open = vi.fn();
+    }
+  );
+  script.onload!(new Event('load'));
+  await expect(pending).rejects.toThrow('unavailable');
+  expect(create).not.toHaveBeenCalled();
+  script.remove();
+});

@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { monthlyIdentityFromRow } from '@/lib/subscriptions/monthly-offer-preview';
 import { SubscriptionLiveReview, isLiveTerm } from './subscription-live-review';
 
 interface PreparedOffer {
@@ -25,7 +26,42 @@ interface PreparedOffer {
   opening_available: boolean;
 }
 
-export function SubscriptionCustomerReview({
+export function isPreparedStarterOffer(
+  value: unknown,
+  organizationId: string,
+  accountId: string
+): value is PreparedOffer {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const data = value as Partial<PreparedOffer>;
+  return (
+    typeof data.preparation_id === 'string' &&
+    data.organization_id === organizationId &&
+    data.billing_account_id === accountId &&
+    data.amount_minor === 79900 &&
+    data.currency === 'INR' &&
+    typeof data.customer_tax_note === 'string' &&
+    typeof data.customer_terms_note === 'string' &&
+    typeof data.branch_name === 'string' &&
+    typeof data.owner_reviewed === 'boolean' &&
+    typeof data.checkout_open === 'boolean' &&
+    typeof data.opening_available === 'boolean'
+  );
+}
+
+type CustomerReviewProps = {
+  organizationId: string;
+  accountId: string;
+  onChanged?: () => void;
+};
+export function SubscriptionCustomerReview(props: CustomerReviewProps) {
+  return (
+    <CustomerReview
+      key={`${props.organizationId}:${props.accountId}`}
+      {...props}
+    />
+  );
+}
+function CustomerReview({
   organizationId,
   accountId,
   onChanged,
@@ -36,7 +72,9 @@ export function SubscriptionCustomerReview({
 }) {
   const { fmt } = useLocale();
   const [offer, setOffer] = useState<PreparedOffer | null>(null);
+  const [monthlyPaid, setMonthlyPaid] = useState(false);
   const [hasPaidTerm, setHasPaidTerm] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -45,34 +83,38 @@ export function SubscriptionCustomerReview({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [result, termResult] = await Promise.all([
-        createClient().rpc('subscription_customer_review_preview', {
-          p_organization_id: organizationId,
-          p_billing_account_id: accountId,
-        }),
-        createClient().rpc('subscription_live_owner_term', {
-          p_organization_id: organizationId,
-        }),
-      ]);
-      if (cancelled) return;
-      const data = result.data as Partial<PreparedOffer> | null;
-      const valid =
-        data &&
-        typeof data.preparation_id === 'string' &&
-        data.organization_id === organizationId &&
-        data.billing_account_id === accountId &&
-        data.amount_minor === 79900 &&
-        data.currency === 'INR' &&
-        typeof data.customer_tax_note === 'string' &&
-        typeof data.customer_terms_note === 'string' &&
-        typeof data.branch_name === 'string' &&
-        typeof data.owner_reviewed === 'boolean' &&
-        typeof data.checkout_open === 'boolean' &&
-        typeof data.opening_available === 'boolean';
-      setHasPaidTerm(!termResult.error && isLiveTerm(termResult.data));
-      setError(!!result.error || !!termResult.error || (!!data && !valid));
-      setOffer(valid ? (data as PreparedOffer) : null);
-      setLoaded(true);
+      try {
+        const [result, termResult] = await Promise.all([
+          createClient().rpc('subscription_customer_review_preview', {
+            p_organization_id: organizationId,
+            p_billing_account_id: accountId,
+          }),
+          createClient().rpc('subscription_live_owner_term', {
+            p_organization_id: organizationId,
+          }),
+        ]);
+        if (cancelled) return;
+        const data = result.data as Partial<PreparedOffer> | null;
+        const valid = isPreparedStarterOffer(data, organizationId, accountId);
+        setAccepted(false);
+        setMonthlyPaid(
+          !termResult.error &&
+            isLiveTerm(termResult.data) &&
+            !!monthlyIdentityFromRow(termResult.data)
+        );
+        setHasPaidTerm(!termResult.error && isLiveTerm(termResult.data));
+        setError(!!result.error || !!termResult.error || (!!data && !valid));
+        setOffer(valid ? (data as PreparedOffer) : null);
+        setLoaded(true);
+      } catch {
+        if (!cancelled) {
+          setError(true);
+          setOffer(null);
+          setLoaded(true);
+        }
+      } finally {
+        if (!cancelled) setRetrying(false);
+      }
     })();
     return () => {
       cancelled = true;
@@ -113,6 +155,17 @@ export function SubscriptionCustomerReview({
   }
 
   if (!loaded) return null;
+  // Paid status/cancellation survives containment of first checkout or offer revocation.
+  if (hasPaidTerm)
+    return (
+      <SubscriptionLiveReview
+        starterCustomer={!monthlyPaid}
+        monthlyCustomer={monthlyPaid}
+        organizationId={organizationId}
+        accountId={accountId}
+        onChanged={onChanged}
+      />
+    );
   if (error)
     return (
       <Alert variant="destructive">
@@ -121,8 +174,10 @@ export function SubscriptionCustomerReview({
           <Button
             size="sm"
             variant="outline"
+            loading={retrying}
             onClick={() => {
-              setLoaded(false);
+              setAccepted(false);
+              setRetrying(true);
               setNonce((n) => n + 1);
             }}
           >
@@ -130,16 +185,6 @@ export function SubscriptionCustomerReview({
           </Button>
         </AlertDescription>
       </Alert>
-    );
-  // Paid status/cancellation survives containment of first checkout or offer revocation.
-  if (hasPaidTerm)
-    return (
-      <SubscriptionLiveReview
-        starterCustomer
-        organizationId={organizationId}
-        accountId={accountId}
-        onChanged={onChanged}
-      />
     );
   // The public flag reveals no payable flow to an organization without durable preparation.
   if (!offer) return null;
@@ -167,8 +212,10 @@ export function SubscriptionCustomerReview({
       <AlertDescription>
         <div className="space-y-3">
           <p>
-            {fmt.money(offer.amount_minor / 100, 'INR')} for one calendar month.
-            One branch: {offer.branch_name}.
+            <span className="tabular-nums">
+              {fmt.money(offer.amount_minor / 100, 'INR')}
+            </span>{' '}
+            for one calendar month. One branch: {offer.branch_name}.
           </p>
           <p>{offer.customer_tax_note}</p>
           <p>{offer.customer_terms_note}</p>

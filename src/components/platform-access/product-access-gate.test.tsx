@@ -39,6 +39,9 @@ vi.mock('@/hooks/use-locale', () => ({
     },
   }),
 }));
+vi.mock('./subscription-monthly-review', () => ({
+  SubscriptionMonthlyReview: () => <div>Prepared monthly tier choices</div>,
+}));
 vi.mock('@/lib/supabase/client', () => ({ createClient: () => ({ rpc }) }));
 import { ProductAccessGate } from './product-access-gate';
 import type { ProductAccessSnapshot } from '@/lib/platform-access/model';
@@ -590,3 +593,70 @@ describe('Live billing access after the initial term', () => {
     );
   });
 });
+
+it('opens only monthly selection for an expired unsuspended trial owner', async () => {
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+  auth.isOrganizationOwner = true;
+  const expired = {
+    ...snapshot,
+    allowed: false,
+    access: { ...access, trial_ends_at: '2026-09-01T00:00:00Z' },
+  };
+  rpc.mockResolvedValue({ data: expired, error: null });
+  const view = render(
+    <ProductAccessGate
+      initialAccess={{
+        accountId: 'branch-1',
+        organizationId: 'org-1',
+        snapshot: expired,
+      }}
+    >
+      <div>Home</div>
+    </ProductAccessGate>
+  );
+  expect(await screen.findByText('Prepared monthly tier choices')).toBeTruthy();
+  expect(
+    screen.queryByRole('button', { name: /Choose|Test|Pay|Approve/i })
+  ).toBeNull();
+  view.unmount();
+  auth.isOrganizationOwner = false;
+  render(
+    <ProductAccessGate
+      initialAccess={{
+        accountId: 'branch-1',
+        organizationId: 'org-1',
+        snapshot: expired,
+      }}
+    >
+      <div>Home</div>
+    </ProductAccessGate>
+  );
+  expect(screen.queryByText('Prepared monthly tier choices')).toBeNull();
+});
+it.each(['trial', 'suspended'])(
+  'never mounts monthly purchase for %s access',
+  async (state) => {
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+    auth.isOrganizationOwner = true;
+    const current = {
+      ...snapshot,
+      access: {
+        ...access,
+        suspended_at: state === 'suspended' ? '2026-09-01T00:00:00Z' : null,
+      },
+    };
+    rpc.mockResolvedValue({ data: current, error: null });
+    render(
+      <ProductAccessGate
+        initialAccess={{
+          accountId: 'branch-1',
+          organizationId: 'org-1',
+          snapshot: current,
+        }}
+      >
+        <div>Home</div>
+      </ProductAccessGate>
+    );
+    expect(screen.queryByText('Prepared monthly tier choices')).toBeNull();
+  }
+);

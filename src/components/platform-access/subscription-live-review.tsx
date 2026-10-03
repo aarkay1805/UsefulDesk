@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { useLocale } from '@/hooks/use-locale';
@@ -19,6 +19,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+import { monthlyIdentityFromRow } from '@/lib/subscriptions/monthly-offer-preview';
+import { SUBSCRIPTION_PLANS } from '@/lib/subscriptions/plans';
+
 type LiveTier = 'starter' | 'growth' | 'ultimate';
 
 interface LiveTerm {
@@ -29,6 +32,18 @@ interface LiveTerm {
   refunded: boolean;
   expired: boolean;
   renewal_available?: boolean;
+  monthly_offer_id?: string;
+  offer_contract_version?: string;
+  catalog_version?: string;
+  included_branches?: number;
+  paid_extra_branch_slots?: number;
+  amount_minor?: number;
+  currency?: string;
+  period_start?: string;
+  payment_state?: string;
+  hold_reason?: string | null;
+  refund_state?: string | null;
+  refund_review_reason?: string | null;
 }
 
 export function isLiveTerm(value: unknown): value is LiveTerm {
@@ -40,7 +55,13 @@ export function isLiveTerm(value: unknown): value is LiveTerm {
     Number.isFinite(Date.parse(term.paid_through_end)) &&
     typeof term.renewal_stopped === 'boolean' &&
     typeof term.refunded === 'boolean' &&
-    typeof term.expired === 'boolean'
+    typeof term.expired === 'boolean' &&
+    (term.offer_contract_version == null ||
+      term.offer_contract_version === 'starter_v1' ||
+      (!!monthlyIdentityFromRow(term) &&
+        term.renewal_available === false &&
+        typeof term.period_start === 'string' &&
+        Number.isFinite(Date.parse(term.period_start))))
   );
 }
 
@@ -56,6 +77,11 @@ interface LiveOfferPreview {
 }
 
 interface LiveQuote {
+  monthly_offer_id?: string;
+  offer_contract_version?: string;
+  catalog_version?: string;
+  included_branches?: number;
+  paid_extra_branch_slots?: number;
   order_state?: 'claimed' | 'bound' | 'review_required' | null;
   renewal_of_request_id?: string | null;
   payment_state?: 'verified' | 'review_required' | null;
@@ -91,7 +117,7 @@ function isPreview(value: unknown): value is LiveOfferPreview {
   );
 }
 
-function isQuote(value: unknown): value is LiveQuote {
+export function isLiveQuote(value: unknown): value is LiveQuote {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const quote = value as Partial<LiveQuote>;
   return (
@@ -107,17 +133,28 @@ function isQuote(value: unknown): value is LiveQuote {
 }
 
 /** Shows the approved offer, frozen owner quote, and gated Live Checkout. */
-export function SubscriptionLiveReview({
-  organizationId,
-  accountId,
-  onChanged,
-  starterCustomer = false,
-}: {
+type LiveReviewProps = {
   organizationId: string;
   accountId: string;
   onChanged?: () => void;
   starterCustomer?: boolean;
-}) {
+  monthlyCustomer?: boolean;
+};
+export function SubscriptionLiveReview(props: LiveReviewProps) {
+  return (
+    <LiveReview
+      key={`${props.organizationId}:${props.accountId}:${props.starterCustomer ? 'starter' : props.monthlyCustomer ? 'monthly' : 'pilot'}`}
+      {...props}
+    />
+  );
+}
+function LiveReview({
+  organizationId,
+  accountId,
+  onChanged,
+  starterCustomer = false,
+  monthlyCustomer = false,
+}: LiveReviewProps) {
   const { fmt } = useLocale();
   const [term, setTerm] = useState<LiveTerm | null>(null);
   const [cancelAccepted, setCancelAccepted] = useState(false);
@@ -125,6 +162,7 @@ export function SubscriptionLiveReview({
   const [loaded, setLoaded] = useState(false);
   const [quote, setQuote] = useState<LiveQuote | null>(null);
   const [error, setError] = useState('');
+  const [verificationPending, setVerificationPending] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [pending, setPending] = useState(false);
   const [nonce, setNonce] = useState(0);
@@ -138,43 +176,78 @@ export function SubscriptionLiveReview({
     'preview' | 'quote' | 'checkout' | 'cancel' | null
   >(null);
 
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [quoteResult, termResult] = await Promise.all([
-        createClient().rpc('subscription_live_owner_quote', {
-          p_organization_id: organizationId,
-        }),
-        createClient().rpc('subscription_live_owner_term', {
-          p_organization_id: organizationId,
-        }),
-      ]);
-      const { data, error: readError } = quoteResult;
-      if (cancelled) return;
-      setRefreshing(false);
-      if (
-        readError ||
-        termResult.error ||
-        (starterCustomer &&
-          data != null &&
-          (!isQuote(data) ||
-            data.tier !== 'starter' ||
-            data.amount_minor !== 79900))
-      ) {
-        setError('Could not load your plan amount. Try again.');
-        return;
+      try {
+        const [quoteResult, termResult] = await Promise.all([
+          createClient().rpc('subscription_live_owner_quote', {
+            p_organization_id: organizationId,
+          }),
+          createClient().rpc('subscription_live_owner_term', {
+            p_organization_id: organizationId,
+          }),
+        ]);
+        const { data, error: readError } = quoteResult;
+        if (cancelled) return;
+        setRefreshing(false);
+        if (
+          readError ||
+          termResult.error ||
+          (!monthlyCustomer &&
+            (data?.monthly_offer_id != null ||
+              termResult.data?.monthly_offer_id != null ||
+              monthlyIdentityFromRow(data) ||
+              monthlyIdentityFromRow(termResult.data))) ||
+          (monthlyCustomer &&
+            (starterCustomer ||
+              (data != null &&
+                (!isLiveQuote(data) || !monthlyIdentityFromRow(data))) ||
+              (termResult.data != null &&
+                (!isLiveTerm(termResult.data) ||
+                  !monthlyIdentityFromRow(termResult.data))))) ||
+          (starterCustomer &&
+            data != null &&
+            (!isLiveQuote(data) ||
+              data.tier !== 'starter' ||
+              data.amount_minor !== 79900))
+        ) {
+          setError('Could not load your plan amount. Try again.');
+          return;
+        }
+        setError('');
+        if (isLiveTerm(termResult.data)) setVerificationPending(false);
+        setAccepted(false);
+        setAmountAccepted(false);
+        setCancelAccepted(false);
+        setTerm(isLiveTerm(termResult.data) ? termResult.data : null);
+        setLoaded(true);
+        setQuote(
+          isLiveQuote(data) && data.payment_state !== 'verified' ? data : null
+        );
+      } catch (error) {
+        if (!cancelled)
+          setError(
+            getErrorMessage(
+              error,
+              'Could not load your plan amount. Try again.'
+            )
+          );
+      } finally {
+        if (!cancelled) setRefreshing(false);
       }
-      setError('');
-      setTerm(isLiveTerm(termResult.data) ? termResult.data : null);
-      setLoaded(true);
-      setQuote(
-        isQuote(data) && data.payment_state !== 'verified' ? data : null
-      );
     })();
     return () => {
       cancelled = true;
     };
-  }, [organizationId, nonce, starterCustomer]);
+  }, [organizationId, accountId, nonce, starterCustomer, monthlyCustomer]);
 
   useEffect(() => {
     if (!quote) return;
@@ -203,12 +276,13 @@ export function SubscriptionLiveReview({
     loaded &&
     !error &&
     !stopped &&
+    !monthlyCustomer &&
     (starterCustomer
       ? !term || (term.expired && customerRenewalOpen)
       : !term || term.expired);
 
   async function cancelRenewal() {
-    if (!term || !cancelAccepted || action) return;
+    if (monthlyCustomer || !term || !cancelAccepted || action) return;
     setAction('cancel');
     try {
       const result = await createClient().rpc(
@@ -245,26 +319,31 @@ export function SubscriptionLiveReview({
   async function acknowledge() {
     if (!quote || !policy || !accepted || pending || expired) return;
     setPending(true);
-    const result = await createClient().rpc(
-      'subscription_acknowledge_live_starter_reminders',
-      { p_request_id: quote.request_id }
-    );
-    setPending(false);
-    if (result.error) {
-      toast.error(
-        getErrorMessage(
-          result.error,
-          'Could not save your reminder choice. Try again.'
-        )
+    try {
+      const result = await createClient().rpc(
+        'subscription_acknowledge_live_starter_reminders',
+        { p_request_id: quote.request_id }
       );
-      return;
+      if (!alive.current) return;
+      if (result.error) throw result.error;
+      toast.success('Reminder choice saved');
+      setAccepted(false);
+      setNonce((n) => n + 1);
+    } catch (error) {
+      if (alive.current)
+        toast.error(
+          getErrorMessage(
+            error,
+            'Could not save your reminder choice. Try again.'
+          )
+        );
+    } finally {
+      if (alive.current) setPending(false);
     }
-    toast.success('Reminder choice saved');
-    setNonce((n) => n + 1);
   }
 
   async function reviewAmount() {
-    if (action) return;
+    if (monthlyCustomer || action) return;
     setAction('preview');
     const result = await createClient().rpc(
       term
@@ -276,6 +355,7 @@ export function SubscriptionLiveReview({
         p_tier: selectedTier,
       }
     );
+    if (!alive.current) return;
     setAction(null);
     if (
       result.error ||
@@ -362,6 +442,7 @@ export function SubscriptionLiveReview({
   async function openCheckout() {
     if (
       !quote ||
+      verificationPending ||
       expired ||
       !loaded ||
       !!error ||
@@ -373,9 +454,11 @@ export function SubscriptionLiveReview({
         !customerRenewalOpen) ||
       action ||
       (quote.tier === 'starter' && !acknowledged) ||
-      (starterCustomer
-        ? process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI !== 'true'
-        : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI !== 'true')
+      (monthlyCustomer
+        ? process.env.NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI !== 'true'
+        : starterCustomer
+          ? process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI !== 'true'
+          : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI !== 'true')
     )
       return;
     setAction('checkout');
@@ -395,9 +478,12 @@ export function SubscriptionLiveReview({
           keyId?: string;
         };
       };
+      if (!alive.current) return;
       const checkout = body.checkout;
+      const monthlyIdentity = monthlyIdentityFromRow(quote);
       if (
         !response.ok ||
+        (monthlyCustomer && !monthlyIdentity) ||
         checkout?.requestId !== quote.request_id ||
         checkout.organizationId !== organizationId ||
         checkout.amountMinor !== quote.amount_minor ||
@@ -408,11 +494,15 @@ export function SubscriptionLiveReview({
         throw new Error('Live Checkout did not match the reviewed amount');
       await openUsefulmadeLiveCheckout({
         ...(starterCustomer ? { starterCustomer: true } : {}),
+        ...(monthlyCustomer && monthlyIdentity
+          ? { monthlyCustomer: monthlyIdentity, isCurrent: () => alive.current }
+          : {}),
         keyId: checkout.keyId,
         orderId: checkout.orderId,
-        amountMinor: quote.amount_minor,
+        amountMinor: checkout.amountMinor,
         planLabel: quote.tier[0].toUpperCase() + quote.tier.slice(1),
         onPayment: (payment) => {
+          if (!alive.current) return;
           if (
             payment.razorpay_order_id !== checkout.orderId ||
             !/^pay_[A-Za-z0-9]+$/.test(payment.razorpay_payment_id)
@@ -421,6 +511,7 @@ export function SubscriptionLiveReview({
             return;
           }
           toast.message('Payment is being checked.');
+          setVerificationPending(true);
           setNonce((n) => n + 1);
           onChanged?.();
         },
@@ -435,16 +526,27 @@ export function SubscriptionLiveReview({
   return (
     <Alert>
       <AlertTitle>
-        {starterCustomer ? 'UsefulDesk Starter' : 'Usefulmade Live pilot'}
+        {monthlyCustomer
+          ? `UsefulDesk ${SUBSCRIPTION_PLANS[term?.tier ?? quote?.tier ?? 'starter'].label}`
+          : starterCustomer
+            ? 'UsefulDesk Starter'
+            : 'Usefulmade Live pilot'}
       </AlertTitle>
       <AlertDescription className="space-y-3">
         {error ? <p>{error}</p> : null}
+        {verificationPending ? (
+          <p role="status">
+            Payment verification pending. Refresh billing to check your access.
+          </p>
+        ) : null}
         <Button
           variant="ghost"
           size="sm"
           disabled={!!action}
           loading={refreshing}
           onClick={() => {
+            setAccepted(false);
+            setAmountAccepted(false);
             setRefreshing(true);
             setNonce((n) => n + 1);
           }}
@@ -463,15 +565,49 @@ export function SubscriptionLiveReview({
                 ? 'Your payment was refunded.'
                 : `Paid access ends ${fmt.dateTime(term.paid_through_end)}.`}
             </p>
-            <p>
-              {stopped
-                ? 'Renewal is cancelled. Contact support to buy again.'
-                : starterCustomer && !customerRenewalOpen
-                  ? 'Contact support to renew after expiry.'
-                  : 'Renew after expiry. Each payment buys one calendar month from payment confirmation.'}
-            </p>
+            {monthlyCustomer ? (
+              <>
+                <p>Paid access started {fmt.dateTime(term.period_start!)}.</p>
+                <p>
+                  <span className="tabular-nums">
+                    {fmt.money((term.amount_minor ?? 0) / 100, 'INR')}
+                  </span>{' '}
+                  paid for one calendar month. {term.included_branches}{' '}
+                  {term.included_branches === 1 ? 'branch' : 'branches'}{' '}
+                  included.
+                </p>
+                <p>
+                  {term.payment_state === 'review_required' || term.hold_reason
+                    ? 'Your payment needs a review. Contact support before paying again.'
+                    : term.refunded
+                      ? 'Your paid access ended after the refund.'
+                      : term.expired
+                        ? 'Paid access has expired. Contact support for help.'
+                        : 'Your first monthly payment is verified.'}
+                </p>
+                {term.refund_state ? (
+                  <p>
+                    {term.refund_state === 'processed'
+                      ? 'Full refund confirmed.'
+                      : term.refund_state === 'review_required'
+                        ? 'Your refund needs a review. Contact support.'
+                        : term.refund_state === 'failed'
+                          ? 'Your refund could not be completed. Contact support.'
+                          : 'Your refund is being checked.'}
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <p>
+                {stopped
+                  ? 'Renewal is cancelled. Contact support to buy again.'
+                  : starterCustomer && !customerRenewalOpen
+                    ? 'Contact support to renew after expiry.'
+                    : 'Renew after expiry. Each payment buys one calendar month from payment confirmation.'}
+              </p>
+            )}
             <p>We do not debit you automatically.</p>
-            {!stopped ? (
+            {!stopped && !monthlyCustomer ? (
               <>
                 <div className="flex items-start gap-2">
                   <Checkbox
@@ -612,7 +748,7 @@ export function SubscriptionLiveReview({
             </div>
           </div>
         ) : null}
-        {quote && !stopped ? (
+        {quote && !stopped && (!monthlyCustomer || !term) ? (
           <>
             {orderUnresolved && quote.payment_state !== 'review_required' ? (
               <p>
@@ -673,7 +809,7 @@ export function SubscriptionLiveReview({
             ) : null}
             {quote.payment_state === 'review_required' ||
             quote.order_state === 'review_required' ? null : expired ? (
-              orderUnresolved ? null : (
+              orderUnresolved || monthlyCustomer ? null : (
                 <Button
                   variant="outline"
                   size="sm"
@@ -686,9 +822,11 @@ export function SubscriptionLiveReview({
               quote.renewal_of_request_id &&
               !customerRenewalOpen ? (
               <p>Contact support to review your renewal.</p>
-            ) : (starterCustomer
-                ? process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI
-                : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI) ===
+            ) : verificationPending ? null : (monthlyCustomer
+                ? process.env.NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI
+                : starterCustomer
+                  ? process.env.NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI
+                  : process.env.NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI) ===
               'true' ? (
               <Button
                 loading={action === 'checkout'}
@@ -700,7 +838,11 @@ export function SubscriptionLiveReview({
                 Pay for plan
               </Button>
             ) : (
-              <p>Payment for this Live pilot is not available yet.</p>
+              <p>
+                {monthlyCustomer
+                  ? 'Payment is paused. Contact support or refresh billing.'
+                  : 'Payment for this Live pilot is not available yet.'}
+              </p>
             )}
           </>
         ) : null}

@@ -40,6 +40,7 @@ export function SubscriptionConversionReviewDialog({
   purchases,
   onArchive,
   keepAccountId,
+  archiveConsequence,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -50,6 +51,7 @@ export function SubscriptionConversionReviewDialog({
   purchases: readonly BranchSlotPurchase[];
   onArchive?: (accountIds: readonly string[]) => Promise<void>;
   keepAccountId?: string;
+  archiveConsequence?: string;
 }) {
   const activeBranches = branches.filter(
     (branch) =>
@@ -65,6 +67,9 @@ export function SubscriptionConversionReviewDialog({
     ids: [],
   });
   const selectedIds = selection.key === rosterKey ? selection.ids : [];
+  const [confirmation, setConfirmation] = useState<string | null>(null);
+  const confirmationKey = `${rosterKey}:${selectedIds.join(',')}`;
+  const confirmed = confirmation === confirmationKey;
   const [archiving, setArchiving] = useState(false);
   const owner = canManageSubscriptionBilling(organizationRole);
   const review = reviewSubscriptionConversion({
@@ -77,6 +82,7 @@ export function SubscriptionConversionReviewDialog({
   const selectedLabel = `${review.selectedForArchive} selected for archive`;
 
   function toggle(id: string, checked: boolean) {
+    setConfirmation(null);
     setSelection({
       key: rosterKey,
       ids: checked
@@ -86,7 +92,12 @@ export function SubscriptionConversionReviewDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!archiving) onOpenChange(value);
+      }}
+    >
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>
@@ -118,7 +129,9 @@ export function SubscriptionConversionReviewDialog({
                     <Checkbox
                       id={`archive-choice-${branch.account_id}`}
                       checked={selectedIds.includes(branch.account_id)}
-                      disabled={branch.account_id === keepAccountId}
+                      disabled={
+                        archiving || branch.account_id === keepAccountId
+                      }
                       onCheckedChange={(checked) =>
                         toggle(branch.account_id, checked === true)
                       }
@@ -134,8 +147,9 @@ export function SubscriptionConversionReviewDialog({
               </p>
               {keepAccountId ? (
                 <p className="text-muted-foreground text-xs">
-                  Your current branch stays active. Switch branches first if you
-                  want to archive it.
+                  {archiveConsequence
+                    ? 'Your billing branch stays active.'
+                    : 'Your current branch stays active. Switch branches first if you want to archive it.'}
                 </p>
               ) : null}
             </div>
@@ -168,6 +182,25 @@ export function SubscriptionConversionReviewDialog({
                         : `Choose branches to archive or choose a plan with enough verified slots. ${review.remainingActiveBranches} would stay active.`}
             </AlertDescription>
           </Alert>
+          {archiveConsequence ? <p>{archiveConsequence}</p> : null}
+          {archiveConsequence &&
+          owner &&
+          review.ready &&
+          selectedIds.length > 0 ? (
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="confirm-monthly-archive"
+                checked={confirmed}
+                disabled={archiving}
+                onCheckedChange={(value) =>
+                  setConfirmation(value === true ? confirmationKey : null)
+                }
+              />
+              <Label htmlFor="confirm-monthly-archive">
+                I understand these branches will be archived now.
+              </Label>
+            </div>
+          ) : null}
           {!onArchive ? (
             <p className="text-muted-foreground text-xs">
               Plan changes are not available yet. Payment and tax details are
@@ -176,13 +209,19 @@ export function SubscriptionConversionReviewDialog({
           ) : null}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button
+            disabled={archiving}
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
             Close review
           </Button>
           {onArchive && owner && review.ready && selectedIds.length > 0 ? (
             <Button
               loading={archiving}
+              disabled={!!archiveConsequence && !confirmed}
               onClick={() => {
+                if (archiving || (archiveConsequence && !confirmed)) return;
                 setArchiving(true);
                 void onArchive(selectedIds).finally(() => setArchiving(false));
               }}

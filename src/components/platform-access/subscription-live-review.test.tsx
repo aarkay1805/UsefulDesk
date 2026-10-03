@@ -525,3 +525,192 @@ describe('Live expiry-only renewal and cancellation', () => {
     expect(screen.queryByRole('button', { name: 'Pay for plan' })).toBeNull();
   });
 });
+
+const monthlyQuote = {
+  ...quote,
+  tier: 'growth',
+  amount_minor: 149900,
+  monthly_offer_id: '66666666-6666-4666-8666-666666666666',
+  offer_contract_version: 'monthly_first_v1',
+  catalog_version: 'monthly_inr_2026_10_v1',
+  included_branches: 1,
+  paid_extra_branch_slots: 0,
+};
+it('opens monthly checkout with exact server amount and leaves callback verification pending', async () => {
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'false');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_LIVE_CHECKOUT_UI', 'false');
+  rpc.mockImplementation(async (name: string) => ({
+    data: name === 'subscription_live_owner_quote' ? monthlyQuote : null,
+    error: null,
+  }));
+  const fetchMock = vi.fn<typeof fetch>(async () =>
+    Response.json({
+      checkout: {
+        requestId: quote.request_id,
+        organizationId,
+        orderId: 'order_Monthly123',
+        keyId: 'rzp_live_Usefulmade',
+        amountMinor: 149900,
+        currency: 'INR',
+      },
+    })
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  render(
+    <SubscriptionLiveReview
+      monthlyCustomer
+      organizationId={organizationId}
+      accountId={accountId}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Pay for plan' }));
+  await waitFor(() =>
+    expect(openUsefulmadeLiveCheckout).toHaveBeenCalledOnce()
+  );
+  const input = openUsefulmadeLiveCheckout.mock.calls[0]![0];
+  expect(input).toEqual(
+    expect.objectContaining({
+      planLabel: 'Growth',
+      isCurrent: expect.any(Function),
+      amountMinor: 149900,
+      monthlyCustomer: {
+        contractVersion: 'monthly_first_v1',
+        catalogVersion: 'monthly_inr_2026_10_v1',
+        tier: 'growth',
+        amountMinor: 149900,
+        currency: 'INR',
+        includedBranches: 1,
+        paidExtraBranchSlots: 0,
+      },
+    })
+  );
+  input.onPayment({
+    razorpay_order_id: 'order_Monthly123',
+    razorpay_payment_id: 'pay_Monthly123',
+    razorpay_signature: 'synthetic',
+  });
+  expect(
+    await screen.findByText(
+      'Payment verification pending. Refresh billing to check your access.'
+    )
+  ).toBeTruthy();
+  expect(
+    rpc.mock.calls.every(([name]) =>
+      [
+        'subscription_live_owner_quote',
+        'subscription_live_owner_term',
+      ].includes(name)
+    )
+  ).toBe(true);
+});
+it.each(['expired', 'refunded', 'held', 'paid'])(
+  'keeps %s monthly status visible with all initiation flags closed and no later purchase actions',
+  async (state) => {
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'false');
+    vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'false');
+    const term = {
+      ...monthlyQuote,
+      period_start: '2026-10-01T00:00:00Z',
+      paid_through_end: '2026-11-01T00:00:00Z',
+      renewal_stopped: false,
+      refunded: state === 'refunded',
+      expired: state === 'expired',
+      renewal_available: false,
+      payment_state: state === 'held' ? 'review_required' : 'verified',
+      hold_reason: state === 'held' ? 'synthetic_hold' : null,
+      refund_state: state === 'refunded' ? 'processed' : null,
+    };
+    rpc.mockImplementation(async (name: string) => ({
+      data: name === 'subscription_live_owner_term' ? term : null,
+      error: null,
+    }));
+    render(
+      <SubscriptionLiveReview
+        monthlyCustomer
+        organizationId={organizationId}
+        accountId={accountId}
+      />
+    );
+    expect(await screen.findByText('UsefulDesk Growth')).toBeTruthy();
+    expect(screen.getByText('₹1499.00')).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Refresh billing' })
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole('button', { name: /renew|pay|upgrade|restart|add/i })
+    ).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  }
+);
+it('refuses mixed original/monthly modes and a noncatalog monthly quote', async () => {
+  rpc.mockImplementation(async (name: string) => ({
+    data: name === 'subscription_live_owner_quote' ? monthlyQuote : null,
+  }));
+  render(
+    <SubscriptionLiveReview
+      monthlyCustomer
+      starterCustomer
+      organizationId={organizationId}
+      accountId={accountId}
+    />
+  );
+  expect(
+    await screen.findByText('Could not load your plan amount. Try again.')
+  ).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Pay for plan' })).toBeNull();
+});
+
+it('never treats monthly Starter as original Starter checkout authority', async () => {
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'true');
+  rpc.mockImplementation(async (name: string) => ({
+    data:
+      name === 'subscription_live_owner_quote'
+        ? { ...monthlyQuote, tier: 'starter', amount_minor: 79900 }
+        : null,
+  }));
+  render(
+    <SubscriptionLiveReview
+      starterCustomer
+      organizationId={organizationId}
+      accountId={accountId}
+    />
+  );
+  expect(
+    await screen.findByText('Could not load your plan amount. Try again.')
+  ).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Pay for plan' })).toBeNull();
+});
+
+it('keeps explicit Starter reminder consent for monthly Starter before payment', async () => {
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+  const starter = { ...monthlyQuote, tier: 'starter', amount_minor: 79900 };
+  rpc.mockImplementation(async (name: string) => ({
+    data: name === 'subscription_live_owner_quote' ? starter : null,
+    error: null,
+  }));
+  render(
+    <SubscriptionLiveReview
+      monthlyCustomer
+      organizationId={organizationId}
+      accountId={accountId}
+    />
+  );
+  const reminder = await screen.findByRole('button', {
+    name: 'Save reminder choice',
+  });
+  expect(reminder.hasAttribute('disabled')).toBe(true);
+  expect(
+    screen
+      .getByRole('button', { name: 'Pay for plan' })
+      .hasAttribute('disabled')
+  ).toBe(true);
+  fireEvent.click(screen.getByRole('checkbox'));
+  fireEvent.click(reminder);
+  await waitFor(() =>
+    expect(rpc).toHaveBeenCalledWith(
+      'subscription_acknowledge_live_starter_reminders',
+      { p_request_id: quote.request_id }
+    )
+  );
+});
