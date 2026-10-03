@@ -15,7 +15,9 @@ const baselineQuery = `SELECT row_to_json(s) FROM private.subscription_billing_s
  SELECT row_to_json(s) FROM private.product_access_settings s;
  SELECT count(*) FROM public.accounts; SELECT count(*) FROM auth.users;
  SELECT md5(coalesce(jsonb_agg(to_jsonb(a) ORDER BY id)::TEXT,'')) FROM public.accounts a;
- SELECT md5(coalesce(jsonb_agg(to_jsonb(x) ORDER BY organization_id)::TEXT,'')) FROM private.organization_product_access x;`;
+ SELECT md5(coalesce(jsonb_agg(to_jsonb(x) ORDER BY organization_id)::TEXT,'')) FROM private.organization_product_access x;
+ SELECT md5(coalesce(jsonb_agg(to_jsonb(p) ORDER BY to_jsonb(p)::TEXT)::TEXT,'')) FROM public.payments p;
+ SELECT md5(coalesce(jsonb_agg(to_jsonb(m) ORDER BY to_jsonb(m)::TEXT)::TEXT,'')) FROM public.payment_mandates m;`;
 const before = sql(baselineQuery);
 const sources = [
   ...readdirSync(`${root}/supabase/migrations`)
@@ -86,10 +88,18 @@ const output = sql(
     monthly,
     checks,
     read('scripts/verify-subscription-monthly-preparation.sql'),
+    read('scripts/verify-subscription-monthly-transactions.sql').replace(
+      '-- MONTHLY_POPULATED_REPLAY',
+      () => monthly
+    ),
     legacyCompare,
     monthly,
     checks,
     read('scripts/verify-subscription-monthly-preparation.sql'),
+    read('scripts/verify-subscription-monthly-transactions.sql').replace(
+      '-- MONTHLY_POPULATED_REPLAY',
+      () => monthly
+    ),
     legacyCompare,
     "SELECT 'PASS: both migration applications preserved every legacy column';",
     'ROLLBACK;',
@@ -97,6 +107,35 @@ const output = sql(
 );
 for (const line of output.split('\n').filter((l) => l.startsWith('PASS:')))
   console.log(line);
+// Run the original authority writers with the new dispatch already installed.
+// Isolate owner/preparation fixtures so renewal fixture IDs retain their originals.
+const preservationOutput = sql(
+  [
+    'BEGIN; SET LOCAL client_min_messages=warning;',
+    ...sources.map((n) => read(`supabase/migrations/${n}`)),
+    monthly,
+    read('scripts/verify-starter-live-pilot-opening.sql').replace(
+      '-- STARTER_PILOT_CAPABILITY_ACCEPTANCE',
+      read('scripts/verify-starter-live-pilot-capabilities.sql')
+    ),
+    read('scripts/verify-starter-customer-checkout.sql').replaceAll(
+      'Synthetic unissued tax note',
+      'GST not charged — supplier unregistered.'
+    ),
+    'SAVEPOINT original_owner_preparation;',
+    read('scripts/verify-starter-customer-owner-review.sql'),
+    read('scripts/verify-starter-subscription-documents.sql'),
+    read('scripts/verify-starter-future-signups.sql'),
+    read('scripts/verify-starter-signup-preparation.sql'),
+    'ROLLBACK TO original_owner_preparation;',
+    read('scripts/verify-starter-live-renewals.sql'),
+    'ROLLBACK;',
+  ].join('\n')
+);
+for (const line of preservationOutput
+  .split('\n')
+  .filter((l) => l.startsWith('PASS:')))
+  console.log(`PRESERVED ${line}`);
 if (sql(absent).trim() !== 't')
   throw new Error('Live/monthly schema survived rollback');
 if (sql(baselineQuery) !== before)
