@@ -119,6 +119,36 @@ version-5 access and 2 November 12:24:56 UTC paid end remained unchanged.
 Sending is therefore waiting for provider approval and synchronization, not
 another human approval of this same message. No send was attempted.
 
+### Confirmed inbound reply and subscription message, 3 October
+
+Rajat reported that Justin sent a message and corrected the earlier saved
+recipient identity. The only new inbound “Hi” at **08:52:57 UTC (14:22:57 IST)**
+was displayed under Amita Kashyap. The operator held the subscription details
+and asked for the correct recipient. Rajat explicitly confirmed **“Yes, the
+message that came from this number is correct.”** This resolves the recipient
+for the already approved one-message send; it does not rename, delete or change
+Amita's original member/contact/account records. Her records were left intact.
+
+Justin's paid end, original ₹799 payment and unsuspended version-5 access were
+rechecked unchanged. The existing authenticated Chats composer sent the exact
+approved subscription-status text once at **08:57:04.277355 UTC (14:27:04 IST)**,
+within the genuine inbound reply window. The saved message is
+`f30896ab-b0f5-4a6b-9147-0fd2137578ef` in conversation
+`346ed319-3be8-4a7a-982d-e5847838f975`, Home office. At
+**08:57:15.318850 UTC**, the connector showed `content_type=text`, `status=sent`,
+a provider `wamid` and no provider error. Recipient details, exact rendered
+text, raw provider id and screenshots remain in the owner's local receipt.
+
+This was a plain-text reply inside the customer service window; the new
+subscription template remained pending in the preflight read. The already
+configured support Flow had independently greeted the inbound contact before
+the operator send. The recorded single send refers to the approved subscription
+update, not that existing automated greeting. No retry, renewal opening or
+gym-reminder send occurred. A sent receipt does not establish delivered/read
+status, and this SaaS message does not accept either gym reminder contract.
+The **08:59:09.070056 UTC** read still showed `sent` with no provider error
+and exactly one matching manual subscription update in the conversation.
+
 ## Local validation
 
 The final full suite passes **4,431 tests across 539 files**. A focused run
