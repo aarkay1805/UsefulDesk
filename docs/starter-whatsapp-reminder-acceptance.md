@@ -89,6 +89,25 @@ template. An exact subscription-status draft is prepared outside Git; template
 submission approval remains pending. No message was sent and no delivery is
 accepted. No subject, schedule, template or account changed.
 
+### Subscription template submission, 3 October
+
+Rajat approved submitting the prepared SaaS status template by replying
+“Proceed” to the exact submission request. The authenticated Home office
+workflow submitted `usefuldesk_starter_subscription_status` once at
+**08:27:18.656 UTC (13:57:18 IST)**. The provider returned template id
+`1388574992987840`; UsefulDesk saved row
+`1f038e08-b2c3-40f7-b10d-6e54855e4d3e`. The Utility, `en_US`, POSITIONAL body
+and four fictional review examples match the reviewed draft; there are no
+headers, footers or buttons. The recipient number was not a review sample.
+
+After one authenticated **Check status** action, the **08:28:05.804377 UTC**
+connector read still showed `PENDING`, with no submission error or rejection.
+This is successful submission, not template approval or message delivery.
+No contact/chat was created and no customer message was sent. After provider
+approval and synchronization, recheck the exact contract and current term,
+then obtain the separately required one-message approval. Both gym reminder
+contracts remain unaccepted by this SaaS workflow.
+
 ## Local validation
 
 The final full suite passes **4,431 tests across 539 files**. A focused run

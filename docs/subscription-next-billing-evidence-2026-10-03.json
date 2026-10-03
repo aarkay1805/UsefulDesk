@@ -1,7 +1,7 @@
 {
   "source_commit": "b514fe2433582850741c75554cc49264f172673d",
   "project_id": "fwqthstqrkrwtaehefks",
-  "method": "Approved connector SELECT-only queries and Vercel canonical alias readback",
+  "method": "Initial preflight used approved connector SELECT-only queries and Vercel canonical alias readback; the later authenticated template submission is recorded separately",
   "reminder_readiness": [
     {
       "observed_at": "2026-10-03 07:49:22.925914+00",
@@ -126,7 +126,7 @@
     "current_template_message_status_groups": [],
     "human_selection": "Rajat selected a UsefulDesk subscription message to Justin and explicitly confirmed the actual recipient number; personal recipient details remain outside Git",
     "subscription_sender": "UsefulMade, connected Home office WhatsApp; sender number verified in authenticated owner Settings",
-    "subscription_template": "No saved subscription-specific template or existing sender-account chat to the confirmed phone; exact local status draft prepared, submission approval pending",
+    "subscription_template": "At initial preflight no saved subscription-specific template or existing sender-account chat to the confirmed phone; draft and approval were pending. See the later subscription_template_submission record",
     "exact_message_approval": null,
     "messages_sent": 0,
     "delivery_accepted": false
@@ -169,6 +169,39 @@
   "signup_work": {
     "observed_at": "2026-10-03 07:55:53.555906+00",
     "preparation_work_count": 0
+  },
+  "subscription_template_submission": {
+    "approval": "Rajat replied Proceed to the exact template-submission request; approval covers submission only",
+    "method": "Authenticated Home office Settings template submission once, then Check status once and approved connector SELECT readback",
+    "submitted_at": "2026-10-03T08:27:18.656Z",
+    "observed_at": "2026-10-03 08:28:05.804377+00",
+    "account_id": "50a9e8f9-d7e5-44d2-ba04-c367509b981e",
+    "id": "1f038e08-b2c3-40f7-b10d-6e54855e4d3e",
+    "meta_template_id": "1388574992987840",
+    "name": "usefuldesk_starter_subscription_status",
+    "category": "Utility",
+    "language": "en_US",
+    "parameter_format": "POSITIONAL",
+    "body_text": "Hi {{1}}, your UsefulDesk Starter subscription is active until {{2}}. We received your payment of {{3}} for the current term. There is no automatic debit. Reply to {{4}} if you need help with your subscription.",
+    "header": null,
+    "footer": null,
+    "buttons": null,
+    "review_examples": [
+      "Alex",
+      "2 November 2026 at 5:54:56 pm IST",
+      "₹799",
+      "UsefulMade"
+    ],
+    "status": "PENDING",
+    "submission_error": null,
+    "rejection_reason": null,
+    "provider_components_sync_required_at": null,
+    "provider_missing_since": null,
+    "provider_sync_generation_at": null,
+    "one_message_approval": null,
+    "customer_messages_sent": 0,
+    "delivery_accepted": false,
+    "gym_reminder_acceptance": false
   },
   "canonical_deployment": {
     "id": "dpl_9h5rJB2RUVmiisRJA9Kwzf69drJV",
