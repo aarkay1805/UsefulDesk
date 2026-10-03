@@ -108,6 +108,17 @@ approval and synchronization, recheck the exact contract and current term,
 then obtain the separately required one-message approval. Both gym reminder
 contracts remain unaccepted by this SaaS workflow.
 
+Rajat subsequently replied **“Approved, you can say”** in the same prepared
+message thread. This authorizes one send of the unchanged subscription-status
+message to the previously confirmed Justin recipient, from the reviewed
+UsefulMade sender. It does not authorize different copy, a different recipient,
+an automatic retry, or either gym reminder contract. After another authenticated
+status check, the **08:31:16.347421 UTC** connector read still showed `PENDING`.
+The sender remained connected; Justin's ₹799 original payment, unsuspended
+version-5 access and 2 November 12:24:56 UTC paid end remained unchanged.
+Sending is therefore waiting for provider approval and synchronization, not
+another human approval of this same message. No send was attempted.
+
 ## Local validation
 
 The final full suite passes **4,431 tests across 539 files**. A focused run
