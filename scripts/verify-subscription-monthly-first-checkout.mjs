@@ -79,9 +79,11 @@ const monthlyTierCases = [
     populatedReplay: false,
   },
 ];
-const monthlyTierScenario = read(
-  'scripts/verify-subscription-monthly-tier.sql'
-).replace('-- MONTHLY_POPULATED_REPLAY', () => monthly);
+const monthlyTierScenario = read('scripts/verify-subscription-monthly-tier.sql')
+  .replace('-- MONTHLY_POPULATED_REPLAY', () => monthly)
+  .replace('-- MONTHLY_DOCUMENT_REFUND_SCENARIO', () =>
+    read('scripts/verify-subscription-monthly-documents-refunds.sql')
+  );
 const monthlyTransactions = read(
   'scripts/verify-subscription-monthly-transactions.sql'
 ).replace('-- MONTHLY_TIER_SCENARIOS', () =>

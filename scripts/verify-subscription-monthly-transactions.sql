@@ -33,7 +33,7 @@ CREATE TEMP TABLE monthly_input AS SELECT
  (SELECT evidence-ARRAY['offer_reference','customer_tax_note','customer_terms_note'] FROM signup_evidence)
  ||jsonb_build_object('capability_readiness_reference','synthetic separately reviewed enforcement') evidence,
  (SELECT jsonb_agg(jsonb_build_object('tier',tier,'amount_minor',amount_minor,'offer_reference','synthetic exact '||tier,
-  'customer_tax_note','Synthetic tax '||tier,'customer_terms_note','Synthetic terms '||tier,
+  'customer_tax_note','GST not charged — supplier unregistered.','customer_terms_note','Synthetic terms '||tier,
   'customer_refund_note','Synthetic first-payment refund '||tier,'document_treatment','usefulmade_unregistered_invoice_receipt_v1') ORDER BY amount_minor)
  FROM private.subscription_monthly_catalog) offers;
 GRANT SELECT ON monthly_input TO authenticated;

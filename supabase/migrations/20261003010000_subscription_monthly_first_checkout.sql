@@ -514,7 +514,9 @@ DO $capture$ DECLARE spec TEXT; src REGPROCEDURE; dest TEXT; definition TEXT; BE
  'public.subscription_resolve_live_scope(text,uuid,text)',
  'public.subscription_claim_live_recovery_items(text,uuid,integer,uuid)',
  'public.subscription_live_order_for_capture(text,text,uuid)',
- 'public.subscription_live_owner_quote(uuid)'] LOOP
+ 'public.subscription_live_owner_quote(uuid)',
+ 'public.subscription_live_owner_term(uuid)',
+ 'private.subscription_document_candidate(uuid,jsonb)'] LOOP
   src:=spec::REGPROCEDURE;
   SELECT 'private.'||proname||'_before_monthly' INTO dest FROM pg_proc WHERE oid=src;
   IF to_regprocedure(dest||substring(spec FROM position('(' IN spec))) IS NULL THEN
@@ -1131,3 +1133,169 @@ $$;
 ALTER FUNCTION public.subscription_claim_live_recovery_items(TEXT,UUID,INTEGER,UUID) OWNER TO postgres;
 REVOKE ALL ON FUNCTION public.subscription_claim_live_recovery_items(TEXT,UUID,INTEGER,UUID) FROM PUBLIC,anon,authenticated,service_role;
 GRANT EXECUTE ON FUNCTION public.subscription_claim_live_recovery_items(TEXT,UUID,INTEGER,UUID) TO service_role;
+
+-- Post-payment authority resolves only through the immutable first quote/offer.
+-- Current account locale/source changes cannot reprice or disqualify its refund.
+CREATE OR REPLACE FUNCTION private.subscription_monthly_document_contract(p_request_id UUID)
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER SET search_path='' AS $$
+ SELECT EXISTS(SELECT 1 FROM private.subscription_live_quotes q
+ JOIN private.subscription_monthly_offers o ON o.monthly_offer_id=q.monthly_offer_id
+ JOIN private.subscription_monthly_catalog c ON c.contract_version=o.contract_version AND c.catalog_version=o.catalog_version AND c.tier=o.tier
+ JOIN private.subscription_live_offer_approvals a ON a.approval_id=o.approval_id
+ JOIN private.subscription_live_customer_reviews r ON r.review_id=q.customer_review_id
+ WHERE q.request_id=p_request_id AND q.renewal_of_request_id IS NULL
+ AND q.offer_contract_version='monthly_first_v1' AND q.catalog_version='monthly_inr_2026_10_v1'
+ AND q.offer_contract_version=o.contract_version AND q.catalog_version=o.catalog_version
+ AND q.organization_id=o.organization_id AND q.billing_account_id=o.billing_account_id AND q.merchant_id=o.merchant_id
+ AND q.offer_approval_id=o.approval_id AND q.tier=o.tier AND q.amount_minor=o.amount_minor AND q.currency=o.currency
+ AND o.amount_minor=c.amount_minor AND o.currency=c.currency AND o.included_branches=c.included_branches
+ AND o.paid_extra_branch_slots=0 AND c.paid_extra_branch_slots=0
+ AND o.document_treatment='usefulmade_unregistered_invoice_receipt_v1'
+ AND a.offer_contract_version=o.contract_version AND a.catalog_version=o.catalog_version
+ AND a.tier=o.tier AND a.amount_minor=o.amount_minor AND a.currency=o.currency
+ AND a.customer_tax_note=o.customer_tax_note AND a.customer_terms_note=o.customer_terms_note
+ AND a.tax_decision_reference=q.tax_decision_reference AND a.offer_reference=q.offer_reference
+ AND r.monthly_offer_id=o.monthly_offer_id AND r.offer_approval_id=o.approval_id
+ AND r.organization_id=q.organization_id AND r.merchant_id=q.merchant_id AND r.reviewed_by=q.requested_by
+ AND r.commercial_context='customer_sale');
+$$;
+CREATE OR REPLACE FUNCTION public.subscription_live_owner_term(p_organization_id UUID)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE result JSONB; q private.subscription_live_quotes; p private.subscription_live_payments;
+BEGIN
+ result:=private.subscription_live_owner_term_before_monthly(p_organization_id);
+ IF result IS NULL THEN RETURN NULL; END IF;
+ SELECT * INTO q FROM private.subscription_live_quotes WHERE request_id=(result->>'request_id')::UUID;
+ IF q.monthly_offer_id IS NULL THEN RETURN result; END IF;
+ SELECT * INTO p FROM private.subscription_live_payments WHERE request_id=q.request_id;
+ RETURN result||private.subscription_monthly_quote_identity(q.request_id)||jsonb_build_object(
+  'amount_minor',p.amount_minor,'currency',p.currency,'period_start',p.capture_event_at,
+  'payment_state',p.state,'hold_reason',p.hold_reason,'renewal_available',FALSE,
+  'refund_state',(SELECT f.state FROM private.subscription_live_refunds f WHERE f.provider_payment_id=p.provider_payment_id),
+  'refund_review_reason',(SELECT f.review_reason FROM private.subscription_live_refunds f WHERE f.provider_payment_id=p.provider_payment_id));
+END;
+$$;
+CREATE OR REPLACE FUNCTION private.subscription_document_candidate(p_request_id UUID,p_issuer JSONB)
+RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE
+ q private.subscription_live_quotes; p private.subscription_live_payments;
+ t private.subscription_live_terms; g private.subscription_live_grants;
+ a private.organization_product_access; r private.subscription_live_customer_reviews;
+ o private.subscription_live_offer_approvals; b public.invoice_profiles;
+ v_day DATE; v_year INTEGER; v_next INTEGER; v_suffix TEXT;
+BEGIN
+ SELECT * INTO q FROM private.subscription_live_quotes WHERE request_id=p_request_id;
+ IF q.monthly_offer_id IS NULL THEN RETURN private.subscription_document_candidate_before_monthly(p_request_id,p_issuer); END IF;
+ PERFORM private.subscription_monthly_lock_sources(q.organization_id);
+ IF NOT private.subscription_monthly_document_contract(p_request_id)
+  OR NOT private.subscription_monthly_current(q.monthly_offer_id,q.requested_by,FALSE) THEN
+  RAISE EXCEPTION 'Exact monthly document contract and unchanged reviewed source required' USING ERRCODE='55000'; END IF;
+ -- Issuer is supplied from the existing private operator review, never inferred
+ -- from a gym's own invoice profile. Other supplier/tax treatments need review.
+ IF p_issuer IS NULL OR jsonb_typeof(p_issuer)<>'object'
+  OR p_issuer->>'name' IS DISTINCT FROM 'UsefulMade'
+  OR p_issuer->>'email' IS DISTINCT FROM 'contact@usefulmade.com'
+  OR coalesce(length(btrim(p_issuer->>'address')),0) NOT BETWEEN 1 AND 2000
+  OR coalesce(length(btrim(p_issuer->>'review_reference')),0) NOT BETWEEN 1 AND 1000
+  OR p_issuer - ARRAY['name','email','address','review_reference'] <> '{}'::JSONB THEN
+  RAISE EXCEPTION 'Reviewed private supplier details required' USING ERRCODE='22023'; END IF;
+ SELECT * INTO q FROM private.subscription_live_quotes WHERE request_id=p_request_id;
+ SELECT * INTO p FROM private.subscription_live_payments WHERE request_id=p_request_id;
+ SELECT * INTO t FROM private.subscription_live_terms WHERE request_id=p_request_id;
+ SELECT * INTO g FROM private.subscription_live_grants WHERE organization_id=q.organization_id;
+ SELECT * INTO a FROM private.organization_product_access WHERE organization_id=q.organization_id;
+ SELECT * INTO r FROM private.subscription_live_customer_reviews WHERE review_id=q.customer_review_id;
+ SELECT * INTO o FROM private.subscription_live_offer_approvals WHERE approval_id=q.offer_approval_id;
+ SELECT * INTO b FROM public.invoice_profiles WHERE account_id=q.billing_account_id;
+ IF q.request_id IS NULL OR p.provider_payment_id IS NULL OR t.request_id IS NULL
+  OR r.review_id IS NULL OR r.commercial_context<>'customer_sale'
+  OR r.organization_id IS DISTINCT FROM q.organization_id
+  OR r.offer_approval_id IS DISTINCT FROM q.offer_approval_id
+  OR r.merchant_id IS DISTINCT FROM q.merchant_id
+  OR r.reviewed_by IS DISTINCT FROM q.requested_by OR r.revoked_at IS NOT NULL
+  OR q.renewal_of_request_id IS NOT NULL OR q.currency<>'INR'
+  OR a.version IS DISTINCT FROM q.source_access_version+1
+  OR p.state<>'verified' OR p.hold_reason IS NOT NULL OR p.provider_mode<>'live'
+  OR p.organization_id IS DISTINCT FROM q.organization_id OR p.merchant_id IS DISTINCT FROM q.merchant_id
+  OR p.amount_minor IS DISTINCT FROM q.amount_minor OR p.currency IS DISTINCT FROM q.currency
+  OR t.provider_payment_id IS DISTINCT FROM p.provider_payment_id OR t.organization_id IS DISTINCT FROM q.organization_id
+  OR t.merchant_id IS DISTINCT FROM p.merchant_id OR t.tier IS DISTINCT FROM q.tier
+  OR t.period_start IS DISTINCT FROM p.capture_event_at
+  OR g.request_id IS DISTINCT FROM q.request_id OR g.provider_payment_id IS DISTINCT FROM p.provider_payment_id
+  OR g.merchant_id IS DISTINCT FROM p.merchant_id OR g.provider_mode IS DISTINCT FROM 'live'
+  OR g.period_start IS DISTINCT FROM t.period_start OR g.paid_through_end IS DISTINCT FROM t.paid_through_end
+  OR g.refund_confirmed_at IS NOT NULL OR a.suspended_at IS NOT NULL
+  OR a.mode IS DISTINCT FROM 'manual' OR a.access_starts_at IS DISTINCT FROM t.period_start
+  OR a.access_ends_at IS DISTINCT FROM t.paid_through_end OR a.access_ends_at<=clock_timestamp()
+  OR o.approval_id IS NULL OR o.customer_tax_note IS DISTINCT FROM 'GST not charged — supplier unregistered.'
+  OR o.tax_decision_reference IS DISTINCT FROM q.tax_decision_reference
+  OR b.account_id IS NULL OR NOT b.is_complete OR nullif(btrim(b.legal_name),'') IS NULL
+  OR EXISTS(SELECT 1 FROM private.subscription_live_refunds f WHERE f.provider_payment_id=p.provider_payment_id)
+ THEN RAISE EXCEPTION 'Verified customer sale, paid access and exact document review required' USING ERRCODE='55000'; END IF;
+ -- UsefulMade's supplier financial year uses its reviewed India billing basis.
+ -- The gym's capture/term timestamps and timezone remain frozen payment facts.
+ v_day:=(clock_timestamp() AT TIME ZONE 'Asia/Kolkata')::DATE;
+ v_year:=extract(year FROM v_day)::INTEGER - CASE WHEN extract(month FROM v_day)<4 THEN 1 ELSE 0 END;
+ SELECT coalesce(max(sequence_number),0)+1 INTO v_next FROM private.subscription_live_document_issues WHERE financial_year=v_year;
+ IF v_next>999999 THEN RAISE EXCEPTION 'Document series exhausted' USING ERRCODE='55000'; END IF;
+ v_suffix:=v_year::TEXT||'-'||right((v_year+1)::TEXT,2)||'/'||lpad(v_next::TEXT,6,'0');
+ RETURN jsonb_build_object('request_id',q.request_id,'organization_id',q.organization_id,
+  'billing_account_id',q.billing_account_id,'customer_review_id',r.review_id,
+  'offer_approval_id',q.offer_approval_id,'offer_reference',q.offer_reference,
+  'tax_decision_reference',q.tax_decision_reference,'document_review_reference',r.tax_receipt_review_reference,
+  'refund_policy_reference',o.refund_policy_reference,'tax_note',o.customer_tax_note,
+  'issuer',p_issuer,'buyer',jsonb_build_object('legal_name',b.legal_name,'business_name',b.business_name,
+   'address_line1',b.address_line1,'address_line2',b.address_line2,'city',b.city,'state',b.state,
+   'postal_code',b.postal_code,'country',b.country,'phone',b.phone,'email',b.email),
+  'amount_minor',p.amount_minor,'currency',p.currency,'provider_payment_id',p.provider_payment_id,
+  'provider_order_id',p.provider_order_id,'merchant_id',p.merchant_id,'capture_event_at',p.capture_event_at,
+  'period_start',t.period_start,'paid_through_end',t.paid_through_end,'billing_timezone',p.billing_timezone,
+  'tier',q.tier,'issue_date',v_day,'financial_year',v_year,'sequence_number',v_next,
+  'invoice_number','UM/'||v_suffix,'receipt_number','UM-R/'||v_suffix,
+  'document_treatment','usefulmade_unregistered_invoice_receipt_v1')||private.subscription_monthly_quote_identity(p_request_id);
+END;
+$$;
+ALTER FUNCTION private.subscription_document_candidate(UUID,JSONB) OWNER TO postgres;
+REVOKE ALL ON FUNCTION private.subscription_document_candidate(UUID,JSONB) FROM PUBLIC,anon,authenticated,service_role;
+
+CREATE OR REPLACE FUNCTION private.subscription_guard_starter_pilot_refund_review()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE v_quote private.subscription_live_quotes;
+BEGIN
+  SELECT quote.* INTO v_quote FROM private.subscription_live_quotes quote
+   JOIN private.subscription_live_payments p ON p.request_id=quote.request_id WHERE p.provider_payment_id=NEW.provider_payment_id;
+  IF v_quote.monthly_offer_id IS NOT NULL THEN
+   IF NOT private.subscription_monthly_document_contract(v_quote.request_id)
+    OR v_quote.organization_id IS DISTINCT FROM NEW.organization_id OR v_quote.merchant_id IS DISTINCT FROM NEW.merchant_id
+    OR v_quote.amount_minor IS DISTINCT FROM NEW.amount_minor OR v_quote.currency IS DISTINCT FROM NEW.currency
+    OR NOT EXISTS(SELECT 1 FROM public.organization_memberships m WHERE m.organization_id=NEW.organization_id AND m.user_id=NEW.requested_by AND m.role='owner')
+    OR NOT EXISTS(SELECT 1 FROM private.subscription_live_offer_approvals a WHERE a.approval_id=v_quote.offer_approval_id AND a.refund_policy_reference=NEW.approved_policy_reference) THEN
+    RAISE EXCEPTION 'Refund review must match the exact first monthly offer policy' USING ERRCODE='55000'; END IF;
+   RETURN NEW;
+  END IF;
+  -- Original NULL-identity Starter contract remains unchanged.
+  IF NOT EXISTS(SELECT 1 FROM private.subscription_live_payments p
+    JOIN private.subscription_live_quotes q ON q.request_id=p.request_id
+    JOIN private.subscription_live_offer_approvals a ON a.approval_id=q.offer_approval_id
+    WHERE p.provider_payment_id=NEW.provider_payment_id AND p.organization_id=NEW.organization_id
+      AND q.renewal_of_request_id IS NULL
+      AND EXISTS(SELECT 1 FROM public.organization_memberships m
+        WHERE m.organization_id=NEW.organization_id AND m.user_id=NEW.requested_by AND m.role='owner')
+      AND q.tier='starter' AND q.amount_minor=79900 AND q.currency='INR'
+      AND (q.organization_id='8826d9aa-03f2-4ad7-ae91-0553052131f8'::UUID OR (q.customer_review_id IS NOT NULL AND private.subscription_customer_review_active(q.organization_id,q.customer_review_id)))
+      AND q.merchant_id='acc_TCJwBqanN9LTrK'
+      AND NEW.approved_policy_reference=a.refund_policy_reference) THEN
+    RAISE EXCEPTION 'Refund review must match the first Starter offer policy'
+      USING ERRCODE='55000'; END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION private.subscription_monthly_document_contract(UUID) OWNER TO postgres;
+ALTER FUNCTION public.subscription_live_owner_term(UUID) OWNER TO postgres;
+ALTER FUNCTION private.subscription_guard_starter_pilot_refund_review() OWNER TO postgres;
+REVOKE ALL ON FUNCTION private.subscription_monthly_document_contract(UUID),
+ private.subscription_guard_starter_pilot_refund_review() FROM PUBLIC,anon,authenticated,service_role;
+REVOKE ALL ON FUNCTION public.subscription_live_owner_term(UUID) FROM PUBLIC,anon,authenticated,service_role;
+GRANT EXECUTE ON FUNCTION public.subscription_live_owner_term(UUID) TO authenticated;
