@@ -2,10 +2,12 @@
 
 **3 October 2026: Built locally, closed; cloud installation/deployment/activation
 unperformed.** Tasks 1–9 passed independent task reviews. The final whole-change
-review returned Needs fixes for F1 root recovery; the single correction is
-implemented and verified, awaiting the controller-owned scoped re-review.
-Final source readiness remains pending. M1 baseline jsdom noise is nonblocking
-and unchanged; its final disposition belongs to the controller.
+review initially returned Needs fixes for F1 root recovery. One fix wave and one
+scoped re-review are complete: **F1 ADDRESSED; scoped review Approved; closed
+local source readiness Approved.** No new Critical/Important/Minor breakage or
+out-of-scope issue was identified. Task 9's independent Spec Compliance and
+Quality verdicts are Approved. M1 is deferred to separate nonblocking harness
+cleanup under Ruling 18.
 This record describes performed
 local evidence, not a current Production inspection or authority to open sales.
 The approved [design](superpowers/specs/2026-10-03-three-tier-monthly-checkout-design.md)
@@ -247,7 +249,7 @@ pass explicit Prettier check; `git diff --check` passes. No source changes were
 needed during delivery. Existing nine non-failing jsdom scrollTo diagnostics
 remain; actual browser checks cover the changed UI controls.
 
-**Final F1 fix verification (3 October):** the actual `ProductAccessGate` plus
+**Final F1 fix verification (3 October, `baaef0816fe4d103111c0e0f36852ccb5611ef21`):** the actual `ProductAccessGate` plus
 production Live/Customer status children reproduce the bound pending order and
 held capture disappearing with all purchase flags closed (14 tests: 8 failed /
 6 passed before the fix). Final expanded recovery suite passes 18 tests, including
@@ -278,10 +280,21 @@ left untouched.
 
 The [plan execution record](superpowers/plans/2026-10-03-three-tier-monthly-checkout.md#execution-record-and-rulings)
 retains task commits, review outcomes and binding execution rulings with their
-reasons/costs. All 17 current rulings, including the eight final declined-scope
-decisions,
-are preserved verbatim in that durable plan ledger. Task 9 independent delivery
-review is Approved. The final broad review returned Needs fixes for F1; the
-implemented correction awaits one scoped re-review before the controller may
-record final readiness and M1 disposition. Local validation supplies no rollout
-authority.
+reasons/costs. All 18 current rulings, including the eight final declined-scope
+decisions and M1's separate-cleanup disposition, are preserved verbatim in that
+durable plan ledger. Task 9 independent Spec Compliance and Quality reviews are
+Approved. The broad review's F1 Needs fixes finding was addressed by the single
+`baaef081` fix wave; the single scoped re-review verified F1 closure and found no
+new Critical/Important/Minor breakage or out-of-scope issue. Closed local source
+readiness is Approved; no blocking finding remains.
+
+This final delivery record is metadata only. Source/tests remain unchanged since
+verified and reviewed `baaef0816fe4d103111c0e0f36852ccb5611ef21`: root 44 tests,
+covering 214, full 549 files/4916 tests, lint/types/141-page build and explicit
+script 322 tests. The scoped reviewer inspected the supplied fix diff and
+retained logs, without rerunning suites or performing cloud/provider/database
+acceptance. Four-document Prettier and staged/current diff checks are the only
+new validation for this metadata step. Local approval supplies no publication,
+installation, deployment, activation, genuine sale/refund/document or rollout
+authority; the separate release gates and private operator PDF boundary above
+remain in force.

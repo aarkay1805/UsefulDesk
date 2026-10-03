@@ -31,16 +31,22 @@ mocks and actual-component synthetic 320/390/1280px keyboard/locale/status check
 passed. Final `npm run verify` passes lint/typecheck, **549 files / 4916 tests**
 and production build (**141 pages**); two explicit Vitest script suites pass
 **322 tests**; final root pair 44 tests and covering 214 tests pass. Changed-file
-formatting and diff checks pass. Final broad review returned Needs fixes for F1;
-the correction awaits scoped re-review. M1 remains unchanged/nonblocking in
+formatting and diff checks pass. Task 9 Spec Compliance and Quality are Approved.
+The final broad review's F1 finding was fixed at `baaef081`; one scoped re-review
+Approved F1 closure and found no new Critical/Important/Minor breakage or
+out-of-scope issue. **Closed local source readiness: Approved.** M1's actual
+10 non-failing full-run diagnostics are deferred to separate harness cleanup in
 [the operating record](../docs/subscription-monthly-first-checkout.md).
 No current Production state was inspected or new genuine acceptance created.
 
-**Next:** scoped F1/fix-induced review and final source-readiness/M1 disposition;
-separately approved cloud
+Source/tests remain unchanged since verified and reviewed
+`baaef0816fe4d103111c0e0f36852ccb5611ef21`; this final four-record update is metadata
+only, with formatting/diff checks and no runtime-suite repeat.
+
+**Next:** separately approved cloud
 installation/deployment with flags closed; genuine per-customer commercial,
 issuer/buyer/tax/provider/document acceptance; global readiness/activation and
-exact scoped opening. Final local readiness awaits the scoped review verdict.
+exact scoped opening. Local source approval supplies no rollout authority.
 Renewals under this catalog, upgrades/downgrades/restarts, branch add-ons, annual
 pricing, automatic debit, manual/complimentary conversion and native Checkout
 remain outside this change. Original Starter/internal/sale/renewal history remains

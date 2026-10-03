@@ -1,6 +1,6 @@
 # Three-tier monthly first checkout Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Completed execution is recorded below; unchecked items are pending review.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Completed execution and Approved closed local source readiness are recorded below; publication and genuine rollout acceptance remain separate.
 
 **Goal:** Let an actual organization owner buy a reviewed first monthly Starter, Growth or Ultimate term after the shared trial expires, with verified payment and preserved existing billing obligations.
 
@@ -267,7 +267,7 @@ serially; original migration files were preserved.
 
 **Interfaces:** Consumes actual Task 1–8 results; produces a reviewable local source/migration/test/evidence packet with no rollout authority. Correct current subscription product statements while preserving dated historical evidence and original Starter rollout records.
 
-- [x] **Step 1: Reconcile the approved spec against the final diff.** Pin every spec section to its implementing test/task; inspect the five Review Focus cases and original/new contract dispatch. Remove any unintentionally actionable renewal/upgrade/add-on/restart or trial change. Review the final identity chain from commercial offer through payment, document and refund. Task 9 performs its own spec reconciliation before the documentation commit. Per the execution ruling, the controller then performs independent Task 9 and final whole-branch reviews; fixes require covering/full validation and corrected evidence. These independent reviews remain separate unchecked items below.
+- [x] **Step 1: Reconcile the approved spec against the final diff.** Pin every spec section to its implementing test/task; inspect the five Review Focus cases and original/new contract dispatch. Remove any unintentionally actionable renewal/upgrade/add-on/restart or trial change. Review the final identity chain from commercial offer through payment, document and refund. Task 9 performs its own spec reconciliation before the documentation commit. Per the execution ruling, the controller then performs independent Task 9 and final whole-branch reviews; fixes require covering/full validation and corrected evidence. These independent reviews and the single scoped F1 re-review are recorded as completed below.
 - [x] **Step 2: Write final documentation from performed evidence.** State implemented catalog/version/tier authority, exact supported document treatment, scoped archive consequence, capability-readiness dependency, initiation/UI containment, retained GET recovery and all actual local results. Mark this feature **Built locally, closed; cloud installation/deployment/activation unperformed** in roadmap/changelog. Remove or revise its corresponding pending first-checkout entry and inaccurate current “higher-tier contents unapproved” claims; do not rewrite historical entries or imply later billing scope is approved. Preserve genuine internal/Starter evidence separately from synthetic new-tier fixtures.
 - [x] **Step 3: Run changed-file formatting and complete required verification.** Use explicit changed-file paths with `npx prettier --check`; run `npm run verify` (lint, typecheck, all Vitest tests and production build), `npx vitest run scripts/production-env-readiness.test.mjs scripts/lib/disposable-postgres.test.mjs`, and `git diff --check`. Expect all to pass. If code changes after a failure/review, repeat the affected checks and the required final suite; do not record prior results as final results.
 - [x] **Step 4: Commit the delivery documentation locally.** `git commit -m "docs: record closed three-tier monthly checkout"` with explicit doc files. Confirm clean `git status --short`, final local commits, no temporary UI fixtures, and no task-started local containers running. Do not push.
@@ -285,9 +285,12 @@ independently approved including their recorded fix rounds. Task 9 delivery
 passed independent Spec Compliance and Quality reviews (Approved).
 The final whole-change review found F1 (Important/P2): closed presentation hid
 existing unpaid/held monthly recovery from the expired-trial root. The single
-fix wave is implemented and verified; final readiness remains pending the
-controller-owned scoped re-review. M1 baseline jsdom noise is nonblocking and
-unchanged, with final disposition reserved for the controller.
+fix wave was implemented and verified at `baaef0816fe4d103111c0e0f36852ccb5611ef21`.
+The single controller-owned scoped re-review is **Approved**: F1 **ADDRESSED**,
+no new Critical/Important/Minor breakage or out-of-scope issue. **Closed local
+source readiness: Approved.** M1's non-failing diagnostic class is deferred to
+separate harness cleanup under Ruling 18. This final record update changes only
+metadata; source/tests remain unchanged since that verified/reviewed commit.
 The deliverable is **Built locally, closed; cloud installation/deployment/activation
 unperformed**. No implementation-time money or cloud action is authorized.
 
@@ -312,7 +315,7 @@ commercial/provider acceptance.
 | 6    | `d89492a4`, refactor `fb2a523f`            | All-tier frozen term/documents/full refunds, source/issuer/buyer/treatment denials, local-day7/day8 after timezone edit, numbering and issued readback; original parity. One shared candidate builder fixes duplicate common logic. Private PDF workflow boundary documented; no renderer added. Independent review/fix review approved.                                                                                                             |
 | 7    | `ce01c7bd`, fix `f2c9947d`                 | Final 14 covering files / 117 tests; 548 files / 4886 full tests after frozen refresh/request and delayed-SDK expiry fixes. Actual-component synthetic phone/desktop, keyboard/archive/locale, 33 final status-width outcomes plus focused fix rerenders; fixture/server/tab cleanup. Independent review/fix review approved.                                                                                                                        |
 | 8    | `f12a4b56`                                 | Negative control fails for missing monthly source guard, then real independent-session all-tier claim/capture/refund/document/source/restore races pass. Six serial full-target runners exit0, source fingerprints/NULL legacy identity/Test/gym preservation, actual all-tier RLS and API/worker readiness matrix. 548 files / 4898 tests and 12 covering files / 278 tests. No product defect or source fix required; independent review approved. |
-| 9    | `d694053f`                                 | Spec/docs reconciliation; full verify lint/types/548 files/4898 tests/141-page build, explicit two Vitest script files/322 tests, nine-file formatting/diff/cleanup pass; actual final results are recorded in the operating record. Independent Task 9 Spec Compliance and Quality Approved; final whole-change review Needs fixes (F1), single root-recovery fix awaiting scoped review.                                                           |
+| 9    | `d694053f`                                 | Spec/docs reconciliation; full verify lint/types/548 files/4898 tests/141-page build, explicit two Vitest script files/322 tests, nine-file formatting/diff/cleanup pass; actual final results are recorded in the operating record. Independent Task 9 Spec Compliance and Quality Approved; final whole-change review found F1; fix `baaef081` and one scoped re-review Approved, F1 addressed, closed local source readiness Approved.            |
 
 Tasks 1–8 task steps above are checked from performed RED/GREEN/commit evidence,
 not inferred from a plan. Step wording describing expected failure retains the
@@ -334,8 +337,24 @@ whole source public/private/auth fingerprints passed on failure and success.
       2 files / 44 tests, covering 17 files / 214 tests; `npm run verify` passes
       lint/types/549 files/4916 tests/141-page build; explicit script Vitest
       2 files / 322 tests. Format/diff and stopped-DB cleanup checks pass.
-- [ ] Controller-owned scoped re-review of F1 and fix-induced behavior; final source
-      readiness and M1 disposition remain pending.
+- [x] Single controller-owned scoped re-review of `d694053f` → `baaef081`:
+      Approved; F1 ADDRESSED, no new Critical/Important/Minor breakage or
+      out-of-scope issue. Closed local source readiness Approved.
+- [x] M1 disposition: defer the non-failing scrollTo diagnostic class to a separate
+      harness cleanup under Ruling 18. Actual final full count 10; isolated new
+      root/root-pair/covering logs contain none. No cause of variation is claimed.
+- [x] Final metadata-only delivery record: source/tests unchanged since verified
+      and reviewed `baaef0816fe4d103111c0e0f36852ccb5611ef21`; four-document
+      formatting/diff/cleanup checks, without rerunning runtime suites.
+
+The full broad review returned Needs fixes for F1, with no Critical or financial
+authority bypass. Exactly one combined fix wave and one scoped re-review closed
+F1. The reviewer checked actual root dispatch/owner RPC/catalog identity,
+context cancellation/flag closure/original compatibility and retained final
+validation; no new issue or extra acceptance requirement was found. This
+approval covers closed local source only and grants no release or financial
+authority. All nine independent task reviews, including Task 9's Spec Compliance
+and Quality Approved verdicts, are complete.
 
 The final F1 correction lives in `product-access-gate.tsx` and the retained
 `product-access-recovery.test.tsx`. Before the fix, the 14-test production-root
@@ -348,7 +367,7 @@ failed quote-discovery read. No financial SQL/provider source or shared UI maste
 No new browser matrix was needed for the unchanged status layout; prior Task 7
 browser evidence is retained with its original standalone-component limitation.
 
-The following 17 binding rulings record the reason and cost of execution changes:
+The following 18 binding rulings record the reason and cost of execution changes:
 
 - Final whole-branch review runs after Task 9 delivery/documentation commit; Task 9 performs its own spec reconciliation first, and any final fixes receive covering/full required validation and corrected evidence — avoids a review/documentation dependency cycle — cost if wrong: one further documentation correction, no rollout authority.
 
@@ -383,6 +402,8 @@ The following 17 binding rulings record the reason and cost of execution changes
 - Accept declining later renewals/annual/non-INR/add-ons/proration/upgrades/downgrades/restarts and paid/manual/complimentary conversion — explicitly excluded first-purchase scope; accidental authority was reviewed — cost if wrong: a later approved billing project must extend the contract.
 
 - Accept declining redesign of the disabled global capability fallback/general rollout — existing behavior was deliberately preserved and paid enforcement proven with the separately enabled gate — cost if wrong: separate global policy/readiness work before opening monthly offers.
+
+- Defer the non-failing jsdom scrollTo diagnostic class to a separate harness cleanup — final reviewer and scoped reviewer both judge it nonblocking, actual new root/covering tests emit none, and global cleanup is unrelated to the approved recovery fix — cost if wrong: full-suite output remains noisy and could obscure future diagnostics; actual final count10 (prior12/historical9) is disclosed without claiming a cause.
 
 Both final script files import Vitest, and the disposable suite uses `vi.mock`.
 The earlier failed Node test invocation was a corrected tooling mistake, not
