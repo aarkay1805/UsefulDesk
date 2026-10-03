@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS private.subscription_monthly_offer_sets (
  merchant_id TEXT NOT NULL CHECK(merchant_id ~ '^acc_[A-Za-z0-9]+$'),
  owner_user_id UUID NOT NULL REFERENCES auth.users(id),
  source_access_version INTEGER NOT NULL CHECK(source_access_version>0),
- active_account_ids UUID[] NOT NULL CHECK(cardinality(active_account_ids) BETWEEN 1 AND 5),
+ active_account_ids UUID[] NOT NULL CHECK(cardinality(active_account_ids)>=1),
  source_snapshot TEXT NOT NULL CHECK(source_snapshot ~ '^[0-9a-f]{64}$'),
  commercial_snapshot TEXT NOT NULL CHECK(commercial_snapshot ~ '^[0-9a-f]{64}$'),
  operator_user_id UUID NOT NULL REFERENCES auth.users(id),

@@ -12,6 +12,22 @@ DO $$ DECLARE t TEXT; BEGIN
   EXECUTE format('SELECT pg_temp.assert_true(NOT EXISTS(SELECT 1 FROM private.%I WHERE monthly_offer_id IS NOT NULL),%L)',t,'Historical monthly attachment was backfilled');
  END LOOP;
 END $$;
+-- Exercise the actual source-roster CHECK independently of the closed
+-- materialization guard. Source facts may be stale/over capacity before archives.
+CREATE TEMP TABLE monthly_source_roster_constraint(active_account_ids UUID[] NOT NULL);
+DO $$ DECLARE c RECORD; BEGIN
+ FOR c IN SELECT pg_get_constraintdef(oid) definition FROM pg_constraint
+  WHERE conrelid='private.subscription_monthly_offer_sets'::regclass AND contype='c'
+   AND conkey=ARRAY[(SELECT attnum FROM pg_attribute
+     WHERE attrelid='private.subscription_monthly_offer_sets'::regclass AND attname='active_account_ids')] LOOP
+  EXECUTE 'ALTER TABLE pg_temp.monthly_source_roster_constraint ADD '||c.definition;
+ END LOOP;
+END $$;
+INSERT INTO monthly_source_roster_constraint(active_account_ids)
+ SELECT array_agg(id ORDER BY id) FROM (SELECT gen_random_uuid() id FROM generate_series(1,6)) roster;
+SELECT pg_temp.assert_true((SELECT cardinality(active_account_ids)=6 FROM monthly_source_roster_constraint),'Over-cap source roster lost branches');
+SELECT pg_temp.expect_error($q$INSERT INTO monthly_source_roster_constraint VALUES(ARRAY[]::UUID[])$q$,'23514');
+DROP TABLE monthly_source_roster_constraint;
 -- No operator, owner-review or opening authority exists in this foundation.
 SELECT pg_temp.assert_true(NOT EXISTS(SELECT 1 FROM private.subscription_monthly_offer_sets WHERE owner_review_enabled OR opening_enabled OR opened_at IS NOT NULL),'Monthly opening authority seeded');
 SELECT pg_temp.assert_true((SELECT count(*)=2 AND bool_and(pg_get_expr(d.adbin,d.adrelid)='false')
