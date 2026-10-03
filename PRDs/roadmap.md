@@ -1,8 +1,16 @@
 # Roadmap
 
-## Built locally — Three-tier monthly first checkout (2026-10-03)
+## Production schema installed, checkout closed — Three-tier monthly first checkout (2026-10-03)
 
-**Built locally, closed; cloud installation/deployment/activation unperformed.**
+**Production schema installed; application publication and monthly activation pending.**
+The exact reviewed migration is connector-installed as `20261003174423` after a
+successful fresh database/full Storage encrypted backup. All 33 existing relation
+fingerprints, 34 final source bodies, 11 original function copies and caller
+privileges pass. Catalog rows are exact; monthly offers/opening authority remain
+empty and both new flags absent. Justin's original payment, version-5 access,
+ready setup and original PDF bytes are preserved. See the
+[installation receipt](../docs/subscription-monthly-production-installation-2026-10-03.md).
+
 An actual expired, unsuspended trial owner can select a reviewed first monthly
 Starter/Growth/Ultimate offer under `monthly_first_v1` /
 `monthly_inr_2026_10_v1`: 79900/149900/399900 INR paise, 1/1/5 included active
@@ -13,7 +21,8 @@ immutable quote/order identity, source locks, owned holds and GET-only recovery
 are implemented. New flags remain false/unset; no UI opening switch exists.
 
 The approved base-tier capability matrix is implemented and tested with existing
-global enforcement enabled; separate readiness/review/activation remains required.
+global enforcement enabled; Production already has that setting enabled, while
+actual monthly customer capability readiness/review remains required.
 This change does not activate that gate or alter its disabled fallback. Monthly
 paid status remains reachable with both new flags closed and always disables
 renewal. The final F1 correction also makes existing monthly quotes, bound orders
@@ -37,16 +46,18 @@ Approved F1 closure and found no new Critical/Important/Minor breakage or
 out-of-scope issue. **Closed local source readiness: Approved.** M1's actual
 10 non-failing full-run diagnostics are deferred to separate harness cleanup in
 [the operating record](../docs/subscription-monthly-first-checkout.md).
-No current Production state was inspected or new genuine acceptance created.
+Later essential preflight adds 682 passing targeted tests and both monthly
+rollback/concurrency SQL runners. The performed Production schema checks are
+recorded above; no genuine new-catalog customer acceptance was created.
 
-Source/tests remain unchanged since verified and reviewed
-`baaef0816fe4d103111c0e0f36852ccb5611ef21`; this final four-record update is metadata
-only, with formatting/diff checks and no runtime-suite repeat.
+Application source/tests remain unchanged since verified and reviewed
+`baaef0816fe4d103111c0e0f36852ccb5611ef21`; the installation receipt and read-only
+preservation query record deployment prerequisites without changing app behavior.
 
-**Next:** separately approved cloud
-installation/deployment with flags closed; genuine per-customer commercial,
-issuer/buyer/tax/provider/document acceptance; global readiness/activation and
-exact scoped opening. Local source approval supplies no rollout authority.
+**Next:** publish/deploy main with monthly flags closed, verify CI/canonical
+deployment and deployed billing; then genuine per-customer commercial,
+issuer/buyer/tax/provider/document acceptance, capability readiness and exact
+scoped opening. Source/schema installation supplies no customer opening authority.
 Renewals under this catalog, upgrades/downgrades/restarts, branch add-ons, annual
 pricing, automatic debit, manual/complimentary conversion and native Checkout
 remain outside this change. Original Starter/internal/sale/renewal history remains

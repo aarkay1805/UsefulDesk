@@ -1,19 +1,29 @@
-# Three-tier monthly first checkout — closed local delivery
+# Three-tier monthly first checkout — closed Production schema
 
-**3 October 2026: Built locally, closed; cloud installation/deployment/activation
-unperformed.** Tasks 1–9 passed independent task reviews. The final whole-change
+**3 October 2026: Production schema installed and verified; application
+publication and monthly activation pending.** Exact migration history
+`20261003174423` preserves all 33 existing relation fingerprints and the original
+Starter payment/access/documents. Both monthly switches remain absent, with zero
+monthly offers or opening authority. Fresh essential tests, a full encrypted
+backup and the performed Production checks are recorded in the
+[installation receipt](subscription-monthly-production-installation-2026-10-03.md).
+
+## Original closed local delivery review
+
+Tasks 1–9 passed independent task reviews. The final whole-change
 review initially returned Needs fixes for F1 root recovery. One fix wave and one
 scoped re-review are complete: **F1 ADDRESSED; scoped review Approved; closed
 local source readiness Approved.** No new Critical/Important/Minor breakage or
 out-of-scope issue was identified. Task 9's independent Spec Compliance and
 Quality verdicts are Approved. M1 is deferred to separate nonblocking harness
 cleanup under Ruling 18.
-This record describes performed
-local evidence, not a current Production inspection or authority to open sales.
+The initial delivery review describes performed local evidence; the separate
+installation receipt records the later Production inspection and closed migration.
 The approved [design](superpowers/specs/2026-10-03-three-tier-monthly-checkout-design.md)
 and [execution plan](superpowers/plans/2026-10-03-three-tier-monthly-checkout.md)
-define the scope. No genuine new-catalog offer, customer commercial review,
-provider capture/refund, document issuance, backup or rollout evidence was created.
+define the scope. Initial local delivery created no genuine new-catalog offer,
+customer commercial review, provider capture/refund, document issuance or rollout
+acceptance. The later schema installation creates none of those customer facts.
 
 ## Exact contract and preserved history
 
@@ -89,8 +99,9 @@ set. Refresh and **new operator preparation** are required afterward. No Test
 archive endpoint is enabled for Live traffic.
 
 Monthly opening also requires the existing global capability/branch gate to be
-separately ready, reviewed and enabled. This implementation does not activate
-that gate and does not assert its current Production state. Branch/capability
+separately ready, reviewed and enabled. Its Production setting was verified
+already enabled on 3 October; monthly installation did not change it.
+Branch/capability
 limits were proven with enforcement **enabled**; the existing disabled-gate
 fallback is unchanged. A monthly initiation flag independently enables neither
 the capability matrix nor branch limits. Growth/Ultimate gym Payment Links and
@@ -178,12 +189,13 @@ recovery. The existing scanner retains five-item bounds and leases; containment
 does not erase an issued order or revoke already committed payment history.
 See the [financial recovery runbook](subscription-financial-recovery-runbook.md).
 
-Release requires separate source review, approved cloud migration connector
-installation (never `db push`), deployment with closed flags, genuine commercial/
-provider/document acceptance, separately reviewed global enforcement readiness/
-activation, and exact per-customer one-time opening. No cloud staging resume,
-Production read/migration, push/deploy, provider/network payment action,
-WhatsApp/automation or genuine offer/evidence creation occurred in this project.
+The approved cloud migration connector installation is complete (never `db push`).
+Application deployment with closed flags, genuine commercial/provider/document
+acceptance, separately reviewed global enforcement readiness and exact
+per-customer one-time opening remain required. The installation receipt records
+the performed Production checks and backup. No cloud Staging resume, main
+push/deploy, provider payment action, WhatsApp send or genuine monthly offer
+creation occurred during this installation.
 
 ## Durable acceptance and spec coverage
 
