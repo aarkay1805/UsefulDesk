@@ -3,7 +3,13 @@
 **2 October 2026: implementation and local acceptance complete. Production
 installation, deployment and renewal opening are pending.** This packet covers
 STEP 1 only. It authorizes no customer charge, refund, send or gate change.
-Billing Staging remains paused; no cloud database was changed for this work.
+Those are the original STEP 1 observations. On **3 October**, the exact source
+was installed closed in isolated Billing Staging and passed connector rollback
+and real Auth/PostgREST plus signed synthetic-webhook acceptance. All baseline
+counts/settings and hard closure were restored before Staging was re-paused.
+Production installation, app publication, genuine provider acceptance and
+renewal opening remain pending; see the
+[coordinated packet](subscription-coordinated-release-2026-10-03.md).
 
 ## Exact scope and deadline
 
@@ -136,12 +142,12 @@ horizontal overflow. This is not authenticated cloud or provider acceptance.
 
 ## Remaining genuine acceptance before opening
 
-1. Restore the explicitly selected Billing Staging target under its recorded
-   operating procedure, inventory its empty baseline and install this exact
-   source closed through the connector. Exercise real Auth/PostgREST grants,
-   owner/admin/staff/outsider/cross-tenant denial and signed callback/webhook
-   routing with synthetic non-production identities. Preserve the historical
-   Test project and pause staging again after acceptance.
+1. **Isolated cloud step complete, 3 October:** exact source installed closed,
+   real Auth/PostgREST owner/admin/staff/outsider/cross-tenant boundaries and
+   signed synthetic-webhook routing accepted. All baseline counts/settings and
+   hard closure were restored before Staging was re-paused. See the
+   [coordinated evidence](subscription-coordinated-release-2026-10-03.md).
+   This does not establish genuine provider delivery or a deployed callback.
 2. Record a fresh reviewed deployment/environment fingerprint and full backup
    with usable restore/recovery evidence. Compare before/after Justin's original
    payment, term, documents, owner/review/merchant, all customer gates and

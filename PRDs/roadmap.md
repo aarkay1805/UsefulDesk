@@ -1,5 +1,25 @@
 # Roadmap
 
+## Accepted — Coordinated billing cloud release preparation (2026-10-03)
+
+**Status: isolated cloud acceptance complete; Production release awaits approval.**
+Fresh locked verification passes 4,433 tests / 539 files, lint, typecheck and build.
+The selected empty Billing Staging project received exact closed renewal/preparation
+sources and existing Production lead/invoice deltas. Connector rollback assertions
+and actual owner/admin/staff/outsider Auth/PostgREST boundaries passed; signed app
+webhook routing used synthetic provider GET responses with every external network
+call blocked. No genuine provider delivery or deployed callback is claimed.
+
+Cleanup restored every one of 180 table counts, original settings/audit history and
+the hard-closed renewal constraint; Billing Staging is again INACTIVE. Production
+preflight retains Justin’s setup, paid access and issued document hashes. Only the
+closed renewal schema is missing there; preparation is already installed.
+The proposed release path first publishes a backup source tag for the corrected
+seven-bucket encrypted R2 snapshot, then installs the closed schema and publishes
+main. Each external step still needs the concrete release approval. Recipient/message
+delivery, authentic provider redelivery, later renewal opening and hosting purchase
+remain separate. See the [coordinated packet](../docs/subscription-coordinated-release-2026-10-03.md).
+
 ## Built — Starter standard reminder readiness repairs (2026-10-03)
 
 **Status: implementation and read-only Production preflight; app deployment and
@@ -82,7 +102,10 @@ capture settlement, owned capture holds and original term history are preserved.
 rolled-back source replay/preservation; independent-session quote/order and
 capture/cancellation/shutdown races; synthetic desktop/390px/320px browser
 inspection; independent review with no outstanding Critical/Important finding.
-Genuine Auth/cloud/provider acceptance is still required. The
+The 3 October [coordinated cloud acceptance](../docs/subscription-coordinated-release-2026-10-03.md)
+now proves real Staging Auth/PostgREST and signed synthetic-webhook routing.
+Genuine provider delivery, deployed callback acceptance and renewal opening
+remain pending. The
 [release packet](../docs/subscription-starter-renewal-release.md) contains the
 source manifest, exact Justin scope, closed-installation contract, containment
 and remaining release acceptance before **2 November 2026, 17:54:56 IST**.

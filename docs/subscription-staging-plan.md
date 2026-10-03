@@ -1,12 +1,15 @@
 # Subscription staging migration plan — 30 September 2026
 
-**Current disposition, 2 October 2026:** Billing Staging is paused (`INACTIVE`)
-after the completed Starter rollout acceptance. It is not a Production runtime
-dependency. Restore it for the next isolated cloud acceptance, then inspect its
-schema and keep jobs/money gates closed. The older Razorpay Test project remains
-paused. See the [cleanup record](subscription-cleanup-record.md) for the verified
-inventory and preservation decision. ACTIVE_HEALTHY and closed-opening statements
-below are historical observations, not the current project or customer state.
+**Current disposition, 3 October 2026:** Billing Staging is paused (`INACTIVE`)
+again after coordinated release acceptance. Exact closed renewal/preparation
+sources and existing Production lead/invoice deltas are installed. Four real
+Auth/PostgREST and signed synthetic-webhook tests passed; every external provider
+network call was blocked. Cleanup restored all 180 baseline table counts, original
+settings/audit history and the hard-closed renewal constraint. Temporary credentials
+were removed. See the [coordinated packet](subscription-coordinated-release-2026-10-03.md)
+for current evidence and the exact pending Production action. Staging is not a
+Production runtime dependency; older paused projects were untouched. Statements
+below retain their historical dates and do not describe current customer gates.
 
 **Historical Production status, 1 October 2026:** exact PR #21 implementation
 `71d897a6` is READY in recovery-only mode. The approved internal ₹799 capture/full

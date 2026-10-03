@@ -1,6 +1,6 @@
 # Starter web billing — current operating summary
 
-Updated after the 3 October 2026 Production hosting review. This is the current action
+Updated after the 3 October 2026 isolated cloud release acceptance. This is the current action
 list, not a live health report. Recheck the relevant records before opening a new
 customer or changing any gate. Earlier release checks live in the
 [dated rollout archive](subscription-starter-rollout-history-2026-10-02.md).
@@ -24,12 +24,12 @@ queue; do not turn that dated zero into a permanent claim.
 
 ## Next actions and ownership
 
-| Action                       | Owner                    | Required next step                                                                                                                                                                                                                                                                                          |
-| ---------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Accept Live Starter renewal  | Release operator / Rajat | Implementation/local acceptance complete. Review the [closed release packet](subscription-starter-renewal-release.md), complete genuine cloud/provider acceptance and separately authorize opening before 2 November, 17:54:56 IST.                                                                         |
-| Review each new gym          | Rajat                    | Deploy the reviewed preparation form, then follow the [preparation record](subscription-starter-signup-preparation.md) for actual buyer/setup and commercial evidence. Queue is zero at 19:34:12 UTC; preserve trials and require genuine owner review and verified payment.                                |
-| Accept reminder delivery     | Rajat                    | Review the [readiness and acceptance packet](starter-whatsapp-reminder-acceptance.md), then select an authorized connected branch and actual recipient/subject. Exact-message approval and genuine delivery evidence remain pending. Justin's WhatsApp stays deferred.                                      |
-| Close hosting review actions | Release operator / Rajat | [3 October review](production-hosting-review-2026-10-03.md) complete: healthy project, upcoming logs at 60%, corrected Storage coverage locally accepted. Publish/run the seven-bucket encrypted backup, recheck 8 October usage, then decide on $25/month Pro Micro by 13 October. No purchase authorized. |
+| Action                       | Owner                    | Required next step                                                                                                                                                                                                                                                                                                       |
+| ---------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Accept Live Starter renewal  | Release operator / Rajat | Local and isolated cloud acceptance complete. Approve the [coordinated closed release](subscription-coordinated-release-2026-10-03.md): backup tag/full encrypted backup, closed renewal schema, then main publication. Genuine provider acceptance and separate opening remain pending before 2 November, 17:54:56 IST. |
+| Review each new gym          | Rajat                    | Deploy the reviewed preparation form, then follow the [preparation record](subscription-starter-signup-preparation.md) for actual buyer/setup and commercial evidence. Queue and preparation work are zero at the 3 October 04:16 UTC preflight; preserve trials and require genuine owner review and verified payment.  |
+| Accept reminder delivery     | Rajat                    | Review the [readiness and acceptance packet](starter-whatsapp-reminder-acceptance.md), then select an authorized connected branch and actual recipient/subject. Exact-message approval and genuine delivery evidence remain pending. Justin's WhatsApp stays deferred.                                                   |
+| Close hosting review actions | Release operator / Rajat | [3 October review](production-hosting-review-2026-10-03.md) complete: healthy project, upcoming logs at 60%, corrected Storage coverage locally accepted. Publish/run the seven-bucket encrypted backup, recheck 8 October usage, then decide on $25/month Pro Micro by 13 October. No purchase authorized.              |
 
 Original internal initiation, customer refund initiation, Live renewals, higher
 tiers, upgrades, add-ons and native Checkout retain their existing closed gates.

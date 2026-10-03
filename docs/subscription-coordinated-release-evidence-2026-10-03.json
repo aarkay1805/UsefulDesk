@@ -1,0 +1,740 @@
+{
+  "checked_date": "2026-10-03",
+  "source_commit": "3ff4f3071e777b27b85ebd979f3db29232116c16",
+  "production_mutations": 0,
+  "provider_network_calls": 0,
+  "customer_sends": 0,
+  "local_verify": {
+    "passed": true,
+    "tests": 4433,
+    "files": 539,
+    "checks": ["lint", "typecheck", "Vitest", "Next production build"],
+    "log": "/tmp/usefuldesk-release-verify.log",
+    "final_tree_tests": {
+      "passed": true,
+      "tests": 4433,
+      "files": 539,
+      "duration_seconds": 41.73
+    }
+  },
+  "staging": {
+    "project_id": "otagotpezshybxkagtwv",
+    "final_status": "INACTIVE",
+    "baseline_tables": 180,
+    "exact_table_counts_restored": true,
+    "nonzero_tables": [
+      {
+        "relation": "auth.schema_migrations",
+        "row_count": 82
+      },
+      {
+        "relation": "private.database_cron_auth",
+        "row_count": 1
+      },
+      {
+        "relation": "private.product_access_audit",
+        "row_count": 12
+      },
+      {
+        "relation": "private.product_access_settings",
+        "row_count": 1
+      },
+      {
+        "relation": "private.subscription_billing_settings",
+        "row_count": 1
+      },
+      {
+        "relation": "private.subscription_live_settings",
+        "row_count": 1
+      }
+    ],
+    "schema_and_closure": {
+      "users": 0,
+      "accounts": 0,
+      "payments": 0,
+      "checked_at": "2026-10-03T04:16:48.889988+00:00",
+      "migrations": [
+        {
+          "name": "invoice_member_profile_recovery_copy",
+          "version": "20261003041048",
+          "history_md5": "7094aecbd020571ba883d01b50c8fd77",
+          "statement_chars": 696,
+          "statement_count": 1
+        },
+        {
+          "name": "invoice_document_missing_customer_name",
+          "version": "20261003041047",
+          "history_md5": "55a34278714fb5b5b84cf1a931ac97d5",
+          "statement_chars": 10213,
+          "statement_count": 1
+        },
+        {
+          "name": "lead_staff_branch_membership",
+          "version": "20261003041044",
+          "history_md5": "821ef8fbe757ce49ecadb7b35f88576f",
+          "statement_chars": 22043,
+          "statement_count": 1
+        },
+        {
+          "name": "billing_staging_disposable_release_cleanup",
+          "version": "20261003040831",
+          "history_md5": "2cf2f583cb3b9c7437a5a513f3a1455a",
+          "statement_chars": 17224,
+          "statement_count": 1
+        },
+        {
+          "name": "billing_staging_disposable_renewal_fixture_retry",
+          "version": "20261003040638",
+          "history_md5": "5b10378897b0cb17d8fd6d08fd23820a",
+          "statement_chars": 508,
+          "statement_count": 1
+        },
+        {
+          "name": "billing_staging_disposable_renewal_fixture",
+          "version": "20261003040523",
+          "history_md5": "98989dacf4a8e7eff21f610c29aa5a6c",
+          "statement_chars": 498,
+          "statement_count": 1
+        },
+        {
+          "name": "starter_signup_preparation",
+          "version": "20261003034645",
+          "history_md5": "0520e0d328a061677457893ff49dcb21",
+          "statement_chars": 35030,
+          "statement_count": 1
+        },
+        {
+          "name": "starter_live_customer_renewals",
+          "version": "20261003034637",
+          "history_md5": "719d285af17cfaf22534cae656039b5c",
+          "statement_chars": 54393,
+          "statement_count": 1
+        },
+        {
+          "name": "starter_future_signup_containment_and_effective_state",
+          "version": "20261002135706",
+          "history_md5": "cbec81076d1ca2a89f42b4d0e99510e1",
+          "statement_chars": 8168,
+          "statement_count": 1
+        }
+      ],
+      "active_cron": 0,
+      "signup_work": 0,
+      "live_settings": {
+        "singleton": true,
+        "merchant_id": null,
+        "provider_mode": "live",
+        "orders_enabled": false,
+        "quotes_enabled": false,
+        "refunds_enabled": false,
+        "renewals_enabled": false,
+        "settlements_enabled": false,
+        "pilot_organization_id": null,
+        "webhook_intake_enabled": false,
+        "pilot_opening_review_id": null,
+        "complimentary_conversion_enabled": false
+      },
+      "organizations": 0,
+      "billing_settings": {
+        "enabled": false,
+        "singleton": true,
+        "refunds_enabled": false,
+        "advanced_tax_policy": null,
+        "capabilities_enabled": false,
+        "advanced_policy_version": null,
+        "advanced_restart_policy": null,
+        "test_merchant_account_id": null,
+        "advanced_payments_enabled": false,
+        "advanced_commercial_approved": false,
+        "standard_reminder_hour_local": null,
+        "advanced_addon_renewal_policy": null,
+        "standard_reminder_days_before": null,
+        "advanced_addon_proration_policy": null,
+        "advanced_quote_lifetime_seconds": null,
+        "standard_reminder_policy_version": null,
+        "standard_reminder_policy_approved": false,
+        "advanced_addon_cancellation_policy": null
+      },
+      "renewal_releases": 0,
+      "private_authority": [
+        {
+          "relacl": "{postgres=arwdDxtm/postgres,service_role=r/postgres}",
+          "relname": "subscription_live_renewal_releases",
+          "relrowsecurity": true
+        },
+        {
+          "relacl": "{postgres=arwdDxtm/postgres,service_role=r/postgres}",
+          "relname": "subscription_starter_signup_work",
+          "relrowsecurity": true
+        }
+      ],
+      "renewal_constraint": "CHECK ((NOT renewals_enabled))"
+    },
+    "cloud_auth_api": {
+      "tests": 4,
+      "real_roles": ["owner", "branch admin", "staff", "outsider"],
+      "passed": true,
+      "synthetic_provider_only": true,
+      "harness_sha256": "ec335dd374211fb3dc7e910f59aa76fe9e2d829e1cda2dc4326659a662586561",
+      "duration_seconds": 74.42,
+      "archived_harness_sha256": "63e4d7e3e5e18bfb3f0c9bd571b817a7486df8ce053844531db4197ef9975bbc",
+      "formatting_only_archive_has_identical_normalized_emitted_code": true,
+      "operator_routing_assertion": {
+        "connector_rows": [
+          {
+            "routing_acceptance": "pass"
+          }
+        ],
+        "checks": [
+          "one synthetic renewal term",
+          "one calendar month from period_start",
+          "one evtCloudRenewal",
+          "no SaaS evtCloudGym"
+        ],
+        "assertion_owner": "coordinator; archived sql bridge does not assert returned pass/fail"
+      }
+    },
+    "secret_files_removed": true
+  },
+  "production": {
+    "preservation": {
+      "checked_at": "2026-10-03 04:16:50.072115+00",
+      "preservation": [
+        {
+          "relation": "private.organization_product_access",
+          "row_count": 6,
+          "fingerprint": "28c2e4dacd81c1a9f90fcbd091791302"
+        },
+        {
+          "relation": "private.platform_admins",
+          "row_count": 1,
+          "fingerprint": "9f02c6a7a580e52f12c75c66db9a054e"
+        },
+        {
+          "relation": "private.subscription_billing_settings",
+          "row_count": 1,
+          "fingerprint": "e18ff0656eaa7dacac43add3ba2c68b9"
+        },
+        {
+          "relation": "private.subscription_live_customer_preparations",
+          "row_count": 1,
+          "fingerprint": "8d54da3ef77b667eccf76dc7b5cce056"
+        },
+        {
+          "relation": "private.subscription_live_customer_reviews",
+          "row_count": 1,
+          "fingerprint": "bf8056bd112b9a2f4a563b07ff8b67c9"
+        },
+        {
+          "relation": "private.subscription_live_customer_scopes",
+          "row_count": 1,
+          "fingerprint": "8922cb7ccd164bb9dec8cd945b8a3b6f"
+        },
+        {
+          "relation": "private.subscription_live_delivery_receipts",
+          "row_count": 1,
+          "fingerprint": "79f1b8458c4a5dbee850d0b76f20bb99"
+        },
+        {
+          "relation": "private.subscription_live_document_issues",
+          "row_count": 1,
+          "fingerprint": "ffdd1a555a70d49d46a0eb9133a92b8d"
+        },
+        {
+          "relation": "private.subscription_live_grants",
+          "row_count": 2,
+          "fingerprint": "72b3601d54d0268496225ef21181d842"
+        },
+        {
+          "relation": "private.subscription_live_offer_approvals",
+          "row_count": 2,
+          "fingerprint": "126a28ed79d0ed7dca0b8ba9afa87778"
+        },
+        {
+          "relation": "private.subscription_live_orders",
+          "row_count": 2,
+          "fingerprint": "e990877dc99b796cbe3c6bd54cd5c7a1"
+        },
+        {
+          "relation": "private.subscription_live_payments",
+          "row_count": 2,
+          "fingerprint": "2543e039fb60e016f776ca848086f66c"
+        },
+        {
+          "relation": "private.subscription_live_pilot_opening_reviews",
+          "row_count": 1,
+          "fingerprint": "d6f1f1d6fd9bf48f9140a91c525aafaf"
+        },
+        {
+          "relation": "private.subscription_live_quotes",
+          "row_count": 2,
+          "fingerprint": "d0e3fbf466bd5407d5e568ee2b177318"
+        },
+        {
+          "relation": "private.subscription_live_recovery_exceptions",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_recovery_queue",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_recovery_reviews",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_refund_reviews",
+          "row_count": 1,
+          "fingerprint": "5f10fd7e5ac68c746d01755adaf6bb76"
+        },
+        {
+          "relation": "private.subscription_live_refunds",
+          "row_count": 1,
+          "fingerprint": "1879d45a930188a1e4e0b87ac0ff50cf"
+        },
+        {
+          "relation": "private.subscription_live_settings",
+          "row_count": 1,
+          "fingerprint": "85635bb5dea615c2da7e49115aa61c72"
+        },
+        {
+          "relation": "private.subscription_live_webhook_events",
+          "row_count": 4,
+          "fingerprint": "4cd9afb865b3023943774a870a9c6e27"
+        },
+        {
+          "relation": "private.subscription_starter_signup_policies",
+          "row_count": 1,
+          "fingerprint": "7d179a8affd30644a5b146127399ad06"
+        },
+        {
+          "relation": "private.subscription_starter_signup_selections",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "public.accounts",
+          "row_count": 7,
+          "fingerprint": "bded176538b759d3db95f3c845f0c1c2"
+        },
+        {
+          "relation": "public.invoice_profiles",
+          "row_count": 3,
+          "fingerprint": "3ae5761f922108b058d7e7c87d7d6831"
+        },
+        {
+          "relation": "public.invoices",
+          "row_count": 565,
+          "fingerprint": "346b5a08447e60bc9636ce43a5e6ac89"
+        },
+        {
+          "relation": "public.legal_entities",
+          "row_count": 6,
+          "fingerprint": "3f01a64668e4bb4d4d7e5dee44f33393"
+        },
+        {
+          "relation": "public.membership_plans",
+          "row_count": 15,
+          "fingerprint": "64800b2ab2b7d90b26a6b691166340bb"
+        },
+        {
+          "relation": "public.memberships",
+          "row_count": 2,
+          "fingerprint": "cec9a7f3cf0561c8b08cc50506566124"
+        },
+        {
+          "relation": "public.organization_memberships",
+          "row_count": 6,
+          "fingerprint": "0f7344a00263cf8c66efedc203c8f745"
+        },
+        {
+          "relation": "public.organizations",
+          "row_count": 6,
+          "fingerprint": "f4cc35149d9c4382f17504d68c18f4de"
+        },
+        {
+          "relation": "public.payments",
+          "row_count": 555,
+          "fingerprint": "3be5101790a14fd657f0467aa2ba6028"
+        },
+        {
+          "relation": "public.plan_pricing_options",
+          "row_count": 95,
+          "fingerprint": "55d7e125234b0f85d84ef44ed1825206"
+        }
+      ]
+    },
+    "justin": {
+      "checked_at": "2026-10-03 04:19:03.262206+00",
+      "organization_id": "4c549182-7ad3-4f0b-8977-ff8ca79d2992",
+      "account_id": "ffca6ffb-691b-4fa9-9b7f-481a22d00a2e",
+      "branch_name": "Old Ambala",
+      "branch_status": "active",
+      "readiness_state": "ready",
+      "setup_reviewed_at": "2026-10-02 18:18:05.211868+00",
+      "setup_reviewed_by": "94b588be-e996-47ec-9372-4a6e8bff8dc8",
+      "setup_complete": true,
+      "configuration": {
+        "name": "Justin Credible Fitness",
+        "locale": "en-IN",
+        "currency": "INR",
+        "timezone": "Asia/Kolkata",
+        "legal_name": "Justin Credible Fitness",
+        "upi_configured": false
+      },
+      "plans": [
+        {
+          "id": "a17419b7-4360-4ce9-944f-910dda1fb79b",
+          "name": "Standard",
+          "is_active": true,
+          "plan_type": "recurring",
+          "pricing_options": [
+            {
+              "id": "c271b866-7a08-4d72-b20b-24bfc7c0dea4",
+              "price": 1000,
+              "is_active": true,
+              "setup_fee": 0,
+              "duration_unit": "month",
+              "duration_count": 1
+            },
+            {
+              "id": "e64e6a25-99a8-4146-b1e7-6b3724204090",
+              "price": 2700,
+              "is_active": true,
+              "setup_fee": 0,
+              "duration_unit": "month",
+              "duration_count": 3
+            },
+            {
+              "id": "5345c73c-0b8c-49d4-abad-4f76b633b6f9",
+              "price": 9000,
+              "is_active": true,
+              "setup_fee": 0,
+              "duration_unit": "month",
+              "duration_count": 12
+            }
+          ]
+        }
+      ],
+      "issued_documents": [
+        {
+          "currency": "INR",
+          "issue_id": "5bea21ad-70e5-4b70-a7de-8ab74f2c222f",
+          "issued_at": "2026-10-02T12:57:24.866979+00:00",
+          "amount_minor": 79900,
+          "period_start": "2026-10-02T12:24:56+00:00",
+          "invoice_bytes": 23001,
+          "receipt_bytes": 23134,
+          "invoice_number": "UM/2026-27/000001",
+          "invoice_sha256": "af40c3f8f8d2e4d56443ba6ce786f9ae3a017502c849d2a807c7c4110bbb6198",
+          "receipt_number": "UM-R/2026-27/000001",
+          "receipt_sha256": "ec45b5b49bf6eb9d07452bee247e1b18c54f1fa8ec68a8eaf1a2618e06c82965",
+          "paid_through_end": "2026-11-02T12:24:56+00:00",
+          "invoice_hash_matches": true,
+          "receipt_hash_matches": true
+        }
+      ],
+      "email_send_records": [
+        {
+          "channel": "email",
+          "sent_at": "2026-10-02T18:15:19Z",
+          "audit_id": "5e711ed2-82d3-4d58-b84d-aeed8fa2c9c1",
+          "recorded_at": "2026-10-02T18:18:05.209861+00:00",
+          "provider_state": "Gmail SENT",
+          "gmail_message_id": "1a0fdd3ee797011e",
+          "customer_receipt_or_read": "unproven",
+          "registered_recipient_matches": true
+        }
+      ],
+      "whatsapp_configuration_rows": 0,
+      "preserved_access": {
+        "version": 5,
+        "suspended_at": null,
+        "access_ends_at": "2026-11-02T12:24:56+00:00",
+        "access_starts_at": "2026-10-02T12:24:56+00:00"
+      }
+    },
+    "deployment": {
+      "id": "dpl_FXH8yD2mBgA2qmHdNgjQ6LMhPpJE",
+      "source_sha": "c74faf9384972d6b36642195e6aec77690e2253b",
+      "state": "READY",
+      "target": "production",
+      "region": "sin1",
+      "domain": "desk.usefulmade.com"
+    },
+    "environment": {
+      "blockers": 0,
+      "warnings": 13,
+      "protected_values": "provider-hidden; not validated by export",
+      "renewal_server_flag": "absent",
+      "renewal_ui_flag": "absent"
+    },
+    "normalized_renewal_preservation": {
+      "checked_at": "2026-10-03 04:35:30.097467+00",
+      "preservation": [
+        {
+          "relation": "private.organization_product_access",
+          "row_count": 6,
+          "fingerprint": "28c2e4dacd81c1a9f90fcbd091791302"
+        },
+        {
+          "relation": "private.platform_admins",
+          "row_count": 1,
+          "fingerprint": "9f02c6a7a580e52f12c75c66db9a054e"
+        },
+        {
+          "relation": "private.subscription_billing_settings",
+          "row_count": 1,
+          "fingerprint": "e18ff0656eaa7dacac43add3ba2c68b9"
+        },
+        {
+          "relation": "private.subscription_live_customer_preparations",
+          "row_count": 1,
+          "fingerprint": "8d54da3ef77b667eccf76dc7b5cce056"
+        },
+        {
+          "relation": "private.subscription_live_customer_reviews",
+          "row_count": 1,
+          "fingerprint": "bf8056bd112b9a2f4a563b07ff8b67c9"
+        },
+        {
+          "relation": "private.subscription_live_customer_scopes",
+          "row_count": 1,
+          "fingerprint": "8922cb7ccd164bb9dec8cd945b8a3b6f"
+        },
+        {
+          "relation": "private.subscription_live_delivery_receipts",
+          "row_count": 1,
+          "fingerprint": "79f1b8458c4a5dbee850d0b76f20bb99"
+        },
+        {
+          "relation": "private.subscription_live_document_issues",
+          "row_count": 1,
+          "fingerprint": "ffdd1a555a70d49d46a0eb9133a92b8d"
+        },
+        {
+          "relation": "private.subscription_live_grants",
+          "row_count": 2,
+          "fingerprint": "72b3601d54d0268496225ef21181d842"
+        },
+        {
+          "relation": "private.subscription_live_offer_approvals",
+          "row_count": 2,
+          "fingerprint": "126a28ed79d0ed7dca0b8ba9afa87778"
+        },
+        {
+          "relation": "private.subscription_live_orders",
+          "row_count": 2,
+          "fingerprint": "e990877dc99b796cbe3c6bd54cd5c7a1"
+        },
+        {
+          "relation": "private.subscription_live_payments",
+          "row_count": 2,
+          "fingerprint": "2543e039fb60e016f776ca848086f66c"
+        },
+        {
+          "relation": "private.subscription_live_pilot_opening_reviews",
+          "row_count": 1,
+          "fingerprint": "d6f1f1d6fd9bf48f9140a91c525aafaf"
+        },
+        {
+          "relation": "private.subscription_live_quotes",
+          "row_count": 2,
+          "fingerprint": "d0e3fbf466bd5407d5e568ee2b177318"
+        },
+        {
+          "relation": "private.subscription_live_recovery_exceptions",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_recovery_queue",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_recovery_reviews",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_refund_reviews",
+          "row_count": 1,
+          "fingerprint": "5f10fd7e5ac68c746d01755adaf6bb76"
+        },
+        {
+          "relation": "private.subscription_live_refunds",
+          "row_count": 1,
+          "fingerprint": "1879d45a930188a1e4e0b87ac0ff50cf"
+        },
+        {
+          "relation": "private.subscription_live_settings",
+          "row_count": 1,
+          "fingerprint": "85635bb5dea615c2da7e49115aa61c72"
+        },
+        {
+          "relation": "private.subscription_live_webhook_events",
+          "row_count": 4,
+          "fingerprint": "4cd9afb865b3023943774a870a9c6e27"
+        },
+        {
+          "relation": "private.subscription_starter_signup_policies",
+          "row_count": 1,
+          "fingerprint": "7d179a8affd30644a5b146127399ad06"
+        },
+        {
+          "relation": "private.subscription_starter_signup_selections",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "public.accounts",
+          "row_count": 7,
+          "fingerprint": "bded176538b759d3db95f3c845f0c1c2"
+        },
+        {
+          "relation": "public.invoice_profiles",
+          "row_count": 3,
+          "fingerprint": "3ae5761f922108b058d7e7c87d7d6831"
+        },
+        {
+          "relation": "public.invoices",
+          "row_count": 565,
+          "fingerprint": "346b5a08447e60bc9636ce43a5e6ac89"
+        },
+        {
+          "relation": "public.legal_entities",
+          "row_count": 6,
+          "fingerprint": "3f01a64668e4bb4d4d7e5dee44f33393"
+        },
+        {
+          "relation": "public.membership_plans",
+          "row_count": 15,
+          "fingerprint": "64800b2ab2b7d90b26a6b691166340bb"
+        },
+        {
+          "relation": "public.memberships",
+          "row_count": 2,
+          "fingerprint": "cec9a7f3cf0561c8b08cc50506566124"
+        },
+        {
+          "relation": "public.organization_memberships",
+          "row_count": 6,
+          "fingerprint": "0f7344a00263cf8c66efedc203c8f745"
+        },
+        {
+          "relation": "public.organizations",
+          "row_count": 6,
+          "fingerprint": "f4cc35149d9c4382f17504d68c18f4de"
+        },
+        {
+          "relation": "public.payments",
+          "row_count": 555,
+          "fingerprint": "3be5101790a14fd657f0467aa2ba6028"
+        },
+        {
+          "relation": "public.plan_pricing_options",
+          "row_count": 95,
+          "fingerprint": "55d7e125234b0f85d84ef44ed1825206"
+        }
+      ]
+    }
+  },
+  "function_body_parity": [
+    {
+      "name": "lead_listing_snapshot",
+      "stage": ["f80e1b3f77d1ff4ca25e5f93a4fa4efa"],
+      "production": ["f80e1b3f77d1ff4ca25e5f93a4fa4efa"]
+    },
+    {
+      "name": "reserve_invoice_document",
+      "stage": ["6c741fb04a0b8d68675642ed3d9d3ba2"],
+      "production": ["6c741fb04a0b8d68675642ed3d9d3ba2"]
+    },
+    {
+      "name": "subscription_starter_evidence_keys",
+      "stage": ["09fc15289d54f1c2995a776ccb2162d9"],
+      "production": ["09fc15289d54f1c2995a776ccb2162d9"]
+    },
+    {
+      "name": "subscription_starter_signup_context",
+      "stage": ["4b236ec581c46a4acb4c245d9ff4d6da"],
+      "production": ["4b236ec581c46a4acb4c245d9ff4d6da"]
+    },
+    {
+      "name": "platform_admin_save_starter_signup_work",
+      "stage": ["4946c9367973111f548813d65b0a24f7"],
+      "production": ["4946c9367973111f548813d65b0a24f7"]
+    },
+    {
+      "name": "subscription_serialize_starter_source_write",
+      "stage": ["ea160aa02e8f69933d5a71b26453ec1e"],
+      "production": ["ea160aa02e8f69933d5a71b26453ec1e"]
+    },
+    {
+      "name": "subscription_lock_starter_preparation_sources",
+      "stage": ["bec7e964dcf23307c3e3f8aeaf220103"],
+      "production": ["bec7e964dcf23307c3e3f8aeaf220103"]
+    },
+    {
+      "name": "platform_admin_freeze_starter_signup_preparation",
+      "stage": ["1ef61455f8c3f6f1315ede0edfbf137b"],
+      "production": ["1ef61455f8c3f6f1315ede0edfbf137b"]
+    },
+    {
+      "name": "subscription_starter_preparation_current",
+      "stage": ["991eedfce47114fc49a56ea75aab9646"],
+      "production": ["991eedfce47114fc49a56ea75aab9646"]
+    },
+    {
+      "name": "subscription_guard_starter_preparation_opening",
+      "stage": ["430280df4d032e13600d6ebbe8db38c5"],
+      "production": ["430280df4d032e13600d6ebbe8db38c5"]
+    },
+    {
+      "name": "platform_admin_starter_signup_queue",
+      "stage": ["bed47f9d1eed1832be5ec465374019b3"],
+      "production": ["bed47f9d1eed1832be5ec465374019b3"]
+    }
+  ],
+  "preparation_private_body_parity": [
+    {
+      "schema": "private",
+      "name": "subscription_customer_preparation_eligible",
+      "arguments": "p_preparation_id uuid, p_actor uuid",
+      "body_md5": "5028eff030b4088e6348a17e4bffaa1c",
+      "security_definer": true,
+      "config": ["search_path=\"\""],
+      "acl": "{postgres=X/postgres}"
+    },
+    {
+      "schema": "private",
+      "name": "subscription_customer_review_active",
+      "arguments": "p_organization_id uuid, p_review_id uuid",
+      "body_md5": "76dd2b4000b3c9dae1e9b77be5c258d4",
+      "security_definer": true,
+      "config": ["search_path=\"\""],
+      "acl": "{postgres=X/postgres}"
+    },
+    {
+      "schema": "private",
+      "name": "subscription_guard_tracked_preparation",
+      "arguments": "",
+      "body_md5": "d3623a6f4931d8bec347f5baca181e50",
+      "security_definer": true,
+      "config": ["search_path=\"\""],
+      "acl": "{postgres=X/postgres}"
+    }
+  ],
+  "genuine_provider_redelivery_acceptance": "pending",
+  "genuine_whatsapp_acceptance": "pending",
+  "corrected_encrypted_full_backup": "pending",
+  "independent_final_review": {
+    "reviewers": 1,
+    "outstanding_findings": 0,
+    "scope": "release order, evidence, boundaries, rollback and preservation; external execution remains pending"
+  }
+}
