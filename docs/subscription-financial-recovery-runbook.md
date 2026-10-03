@@ -1,6 +1,39 @@
 # Subscription financial recovery runbook
 
-**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+**3 October local extension:** [monthly first checkout](subscription-monthly-first-checkout.md)
+is **Built locally, closed; cloud installation/deployment/activation unperformed**.
+No current Production state was inspected. Preserve the dated original internal/
+Starter procedures below; their genuine evidence is not new-tier acceptance.
+The recovery implementation now dispatches from immutable durable request/quote
+identity: original `starter_v1` / NULL catalog or exact `monthly_first_v1` /
+`monthly_inr_2026_10_v1`. New amounts are 79900/149900/399900 INR paise with
+included branches 1/1/5 and zero extras. Never infer authority from amount,
+client tier, webhook tenant metadata or a gym-member payment.
+
+For a monthly incident, correlate selected offer/set/approval, preparation,
+authored review, immutable request/quote, bound order/payment, term/grant,
+document and refund review. Retain versions, exact total, merchant/organization,
+source snapshot/roster, frozen billing timezone and document treatment. Fresh
+GET verification requires the monthly version/catalog/tier/offer notes in
+addition to original request/organization notes. Source locks detect buyer/setup
+changes without an access-version change; conflicting/uncommitted captures
+persist an owner/status/next-action hold. No implemented hold resolver supplies
+automatic grant or refund.
+
+Contain new monthly initiation/UI through their separately reviewed gates,
+preserving signed intake/settlement, existing customer-scope support, listener,
+durable history and GET-only existing-obligation recovery. Both monthly flags
+are false/unset by default; closure also blocks newly payable retry responses.
+The scanner retains its five-item bound and leases. An already issued order can
+still settle under unchanged commercial authority; invalidated source may hold
+it. Exact committed capture/document retries after refund/expiry/closure retain
+original outcomes/bytes/numbers and cannot restore access. Customer refund
+initiation remains separately closed; full first-payment eligibility is once per
+organization through local day 7 in the first payment's frozen timezone. Pending/
+failed refunds preserve access. No new provider POST, opening or cloud action is
+authorized by this runbook.
+
+**Recorded status, 1 October 2026:** the approved internal ₹799 capture/full
 refund is complete, access remains ended, and all three original signed events
 are reconciled without another financial/access effect. New initiation is closed;
 signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
@@ -22,7 +55,7 @@ describes the money and access invariants.
 
 ## Scope and containment
 
-This covers Usefulmade SaaS billing on Live merchant `acc_TCJwBqanN9LTrK`,
+The original internal procedure covers Usefulmade SaaS billing on Live merchant `acc_TCJwBqanN9LTrK`,
 selected Home office organization `8826d9aa-03f2-4ad7-ae91-0553052131f8`.
 Gym-member payments, refunds, Payment Links and mandates use separate ledgers
 and OAuth paths. Do not use their controls to repair a SaaS charge, even though
@@ -148,7 +181,9 @@ authorize another POST, another receipt or another quote to bypass the claim.
    `/v1/orders?receipt=<original-request-uuid>&count=2`. It requires provider
    `count=1` and exactly one item. Zero/multiple results remain an owned exception;
    no result is not proof that the POST had no effect.
-3. Verify an `order_` ID, exact UUID receipt, amount `79900`, INR, accepted order
+3. Verify an `order_` ID, exact UUID receipt, the durable contract amount
+   (`79900` for original Starter; `79900`/`149900`/`399900` for the exact monthly
+   tier), INR, accepted order
    state `created|attempted|paid`, and both notes:
    `usefuldesk_organization_id=<selected-org>` and
    `usefuldesk_request_id=<original-request-uuid>`. For an already bound order,
@@ -215,7 +250,8 @@ order/payment, zero `amount_refunded`, and zero existing refunds before POST.
    does not call the provider or end access.
 5. A processed status is insufficient alone. `fetchSettledLiveFullRefund` also
    GETs the parent payment and requires exact original ID/order/amount/INR,
-   `status=refunded`, and `amount_refunded=79900`. `reconcileLiveRefund` performs
+   `status=refunded`, and `amount_refunded` equal to the exact frozen full amount
+   (`79900` original Starter; monthly `79900`/`149900`/`399900`). `reconcileLiveRefund` performs
    these GETs then invokes `subscription_commit_live_full_refund`. Do not call
    the commit using dashboard status alone.
 

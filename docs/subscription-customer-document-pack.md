@@ -1,5 +1,15 @@
 # Starter customer document pack — unissued review drafts
 
+**3 October local monthly template:** the new catalog is **Built locally,
+closed; cloud installation/deployment/activation unperformed**. Use the separate
+[monthly template](#monthly-catalog-document-template--unissued) from frozen
+payment/term/document facts; the original Starter templates and dated Justin
+records below keep their original identity. No new-catalog genuine issuer/buyer/
+tax/provider review or final rendered financial document review was performed.
+There is no SaaS TypeScript PDF renderer/download endpoint: the existing
+operator-private reviewed PDF workflow and SQL envelope/hash/readback remain.
+See [the monthly operating record](subscription-monthly-first-checkout.md).
+
 **2 October, 12:57 UTC:** Justin’s genuine invoice/receipt pair is now issued once; see the [first-sale issuance record](subscription-starter-document-issuance-record.md). This packet remains the unissued template for other customers and corrections, not permission to issue them. Original dated preparation states below remain historical.
 
 **2 October refresh:** Justin's fitness is selected as the real customer candidate;
@@ -238,7 +248,7 @@ Private issue record: `[document type / number]`, `[customer]`, `[offer]`,
 `[final document hash/storage reference]`, `[authorized delivery record]`,
 `[exception owner/status/next action, if any]`.
 
-Current disposition: **Justin's fitness selected; saved billing details verified;
+Historical preparation disposition (before 2 October issuance): **Justin's fitness selected; saved billing details verified;
 Buyer/location, FY statements and operator C01 disposition complete; actual owner checkout review
 pending; review drafts ready; no documents issued.**
 
@@ -252,3 +262,60 @@ default cleanup, setup finding, fresh full backup and preservation are complete.
 Genuine owner approval/reminder acknowledgment/payment and document issuance remain.
 WhatsApp delivery is deferred; wider repeat/mixed traffic and external paging remain
 pending. See the [final opening record](subscription-justin-starter-opening-record.md).
+
+## Monthly catalog document template — unissued
+
+**DRAFT — NOT ISSUED.** This separate template supports only the immutable
+`monthly_first_v1` / `monthly_inr_2026_10_v1` first-purchase contract under exact
+reviewed `usefulmade_unregistered_invoice_receipt_v1` treatment. It does not
+extend Justin's C01 disposition or the original Starter pilot template to another
+buyer. The treatment is implemented eligibility, not general legal/tax clearance.
+A different tax treatment or total requires a new reviewed implementation/contract.
+
+Obtain the candidate through the existing private operator workflow only after
+verified capture/term/grant and complete issuer/buyer/source review. Freeze the
+candidate used to render, then compare the final bytes visually against every
+financial field below before calling the existing atomic issuance/readback SQL.
+No document is issued by Checkout success. Missing facts stay unresolved.
+
+| Frozen candidate fact                                            | Required content in private final PDF                                                                                                                                                                          |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tier`, `included_branches`, `paid_extra_branch_slots`           | **UsefulDesk [Starter/Growth/Ultimate] subscription — [1/1/5] active branch[es] included**. Zero paid extra slots; use singular only for one.                                                                  |
+| `amount_minor`, `currency`                                       | Exact INR total: Starter 79900 (₹799), Growth 149900 (₹1,499), Ultimate 399900 (₹3,999). Receipt amount received must match the same verified full payment.                                                    |
+| `period_start`, `paid_through_end`                               | Actual captured-event start and calendar-month end, rendered using frozen billing timezone. A pre-payment draft instead says “One calendar month from verified payment capture” with actual dates blank.       |
+| `document_treatment`, `tax_note`, review references              | Exact reviewed treatment and approved “GST not charged — supplier unregistered.” note. Add no fabricated GSTIN, tax split, “0% GST”, exempt/zero-rated claim or extra charge.                                  |
+| `issuer`, `buyer`, organization/billing branch                   | Actual reviewed UsefulMade supplier identity/private address/contact and actual complete buyer legal name/address/contact. Never use the gym member invoice issuer or internal Home office as a customer sale. |
+| Versions, `monthly_offer_id`, approval/review/request            | Preserve exact catalog/offer/author identity and commercial/document/refund-policy references in the private issue record. These internal references need not become customer-facing copy.                     |
+| Payment/order/merchant, `capture_event_at`, `billing_timezone`   | Exact verified payment receipt evidence and frozen date/time; unverified/held capture is ineligible for the ordinary paid invoice/receipt pair.                                                                |
+| `invoice_number`, `receipt_number`, `issue_date`, financial year | Candidate-controlled sequence and actual issue date; reuse original stored bytes/number on exact retry. Never invent/reserve another number in a draft.                                                        |
+
+**Invoice:** UsefulMade; reviewed private supplier address; contact@usefulmade.com.
+Invoice `[candidate invoice_number]`, issued `[issue_date]` to `[frozen buyer]`.
+Service **UsefulDesk [frozen tier] subscription — [included_branches] active
+branch[es] included**; period `[period_start]` to `[paid_through_end]`; total
+`[exact frozen INR amount]`; `[exact approved tax note]`. State no automatic SaaS
+debit and separate Meta/gym-provider charges. Do not promise renewal, upgrade,
+add-on or restart purchases under this first-purchase contract.
+
+**Payment receipt:** UsefulMade and the same buyer; receipt `[receipt_number]`,
+invoice `[invoice_number]`; same service/tier/branches; amount received `[exact
+verified full amount]`; received `[capture_event_at in billing_timezone]`; exact
+bound order/payment reference; paid access `[period_start]` to `[paid_through_end]`.
+The ordinary candidate refuses held, refunded, expired/currently ineligible first
+issuance; a separate reviewed accounting correction must not masquerade as this
+paid-access pair. Exact already-issued readback remains available after terminal
+state changes without rerendering or consuming another number.
+
+**Refund confirmation draft:** reuse the confirmation fields above with this
+exact monthly identity and original issued references. Confirm only the verified
+processed **full** original 79900/149900/399900 INR payment refund and committed
+access end. Local-day-7 eligibility uses the first payment's frozen timezone,
+once per organization; tier choice creates no second opportunity. Pending/failed
+refunds must not claim ended access. Customer refund initiation is separately closed.
+
+The SQL acceptance PDFs are synthetic envelope/hash fixtures. They prove byte
+preservation and issuance controls, **not the financial content rendered inside a
+real PDF**. Genuine issuer/buyer/tax/provider review, private actual PDF inspection,
+authorized issuance and delivery remain separate. Preserve the original Starter
+PDFs and dated internal/customer history; this template supplies no evidence that
+those steps occurred for the new catalog.

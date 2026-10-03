@@ -1,5 +1,15 @@
 # Starter web customer checkout — closed implementation
 
+**3 October local extension:** the separately versioned three-tier monthly first
+checkout is **Built locally, closed; cloud installation/deployment/activation
+unperformed**. This page preserves the original `starter_v1` contract and its
+dated rollout evidence; it does not become a Growth/Ultimate opening record.
+Historical SQL identity fields remain NULL and original signup selection,
+internal binding, customer sale/documents and Starter renewals stay original.
+See [monthly first checkout](subscription-monthly-first-checkout.md) for the
+exact catalog, separately reviewed MFA operator opening authorization and local
+acceptance. No current Production state was inspected for this extension.
+
 **2 October 2026: built, accepted with disposable local/cloud fixtures and
 installed closed in Production; customer activation remains pending.** A real buyer
 is required for issuance/opening review, not for building or testing this path.

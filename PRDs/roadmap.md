@@ -1,5 +1,45 @@
 # Roadmap
 
+## Built locally — Three-tier monthly first checkout (2026-10-03)
+
+**Built locally, closed; cloud installation/deployment/activation unperformed.**
+An actual expired, unsuspended trial owner can select a reviewed first monthly
+Starter/Growth/Ultimate offer under `monthly_first_v1` /
+`monthly_inr_2026_10_v1`: 79900/149900/399900 INR paise, 1/1/5 included active
+branches, zero paid extras, 1800-second quote and one calendar month from signed
+verified capture. MFA-admin preparation, distinct one-time authorize-opening,
+authored owner approval, explicit history-preserving archive/repreparation,
+immutable quote/order identity, source locks, owned holds and GET-only recovery
+are implemented. New flags remain false/unset; no UI opening switch exists.
+
+The approved base-tier capability matrix is implemented and tested with existing
+global enforcement enabled; separate readiness/review/activation remains required.
+This change does not activate that gate or alter its disabled fallback. Monthly
+paid status remains reachable with both new flags closed and always disables
+renewal. The private reviewed PDF workflow has a frozen tier/amount/base-branch
+monthly template; no SaaS PDF renderer/download endpoint was added. Full refunds
+retain frozen-timezone local day 7 and once-per-organization eligibility; customer
+refund initiation remains separately closed.
+
+**Validation:** Tasks 1–8 independently approved; all-tier rollback/replay, real
+independent-session lock/race/RLS checks, original/Test/gym preservation, provider
+mocks and actual-component synthetic 320/390/1280px keyboard/locale/status checks
+passed. Final `npm run verify` passes lint/typecheck, **548 files / 4898 tests**
+and production build (**141 pages**); two explicit Vitest script suites pass
+**322 tests**. Changed-file formatting and diff checks pass. Delivery/whole-branch
+independent reviews remain pending in
+[the operating record](../docs/subscription-monthly-first-checkout.md).
+No current Production state was inspected or new genuine acceptance created.
+
+**Next:** independent delivery/whole-branch review; separately approved cloud
+installation/deployment with flags closed; genuine per-customer commercial,
+issuer/buyer/tax/provider/document acceptance; global readiness/activation and
+exact scoped opening. The first-purchase implementation is complete locally.
+Renewals under this catalog, upgrades/downgrades/restarts, branch add-ons, annual
+pricing, automatic debit, manual/complimentary conversion and native Checkout
+remain outside this change. Original Starter/internal/sale/renewal history remains
+separate; no pending later-billing proposal is approved by this entry.
+
 ## Built locally — Starter renewal environment audit (2026-10-03)
 
 **Status: separate audit preparation implemented; publication and customer
@@ -1365,14 +1405,19 @@ authentic same-event/mixed delivery and external paging remain pending. See the
 [implementation record](../docs/subscription-starter-customer-checkout.md).
 Flags alone cannot authorize an unprepared customer.
 
-**Approved subscription direction (first prepared customer available; paid sale pending):** every new verified
+**Historical original Starter direction (2 October, before the recorded sale):** every new verified
 organization receives the existing 14-day full-feature trial with up to five
 active branches, without choosing a tier at signup. At expiry, it will choose among Starter, Growth, and Ultimate
 to continue. The shipped trial and expired-trial screens compare the three plans and retain support. A separate non-Production, default-off Test flag exposes provisional prices and Test Checkout to expired owners; Production exposes the genuine owner purchase path only to the exact prepared Justin Starter customer. Home office’s internal initiation remains closed after its full refund; other unprepared organizations have no payable flow. Pure tier/branch/capability, verified-add-on
 state, owner-choice conversion rules, and pure base-tier billing transitions are coded and tested. The transition model prorates the listed base-price difference in paise over the actual paid period, keeps an upgrade pending until a trusted payment event, and projects downgrades/cancellations at the paid-through boundary. A pure renewal model keeps the old tier for one fixed 72-hour window after a failed paid renewal, denies new unpaid tier/branch capacity during grace, and resumes paid access only after a trusted verified renewal event. It does not verify provider payments or persist entitlements. The
 no-GST amount draft records listed software, ₹0 GST, and the matching draft total for monthly plans and base-tier upgrades; it is not wired to checkout. The reusable
 first-payment refund model evaluates the request date in the frozen billing-account timezone and reserves one full-refund request per organization. A separate pure confirmed-refund model ends paid access at full-refund confirmation and requires renewal to stop; pending/failed events leave access intact. Neither model calls a provider or changes runtime access. The reusable
-branch-upgrade prompt remains unmounted. The conversion review dialog mounts only in the local Test flow and submits the owner's explicit archive selection to the local-only SQL RPC.
+branch-upgrade prompt remains unmounted. The original Test conversion dialog
+submits explicitly selected branches to its Test RPC. The 3 October monthly
+first-checkout extension reuses that dialog for a distinct owner-scoped Live
+archive, with separate confirmation/history consequence and new preparation.
+The base-tier first-purchase flow is built locally and closed as recorded above;
+this paragraph's original Starter Production observations remain dated history.
 The local default-off base monthly integration now has owner-only intent,
 branch review/archive, Test order, Test confirmation, and signed Test webhook
 routes under `src/app/api/subscriptions/`. Its separate Usefulmade Test merchant
@@ -1503,6 +1548,14 @@ WhatsApp connection, Approved-template, and send-readiness gates still apply,
 and gyms bear their own Meta charges.
 
 ### Subscription product continuation — 28 September 2026
+
+**Historical continuation, with current scope clarified on 3 October:** the
+three-tier base first-purchase implementation is now built locally and closed;
+see the Built locally entry above. The approved matrix is standard Starter
+reminders/core, Growth's five added predicates and Ultimate's five-branch
+allowance. Unbuilt first-checkout/higher-tier-matrix statements below describe
+this dated history. Later upgrade/add-on/restart/annual and extra feature proposals
+remain deferred; genuine new-catalog release/opening is unperformed.
 
 **Built locally, disabled:** the capability boundary draft
 `20260928160000_subscription_capability_boundary.sql` adds an organization-grant

@@ -1,6 +1,29 @@
 # Usefulmade Live SaaS billing draft
 
-**Current status, 1 October 2026:** the approved internal ₹799 capture/full
+**3 October local delivery:** [three-tier monthly first checkout](subscription-monthly-first-checkout.md)
+is **Built locally, closed; cloud installation/deployment/activation unperformed**.
+`monthly_first_v1` / `monthly_inr_2026_10_v1` resolves only frozen Starter/79900,
+Growth/149900 and Ultimate/399900 INR paise, base branches 1/1/5 and zero extras.
+Original `starter_v1` / NULL-catalog obligations remain unchanged. Both monthly
+initiation/UI flags default false/unset and every existing audit mode rejects
+activation. No current Production state was inspected. The dated observations
+below remain history; genuine internal/Starter evidence does not authorize the
+new catalog.
+
+Monthly preparation has no opening UI. Distinct MFA-admin
+`platform_admin_authorize_monthly_opening` supplies exact, separately reviewed
+one-time authorization; actual owner approval freezes the review author and
+selection, and independent service opening consumes it. Global capability/branch
+enforcement must be separately ready/reviewed/enabled; this change does not
+activate it or alter its disabled-gate fallback. Branch/capability acceptance was
+performed with that enforcement enabled. Closing monthly initiation blocks new
+payable responses, including retries, while existing signed intake/settlement,
+durable scope inventory and bounded leased GET-only recovery remain available.
+New-contract paid status always reports `renewal_available: false`; customer
+refund initiation remains separately closed. See the monthly operating record
+for source locks, owned holds, frozen document/refund identity and release gates.
+
+**Recorded status, 1 October 2026:** the approved internal ₹799 capture/full
 refund is complete, access remains ended, and all three original signed events
 are reconciled without another financial/access effect. New initiation is closed;
 signed intake, settlement and GET-only recovery remain enabled. Bank debit proof
@@ -184,7 +207,7 @@ and genuine Live acceptance remain pending. See the installation record.
 
 ## Switches and isolation
 
-The table records the current Production baseline. The separately prepared
+The table records the earlier 30 September Production baseline. The separately prepared
 [first-term opening candidate](starter-live-pilot-opening-review.md) has passed
 local/cloud staging rollback checks with all gates restored off. Its explicit
 environment audit modes describe reviewed pilot and recovery phases; they do not
