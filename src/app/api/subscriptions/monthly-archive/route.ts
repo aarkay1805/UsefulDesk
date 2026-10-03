@@ -1,53 +1,25 @@
-import { NextResponse } from 'next/server';
-import { toErrorResponse } from '@/lib/auth/account';
 import { isBranchAccountId } from '@/lib/auth/branch-context';
 import { requireSameOriginRequest } from '@/lib/auth/csrf';
-import { getErrorMessage } from '@/lib/errors';
 import {
   checkRateLimit,
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit';
-import {
-  liveBillingConfig,
-  liveMonthlyCheckoutEnabled,
-  liveSettlementsEnabled,
-} from '@/lib/subscriptions/live-provider';
 import { requireSubscriptionOwner } from '@/lib/subscriptions/owner';
 import type { MonthlyOfferSetPreview } from '@/lib/subscriptions/monthly-offer-preview';
+import {
+  MONTHLY_REVIEW_AGAIN as reviewAgain,
+  monthlyInitiationOpen as initiationOpen,
+  monthlyRouteJson as json,
+  monthlyRpcError as rpcError,
+  monthlyRoute,
+} from '@/lib/subscriptions/monthly-route';
+
 export const runtime = 'nodejs';
-const reviewAgain =
-  'Your details changed. Review the offers again or contact support.';
-function initiationOpen() {
-  if (!liveMonthlyCheckoutEnabled() || !liveSettlementsEnabled()) return false;
-  try {
-    liveBillingConfig();
-    return true;
-  } catch {
-    return false;
-  }
-}
-function json(body: unknown, status = 200) {
-  return NextResponse.json(body, { status });
-}
-function rpcError(error: { code?: string }, fallback: string) {
-  if (error.code === '42501')
-    return json({ error: 'Only the gym owner can do this' }, 403);
-  if (['22023', '23505', '55000', '40001'].includes(error.code ?? ''))
-    return json({ error: reviewAgain }, 409);
-  // Database details never become customer copy.
-  return json({ error: getErrorMessage({ code: error.code }, fallback) }, 500);
-}
-/** Owner-only writes keep initiation closed by default and every response uncached. */
-export async function POST(request: Request) {
-  const response = await handle(request);
-  response.headers.set('Cache-Control', 'no-store');
-  return response;
-}
-async function handle(request: Request) {
-  if (!initiationOpen()) return json({ error: 'Not found' }, 404);
-  const config = liveBillingConfig();
-  try {
+
+export const POST = monthlyRoute(
+  'Could not archive branches. Contact support.',
+  async (request, config) => {
     requireSameOriginRequest(request);
     const body: unknown = await request.json().catch(() => null);
     if (!body || typeof body !== 'object' || Array.isArray(body))
@@ -143,17 +115,5 @@ async function handle(request: Request) {
     return json({
       result: { archived_count: ids.length, preparation_stale: true },
     });
-  } catch (error) {
-    const response = toErrorResponse(error);
-    const safe = await response.json();
-    return json(
-      {
-        error: getErrorMessage(
-          { message: safe.error },
-          'Could not archive branches. Contact support.'
-        ),
-      },
-      response.status
-    );
   }
-}
+);
