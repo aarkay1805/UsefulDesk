@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
@@ -56,6 +57,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
 });
@@ -536,6 +538,78 @@ const monthlyQuote = {
   included_branches: 1,
   paid_extra_branch_slots: 0,
 };
+it('rejects an expired monthly quote after deferred SDK loading without unmounting', async () => {
+  const { openUsefulmadeLiveCheckout: actualCheckout } = await vi.importActual<
+    typeof import('@/lib/subscriptions/live-checkout-client')
+  >('@/lib/subscriptions/live-checkout-client');
+  openUsefulmadeLiveCheckout.mockImplementation(actualCheckout);
+  vi.stubEnv('NODE_ENV', 'production');
+  vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
+  vi.stubGlobal('Razorpay', undefined);
+  vi.useFakeTimers();
+  const now = Date.now();
+  rpc.mockImplementation(async (name: string) => ({
+    data:
+      name === 'subscription_live_owner_quote'
+        ? { ...monthlyQuote, expires_at: new Date(now + 1000).toISOString() }
+        : null,
+    error: null,
+  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () =>
+      Response.json({
+        checkout: {
+          requestId: quote.request_id,
+          organizationId,
+          orderId: 'order_Monthly123',
+          keyId: 'rzp_live_Usefulmade',
+          amountMinor: 149900,
+          currency: 'INR',
+        },
+      })
+    )
+  );
+  await act(async () => {
+    render(
+      <SubscriptionLiveReview
+        monthlyCustomer
+        organizationId={organizationId}
+        accountId={accountId}
+      />
+    );
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Pay for plan' }));
+  });
+  const script = document.querySelector(
+    'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
+  ) as HTMLScriptElement;
+  expect(script).toBeTruthy();
+  await act(async () => {
+    vi.advanceTimersByTime(1100);
+  });
+  expect(
+    screen.getByText(
+      'This amount has expired. Contact support for a new amount.'
+    )
+  ).toBeTruthy();
+  const create = vi.fn();
+  vi.stubGlobal(
+    'Razorpay',
+    class {
+      constructor(options: unknown) {
+        create(options);
+      }
+      open = vi.fn();
+    }
+  );
+  await act(async () => {
+    script.onload!(new Event('load'));
+  });
+  expect(create).not.toHaveBeenCalled();
+  script.remove();
+});
 it('opens monthly checkout with exact server amount and leaves callback verification pending', async () => {
   vi.stubEnv('NEXT_PUBLIC_USEFULDESK_MONTHLY_CHECKOUT_UI', 'true');
   vi.stubEnv('NEXT_PUBLIC_USEFULDESK_CUSTOMER_CHECKOUT_UI', 'false');

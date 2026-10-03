@@ -66,6 +66,16 @@ function MonthlyReviewLoader({ organizationId, accountId, onChanged }: Props) {
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
   const [archivedSource, setArchivedSource] = useState<string | null>(null);
+  // An uncertain write cannot be disproved by a preview read before it commits.
+  // Keep its mounted selection (including request/review IDs) across refresh.
+  const frozen = useRef<{
+    preview: MonthlyOfferSetPreview;
+    nonce: number;
+  } | null>(null);
+  const [frozenSelection, setFrozenSelection] =
+    useState<typeof frozen.current>(null);
+  const actionPending = useRef(false);
+  const [actionInFlight, setActionInFlight] = useState(false);
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -110,12 +120,21 @@ function MonthlyReviewLoader({ organizationId, accountId, onChanged }: Props) {
           return;
         }
         if (isLiveQuote(quote.data) && monthlyIdentityFromRow(quote.data)) {
+          if (
+            frozen.current &&
+            quote.data.monthly_offer_id !==
+              frozen.current.preview.selectedOfferId
+          )
+            throw new Error(
+              'Your payment needs a review. Contact support before paying again.'
+            );
           setOriginal(null);
           setQuoted(true);
           setError('');
           return;
         }
         if (
+          !frozen.current &&
           !monthlyIdentityFromRow(term.data) &&
           !monthlyIdentityFromRow(quote.data) &&
           !offer.error &&
@@ -176,6 +195,7 @@ function MonthlyReviewLoader({ organizationId, accountId, onChanged }: Props) {
     };
   }, [organizationId, accountId, nonce, owner]);
   function refresh() {
+    if (actionPending.current || loading) return;
     setLoading(true);
     setNonce((n) => n + 1);
   }
@@ -216,9 +236,16 @@ function MonthlyReviewLoader({ organizationId, accountId, onChanged }: Props) {
         onChanged={onChanged}
       />
     );
+  const selectionPreview = frozenSelection?.preview ?? preview;
   return (
     <div className="space-y-4">
-      <Button variant="ghost" size="sm" loading={loading} onClick={refresh}>
+      <Button
+        variant="ghost"
+        size="sm"
+        loading={loading}
+        disabled={actionInFlight}
+        onClick={refresh}
+      >
         Refresh offers
       </Button>
       {error ? (
@@ -227,8 +254,8 @@ function MonthlyReviewLoader({ organizationId, accountId, onChanged }: Props) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
-      {!loading && preview ? (
-        archivedSource === preview.sourceSnapshot ? (
+      {(!loading || frozenSelection) && selectionPreview ? (
+        archivedSource === selectionPreview.sourceSnapshot ? (
           <Alert>
             <AlertTitle>Branches archived</AlertTitle>
             <AlertDescription>
@@ -238,16 +265,41 @@ function MonthlyReviewLoader({ organizationId, accountId, onChanged }: Props) {
           </Alert>
         ) : (
           <MonthlySelection
-            key={`${preview.sourceSnapshot}:${preview.selectedOfferId ?? 'unselected'}:${nonce}`}
-            preview={preview}
+            key={`${selectionPreview.sourceSnapshot}:${frozenSelection?.nonce ?? nonce}`}
+            preview={selectionPreview}
+            refreshNonce={nonce}
+            preparationCurrent={
+              !frozenSelection ||
+              (preview?.offerSetId === selectionPreview.offerSetId &&
+                preview?.sourceSnapshot === selectionPreview.sourceSnapshot &&
+                (preview.selectedOfferId === null ||
+                  preview.selectedOfferId === selectionPreview.selectedOfferId))
+            }
+            refreshing={loading}
             organizationId={organizationId}
             accountId={accountId}
             onChanged={onChanged}
             onQuoted={() => setQuoted(true)}
+            onFrozen={(offerId) => {
+              if (!frozen.current) {
+                frozen.current = {
+                  preview: { ...selectionPreview, selectedOfferId: offerId },
+                  nonce,
+                };
+                setFrozenSelection(frozen.current);
+              }
+            }}
+            onPending={(pending) => {
+              actionPending.current = pending;
+              setActionInFlight(pending);
+            }}
             onArchived={() => {
-              setArchivedSource(preview.sourceSnapshot);
+              actionPending.current = false;
+              setActionInFlight(false);
+              setArchivedSource(selectionPreview.sourceSnapshot);
               setPreview(null);
-              refresh();
+              setLoading(true);
+              setNonce((n) => n + 1);
             }}
           />
         )
@@ -262,10 +314,20 @@ function MonthlySelection({
   accountId,
   onQuoted,
   onArchived,
+  onFrozen,
+  onPending,
+  refreshNonce,
+  preparationCurrent,
+  refreshing,
 }: Props & {
   preview: MonthlyOfferSetPreview;
   onQuoted: () => void;
   onArchived: () => void;
+  onFrozen: (offerId: string) => void;
+  onPending: (pending: boolean) => void;
+  refreshNonce: number;
+  preparationCurrent: boolean;
+  refreshing: boolean;
 }) {
   const { fmt } = useLocale();
   const initialChoice =
@@ -290,6 +352,16 @@ function MonthlySelection({
       alive.current = false;
     };
   }, []);
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await Promise.resolve();
+      if (!cancelled) setAccepted(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshNonce]);
   const choice = preview.choices.find(
     (c) => c.available && c.identity.tier === tier
   );
@@ -321,10 +393,14 @@ function MonthlySelection({
       overCap ||
       !initiation ||
       !preview.capabilitiesEnabled ||
+      !preparationCurrent ||
+      refreshing ||
       busy.current
     )
       return;
     busy.current = true;
+    onPending(true);
+    onFrozen(offer.offerId);
     setPending(true);
     setLocked(true);
     try {
@@ -387,12 +463,16 @@ function MonthlySelection({
       }
     } finally {
       busy.current = false;
-      if (alive.current) setPending(false);
+      if (alive.current) {
+        setPending(false);
+        onPending(false);
+      }
     }
   }
   async function archive(ids: readonly string[]) {
     if (!offer || !preview.offerSetId || busy.current || !initiation) return;
     busy.current = true;
+    onPending(true);
     try {
       const result = await post('monthly-archive', {
         organizationId,
@@ -417,6 +497,7 @@ function MonthlySelection({
         );
     } finally {
       busy.current = false;
+      if (alive.current) onPending(false);
     }
   }
   const label = SUBSCRIPTION_PLANS[tier].label;
@@ -503,18 +584,25 @@ function MonthlySelection({
                         onResolve: () => setArchiveOpen(true),
                       },
                     }
-                  : !initiation || !preview.capabilitiesEnabled
+                  : !preparationCurrent
                     ? {
-                        title: 'Payment is paused',
-                        description: 'Contact support to review your payment.',
+                        title: 'Your saved offer needs a review',
+                        description:
+                          'Your preparation changed. Contact support before continuing payment.',
                       }
-                    : null
+                    : !initiation || !preview.capabilitiesEnabled
+                      ? {
+                          title: 'Payment is paused',
+                          description:
+                            'Contact support to review your payment.',
+                        }
+                      : null
               }
               trigger={
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={!accepted}
+                  disabled={!accepted || refreshing}
                   loading={pending}
                 >
                   {reviewId ? 'Continue to payment' : `Approve ${label} offer`}

@@ -495,7 +495,11 @@ function LiveReview({
       await openUsefulmadeLiveCheckout({
         ...(starterCustomer ? { starterCustomer: true } : {}),
         ...(monthlyCustomer && monthlyIdentity
-          ? { monthlyCustomer: monthlyIdentity, isCurrent: () => alive.current }
+          ? {
+              monthlyCustomer: monthlyIdentity,
+              isCurrent: () =>
+                alive.current && Date.now() < Date.parse(quote.expires_at),
+            }
           : {}),
         keyId: checkout.keyId,
         orderId: checkout.orderId,

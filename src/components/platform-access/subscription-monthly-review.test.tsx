@@ -192,6 +192,11 @@ it('archives separately, keeps billing and requires fresh preparation after succ
   );
   fireEvent.click(archive);
   expect(await screen.findByText('Branches archived')).toBeTruthy();
+  expect(
+    screen
+      .getByRole('button', { name: 'Refresh offers' })
+      .hasAttribute('disabled')
+  ).toBe(false);
   expect(screen.queryByRole('button', { name: /Approve/ })).toBeNull();
   expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string)).toEqual({
     organizationId,
@@ -244,6 +249,160 @@ it('locks selection during an uncertain saved review and recovers the same offer
       .getByRole('checkbox', { name: /reviewed this Growth/i })
       .getAttribute('aria-checked')
   ).toBe('false');
+});
+
+it.each(['review', 'quote'])(
+  'retains the frozen offer and request through pending %s and an older manual refresh after failure',
+  async (phase) => {
+    let resolve!: (response: Response) => void;
+    let delayed = true;
+    const uuid = vi.spyOn(crypto, 'randomUUID');
+    const fetchMock = vi.fn<typeof fetch>(async (url) => {
+      if (
+        delayed &&
+        String(url).endsWith(
+          phase === 'review' ? 'monthly-review' : 'monthly-quotes'
+        )
+      )
+        return new Promise((r) => {
+          resolve = r;
+        });
+      if (String(url).endsWith('monthly-review'))
+        return Response.json({
+          reviewed: true,
+          reviewId: 'saved-review',
+          offerId: preview.choices[1]!.offerId,
+        });
+      return Response.json(
+        { error: 'Payment setup needs support.' },
+        { status: 409 }
+      );
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(
+      <SubscriptionMonthlyReview
+        organizationId={organizationId}
+        accountId={accountId}
+      />
+    );
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Choose Growth' })
+    );
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: /reviewed this Growth/i })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Approve Growth offer' })
+    );
+    await waitFor(() => expect(resolve).toBeTypeOf('function'));
+    const beforeRefresh = rpc.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh offers' }));
+    expect(rpc.mock.calls.length).toBe(beforeRefresh);
+    expect(
+      screen.queryByRole('button', { name: 'Choose Ultimate' })
+    ).toBeNull();
+    delayed = false;
+    await act(async () =>
+      resolve(
+        Response.json(
+          { error: 'Payment setup needs support.' },
+          { status: 409 }
+        )
+      )
+    );
+    await screen.findByText('Payment setup needs support.');
+    // The preview still reflects a read before the unknown write committed.
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh offers' }));
+    await waitFor(() =>
+      expect(rpc.mock.calls.length).toBeGreaterThan(beforeRefresh)
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole('button', { name: 'Refresh offers' })
+          .getAttribute('aria-busy')
+      ).not.toBe('true')
+    );
+    expect(
+      screen.queryByRole('button', { name: 'Choose Ultimate' })
+    ).toBeNull();
+    const consent = screen.getByRole('checkbox', {
+      name: /reviewed this Growth/i,
+    });
+    expect(consent.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(consent);
+    fireEvent.click(
+      screen.getByRole('button', {
+        name:
+          phase === 'review' ? 'Approve Growth offer' : 'Continue to payment',
+      })
+    );
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(([url]) =>
+          String(url).endsWith('monthly-quotes')
+        ).length
+      ).toBe(phase === 'quote' ? 2 : 1)
+    );
+    const quotes = fetchMock.mock.calls
+      .filter(([url]) => String(url).endsWith('monthly-quotes'))
+      .map(([, init]) => JSON.parse(init!.body as string));
+    expect(uuid).toHaveBeenCalledOnce();
+    expect(
+      quotes.every(
+        (q) =>
+          q.offerId === preview.choices[1]!.offerId &&
+          q.requestId === quotes[0]!.requestId &&
+          q.reviewId === 'saved-review'
+      )
+    ).toBe(true);
+    uuid.mockRestore();
+  }
+);
+
+it('keeps an uncertain offer frozen when refresh returns a different preparation', async () => {
+  const fetchMock = vi.fn(async () =>
+    Response.json({ error: 'Saved review outcome unknown.' }, { status: 409 })
+  );
+  vi.stubGlobal('fetch', fetchMock);
+  render(
+    <SubscriptionMonthlyReview
+      organizationId={organizationId}
+      accountId={accountId}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Choose Growth' }));
+  fireEvent.click(
+    screen.getByRole('checkbox', { name: /reviewed this Growth/i })
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Approve Growth offer' }));
+  await screen.findByText('Saved review outcome unknown.');
+  rpc.mockImplementation(async (name: string) => ({
+    data:
+      name === 'subscription_monthly_offer_preview'
+        ? { ...preview, sourceSnapshot: 'source-b', offerSetId: 'fresh-set' }
+        : null,
+    error: null,
+  }));
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh offers' }));
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole('button', { name: 'Refresh offers' })
+        .getAttribute('aria-busy')
+    ).not.toBe('true')
+  );
+  expect(screen.queryByRole('button', { name: 'Choose Ultimate' })).toBeNull();
+  const consent = screen.getByRole('checkbox', {
+    name: /reviewed this Growth/i,
+  });
+  expect(consent.getAttribute('aria-checked')).toBe('false');
+  fireEvent.click(consent);
+  fireEvent.click(screen.getByRole('button', { name: 'Approve Growth offer' }));
+  expect(
+    await screen.findByText('Your saved offer needs a review')
+  ).toBeTruthy();
+  expect(fetchMock).toHaveBeenCalledOnce();
 });
 
 it('requires exact monthly quote identity before handing off to checkout', async () => {
