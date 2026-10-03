@@ -1,8 +1,10 @@
 # Selected-gym Starter preparation — 3 October 2026
 
-**Built and installed closed in Production; app deployment remains pending.**
-The work is on local main in the managed `subsequent-gym-preparation` worktree.
-No push, PR, customer opening, live charge or customer message belongs to this step.
+**Built, installed closed and deployed in Production as `c9da8c47`.**
+The approved [coordinated release](subscription-coordinated-release-execution-2026-10-03.md)
+published this form on 3 October; the post-deploy 07:36 UTC preservation check
+and signed-in platform-admin view still show zero selected gyms/work rows.
+Actual per-customer review, owner approval, scoped opening and payment remain separate.
 
 ## Current disposition
 

@@ -1,10 +1,13 @@
 # Coordinated billing release — 3 October 2026
 
-**Prepared for approval; Production is unchanged.** Release code is local main
-`3ff4f3071e777b27b85ebd979f3db29232116c16`. The commit containing this packet
-adds acceptance evidence and operating instructions only. All five scoped
-implementations are recorded; real reminder delivery and genuine provider
-redelivery remain separate unfinished acceptance.
+**Approved closed release deployed on 3 October.** Canonical Production serves
+`c9da8c4721221472a5f16ac623dd9b3902253285`; its application source is the reviewed
+`3ff4f3071e777b27b85ebd979f3db29232116c16`. The exact unseeded renewal migration
+is installed as `20261003070856`, with its hard closure intact. The sections below
+preserve the original approval packet and preflight observations. Actual execution
+is recorded in the [release receipt](subscription-coordinated-release-execution-2026-10-03.md).
+All five implementations are published; real reminder delivery, genuine provider
+redelivery and customer renewal opening remain separate unfinished acceptance.
 
 ## Accepted preparation
 
@@ -71,7 +74,7 @@ The [machine-readable evidence](subscription-coordinated-release-evidence-2026-1
 contains dated counts, schema history, function hashes, closure and Production
 preservation fingerprints. Counts/fingerprints are drift checks, not backups.
 
-## Production preflight and exact delta
+## Original Production preflight and exact delta
 
 One fresh independent final review found no outstanding Critical, Important or
 Minor finding after the evidence labels and historical pending entries were
@@ -79,7 +82,7 @@ clarified. It reviewed the integrated release order and read-only preservation
 helper; the unperformed external/provider/deployment actions below remain
 outside accepted execution evidence.
 
-Current Production is `fwqthstqrkrwtaehefks`. Vercel project
+At the original preflight, Production was `fwqthstqrkrwtaehefks`. Vercel project
 `prj_kn3FOeuAZkeAyCeA5lbBhsHHECne` uses GitHub `UsefulDesk`,
 Production branch `main`, Node 24.x and region `sin1`. The current READY
 deployment is `dpl_FXH8yD2mBgA2qmHdNgjQ6LMhPpJE`, source
@@ -112,7 +115,7 @@ quote/order path; global internal initiation/refunds/renewals remain closed.
 The closed release changes none of these switches. Do not globally disable
 settlement or recovery to represent an additive installation as closed.
 
-## Proposed external action, after Rajat approves
+## Approved execution sequence (original packet)
 
 1. Recheck remote/main, sole writer ownership, deployment, flags, source hashes,
    current customer binding and before-change fingerprints. Abort on unexpected

@@ -1,5 +1,12 @@
 # Independent production watchdog — active
 
+**Approved release follow-up, 3 October 07:36 UTC:** canonical Production now
+serves `c9da8c47`. Both external monitors remain active/Healthy and the test stays
+paused. The primary snapshot and natural c9 native ops (10/0) and renewals (3/0),
+all HTTP 200, are separately recorded in the
+[release receipt](subscription-coordinated-release-execution-2026-10-03.md).
+No new alert was sent; the original channel acceptance remains below.
+
 **3 October read-only refresh:** both production monitors remain active with
 300-second checks and displayed Healthy → Ongoing history; the harmless test
 remains paused. The original 2 October alert receipt remains the channel acceptance,

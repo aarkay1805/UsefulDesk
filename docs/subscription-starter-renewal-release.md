@@ -7,9 +7,11 @@ Those are the original STEP 1 observations. On **3 October**, the exact source
 was installed closed in isolated Billing Staging and passed connector rollback
 and real Auth/PostgREST plus signed synthetic-webhook acceptance. All baseline
 counts/settings and hard closure were restored before Staging was re-paused.
-Production installation, app publication, genuine provider acceptance and
-renewal opening remain pending; see the
-[coordinated packet](subscription-coordinated-release-2026-10-03.md).
+The approved 3 October release installed Production history `20261003070856`
+and published `c9da8c47`. The hard `CHECK (NOT renewals_enabled)` is validated,
+there are zero renewal releases, and server/UI renewal flags remain absent.
+Genuine provider acceptance and separately authorized renewal opening remain
+pending; see the [execution receipt](subscription-coordinated-release-execution-2026-10-03.md).
 
 ## Exact scope and deadline
 

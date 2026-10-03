@@ -15,12 +15,16 @@ accepting the resulting single-vault resilience risk.
 
 ## What runs
 
-**3 October coverage review:** the former five-bucket exporter omitted private
-gym invoice PDFs and expense receipts. The corrected seven-bucket exporter passed
-real read-only Production export/hash acceptance for all 49 objects; a corrected
-encrypted GitHub/R2 full run remains pending the coordinated release. Do not use an
-older successful run as evidence that these files are protected. See the
-[dated hosting review](production-hosting-review-2026-10-03.md).
+**3 October coverage gap closed:** the corrected seven-bucket exporter ran in
+fresh full pre-release `37100313050` and post-release `37106078530` backups.
+Both succeeded, covering all 49 objects / 2,838,714 bytes, including five gym
+invoice PDFs. Independent R2 downloads, archive checksums, existing-vault identity
+decryption, internal database hashes and all object lengths/hashes passed.
+Justin's SaaS PDF originals were also verified in the private database bytea ledger.
+The temporary identity/plaintext files were removed. This is usable-decryption
+acceptance, not a new database restore drill; historical identity/custody limits
+above still apply. Exact source SHAs, archive keys, sizes and hashes are in the
+[release receipt](subscription-coordinated-release-execution-2026-10-03.md).
 
 The [Production backup workflow](../.github/workflows/production-backup.yml)
 runs at 02:00 IST:

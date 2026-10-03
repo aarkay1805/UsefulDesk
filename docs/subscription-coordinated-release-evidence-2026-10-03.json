@@ -1,9 +1,6 @@
 {
   "checked_date": "2026-10-03",
   "source_commit": "3ff4f3071e777b27b85ebd979f3db29232116c16",
-  "production_mutations": 0,
-  "provider_network_calls": 0,
-  "customer_sends": 0,
   "local_verify": {
     "passed": true,
     "tests": 4433,
@@ -705,36 +702,640 @@
       "schema": "private",
       "name": "subscription_customer_preparation_eligible",
       "arguments": "p_preparation_id uuid, p_actor uuid",
-      "body_md5": "5028eff030b4088e6348a17e4bffaa1c",
       "security_definer": true,
       "config": ["search_path=\"\""],
-      "acl": "{postgres=X/postgres}"
+      "acl": "{postgres=X/postgres}",
+      "definition_md5": "5028eff030b4088e6348a17e4bffaa1c"
     },
     {
       "schema": "private",
       "name": "subscription_customer_review_active",
       "arguments": "p_organization_id uuid, p_review_id uuid",
-      "body_md5": "76dd2b4000b3c9dae1e9b77be5c258d4",
       "security_definer": true,
       "config": ["search_path=\"\""],
-      "acl": "{postgres=X/postgres}"
+      "acl": "{postgres=X/postgres}",
+      "definition_md5": "76dd2b4000b3c9dae1e9b77be5c258d4"
     },
     {
       "schema": "private",
       "name": "subscription_guard_tracked_preparation",
       "arguments": "",
-      "body_md5": "d3623a6f4931d8bec347f5baca181e50",
       "security_definer": true,
       "config": ["search_path=\"\""],
-      "acl": "{postgres=X/postgres}"
+      "acl": "{postgres=X/postgres}",
+      "definition_md5": "d3623a6f4931d8bec347f5baca181e50"
     }
   ],
   "genuine_provider_redelivery_acceptance": "pending",
   "genuine_whatsapp_acceptance": "pending",
-  "corrected_encrypted_full_backup": "pending",
+  "corrected_encrypted_full_backup": "verified pre/post full backups and existing-identity decryption",
   "independent_final_review": {
     "reviewers": 1,
     "outstanding_findings": 0,
     "scope": "release order, evidence, boundaries, rollback and preservation; external execution remains pending"
+  },
+  "preparation_production_mutations": 0,
+  "preparation_provider_network_calls": 0,
+  "preparation_customer_sends": 0,
+  "function_definition_hash_method": "MD5(pg_get_functiondef(oid)); source prosrc equality is checked separately",
+  "execution": {
+    "approved_release_sha": "c9da8c4721221472a5f16ac623dd9b3902253285",
+    "source_sha": "3ff4f3071e777b27b85ebd979f3db29232116c16",
+    "backup_tag": "billing-release-2026-10-03-3ff4f307",
+    "completed_at": "2026-10-03T07:36:31Z",
+    "main_pushed": true,
+    "ci": {
+      "run": 37105658850,
+      "url": "https://github.com/aarkay1805/UsefulDesk/actions/runs/37105658850",
+      "sha": "c9da8c4721221472a5f16ac623dd9b3902253285",
+      "conclusion": "success",
+      "completed_at": "2026-10-03T07:19:56Z"
+    },
+    "production": {
+      "id": "dpl_9h5rJB2RUVmiisRJA9Kwzf69drJV",
+      "state": "READY",
+      "sha": "c9da8c4721221472a5f16ac623dd9b3902253285",
+      "canonical_alias": "desk.usefulmade.com",
+      "regions": ["sin1"],
+      "verified_at": "2026-10-03T07:21:10Z"
+    },
+    "migration": {
+      "scopes": [
+        {
+          "review_id": "c815eb04-99bf-4e0c-8e97-1884dbf1638b",
+          "merchant_id": "acc_TCJwBqanN9LTrK",
+          "orders_enabled": true,
+          "quotes_enabled": true,
+          "organization_id": "4c549182-7ad3-4f0b-8977-ff8ca79d2992",
+          "refunds_enabled": false,
+          "renewals_enabled": false,
+          "renewal_release_id": null
+        }
+      ],
+      "policies": 0,
+      "migration": {
+        "name": "starter_live_customer_renewals",
+        "version": "20261003070856",
+        "source_md5": "719d285af17cfaf22534cae656039b5c",
+        "statement_count": 1
+      },
+      "checked_at": "2026-10-03T07:09:42.923457+00:00",
+      "release_acl": [
+        {
+          "role": "service_role",
+          "privilege": "SELECT"
+        },
+        {
+          "role": "postgres",
+          "privilege": "MAINTAIN"
+        },
+        {
+          "role": "postgres",
+          "privilege": "TRIGGER"
+        },
+        {
+          "role": "postgres",
+          "privilege": "REFERENCES"
+        },
+        {
+          "role": "postgres",
+          "privilege": "TRUNCATE"
+        },
+        {
+          "role": "postgres",
+          "privilege": "DELETE"
+        },
+        {
+          "role": "postgres",
+          "privilege": "UPDATE"
+        },
+        {
+          "role": "postgres",
+          "privilege": "SELECT"
+        },
+        {
+          "role": "postgres",
+          "privilege": "INSERT"
+        }
+      ],
+      "release_rls": true,
+      "release_count": 0,
+      "closed_constraint": {
+        "validated": true,
+        "definition": "CHECK ((NOT renewals_enabled))"
+      },
+      "quote_release_ids_null": true
+    },
+    "verified_renewal_source_bodies": 15,
+    "preserved_existing_function_definitions": 14,
+    "environment_audit": {
+      "blockers": 0,
+      "warnings": 13
+    },
+    "renewal_runtime_flags": "server/UI absent; other existing flags unchanged",
+    "preservation_before": {
+      "checked_at": "2026-10-03 05:32:07.12592+00",
+      "preservation": [
+        {
+          "relation": "private.organization_product_access",
+          "row_count": 6,
+          "fingerprint": "28c2e4dacd81c1a9f90fcbd091791302"
+        },
+        {
+          "relation": "private.platform_admins",
+          "row_count": 1,
+          "fingerprint": "9f02c6a7a580e52f12c75c66db9a054e"
+        },
+        {
+          "relation": "private.subscription_billing_settings",
+          "row_count": 1,
+          "fingerprint": "e18ff0656eaa7dacac43add3ba2c68b9"
+        },
+        {
+          "relation": "private.subscription_live_customer_preparations",
+          "row_count": 1,
+          "fingerprint": "8d54da3ef77b667eccf76dc7b5cce056"
+        },
+        {
+          "relation": "private.subscription_live_customer_reviews",
+          "row_count": 1,
+          "fingerprint": "bf8056bd112b9a2f4a563b07ff8b67c9"
+        },
+        {
+          "relation": "private.subscription_live_customer_scopes",
+          "row_count": 1,
+          "fingerprint": "8922cb7ccd164bb9dec8cd945b8a3b6f"
+        },
+        {
+          "relation": "private.subscription_live_delivery_receipts",
+          "row_count": 1,
+          "fingerprint": "79f1b8458c4a5dbee850d0b76f20bb99"
+        },
+        {
+          "relation": "private.subscription_live_document_issues",
+          "row_count": 1,
+          "fingerprint": "ffdd1a555a70d49d46a0eb9133a92b8d"
+        },
+        {
+          "relation": "private.subscription_live_grants",
+          "row_count": 2,
+          "fingerprint": "72b3601d54d0268496225ef21181d842"
+        },
+        {
+          "relation": "private.subscription_live_offer_approvals",
+          "row_count": 2,
+          "fingerprint": "126a28ed79d0ed7dca0b8ba9afa87778"
+        },
+        {
+          "relation": "private.subscription_live_orders",
+          "row_count": 2,
+          "fingerprint": "e990877dc99b796cbe3c6bd54cd5c7a1"
+        },
+        {
+          "relation": "private.subscription_live_payments",
+          "row_count": 2,
+          "fingerprint": "2543e039fb60e016f776ca848086f66c"
+        },
+        {
+          "relation": "private.subscription_live_pilot_opening_reviews",
+          "row_count": 1,
+          "fingerprint": "d6f1f1d6fd9bf48f9140a91c525aafaf"
+        },
+        {
+          "relation": "private.subscription_live_quotes",
+          "row_count": 2,
+          "fingerprint": "d0e3fbf466bd5407d5e568ee2b177318"
+        },
+        {
+          "relation": "private.subscription_live_recovery_exceptions",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_recovery_queue",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_recovery_reviews",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_refund_reviews",
+          "row_count": 1,
+          "fingerprint": "5f10fd7e5ac68c746d01755adaf6bb76"
+        },
+        {
+          "relation": "private.subscription_live_refunds",
+          "row_count": 1,
+          "fingerprint": "1879d45a930188a1e4e0b87ac0ff50cf"
+        },
+        {
+          "relation": "private.subscription_live_settings",
+          "row_count": 1,
+          "fingerprint": "85635bb5dea615c2da7e49115aa61c72"
+        },
+        {
+          "relation": "private.subscription_live_webhook_events",
+          "row_count": 4,
+          "fingerprint": "4cd9afb865b3023943774a870a9c6e27"
+        },
+        {
+          "relation": "private.subscription_starter_signup_policies",
+          "row_count": 1,
+          "fingerprint": "7d179a8affd30644a5b146127399ad06"
+        },
+        {
+          "relation": "private.subscription_starter_signup_selections",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "public.accounts",
+          "row_count": 7,
+          "fingerprint": "bded176538b759d3db95f3c845f0c1c2"
+        },
+        {
+          "relation": "public.invoice_profiles",
+          "row_count": 3,
+          "fingerprint": "3ae5761f922108b058d7e7c87d7d6831"
+        },
+        {
+          "relation": "public.invoices",
+          "row_count": 565,
+          "fingerprint": "346b5a08447e60bc9636ce43a5e6ac89"
+        },
+        {
+          "relation": "public.legal_entities",
+          "row_count": 6,
+          "fingerprint": "3f01a64668e4bb4d4d7e5dee44f33393"
+        },
+        {
+          "relation": "public.membership_plans",
+          "row_count": 15,
+          "fingerprint": "64800b2ab2b7d90b26a6b691166340bb"
+        },
+        {
+          "relation": "public.memberships",
+          "row_count": 2,
+          "fingerprint": "cec9a7f3cf0561c8b08cc50506566124"
+        },
+        {
+          "relation": "public.organization_memberships",
+          "row_count": 6,
+          "fingerprint": "0f7344a00263cf8c66efedc203c8f745"
+        },
+        {
+          "relation": "public.organizations",
+          "row_count": 6,
+          "fingerprint": "f4cc35149d9c4382f17504d68c18f4de"
+        },
+        {
+          "relation": "public.payments",
+          "row_count": 555,
+          "fingerprint": "3be5101790a14fd657f0467aa2ba6028"
+        },
+        {
+          "relation": "public.plan_pricing_options",
+          "row_count": 95,
+          "fingerprint": "55d7e125234b0f85d84ef44ed1825206"
+        }
+      ]
+    },
+    "preservation_after": {
+      "checked_at": "2026-10-03 07:36:31.075871+00",
+      "preservation": [
+        {
+          "relation": "private.organization_product_access",
+          "row_count": 6,
+          "fingerprint": "28c2e4dacd81c1a9f90fcbd091791302"
+        },
+        {
+          "relation": "private.platform_admins",
+          "row_count": 1,
+          "fingerprint": "9f02c6a7a580e52f12c75c66db9a054e"
+        },
+        {
+          "relation": "private.subscription_billing_settings",
+          "row_count": 1,
+          "fingerprint": "e18ff0656eaa7dacac43add3ba2c68b9"
+        },
+        {
+          "relation": "private.subscription_live_customer_preparations",
+          "row_count": 1,
+          "fingerprint": "8d54da3ef77b667eccf76dc7b5cce056"
+        },
+        {
+          "relation": "private.subscription_live_customer_reviews",
+          "row_count": 1,
+          "fingerprint": "bf8056bd112b9a2f4a563b07ff8b67c9"
+        },
+        {
+          "relation": "private.subscription_live_customer_scopes",
+          "row_count": 1,
+          "fingerprint": "8922cb7ccd164bb9dec8cd945b8a3b6f"
+        },
+        {
+          "relation": "private.subscription_live_delivery_receipts",
+          "row_count": 1,
+          "fingerprint": "79f1b8458c4a5dbee850d0b76f20bb99"
+        },
+        {
+          "relation": "private.subscription_live_document_issues",
+          "row_count": 1,
+          "fingerprint": "ffdd1a555a70d49d46a0eb9133a92b8d"
+        },
+        {
+          "relation": "private.subscription_live_grants",
+          "row_count": 2,
+          "fingerprint": "72b3601d54d0268496225ef21181d842"
+        },
+        {
+          "relation": "private.subscription_live_offer_approvals",
+          "row_count": 2,
+          "fingerprint": "126a28ed79d0ed7dca0b8ba9afa87778"
+        },
+        {
+          "relation": "private.subscription_live_orders",
+          "row_count": 2,
+          "fingerprint": "e990877dc99b796cbe3c6bd54cd5c7a1"
+        },
+        {
+          "relation": "private.subscription_live_payments",
+          "row_count": 2,
+          "fingerprint": "2543e039fb60e016f776ca848086f66c"
+        },
+        {
+          "relation": "private.subscription_live_pilot_opening_reviews",
+          "row_count": 1,
+          "fingerprint": "d6f1f1d6fd9bf48f9140a91c525aafaf"
+        },
+        {
+          "relation": "private.subscription_live_quotes",
+          "row_count": 2,
+          "fingerprint": "d0e3fbf466bd5407d5e568ee2b177318"
+        },
+        {
+          "relation": "private.subscription_live_recovery_exceptions",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_recovery_queue",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_recovery_reviews",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "private.subscription_live_refund_reviews",
+          "row_count": 1,
+          "fingerprint": "5f10fd7e5ac68c746d01755adaf6bb76"
+        },
+        {
+          "relation": "private.subscription_live_refunds",
+          "row_count": 1,
+          "fingerprint": "1879d45a930188a1e4e0b87ac0ff50cf"
+        },
+        {
+          "relation": "private.subscription_live_settings",
+          "row_count": 1,
+          "fingerprint": "85635bb5dea615c2da7e49115aa61c72"
+        },
+        {
+          "relation": "private.subscription_live_webhook_events",
+          "row_count": 4,
+          "fingerprint": "4cd9afb865b3023943774a870a9c6e27"
+        },
+        {
+          "relation": "private.subscription_starter_signup_policies",
+          "row_count": 1,
+          "fingerprint": "7d179a8affd30644a5b146127399ad06"
+        },
+        {
+          "relation": "private.subscription_starter_signup_selections",
+          "row_count": 0,
+          "fingerprint": "d41d8cd98f00b204e9800998ecf8427e"
+        },
+        {
+          "relation": "public.accounts",
+          "row_count": 7,
+          "fingerprint": "bded176538b759d3db95f3c845f0c1c2"
+        },
+        {
+          "relation": "public.invoice_profiles",
+          "row_count": 3,
+          "fingerprint": "3ae5761f922108b058d7e7c87d7d6831"
+        },
+        {
+          "relation": "public.invoices",
+          "row_count": 565,
+          "fingerprint": "346b5a08447e60bc9636ce43a5e6ac89"
+        },
+        {
+          "relation": "public.legal_entities",
+          "row_count": 6,
+          "fingerprint": "3f01a64668e4bb4d4d7e5dee44f33393"
+        },
+        {
+          "relation": "public.membership_plans",
+          "row_count": 15,
+          "fingerprint": "64800b2ab2b7d90b26a6b691166340bb"
+        },
+        {
+          "relation": "public.memberships",
+          "row_count": 2,
+          "fingerprint": "cec9a7f3cf0561c8b08cc50506566124"
+        },
+        {
+          "relation": "public.organization_memberships",
+          "row_count": 6,
+          "fingerprint": "0f7344a00263cf8c66efedc203c8f745"
+        },
+        {
+          "relation": "public.organizations",
+          "row_count": 6,
+          "fingerprint": "f4cc35149d9c4382f17504d68c18f4de"
+        },
+        {
+          "relation": "public.payments",
+          "row_count": 555,
+          "fingerprint": "3be5101790a14fd657f0467aa2ba6028"
+        },
+        {
+          "relation": "public.plan_pricing_options",
+          "row_count": 95,
+          "fingerprint": "55d7e125234b0f85d84ef44ed1825206"
+        }
+      ]
+    },
+    "pre_release_backup": {
+      "run": 37100313050,
+      "url": "https://github.com/aarkay1805/UsefulDesk/actions/runs/37100313050",
+      "source_sha": "3ff4f3071e777b27b85ebd979f3db29232116c16",
+      "timestamp": "2026-10-03T05-36-32Z",
+      "completed_at": "2026-10-03T05:41:19Z",
+      "include_storage": true,
+      "archives": {
+        "database": {
+          "key": "database/2026/10/database-2026-10-03T05-36-32Z.tar.gz.age",
+          "bytes": 1021052,
+          "sha256": "1226213b98e0f3672f1f9e39b9d0c2703dc6dff53781a4b5b9a85e435ac78992",
+          "downloaded_checksum_verified": true
+        },
+        "storage": {
+          "key": "storage/2026/10/storage-2026-10-03T05-36-32Z.tar.gz.age",
+          "downloaded_checksum_verified": true,
+          "bytes": 1517155,
+          "sha256": "1ac5c78b5b05b3a57a24d75d72a7117628d71c79fd2273af8c0d12786e41c36e"
+        }
+      },
+      "objects": 49,
+      "total_bytes": 2838714,
+      "buckets": 7,
+      "existing_identity_decryption_passed": true,
+      "internal_checksums_passed": true,
+      "justin_original_pdfs_verified_in_database": true,
+      "database_restore_performed": false
+    },
+    "post_release_backup": {
+      "run": 37106078530,
+      "url": "https://github.com/aarkay1805/UsefulDesk/actions/runs/37106078530",
+      "source_sha": "c9da8c4721221472a5f16ac623dd9b3902253285",
+      "include_storage": true,
+      "completed_at": "2026-10-03T07:27:11Z",
+      "timestamp": "2026-10-03T07-22-44Z",
+      "status": "success",
+      "database": {
+        "key": "database/2026/10/database-2026-10-03T07-22-44Z.tar.gz.age",
+        "bytes": 1022610,
+        "sha256": "caef6118780e5512d5e686ef1d84513ecc11e731d9cade64ba4ebeab2021ea30"
+      },
+      "storage": {
+        "key": "storage/2026/10/storage-2026-10-03T07-22-44Z.tar.gz.age",
+        "bytes": 1517090,
+        "sha256": "27d2c0c5b2862bcb1398ffe826fd45b5c05109388f071a475066b10af57e8676",
+        "objects": 49,
+        "total_bytes": 2838714,
+        "buckets": 7
+      },
+      "decryption_passed": true,
+      "internal_checksums_passed": true,
+      "justin_original_pdf_bytes_and_hashes_passed": true,
+      "database_restore_performed": false
+    },
+    "ui": {
+      "checked_at": "2026-10-03T07:23:00Z",
+      "owner_home_office": {
+        "loaded": true,
+        "role": "OWNER",
+        "billing": "refunded; renewal cancelled; no auto debit"
+      },
+      "platform_admin": {
+        "loaded": true,
+        "preparation_empty": true,
+        "justin_access": "Active"
+      },
+      "justin_owner_session_checked": false
+    },
+    "monitors": {
+      "checked_at": "2026-10-03T07:27:00Z",
+      "public": {
+        "id": 8032323,
+        "active": true,
+        "check_seconds": 300,
+        "history": "Healthy 2026-10-02 13:39 UTC to Ongoing"
+      },
+      "workers": {
+        "id": 8032327,
+        "active": true,
+        "check_seconds": 300,
+        "history": "Healthy 2026-10-02 13:53 UTC to Ongoing"
+      },
+      "notification_test": {
+        "id": 8032326,
+        "paused": true
+      },
+      "new_alert_sent": false,
+      "original_alert_received_at": "2026-10-02T13:42:41Z"
+    },
+    "primary_watchdog": {
+      "groups": [
+        {
+          "group": "ops",
+          "active": true,
+          "failed": 0,
+          "timed_out": false,
+          "dispatched": 10,
+          "status_code": 200,
+          "last_response_at": "2026-10-03T07:23:00.267534+00:00"
+        },
+        {
+          "group": "renewals",
+          "active": true,
+          "failed": 0,
+          "timed_out": false,
+          "dispatched": 3,
+          "status_code": 200,
+          "last_response_at": "2026-10-03T06:41:00.104659+00:00"
+        }
+      ],
+      "checked_at": "2026-10-03T07:35:03.515452+00:00"
+    },
+    "final_database_closure": {
+      "checked_at": "2026-10-03T07:35:03.515452+00:00",
+      "release_count": 0,
+      "scopes_closed": true,
+      "global_renewals_closed": true,
+      "constraint_validated": true
+    },
+    "native_ops": {
+      "deployment_id": "dpl_9h5rJB2RUVmiisRJA9Kwzf69drJV",
+      "observed_at": "2026-10-03T07:33:23Z",
+      "status": 200,
+      "dispatched": 10,
+      "failed": 0,
+      "all_worker_http_200": true,
+      "naturally_scheduled": true
+    },
+    "native_renewals": {
+      "deployment_id": "dpl_9h5rJB2RUVmiisRJA9Kwzf69drJV",
+      "observed_at": "2026-10-03T07:35:12Z",
+      "status": 200,
+      "dispatched": 3,
+      "failed": 0,
+      "all_worker_http_200": true,
+      "naturally_scheduled": true
+    },
+    "runtime_errors": {
+      "since": "2026-10-03T07:20:00Z",
+      "until": "2026-10-03T07:36:00Z",
+      "levels": ["error", "fatal"],
+      "groups": 0
+    },
+    "temporary_identity_removed": true,
+    "customer_renewal_opened": false,
+    "customer_sends_by_coordinator": 0,
+    "provider_transactions_by_coordinator": 0,
+    "hosting_purchase": false,
+    "independent_primary": {
+      "branch": "codex/invoice-profile-error-copy",
+      "head": "c74faf9384972d6b36642195e6aec77690e2253b",
+      "dirty_paths": [
+        "supabase/.temp/cli-latest",
+        "docs/Settings Navigation Audit.html"
+      ],
+      "preserved": true,
+      "main_restored": false
+    },
+    "finite_heartbeat": {
+      "id": "sequential-subscription-billing-implementation",
+      "status": "PAUSED",
+      "reactivated": false
+    }
   }
 }

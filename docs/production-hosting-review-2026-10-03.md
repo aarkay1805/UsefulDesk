@@ -3,7 +3,9 @@
 **Conclusion:** the existing Production project is healthy within the narrow paid
 Starter pilot, but its recovery review found a real Storage coverage gap. The
 exporter now includes gym invoice PDFs and expense receipts; local export/restore
-acceptance passes. The corrected exporter has **not** run in GitHub/R2 yet.
+acceptance passes. The approved coordinated release subsequently ran fresh pre/post seven-bucket
+encrypted GitHub/R2 backups; independent existing-identity decryption and all
+object/internal hashes passed. See the [release receipt](subscription-coordinated-release-execution-2026-10-03.md).
 The early review trigger is also met: published upcoming log ingestion is at 60%
 of its Free allowance. No enforced usage quota is at 50%, no Production pause or
 failed backup was observed, and no capacity failure appeared in the checked health
@@ -58,7 +60,7 @@ observations; use the provider quota display for its threshold. The project over
 showed CPU 5%, disk 18%, RAM 61%, and 21/60 connections in its earlier snapshot.
 Resource utilization is not a published monthly usage quota or a load test.
 
-## Health, schedules and independent monitoring
+## Dated pre-release health, schedules and independent monitoring
 
 - Vercel's canonical `desk.usefulmade.com` resolves to READY Production
   `dpl_FXH8yD2mBgA2qmHdNgjQ6LMhPpJE`, deployed `c74faf93` in `sin1`.
@@ -136,8 +138,9 @@ not strict 24-hour/seven-day bounds: GitHub's latest nominal 20:30 UTC database
 schedule actually started at 23:52:51 UTC. Backup freshness health fails after
 30 hours; the independent StatusCake checks cover primary workers, not backups.
 The last disposable database/Storage restore drill remains **23 August**; next
-quarterly drill is due **23 November 2026**. No new cloud restore, current R2
-decryption drill or lifecycle recheck is claimed. The replacement identity's
+quarterly drill is due **23 November 2026**. The coordinated release subsequently
+verified current pre/post R2 archive decryption with the existing vault identity.
+No new cloud restore or lifecycle recheck is claimed. The replacement identity's
 single Apple Passwords vault and loss of the original pre-replacement identity
 remain the explicitly accepted custody limitations in [the backup runbook](backups.md).
 
@@ -166,13 +169,13 @@ pausing and webhook off. This is a spend snapshot, not a future bill estimate.
 Keep Vercel and Supabase in place; a migration brings no demonstrated benefit
 for this review and would require separate runtime/recovery acceptance.
 
-| Next action                                                                                                                                                         | Owner                    | Due / evidence required                                                                                                                                                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Follow the [backup-tag-first coordinated release](subscription-coordinated-release-2026-10-03.md): verify corrected encrypted backup before schema/main publication | Release operator / Rajat | Before treating the recovery gap as closed. Require a successful encrypted R2 database/Storage run covering seven buckets, invoice object count/bytes and the manifest. Local export acceptance alone is insufficient. |
-| Recheck shared usage after the 8 October cycle reset                                                                                                                | Rajat                    | Preserve the 60% early-review finding; distinguish upcoming logs from currently enforced quotas. Do not forecast from the dated values.                                                                                |
-| Choose Pro Micro or a new explicit bounded risk decision                                                                                                            | Rajat                    | By 13 October; present the provider's final tax-inclusive amount before any purchase. Earlier pause, any published Free quota ≥50%, failed backup or paid-user capacity trouble requires immediate renewed review.     |
-| Review GitHub redundancy and database upgrade maintenance                                                                                                           | Rajat                    | Existing schedule-freshness exception remains open; use a fresh backup and scoped maintenance acceptance before a restart/upgrade.                                                                                     |
-| Complete the quarterly disposable restore drill                                                                                                                     | Rajat                    | By 23 November, including current invoice/expense buckets and the actual current encryption identity. Keep preserved evidence projects paused until explicitly needed.                                                 |
+| Next action                                                                                                   | Owner                    | Due / evidence required                                                                                                                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Retain the [completed coordinated release evidence](subscription-coordinated-release-execution-2026-10-03.md) | Release operator / Rajat | Completed 3 October: fresh pre/post encrypted R2 database/Storage backups, seven-bucket coverage, all object/internal hashes and usable decryption verified. Preserve the [execution receipt](subscription-coordinated-release-execution-2026-10-03.md); a fresh restore drill remains separate. |
+| Recheck shared usage after the 8 October cycle reset                                                          | Rajat                    | Preserve the 60% early-review finding; distinguish upcoming logs from currently enforced quotas. Do not forecast from the dated values.                                                                                                                                                          |
+| Choose Pro Micro or a new explicit bounded risk decision                                                      | Rajat                    | By 13 October; present the provider's final tax-inclusive amount before any purchase. Earlier pause, any published Free quota ≥50%, failed backup or paid-user capacity trouble requires immediate renewed review.                                                                               |
+| Review GitHub redundancy and database upgrade maintenance                                                     | Rajat                    | Existing schedule-freshness exception remains open; use a fresh backup and scoped maintenance acceptance before a restart/upgrade.                                                                                                                                                               |
+| Complete the quarterly disposable restore drill                                                               | Rajat                    | By 23 November, including current invoice/expense buckets and the actual current encryption identity. Keep preserved evidence projects paused until explicitly needed.                                                                                                                           |
 
 Local verification: 14 focused backup/freshness tests and all **4,433 tests** pass.
 Lint, typecheck, touched-file formatting, relative documentation links and script

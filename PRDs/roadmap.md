@@ -1,29 +1,30 @@
 # Roadmap
 
-## Accepted — Coordinated billing cloud release preparation (2026-10-03)
+## Shipped closed — Coordinated billing Production release (2026-10-03)
 
-**Status: isolated cloud acceptance complete; Production release awaits approval.**
-Fresh locked verification passes 4,433 tests / 539 files, lint, typecheck and build.
-The selected empty Billing Staging project received exact closed renewal/preparation
-sources and existing Production lead/invoice deltas. Connector rollback assertions
-and actual owner/admin/staff/outsider Auth/PostgREST boundaries passed; signed app
-webhook routing used synthetic provider GET responses with every external network
-call blocked. No genuine provider delivery or deployed callback is claimed.
+**Status: approved source/schema deployed; customer renewal opening remains closed.**
+Canonical `desk.usefulmade.com` is READY `c9da8c47` in `sin1`; main CI and
+4,433 tests / 539 files, lint, typecheck and build passed. Exact renewal history
+`20261003070856` is installed with zero releases, validated hard closure, unchanged
+server/UI flags, all 15 source bodies and 14 existing function definitions verified.
+All 33 existing relation counts/fingerprints and Justin's paid access/setup/PDFs
+remain unchanged after deployment. Reminder repairs and selected-gym preparation
+are published; the real preparation queue was empty at the read-only smoke check.
 
-Cleanup restored every one of 180 table counts, original settings/audit history and
-the hard-closed renewal constraint; Billing Staging is again INACTIVE. Production
-preflight retains Justin’s setup, paid access and issued document hashes. Only the
-closed renewal schema is missing there; preparation is already installed.
-The proposed release path first publishes a backup source tag for the corrected
-seven-bucket encrypted R2 snapshot, then installs the closed schema and publishes
-main. Each external step still needs the concrete release approval. Recipient/message
-delivery, authentic provider redelivery, later renewal opening and hosting purchase
-remain separate. See the [coordinated packet](../docs/subscription-coordinated-release-2026-10-03.md).
+Fresh tagged pre-release and main post-release encrypted R2 runs both succeeded,
+covering all seven buckets and 49 objects. Independent downloads, existing-vault
+identity decryption, internal/object checksums and original SaaS PDF bytes passed;
+no fresh database restore drill is claimed. Isolated cloud acceptance restored all
+180 baseline table counts/settings/audit and returned Staging to INACTIVE. Genuine
+WhatsApp/provider redelivery, later renewal opening, each actual future customer
+review and hosting purchase remain separate. See the
+[execution receipt](../docs/subscription-coordinated-release-execution-2026-10-03.md)
+and original [approval packet](../docs/subscription-coordinated-release-2026-10-03.md).
 
 ## Built — Starter standard reminder readiness repairs (2026-10-03)
 
-**Status: implementation and read-only Production preflight; app deployment and
-real recipient/message delivery acceptance pending.** Standard renewal schedules
+**Status: implementation deployed in `c9da8c47`; real recipient/message delivery
+acceptance pending.** Standard renewal schedules
 remain 7/3/1 days before expiry after 09:00 account-local time. Membership
 reminders quote the selected active option's current price without the joining
 fee; unavailable bound prices block and legacy unbound fees remain. Manual
@@ -45,8 +46,8 @@ See the [acceptance packet](../docs/starter-whatsapp-reminder-acceptance.md).
 
 ## Built — Subsequent-gym Starter preparation, closed (2026-10-03)
 
-**Status: implementation accepted and schema installed closed in Production;
-app deployment and actual per-customer review pending.** Platform admins with MFA
+**Status: implementation accepted, schema installed closed and app deployed in
+`c9da8c47`; actual per-customer review pending.** Platform admins with MFA
 can save partial buyer/setup/commercial work with an operator, status and next step,
 then explicitly freeze one exact ₹799 Starter offer and immutable operator preparation.
 Owner approval, scoped one-time opening and verified payment remain separate.
@@ -88,10 +89,10 @@ See the [setup/delivery record](../docs/subscription-justin-setup-delivery-recor
 No remaining plan or email-send blocker belongs to this step; optional UPI,
 customer acknowledgment and deferred WhatsApp are separate actions.
 
-## Built — Customer Starter renewal, closed release (2026-10-02)
+## Shipped closed — Customer Starter renewal (2026-10-03)
 
-**Status: implementation and local acceptance complete; Production installation,
-deployment and opening pending.** Existing paid Starter customers have an
+**Status: implementation, local/cloud acceptance, closed Production installation
+and deployment complete; customer opening pending.** Existing paid Starter customers have an
 owner-reviewed ₹799 expiry-only renewal path with separate runtime/UI switches
 and immutable per-customer release authority. The additive migration retains
 the hard-closed constraint and seeds no authority. Paid billing/cancellation
@@ -104,6 +105,9 @@ capture/cancellation/shutdown races; synthetic desktop/390px/320px browser
 inspection; independent review with no outstanding Critical/Important finding.
 The 3 October [coordinated cloud acceptance](../docs/subscription-coordinated-release-2026-10-03.md)
 now proves real Staging Auth/PostgREST and signed synthetic-webhook routing.
+The approved release installed hard-closed Production history `20261003070856`
+and deployed `c9da8c47`, with fresh decrypted pre/post backups and 33 preserved
+relation fingerprints; see the [execution receipt](../docs/subscription-coordinated-release-execution-2026-10-03.md).
 Genuine provider delivery, deployed callback acceptance and renewal opening
 remain pending. The
 [release packet](../docs/subscription-starter-renewal-release.md) contains the
@@ -164,7 +168,7 @@ changed no Production invoice facts and did not claim a successful download.
 
 ## Built — Enquiry team names and reliable edits (2026-10-02)
 
-**Status: built and verified; sort migration applied to Production; app deployment pending.** Received by,
+**Status: built and verified; sort migration applied to Production; app published in `c9da8c47`.** Received by,
 Added by and Assigned to resolve names/photos from selected-branch membership,
 including staff whose legacy profile points to another branch. The shared roster
 also fixes team pickers, board, follow-ups and exports. Assigned to and Added by
@@ -955,8 +959,9 @@ Production health, shared/project usage, backups and independent monitoring.
 Upcoming log ingestion at 60% meets the early-review rule; enforced usage is below
 50%. The exporter now covers private gym invoice PDFs and expense receipts;
 default export/restore regression and real read-only 49-object checksum acceptance
-pass, alongside all 4,433 tests. The corrected encrypted GitHub/R2 full run remains
-pending coordinated release. Rajat owns the 8 October usage refresh and Pro Micro
+pass, alongside all 4,433 tests. The approved coordinated release completed fresh
+pre/post encrypted GitHub/R2 full backups with existing-identity decryption and all
+49 object checksums verified; no new cloud restore drill is claimed. Rajat owns the 8 October usage refresh and Pro Micro
 decision by the unchanged 13 October Free deadline; $25/month before tax/usage is
 recommended, with no purchase or new risk acceptance. Existing GitHub redundancy,
 encryption-key custody and maintenance/restore limits remain explicit. Step 4's
@@ -3443,7 +3448,7 @@ is not shipped. See [the rollout sequence](../docs/subscription-starter-rollout-
 
 **Shipped / approved Starter restrictions — 2 October, 13:17 UTC:** Production enforces Justin’s standard-reminder-only Starter matrix and one-active-branch allowance with Test billing closed. Exact admin-audited post-refund manual access is preserved, alongside trials, complimentary and grandfathered manual accounts; no payment/refund/access/gym row changed. Disposable/cloud rollback, concurrent create, API/UI/native checks and fresh reviews passed. Provider logs confirm original HTTP 200 deliveries, but acknowledged events cannot be replayed through Razorpay’s dashboard. Authentic repeat/mixed acceptance was later skipped by the human and remains unproven; completed monitoring and prospective business selection are recorded below. See [the activation record](../docs/subscription-starter-capability-activation-record.md).
 
-**Shipped / future Starter registration selection — 2 October:** the human selected every new gym business registration, rather than individual gym members or a named existing batch. The private prospective queue (`20261002140000_starter_future_signup_selection.sql`) preserves an immutable UUID/time selection and exposes current review stages only to an MFA platform admin. It preserves trials, existing organizations and the business erasure path. The subsequent-gym preparation workflow is built and installed closed (3 October), with app deployment pending; actual commercial review, genuine owner approval and verified payment remain required for each future customer. No future customer approval, payment or access has been manufactured. See [the future-signup record](../docs/subscription-starter-future-signups.md).
+**Shipped / future Starter registration selection — 2 October:** the human selected every new gym business registration, rather than individual gym members or a named existing batch. The private prospective queue (`20261002140000_starter_future_signup_selection.sql`) preserves an immutable UUID/time selection and exposes current review stages only to an MFA platform admin. It preserves trials, existing organizations and the business erasure path. The subsequent-gym preparation workflow is installed closed and deployed in `c9da8c47` (3 October); actual commercial review, genuine owner approval and verified payment remain required for each future customer. No future customer approval, payment or access has been manufactured. See [the future-signup record](../docs/subscription-starter-future-signups.md).
 
 **Shipped / independent monitoring — 2 October:** StatusCake Free public/worker HTTP checks use five-minute intervals, two confirmation servers and a separate read-only credential. A real test alert reached the explicitly selected owner email at 13:42:41 UTC; the dedicated harmless test is paused. Independent worker-probe acceptance is recorded in [the watchdog record](../docs/production-watchdog.md). Provider redelivery/support was explicitly skipped by the human and remains unproven.
 

@@ -3,6 +3,8 @@
 3 October 2026. Implementation and read-only Production preflight are separate
 from sending and confirmed delivery. Rajat owns the remaining acceptance.
 Justin's WhatsApp connection and delivery remain explicitly deferred.
+The repairs are deployed in `c9da8c47`; the [closed release receipt](subscription-coordinated-release-execution-2026-10-03.md)
+records successful natural workers, which do not establish genuine reminder delivery.
 
 ## Scope and repairs
 
