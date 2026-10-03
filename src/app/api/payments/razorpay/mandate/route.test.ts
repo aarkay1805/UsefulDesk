@@ -111,6 +111,42 @@ describe('Razorpay mandate route safeguards', () => {
     mocks.requireRole.mockResolvedValue(context());
   });
 
+  it.each(['starter', 'growth', 'ultimate'] as const)(
+    'retains role and gym merchant readiness after monthly %s capability',
+    async (tier) => {
+      const { monthlyGrantSnapshot } =
+        await import('@/lib/platform-access/__fixtures__/monthly-grants');
+      const { requireProductAccess } = await vi.importActual<
+        typeof import('@/lib/platform-access/server')
+      >('@/lib/platform-access/server');
+      const rpc = vi
+        .fn()
+        .mockResolvedValue({ data: monthlyGrantSnapshot(tier), error: null });
+      mocks.requireProductAccess.mockImplementation(
+        (_db, account, capability) =>
+          requireProductAccess({ rpc }, account, capability)
+      );
+      mocks.requireRole.mockResolvedValue(
+        context({ membership: { ...activeMembership, end_date: '2099-12-31' } })
+      );
+      mocks.getConnection.mockResolvedValue(null);
+      const response = await POST(request());
+      expect(response.status).toBe(tier === 'starter' ? 403 : 400);
+      if (tier === 'starter')
+        expect(mocks.getConnection).not.toHaveBeenCalled();
+      else
+        expect(mocks.getConnection).toHaveBeenCalledWith(
+          expect.anything(),
+          'account-id'
+        );
+      expect(mocks.createSubscription).not.toHaveBeenCalled();
+      mocks.getConnection.mockClear();
+      mocks.requireRole.mockResolvedValue({ ...context(), role: 'viewer' });
+      expect((await POST(request())).status).toBe(403);
+      expect(mocks.getConnection).not.toHaveBeenCalled();
+    }
+  );
+
   it('rejects an unavailable tier before member or provider work', async () => {
     const { ProductAccessError } = await import('@/lib/platform-access/server');
     mocks.requireProductAccess.mockRejectedValueOnce(new ProductAccessError());

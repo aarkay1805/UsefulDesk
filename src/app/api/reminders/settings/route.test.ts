@@ -313,3 +313,46 @@ describe('PATCH /api/reminders/settings', () => {
     expect(h.updates).toEqual([]);
   });
 });
+
+it.each(['starter', 'growth', 'ultimate'] as const)(
+  'uses monthly %s capability while preserving WhatsApp readiness and ordinary permissions',
+  async (tier) => {
+    const { monthlyGrantSnapshot } =
+      await import('@/lib/platform-access/__fixtures__/monthly-grants');
+    const { requireProductAccess } = await vi.importActual<
+      typeof import('@/lib/platform-access/server')
+    >('@/lib/platform-access/server');
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: monthlyGrantSnapshot(tier), error: null });
+    h.requireProductAccess.mockImplementation((_db, account, capability) =>
+      requireProductAccess({ rpc }, account, capability)
+    );
+    const send = (patch: Record<string, unknown>) =>
+      PATCH(
+        new Request('http://localhost/api/reminders/settings', {
+          method: 'PATCH',
+          body: JSON.stringify({ ruleId: 'membership_renewal', patch }),
+        })
+      );
+    expect((await send({ daysBefore: [14, 7] })).status).toBe(
+      tier === 'starter' ? 403 : 200
+    );
+    h.settings.enabled = false;
+    expect((await send({ enabled: true })).status).toBe(409);
+    h.whatsapp = { status: 'connected' };
+    expect((await send({ enabled: true })).status).toBe(409);
+    h.templates = [
+      {
+        ...TEMPLATE_CONTRACTS.membership_renewal.payload,
+        status: 'APPROVED',
+        parameter_format: 'POSITIONAL',
+      },
+    ];
+    expect((await send({ enabled: true })).status).toBe(200);
+    h.requireSettingsAccess.mockRejectedValueOnce(
+      new Error('Settings permission required')
+    );
+    expect((await send({ enabled: false })).status).toBe(403);
+  }
+);

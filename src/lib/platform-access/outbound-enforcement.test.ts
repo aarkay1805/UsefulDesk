@@ -159,3 +159,58 @@ it('blocks a cached flow sender after run retirement even when product access wa
   ).rejects.toBeInstanceOf(RetiredExecutionError);
   expect(h.from).toHaveBeenCalledWith('flow_runs');
 });
+
+// The real access predicate consumes each monthly SQL snapshot; downstream
+// worker ownership and merchant readiness checks still run for eligible tiers.
+it.each(['starter', 'growth', 'ultimate'] as const)(
+  'keeps worker ownership and gym merchant checks on monthly %s',
+  async (tier) => {
+    vi.stubEnv('RAZORPAY_MODE', 'test');
+    const { monthlyGrantSnapshot } =
+      await import('./__fixtures__/monthly-grants');
+    const { requireProductAccess } =
+      await vi.importActual<typeof import('./server')>('./server');
+    const rpc = vi
+      .fn()
+      .mockResolvedValue({ data: monthlyGrantSnapshot(tier), error: null });
+    h.access.mockImplementation((_db, account, capability) =>
+      requireProductAccess({ rpc }, account, capability)
+    );
+    const builder = {
+      select: () => builder,
+      eq: () => builder,
+      maybeSingle: async () => ({ data: null, error: null }),
+    };
+    h.from.mockReturnValue(builder);
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await runAutomationsForTrigger({
+        accountId: args.accountId,
+        contactId: args.contactId,
+        triggerType: 'new_message_received',
+        context: {},
+      });
+      if (tier === 'starter') expect(h.from).not.toHaveBeenCalled();
+      else expect(h.from).toHaveBeenCalledWith('contacts');
+      h.from.mockClear();
+      const link = createOrReuseInvoicePaymentLink({
+        admin: db,
+        accountId: args.accountId,
+        userId: args.userId,
+        invoiceId: 'invoice',
+      });
+      if (tier === 'starter') {
+        await expect(link).rejects.toMatchObject({
+          code: 'subscription_capability_required',
+        });
+        expect(h.from).not.toHaveBeenCalled();
+      } else {
+        await expect(link).rejects.toThrow('Connect Razorpay');
+        expect(h.from).toHaveBeenCalledWith('account_payment_credentials');
+      }
+    } finally {
+      log.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  }
+);

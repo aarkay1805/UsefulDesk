@@ -380,6 +380,7 @@ SELECT pg_temp.expect_error($q$INSERT INTO private.subscription_live_renewal_rel
 
 SELECT pg_temp.assert_true(public.product_access_for_account('c2000000-0000-4000-8000-000000000001')->'subscription_capabilities'=
  CASE WHEN (SELECT tier FROM monthly_selected)='starter' THEN '["standard_renewal_reminders"]'::JSONB ELSE '["standard_renewal_reminders","custom_renewal_schedules","bulk_campaigns","configurable_automations","gym_payment_links","gym_autopay"]'::JSONB END,'Account capability snapshot differs');
+-- MONTHLY_CAPABILITY_SCENARIO
 ROLLBACK TO monthly_capability_clock;
 -- MONTHLY_DOCUMENT_REFUND_SCENARIO
 \if :monthly_populated_replay

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { requireProductAccess, ProductAccessError } from './server';
+import { monthlyGrantSnapshot } from './__fixtures__/monthly-grants';
 import type { SupabaseClient } from '@supabase/supabase-js';
 describe('product access RPC boundary', () => {
   it.each([
@@ -59,6 +60,46 @@ describe('subscription capability boundary', () => {
       suspended_at: null,
     },
   };
+  it.each(['starter', 'growth', 'ultimate'] as const)(
+    'checks every capability on a monthly %s grant snapshot and still requires active access',
+    async (tier) => {
+      const grant = monthlyGrantSnapshot(tier);
+      const capabilities = grant.subscription_capabilities!;
+      const { SUBSCRIPTION_CAPABILITIES } =
+        await import('@/lib/subscriptions/plans');
+      const rpc = vi.fn().mockResolvedValue({ data: grant, error: null });
+      for (const capability of SUBSCRIPTION_CAPABILITIES) {
+        const operation = requireProductAccess(
+          { rpc },
+          'monthly-branch',
+          capability
+        );
+        if (capabilities.includes(capability))
+          await expect(operation).resolves.toBeTruthy();
+        else
+          await expect(operation).rejects.toMatchObject({
+            code: 'subscription_capability_required',
+            capability,
+          });
+      }
+      rpc.mockResolvedValue({
+        data: {
+          ...snapshot,
+          allowed: false,
+          status: 'suspended',
+          subscription_capabilities: capabilities,
+        },
+        error: null,
+      });
+      await expect(
+        requireProductAccess(
+          { rpc },
+          'monthly-branch',
+          'standard_renewal_reminders'
+        )
+      ).rejects.toBeInstanceOf(ProductAccessError);
+    }
+  );
   it('allows standard reminders but denies a custom capability on Starter', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: {

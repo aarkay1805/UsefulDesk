@@ -49,7 +49,35 @@ const legacyTables = [
   'subscription_live_settings',
   'subscription_starter_signup_selections',
   'subscription_starter_signup_work',
+  'subscription_starter_signup_policies',
+  'subscription_live_refund_reviews',
+  'subscription_live_webhook_events',
+  'subscription_live_delivery_receipts',
+  'subscription_live_pilot_opening_reviews',
+  'subscription_live_recovery_queue',
+  'subscription_live_recovery_exceptions',
+  'subscription_live_recovery_reviews',
+  'subscription_live_renewal_releases',
+  'subscription_live_document_issues',
 ];
+const preservedPublicTables = [
+  'payments',
+  'payment_mandates',
+  'invoices',
+  'invoice_lines',
+];
+const gymSnapshot = preservedPublicTables
+  .map(
+    (t) =>
+      `CREATE TEMP TABLE before_gym_${t} AS SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::TEXT),'[]'::JSONB) rows FROM public.${t} r;`
+  )
+  .join('\n');
+const gymCompare = preservedPublicTables
+  .map(
+    (t) =>
+      `SELECT pg_temp.assert_true((SELECT rows FROM before_gym_${t})=(SELECT coalesce(jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::TEXT),'[]'::JSONB) FROM public.${t} r),'Gym ${t} whole-row fingerprint changed');`
+  )
+  .join('\n');
 const legacySnapshot = legacyTables
   .map(
     (t) => `CREATE TEMP TABLE before_${t} AS SELECT
@@ -81,23 +109,30 @@ const monthlyTierCases = [
 ];
 const monthlyTierScenario = read('scripts/verify-subscription-monthly-tier.sql')
   .replace('-- MONTHLY_POPULATED_REPLAY', () => monthly)
+  .replace('-- MONTHLY_CAPABILITY_SCENARIO', () =>
+    read('scripts/verify-subscription-monthly-capabilities.sql')
+  )
   .replace('-- MONTHLY_DOCUMENT_REFUND_SCENARIO', () =>
     read('scripts/verify-subscription-monthly-documents-refunds.sql')
   );
 const monthlyTransactions = read(
   'scripts/verify-subscription-monthly-transactions.sql'
-).replace('-- MONTHLY_TIER_SCENARIOS', () =>
-  monthlyTierCases
-    .map(
-      ({ tier, archive, reminderAck, populatedReplay }) =>
-        String.raw`\set monthly_tier ${tier}
+)
+  .replace('-- MONTHLY_SHARED_SEED', () =>
+    read('scripts/verify-subscription-monthly-seed.sql')
+  )
+  .replace('-- MONTHLY_TIER_SCENARIOS', () =>
+    monthlyTierCases
+      .map(
+        ({ tier, archive, reminderAck, populatedReplay }) =>
+          String.raw`\set monthly_tier ${tier}
 \set monthly_archive ${archive}
 \set monthly_starter ${reminderAck}
 \set monthly_populated_replay ${populatedReplay}
 ` + monthlyTierScenario
-    )
-    .join('\n')
-);
+      )
+      .join('\n')
+  );
 
 const output = sql(
   [
@@ -117,16 +152,19 @@ const output = sql(
     read('scripts/verify-starter-signup-preparation.sql'),
     "RESET ROLE; SET LOCAL request.jwt.claims='{}';",
     legacySnapshot,
+    gymSnapshot,
     monthly,
     checks,
     read('scripts/verify-subscription-monthly-preparation.sql'),
     monthlyTransactions,
     legacyCompare,
+    gymCompare,
     monthly,
     checks,
     read('scripts/verify-subscription-monthly-preparation.sql'),
     monthlyTransactions,
     legacyCompare,
+    gymCompare,
     "SELECT 'PASS: both migration applications preserved every legacy column';",
     'ROLLBACK;',
   ].join('\n')
@@ -162,6 +200,37 @@ for (const line of preservationOutput
   .split('\n')
   .filter((l) => l.startsWith('PASS:')))
   console.log(`PRESERVED ${line}`);
+// Dormant Test upgrade/add-on/restart suite executes against the complete full
+// baseline with monthly installed, then rolls back. No Test container is needed.
+const advancedOutput = sql(
+  [
+    'BEGIN; SET LOCAL client_min_messages=warning;',
+    ...sources.map((n) => read(`supabase/migrations/${n}`)),
+    monthly,
+    read('scripts/verify-subscription-advanced-reviews-full.sql'),
+    `CREATE TEMP TABLE monthly_test_isolation AS SELECT
+      (SELECT jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::TEXT) FROM private.subscription_advanced_reviews r) reviews,
+      (SELECT jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::TEXT) FROM private.organization_subscription_payments r) payments;
+    SET LOCAL ROLE service_role; SET LOCAL request.jwt.claims='{"role":"service_role"}';
+    SELECT pg_temp.expect_error($q$SELECT public.subscription_create_monthly_quote(
+      'a5555555-5555-4555-8555-555555555551','a2222222-2222-4222-8222-222222222221',
+      'a3333333-3333-4333-8333-333333333331','a1111111-1111-4111-8111-111111111111',
+      'a5555555-5555-4555-8555-555555555551','a5555555-5555-4555-8555-555555555551',399900,'acc_AdvancedFull')$q$,'55000');
+    RESET ROLE;
+    SELECT pg_temp.assert_true((SELECT reviews FROM monthly_test_isolation) IS NOT DISTINCT FROM
+      (SELECT jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::TEXT) FROM private.subscription_advanced_reviews r), 'Monthly writer changed Test reviews');
+    SELECT pg_temp.assert_true((SELECT payments FROM monthly_test_isolation) IS NOT DISTINCT FROM
+      (SELECT jsonb_agg(to_jsonb(r) ORDER BY to_jsonb(r)::TEXT) FROM private.organization_subscription_payments r), 'Monthly writer changed Test payments');
+    SELECT pg_temp.assert_true(NOT EXISTS(SELECT 1 FROM private.subscription_live_quotes)
+      AND NOT EXISTS(SELECT 1 FROM private.subscription_monthly_offers), 'Test authority leaked into monthly Live quote');`,
+    "SELECT 'PASS: dormant Test upgrade/add-on/restart isolation under monthly migration';",
+    'ROLLBACK;',
+  ].join('\n')
+);
+for (const line of advancedOutput
+  .split('\n')
+  .filter((l) => l.startsWith('PASS:')))
+  console.log(line);
 if (sql(absent).trim() !== 't')
   throw new Error('Live/monthly schema survived rollback');
 if (sql(baselineQuery) !== before)

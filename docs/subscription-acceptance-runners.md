@@ -63,3 +63,54 @@ Local regression/concurrency evidence does not establish genuine provider
 redelivery, cloud Auth/API behavior, native delivery or WhatsApp delivery. Use
 the separately reviewed cloud acceptance target when those checks are needed;
 pausing it does not remove the tests or authorize activation.
+
+## Monthly first Checkout regression and concurrency
+
+Run serially on an existing explicit full target:
+
+```sh
+node scripts/verify-subscription-monthly-first-checkout.mjs <full-container>
+node scripts/verify-subscription-monthly-first-checkout-concurrency.mjs <full-container>
+```
+
+The rollback runner applies the monthly migration twice, exercises all three
+fixed tiers, replays original Starter writers under the new dispatch, and runs
+the dormant Test upgrade/add-on/restart suite on the full baseline. The latter's
+counts are scoped to its synthetic organizations, so existing Test history is
+preserved. No separate Test container is needed. Whole-row comparisons retain
+all pre-existing columns, with separate NULL assertions for newly added contract
+columns; gym payment/mandate/invoice rows and original issued document bytes are
+included. Shared setup lives in `verify-subscription-monthly-seed.sql`; tier,
+capability and document/refund scenarios remain focused companions.
+
+The concurrency runner dumps the source into a randomly named database in that
+same container, loads current migration sources and synthetic reviews, and opens
+independent psql sessions with bounded lock/statement/idle timeouts. It checks
+real lock contention for selection, quotes, claims, branch changes, capture,
+refund and document issuance. Deterministic create counters stand in for provider
+POSTs; a repeated order/refund claim only permits recovery. No provider is called.
+Fixture-only helpers in the clone use fixed private names and restricted grants;
+authorization checks call the actual product RPCs as authenticated/service roles.
+The clone is force-dropped in `finally`, even on assertion failure, and every
+source public/private/auth table's whole-row fingerprint is compared afterward.
+
+For the deliberate negative control, append `--without-monthly`. This omits only
+the new monthly migration, retains the full original baseline and issued-document
+fixture, and must exit nonzero with `MISSING MONTHLY GUARD`: a competing source
+insert succeeds while owner review holds the organization lock. This is an
+expected regression failure, never a reason to change the source database.
+
+The expiry race models a 1,800-second quote by setting a synthetic review time
+1,798 seconds before transaction start and expiry two seconds after it. All
+quote guards are restored before a real second session blocks on the quote row;
+the first session releases after another 2.3 seconds. It proves the post-wait
+expiry check, not 30 minutes of elapsed wall time. Separate buyer-write races
+briefly disable only synthetic local product-access enforcement to allow the
+ordinary authenticated settings RPC on an expired trial; the subscription
+capability and financial guards stay active. No genuine opening/evidence exists.
+
+Capability closure blocks monthly initiation and retains durable financial
+identity/recovery. Existing global capability-gate fallback semantics are not
+changed by these tests; the paid branch/capability assertions run with that gate
+enabled. Actual owner restoration at five Ultimate branches must refuse a sixth.
+Stop any task-started container when finished and retain its named volume.

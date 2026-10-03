@@ -296,7 +296,8 @@ SELECT pg_temp.assert_true(public.subscription_create_test_advanced_review(
  'a3333333-3333-4333-8333-333333333333','addon_purchase','growth',1,'{}',false,NULL)
  ->>'state'='awaiting_policy','Add-on review missing');
 RESET ROLE;
-SELECT pg_temp.assert_true((SELECT count(*)=2 FROM private.subscription_advanced_reviews),
+SELECT pg_temp.assert_true((SELECT count(*)=2 FROM private.subscription_advanced_reviews
+ WHERE organization_id IN ('a2222222-2222-4222-8222-222222222221','a2222222-2222-4222-8222-222222222222')),
  'Review was duplicated');
 SELECT pg_temp.assert_true((SELECT count(*)=2 FROM private.organization_subscription_payments
  WHERE organization_id IN ('a2222222-2222-4222-8222-222222222221',
