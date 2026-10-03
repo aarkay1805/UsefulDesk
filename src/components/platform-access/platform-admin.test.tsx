@@ -143,3 +143,65 @@ describe('Platform administrator MFA boundary', () => {
     expect(api.refresh).not.toHaveBeenCalled();
   });
 });
+
+describe('Monthly preparation organization selection', () => {
+  it('mounts monthly preparation only after an organization is explicitly selected', async () => {
+    api.rpc.mockImplementation(async (name: string) => {
+      if (name === 'platform_admin_organizations')
+        return {
+          data: {
+            items: [
+              {
+                organization_id: 'gym-1',
+                name: 'Selected gym',
+                owner_email: 'owner@example.invalid',
+                status: 'trial',
+                access: {
+                  mode: 'trial',
+                  version: 1,
+                  trial_ends_at: '2026-10-20T00:00:00Z',
+                  suspended_at: null,
+                },
+              },
+            ],
+            total: 1,
+          },
+          error: null,
+        };
+      if (name === 'platform_admin_starter_signup_queue')
+        return { data: { items: [], total: 0 }, error: null };
+      if (name === 'platform_admin_monthly_offer_context')
+        return {
+          data: {
+            branches: [],
+            missing_facts: ['billing_branch'],
+            snapshot_token: 'source-1',
+          },
+          error: null,
+        };
+      return { data: [], error: null };
+    });
+    render(<PlatformAdmin mfaRequired={false} />);
+    await screen.findByText('Selected gym');
+    expect(
+      api.rpc.mock.calls.some(
+        ([name]) => name === 'platform_admin_monthly_offer_context'
+      )
+    ).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Manage access' }));
+    expect(
+      await screen.findByRole('heading', { name: 'Prepare monthly offers' })
+    ).toBeTruthy();
+    await waitFor(() =>
+      expect(api.rpc).toHaveBeenCalledWith(
+        'platform_admin_monthly_offer_context',
+        { p_organization_id: 'gym-1', p_billing_account_id: null }
+      )
+    );
+    expect(
+      api.rpc.mock.calls.some(
+        ([name]) => name === 'platform_admin_prepare_monthly_offers'
+      )
+    ).toBe(false);
+  });
+});

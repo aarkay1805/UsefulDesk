@@ -13,6 +13,7 @@ import type {
   OrganizationAccess,
 } from '@/lib/platform-access/model';
 import { StarterSignupQueue } from './starter-signup-queue';
+import { MonthlyOfferPreparation } from './monthly-offer-preparation';
 import { AccessStatusBadge } from './access-status-badge';
 import { availableAccessActions, validAccessReason } from './ui-contract';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -351,14 +352,20 @@ function OrganizationList() {
           <ScrollArea className="min-h-0 flex-1">
             <div className="px-4 pb-4">
               {selected ? (
-                <OrganizationEditor
-                  key={`${selected.organization_id}:${selected.access?.version}`}
-                  organization={selected}
-                  onChanged={() => {
-                    setSelected(null);
-                    setNonce((n) => n + 1);
-                  }}
-                />
+                <>
+                  <OrganizationEditor
+                    key={`${selected.organization_id}:${selected.access?.version}`}
+                    organization={selected}
+                    onChanged={() => {
+                      setSelected(null);
+                      setNonce((n) => n + 1);
+                    }}
+                  />
+                  <MonthlyOfferPreparation
+                    key={selected.organization_id}
+                    organizationId={selected.organization_id}
+                  />
+                </>
               ) : null}
             </div>
           </ScrollArea>
